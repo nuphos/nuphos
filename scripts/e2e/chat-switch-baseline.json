@@ -1,0 +1,16 @@
+{
+  "task, first open": 1,
+  "task, first open, reply in progress": 1,
+  "bot chat, first open": 2,
+  "task, first open, another": 1,
+  "task, opened before": 0,
+  "bot chat, first open, another": 2,
+  "bot chat, opened before": 0,
+  "bot chat, new post while away": 2,
+  "task, opened before, reply in progress": 0,
+  "bot chat, opened before, again": 0,
+  "tasks tab, back to a reply in progress": 0,
+  "far: long finished task, first open": 1,
+  "far: task, first open": 1,
+  "far: bot chat, new post while away": 2
+}

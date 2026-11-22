@@ -352,6 +352,135 @@ test('a key Pi does not accept leaves the login as it was', async () => {
   }
 })
 
+/**
+ * A stand-in for `pi auth login <provider> --no-browser` as Pi 1.5 prints it, which
+ * refuses to run without a terminal, then stores an OAuth login in auth.json.
+ */
+function accountPi(home) {
+  const pi = join(home, 'pi')
+  writeFileSync(
+    pi,
+    [
+      '#!/bin/sh',
+      'auth="$PI_CODING_AGENT_DIR/auth.json"',
+      'case "$1 $2 $3" in',
+      '  "auth login anthropic")',
+      '    [ -t 0 ] || { echo "requires an interactive terminal"; exit 1; }',
+      '    echo "Open this URL to sign in:"',
+      '    echo "  https://claude.ai/oauth/authorize?code=true&state=s"',
+      '    printf "Paste the code Anthropic shows after you sign in: (code#state): "',
+      '    read -r code',
+      // As if Pi had stored a token it then failed to use.
+      `    echo '{"anthropic":{"type":"oauth"}}' > "$auth"`,
+      '    [ "$code" = "c#s" ] || exit 1 ;;',
+      '  "auth login github-copilot")',
+      '    [ -t 0 ] || { echo "requires an interactive terminal"; exit 1; }',
+      '    printf "GitHub Enterprise URL/domain (blank for github.com) (company.ghe.com): "',
+      '    read -r domain',
+      '    [ -z "$domain" ] || exit 1',
+      '    echo "Open https://github.com/login/device and enter code: ABCD-1234"',
+      `    echo '{"github-copilot":{"type":"oauth"}}' > "$auth" ;;`,
+      `  "auth check --provider") echo '{"status":"ready"}' ;;`,
+      `  "--list-models  ") printf 'provider model\\nanthropic claude-opus-5-5\\ngithub-copilot gpt-6.1-sol\\n' ;;`,
+      '  *) exit 1 ;;',
+      'esac',
+      '',
+    ].join('\n'),
+  )
+  chmodSync(pi, 0o755)
+  return pi
+}
+
+/** Runs the sign-in a computer runs, answering each frame with `answer(frame)`. */
+async function signInOnComputer(home, pi, answer) {
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(new URL('../image/pi-login.mjs', import.meta.url))],
+    {
+      env: { PATH: process.env.PATH, NUPHOS_AGENT_EXECUTABLE: pi, NUPHOS_AGENT_HOME: home },
+      stdio: ['pipe', 'pipe', 'inherit'],
+    },
+  )
+  const frames = []
+  let pending = ''
+  child.stdout.setEncoding('utf8')
+  child.stdout.on('data', (chunk) => {
+    pending += chunk
+    for (let newline; (newline = pending.indexOf('\n')) >= 0;) {
+      const frame = JSON.parse(pending.slice(0, newline))
+      pending = pending.slice(newline + 1)
+      frames.push(frame)
+      const reply = answer(frame)
+      if (reply !== undefined) child.stdin.write(`${reply}\n`)
+    }
+  })
+  const code = await new Promise((resolve) => child.once('exit', resolve))
+  return { code, frames }
+}
+
+test('Pi signs in to a Claude account with the code Anthropic shows', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    const { code, frames } = await signInOnComputer(home, accountPi(home), (frame) =>
+      frame.type === 'choose' ? 'anthropic-account' : frame.paste === 'code' ? 'c#s' : undefined,
+    )
+    assert.deepEqual(frames.slice(1), [
+      {
+        type: 'browser',
+        url: 'https://claude.ai/oauth/authorize?code=true&state=s',
+        paste: 'code',
+      },
+      { type: 'authenticated' },
+    ])
+    assert.ok(frames[0].options.some(({ value }) => value === 'anthropic-account'))
+    assert.equal(code, 0)
+    assert.deepEqual(readJson(join(home, '.pi', 'agent', 'settings.json')), {
+      defaultProvider: 'anthropic',
+      defaultModel: 'claude-opus-5-5',
+    })
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('Pi signs in to GitHub Copilot with a device code on github.com', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    const { code, frames } = await signInOnComputer(home, accountPi(home), (frame) =>
+      frame.type === 'choose' ? 'github-copilot' : undefined,
+    )
+    assert.deepEqual(frames.slice(1), [
+      {
+        type: 'browser',
+        url: 'https://github.com/login/device',
+        instructions: 'Enter the code ABCD-1234',
+      },
+      { type: 'authenticated' },
+    ])
+    assert.equal(code, 0)
+    assert.equal(readJson(join(home, '.pi', 'agent', 'settings.json')).defaultModel, 'gpt-6.1-sol')
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
+test('an account sign-in that does not finish leaves the login as it was', async () => {
+  const home = mkdtempSync(join(tmpdir(), 'pi-login-'))
+  try {
+    const dir = join(home, '.pi', 'agent')
+    mkdirSync(dir, { recursive: true })
+    writeFileSync(join(dir, 'auth.json'), JSON.stringify(LOGIN))
+    const { code, frames } = await signInOnComputer(home, accountPi(home), (frame) =>
+      frame.type === 'choose' ? 'anthropic-account' : frame.paste === 'code' ? 'wrong' : undefined,
+    )
+    assert.equal(code, 1)
+    assert.deepEqual(frames.at(-1), { type: 'error', reason: 'failed' })
+    assert.deepEqual(readJson(join(dir, 'auth.json')), LOGIN)
+  } finally {
+    rmSync(home, { recursive: true, force: true })
+  }
+})
+
 test("a turn's error is read from the session file Pi keeps", () => {
   const dir = mkdtempSync(join(tmpdir(), 'pi-turn-'))
   try {
@@ -360,6 +489,20 @@ test("a turn's error is read from the session file Pi keeps", () => {
     const file = join(folder, '2026-11-15T00-00-00-000Z_abc.jsonl')
     const line = (message) => `${JSON.stringify({ type: 'message', message })}\n`
     writeFileSync(file, line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }))
+    assert.equal(piTurnError(dir, 'abc'), '429 quota')
+    // A prompt over the model's context: Pi records the error, then edits it out of context.
+    const overflow = '400: request (46055 tokens) exceeds the available context size (8192 tokens)'
+    writeFileSync(
+      file,
+      line({ role: 'assistant', stopReason: 'error', errorMessage: overflow }) +
+        `${JSON.stringify({ type: 'context_edit', targetId: 'm1', replacement: [] })}\n`,
+    )
+    assert.equal(piTurnError(dir, 'abc'), overflow)
+    // A line Pi is still writing is passed over.
+    writeFileSync(
+      file,
+      line({ role: 'assistant', stopReason: 'error', errorMessage: '429 quota' }) + '{"type":"cont',
+    )
     assert.equal(piTurnError(dir, 'abc'), '429 quota')
     writeFileSync(file, line({ role: 'assistant', stopReason: 'stop', content: [] }))
     assert.equal(piTurnError(dir, 'abc'), undefined)

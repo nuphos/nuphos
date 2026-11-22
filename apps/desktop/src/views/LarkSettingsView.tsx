@@ -174,7 +174,7 @@ export function LarkSettingsView({
           <div className="text-[13px] font-medium text-main">{t('Groups')}</div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              'Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups the agent responds in, then @mention Nuphos there.',
+              'Add the Nuphos bot to a Feishu / Lark group and it links automatically. Toggle which groups Nuphos responds in, then @mention Nuphos there.',
             )}
           </div>
         </div>
@@ -248,8 +248,8 @@ export function LarkSettingsView({
                   disabled={busyKey === `chat:${chat.chatId}`}
                   label={
                     chat.enabled
-                      ? t('Disable agent replies in {name}', { name: chat.name })
-                      : t('Enable agent replies in {name}', { name: chat.name })
+                      ? t('Disable replies in {name}', { name: chat.name })
+                      : t('Enable replies in {name}', { name: chat.name })
                   }
                 />
               </div>

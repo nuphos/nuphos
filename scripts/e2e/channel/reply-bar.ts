@@ -30,6 +30,8 @@ const layout = (page: Page, post: string) =>
 
     return {
       fromBottom: scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight,
+      // The dots stay in the DOM, folded away, once the turn ends: only open ones count.
+      working: scroller.querySelector('[data-open="true"] .t-typing-dot') !== null,
       scroller: box(scroller)!,
       post: box(target)!,
       bar: box(bar),
@@ -38,7 +40,7 @@ const layout = (page: Page, post: string) =>
   }, post)
 
 async function reply(page: Page, post: string) {
-  const row = page.locator('.group\\/post', { hasText: post }).last()
+  const row = page.locator('.group\\/post:visible', { hasText: post }).last()
 
   await row.hover()
   await row.getByRole('button', { name: 'Reply', exact: true }).click()
@@ -55,24 +57,30 @@ const scenario: Scenario = {
 
     if (!channelId) throw new Error('The Bot has not answered in its chat yet')
     for (let n = 1; n <= 8; n++) {
+      // The newest post carries a marker, which the Bot's answer names once it has read it.
+      const text = `Reply bar ${String(n)}: ${TALL}${n === 8 ? ' E2E_DELIVERY:reply-bar' : ''}`
+
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
           method: 'POST',
           headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, text: `Reply bar ${String(n)}: ${TALL}` }),
+          body: JSON.stringify({ teamId: stack.teamId, text }),
         },
       )
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
     }
-    await page.getByText(/^Reply bar 8:/).waitFor()
-    // Settled at the bottom: the newest post stays put between two looks.
+    // Each post wakes the Bot, and it may take more than one turn to read them all: a post that
+    // lands after its last read starts another. Once it has answered the newest, nothing is left
+    // to wake it, so wait for that answer rather than the first wake (#4576).
+    await page.getByText('POSTED E2E_DELIVERY:reply-bar', { exact: true }).waitFor()
+    // Settled at the bottom: the Bot done, the newest post stays put between two looks.
     let last = -1
 
     await until('the chat to settle', async () => {
-      const { fromBottom, post } = await layout(page, 'Reply bar 8:')
-      const still = post.bottom === last && fromBottom <= 1
+      const { fromBottom, post, working } = await layout(page, 'Reply bar 8:')
+      const still = post.bottom === last && fromBottom <= 1 && !working
 
       last = post.bottom
 

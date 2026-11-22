@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.chat
 
+import kotlinx.coroutines.CancellationException
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,7 +37,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         busy = true
         error = null
         scope.launch {
-            try { block() } catch (e: Exception) { error = e.message ?: actionFailed }
+            try { block() } catch (e: Exception) { if (e is CancellationException) throw e; error = e.message ?: actionFailed }
             finally { busy = false }
         }
     }
@@ -47,7 +48,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     DropdownMenu(expanded = open, onDismissRequest = { open = false },
         modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
         offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
-        DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
+        if (session.shareable) DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
             share = true
         })
@@ -62,12 +63,15 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             DropdownMenuItem(text = { Text(stringResource(R.string.chat_menu_rename)) }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             if (onChooseRuntime != null) DropdownMenuItem(text = { Text(stringResource(R.string.chat_switch_runtime)) }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
                 enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
-            DropdownMenuItem(text = { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) }, enabled = !busy, onClick = { open = false; archive = true })
         }
+        // Someone else in a Task archives it for themselves alone (#3686).
+        if (session.canArchive)
+            DropdownMenuItem(text = { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
+                enabled = !busy && (!session.isBot || store.canArchiveBot(session.sessionId)), onClick = { open = false; archive = true })
     }
     }
     if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }
-    if (share) {
+    if (share && session.shareable) {
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }
@@ -75,7 +79,8 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
         text = { TextField(value = title, onValueChange = { title = it }, label = { Text(stringResource(R.string.chat_rename_title_label)) }, enabled = !busy, singleLine = true) },
         confirmButton = { TextButton(enabled = !busy && ConversationActions.validTitle(title) != null, onClick = { perform { store.rename(session, title); rename = false } }) { Text(stringResource(R.string.chat_save)) } },
         dismissButton = { TextButton(enabled = !busy, onClick = { rename = false }) { Text(stringResource(R.string.cancel)) } })
-    if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) stringResource(R.string.chat_restore_task_title) else stringResource(R.string.chat_archive_task_title)) },
+    if (archive && session.isBot) ai.nuphos.android.ui.agent.ArchiveBotDialog(store, session.sessionId) { archive = false }
+    else if (archive) AlertDialog(onDismissRequest = { if (!busy) archive = false }, title = { Text(if (session.isArchived) stringResource(R.string.chat_restore_task_title) else stringResource(R.string.chat_archive_task_title)) },
         text = { Text(if (session.isArchived) stringResource(R.string.chat_restore_task_body) else stringResource(R.string.chat_archive_task_body)) },
         confirmButton = { TextButton(enabled = !busy, onClick = { perform { val restore = session.isArchived; store.archive(session, !restore); archive = false; if (!restore) onArchived() } }) { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) } },
         dismissButton = { TextButton(enabled = !busy, onClick = { archive = false }) { Text(stringResource(R.string.cancel)) } })

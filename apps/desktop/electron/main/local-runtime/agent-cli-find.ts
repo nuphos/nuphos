@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 import {
@@ -17,6 +18,8 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
 
     return [
       path.join(home, '.local', 'bin'),
+      // Grok Build's own installer (x.ai/cli/install.ps1), which leaves PATH alone.
+      path.join(home, '.grok', 'bin'),
       path.join(appData, 'npm'),
       path.join(localAppData, 'Microsoft', 'WinGet', 'Links'),
       // Command aliases of Microsoft Store apps.
@@ -27,6 +30,8 @@ function fallbackDirs(home: string, env: NodeJS.ProcessEnv): string[] {
   return [
     path.join(home, '.local', 'bin'),
     path.join(home, '.claude', 'local'),
+    // Grok Build's own installer (x.ai/cli/install.sh), which leaves PATH alone.
+    path.join(home, '.grok', 'bin'),
     // OpenCode's own installer (opencode.ai/install), which only adds it to PATH in some shells.
     path.join(home, '.opencode', 'bin'),
     '/opt/homebrew/bin',
@@ -61,22 +66,25 @@ function appClis(provider: LocalAgentProvider, home: string, env: NodeJS.Process
 }
 
 /**
- * npm installs Claude Code on Windows as a `claude.cmd` shim around its `bin\claude.exe`. The
- * Agent SDK spawns its CLI without a shell, and Node refuses to spawn a .cmd that way (EINVAL),
- * so the adapter gets the executable the shim runs.
+ * npm installs a CLI on Windows as a `.cmd` shim, and for a package whose bin is an executable
+ * (Claude Code's `claude.exe`, OpenCode's `opencode.exe`) the shim just runs `"%dp0%\…\x.exe" %*`.
+ * Agents spawn their CLI without a shell, and Node refuses to spawn a .cmd that way (EINVAL), so
+ * they get the executable the shim runs.
  */
 export function npmShimTarget(file: string): string {
-  if (path.basename(file).toLowerCase() !== 'claude.cmd') return file
-  const target = path.join(
-    path.dirname(file),
-    'node_modules',
-    '@anthropic-ai',
-    'claude-code',
-    'bin',
-    'claude.exe',
-  )
+  if (path.extname(file).toLowerCase() !== '.cmd') return file
+  let shim: string
 
-  return executable(target) ? target : file
+  try {
+    shim = readFileSync(file, 'utf8')
+  } catch {
+    return file
+  }
+  // A shim around a Node script names `%dp0%\node.exe` too, which is not the CLI.
+  const relative = /"%~?dp0%?\\(node_modules\\[^"]+\.exe)"/iu.exec(shim)?.[1]
+  const target = relative && path.join(path.dirname(file), ...relative.split('\\'))
+
+  return target && executable(target) ? target : file
 }
 
 /** The last CLI found inside a Microsoft Store app, which only an async lookup can find. */

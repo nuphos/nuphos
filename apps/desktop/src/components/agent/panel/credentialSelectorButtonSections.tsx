@@ -1,8 +1,10 @@
-import { t } from '../../../i18n/index.ts'
 import { CloudLogo } from '../../CloudLogo'
 import { MenuCheckboxItem } from '../../ui/menu'
 
 import { CredentialSectionGroup } from './CredentialSectionGroup'
+import { GOOGLE_PROVIDERS } from '../../../types'
+
+import { OwnAccountLabel } from './OwnAccountLabel'
 import { personalIdentityRow, setPersonalIdentity, setPersonalOnly } from './personalIdentity'
 
 import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
@@ -22,33 +24,37 @@ export function CredentialSelectorSectionList({
   unseen: CredentialSelectorControl['unseen']
   /** The member's Personal Credentials; null hides the identity rows. */
   personal: PersonalCredential[] | null
-  /** The member's own GitHub / Linear credentials, offered whether or not the team has a binding. */
-  ownCredentials: { provider: 'github' | 'linear'; login: string }[]
+  /** The member's own Personal Credentials, offered whether or not the team has a binding. */
+  ownCredentials: { provider: PersonalCredentialProvider; login: string }[]
   onChange: CredentialSelectorControl['onChange']
 }) {
-  const identityRow = (provider: 'github' | 'linear', providerSections: CredentialSection[]) => {
-    if (!personal) return null
-    const own = ownCredentials.find((credential) => credential.provider === provider)
-    // The member's own credential is what the agent may use as itself, binding or not.
-    const ownRow = own ? (
+  // The member's own credential is what the agent may use as itself, binding or not.
+  const ownRow = (provider: PersonalCredentialProvider) => {
+    const own = personal ? ownCredentials.filter((c) => c.provider === provider) : []
+
+    if (own.length === 0) return null
+
+    return (
       <MenuCheckboxItem
+        key={provider}
         checked={(value.personalCredentialIds ?? []).includes(provider)}
         onCheckedChange={(checked) => onChange(setPersonalOnly(value, provider, checked))}
       >
         <span className="flex min-w-0 items-center gap-2">
           <CloudLogo provider={provider} size={14} />
-          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main">
-            {t('You ({login}) · Personal', { login: own.login })}
-          </span>
+          <OwnAccountLabel provider={provider} accounts={own} />
         </span>
       </MenuCheckboxItem>
-    ) : null
+    )
+  }
+  const identityRow = (provider: 'github' | 'linear', providerSections: CredentialSection[]) => {
+    if (!personal) return null
 
-    if (providerSections.length === 0) return ownRow
+    if (providerSections.length === 0) return ownRow(provider)
 
     return (
       <>
-        {ownRow}
+        {ownRow(provider)}
         <PersonalIdentityItem
           provider={provider}
           personal={personal}
@@ -253,6 +259,7 @@ export function CredentialSelectorSectionList({
         newIds={unseen?.instaboxAccountIds}
         onChangeIds={(ids) => onChange({ ...value, instaboxAccountIds: ids })}
       />
+      {GOOGLE_PROVIDERS.map(ownRow)}
     </>
   )
 }

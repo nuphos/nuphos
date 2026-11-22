@@ -1,14 +1,19 @@
 // Scenarios about the agent hosts a Task runs on: a restart, delegation, a move.
 import { agentEvents, agentLog, delegatedTurn, firstAgentHolds } from './agent-log.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { defaultStandInScenarios } from './default-stand-in-scenarios.ts'
 import { effortCardScenarios } from './effort-card-scenarios.ts'
 import { fallbackSetupScenarios } from './fallback-setup-scenarios.ts'
 import { languageScenarios } from './language-scenarios.ts'
 import { artifacts, until } from './processes.ts'
+import { providerMoveScenarios } from './provider-move-scenarios.ts'
 import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
+
+// Text in the chat on screen: a chat opened before stays in the page, hidden, with its own.
+const shown = (page: Page, text: string) => page.getByText(text).filter({ visible: true })
 
 /** Sends while the agent host is `away`, expects the backend to queue the message, then its reply. */
 async function sendWhileAway(
@@ -126,7 +131,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-move')
       await page.getByText('ACK E2E_DELIVERY:before-move').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-large/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-large/ }).waitFor()
@@ -135,19 +139,19 @@ export const runtimeScenarios: Scenario[] = [
         firstAgentHolds(stack, 'E2E_DELIVERY:before-move', 'fixture-large'),
       )
       await pickAgent(page, 'E2E second agent')
-      await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
-      // #2123: the second agent's default model was never applied to this Task, so its
-      // list, once read from that agent, shows no model as the current one.
+      await shown(page, 'moved this task from E2E fixture agent to E2E second agent').waitFor()
+      // #3709: the Task starts a new session there with no model picked, so its list,
+      // once read from that agent, checks the model that session runs: its default.
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
-      await until('the second agent’s models, none of them current', async () => {
+      await until('the second agent’s models, its default current', async () => {
         const models = page.getByRole('menuitemcheckbox')
         const names = await models.allTextContents()
 
         return (
           names.some((name) => name.includes('fixture-small')) &&
           !names.some((name) => name.includes('fixture-large')) &&
-          (await page.getByRole('menuitemcheckbox', { checked: true }).count()) === 0
+          (await page.getByRole('menuitemcheckbox', { checked: true }).allTextContents()).join() ===
+            'fixture'
         )
       })
       await page.keyboard.press('Escape')
@@ -170,7 +174,6 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Before the move E2E_DELIVERY:before-kept')
       await page.getByText('ACK E2E_DELIVERY:before-kept').waitFor()
       await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('button', { name: 'Select model' }).click()
       await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
       await page.keyboard.press('Escape')
       await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
@@ -178,7 +181,7 @@ export const runtimeScenarios: Scenario[] = [
         firstAgentHolds(stack, 'E2E_DELIVERY:before-kept', 'fixture-small'),
       )
       await pickAgent(page, 'E2E second agent')
-      await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+      await shown(page, 'moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:after-kept')
       await page.getByText('ACK E2E_DELIVERY:after-kept').waitFor()
       const log = agentLog(stack)
@@ -210,7 +213,7 @@ export const runtimeScenarios: Scenario[] = [
       await send(page, 'Still not picked E2E_DELIVERY:unpicked-again')
       await page.getByText('ACK E2E_DELIVERY:unpicked-again').waitFor()
       await pickAgent(page, 'E2E second agent')
-      await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+      await shown(page, 'moved this task from E2E fixture agent to E2E second agent').waitFor()
       await send(page, 'After the move E2E_DELIVERY:unpicked-moved')
       await page.getByText('ACK E2E_DELIVERY:unpicked-moved').waitFor()
       stopOffering()
@@ -231,6 +234,7 @@ export const runtimeScenarios: Scenario[] = [
       }
     },
   },
+  ...defaultStandInScenarios,
   {
     // #3051: the person moves it off an agent out of usage, and the refused turn runs there once.
     name: 'a turn refused for usage runs again, once, after the Task moves to another agent',
@@ -246,7 +250,7 @@ export const runtimeScenarios: Scenario[] = [
       // A new Task starts on the agent last used, the second one since the move above.
       await pickAgent(page, 'E2E fixture agent')
       await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
-      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await shown(page, 'You’ve hit your usage limit').first().waitFor()
       await pickAgent(page, 'E2E second agent')
       await page.getByText('Retrying on E2E second agent').waitFor()
       await until('the refused turn to finish on the second agent', async () => ran().length > 0)
@@ -277,7 +281,7 @@ export const runtimeScenarios: Scenario[] = [
         .last()
         .waitFor()
       await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await shown(page, 'You’ve hit your usage limit').first().waitFor()
       await page.reload()
       await page.getByText(/^Answered · waiting for E2E fixture agent \(out of usage/).waitFor()
       await page.screenshot({ path: `${artifacts}/answer-waiting.png` })
@@ -289,6 +293,7 @@ export const runtimeScenarios: Scenario[] = [
         throw new Error(`The answer reached the second agent ${answered() - before} times`)
     },
   },
+  ...providerMoveScenarios,
   ...fallbackSetupScenarios,
   ...languageScenarios,
 ]

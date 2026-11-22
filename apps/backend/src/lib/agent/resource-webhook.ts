@@ -87,15 +87,20 @@ async function canPush(installationId: number, repository: string, login: string
   return permission === 'admin' || permission === 'write'
 }
 
-/** Only route PR-related events; ignore edits and intermediate CI churn. */
-export function githubResourceEvents(event: string, payload: unknown) {
+/**
+ * Only route PR-related events; ignore edits and intermediate CI churn.
+ * `commitPulls` are the PRs a status or a fork's check suite names only by commit.
+ */
+export function githubResourceEvents(event: string, payload: unknown, commitPulls: string[] = []) {
   const parsed = payloadSchema.safeParse(payload)
 
   if (!parsed.success) return []
   const body = parsed.data
   const action = body.action ?? ''
+  const commitNumbers = commitPulls.map((key) => Number(key.split('/').pop()))
   let numbers: number[] = []
   let actor: { login: string; repository: string } | undefined
+  let summary = `GitHub ${event}.${action}.`
 
   if (
     event === 'check_suite' &&
@@ -103,9 +108,12 @@ export function githubResourceEvents(event: string, payload: unknown) {
     body.check_suite?.status === 'completed'
   ) {
     // CI results are reported against our own pushes, so only they skip the self-event filter.
-    numbers = body.check_suite.pull_requests.map((pull) => pull.number)
+    numbers = [...body.check_suite.pull_requests.map((pull) => pull.number), ...commitNumbers]
   } else if (ownEvent(body)) {
     return []
+  } else if (event === 'status') {
+    numbers = commitNumbers
+    summary = `GitHub status.${body.state ?? ''} (${body.context ?? ''}).`
   } else if (
     event === 'pull_request' &&
     ['opened', 'reopened', 'closed', 'synchronize', 'ready_for_review'].includes(action)
@@ -119,7 +127,8 @@ export function githubResourceEvents(event: string, payload: unknown) {
       numbers = [body.pull_request.number]
       actor = { login: body.sender.login, repository: body.repository.full_name }
     }
-  } else if (event === 'issue_comment' && action === 'created' && body.issue?.pull_request) {
+  } else if (event === 'issue_comment' && action === 'created' && body.issue) {
+    // A comment on a pull request or on an issue: only a linked one has a session to wake.
     // Bot comments stay out so bots replying to each other cannot loop a session.
     if (body.sender && body.sender.type !== 'Bot' && body.repository.full_name) {
       numbers = [body.issue.number]
@@ -131,22 +140,22 @@ export function githubResourceEvents(event: string, payload: unknown) {
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
     installationId: body.installation.id,
     actor,
-    summary: `GitHub ${event}.${action}.`,
+    summary,
   }))
 }
 
 /**
- * A finished commit status (pending is churn); its PRs are resolved by `statusEvents`.
- * A tag's health also follows our own statuses, so `includeOwn` keeps them.
+ * A finished commit status (pending is churn), ours included since a tag's health
+ * follows it; `githubResourceEvents` keeps ours from waking a session.
  */
-export function githubStatusCommit(event: string, payload: unknown, includeOwn = false) {
+export function githubStatusCommit(event: string, payload: unknown) {
   if (event !== 'status') return null
   const parsed = payloadSchema.safeParse(payload)
 
   if (!parsed.success) return null
   const body = parsed.data
 
-  if (!body.sha || !body.repository.full_name || (!includeOwn && ownEvent(body))) return null
+  if (!body.sha || !body.repository.full_name) return null
   if (!['success', 'failure', 'error'].includes(body.state ?? '')) return null
 
   return {
@@ -154,8 +163,6 @@ export function githubStatusCommit(event: string, payload: unknown, includeOwn =
     repositoryId: body.repository.id,
     repository: body.repository.full_name,
     sha: body.sha,
-    state: body.state,
-    context: body.context ?? '',
   }
 }
 
@@ -203,16 +210,12 @@ export type ResourceTurn = {
 
 /**
  * Refreshes the tags an event may change and returns the open PRs of a status's
- * commit, resolved once so the wakeups can reuse them. A tag that can't refresh
- * keeps its last health.
+ * or fork suite's commit, resolved once so the wakeups can reuse them. A tag that
+ * can't refresh keeps its last health.
  */
-async function refreshHealth(
-  event: string,
-  payload: unknown,
-  statusCommit: ReturnType<typeof githubStatusCommit>,
-) {
+async function refreshHealth(event: string, payload: unknown) {
   // A fork PR's check suite names no PRs; like a status, its commit finds them.
-  const commit = statusCommit ?? githubUnattachedSuiteCommit(event, payload)
+  const commit = githubStatusCommit(event, payload) ?? githubUnattachedSuiteCommit(event, payload)
   const commitPulls = commit ? await commitPullKeys(commit) : []
 
   await refreshLinkedPullHealth(
@@ -235,19 +238,7 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       { arrayFilters: [{ 'resource.key': pullState.key }] },
     )
   }
-  const statusCommit = githubStatusCommit(event, payload, true)
-  const commitPulls = await refreshHealth(event, payload, statusCommit)
-  let events = githubResourceEvents(event, payload)
-
-  if (statusCommit)
-    events = githubStatusCommit(event, payload)
-      ? commitPulls.map((key) => ({
-          key,
-          installationId: statusCommit.installationId,
-          actor: undefined,
-          summary: `GitHub status.${statusCommit.state ?? ''} (${statusCommit.context}).`,
-        }))
-      : []
+  const events = githubResourceEvents(event, payload, await refreshHealth(event, payload))
 
   if (!events.length) return
   if (!deliveryId || deliveryId.length > 200)

@@ -14,7 +14,8 @@ import {
   deletePersonalCredential,
   listPersonalCredentials,
   PERSONAL_CREDENTIAL_PROVIDERS,
-  personalGoogleToken,
+  googleCredentialFor,
+  personalGoogleTokenOf,
   personalOwnToken,
   stagePersonalCredentialOAuth,
   startPersonalCredentialOAuth,
@@ -28,9 +29,7 @@ import { NAMES } from '@/lib/personal-credentials/exchange'
 import { isGoogleProvider, teamGoogleClient } from '@/lib/personal-credentials/google'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
-import { personalCredentials } from '@/models'
 
-import type { GoogleProvider } from '@/lib/personal-credentials/google'
 import type { AuthVariables } from '@/middleware/auth'
 import type { PersonalCredentialProvider } from '@/models'
 
@@ -92,6 +91,7 @@ personalCredentialRoutes.delete('/:provider', requireAuth, async (c) => {
     c.get('userId'),
     providerParam(c.req.param('provider')),
     c.req.query('teamId'),
+    c.req.query('connectionId'),
   )
 
   return c.body(null, 204)
@@ -124,13 +124,15 @@ personalCredentialRoutes.get('/:provider/callback', async (c) => {
 // Mounted under /teams/:teamId for conversation tokens: the agent's handout of a
 // member's own grant. It is always the session owner's own, and a teammate's
 // message in that session gets none: a shared session may run on someone else's
-// runtime, so the grant never leaves its owner's sessions. Gmail and Google Drive
-// are issued by this team's OAuth client; GitHub and Linear need no team binding,
-// only the conversation's own selection of them (personalCredentialIds).
+// runtime, so the grant never leaves its owner's sessions. Every one follows the
+// conversation's selection (personalCredentialIds) as connectors do; Google grants are
+// also issued by this team's OAuth client (or Composio), GitHub and Linear need
+// no team binding.
 export const personalCredentialTokenRoutes = new Hono()
 
-/** The conversation token's claims, when its owner is the one asking. */
-async function ownerClaims(authorization: string, what: string) {
+/** The conversation token's claims, when its owner is asking and selected `provider`. */
+async function ownerClaims(authorization: string, provider: PersonalCredentialProvider) {
+  const what = `Your own ${NAMES[provider]} credential`
   const claims = authorization.startsWith('Bearer ')
     ? verifyPreviewMcpToken(authorization.slice('Bearer '.length))
     : null
@@ -147,6 +149,18 @@ async function ownerClaims(authorization: string, what: string) {
       403,
       'personal_credential_owner_only',
       `${what} is only available in conversations you own`,
+    )
+  }
+  const conversation = await getConversationBySessionId(claims.sid)
+  const access = conversation && (await credentialSource(conversation)).credentialAccess
+  const ids = access?.personalCredentialIds
+
+  // As for connectors, a conversation with no list keeps its reach.
+  if (conversation?.userId !== claims.own || (ids && !ids.includes(provider))) {
+    throw new AppError(
+      403,
+      'personal_credential_not_selected',
+      `${what} is not selected for this conversation`,
     )
   }
 
@@ -171,25 +185,10 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   const authorization = c.req.header('Authorization') ?? ''
 
   if (provider === 'github' || provider === 'linear') {
-    const name = provider === 'github' ? 'GitHub' : 'Linear'
-    const claims = await ownerClaims(authorization, `Your own ${name} credential`)
-    const conversation = await getConversationBySessionId(claims.sid)
+    const claims = await ownerClaims(authorization, provider)
+    const personal = await personalOwnToken(claims.own, provider, c.req.query('connectionId'))
 
-    if (
-      conversation?.userId !== claims.own ||
-      !(await credentialSource(conversation)).credentialAccess?.personalCredentialIds?.includes(
-        provider,
-      )
-    ) {
-      throw new AppError(
-        403,
-        'personal_credential_not_selected',
-        `Your own ${name} credential is not selected for this conversation`,
-      )
-    }
-    const personal = await personalOwnToken(claims.own, provider)
-
-    if (!personal) throw notConnected(name)
+    if (!personal) throw notConnected(NAMES[provider])
     // In the shape each skill's setup script already reads for the team handout.
     if (provider === 'linear')
       return c.json({ ...handedOut(personal), accessToken: personal.token })
@@ -205,7 +204,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
   if (!isGoogleProvider(provider)) {
     throw new AppError(404, 'not_found', 'Unknown Personal Credential provider')
   }
-  const claims = await ownerClaims(authorization, `Your own ${NAMES[provider]} credential`)
+  const claims = await ownerClaims(authorization, provider)
   // The conversation token is only valid under its own /teams/:teamId.
   const teamId = claims.tid
 
@@ -216,27 +215,26 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
       'This team has not added a Google OAuth client. An administrator can add one in Team settings.',
     )
   }
-  if (await composioCredential(claims.own, provider, teamId)) {
+  const credential = await googleCredentialFor(
+    claims.own,
+    provider,
+    teamId,
+    c.req.query('connectionId'),
+  )
+
+  if (credential?.composioAccountId) {
     throw new AppError(
       409,
       'personal_credential_via_composio',
       'This member connected through Composio: run Google tools with POST /teams/:teamId/composio/execute',
     )
   }
-  const personal = await personalGoogleToken(claims.own, provider, teamId)
+  const personal = credential && (await personalGoogleTokenOf(credential))
 
   if (!personal) throw notConnected(NAMES[provider])
 
   return c.json(handedOut(personal))
 })
-
-const composioCredential = (userId: string, provider: GoogleProvider, teamId: string) =>
-  personalCredentials().findOne({
-    userId,
-    provider,
-    teamId,
-    composioAccountId: { $exists: true },
-  })
 
 // Mounted under /teams/:teamId for conversation tokens: runs one Gmail or
 // Google Drive tool through the session owner's own Composio connection in
@@ -244,11 +242,16 @@ const composioCredential = (userId: string, provider: GoogleProvider, teamId: st
 export const composioRoutes = new Hono()
 
 const executeSchema = z
-  .object({ tool: z.string().max(100), arguments: z.record(z.string(), z.unknown()).default({}) })
+  .object({
+    tool: z.string().max(100),
+    arguments: z.record(z.string(), z.unknown()).default({}),
+    // Which of the member's connected accounts to run as; optional only while there is one.
+    connectionId: z.string().max(40).optional(),
+  })
   .strict()
 
 composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
-  const { tool, arguments: args } = c.req.valid('json')
+  const { tool, arguments: args, connectionId } = c.req.valid('json')
   const provider = composioToolProvider(tool)
 
   if (!provider) {
@@ -258,11 +261,8 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
       'Only Gmail, Google Drive and Google Calendar event tools, other than permanent mail deletion, can run here',
     )
   }
-  const claims = await ownerClaims(
-    c.req.header('Authorization') ?? '',
-    `Your own ${NAMES[provider]} credential`,
-  )
-  const credential = await composioCredential(claims.own, provider, claims.tid)
+  const claims = await ownerClaims(c.req.header('Authorization') ?? '', provider)
+  const credential = await googleCredentialFor(claims.own, provider, claims.tid, connectionId, true)
 
   if (!credential?.composioAccountId) {
     throw notConnected(NAMES[provider])

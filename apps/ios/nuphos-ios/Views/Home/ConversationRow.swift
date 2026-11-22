@@ -17,11 +17,7 @@ struct ConversationRow: View {
         ([conversation] + hidden).map(indicator(for:)).max { $0.urgency < $1.urgency } ?? .none
     }
 
-    private func indicator(for row: AgentConversation) -> ConversationIndicator {
-        let unread = store.unread.contains(team: team, session: row.sessionId)
-        guard row.isNativeRuntime else { return row.isWaiting ? .waiting : row.activeRun != nil ? .turn : unread ? .unread : .none }
-        return ConversationIndicator(observations.value(team: team, session: row.sessionId), unread: unread, waiting: row.isWaiting)
-    }
+    private func indicator(for row: AgentConversation) -> ConversationIndicator { store.indicator(for: row, team: team) }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -83,7 +79,7 @@ struct ConversationRow: View {
 
 /// Which agent answers in a conversation, as the desktop sidebar's
 /// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
-/// glyph for the built-in agent. Unknown providers get a neutral runtime glyph.
+/// glyph for the built-in agent. An unknown provider leaves the space empty.
 /// It sits at the head of the meta line, so
 /// the trailing indicators can come and go without moving it.
 struct RuntimeMark: View {

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { config } from '@/config'
 
-import { createMeetingBot, leaveMeeting } from './recall'
+import { createMeetingBot, leaveMeeting, meetingBotStatus } from './recall'
 
 const realFetch = globalThis.fetch
 const realMeetings = { ...config.meetings }
@@ -67,5 +67,91 @@ describe('leaveMeeting', () => {
     answer(400, { code: 'bad_request', detail: 'no' })
 
     await expect(leaveMeeting('bot')).rejects.toThrow('bad_request')
+  })
+})
+
+const { warn } = console
+let logged: string[] = []
+
+afterEach(() => {
+  // eslint-disable-next-line no-console -- restored even when a test throws
+  console.warn = warn
+})
+
+/** logEvent writes its record to console.warn; this collects what the test logs. */
+function captureWarnings(): { lines: () => Record<string, unknown>[] } {
+  logged = []
+  // eslint-disable-next-line no-console
+  console.warn = (line: unknown) => logged.push(String(line))
+
+  return { lines: () => logged.map((line) => JSON.parse(line) as Record<string, unknown>) }
+}
+
+const sendBot = () =>
+  createMeetingBot({
+    meetingUrl: 'https://meet.google.com/a',
+    botName: 'B',
+    face: 'j',
+    webhookUrl: 'https://w',
+  })
+
+describe('a refused request logs meeting_bot.failed', () => {
+  test('an account out of credit is account-level', async () => {
+    const warnings = captureWarnings()
+
+    // Recall documents 402 as "Insufficient credit balance", with no code of its own.
+    answer(402, { detail: 'Insufficient credit balance' })
+    await expect(sendBot()).rejects.toThrow('Insufficient credit balance')
+    expect(warnings.lines()).toEqual([
+      expect.objectContaining({
+        event: 'meeting_bot.failed',
+        reason: 'request_failed',
+        path: '/bot/',
+        status: 402,
+        account_level: true,
+      }),
+    ])
+  })
+
+  test('an error code nobody has seen before still counts', async () => {
+    const warnings = captureWarnings()
+
+    answer(418, { code: 'brand_new_failure', detail: '?' })
+    await expect(sendBot()).rejects.toThrow('brand_new_failure')
+    expect(warnings.lines()).toEqual([
+      expect.objectContaining({
+        event: 'meeting_bot.failed',
+        reason: 'request_failed',
+        status: 418,
+        code: 'brand_new_failure',
+        account_level: false,
+      }),
+    ])
+  })
+
+  test('leaving a call that already ended is not a failure', async () => {
+    const warnings = captureWarnings()
+
+    answer(400, { code: 'cannot_command_unstarted_bot', detail: 'Cannot send a command…' })
+    await leaveMeeting('bot')
+    expect(warnings.lines()).toEqual([])
+  })
+})
+
+describe('meetingBotStatus', () => {
+  test('a bot is in its call once Recall gave it any in_call status', async () => {
+    answer(200, {
+      status_changes: [
+        { code: 'joining_call', sub_code: null },
+        { code: 'in_call_recording', sub_code: null },
+        { code: 'call_ended', sub_code: 'timeout_exceeded_everyone_left' },
+      ],
+    })
+    await expect(meetingBotStatus('bot')).resolves.toMatchObject({ joined: true })
+    answer(200, { status_changes: [{ code: 'in_waiting_room', sub_code: null }] })
+    await expect(meetingBotStatus('bot')).resolves.toEqual({
+      joined: false,
+      last: { code: 'in_waiting_room', sub_code: null },
+    })
   })
 })

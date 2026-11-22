@@ -6,6 +6,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
+import { atlasErrorInfo, buildAtlasError } from '../../atlas/error.ts'
+
 import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
 import type { LocalAgentProvider } from './providers.ts'
 
@@ -40,7 +42,6 @@ const MAX_MODELS = 50
 const MODEL_ID = /^[\w.:/@[\]-]{1,200}$/u
 const KEY = /^\S{1,4096}$/u
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
-
 const isAgent = (provider: unknown): provider is CustomProviderAgent =>
   provider === 'claude-code' || provider === 'codex'
 
@@ -110,6 +111,26 @@ function writeCustomProvider(
 }
 
 /**
+ * Whether the provider serves Codex's only API: one that does refuses an empty body (400/422)
+ * before any model runs, one that does not answers 404 or 405. An unreachable one may be saved.
+ */
+const servesResponsesApi = (endpoint: string, key: string) =>
+  fetch(endpoint, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+    body: '{}',
+    signal: AbortSignal.timeout(10_000),
+  }).then(
+    ({ status }) => status !== 404 && status !== 405,
+    () => true,
+  )
+
+/** A refusal as the app shows it: coded, since the app shows no uncoded error. */
+export const notSaved = (cause: unknown): never => {
+  throw buildAtlasError(atlasErrorInfo(cause).message, 'custom_provider_not_saved')
+}
+
+/**
  * Saves a provider, its key first: without a credential store to hold the key nothing is
  * saved, since a key is never kept in a file. An edit without a key keeps the stored one.
  * Null removes both, the key first: a key the store will not delete keeps the provider listed,
@@ -133,8 +154,17 @@ export async function saveCustomProvider(
   const raw = (value as { apiKey?: unknown }).apiKey
   const key = typeof raw === 'string' ? raw.trim() : ''
 
+  if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
+  const probeKey =
+    provider === 'codex' && (key || (await store.get(account(userId, provider)).catch(() => null)))
+
+  const endpoint = `${parsed.baseUrl.endsWith('/') ? parsed.baseUrl.slice(0, -1) : parsed.baseUrl}/responses`
+
+  if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
+    throw new Error(
+      'Codex needs the OpenAI Responses API, which this URL doesn’t serve. Use the provider’s base URL, such as https://api.example.com/v1.',
+    )
   if (key) {
-    if (!KEY.test(key)) throw new Error('Paste the whole API key.')
     try {
       await store.set(account(userId, provider), key)
     } catch {
@@ -257,10 +287,14 @@ export function codexProviderConfig(contents: string, provider: CustomProvider |
   ].join('\n')
 }
 
-/** Brings a Codex home's config.toml in line with the provider saved beside it. */
-export function applyCodexProvider(userDir: string, config: string): void {
+/** Brings a Codex home's config.toml in line with the provider saved beside it, or the one given. */
+export function applyCodexProvider(
+  userDir: string,
+  config: string,
+  provider = readCustomProviders(userDir).codex,
+): void {
   const current = existsSync(config) ? readFileSync(config, 'utf8') : ''
-  const next = codexProviderConfig(current, readCustomProviders(userDir).codex)
+  const next = codexProviderConfig(current, provider)
 
   if (next !== current) writeFileSync(config, next, { mode: 0o600 })
 }

@@ -17,7 +17,11 @@ sealed class ChatRow {
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
     data class ToolRun(override val id: String, val rows: List<ChatRow>, val live: Boolean) : ChatRow()
-    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow()
+    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow() {
+        /** The desktop's label: `Worked for 2m 37s`, or `Worked` with no duration. */
+        val title: String
+            get() = duration?.takeIf { it >= 1 }?.let { Words(R.string.chat_work_duration, formatWorkDuration(it.toInt())) } ?: Words(R.string.chat_work)
+    }
     data class Downloads(override val id: String, val group: ai.nuphos.android.data.TransferDownloadGroup) : ChatRow()
     data class Memory(override val id: String, val created: Int, val updated: Int) : ChatRow()
     data class MemoryRecall(override val id: String, val entries: List<MemoryEntry>, val fetched: Int) : ChatRow()
@@ -30,9 +34,47 @@ sealed class ChatRow {
     }
 
     data class MemoryEntry(val id: String, val label: String, val scope: String)
+    data class FailedTurn(val rowId: String, val prompt: String)
+    data class Interruption(val id: String, val reason: String, val message: String, val createdAt: String)
 
     companion object {
-        private val hiddenTools = setOf("skill")
+        fun interruption(part: ChatPart): Interruption? {
+            val raw = (part as? ChatPart.Other)?.value ?: return null
+            if (raw["type"]?.stringValue != "turn-interrupted") return null
+            val id = raw["id"]?.stringValue ?: return null
+            val message = raw["message"]?.stringValue ?: return null
+            val reason = raw["reason"]?.stringValue?.takeIf { it in setOf("cancelled", "timeout", "error") } ?: "error"
+            return Interruption(id, reason, message, raw["createdAt"]?.stringValue.orEmpty())
+        }
+
+        fun failureReport(rowId: String, messages: List<ChatMessage>): String? {
+            for (message in messages.asReversed()) for (part in message.parts) {
+                val failure = interruption(part) ?: continue
+                if (failure.reason != "cancelled" && "interrupted.${message.id}.${failure.id}" == rowId)
+                    return listOf(Words(if (failure.reason == "timeout") R.string.failed_turn_timed_out else R.string.failed_turn_failed),
+                        failure.message, failure.createdAt).joinToString("\n")
+            }
+            return null
+        }
+
+        /** Retry never drops attachments, repeats an event, or resends another person's prompt. */
+        fun failedTurn(messages: List<ChatMessage>, userId: String?, foreignChat: Boolean): FailedTurn? {
+            if (messages.size < 2) return null
+            val reply = messages.last()
+            val asked = messages[messages.lastIndex - 1]
+            if (reply.role != ChatMessage.Role.Assistant || asked.role != ChatMessage.Role.User ||
+                asked.metadata?.get("source")?.stringValue in setOf("agent.thread", "agent.resource")) return null
+            val failure = reply.parts.asReversed().firstNotNullOfOrNull(::interruption) ?: return null
+            if (failure.reason == "cancelled") return null
+            val sender = asked.metadata?.get("sender")?.get("id")?.stringValue
+            if (sender != null) { if (sender != userId) return null } else if (foreignChat) return null
+            if (asked.parts.any { it !is ChatPart.Text }) return null
+            val prompt = asked.parts.filterIsInstance<ChatPart.Text>().joinToString("") { it.text }.trim()
+            return prompt.takeIf { it.isNotEmpty() }?.let { FailedTurn("interrupted.${reply.id}.${failure.id}", it) }
+        }
+
+        /** Tools the desktop never renders as a row. */
+        private fun isHidden(tool: ChatPart.Tool) = tool.toolName == "skill" || tool.isQuestionCard
 
         /** `presence`: how the conversation's computer stands right now. */
         fun rows(session: ChatSession, presence: ComputerPresence = ComputerPresence.Online): List<ChatRow> = rows(
@@ -73,7 +115,12 @@ sealed class ChatRow {
             sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
-            val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
+            // Only a citation a row actually shows hides the card: a part still streaming stays Markdown.
+            val cited = messages.withIndex().filter { it.value.role == ChatMessage.Role.Assistant }.flatMap { (index, message) ->
+                message.parts.filterIsInstance<ChatPart.Text>().filterNot { streaming(isStreaming && index == messages.lastIndex, it) }
+            }.flatMapTo(mutableSetOf()) { ReplyFiles.cited(it.text) }
+            val anchoredDownloads = AgentDownloads.anchor(downloads.filter { it.groupId !in cited }, messages)
+            val groups = downloads.associateBy { it.groupId }
             val events = timeline.distinctBy { it.at to it.text }.sortedBy { it.at }.groupBy { event ->
                 messages.indexOfFirst { it.createdAt?.isAfter(event.at) == true }
             }
@@ -114,9 +161,9 @@ sealed class ChatRow {
                     }
                     ChatMessage.Role.Assistant -> {
                         val isLive = isStreaming && index == messages.lastIndex
-                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders)
+                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders, groups)
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
-                        if (message.stoppedByUser == true && !isLive) {
+                        if (message.stoppedByUser == true && !isLive && message.parts.none { interruption(it)?.reason == "cancelled" }) {
                             val calls = message.parts.count { it is ChatPart.Tool }
                             val text = if (calls == 0) Words(R.string.convtext_stopped_by_you) else Words.plural(R.plurals.convtext_stopped_by_you_calls, calls, calls)
                             rows += Hint("stopped.${message.id}", text, false)
@@ -130,35 +177,56 @@ sealed class ChatRow {
             if (!runtimeStatus.isNullOrBlank()) rows += Activity(runtimeStatus, live = isStreaming || runtimeTurnActive)
             else if (isStreaming || !phaseLabel.isNullOrBlank()) rows += Activity(phaseLabel, live = isStreaming)
             if (cancelRequested) rows += Hint("cancel-requested", Words(R.string.convtext_cancellation_requested), false)
-            val shownError = error?.takeIf { !stoppedByUser }
+            val latestFailure = messages.lastOrNull()?.takeIf { it.role == ChatMessage.Role.Assistant }
+                ?.parts?.asReversed()?.firstNotNullOfOrNull(::interruption)
+            val shownError = error?.takeIf { text -> !stoppedByUser &&
+                !(latestFailure?.reason != "cancelled" && latestFailure?.message == text) }
             if (shownError != null) rows += Hint("error", shownError, true)
             else if (!isStreaming && !runtimeTurnActive && !sendQueued) when (presence) {
                 // Said before the message goes, with the way on: another runtime.
                 ComputerPresence.Offline -> rows += Hint("runtime-offline", Words(R.string.convtext_runtime_offline), true)
                 // Sending resumes a paused Box, so nothing points away from it.
                 is ComputerPresence.Paused -> rows += Hint("runtime-paused", Words(R.string.convtext_runtime_paused, presence.label), false)
+                // A starting Box comes online by itself, so nothing points away from it either.
+                is ComputerPresence.Starting -> rows += Hint("runtime-starting", Words(R.string.convtext_runtime_starting, presence.label), false)
                 ComputerPresence.Online -> Unit
             }
             rows += Bottom
             return rows
         }
 
-        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>): List<ChatRow> {
+        private fun streaming(live: Boolean, part: ChatPart.Text) = live && part.state == ChatPart.StreamState.Streaming
+
+        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>, groups: Map<String, ai.nuphos.android.data.TransferDownloadGroup>): List<ChatRow> {
             val body = mutableListOf<ChatRow>()
             message.parts.forEachIndexed { pi, part ->
                 when (part) {
                     is ChatPart.Text -> {
-                        if (part.text.isNotBlank()) {
-                            body += AssistantText("text.${message.id}.$pi", message.id, part.text, live && part.state == ChatPart.StreamState.Streaming)
+                        val streaming = streaming(live, part)
+                        val segments = if (streaming) listOf(ReplyFiles.Segment.Text(part.text)) else ReplyFiles.segments(part.text)
+                        segments.forEachIndexed { si, segment ->
+                            val id = if (segments.size == 1) "text.${message.id}.$pi" else "text.${message.id}.$pi.$si"
+                            when (segment) {
+                                is ReplyFiles.Segment.Text -> if (segment.text.isNotBlank()) body += AssistantText(id, message.id, segment.text, streaming)
+                                // A group no longer listed (expired) still gets its card, which says so.
+                                is ReplyFiles.Segment.Files -> body += Downloads(id, groups[segment.groupId]
+                                    ?: ai.nuphos.android.data.TransferDownloadGroup(segment.groupId, "", emptyList()))
+                            }
                         }
                     }
                     is ChatPart.Reasoning -> {
                         if (part.text.isNotEmpty()) body += Reasoning("reasoning.${message.id}.$pi", part)
                     }
                     is ChatPart.Tool -> {
-                        if (part.toolName !in hiddenTools) {
+                        if (!isHidden(part)) {
                             body += Tool("tool.${message.id}.${part.toolCallId}", message.id, part, part.toolCallId == lastApprovalCallId)
                         }
+                    }
+                    is ChatPart.Other if interruption(part) != null -> {
+                        val failure = requireNotNull(interruption(part))
+                        body += Hint("interrupted.${message.id}.${failure.id}",
+                            if (failure.reason == "cancelled") Words(R.string.failed_turn_stopped) else failure.message,
+                            failure.reason != "cancelled")
                     }
                     is ChatPart.Data if part.name == "steering" -> {
                         val id = part.data["id"]?.stringValue?.takeIf { it.isNotBlank() }
@@ -251,6 +319,13 @@ sealed class ChatRow {
                 } else result += rows[index++]
             }
             return result
+        }
+
+        /** `12s`, `3m 5s`, `1h 20m`: the desktop's `formatWorkDuration`. */
+        fun formatWorkDuration(seconds: Int): String = when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3600 -> if (seconds % 60 > 0) "${seconds / 60}m ${seconds % 60}s" else "${seconds / 60}m"
+            else -> if (seconds % 3600 / 60 > 0) "${seconds / 3600}h ${seconds % 3600 / 60}m" else "${seconds / 3600}h"
         }
 
         private fun workDuration(message: ChatMessage): Double? {

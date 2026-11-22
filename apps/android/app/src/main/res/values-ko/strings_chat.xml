@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· 호출 %1$d회 · 실행 중</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">%1$d초 동안 작업함 · %2$d단계</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">%1$d단계를 작업함</item>
-    </plurals>
+    <string name="chat_work_duration">%1$s 동안 작업함</string>
+    <string name="chat_work">작업 완료</string>
     <string name="chat_share_access_invited">초대된 사용자만</string>
     <string name="chat_share_access_view">팀 보기 가능</string>
     <string name="chat_share_access_reply">팀 보기 및 답장 가능</string>
@@ -201,4 +197,16 @@
     <string name="chat_summary_running">실행 중</string>
     <string name="chat_summary_open">에이전트 요약</string>
     <string name="chat_summary_output_truncated">이전 출력은 숨겨져 있습니다.</string>
+    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_children">하위 작업</string>
+    <string name="chat_summary_files">파일</string>
+    <string name="chat_summary_triggers">트리거</string>
+    <string name="chat_summary_no_triggers">에이전트에게 이 작업의 반복 일정을 요청하세요.</string>
+    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">봇 세부 정보</string>
+    <string name="chat_bot_state_waiting">%1$d개 입력 필요</string>
+    <string name="chat_bot_state_running">%1$d개 실행 중</string>
+    <string name="chat_summary_idle_since">유휴 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">정기 작업 예약은 여기에서 요청하세요.</string>
+    <string name="chat_summary_paused">일시 중지됨</string>
 </resources>

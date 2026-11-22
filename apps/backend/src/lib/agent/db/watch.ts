@@ -12,16 +12,24 @@ import { agentConversations } from './shared'
 const UNWATCHED_SOURCES = ['agent', 'slack', 'discord', 'lark', 'mcp']
 const UNWATCHED_SOURCE = new RegExp(`^(${UNWATCHED_SOURCES.join('|')})(\\.|$)`)
 
+/** Whether an agent, a trigger or a chat channel opened it, rather than a person by hand. */
+export function openedByAgent(opened: {
+  source?: string
+  parentSessionId?: string
+  trigger?: unknown
+}): boolean {
+  return (
+    Boolean(opened.parentSessionId) ||
+    Boolean(opened.trigger) ||
+    (opened.source !== undefined && UNWATCHED_SOURCE.test(opened.source))
+  )
+}
+
 export function initialWatcherIds(
   userId: string,
   opened: { source?: string; parentSessionId?: string; trigger?: unknown },
 ): string[] {
-  const byAgent =
-    Boolean(opened.parentSessionId) ||
-    Boolean(opened.trigger) ||
-    (opened.source !== undefined && UNWATCHED_SOURCE.test(opened.source))
-
-  return byAgent ? [] : [userId]
+  return openedByAgent(opened) ? [] : [userId]
 }
 
 /**

@@ -1,5 +1,6 @@
 // Scenarios about the Inbox's question cards: snoozing them, and dismissing them with a reason.
 import { agentEvents } from './agent-log.ts'
+import { inboxDismissAllScenario } from './inbox-dismiss-all-scenario.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -26,8 +27,7 @@ export const inboxScenarios: Scenario[] = [
         .getByRole('textbox', { name: 'Reason (optional)' })
         .fill('E2E_DELIVERY:inbox-reason')
       await page.keyboard.press('Enter')
-      await page.getByText('Dismissed', { exact: true }).waitFor()
-      await until('the agent to be told why, once the Undo window passes', async () =>
+      await until('the agent to be told why', async () =>
         agentEvents(stack).includes('dismissed E2E_DELIVERY:inbox-reason'),
       )
     },
@@ -51,11 +51,11 @@ export const inboxScenarios: Scenario[] = [
         .getByRole('textbox', { name: 'Reason (optional)' })
         .fill('E2E_DELIVERY:secret-reason')
       await page.keyboard.press('Enter')
-      await page.getByText('Dismissed', { exact: true }).waitFor()
       await page.screenshot({ path: `${artifacts}/secret-dismissed.png` })
       await until('the agent to be told why the secret is not coming', async () =>
         agentEvents(stack).includes('dismissed E2E_DELIVERY:secret-reason'),
       )
     },
   },
+  inboxDismissAllScenario,
 ]

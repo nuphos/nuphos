@@ -18,8 +18,28 @@ test('an agent CLI that cannot start is one plain sentence, live and stored alik
   expect(classifyPreviewInterruption(einval, false).message).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
 })
 
+// Reinstalling with npm on Windows brings the same .cmd back, so that alone is not the way out.
+test('a CLI that cannot start is told to switch runtime or use the official installer', () => {
+  expect(formatAgentStreamError(einval)).toContain('Switch this Bot to another runtime')
+  expect(formatAgentStreamError(einval)).toContain('official installer')
+})
+
 test('Node’s spawn error code never reaches the user', () => {
   expect(formatAgentStreamError(einval)).not.toContain('EINVAL')
+})
+
+// The ACP shim on Windows, spawning npm's opencode.cmd without a shell, as logged on 2026-11-21:
+// the shim dies, and openab passes on the start of its stderr (path shortened).
+const shimEinval = new OpenAbRpcError(
+  "**Agent Output**\nnode:internal/child_process:421\n    throw new ErrnoException(err, 'spawn');\n    ^\n\nError: spawn EINVAL\n    at ChildProcess.spawn (node:internal/child_process:421:11)\n    at spawn (node:child_process:7…",
+)
+
+test('a shim-run CLI that cannot start gets the same sentence, not its stack', () => {
+  expect(formatAgentStreamError(shimEinval)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(shimEinval, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
 })
 
 test("npm's placeholder claude.exe, before its postinstall ran, gets the same sentence", () => {
@@ -63,4 +83,35 @@ test('another program the agent spawns is not its CLI', () => {
 
   expect(classifyPreviewInterruption(tool, false).cause).toBeUndefined()
   expect(formatAgentStreamError(tool)).not.toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+})
+
+// The Agent SDK's check before it spawns Claude Code, when the copy the Claude desktop app kept
+// was deleted by its update, as logged on 2026-11-19 (path shortened).
+const claudeGone = new OpenAbRpcError(
+  '**Internal Error** (code: -32603)\nInternal error\n> Claude Code native binary not found at /Users/me/Library/Application Support/Claude/claude-code/2.1.325/485fdac4332e/claude.app/Contents/MacOS/claude. Please ensure Claude Code is installed via native installer or specify a valid path with options.pathToClaudeCodeExecutable.',
+  -32603,
+  { code: -32603, message: 'Internal error' },
+)
+
+test('a Claude Code binary the Agent SDK cannot find gets the reinstall sentence and installer', () => {
+  expect(formatAgentStreamError(claudeGone)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(claudeGone, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
+})
+
+// The same check when the file is there but will not start (a broken install), as e2e logged.
+const claudeUnlaunchable = new OpenAbRpcError(
+  "**Internal Error** (code: -32603)\nInternal error\n> Claude Code native binary at /home/me/.local/bin/claude exists but failed to launch. This usually means the binary does not match this system's libc — e.g. spawning a musl-linked binary on a glibc Linux host fails because the musl dynamic loader (/lib/ld-musl-*) is missing. Specify a matching binary with options.pathToClaudeCodeExecutable.",
+  -32603,
+  { code: -32603, message: 'Internal error' },
+)
+
+test('a Claude Code binary that is there but will not launch gets the same sentence and installer', () => {
+  expect(formatAgentStreamError(claudeUnlaunchable)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(claudeUnlaunchable, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
 })

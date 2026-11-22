@@ -110,6 +110,16 @@ test('a stored idle snapshot is listed as-is without asking the run store', asyn
   expect(runLookups).toEqual([['busy']])
 })
 
+test('a turn its runtime still calls active after its run ended is ready, not working elsewhere', async () => {
+  // The runtime's push lags its run's end: alone, it would be a turn that answers no channel.
+  stored('ended', 'active')
+  const [row] = await list('ended')
+
+  expect(row?.runtimeState).toMatchObject({ state: 'dormant', actions: { send: true } })
+  expect(row?.runtimeState.channelIds).toBeUndefined()
+  expect(row?.activeRun).toBeNull()
+})
+
 test('a page asks the run store once, not once per row', async () => {
   runs.set('b', { streamId: 'stream-b', startedAt: '2026-10-14T18:00:00.000Z' })
   const rows = await list('a', 'b', 'c')

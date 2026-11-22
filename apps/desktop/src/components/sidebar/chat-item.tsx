@@ -14,7 +14,6 @@ import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
 import { PhoneViewingBadge } from './PhoneViewingBadge'
 import { SessionResources } from './SessionResources'
-import { threadFoldsAway } from './thread-status'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -86,7 +85,11 @@ export function chatSidebarItem({
                 {
                   id: conversation.sessionId,
                   name: conversation.title,
-                  agent: { avatar: conversation.avatar, provider: conversation.agentRuntime },
+                  agent: {
+                    avatar: conversation.avatar,
+                    avatarBackground: conversation.avatarBackground,
+                    provider: conversation.agentRuntime,
+                  },
                 },
               ]}
               title={conversation.title}
@@ -111,12 +114,6 @@ export function chatSidebarItem({
     // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
     note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
     foldedStatus: status,
-    finished: threadFoldsAway({
-      conversation,
-      runtimeState,
-      open: active,
-      unread: unread || waiting,
-    }),
     dot,
     taskState:
       isBot || conversation.kind === 'channel'

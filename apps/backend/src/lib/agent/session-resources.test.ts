@@ -55,6 +55,13 @@ useAgentDb({
   agentConversations: () => ({
     updateOne: async (...args: unknown[]) => {
       updates.push(args)
+      const update = args[1] as { $pull?: { linkedResources?: { id: string } } }
+      const removedId = update.$pull?.linkedResources?.id
+
+      if (removedId)
+        conversation.linkedResources = conversation.linkedResources?.filter(
+          (entry) => entry.id !== removedId,
+        )
 
       return { modifiedCount: 1 }
     },
@@ -76,6 +83,10 @@ useGithubHttp({
       return Response.json({ check_runs: [{ conclusion: 'success' }, { conclusion: 'failure' }] })
     if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
     if (url.includes('/reviews')) return Response.json([])
+    if (url.endsWith('/pulls/78')) return new Response('Not Found', { status: 404 })
+    if (url.endsWith('/issues/78'))
+      return Response.json({ number: 78, title: 'Verified issue', state: 'open' })
+    if (url.endsWith('/repos/org/repo')) return Response.json({ id: 34, full_name: 'org/repo' })
     if (pullFailure) return pullFailure
 
     return Response.json({
@@ -161,6 +172,24 @@ test('unlink only updates the authorized conversation', async () => {
     [{ sessionId: 'session', teamId }, { $pull: { linkedResources: { id: resource.id } } }],
   ])
 })
+test('unlink by resource key removes only the matching binding', async () => {
+  const other = { ...resource, id: 'other-id', key: 'github/12/34/99' }
+
+  conversation.linkedResources = [resource, other]
+  await unlinkSessionResource(actor, resource.key)
+  expect((await resourceConversation(actor)).linkedResources).toEqual([other])
+})
+test('MCP unlinks a resource using the listed key', async () => {
+  const tools = sessionResourceToolModule().handlers(actor as never)
+  const result = (await tools.unlink_session_resource!({
+    label: 'Unlink PR',
+    resourceId: resource.key,
+  })) as { isError?: boolean; content: { text: string }[] }
+
+  expect(result.isError).not.toBe(true)
+  expect((await resourceConversation(actor)).linkedResources).toEqual([])
+  expect(await authorizedResourceTurn(delivery)).toBeNull()
+})
 test('input rejects arbitrary URLs and repository path traversal', () => {
   expect(
     sessionResourceInput.safeParse({
@@ -205,6 +234,24 @@ test('binding resolves provider-owned identity instead of trusting a caller titl
   expect(updates).toHaveLength(1)
   // The token and the PR, then its check runs, status and reviews (the PR is not fetched twice).
   expect(lookupCount).toBe(5)
+})
+test('a GitHub issue links as an issue, with no pull request health', async () => {
+  conversation.linkedResources = []
+  const linked = await bindSessionResource(actor, {
+    provider: 'github',
+    installationId: 12,
+    repository: 'org/repo',
+    number: 78,
+  })
+
+  expect(linked).toMatchObject({
+    key: 'github/12/34/78',
+    kind: 'issue',
+    title: 'Verified issue',
+    state: 'open',
+    url: 'https://github.com/org/repo/issues/78',
+  })
+  expect(linked).not.toHaveProperty('health')
 })
 test('linking an already linked resource refreshes it in place', async () => {
   const linked = await bindSessionResource(actor, {

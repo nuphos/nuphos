@@ -59,16 +59,12 @@ export type Item = {
   watching?: boolean
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
-  /** A finished thread with nothing left to show; its parent counts it instead. */
-  finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
   /** A Bot's sub-agent repeated under its chat in Bots (the tree status style). */
   botNested?: boolean
   /** Replaces the preview line while a Bot works (its live status). */
   previewNode?: ReactNode
-  /** The name shimmers while a Bot works. */
-  labelShimmer?: boolean
   /** Runs on a click before the row navigates (which copy of a twice-listed row was opened). */
   onPress?: () => void
   /** A Bot's face, shown where Bots are listed; elsewhere its row shows its Runtime. */
@@ -81,6 +77,8 @@ export type Item = {
   readOnlyChat?: boolean
   /** Such an agent the viewer manages, so they may archive it for everyone. */
   managedChat?: boolean
+  /** Such an agent the viewer only takes part in, so they leave it instead. */
+  leavable?: boolean
   /** Why the row carries its dot, for attention navigation. */
   dot?: RowDot
   /** A task's project folder. */

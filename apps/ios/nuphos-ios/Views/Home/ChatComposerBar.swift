@@ -27,6 +27,10 @@ struct ChatComposerBar<Controls: View>: View {
     var recipient: String? = nil
     /// Each change raises the keyboard, as choosing to reply does.
     var focusRequest = 0
+    /// A Bot chat keeps its runtime and model visible while the composer is collapsed.
+    var alwaysShowControls = false
+    /// Conditional controls can be absent even when their view type is not EmptyView.
+    var controlsAvailable = true
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -47,7 +51,6 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
     @State private var dictationError: String?
-    @State private var mentionResults: [AgentConversation] = []
     /// The `@Title`s picked into the draft, and the links they are sent as.
     @State private var mentionLinks: [String: URL] = [:]
     #if canImport(UIKit)
@@ -71,8 +74,13 @@ struct ChatComposerBar<Controls: View>: View {
         #endif
     }
     private var expanded: Bool { focused || hasPayload }
-    private var hasControls: Bool { Controls.self != EmptyView.self }
+    private var hasControls: Bool { controlsAvailable && Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
+    /// Nothing until the sessions are listed, so the list never opens part-filled.
+    private var mentionResults: [AgentConversation] {
+        guard let query = mentionQuery, let sessions = mentions?.sessions else { return [] }
+        return SessionMention.sessions(sessions, matching: query)
+    }
     private var mentionDevices: [CredentialCatalog.Item] {
         guard let query = mentionQuery, let mentions else { return [] }
         return Array(mentions.devices.filter { SessionMention.matches($0.label, query) }.prefix(3))
@@ -84,7 +92,7 @@ struct ChatComposerBar<Controls: View>: View {
         // focus in a loop.
         // Collapsed, the controls row is zero high; spacing around it would
         // stay, so a collapsed composer has none.
-        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
+        VStack(alignment: .leading, spacing: expanded || alwaysShowControls ? 8 : 0) {
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -94,10 +102,10 @@ struct ChatComposerBar<Controls: View>: View {
                     HStack(spacing: 8) { controls() }
                         .padding(.horizontal, 12)
                 }
-                .frame(height: expanded ? nil : 0)
-                .opacity(expanded ? 1 : 0)
-                .allowsHitTesting(expanded)
-                .accessibilityHidden(!expanded)
+                .frame(height: expanded || alwaysShowControls ? nil : 0)
+                .opacity(expanded || alwaysShowControls ? 1 : 0)
+                .allowsHitTesting(expanded || alwaysShowControls)
+                .accessibilityHidden(!expanded && !alwaysShowControls)
             }
 
             if expanded, !mentionResults.isEmpty || !mentionDevices.isEmpty {
@@ -162,13 +170,10 @@ struct ChatComposerBar<Controls: View>: View {
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
-        .task(id: mentionQuery) {
-            guard let query = mentionQuery, let mentions else { mentionResults = []; return }
-            // Typing on cancels this task, so only a pause asks the backend.
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled else { return }
-            let found = await mentions.search(query)
-            if !Task.isCancelled { mentionResults = found }
+        // Listed as the composer appears and again on each focus, so a failed listing is retried
+        // and new Bots and Tasks show up before the next `@`.
+        .task(id: "\(mentions?.teamId ?? "")|\(focused)") {
+            if focused || mentions?.sessions == nil { await mentions?.refresh() }
         }
         .onAppear {
             guard !importedInitialAttachments else { return }
@@ -330,23 +335,29 @@ struct ChatComposerBar<Controls: View>: View {
     private var mentionList: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(mentionDevices) { device in
-                mentionRow(symbol: "laptopcomputer", title: device.label) {
+                mentionRow(title: device.label) {
                     text = SessionMention.insert("@" + device.label, into: text)
                     mentions?.pickDevice(device)
+                } icon: {
+                    LucideIcon(systemName: "laptopcomputer")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(Theme.muted)
                 }
             }
             ForEach(mentionResults) { conversation in
-                mentionRow(symbol: "bubble.left", title: conversation.displayTitle) { pickMention(conversation) }
+                // A Bot wears its face, a Task its runtime mark, as everywhere else.
+                mentionRow(title: conversation.displayTitle) { pickMention(conversation) } icon: {
+                    AgentAvatar(agentId: conversation.sessionId, runtime: conversation.agentRuntime, size: 20)
+                }
             }
         }
     }
 
-    private func mentionRow(symbol: String, title: String, action: @escaping () -> Void) -> some View {
+    private func mentionRow<Icon: View>(title: String, action: @escaping () -> Void,
+                                        @ViewBuilder icon: () -> Icon) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                LucideIcon(systemName: symbol)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(Theme.muted)
+                icon()
                 Text(title)
                     .font(.subheadline)
                     .foregroundStyle(Theme.heading)
@@ -367,7 +378,6 @@ struct ChatComposerBar<Controls: View>: View {
         let name = "@" + (conversation.title.isEmpty ? conversation.sessionId : conversation.title)
         mentionLinks[name] = link
         text = SessionMention.insert(name, into: text)
-        mentionResults = []
     }
 
     // MARK: Voice input
@@ -710,16 +720,21 @@ struct ComposerChip: View {
 
 /// A brand mark from the asset catalog, sized like an inline symbol.
 /// Monochrome marks are template images and take the foreground colour.
+/// An asset-catalog mark; without one it holds the same space empty, never a guess.
 struct BrandLogo: View {
-    let name: String
+    let name: String?
     var size: CGFloat = 16
 
     var body: some View {
-        Image(name)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
+        Group {
+            if let name {
+                Image(name).resizable().scaledToFit()
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }
 

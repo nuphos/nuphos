@@ -20,6 +20,11 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let key = "\(request.httpMethod ?? "GET") \(url.path)"
         // Simulator regression scripts read this to see which requests ran.
         Logger(subsystem: "ai.nuphos.ios", category: "preview").notice("preview_request \(key, privacy: .public)")
+        // UI tests read this to see what a request sent: one JSON line per request with a JSON body.
+        if let log = env["NUPHOS_PREVIEW_REQUESTS"], let sent = Self.body(of: request),
+           let line = try? JSONSerialization.data(withJSONObject: ["request": key, "body": sent]) {
+            Self.append(line + Data("\n".utf8), to: log)
+        }
         // `GET /path?name=value` answers only requests with that query item; the last items are the
         // narrowest filters (a chats listing's `kind=channel`), so they are tried first.
         let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -31,7 +36,8 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         // image views load with their own session, which this transport never sees.
         let json = (try? JSONSerialization.data(withJSONObject: body, options: [.fragmentsAllowed, .withoutEscapingSlashes])) ?? Data()
         let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
-        let data = Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
+        let data = (entry?["bodyBase64"] as? String).flatMap { Data(base64Encoded: $0) }
+            ?? Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
         // `delayMs` holds a response, to look at what is on screen while a write is on its way.
         if let delay = entry?["delayMs"] as? Int { Thread.sleep(forTimeInterval: Double(delay) / 1000) }
         client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
@@ -39,5 +45,27 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() {}
+
+    /// A URL protocol sees an upload's body as a stream.
+    private static func body(of request: URLRequest) -> Any? {
+        var data = request.httpBody
+        if data == nil, let stream = request.httpBodyStream {
+            stream.open()
+            defer { stream.close() }
+            var read = Data()
+            var buffer = [UInt8](repeating: 0, count: 4096)
+            while case let count = stream.read(&buffer, maxLength: buffer.count), count > 0 { read.append(buffer, count: count) }
+            data = read
+        }
+        return data.flatMap { try? JSONSerialization.jsonObject(with: $0) }
+    }
+
+    private static func append(_ line: Data, to path: String) {
+        if !FileManager.default.fileExists(atPath: path) { FileManager.default.createFile(atPath: path, contents: nil) }
+        guard let file = FileHandle(forWritingAtPath: path) else { return }
+        defer { try? file.close() }
+        _ = try? file.seekToEnd()
+        try? file.write(contentsOf: line)
+    }
 }
 #endif

@@ -31,11 +31,12 @@ export function PlanApprovalPolicyModal({
     <Modal
       open={open}
       onClose={() => !saving && onClose()}
-      title={t('Plan approval policy')}
+      title={t('Change approval policy')}
       description={t(
-        'Choose who must approve database changes proposed in this team, by an Agent or a person.',
+        'Choose who must approve database changes requested on this connection, whether by a Bot, a task or a person.',
       )}
       width={520}
+      focusFirstControl={false}
       footer={
         <div className="flex justify-end gap-2 px-5 py-3">
           <Button variant="ghost" disabled={saving} onClick={onClose}>
@@ -101,7 +102,7 @@ export function PlanApprovalPolicyModal({
         ))}
         <p className="text-[11.5px] leading-relaxed text-tertiary">
           {t(
-            'Agent cannot approve. Changing this policy clears votes on proposed plans; approved, executing, and completed plans are unchanged.',
+            'Bots and tasks cannot approve. Changing this policy clears approvals on open change requests.',
           )}
         </p>
       </div>

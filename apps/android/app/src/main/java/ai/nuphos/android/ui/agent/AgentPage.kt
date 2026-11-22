@@ -70,6 +70,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -461,6 +462,11 @@ fun EmptyState(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NewChatComposer(nav: NavHostController) {
+    ai.nuphos.android.ui.chat.NewTaskLauncher(nav)
+}
+
+@Composable
+fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -> Unit) {
     val store = LocalAgentStore.current
     val scope = rememberCoroutineScope()
     val auth = ai.nuphos.android.ui.LocalAuthSession.current
@@ -500,11 +506,13 @@ fun NewChatComposer(nav: NavHostController) {
     val modelSettings = remember(store, selection, selection?.selected, store.workspaceRevision) { store.bindNewModelSettings(selection) }
     LaunchedEffect(modelSettings) { modelSettings?.refresh() }
     ChatComposer(
+        autoFocus = true,
+        bottomPadding = bottomPadding,
         modelSettings = modelSettings,
         mentions = draftTeam?.let { team ->
             remember(store, team) {
-                ai.nuphos.android.ui.chat.SessionMentionSource(team) { query ->
-                    store.mentionableSessions(team, query)
+                ai.nuphos.android.ui.chat.SessionMentionSource(team) {
+                    store.mentionableSessions(team)
                 }
             }
         },
@@ -529,6 +537,7 @@ fun NewChatComposer(nav: NavHostController) {
         onSend = { submission ->
             val session = store.newSession(selection) ?: return@ChatComposer false
             store.pendingPrompt = submission
+            onSubmitted()
             nav.navigate("conversation/${session.sessionId}?fresh=true")
             true
         },

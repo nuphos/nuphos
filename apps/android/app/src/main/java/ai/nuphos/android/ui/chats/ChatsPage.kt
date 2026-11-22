@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -57,7 +58,7 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 /** Chats where people and agents talk, and each Bot without a chat yet, as on iOS and Desktop. */
 @Composable
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
-    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true) {
+    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
     val scope = rememberCoroutineScope()
@@ -76,6 +77,20 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     val rows = store.botsList
+    var pinRetry by remember(team, store.workspaceRevision) { mutableStateOf<Pair<AgentConversation, Boolean>?>(null) }
+    fun pin(row: AgentConversation, pinned: Boolean) {
+        pinRetry = row to pinned
+        scope.launch { store.setPinned(row, pinned) }
+    }
+    if (store.pinActionFailed) AlertDialog(
+        onDismissRequest = store::clearPinActionError,
+        text = { Text(stringResource(R.string.shell_action_failed)) },
+        dismissButton = { TextButton(onClick = store::clearPinActionError) { Text(stringResource(R.string.chats_ok)) } },
+        confirmButton = { TextButton(onClick = {
+            store.clearPinActionError()
+            pinRetry?.let { (row, pinned) -> pin(row, pinned) }
+        }) { Text(stringResource(R.string.try_again)) } },
+    )
     var showNewBot by rememberSaveable { mutableStateOf(false) }
     var botArchiveTarget by remember(team, store.workspaceRevision) { mutableStateOf<String?>(null) }
     botArchiveTarget?.let { ai.nuphos.android.ui.agent.ArchiveBotDialog(store, it) { botArchiveTarget = null } }
@@ -112,7 +127,14 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         CircularProgressIndicator()
     // Bots always lists, so its "+" can make the first one.
     } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
-        item(key = "bots-header") {
+        if (store.search.isEmpty() && store.pins.isNotEmpty()) item(key = "pinned-bots-shelf") {
+            PinShelf(store.pins, status = { pinStatus(it, store.bots + store.conversations) }, enabled = !store.savingPins,
+                onOpen = { row ->
+                    if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
+                    else openBot(row.sessionId)
+                }, onUnpin = { pin(it, false) })
+        }
+        if (showCreateButton) item(key = "bots-header") {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.chats_bots), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -124,6 +146,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         items(rows, key = { it.sessionId }) { row ->
             val botId = if (row.isChannel) row.botId else row.sessionId
             ChatRow(row, typing = row.botTyping(store::typingIn), selected = row.sessionId == selectedSessionId, opening = store.openingBotId == row.sessionId,
+                pinned = store.isPinned(row), pinEnabled = !store.savingPins, onPin = { pin(row, !store.isPinned(row)) },
                 onArchiveBot = botId?.takeIf { store.canArchiveBot(it) }?.let { { botArchiveTarget = it } }) {
                 if (row.isChannel) nav.navigate("channel/${android.net.Uri.encode(row.sessionId)}") { launchSingleTop = true }
                 else openBot(row.sessionId)
@@ -131,27 +154,13 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
         }
     }
     }
-    if (showNewBot) {
-        val auth = ai.nuphos.android.ui.LocalAuthSession.current
-        val account = auth.user?.id
-        NewBotSheet(store.creatingBot, store.newBotError, store.newBotWaitingForChat != null,
-            onCreate = { title, avatar ->
-                // On the runtime a new chat would use, so the Bot's composer shows it.
-                val runtime = if (account != null && team != null) auth.runtimeSelections.bind(account, team).binding else null
-                scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
-                    val chat = store.createBot(title, avatar, runtime) ?: return@launch
-                    showNewBot = false
-                    nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
-                }
-            },
-            onDismiss = { store.forgetNewBot(); showNewBot = false },
-        )
-    }
+    if (showNewBot && showCreateButton) CreateBotDialog(nav) { showNewBot = false }
 }
 
 @Composable
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
-private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean, opening: Boolean, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
+private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean, opening: Boolean,
+    pinned: Boolean, pinEnabled: Boolean, onPin: () -> Unit, onArchiveBot: (() -> Unit)? = null, onOpen: () -> Unit) {
     val unread = chat.isChannel && chat.hasUnreadPosts()
     val title = if (chat.isChannel) chat.displayTitleForChat else chat.displayTitle
     val preview = chat.previewLine
@@ -159,36 +168,45 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
     val typingLabel = stringResource(R.string.chats_is_typing, title)
     val unreadLabel = stringResource(R.string.chats_unread_posts)
     val openingLabel = stringResource(R.string.chats_opening)
-    // A long press offers Archive Bot, as Desktop's sidebar does for a Bot and its chat.
-    Box { DropdownMenu(expanded = menu && onArchiveBot != null, onDismissRequest = { menu = false }) {
+    Box { BotPreviewMenu(expanded = menu, onDismissRequest = { menu = false }) {
+        BotConversationPreview(chat)
+        PinAction(chat, pinned, pinEnabled) { menu = false; onPin() }
+        if (onArchiveBot != null)
         DropdownMenuItem(text = { Text(stringResource(R.string.chats_archive_bot)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
             onClick = { menu = false; onArchiveBot?.invoke() })
     }
     ListItem(
         modifier = Modifier.combinedClickable(enabled = !opening, onClick = onOpen,
-            onLongClick = onArchiveBot?.let { { menu = true } }, onLongClickLabel = onArchiveBot?.let { stringResource(R.string.chats_more_actions) })
+            onLongClick = { menu = true }, onLongClickLabel = stringResource(R.string.chats_more_actions))
             .testTag("chat-row:${chat.sessionId}").semantics {
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
+        // Flat, as the row was: the expressive default rounds it and reshapes it on press.
+        shapes = RectangleShape.let { ListItemDefaults.shapes(it, it, it, it, it, it) },
+        // As on iOS: the avatar and chevron sit centred on a two-line row, and the time stays on the name's line.
+        verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
             if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
         },
-        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        // As iMessage does: the dots stand in for the newest post until the reply lands.
+        // As iMessage does: the dots stand in for the newest post until the reply lands. The post gets two lines (#4508).
         supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
-            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
                 if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
+                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.testTag("chat-chevron"), tint = MaterialTheme.colorScheme.outline)
             }
         },
-    )
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
     }
 }
 

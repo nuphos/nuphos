@@ -6,6 +6,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent } from './local-runtime-catalog'
 import { OpenAbConnectError } from './openab-acp-connect'
+import { GROK_BILLING } from './runtime-quota-grok-billing'
 import { ACCOUNT_KEY } from './runtime-quota-shape'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
@@ -30,6 +31,7 @@ export const RUNTIME_QUOTA_PROBE = String.raw`
 const { readFile } = await import('node:fs/promises');
 const { homedir } = await import('node:os');
 const { join } = await import('node:path');
+${GROK_BILLING}
 const SENTINEL = '__NUPHOS_QUOTA__';
 const MAX_BODY_CHARS = 200000;
 let token = '';
@@ -47,28 +49,7 @@ async function lookup() {
   let inferenceOnly = false;
   if (params && params.provider === 'grok') {
     // Grok reports its own billing over ACP, so its credential stays inside Grok.
-    const { spawn } = await import('node:child_process');
-    const billing = await new Promise((resolve, reject) => {
-      const child = spawn('grok', ['agent', '--no-leader', 'stdio'], {
-        env: { ...process.env, GROK_DISABLE_AUTOUPDATER: '1' },
-        stdio: ['pipe', 'pipe', 'ignore'],
-      });
-      const send = message => child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n');
-      const done = (error, result) => { clearTimeout(timer); child.kill(); error ? reject(error) : resolve(result); };
-      const timer = setTimeout(() => done(new Error('Grok did not answer')), 10000);
-      let buffer = '';
-      child.on('error', error => done(error));
-      child.stdout.on('data', chunk => {
-        buffer += chunk;
-        for (let end; (end = buffer.indexOf('\n')) >= 0; buffer = buffer.slice(end + 1)) {
-          let message;
-          try { message = JSON.parse(buffer.slice(0, end)); } catch { continue; }
-          if (message.id === 1) send({ id: 2, method: '_x.ai/billing', params: {} });
-          if (message.id === 2) done(message.error && new Error(message.error.message), message.result);
-        }
-      });
-      send({ id: 1, method: 'initialize', params: { protocolVersion: 1, clientCapabilities: {} } });
-    }).catch(error => ({ error: String(error.message) }));
+    const billing = await grokBilling('grok');
     if (billing.error)
       return /Authentication required/.test(billing.error) ? { error: 'Sign in required' } : { error: billing.error.slice(0, 200) };
     asked = true;
@@ -113,11 +94,15 @@ async function lookup() {
       return { error: 'Sign in required' };
     } else {
       token = oauth.accessToken;
-      if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType) plan = oauth.subscriptionType;
+      // Max 20x is now called Ultra, but Claude Code still stores "max" for it; only the
+      // rate limit tier tells it from Max 5x (as Desktop's agent-cli.ts reads it).
+      if (typeof oauth.subscriptionType === 'string' && oauth.subscriptionType)
+        plan = oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x' ? 'ultra' : oauth.subscriptionType;
     }
     const config = await read(join(homedir(), '.claude.json'));
-    const account = config && config.oauthAccount && config.oauthAccount.accountUuid;
-    if (typeof account === 'string' && account) accountId = account;
+    // One login can sit in several organizations, each with its own plan.
+    const { accountUuid: account, organizationUuid: org } = (config && config.oauthAccount) || {};
+    if (typeof account === 'string' && account && typeof org === 'string' && org) accountId = account + ':' + org;
     url = 'https://api.anthropic.com/api/oauth/usage';
     headers = { authorization: 'Bearer ' + token, 'anthropic-beta': 'oauth-2025-04-20' };
   }
@@ -132,7 +117,7 @@ async function lookup() {
   if (body.length > MAX_BODY_CHARS) return { error: 'Usage response was too large', asked: true };
   const { createHash } = await import('node:crypto');
   const provider = params && params.provider === 'codex' ? 'codex' : 'claude-code';
-  const accountKey = accountId && createHash('sha256').update(provider + ':' + accountId).digest('hex').slice(0, 16);
+  const accountKey = accountId && createHash('sha256').update(provider + ':' + accountId).digest('hex').slice(0, 20);
   return { usage: JSON.parse(body), ...(plan ? { plan } : {}), ...(accountKey ? { accountKey } : {}) };
 }
 
@@ -249,7 +234,7 @@ export async function probeRuntimeQuota(
   if (!client) return { error: 'Agent is offline', offline: true }
 
   if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))
-    return { error: 'This agent runs an image that cannot report usage' }
+    return { error: 'This runtime runs an image that cannot report usage' }
   const raw = await client.runJob(
     {
       jobId: randomUUID(),

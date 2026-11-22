@@ -10,7 +10,6 @@ import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import {
   developmentRuntimeEndpoint,
   listRuntimeInstances,
-  MANAGED_RUNTIME_RETIRED,
   requireRuntimeInstance,
 } from './runtime-catalog'
 import { runtimeLabel as providerLabel } from './runtime-provider'
@@ -72,6 +71,33 @@ async function ownerDefaultRuntimeId(
   })
 }
 
+/**
+ * The runtime a conversation stored before its first turn (a new Bot) is placed on: the one
+ * asked for, else its owner's default, else the team's. A workspace without one refuses,
+ * so no conversation is stored without its runtime.
+ */
+export async function resolveNewConversationRuntime(
+  teamId: string,
+  userId: string,
+  runtimeId?: string,
+): Promise<{ agentRuntime: OpenAbProvider; runtimeId?: string; runtimeLabel?: string }> {
+  const id = runtimeId ?? (await ownerDefaultRuntimeId(teamId, userId, undefined))
+
+  if (id) {
+    const instance = await requireRuntimeInstance(teamId, id, userId)
+
+    return { agentRuntime: instance.provider, runtimeId: instance.id, runtimeLabel: instance.label }
+  }
+  const agentRuntime = await getTeamAgentRuntime(teamId)
+
+  assertClaudeCodeSetupConfigured(
+    (await listTeamRuntimes(teamId, agentRuntime)).length > 0,
+    agentRuntime,
+  )
+
+  return { agentRuntime }
+}
+
 type RoutedConversation =
   | (Pick<
       AgentConversation,
@@ -127,9 +153,7 @@ async function resolveChatRuntime(
     throw new AppError(
       409,
       'runtime_disabled',
-      instance.kind === 'managed'
-        ? MANAGED_RUNTIME_RETIRED
-        : 'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
+      'This conversation’s agent is disabled. Enable it on the Runtimes page, or start a new conversation with another agent.',
     )
   const needsTeamDefault = !instance && !requestedRuntime && !pinned
   const teamDefault = needsTeamDefault && teamId ? await getTeamAgentRuntime(teamId) : 'claude-code'

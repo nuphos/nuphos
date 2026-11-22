@@ -27,8 +27,29 @@ enum BotAvatarTests {
         print("Shared avatar preference migration and conflicting legacy toggles passed")
     }
 
+    /// A Bot's background is learned with its face and gone with it (#3504). AvatarBackgroundUITests checks the paint.
+    private static func backgroundsFollowTheirFace() throws {
+        try MainActor.assumeIsolated {
+            let faces = BotFaces()
+            faces.learn("bot", avatar: "07-ada", background: "sky")
+            precondition(faces.background(for: "bot") == "sky")
+            faces.learn("bot", avatar: "07-ada", background: nil)
+            precondition(faces.background(for: "bot") == nil)
+            // A Task has no background, whatever a row says.
+            faces.learn("bot", avatar: nil, background: "sky")
+            precondition(faces.background(for: "bot") == nil)
+            let row = #"{"id":"b","name":"B","agent":{"avatar":"07-ada","avatarBackground":"mint"}}"#
+            let face = try JSONDecoder().decode(ChatFace.self, from: Data(row.utf8))
+            precondition(face.agent?.avatarBackground == "mint")
+            let agent = try JSONDecoder().decode(ChannelAgent.self, from: Data(#"{"sessionId":"b","title":"B","ownerId":"o","avatar":"07-ada","avatarBackground":"rose"}"#.utf8))
+            precondition(agent.avatarBackground == "rose")
+        }
+        print("Bot avatar backgrounds passed")
+    }
+
     static func run() throws {
         sharedPreferenceSurvivesLegacyConflicts()
+        try backgroundsFollowTheirFace()
         precondition(BotAvatars.notificationIdentity([:]) == nil)
         precondition(BotAvatars.notificationIdentity(["sessionId": "old-session", "teamId": "team"]) == nil)
         precondition(BotAvatars.notificationIdentity(["sessionId": "task", "agentIdentity": ["isBot": false]]) == nil)
@@ -41,7 +62,7 @@ enum BotAvatarTests {
         let legacyBot = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada"]])!
         precondition(legacyBot.provider == nil && BotAvatars.runtimeLogo(legacyBot.provider) == nil)
         for raw in [nil, "", "future-provider"] as [String?] {
-            precondition(RuntimeInstance.Provider.logo(raw) == "logo-runtime")
+            precondition(RuntimeInstance.Provider.logo(raw) == nil)
         }
         for (raw, logo) in [("codex", "openai"), ("claude-code", "claude"), ("grok", "grok"), ("opencode", "opencode"), ("antigravity", "antigravity"), ("dsh", "deepseek")] {
             precondition(RuntimeInstance.Provider.logo(raw) == "logo-" + logo)

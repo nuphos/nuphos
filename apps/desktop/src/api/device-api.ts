@@ -33,7 +33,8 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
-  localRuntimeRefreshModels: () => window.api.localRuntimeRefreshModels(),
+  localRuntimeRefreshModels: (pickerOpened?: boolean) =>
+    window.api.localRuntimeRefreshModels(pickerOpened),
   localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>
     window.api.localRuntimeUpdateAgent(provider),
   localRuntimeInstallAgent: (provider: LocalAgentProvider) =>
@@ -62,7 +63,8 @@ export const deviceApi = {
   deviceAppUpdate: (deviceId: string, teamId: string) =>
     window.api.deviceAppUpdate(deviceId, teamId),
   boxClearCaches: (deviceId: string, teamId: string) => window.api.boxClearCaches(deviceId, teamId),
-  boxDesktop: (deviceId: string, teamId: string) => window.api.boxDesktop(deviceId, teamId),
+  deviceSetAutoInstall: (deviceId: string, teamId: string, enabled: boolean) =>
+    window.api.deviceSetAutoInstall(deviceId, teamId, enabled),
   boxJoinToken: () => window.api.boxJoinToken(),
   sshHosts: () => window.api.sshHosts(),
   sshJoin: (id: string, target: string) => window.api.sshJoin(id, target),

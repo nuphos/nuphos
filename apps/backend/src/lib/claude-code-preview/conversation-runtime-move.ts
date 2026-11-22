@@ -1,23 +1,25 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as sleep } from 'node:timers/promises'
 
-import { pushTimelineEvent } from '@/lib/agent/db/participants'
+import { updateConversationSettings } from '@/lib/agent/db/settings-history'
 import { agentConversations } from '@/lib/agent/db/shared'
-import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
+import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { AppError } from '@/lib/errors'
 
 import { sessionsByConversation } from './agent-chat-registry'
 import { lastFailedPrompt, resendFailedPrompt } from './failed-turn-retry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { runtimeProvider } from './runtime-provider'
 import { runtimeModelCatalog } from './runtime-models'
+import { runtimeProvider } from './runtime-provider'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 import { reclaimSessionHome } from './runtime-session-home'
 import { offeredSessionConfig } from './session-config-catalog'
 import { storedPick } from './session-config-options'
 
 import type { FailedPrompt } from './failed-turn-retry'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { RuntimeFallbackReason } from '@/lib/agent/db/timeline-events'
 
@@ -25,8 +27,9 @@ export async function moveConversationRuntime(
   conversation: AgentConversation,
   targetId: string,
   userId: string,
-  /** A fallback names its reason; `claimed` when the caller already holds the session's run claim. */
-  options: { reason?: RuntimeFallbackReason; claimed?: boolean } = {},
+  /** A fallback names its reason; `claimed` when the caller already holds the session's run claim.
+   *  `by` names who asked and from where; absent, the owner moved it, or a fallback did. */
+  options: { reason?: RuntimeFallbackReason; claimed?: boolean; by?: SettingsChangeBy } = {},
 ) {
   const teamId = conversation.teamId
   const ownerId = conversation.userId
@@ -80,14 +83,12 @@ export async function moveConversationRuntime(
   let retry: FailedPrompt | null | undefined
 
   try {
-    release = options.claimed
-      ? () => {}
-      : await claimAgentRunForSession(ownerId, conversation.sessionId, true)
+    release = options.claimed ? () => {} : await claimSession(conversation, !options.reason)
     if (!release)
       throw new AppError(
         409,
         'conversation_busy',
-        'Wait for the current response to finish before moving this conversation.',
+        'The current response has not stopped yet. Try the move again.',
       )
     const latestTarget = await requireRuntimeInstance(teamId, target.id, userId)
 
@@ -109,19 +110,25 @@ export async function moveConversationRuntime(
     const saved = latest?.claudeCodePreview
       ? storedPick(latest.claudeCodePreview)
       : latest?.initialSessionConfig
-    // Only what the destination offers, as a new conversation's first turn keeps:
-    // its runtime refuses to open a session on any other value.
-    const pick =
-      target.provider === provider
-        ? await offeredSessionConfig(
-            (model) => runtimeModelCatalog(teamId, target.id, model, userId),
-            saved ?? {},
-          ).then(
-            ({ kept }) => kept,
-            () => saved ?? {},
-          )
-        : undefined
-    const result = await agentConversations().updateOne(
+    // The choices the destination still offers, and its own effort and fast
+    // where none is, so the moved Task never runs on a level nobody sees.
+    // Another provider's ids mean nothing there: its choices start over.
+    const sameProvider = target.provider === provider
+    const pick = await offeredSessionConfig(
+      (model) => runtimeModelCatalog(teamId, target.id, model, userId),
+      (sameProvider && saved) || {},
+    ).then(
+      ({ kept }) => kept,
+      () => (sameProvider ? (saved ?? {}) : undefined),
+    )
+    const by: SettingsChangeBy = {
+      ...(options.by ??
+        (options.reason
+          ? { actorId: 'system', via: 'runtime_fallback', reason: options.reason }
+          : { actorId: userId, via: 'runtime_move' })),
+      ...(retry ? { retrying: true as const } : {}),
+    }
+    const result = await updateConversationSettings(
       {
         sessionId: conversation.sessionId,
         teamId,
@@ -142,17 +149,6 @@ export async function moveConversationRuntime(
             movedBy: userId,
           },
         },
-        $push: pushTimelineEvent({
-          kind: 'runtime_moved',
-          at: new Date(),
-          actorId: userId,
-          fromLabel: conversation.runtimeLabel,
-          fromProvider: provider,
-          toLabel: target.label,
-          toProvider: target.provider,
-          ...(options.reason ? { reason: options.reason } : {}),
-          ...(retry ? { retrying: true as const } : {}),
-        }),
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
         // A move leaves the conversation exactly where a brand-new one starts:
         // no session anywhere. It used to mint `openabSessionId: randomUUID()`
@@ -169,6 +165,7 @@ export async function moveConversationRuntime(
           ...(pick ? {} : { initialSessionConfig: '' }),
         },
       },
+      by,
     )
 
     if (!result.matchedCount)
@@ -179,16 +176,48 @@ export async function moveConversationRuntime(
       )
     closeMovedSession(teamId, conversation.sessionId)
   } finally {
-    release?.()
-    await agentConversations().updateOne(
-      { sessionId: conversation.sessionId, teamId, 'runtimeOperation.token': token },
-      { $unset: { runtimeOperation: '' } },
-    )
+    // Unlock first: the release starts any queued message, which a lock refuses.
+    // A failed unlock still releases; the lock expires, the claim would not.
+    try {
+      await agentConversations().updateOne(
+        { sessionId: conversation.sessionId, teamId, 'runtimeOperation.token': token },
+        { $unset: { runtimeOperation: '' } },
+      )
+    } finally {
+      release?.()
+    }
   }
   if (retry) resendFailedPrompt(conversation.sessionId, retry)
   void deliverWaitingAnswers(conversation.sessionId)
 
   return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+}
+
+/** How long a person's move waits for the turn it stopped to end. */
+const STOP_WAIT_MS = 15_000
+
+/**
+ * The session's run claim. A person's move stops the turn holding it, as Stop
+ * does, and takes the claim once that turn has ended; a fallback never stops one.
+ */
+async function claimSession(conversation: AgentConversation, stopTurn: boolean) {
+  const claim = () => claimAgentRunForSession(conversation.userId, conversation.sessionId, true)
+  const release = await claim()
+
+  if (release || !stopTurn) return release
+  // Lazy so importing the move does not pull in the route graph.
+  const { stopConversationTurn } = await import('@/routes/agent/run-cancel')
+
+  await stopConversationTurn(conversation)
+  const until = Date.now() + STOP_WAIT_MS
+  let stopped = await claim()
+
+  while (!stopped && Date.now() < until) {
+    await sleep(250)
+    stopped = await claim()
+  }
+
+  return stopped
 }
 
 /**

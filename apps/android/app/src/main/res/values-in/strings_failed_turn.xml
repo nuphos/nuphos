@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="failed_turn_failed">Giliran gagal.</string>
+    <string name="failed_turn_timed_out">Giliran melewati batas waktu.</string>
+    <string name="failed_turn_stopped">Dihentikan.</string>
+    <string name="failed_turn_retry">Coba lagi</string>
+    <string name="failed_turn_copy">Salin</string>
+    <string name="failed_turn_copied">Disalin</string>
+</resources>

@@ -41,9 +41,9 @@ export async function hop({ call, send, log, sessionId, child }) {
 
   // Its first turn ends before it moves.
   await new Promise((resolve) => setTimeout(resolve, 4_000))
-  const moved = await call(sessionId, 'update_thread', {
+  const moved = await call(sessionId, 'update_task', {
     label: 'Move the thread',
-    threadId,
+    taskId: threadId,
     runtimeId: other?.runtimeId,
   })
   const sent = await shown(tools, 'send_message_to_thread', {
@@ -79,4 +79,24 @@ export async function inherit({ call, log, sessionId, child }) {
     isError: Boolean(message.error ?? message.result?.isError),
     detail: message.error?.message ?? message.result?.content?.[0]?.text,
   })
+}
+
+/** E2E_THREAD: starts a thread that asks for a permission, then tries to move it to Auto Mode. */
+export async function startThread({ call, log, sessionId, marker }) {
+  const started = await call(sessionId, 'create_thread', {
+    label: 'Start a thread',
+    title: 'E2E thread',
+    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
+  })
+  const thread = threadIdOf(started)
+  const change = await call(sessionId, 'update_task', {
+    label: 'Move the thread to Auto Mode',
+    taskId: thread,
+    fullAccess: false,
+  })
+  const refused = Boolean(change.error ?? change.result?.isError)
+
+  log({ sessionId, marker, event: refused ? 'thread-mode-refused' : 'thread-mode-changed' })
+
+  return thread
 }

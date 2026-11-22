@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { diskFullCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
+import { diskFullCopy, noticeCopy, outdatedCopy, reachabilityCopy } from './agentBannerCopy.ts'
 import { agentProblem } from './agentRowFix.ts'
 
 import type { AgentFix, AgentRowViewer } from './agentRowFix.ts'
@@ -70,6 +70,25 @@ test("this computer's own signed-out agent signs in through its CLI, for members
   assert.deepEqual(copy.runs, [{ kind: 'cli', provider: 'claude-code' }])
 })
 
+test('an unusable runtime shows its existing probe guidance instead of signed-out copy', () => {
+  const guidance =
+    "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+  const instance = { ...agent('u-alex', { probeError: guidance }), provider: 'dsh' as const }
+  const calls: AgentFix[] = []
+  const copy = reachabilityCopy(
+    'signIn',
+    { value: instance, options: [instance] },
+    { kind: 'cli', provider: 'dsh' },
+    {
+      run: (fix) => calls.push(fix),
+      canAsk: () => false,
+    },
+  )
+
+  assert.equal(copy.text, guidance)
+  assert.equal(copy.action, null)
+})
+
 test('your own other computer signs in with the runtime sign-in', () => {
   const instance = agent('u-alex', {})
   const copy = banner(instance)
@@ -85,10 +104,14 @@ test("a teammate's computer is left to its owner", () => {
   assert.equal(copy.action, null)
 })
 
-test('offline: your own paused Box resumes, anything else retries, a new chat switches', () => {
-  const paused = agent('u-alex', { online: false, box: { state: 'paused' } })
+test('a paused Box says the send resumes it, with nothing to press', () => {
+  const copy = noticeCopy({ kind: 'paused', label: 'Build Box' }, {})
 
-  assert.deepEqual(banner(paused).runs, [{ kind: 'resume', deviceId: 'd1', runtimeId: paused.id }])
+  assert.equal(copy.text, 'Build Box is paused. It resumes when you send.')
+  assert.equal(copy.action, null)
+})
+
+test('offline: a computer retries, and a new chat switches', () => {
   assert.deepEqual(banner(agent('u-alex', { online: false })).runs, [{ kind: 'retry' }])
 
   let switched = false
@@ -125,7 +148,7 @@ test('once asked, the banner says who, with nothing more to press', () => {
   assert.equal(copy.action, null)
 })
 
-test('a nearly full disk names the computer and how full, and leads to where it is fixed', () => {
+test('a nearly full disk names the computer and how full, and frees space in place', () => {
   let opened = 0
   const copy = diskFullCopy({ label: 'Build Box', percent: 93 }, () => opened++)
 
@@ -133,17 +156,45 @@ test('a nearly full disk names the computer and how full, and leads to where it 
   assert.equal(copy.action?.label, 'Free space')
   copy.action?.run()
   assert.equal(opened, 1)
-  // Without a way to its settings the banner still says why.
+  // With nothing to clear from here the banner still says why.
   assert.equal(diskFullCopy({ label: 'Build Box', percent: 93 }).action, null)
 })
 
-test('an outdated computer is named, and the banner leads to where it is updated', () => {
-  let opened = 0
-  const copy = outdatedCopy('Studio Mac', () => opened++)
+test('an outdated computer is named, and its Update opens the update in place', () => {
+  let confirming = 0
+  const copy = outdatedCopy('Studio Mac', { update: () => confirming++ })
 
   assert.equal(copy.text, 'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail.')
   assert.equal(copy.action?.label, 'Update')
   copy.action?.run()
-  assert.equal(opened, 1)
-  assert.equal(outdatedCopy('Studio Mac').action, null)
+  assert.equal(confirming, 1)
+})
+
+test('an outdated computer this viewer cannot update says who can, with no button', () => {
+  const copy = outdatedCopy('Studio Mac', { hint: 'Ask its owner to update Nuphos on it.' })
+
+  assert.equal(
+    copy.text,
+    'Nuphos on Studio Mac is out of date. Bots and tasks on it may fail. Ask its owner to update Nuphos on it.',
+  )
+  assert.equal(copy.action, null)
+})
+
+test('a nearly full Box this viewer can clear opens Clear caches in place', () => {
+  let confirming = 0
+  const copy = noticeCopy(
+    { kind: 'disk', label: 'Build Box', percent: 93 },
+    { clear: () => confirming++ },
+  )
+
+  assert.equal(copy.action?.label, 'Free space')
+  copy.action?.run()
+  assert.equal(confirming, 1)
+})
+
+test('a nearly full computer with nothing to clear from here says so, with no button', () => {
+  const copy = noticeCopy({ kind: 'disk', label: 'Studio Mac', percent: 93 }, {})
+
+  assert.equal(copy.text, 'Studio Mac’s disk is almost full (93%). Bots and tasks on it may fail.')
+  assert.equal(copy.action, null)
 })

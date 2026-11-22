@@ -299,10 +299,11 @@ class PullRefreshFixtureDeviceTest {
         shot("before-light")
         if (InstrumentationRegistry.getArguments().getString("refreshVideo") == "true") Thread.sleep(5000)
         val reads = historyReads()
+        val favorites = pinReads()
         historyTitle = "Fresh history"
         pull(); waitText("Fresh history"); settled(); shot("success-light")
         assertEquals(reads + 1, historyReads())
-        assertEquals("Pins are gone, so favorites are never read", 0, pinReads())
+        assertTrue("Refreshing also reloads the restored favorites", pinReads() > favorites)
         failHistory = true
         pull(); waitText("Could not refresh tasks. Showing last loaded history."); settled()
         shot("failed-retains-light")
@@ -376,13 +377,16 @@ class PullRefreshFixtureDeviceTest {
         treeHistory = true; entries = "[]"; render()
         compose.runOnIdle { store.refresh() }
         waitText("Synthetic child"); settled()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
+        compose.onNodeWithContentDescription(app.resources.getQuantityString(R.plurals.agent_hide_sub_agents, 1, 1)).performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNode(hasSetTextAction()).performTextInput("Unsent refresh fixture draft")
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         hideKeyboard()
+        compose.onNodeWithTag("new-task-cancel").performClick()
         pull(); settled()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
+        compose.onNodeWithTag("new-task-open").performClick()
         compose.onNodeWithText("Unsent refresh fixture draft").assertExists()
         shot("fold-draft-light")
     }

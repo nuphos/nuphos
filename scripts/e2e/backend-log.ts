@@ -18,6 +18,9 @@ const TOO_LONG =
 const HOST_STOPPED =
   /"event":"agent\.(trigger\.request\.error|chat\.run\.error_frame_appended|channel\.turn_failed)".*Failed to connect to OpenAB ACP endpoint/
 
+// A resume that lost the race with a finished stream, which Desktop starts afresh from (#3684).
+const NOT_RESUMABLE = /code":"stream_not_resumable"/
+
 /** The lines the backend logged since `from` lines in. */
 export function backendLog(from = 0): string[] {
   return readFileSync(logPath('backend'), 'utf8').split('\n').slice(from)
@@ -33,6 +36,7 @@ export function backendFailures(from: number, expected?: RegExp): string[] {
       !EXPECTED_FAILURE.test(line) &&
       !TOO_LONG.test(line) &&
       !HOST_STOPPED.test(line) &&
+      !NOT_RESUMABLE.test(line) &&
       !expected?.test(line),
   )
 }

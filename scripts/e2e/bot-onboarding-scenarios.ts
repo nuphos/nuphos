@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
+import { rmSync, writeFileSync } from 'node:fs'
 
 import { agentEvents } from './agent-log.ts'
 import { client } from './binding-access-scenarios.ts'
+import { loadingFree } from './channel-helpers.ts'
+import { VERIFICATION_HOLD } from './fixture-turn-refusals.mjs'
 import { artifacts, until } from './processes.ts'
 import { send } from './ui.ts'
 
@@ -36,8 +39,18 @@ export const botOnboardingScenarios: Scenario[] = [
       assert.equal(bot.botOnboarding, 'active')
       assert.equal(bot.inputRequests?.length, 1)
       assert.equal((await list(true)).conversations.length, 0)
-      await page.getByText('Getting started', { exact: true }).first().waitFor()
-      assert.equal(await page.getByText(/^Needs your input/).count(), 0)
+      await page
+        .getByText('Getting started', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
+      assert.equal(
+        await page
+          .getByText(/^Needs your input/)
+          .filter({ visible: true })
+          .count(),
+        0,
+      )
       await page.screenshot({ path: `${artifacts}/onboarding-chat.png` })
       await page.getByRole('tab', { name: 'Inbox', exact: true }).click()
       await page
@@ -45,7 +58,11 @@ export const botOnboardingScenarios: Scenario[] = [
         .waitFor({ state: 'hidden' })
       await page.screenshot({ path: `${artifacts}/onboarding-inbox-empty.png` })
       await page.getByRole('tab', { name: /^Bots/ }).click()
-      await page.getByText('Release Helper', { exact: true }).first().click()
+      await page
+        .getByText('Release Helper', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .click()
       await page.reload()
       await page.getByText('Which marker should the fixture use?', { exact: true }).waitFor()
       const resumed = (await list()).conversations.find((row) => row.sessionId === bot.sessionId)!
@@ -60,7 +77,10 @@ export const botOnboardingScenarios: Scenario[] = [
       // so the title-bar pill never says the Bot works elsewhere while it does them.
       const neverElsewhere = async () => {
         for (let i = 0; i < 16; i++) {
-          if ((await page.getByText('Working outside this chat').count()) > 0)
+          if (
+            (await page.getByText('Working outside this chat').filter({ visible: true }).count()) >
+            0
+          )
             throw new Error("The Bot's chat pill says it works outside the chat it answers")
           await page.waitForTimeout(250)
         }
@@ -79,6 +99,7 @@ export const botOnboardingScenarios: Scenario[] = [
       await send(page, 'Still setting up E2E_SLOW E2E_DELIVERY:setup-busy')
       await row.locator('.t-typing-dot').first().waitFor()
       assert.equal(await row.getByText('Getting started', { exact: true }).count(), 0)
+      await loadingFree(row, 'While the Bot in setup works')
       await page.screenshot({ path: `${artifacts}/onboarding-working-light.png` })
       await neverElsewhere()
       await until('the setup-time turn to finish', async () =>
@@ -108,6 +129,37 @@ export const botOnboardingScenarios: Scenario[] = [
         .first()
         .waitFor()
       await page.screenshot({ path: `${artifacts}/normal-work-inbox.png` })
+    },
+  },
+  {
+    name: 'a Bot whose Claude account Anthropic holds for verification says where to verify it',
+    run: async (page, stack) => {
+      const hold = `${stack.acpLog}.verification-hold`
+      const portal = /https:\S+/u.exec(VERIFICATION_HOLD)![0]
+
+      writeFileSync(hold, '')
+      try {
+        await page.getByRole('tab', { name: /^Bots/ }).click()
+        // A Bot already exists here, so New Bot sits in the + menu.
+        await page.getByRole('button', { name: 'New', exact: true }).click()
+        await page.getByRole('menuitem', { name: 'New Bot', exact: true }).click()
+        await page.getByRole('textbox', { name: 'Bot name' }).fill('Verify Helper')
+        await page.getByRole('button', { name: 'Create', exact: true }).click()
+        const line = page.getByText(
+          /couldn’t reply: its .*account must be verified with Anthropic/u,
+        )
+
+        await line.waitFor()
+        // The line names no address: Verify with Anthropic opens the portal Anthropic named.
+        assert.equal(await page.getByText(portal).filter({ visible: true }).count(), 0)
+        const verify = page.getByRole('button', { name: 'Verify with Anthropic', exact: true })
+
+        assert.equal(await verify.getAttribute('href'), portal)
+        await page.getByRole('button', { name: 'Switch runtime', exact: true }).waitFor()
+        await page.screenshot({ path: `${artifacts}/onboarding-verification-light.png` })
+      } finally {
+        rmSync(hold, { force: true })
+      }
     },
   },
 ]

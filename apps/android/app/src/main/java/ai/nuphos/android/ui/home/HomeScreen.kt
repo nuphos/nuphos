@@ -43,6 +43,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.BadgedBox
@@ -109,8 +111,10 @@ import ai.nuphos.android.session.ConnectorIntents
 import ai.nuphos.android.ui.LocalConnectorsStore
 import ai.nuphos.android.ui.connectors.ConnectorsPage
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.material3.Badge
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Inbox
 import androidx.compose.material.icons.rounded.Inbox
 import ai.nuphos.android.ui.LocalAgentStore
@@ -118,9 +122,15 @@ import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalPlansStore
 import ai.nuphos.android.ui.agent.AgentPage
 import ai.nuphos.android.ui.chat.ConversationScreen
+import ai.nuphos.android.ui.chat.NewTaskSheet
+import ai.nuphos.android.ui.chat.LocalNewTaskRequest
+import ai.nuphos.android.session.HomeCreation
 import ai.nuphos.android.ui.components.NuphosAvatar
 import ai.nuphos.android.ui.plans.PlanDetailScreen
+import ai.nuphos.android.ui.chats.CreateBotDialog
 import ai.nuphos.android.ui.profile.ProfileSheet
+import ai.nuphos.android.ui.profile.TwoFactorResume
+import ai.nuphos.android.ui.profile.WorkspacePickerContent
 import ai.nuphos.android.ui.login.SplashScreen
 import androidx.compose.ui.res.stringResource
 import ai.nuphos.android.R
@@ -190,7 +200,7 @@ fun HomeRoute(
                     memberships = { WorkspaceApi(token).memberships() },
                     teamId = { team: ai.nuphos.android.model.Team -> team.id },
                     conversation = { destination ->
-                        NuphosApi.conversationDetail(token, destination.teamId, destination.conversationId)
+                        NuphosApi.conversationDetail(token, destination.teamId, destination.conversationId, tail = 1, runtimeState = false)
                     },
                 ).resolve(request.destination, ::current)
                 // Navigation and workspace mutations require the Android main thread.
@@ -284,14 +294,16 @@ fun HomeRoute(
                         if (membershipsLoading) SplashScreen()
                         // A link or notification can name a chat: it opens as a chat, never as an agent.
                         else if (!fresh && agentStore.channel(id) != null)
-                            ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
-                        else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack("home", false) }, nav = nav,
+                            ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                                onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
+                        else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack() }, nav = nav,
                             newChat = wide)
                     }
                     composable("channel/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
                         if (membershipsLoading) SplashScreen()
-                        else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack("home", false) })
+                        else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
                     }
                     composable("plan/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
@@ -315,6 +327,7 @@ fun HomeScreen(
     listVisible: Boolean = true,
 ) {
     val store = LocalAgentStore.current
+    val toolbarFocus = androidx.compose.ui.platform.LocalFocusManager.current
     var page by rememberSaveable { mutableStateOf(HomePage.launch(store.rememberedHasChats).route) }
     // Once chats load, the launch page is corrected unless the viewer already picked one or opened something.
     var pagePicked by rememberSaveable { mutableStateOf(false) }
@@ -328,15 +341,30 @@ fun HomeScreen(
     }
     val shares = (LocalContext.current.applicationContext as ai.nuphos.android.NuphosApplication).incomingShares
     val shared by shares.state.collectAsState()
-    LaunchedEffect(shared?.id, shared?.destination) {
-        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) page = HomePage.Agent.route
-    }
     val current = HomePage.fromRoute(page)
     val unavailablePage = HomePage.unavailableRoute(page)
     var searching by rememberSaveable { mutableStateOf(false) }
-    var showProfile by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    var showProfile by remember { mutableStateOf(TwoFactorResume.pending(context)) }
     var showSetup by remember { mutableStateOf(false) }
     val auth = LocalAuthSession.current
+    var showWorkspacePicker by remember(user.id, auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    var showRuntimes by remember(user.id, auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    var showNewBot by remember(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    var showNewTask by rememberSaveable(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    var showCreateMenu by remember(auth.generation, store.workspaceRevision, AiAccess.revision) { mutableStateOf(false) }
+    LaunchedEffect(shared?.id, shared?.destination) {
+        if (shared?.destination?.destination == ai.nuphos.android.session.ComposerDrafts.Destination.NewChat) {
+            page = HomePage.Agent.route
+            showRuntimes = false; showWorkspacePicker = false; showProfile = false; showCreateMenu = false
+        }
+    }
+    val selectedRuntime = auth.user?.id?.let { account ->
+        store.selectedTeam?.id?.let { team -> auth.runtimeSelections.bind(account, team) }
+    }
+    val canCreate = auth.aiAllowed && store.selectedTeam != null &&
+        HomeCreation.canStart(store.creationRuntimes)
+    val botRuntime = HomeCreation.botRuntime(store.creationRuntimes, selectedRuntime?.selectedId)
     val setupScope = rememberCoroutineScope()
     val setupStrings = androidx.compose.ui.platform.LocalResources.current
     var setupEpoch by remember { mutableStateOf(0L) }
@@ -388,7 +416,8 @@ fun HomeScreen(
     }
 
     val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inbox?.waiting?.size ?: 0)
-    val profileLabel = stringResource(R.string.shell_profile)
+    val profileLabel = stringResource(R.string.home_toolbar_account)
+    val switchTeamLabel = stringResource(R.string.home_toolbar_switch_team)
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -419,17 +448,54 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
-
+                    if (store.teams.isNotEmpty()) {
+                        TextButton(
+                            onClick = { toolbarFocus.clearFocus(); showWorkspacePicker = true },
+                            modifier = Modifier.testTag("home-workspace-picker").semantics { contentDescription = switchTeamLabel },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+                        ) {
+                            Text(
+                                store.selectedTeam?.name ?: stringResource(R.string.home_toolbar_choose_team),
+                                maxLines = 1,
+                                style = MaterialTheme.typography.titleMedium,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Icon(painterResource(R.drawable.home_toolbar_chevron_down), contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
+                    } else {
+                        Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 actions = {
-                    PageSwitcher(selected = current, onSelect = ::selectPage,
-                        pages = listOf(HomePage.Runtimes, HomePage.Connectors))
-                    if (current == HomePage.Agent || current == HomePage.Chats) {
-                        IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
-                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
+                    Box {
+                        IconButton(
+                            onClick = { toolbarFocus.clearFocus(); showCreateMenu = true },
+                            enabled = canCreate,
+                            modifier = Modifier.testTag("home-create"),
+                        ) {
+                            Icon(painterResource(R.drawable.home_toolbar_plus),
+                                contentDescription = stringResource(R.string.home_toolbar_create), modifier = Modifier.size(20.dp))
                         }
+                        DropdownMenu(expanded = showCreateMenu && canCreate, onDismissRequest = { showCreateMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.home_toolbar_new_bot)) },
+                                leadingIcon = { Icon(painterResource(R.drawable.home_tab_bots), null) },
+                                onClick = { if (canCreate && botRuntime != null && !store.creatingBot) { showCreateMenu = false; showNewBot = true } },
+                                enabled = canCreate && botRuntime != null && !store.creatingBot,
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.home_toolbar_new_task)) },
+                                leadingIcon = { Icon(painterResource(R.drawable.home_tab_tasks), null) },
+                                onClick = { if (canCreate) { showCreateMenu = false; showNewTask = true } },
+                                enabled = canCreate,
+                            )
+                        }
+                    }
+                    IconButton(onClick = { toolbarFocus.clearFocus(); showRuntimes = true }, modifier = Modifier.testTag("home-runtimes")) {
+                        Icon(painterResource(R.drawable.home_toolbar_monitor),
+                            contentDescription = stringResource(R.string.home_toolbar_runtimes), modifier = Modifier.size(20.dp))
                     }
                     FilledIconButton(
                         onClick = { showProfile = true },
@@ -451,6 +517,16 @@ fun HomeScreen(
                 .padding(padding)
                 .consumeWindowInsets(padding),
         ) {
+            if (store.selectedTeam != null) Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(current.label), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                PageSwitcher(selected = current, onSelect = ::selectPage, pages = listOf(HomePage.Connectors))
+                    if (current == HomePage.Agent || current == HomePage.Chats) {
+                        IconButton(onClick = { searching = !searching }, modifier = Modifier.testTag("home-search")) {
+                            Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.shell_search))
+                        }
+                    }
+            }
             if (store.selectedTeam == null && store.teamsPhase == AgentStore.Phase.Loaded) {
                 Column(Modifier.fillMaxWidth().weight(1f).padding(20.dp), verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally) {
@@ -465,8 +541,10 @@ fun HomeScreen(
             } else {
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
-                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible)
-                    HomePage.Agent -> AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
+                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible, showCreateButton = false)
+                    HomePage.Agent -> CompositionLocalProvider(LocalNewTaskRequest provides { showNewTask = true }) {
+                        AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
+                    }
                     HomePage.Inbox -> {
                         val consent = AiAccess.revision
                         val team = store.selectedTeam?.id
@@ -482,24 +560,51 @@ fun HomeScreen(
             }
         }
     }
+    val workspacePicker: @Composable (() -> Unit) -> Unit = { back ->
+        WorkspacePickerContent(
+            teams = store.teams,
+            selectedId = store.selectedTeam?.id,
+            onBack = back,
+            onSelect = { team ->
+                setup.close()
+                showSetup = false
+                if (store.selectedTeam?.id != team.id) nav.popBackStack("home", false)
+                store.select(team)
+                back()
+            },
+            onSetup = {
+                back()
+                showProfile = false
+                showSetup = true
+            },
+        )
+    }
+    if (showNewBot) CreateBotDialog(nav, requireCurrentRuntime = true) { showNewBot = false }
+    if (showNewTask && auth.aiAllowed) NewTaskSheet(nav) { showNewTask = false }
+    if (showWorkspacePicker) {
+        ModalBottomSheet(onDismissRequest = { showWorkspacePicker = false }) {
+            workspacePicker { showWorkspacePicker = false }
+        }
+    }
+    if (showRuntimes) {
+        ModalBottomSheet(onDismissRequest = { showRuntimes = false; store.refreshRuntimes() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.home_toolbar_runtimes), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                IconButton(onClick = { showRuntimes = false; store.refreshRuntimes() }, modifier = Modifier.testTag("home-runtimes-close")) {
+                    Icon(Icons.Outlined.Close, stringResource(R.string.home_toolbar_close_workspace))
+                }
+            }
+            ai.nuphos.android.ui.agent.RuntimesPage()
+        }
+    }
     if (showSetup) WorkspaceSetupSheet(setup) { showSetup = false }
     if (showProfile) {
-        ProfileSheet(user = user, onDismiss = { showProfile = false }, workspaceName = store.selectedTeam?.name,
-            workspacePicker = { back ->
-                ai.nuphos.android.ui.profile.WorkspacePickerContent(
-                    teams = store.teams,
-                    selectedId = store.selectedTeam?.id,
-                    onBack = back,
-                    onSelect = { team ->
-                        // Membership and generation validation remain in AgentStore.select.
-                        setup.close(); showSetup = false
-                        if (store.selectedTeam?.id != team.id) nav.popBackStack("home", false)
-                        store.select(team)
-                        back()
-                    },
-                    onSetup = { back(); showProfile = false; showSetup = true },
-                )
-            })
+        ProfileSheet(
+            user = user,
+            onDismiss = { showProfile = false },
+            workspaceName = store.selectedTeam?.name,
+            workspacePicker = workspacePicker,
+        )
     }
 }
 
@@ -526,6 +631,7 @@ internal fun PageSwitcher(
     val expandedLabel = stringResource(R.string.shell_expanded)
     val collapsedLabel = stringResource(R.string.shell_collapsed)
     val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inboxCount)
+    val pageLabels = pages.map { stringResource(it.label) }
     Box(modifier) {
         TextButton(
             onClick = { expanded = true },
@@ -533,8 +639,8 @@ internal fun PageSwitcher(
             modifier = Modifier.heightIn(min = 48.dp).focusRequester(anchorFocus).testTag("home-page-switcher")
                 .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel },
         ) {
-            if (pages.size == 2) {
-                Icon(Icons.Outlined.MoreVert, contentDescription = "${stringResource(HomePage.Runtimes.label)}, ${stringResource(HomePage.Connectors.label)}")
+            if (pages.size <= 2) {
+                Icon(Icons.Outlined.MoreVert, contentDescription = pageLabels.joinToString(", "))
             } else {
                 Text(stringResource(selected.label), style = MaterialTheme.typography.headlineSmall,
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))

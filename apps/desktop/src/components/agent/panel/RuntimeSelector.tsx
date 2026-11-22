@@ -45,7 +45,7 @@ export type RuntimeControl = {
    *  conversation — the one it moves to. Absent, the list still shows each agent's
    *  state and fixes, with nothing to pick. */
   onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
-  /** Nothing can be picked right now (a turn is streaming, or a move is in flight). */
+  /** Nothing can be picked right now: a move is in flight. A running turn does not block one (#4619). */
   selectDisabled?: boolean
   /** The runtime this conversation is bound to is disabled or gone. */
   unavailable?: boolean
@@ -106,7 +106,6 @@ export function RuntimeSelector({
   /** Offers a first item that clears the choice, labelled with emptyLabel. */
   onClear?: () => void
 }) {
-  const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
   const [internalOpen, setInternalOpen] = useState(false)
@@ -149,7 +148,7 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} />}
+      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} chip />}
       {dot && (
         <span
           role="img"
@@ -187,7 +186,7 @@ export function RuntimeSelector({
         <MenuTrigger
           data-keep=""
           aria-label={t('Runtime: {label}', { label })}
-          title={`${label} · ${providerName}`}
+          title={value ? `${label} · ${AGENT_PROVIDER[value.provider].label}` : label}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >
           {content}

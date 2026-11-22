@@ -19,6 +19,7 @@
 import AppKit
 import CoreMedia
 import Darwin
+import IOKit.pwr_mgt
 import ScreenCaptureKit
 import VideoToolbox
 
@@ -209,7 +210,7 @@ nonisolated final class Encoder: @unchecked Sendable {
                 if CMVideoFormatDescriptionGetH264ParameterSetAtIndex(format, parameterSetIndex: index, parameterSetPointerOut: &pointer,
                                                                       parameterSetSizeOut: &size, parameterSetCountOut: nil,
                                                                       nalUnitHeaderLengthOut: nil) == noErr, let pointer {
-                    out += start + Array(UnsafeBufferPointer(start: pointer, count: size))
+                    out += start + declaringNoReordering(Array(UnsafeBufferPointer(start: pointer, count: size)))
                 }
             }
         }
@@ -229,6 +230,101 @@ nonisolated final class Encoder: @unchecked Sendable {
         }
         return out
     }
+}
+
+/// The SPS among a keyframe's parameter sets, saying that frames are never
+/// reordered, which the encoder already guarantees (AllowFrameReordering is
+/// off) but does not write down. Without it a Mac's hardware decoder, the
+/// Desktop viewer's in Chromium, keeps every frame until its buffer fills,
+/// while noVNC waits for each frame before asking for the next: the viewer
+/// never shows one (#2954). Adds the VUI's bitstream_restriction with
+/// max_num_reorder_frames 0. Any other unit, or an SPS laid out otherwise, is
+/// returned as it is.
+func declaringNoReordering(_ unit: [UInt8]) -> [UInt8] {
+    struct Unreadable: Error {}
+    guard unit.first.map({ $0 & 0x1F == 7 }) == true else { return unit }
+    // The payload without its emulation prevention bytes.
+    var raw: [UInt8] = []
+    var zeros = 0
+    for byte in unit.dropFirst() {
+        if zeros >= 2, byte == 3 { zeros = 0; continue }
+        raw.append(byte)
+        zeros = byte == 0 ? zeros + 1 : 0
+    }
+    var at = 0
+    func bits(_ count: Int) throws -> Int {
+        var value = 0
+        for _ in 0..<count {
+            guard at < raw.count * 8 else { throw Unreadable() }
+            value = value << 1 | Int(raw[at >> 3] >> (7 - UInt8(at & 7)) & 1)
+            at += 1
+        }
+        return value
+    }
+    func golomb() throws -> Int {
+        var length = 0
+        while try bits(1) == 0 {
+            length += 1
+            if length > 31 { throw Unreadable() }
+        }
+        return (1 << length) - 1 + (try bits(length))
+    }
+    // H.264 7.3.2.1.1 and E.1.1, up to the flag this sets.
+    let restriction: Int
+    let references: Int
+    do {
+        let profile = try bits(8)
+        _ = try bits(16)  // constraint flags and level
+        _ = try golomb()  // seq_parameter_set_id
+        if [100, 110, 122, 244, 44, 83, 86, 118, 128].contains(profile) {
+            if try golomb() == 3 { _ = try bits(1) }  // chroma format
+            _ = try golomb(); _ = try golomb(); _ = try bits(1)  // bit depths, transform bypass
+            guard try bits(1) == 0 else { return unit }  // scaling matrices
+        }
+        _ = try golomb()  // log2_max_frame_num
+        // pic_order_cnt_type 2 already means display order is decode order.
+        guard try golomb() == 0 else { return unit }
+        _ = try golomb()  // log2_max_pic_order_cnt_lsb
+        references = try golomb()
+        _ = try bits(1); _ = try golomb(); _ = try golomb()  // gaps, width, height
+        if try bits(1) == 0 { _ = try bits(1) }  // frame_mbs_only
+        _ = try bits(1)  // direct_8x8_inference
+        if try bits(1) == 1 { for _ in 0..<4 { _ = try golomb() } }  // cropping
+        guard try bits(1) == 1 else { return unit }  // VUI
+        if try bits(1) == 1, try bits(8) == 255 { _ = try bits(32) }  // aspect ratio
+        if try bits(1) == 1 { _ = try bits(1) }  // overscan
+        if try bits(1) == 1 { _ = try bits(4); if try bits(1) == 1 { _ = try bits(24) } }  // video signal
+        if try bits(1) == 1 { _ = try golomb(); _ = try golomb() }  // chroma location
+        if try bits(1) == 1 { _ = try bits(32); _ = try bits(32); _ = try bits(1) }  // timing
+        guard try bits(2) == 0 else { return unit }  // HRD parameters
+        _ = try bits(1)  // pic_struct_present
+        restriction = at
+        guard try bits(1) == 0 else { return unit }  // restricted already
+    } catch {
+        return unit
+    }
+    var out = (0..<restriction).map { Int(raw[$0 >> 3] >> (7 - UInt8($0 & 7)) & 1) }
+    func put(_ value: Int, _ count: Int) { for shift in (0..<count).reversed() { out.append(value >> shift & 1) } }
+    func putGolomb(_ value: Int) {
+        let length = Int.bitWidth - (value + 1).leadingZeroBitCount
+        put(0, length - 1)
+        put(value + 1, length)
+    }
+    // The flag; motion vectors may cross picture edges; no byte, bit or vector
+    // limits (the defaults); no reordering; a buffer of the reference frames.
+    put(0b11, 2)
+    for value in [2, 1, 15, 15, 0, references] { putGolomb(value) }
+    put(1, 1)  // rbsp_stop_one_bit
+    while out.count % 8 != 0 { out.append(0) }
+    var result = [unit[0]]
+    zeros = 0
+    for start in stride(from: 0, to: out.count, by: 8) {
+        let byte = UInt8(out[start..<start + 8].reduce(0) { $0 << 1 | $1 })
+        if zeros >= 2, byte <= 3 { result.append(3); zeros = 0 }
+        result.append(byte)
+        zeros = byte == 0 ? zeros + 1 : 0
+    }
+    return result
 }
 
 // MARK: - Input
@@ -623,6 +719,22 @@ nonisolated final class Viewer: NSObject, SCStreamOutput, @unchecked Sendable {
     }
 }
 
+// MARK: - Display
+
+/// A sleeping display is not there to capture, so a screen opened then showed nothing (#4518).
+/// `wake` wakes it, and `find` is asked again while it comes back.
+func awakeDisplay<Display>(wake: () -> Void, find: () async throws -> Display?) async throws -> Display? {
+    if let display = try await find() { return display }
+    wake()
+    // By the clock, not by the count: a lookup takes its own time.
+    let deadline = Date().addingTimeInterval(5)
+    while Date() < deadline {
+        try await Task.sleep(nanoseconds: 250_000_000)
+        if let display = try await find() { return display }
+    }
+    return nil
+}
+
 // MARK: - Main
 
 unlink(socketPath)
@@ -672,8 +784,16 @@ Thread.detachNewThread {
         }
         Task {
             do {
-                let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-                guard let display = content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first else {
+                let display = try await awakeDisplay(wake: {
+                    // What a key press does, and as little: the display sleeps again on its own timer.
+                    var activity: IOPMAssertionID = 0
+                    IOPMAssertionDeclareUserActivity("A viewer opened this Mac's screen" as CFString, kIOPMUserActiveLocal, &activity)
+                }, find: {
+                    let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+                    return content.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content.displays.first
+                })
+                guard let display else {
+                    fputs("mac-screen-host: no display to show, even after waking it\n", stderr)
                     Darwin.close(fd)
                     return
                 }

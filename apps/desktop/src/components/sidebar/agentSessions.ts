@@ -67,3 +67,14 @@ export const retitleChat = (
   relist(client, teamId, (rows) =>
     rows.map((row) => (row.sessionId === sessionId ? { ...row, title } : row)),
   )
+
+/** A Bot's instructions its owner just saved show at once, before the next listing. */
+export const setChatInstructions = (
+  client: QueryClient,
+  teamId: string,
+  sessionId: string,
+  instructions: string,
+) =>
+  relist(client, teamId, (rows) =>
+    rows.map((row) => (row.sessionId === sessionId ? { ...row, instructions } : row)),
+  )

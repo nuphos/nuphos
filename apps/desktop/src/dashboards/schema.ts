@@ -29,7 +29,11 @@ export type PanelSnapshotErrorKind =
   | 'invalid_output'
   | 'runtime_unavailable'
   | 'runtime_outdated'
+  // No agent could run it: the team has none, and its author has no Box.
+  | 'no_runtime'
   | 'author_unavailable'
+  // The message's first line is "Not connected: <integration>".
+  | 'not_connected'
   // Only on snapshots from the retired sandbox executor.
   | 'sandbox_expired'
   | 'internal'

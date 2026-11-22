@@ -6,7 +6,12 @@ import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
 import { usePersonalCredentialsGithub } from '@/lib/test/doubles/personal-credentials-github'
 
-import { personalGithubToken, personalGoogleToken, personalLinearToken } from './handout'
+import {
+  ownPersonalCredentialOptions,
+  personalGithubToken,
+  personalGoogleToken,
+  personalLinearToken,
+} from './handout'
 
 import type { ProviderTokens } from './github'
 import type { EncryptedSecret } from '@/lib/byos/secrets'
@@ -42,6 +47,9 @@ useModels({
     ({
       findOne: (filter: Record<string, unknown>) =>
         Promise.resolve(rows.find((row) => matches(row, filter)) ?? null),
+      find: (filter: Record<string, unknown>) => ({
+        toArray: () => Promise.resolve(rows.filter((row) => matches(row, filter))),
+      }),
       updateOne: (
         filter: Record<string, unknown>,
         update: { $set: Partial<PersonalCredential> },
@@ -160,6 +168,30 @@ describe('personalLinearToken', () => {
 
     expect(await personalLinearToken('user-1', 'org-1')).toMatchObject({ token: 'lin_access' })
     expect(await personalLinearToken('user-1', 'org-2')).toBeNull()
+  })
+})
+
+describe('ownPersonalCredentialOptions', () => {
+  test('offers every own credential, Google ones only in the team that issued them', async () => {
+    const other = new ObjectId().toHexString()
+
+    rows = [
+      credential({ provider: 'github', login: 'octocat' }),
+      credential({ provider: 'linear', login: 'Octo Cat' }),
+      credential({ provider: 'gmail', login: 'octo@example.com', teamId: TEAM }),
+      credential({ provider: 'google-calendar', login: 'octo@example.com', teamId: TEAM }),
+      credential({ provider: 'google-drive', login: 'octo@example.com', teamId: other }),
+      credential({ userId: 'user-2', provider: 'gmail', teamId: TEAM }),
+    ]
+
+    const options = await ownPersonalCredentialOptions('user-1', TEAM)
+
+    expect(options.map(({ provider, login }) => ({ provider, login }))).toEqual([
+      { provider: 'github', login: 'octocat' },
+      { provider: 'linear', login: 'Octo Cat' },
+      { provider: 'gmail', login: 'octo@example.com' },
+      { provider: 'google-calendar', login: 'octo@example.com' },
+    ])
   })
 })
 

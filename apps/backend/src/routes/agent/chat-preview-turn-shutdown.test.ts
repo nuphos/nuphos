@@ -1,5 +1,5 @@
-// A replica that shuts down mid-turn saves what streamed so far and hands the
-// session on; the runtime keeps running the turn.
+// A replica that shuts down mid-turn saves what streamed so far and leaves the
+// turn running; shutdown hands the session on (runtime-handoff.test.ts).
 import '@/routes/agent'
 
 import { beforeEach, expect, test } from 'bun:test'
@@ -7,19 +7,16 @@ import { beforeEach, expect, test } from 'bun:test'
 import type { PreviewAgentUpdate } from '@/lib/claude-code-preview/openab-acp-client'
 import type { UIMessage } from 'ai'
 
-import { publishRuntimeHandoffs } from '@/lib/claude-code-preview/runtime-handoff'
 import { RunHandoff } from '@/lib/lifecycle'
 import { useChatPreviewFinish } from '@/lib/test/doubles/chat-preview-finish'
 import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
-import { useRedis } from '@/lib/test/doubles/redis'
 
 const ENDPOINT = { url: 'ws://openab-team-t1.openab-runtimes.svc:8080/acp', authKey: 'k' }
 const seen = {
   handedOff: [] as Record<string, unknown>[],
   finishes: 0,
   interruptions: 0,
-  published: [] as Record<string, string>[],
   released: 0,
 }
 let admitted: () => void = () => {}
@@ -75,17 +72,6 @@ useChatPreviewFinish({
     return Promise.resolve()
   },
 })
-useRedis({
-  withRedis: (op) =>
-    op({
-      hset: (_key: string, fields: Record<string, string>) => {
-        seen.published.push(fields)
-
-        return Promise.resolve(1)
-      },
-    } as never),
-})
-
 const { runClaudeCodePreviewChatTurn } = await import('./chat-preview-turn')
 const { createAgentRun } = await import('./run-registry')
 
@@ -93,7 +79,6 @@ beforeEach(() => {
   seen.handedOff = []
   seen.finishes = 0
   seen.interruptions = 0
-  seen.published = []
   seen.released = 0
 })
 
@@ -140,15 +125,4 @@ test('shutdown hands a running turn off instead of ending it', async () => {
       errorText: expect.stringContaining('kept running'),
     }),
   ])
-
-  expect(await publishRuntimeHandoffs()).toBe(1)
-  const [published] = seen.published
-
-  expect(JSON.parse(published?.['team-1:conv-live'] ?? '{}')).toMatchObject({
-    teamId: 'team-1',
-    conversationId: 'conv-live',
-    ownerUserId: 'owner',
-    actorUserId: 'actor',
-    locale: 'zh-TW',
-  })
 })

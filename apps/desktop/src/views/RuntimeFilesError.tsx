@@ -2,10 +2,12 @@ import { FileQuestion, RefreshCw } from 'lucide-react'
 
 import { EmptyState } from '../components/EmptyState'
 import { Button } from '../components/ui/button'
+import { useOpenChatLabel } from '../hooks/useOpenChatLabel'
 import { t } from '../i18n'
 
 /** A preview failure belongs to its file and source, not to unrelated chats. */
 export function RuntimeFilesError({
+  teamId,
   error,
   errorCode,
   filePath,
@@ -13,6 +15,7 @@ export function RuntimeFilesError({
   onRetry,
   onOpenConversation,
 }: {
+  teamId: string
   error: string
   errorCode?: string
   filePath: string
@@ -20,6 +23,8 @@ export function RuntimeFilesError({
   onRetry: () => void
   onOpenConversation: (sessionId: string) => void
 }) {
+  const openLabel = useOpenChatLabel(teamId, source?.sessionId)
+
   return (
     <EmptyState
       icon={FileQuestion}
@@ -30,7 +35,7 @@ export function RuntimeFilesError({
           {errorCode === 'forbidden_path' && (
             <p className="mt-2">
               {t(
-                'Ask the agent in the source conversation to share a copy from its workspace, then open the new link.',
+                'Ask the source conversation to share a copy from its workspace, then open the new link.',
               )}
             </p>
           )}
@@ -44,7 +49,7 @@ export function RuntimeFilesError({
                 size="sm"
                 onClick={() => onOpenConversation(source.sessionId)}
               >
-                {t('Open conversation')}
+                {openLabel}
               </Button>
             </div>
           )}

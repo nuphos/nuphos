@@ -108,7 +108,7 @@ export function WorkspaceAgentPane({
     [workspaceActions],
   )
   const handleOpenAgentSettings = useCallback(
-    () => openSettingsSection('workspace.agent'),
+    () => openSettingsSection('workspace.computers'),
     [openSettingsSection],
   )
   const handleImportConsumed = useCallback(
@@ -157,7 +157,7 @@ export function WorkspaceAgentPane({
           {/* Drag area sits beside Share (no no-drag hole); it clips so chips never cover Share. */}
           <div
             key={`heading-${selectedSessionId ?? 'home'}`}
-            className="t-session-heading titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
+            className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary"
           >
             {selectedSessionId && (
               // A Task is its runtime here, even a Bot's: the face belongs to its chat.
@@ -200,6 +200,7 @@ export function WorkspaceAgentPane({
               currentUserId={user.id}
               canManage={mayRename}
               compact={compact}
+              onOpenComputers={() => openSettingsSection('workspace.computers')}
             />
           )}
           {savedSessionId && (

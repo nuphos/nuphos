@@ -29,7 +29,7 @@ rl.on('line', (line) => {
 })
 `
 
-async function withShim(provider, run, agentScript = FAKE_AGENT) {
+async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRefusal) {
   const home = await mkdtemp(join(tmpdir(), 'nuphos-shim-test-'))
   const input = new PassThrough()
   const output = new PassThrough()
@@ -51,7 +51,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     runtimeEnv: { HOME: home, PATH: process.env.PATH },
     spawnAgent: (command, env) => {
       const child = spawn(process.execPath, ['-e', agentScript], {
-        env,
+        env: { ...env, FAKE_STATUS_PORT: command.includes('--port') ? command.at(-1) : '' },
         stdio: ['pipe', 'pipe', 'inherit'],
       })
       children.push({ command, child })
@@ -61,6 +61,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     settleMs: 20,
     refusalPollMs: 50,
     refusalQuietMs: 200,
+    ...(readOpenCodeRefusal ? { readOpenCodeRefusal } : {}),
   })
   let id = 0
   const call = (method, params) =>
@@ -155,7 +156,14 @@ test('opencode shares only its own data directory with the runtime home', async 
     await call('initialize', { protocolVersion: 1 })
     const { seen } = (await call('session/new', session('Be Nuphos.'))).result
 
-    assert.deepEqual(children[1].command, ['opencode', 'acp'])
+    assert.deepEqual(children[1].command.slice(0, 5), [
+      'opencode',
+      'acp',
+      '--hostname',
+      '127.0.0.1',
+      '--port',
+    ])
+    assert.ok(Number(children[1].command[5]) > 0)
     assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
     // The rest of XDG_DATA_HOME stays the conversation's own.
     assert.equal(seen.env.XDG_DATA_HOME, join(seen.env.HOME, '.local', 'share'))
@@ -191,7 +199,8 @@ test('a link the OS refuses never fails the turn, and Windows gets a junction', 
       ])
 
       assert.match(reply.result?.seen?.env.HOME ?? '', /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
-      assert.equal(links.length, 2)
+      // OpenCode's two links and Gradle's caches.
+      assert.equal(links.length, 3)
       // Node makes a junction from this on Windows and ignores it elsewhere.
       for (const args of links) assert.equal(args[2], 'junction')
     })
@@ -581,35 +590,57 @@ test('pi runs through the pi-acp adapter and gets the session MCP servers as its
   })
 })
 
-test('a pi turn the provider refused shows why, which pi-acp drops', async () => {
-  await withShim('pi', async ({ call, home, notifications }) => {
-    await call('initialize', { protocolVersion: 1 })
-    await call('session/new', session('Be Nuphos.'))
-    const { mkdir, readdir, writeFile } = await import('node:fs/promises')
-    const sessions = join(home, '.nuphos', 'session-homes')
-    const [sessionHome] = await readdir(sessions)
-    const folder = join(sessions, sessionHome, '.pi', 'agent', 'sessions', '--workspace--')
-    await mkdir(folder, { recursive: true })
-    const failed = {
-      type: 'message',
-      message: {
-        role: 'assistant',
-        content: [],
-        stopReason: 'error',
-        errorMessage: '401 invalid x-api-key',
-      },
-    }
-    await writeFile(
-      join(folder, '2026-11-15T00-00-00-000Z_s1.jsonl'),
-      `{"type":"session"}\n${JSON.stringify(failed)}\n`,
-    )
-    await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
-    const shown = notifications.filter(
-      (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
-    )
-    assert.equal(shown.length, 1)
-    assert.match(shown[0].params.update.content.text, /401 invalid x-api-key/u)
-  })
+// pi-acp as it answers a provider's refusal: Pi records the error in its session file
+// (here a prompt over the model's context, then the context_edit Pi adds), and pi-acp
+// ends the turn as if Pi had replied.
+const PI_REFUSED = `
+const fs = require('node:fs')
+const path = require('node:path')
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/new') return reply(m.id, { sessionId: 's1', configOptions: [] })
+  if (m.method !== 'session/prompt') return reply(m.id, {})
+  const text = m.params.prompt.at(-1).text
+  const folder = path.join(process.env.PI_CODING_AGENT_DIR, 'sessions', '--workspace--')
+  fs.mkdirSync(folder, { recursive: true })
+  const entry = (e) => JSON.stringify(e) + '\\n'
+  fs.writeFileSync(path.join(folder, '2026-11-18T00-00-00-000Z_s1.jsonl'),
+    text === 'too long'
+      ? entry({ type: 'message', message: { role: 'assistant', stopReason: 'error', errorMessage: '400: request (46055 tokens) exceeds the available context size (8192 tokens)' } }) +
+        entry({ type: 'context_edit', targetId: 'm1', replacement: [] })
+      : entry({ type: 'message', message: { role: 'assistant', stopReason: 'stop', content: [] } }))
+  reply(m.id, { stopReason: 'end_turn' })
+})
+`
+
+test("a provider's refusal fails Pi's turn with the provider's words", async () => {
+  await withShim(
+    'pi',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1, clientCapabilities: {} })
+      await call('session/new', session('Be Nuphos.'))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+
+      const refused = await prompt('too long')
+      assert.equal(refused.result, undefined)
+      assert.deepEqual(refused.error, {
+        code: -32603,
+        message:
+          'Internal error: The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)',
+      })
+      // The failure is the turn's answer, never a reply the agent seems to have written.
+      assert.equal(
+        notifications.some((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk'),
+        false,
+      )
+      assert.deepEqual((await prompt('hi')).result, { stopReason: 'end_turn' })
+    },
+    PI_REFUSED,
+  )
 })
 
 // OpenCode 1.19 stand-in: a prompt never answers on its own, as when OpenCode retries a
@@ -630,63 +661,49 @@ rl.on('line', (line) => {
 })
 `
 
-const openCodeLog = (home) => join(home, '.local', 'share', 'opencode', 'log', 'opencode.log')
-const streamError = (at, sessionId, small, error) =>
-  `timestamp=${at} level=ERROR run=r1 message="stream error" providerID=opencode modelID=big-pickle session.id=${sessionId} small=${small} agent=build mode=primary error.error="${error}"\n`
 const LIMIT =
-  'AI_APICallError: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+  'Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
 
-test('an opencode turn its provider refuses ends with OpenCode’s own error instead of hanging (#3630)', async () => {
+test('an opencode turn its provider refuses fails with OpenCode’s own error instead of hanging (#3630, #3705)', async () => {
+  let refusal
   await withShim(
     'opencode',
-    async ({ call, home, notifications }) => {
+    async ({ call, notifications }) => {
       await call('initialize', { protocolVersion: 1 })
       await call('session/new', session('Be Nuphos.'))
-      const { appendFile, mkdir } = await import('node:fs/promises')
-      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
-      // An earlier turn's error, and the title request's, end nothing.
-      await appendFile(
-        openCodeLog(home),
-        streamError(new Date(Date.now() - 60_000).toISOString(), 'ses_1', false, LIMIT) +
-          streamError(new Date().toISOString(), 'ses_1', true, LIMIT),
-      )
       const answered = call('session/prompt', {
         sessionId: 'ses_1',
         prompt: [{ type: 'text', text: 'hi' }],
       })
       const early = await Promise.race([answered, new Promise((r) => setTimeout(r, 300, 'open'))])
       assert.equal(early, 'open', 'a retrying turn stays open until OpenCode reports why')
-      await appendFile(
-        openCodeLog(home),
-        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
-      )
+      refusal = LIMIT
       const reply = await Promise.race([answered, new Promise((r) => setTimeout(r, 5000, 'hung'))])
 
-      assert.notEqual(reply, 'hung', 'the turn ends once OpenCode logged the refusal')
-      assert.equal(reply.result.stopReason, 'end_turn')
-      const shown = notifications.filter(
-        (n) => n.params?.update?.sessionUpdate === 'agent_message_chunk',
-      )
-      assert.equal(shown.length, 1)
+      assert.notEqual(reply, 'hung', 'the turn ends once OpenCode reports the refusal')
+      // A failed turn, as Pi's: every client shows why, a Bot's chat included (#3705).
+      assert.equal(reply.result, undefined)
+      assert.equal(reply.error.code, -32603)
       assert.match(
-        shown[0].params.update.content.text,
-        /^The model provider refused the request: Free usage limit reached\./u,
+        reply.error.message,
+        /^Internal error: The model provider refused the request: Free usage limit reached\./u,
+      )
+      // Never a reply the agent seems to have written.
+      assert.equal(
+        notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+          .length,
+        0,
       )
     },
     STALLED_OPENCODE,
+    async (_endpoint, id) => (id === 'ses_1' ? refusal : undefined),
   )
 })
 
-test('an opencode turn that answers is left alone, whatever another session logged', async () => {
-  await withShim('opencode', async ({ call, home, notifications }) => {
+test('an opencode turn that answers is left alone', async () => {
+  await withShim('opencode', async ({ call, notifications }) => {
     await call('initialize', { protocolVersion: 1 })
     await call('session/new', session('Be Nuphos.'))
-    const { appendFile, mkdir } = await import('node:fs/promises')
-    await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
-    await appendFile(
-      openCodeLog(home),
-      streamError(new Date().toISOString(), 'ses_other', false, LIMIT),
-    )
     const reply = await call('session/prompt', {
       sessionId: 's1',
       prompt: [{ type: 'text', text: 'hi' }],
@@ -700,7 +717,7 @@ test('an opencode turn that answers is left alone, whatever another session logg
   })
 })
 
-test('an opencode turn still answering is never ended for a refusal in its log', async () => {
+test('an opencode turn still answering is never ended for a refusal', async () => {
   // Streams for a while, then answers: a refusal OpenCode retried past.
   const streaming = `
 const rl = require('node:readline').createInterface({ input: process.stdin })
@@ -718,15 +735,9 @@ rl.on('line', (line) => {
 `
   await withShim(
     'opencode',
-    async ({ call, home, notifications, children }) => {
+    async ({ call, notifications }) => {
       await call('initialize', { protocolVersion: 1 })
       await call('session/new', session('Be Nuphos.'))
-      const { appendFile, mkdir } = await import('node:fs/promises')
-      await mkdir(join(home, '.local', 'share', 'opencode', 'log'), { recursive: true })
-      await appendFile(
-        openCodeLog(home),
-        streamError(new Date().toISOString(), 'ses_1', false, LIMIT),
-      )
       const reply = await call('session/prompt', {
         sessionId: 'ses_1',
         prompt: [{ type: 'text', text: 'hi' }],
@@ -740,5 +751,103 @@ rl.on('line', (line) => {
       assert.equal(text, 'x'.repeat(12), 'only the agent’s own words')
     },
     streaming,
+    async () => LIMIT,
+  )
+})
+
+test('an OpenCode status response cannot cancel a turn that resumed while it was in flight', async () => {
+  const resumes = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/cancel') return say({jsonrpc:'2.0', id: 3, result:{stopReason:'cancelled'}})
+  if (m.id === undefined) return
+  if (m.method !== 'session/prompt') return say({jsonrpc:'2.0', id:m.id, result:m.method === 'session/new' ? {sessionId:'ses_1',configOptions:[]} : {}})
+  setTimeout(() => say({jsonrpc:'2.0',method:'session/update',params:{sessionId:'ses_1',update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text:'resumed'}}}}), 300)
+  setTimeout(() => say({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}}), 450)
+})
+
+`
+  let calls = 0
+  await withShim(
+    'opencode',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const result = await call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+
+      assert.equal(result.result.stopReason, 'end_turn')
+      assert.ok(calls > 0)
+      assert.ok(notifications.some((item) => item.params?.update?.content?.text === 'resumed'))
+    },
+    resumes,
+    async () => {
+      calls++
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return LIMIT
+    },
+  )
+})
+
+test('OpenCode retries without endpoint flags if it exits before initialize', async () => {
+  const failsWithFlags = `if (process.env.FAKE_STATUS_PORT) process.exit(9);\n${FAKE_AGENT}`
+
+  await withShim(
+    'opencode',
+    async ({ call, children, exits }) => {
+      const result = await Promise.race([
+        call('initialize', { protocolVersion: 1 }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 3000)),
+      ])
+
+      assert.equal(result.result?.seen.method, 'initialize')
+      assert.deepEqual(children[0].command.slice(0, 2), ['opencode', 'acp'])
+      assert.deepEqual(children[1].command, ['opencode', 'acp'])
+      assert.deepEqual(exits, [])
+      const opened = await call('session/new', session(''))
+
+      assert.equal(opened.result.sessionId, 's1')
+    },
+    failsWithFlags,
+  )
+})
+
+test('OpenCode shim reads its spawned process status over authenticated HTTP', async () => {
+  const serverAgent = `
+const http = require('node:http')
+const rl = require('node:readline').createInterface({input:process.stdin})
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+http.createServer((req,res) => {
+  const expected = 'Basic ' + Buffer.from('opencode:' + process.env.OPENCODE_SERVER_PASSWORD).toString('base64')
+  if (req.headers.authorization !== expected || !req.url.includes('directory=')) { res.writeHead(401); return res.end() }
+  res.setHeader('content-type','application/json')
+  res.end(JSON.stringify({ses_1:{type:'retry',message:'Free usage exceeded',action:{reason:'free_tier_limit'}}}))
+}).listen(Number(process.env.FAKE_STATUS_PORT), '127.0.0.1')
+let prompt
+rl.on('line', line => {
+  const m=JSON.parse(line)
+  if (m.method==='session/cancel' && prompt) return say({jsonrpc:'2.0',id:prompt,result:{stopReason:'cancelled'}})
+  if (m.id === undefined) return
+  if (m.method==='session/prompt') { prompt=m.id; return }
+  say({jsonrpc:'2.0',id:m.id,result:m.method==='session/new'?{sessionId:'ses_1',configOptions:[]}:{}})
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const reply = await Promise.race([
+        call('session/prompt', { sessionId: 'ses_1', prompt: [{ type: 'text', text: 'hi' }] }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 5000)),
+      ])
+
+      assert.match(reply.error?.message ?? '', /Free usage exceeded/)
+    },
+    serverAgent,
   )
 })

@@ -1,4 +1,5 @@
 import clsx from 'clsx'
+import { Inbox } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
@@ -16,7 +17,7 @@ import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
 import { ReplyButton } from './ReplyButton'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 export type Links = {
@@ -24,11 +25,13 @@ export type Links = {
   onLinkClick?: (href: string, beside?: boolean) => boolean
   /** The chat: its files load through it, so every member sees them. */
   channelId: string
+  /** The chat's agents, named as a post's `@Name` addresses them. */
+  agentMentions?: AgentMessageMention[]
 }
 
 /**
- * One post: yours on the right, everyone else's in a bubble on the left. The
- * first post of a run carries the avatar and name; an agent's open its session.
+ * One post: yours on the right in a bubble a shade apart, everyone else's on
+ * the left in one filled bubble, agent or person alike. The first post of a run carries the avatar and name; an agent's open its session.
  */
 export function ChannelMessage({
   message,
@@ -42,6 +45,7 @@ export function ChannelMessage({
   onOpenSession,
   onMenu,
   onReply,
+  answeredInInbox,
 }: {
   message: AgentPersistedMessage
   /** When it was posted: the exact time shows on hover. */
@@ -60,6 +64,8 @@ export function ChannelMessage({
   onMenu?: (event: ReactMouseEvent) => void
   /** Replies to the post from the button beside it on hover; absent where the viewer cannot. */
   onReply?: () => void
+  /** The last post of an answer given in the Inbox: it says so beneath. */
+  answeredInInbox?: boolean
 }) {
   const metadata = parseMessageMetadata(message.metadata)
   const text = textOf(message)
@@ -79,7 +85,8 @@ export function ChannelMessage({
       renderLink={links.renderLink}
       onLinkClick={links.onLinkClick}
     >
-      {linkMentions(text, metadata.mentions)}
+      {/* People last, so a person keeps a name an agent shares. */}
+      {linkMentions(text, [...(links.agentMentions ?? []), ...(metadata.mentions ?? [])])}
     </MessageResponse>
   )
 
@@ -89,7 +96,16 @@ export function ChannelMessage({
     <ChannelFiles files={files} teamId={teamId} channelId={links.channelId} mine={mine} />
   )
   const files = shown({ ...posted, downloads: [] })
-  const quote = metadata.replyTo && <ReplyQuote reply={metadata.replyTo} />
+  // In the bubble it replies with; above a reply of files alone.
+  const quote = metadata.replyTo && (
+    <ReplyQuote reply={metadata.replyTo} mine={mine && Boolean(text)} />
+  )
+  const answered = answeredInInbox && (
+    <span className="flex items-center gap-1 px-1 text-[11px] leading-4 text-tertiary">
+      <Inbox size={11} aria-hidden />
+      {t('Answered in Inbox')}
+    </span>
+  )
   const post = {
     'data-post-id': message.id,
     title: exactTime(at),
@@ -102,34 +118,33 @@ export function ChannelMessage({
 
   if (mine)
     return (
-      // The quote sits above the row, so your face stays level with your words.
-      <div className="flex w-full flex-col items-end gap-1">
-        {quote && <div className="flex max-w-[85%] justify-end pr-[2.375rem]">{quote}</div>}
-        <div className="group/post flex w-full items-start justify-end gap-2.5">
-          {onReply && <ReplyButton onReply={onReply} />}
-          <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
-            {files}
-            {text && (
-              <div
-                className={clsx(
-                  'user-message-bubble max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
-                  fresh && 't-bubble-in-mine',
-                )}
-              >
-                {body}
-              </div>
-            )}
-          </div>
-          <div className="w-7 shrink-0">
-            {first && (
-              <Avatar
-                src={trustedAvatarURL(sender.avatarURL)}
-                name={sender.displayName}
-                size={28}
-                className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-              />
-            )}
-          </div>
+      <div className="group/post flex w-full items-start justify-end gap-2.5">
+        {onReply && <ReplyButton onReply={onReply} />}
+        <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-end gap-1 rounded-2xl">
+          {!text && quote}
+          {files}
+          {text && (
+            <div
+              className={clsx(
+                'user-message-bubble chat-bubble-mine max-w-full rounded-2xl rounded-tr-md px-3.5 py-2 break-words',
+                fresh && 't-bubble-in-mine',
+              )}
+            >
+              {quote}
+              {body}
+            </div>
+          )}
+          {answered}
+        </div>
+        <div className="w-7 shrink-0">
+          {first && (
+            <Avatar
+              src={trustedAvatarURL(sender.avatarURL)}
+              name={sender.displayName}
+              size={28}
+              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
+            />
+          )}
         </div>
       </div>
     )
@@ -173,7 +188,7 @@ export function ChannelMessage({
             )}
           </div>
         )}
-        {quote}
+        {!text && quote}
         {files}
         {text && (
           <div
@@ -182,10 +197,12 @@ export function ChannelMessage({
               fresh && 't-bubble-in',
             )}
           >
+            {quote}
             {body}
           </div>
         )}
         {shown({ ...posted, uploads: [] })}
+        {answered}
       </div>
       {onReply && <ReplyButton onReply={onReply} />}
     </div>

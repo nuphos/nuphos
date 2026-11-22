@@ -42,6 +42,9 @@ function start(userId: string, sessionId: string, released = false): void {
     // Expected, and already reported to whoever sent the messages (runTurn).
     if (error instanceof AppError && error.code === 'runtime_offline')
       logEvent('warn', 'agent.pending_messages.queued_turn_offline', fields)
+    // A move stopped the turn and holds the session; its own release starts the queue there.
+    else if (error instanceof AppError && error.code === 'runtime_moving')
+      logEvent('info', 'agent.pending_messages.queued_turn_moving', fields)
     else logError('agent.pending_messages.queued_turn_failed', error, fields)
   })
 }
@@ -79,9 +82,9 @@ export function queuedTurnSettled(userId: string, sessionId: string): void {
 }
 
 /**
- * A turn took these messages and could not run them. A queued message goes
- * back to the front, counted, and the queue retries after a wait rather than
- * on the release that follows.
+ * A turn took these messages and could not run them. They go back to the
+ * front, each counted, and the queue retries after a wait rather than on the
+ * release that follows. Only the head's count sets that wait.
  */
 export async function requeueTurnQueue(
   userId: string,
@@ -104,7 +107,11 @@ export async function requeueTurnQueue(
 
   // A waiting head is the backstop's to start, or a release's.
   if (!retryAfter) retryQueuedTurn(userId, sessionId)
-  await requeuePendingAtHead(userId, sessionId, [{ ...queued, attempts, retryAfter }, ...carried])
+  // Counted, each one runs on the retry although the refused turn stored it (turn-history).
+  await requeuePendingAtHead(userId, sessionId, [
+    { ...queued, attempts, retryAfter },
+    ...carried.map((entry) => ({ ...entry, attempts: (entry.attempts ?? 0) + 1 })),
+  ])
 }
 
 /**

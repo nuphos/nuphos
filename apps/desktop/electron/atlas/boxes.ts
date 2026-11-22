@@ -1,5 +1,4 @@
 import { signedIn, stillCurrent } from '../account-request.ts'
-import { readDeviceMetrics } from '../main/device-metrics.ts'
 import { desktopPath } from '../runtime-desktop-path.ts'
 
 import { call } from './client.ts'
@@ -34,30 +33,8 @@ function listQuery(metrics: boolean, teamId: string | undefined): string {
   return query.size ? `?${query.toString()}` : ''
 }
 
-export async function listAgentDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList> {
-  const demand = options?.metrics === true
-  const [list, metrics] = await Promise.all([
-    call<AgentDeviceList>('GET', `/agent/devices${listQuery(demand, options?.teamId)}`),
-    demand ? readDeviceMetrics() : null,
-  ])
-
-  if (!demand) return list
-  const { readDeviceIdentity } = await import('../main/device-identity.ts')
-  const { deviceId } = readDeviceIdentity()
-
-  return {
-    ...list,
-    devices: list.devices.map((device) =>
-      device.deviceId === deviceId
-        ? {
-            ...device,
-            metrics,
-            metricsStatus: metrics ? 'live' : 'waiting',
-            metricsReceivedAt: metrics ? new Date().toISOString() : null,
-          }
-        : device,
-    ),
-  }
+export function listAgentDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList> {
+  return call('GET', `/agent/devices${listQuery(options?.metrics === true, options?.teamId)}`)
 }
 export function createBox(
   label?: string,
@@ -167,12 +144,6 @@ export function setBoxAccess(
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(
-  deviceId: string,
-  teamId: string,
-): Promise<{ url: string; label: string }> {
-  return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
-}
 /** Has the conversation's Box hold a desktop for it, or with `runtime/<id>` a computer its own screen. */
 export function openSessionDesktop(
   teamId: string,
@@ -192,7 +163,11 @@ export function boxJoinToken(): Promise<{
 }> {
   return call('POST', '/agent/devices/join-tokens', { expiresInSec: 3600 }, { retry: false })
 }
-export function deleteBox(deviceId: string, teamId: string): Promise<{ ok: true }> {
+/** Deletes a Box; `machineLeft` when instabox could not stop its machine, which may still run. */
+export function deleteBox(
+  deviceId: string,
+  teamId: string,
+): Promise<{ ok: true; machineLeft?: true }> {
   return call('DELETE', box(deviceId, '', teamId), undefined, { retry: false })
 }
 

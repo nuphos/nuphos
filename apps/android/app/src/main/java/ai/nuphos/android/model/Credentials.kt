@@ -156,10 +156,12 @@ data class CredentialSelection(
         return copy(ids = ids + (item.provider.selectionKey to set))
     }
 
-    /** Fresh composer defaults; mail remains an explicit opt-in. Never used for stored chats. */
+    /**
+     * Fresh composer defaults, the member's own Personal Credentials included, as the desktop's
+     * `defaultCredentialAccess`; mail remains an explicit opt-in. Never used for stored chats.
+     */
     fun selectDefaults(catalog: CredentialCatalog): CredentialSelection {
-        // Never the member's own GitHub / Linear: a chat acts as them only when they pick it.
-        val usable = catalog.allItems.filter { !it.unavailable && it.provider.selectionKey != "personalCredentialIds" }
+        val usable = catalog.allItems.filter { !it.unavailable }
         val defaults = usable.groupBy { it.provider.selectionKey }.mapValues { (_, items) -> items.map { it.id }.toSet() }
         return copy(newConversation = true, ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } +
             defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()) + ("trelloIntegrationIds" to emptySet()))
@@ -205,9 +207,29 @@ data class CredentialSelection(
             .filter { json[it]?.isNull == false }.toSet(),
     )
 
+    /**
+     * What a stored selection reaches: each kind the server reads as every one when unset, and that
+     * it left unset, ticked in full, so the picker shows what the agent can use and an edit there
+     * stores it as a list (#4034). The desktop's `TEAM_WIDE_WHEN_UNSET`.
+     */
+    fun reaching(catalog: CredentialCatalog?): CredentialSelection {
+        val kinds = stored ?: return this
+        val unset = catalog?.allItems.orEmpty()
+            .filter { it.provider.selectionKey in TEAM_WIDE_WHEN_UNSET && it.provider.selectionKey !in kinds }
+            .groupBy { it.provider.selectionKey }
+        return copy(ids = ids + unset.mapValues { (key, items) -> ids[key].orEmpty() + items.map { it.id } })
+    }
+
     fun pruned(catalog: CredentialCatalog): CredentialSelection {
         val valid = catalog.allItems.groupBy { it.provider.selectionKey }.mapValues { e -> e.value.map { it.id }.toSet() }
         return copy(ids = ids.mapValues { (key, set) -> set.intersect(valid[key] ?: emptySet()) })
+    }
+
+    companion object {
+        private val TEAM_WIDE_WHEN_UNSET = setOf(
+            "githubInstallationIds", "gitlabBindingIds", "grafanaInstanceIds", "sonarqubeIntegrationIds",
+            "notionIntegrationIds", "upstashAccountIds", "cloudflareAccountIds", "instaboxAccountIds", "personalCredentialIds",
+        )
     }
 }
 

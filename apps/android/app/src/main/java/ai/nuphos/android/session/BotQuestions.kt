@@ -7,17 +7,28 @@ import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.model.InputRequest
 
 /** An open question a Bot's chat shows: one request and the conversation that asked it. */
-data class BotQuestion(val sessionId: String, val title: String, val request: InputRequest) {
+data class BotQuestion(
+    val sessionId: String,
+    val title: String,
+    val request: InputRequest,
+    val sourceBot: AgentConversation? = null,
+    /** The asking session's runtime, for the mark a Task shows in place of a face. */
+    val runtime: String? = null,
+) {
+    val sourceId: String get() = sourceBot?.sessionId ?: sessionId
+    val sourceTitle: String get() = sourceBot?.displayTitle ?: title
     val id: String get() = "$sessionId:${request.id}"
 
     /** The conversation that asked, opened in the app like any Nuphos link. */
     fun link(teamId: String): String = "${ai.nuphos.android.data.NuphosWeb.SITE_URL}/teams/$teamId/agent/$sessionId"
 
     /**
-     * Answered in words, "Other…": never a plan, approved or rejected, nor a credential or connection.
+     * Answered in words, "Other…": never a plan, approved or rejected, nor a connection.
      * An integration question naming nothing to select, e.g. a service Nuphos cannot connect, takes words.
+     * A credential takes words only beside its options, never as its value (#4029).
      */
-    val typed: Boolean get() = request.category != "credential" && !connectable && request.planId == null
+    val typed: Boolean get() = request.planId == null && !connectable &&
+        (request.category != "credential" || (request.secretName == null && !request.options.isNullOrEmpty()))
 
     /**
      * The member's own credentials an integration question names, answered only by adding them to
@@ -128,9 +139,34 @@ object BotQuestions {
     fun open(rows: List<AgentConversation>): List<BotQuestion> = open(rows, includeOnboarding = false)
 
     private fun open(rows: List<AgentConversation>, includeOnboarding: Boolean): List<BotQuestion> {
-        return rows.distinctBy { it.sessionId }
+        val conversations = rows.distinctBy { it.sessionId }.associateBy { it.sessionId }
+        fun sourceBot(row: AgentConversation): AgentConversation? {
+            val visited = mutableSetOf<String>()
+            var current: AgentConversation? = row
+            while (current != null && visited.add(current.sessionId)) {
+                if (current.isBot) return current
+                current = current.parentSessionId?.let(conversations::get)
+                    ?.takeIf { it.teamId == row.teamId }
+            }
+            return null
+        }
+
+        return conversations.values
             .filter { it.isOwner == true }
-            .flatMap { row -> row.inputRequests.orEmpty().filter { includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference" }.map { BotQuestion(row.sessionId, row.displayTitle, it) } }
+            .flatMap { row ->
+                val requests = row.inputRequests.orEmpty().filter {
+                    includeOnboarding || row.botOnboarding !in setOf("pending", "active") || it.category != "preference"
+                }
+                val bot = if (requests.isEmpty()) null else sourceBot(row)
+                requests.map { BotQuestion(row.sessionId, row.displayTitle, it, bot, row.agentRuntime) }
+            }
             .sortedWith(compareBy({ it.request.askedAt.orEmpty() }, { it.id }))
     }
+
+    /** Newest groups first, oldest question first within each group. */
+    fun grouped(questions: List<BotQuestion>): List<List<BotQuestion>> =
+        questions.groupBy { it.sourceId }.values.sortedWith(
+            compareByDescending<List<BotQuestion>> { it.last().request.askedAt.orEmpty() }
+                .thenByDescending { it.first().sourceId },
+        )
 }

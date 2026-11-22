@@ -15,6 +15,7 @@ const CHAT = 'admin-chat'
 
 let role: NuphosTeamRole = 'VIEWER'
 let caller = MEMBER
+let pipeline: unknown[] = []
 
 // What each collection answers: a single usage group, and the conversation it belongs to.
 const answers: Record<string, unknown[]> = {
@@ -49,7 +50,14 @@ const answering = (collection: string) => {
     return cursor
   }
 
-  return { find: read, aggregate: () => read() }
+  return {
+    find: read,
+    aggregate: (stages: unknown[]) => {
+      pipeline = stages
+
+      return read()
+    },
+  }
 }
 
 useDb({ db: () => ({ collection: answering }) })
@@ -106,13 +114,12 @@ describe('/usage/query', () => {
     expect((await read(MEMBER, 'VIEWER')).names.conversation).toEqual({ [CHAT]: 'Pricing plan' })
   })
 
-  test('another member’s private conversation comes back only as the merged row', async () => {
-    answers.agent_conversations = [
-      { sessionId: CHAT, title: 'Pricing plan', userId: ADMIN, generalAccess: 'none' },
-    ]
-    const answer = await read(MEMBER, 'EDITOR')
+  // The merge itself runs in the database; usage-query.mongo.test.ts checks it against MongoDB.
+  test('the query hides other members’ private conversations from the caller', async () => {
+    await read(MEMBER, 'EDITOR')
 
-    expect(answer.rows.map((row) => row.keys)).toEqual([{ conversation: 'private:others' }])
-    expect(JSON.stringify(answer)).not.toContain(CHAT)
+    expect(JSON.stringify(pipeline)).toContain(
+      JSON.stringify({ $ne: ['$conversation.userId', MEMBER] }),
+    )
   })
 })

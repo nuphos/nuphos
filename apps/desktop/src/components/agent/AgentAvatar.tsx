@@ -1,6 +1,7 @@
-import { useAgentAvatarPick } from '../../lib/agentAvatarChoices'
+import { useAgentAvatarBackground, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
+import { botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
 import { botAvatarFile } from '../../lib/botAvatars'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 
@@ -16,6 +17,7 @@ import type { AgentProvider } from '../../types/runtime'
 export function AgentAvatar({
   agentId,
   avatar,
+  avatarBackground,
   provider,
   size = 24,
   sidebar = false,
@@ -27,6 +29,8 @@ export function AgentAvatar({
   agentId: string
   /** The picked avatar as last fetched; a newer pick seen anywhere in the app wins. */
   avatar?: string
+  /** The tint its face sits on, as last fetched; like `avatar`, a newer one seen in the app wins. */
+  avatarBackground?: string
   provider?: AgentProvider | null
   size?: number
   sidebar?: boolean
@@ -41,6 +45,9 @@ export function AgentAvatar({
 }) {
   const seen = useAgentAvatarPick(agentId)
   const picked = face ? (seen === undefined ? avatar : seen) : undefined
+  const seenBackground = useAgentAvatarBackground(agentId)
+  const background = seen === undefined ? avatarBackground : seenBackground
+  const tint = botAvatarBackgroundColor(background)
   const running = runtimeTurnActive(useAgentRuntimeStates().get(agentId))
   const uploaded = trustedAvatarURL(picked)
   // A face takes the Bots list's 36px; a Runtime icon a Tasks row's 22px.
@@ -66,14 +73,26 @@ export function AgentAvatar({
               style={{ width: box, height: box }}
             />
           ) : (
-            <BotAvatarImage
-              file={botAvatarFile(agentId, picked)}
-              looping={looping || (animated && running)}
-              className="absolute left-0 top-0 object-contain"
-              style={{ width: box, height: box }}
-            />
+            <>
+              {/* Behind the character, unclipped: a head may break out of the disc. */}
+              {tint && (
+                <span
+                  data-avatar-background={background ?? undefined}
+                  className="absolute left-0 top-0 rounded-full"
+                  style={{ width: box, height: box, background: tint }}
+                />
+              )}
+              <BotAvatarImage
+                file={botAvatarFile(agentId, picked)}
+                looping={looping || (animated && running)}
+                className="absolute left-0 top-0 object-contain"
+                style={{ width: box, height: box }}
+              />
+            </>
           )}
-          {showBadge && <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />}
+          {showBadge && provider && (
+            <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />
+          )}
         </>
       ) : (
         <span className="inline-flex size-4">{runtime}</span>
@@ -83,7 +102,7 @@ export function AgentAvatar({
 }
 
 /** Decorative runtime disc on a Bot's face. */
-function AgentRuntimeBadge({ provider, size }: { provider?: AgentProvider | null; size: number }) {
+function AgentRuntimeBadge({ provider, size }: { provider: AgentProvider; size: number }) {
   return (
     <span
       aria-hidden="true"

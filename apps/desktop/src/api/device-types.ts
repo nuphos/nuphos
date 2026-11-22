@@ -190,6 +190,8 @@ export type DeviceMetrics = {
   cpuPercent: number
   memory: { used: number; total: number }
   disk: { used: number; total: number }
+  /** When this host last saw the kernel's OOM kill count rise (Linux): it stopped a process for memory. */
+  oomKilledAt?: string
 }
 
 export type DeviceMetricsStatus = 'offline' | 'unsupported' | 'waiting' | 'stale' | 'live'
@@ -221,6 +223,7 @@ export type AgentDevice = {
   desktopRuntimeId?: string // The viewer's own computer: the runtime id that opens its screen.
   app?: { version: string; update?: { version: string; ready: boolean } } // The viewer's other computer's Nuphos Desktop.
   outdated?: 'desktop' | 'cli' // Which Nuphos on it is older than the backend supports.
+  autoInstall?: boolean // Whether it updates itself when idle; absent while it is offline or older.
 }
 
 export type AgentDeviceList = {

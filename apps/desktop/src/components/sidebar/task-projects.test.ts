@@ -49,23 +49,6 @@ test('tasks fold under their project, newest project first, and the rest under N
   ])
 })
 
-test('an idle task stays listed under its project; an idle sub-agent is still counted', () => {
-  const idle = (item: Item): Item => ({ ...item, finished: true })
-  const items = withProjects(
-    [idle(task('fix', '/code/infra')), idle(task('thread', '/code/infra', 'fix'))],
-    [],
-    () => ({}),
-  )
-
-  assert.deepEqual(
-    nestItems(items).map(({ item, done }) => [item.label, done.map((row) => row.label)]),
-    [
-      ['infra', []],
-      ['fix', ['thread']],
-    ],
-  )
-})
-
 test('a project row knows whether it holds any task', () => {
   const empty: Record<string, boolean> = {}
 

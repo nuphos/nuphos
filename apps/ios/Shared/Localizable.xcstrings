@@ -1110,6 +1110,52 @@
         }
       }
     },
+    "%lld needs input" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld necesita tu respuesta"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld perlu masukan Anda"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件が入力待ち"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld개 입력 필요"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รอคำตอบจากคุณ %lld รายการ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 个需要你的回复"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 個需要你的回覆"
+          }
+        }
+      }
+    },
     "%lld percent used" : {
       "localizations" : {
         "es" : {
@@ -1945,94 +1991,48 @@
         }
       }
     },
-    "A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account." : {
+    "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Una computadora Linux que Nuphos ejecuta por ti, con Claude Code, Codex, OpenCode y otros agentes. Inicia sesión con tu propia cuenta."
+            "value" : "Una computadora Linux que ejecuta Nuphos, con Claude Code, Codex, OpenCode y más. Las computadoras en ejecución cuentan para los vCPU de tu plan; las pausadas no."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code, Codex, OpenCode, dan agen lainnya. Masuk dengan akun Anda sendiri."
+            "value" : "Komputer Linux yang dijalankan Nuphos, dengan Claude Code, Codex, OpenCode, dan lainnya. Komputer yang berjalan dihitung dalam vCPU paket Anda; yang dijeda tidak."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos が運用する Linux コンピューターです。Claude Code、Codex、OpenCode などのエージェントを搭載しています。ご自身のアカウントでサインインします。"
+            "value" : "Nuphos が実行する、Claude Code、Codex、OpenCode などを搭載した Linux コンピューターです。実行中のコンピューターはプランの vCPU に含まれ、一時停止中のものは含まれません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos가 대신 운영하는 Linux 컴퓨터로, Claude Code, Codex, OpenCode 등의 에이전트가 포함되어 있습니다. 본인 계정으로 로그인하세요."
+            "value" : "Nuphos가 실행하는, Claude Code, Codex, OpenCode 등이 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 플랜의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง"
+            "value" : "คอมพิวเตอร์ Linux ที่ Nuphos รันให้ พร้อม Claude Code, Codex, OpenCode และอื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "由 Nuphos 为你运行的 Linux 电脑，内置 Claude Code、Codex、OpenCode 等 agent。使用你自己的账号登录。"
+            "value" : "由 Nuphos 运行、内置 Claude Code、Codex、OpenCode 等的 Linux 电脑。运行中的电脑会计入套餐的 vCPU 额度，已暂停的则不计入。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "由 Nuphos 為你代管的 Linux 電腦，內建 Claude Code、Codex、OpenCode 等 agent。使用你自己的帳號登入。"
-          }
-        }
-      }
-    },
-    "A Linux computer with Claude Code, Codex, OpenCode and other agents on it. Running computers count against your plan's vCPU; paused ones do not." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Una computadora Linux con Claude Code, Codex, OpenCode y otros agentes. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Komputer Linux dengan Claude Code, Codex, OpenCode, dan agen lainnya. Komputer yang berjalan dihitung dalam vCPU paket Anda; yang dijeda tidak."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude Code、Codex、OpenCode などのエージェントを搭載した Linux コンピューターです。実行中のコンピューターはプランの vCPU に含まれ、一時停止中のものは含まれません。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Claude Code, Codex, OpenCode 등의 에이전트가 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 플랜의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "คอมพิวเตอร์ Linux ที่มี Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "内置 Claude Code、Codex、OpenCode 等 agent 的 Linux 电脑。运行中的电脑会计入套餐的 vCPU 额度，已暂停的则不计入。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "內建 Claude Code、Codex、OpenCode 等 agent 的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。"
+            "value" : "由 Nuphos 執行、內建 Claude Code、Codex、OpenCode 等的 Linux 電腦。執行中的電腦會計入方案的 vCPU 額度，已暫停的則不計入。"
           }
         }
       }
@@ -2911,6 +2911,52 @@
         }
       }
     },
+    "Administrators rent computers from Nuphos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los administradores alquilan computadoras de Nuphos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administrator menyewa komputer dari Nuphos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos からのコンピューターのレンタルは管理者が行います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 컴퓨터 대여는 관리자가 합니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ดูแลระบบเป็นผู้เช่าคอมพิวเตอร์จาก Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由管理员向 Nuphos 租用电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由管理員向 Nuphos 租用電腦。"
+          }
+        }
+      }
+    },
     "After signing in, copy the code shown on the page and paste it here." : {
       "localizations" : {
         "es" : {
@@ -3372,48 +3418,48 @@
         }
       }
     },
-    "Answered “%@”" : {
+    "Answered in Inbox" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Respondido “%@”"
+            "value" : "Respondido en la bandeja de entrada"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Dijawab “%@”"
+            "value" : "Dijawab di Kotak Masuk"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「%@」と回答しました"
+            "value" : "受信トレイで回答"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "\"%@\"(으)로 답변함"
+            "value" : "받은 편지함에서 답변함"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ตอบแล้ว “%@”"
+            "value" : "ตอบในกล่องข้อความ"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已回答“%@”"
+            "value" : "已在收件箱回答"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已回答「%@」"
+            "value" : "已在收件匣回答"
           }
         }
       }
@@ -4104,6 +4150,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "每次登入時都要求輸入驗證器 App 的驗證碼，這樣即使密碼或電子郵件遭竊也無法登入。"
+          }
+        }
+      }
+    },
+    "Ask here to schedule recurring work." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pide aquí que se programen trabajos recurrentes."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minta di sini untuk menjadwalkan pekerjaan rutin."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "定期的な作業はここで依頼してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "정기 작업 예약은 여기에서 요청하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขอที่นี่เพื่อกำหนดเวลางานประจำ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在这里要求安排定期执行的工作。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在這裡要求安排定期執行的工作。"
           }
         }
       }
@@ -5031,6 +5123,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Bot 頭像"
+          }
+        }
+      }
+    },
+    "Bot details" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detalles del bot"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detail bot"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bot の詳細"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "봇 세부 정보"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "รายละเอียดบอท"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bot 详情"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bot 詳細資料"
           }
         }
       }
@@ -6144,6 +6282,52 @@
         }
       }
     },
+    "Choose what matters" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Elige lo que importa"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pilih yang penting"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "必要な通知を選ぶ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필요한 알림 선택"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เลือกสิ่งที่สำคัญ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择需要关注的电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇需要關注的電腦"
+          }
+        }
+      }
+    },
     "Clear all" : {
       "localizations" : {
         "es" : {
@@ -7068,6 +7252,52 @@
         }
       }
     },
+    "Computer notifications" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notificaciones de computadoras"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Notifikasi komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータの通知"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 알림"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การแจ้งเตือนคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电脑通知"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦通知"
+          }
+        }
+      }
+    },
     "Computers" : {
       "localizations" : {
         "es" : {
@@ -7161,6 +7391,7 @@
       }
     },
     "Computers going offline" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -8677,6 +8908,98 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法建立電腦"
+          }
+        }
+      }
+    },
+    "Could not delete computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudo eliminar la computadora"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat menghapus komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを削除できませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 삭제할 수 없습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถลบคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法删除电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法刪除電腦"
+          }
+        }
+      }
+    },
+    "Could not load computers." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No se pudieron cargar las computadoras."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak dapat memuat komputer."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを読み込めませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터를 불러올 수 없습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่สามารถโหลดคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法加载电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法載入電腦。"
           }
         }
       }
@@ -10982,6 +11305,52 @@
         }
       }
     },
+    "Delete %@?" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "¿Eliminar %@?"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus %@?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を削除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 컴퓨터를 삭제할까요?"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบ %@ ใช่ไหม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除 %@？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除 %@ 嗎？"
+          }
+        }
+      }
+    },
     "Delete account" : {
       "localizations" : {
         "es" : {
@@ -11024,6 +11393,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除帳號"
+          }
+        }
+      }
+    },
+    "Delete computer" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Eliminar computadora"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hapus komputer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータを削除"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 삭제"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ลบคอมพิวเตอร์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "刪除電腦"
           }
         }
       }
@@ -11396,52 +11811,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關閉問題"
-          }
-        }
-      }
-    },
-    "Dismissed" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Descartada"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ditutup"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "却下しました"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "닫음"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ปิดแล้ว"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已关闭"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已關閉"
           }
         }
       }
@@ -12781,6 +13150,52 @@
         }
       }
     },
+    "Follow the computers you rely on. Everything else stays quiet." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recibe avisos de las computadoras que necesitas. Las demás no enviarán notificaciones."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ikuti komputer yang Anda andalkan. Komputer lainnya tidak akan mengirim notifikasi."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "必要なコンピュータだけをフォロー。他のコンピュータからは通知されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "필요한 컴퓨터만 구독하세요. 다른 컴퓨터에서는 알림을 보내지 않습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ติดตามเฉพาะคอมพิวเตอร์ที่คุณใช้งาน ส่วนเครื่องอื่นจะไม่ส่งการแจ้งเตือน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只关注你需要的电脑，其他电脑不会发送通知。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只關注你需要的電腦，其他電腦不會傳送通知。"
+          }
+        }
+      }
+    },
     "For your security, sign in again to continue." : {
       "localizations" : {
         "es" : {
@@ -12967,6 +13382,7 @@
       }
     },
     "Get notified when a computer you own or use has been offline for 2 minutes, and when it's back." : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -13562,6 +13978,98 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "我已儲存"
+          }
+        }
+      }
+    },
+    "Idle" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inactivo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menganggur"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유휴"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ว่าง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空闲"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閒置"
+          }
+        }
+      }
+    },
+    "Idle · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inactivo · %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Menganggur · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中 · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "유휴 · %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ว่าง · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "空闲 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閒置 · %@"
           }
         }
       }
@@ -15831,98 +16339,6 @@
         }
       }
     },
-    "Needs your input: %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Necesita tu respuesta: %@"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Perlu masukan Anda: %@"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "入力が必要です：%@"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "입력이 필요합니다: %@"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ต้องการคำตอบจากคุณ: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要你回复：%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "需要你回覆：%@"
-          }
-        }
-      }
-    },
-    "New %@ runtime" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuevo entorno de ejecución de %@"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Runtime %@ baru"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい %@ ランタイム"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "새 %@ 런타임"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "รันไทม์ %@ ใหม่"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新的 %@ 运行环境"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新的 %@ 執行環境"
-          }
-        }
-      }
-    },
     "New Bot" : {
       "localizations" : {
         "es" : {
@@ -16472,6 +16888,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚未連接電腦"
+          }
+        }
+      }
+    },
+    "No computers in this workspace." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No hay computadoras en este espacio de trabajo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tidak ada komputer di ruang kerja ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このワークスペースにはコンピュータがありません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 워크스페이스에는 컴퓨터가 없습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ไม่มีคอมพิวเตอร์ในพื้นที่ทำงานนี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此工作区中没有电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此工作區中沒有電腦。"
           }
         }
       }
@@ -17307,52 +17769,6 @@
     "Nuphos" : {
       "shouldTranslate" : false
     },
-    "Nuphos computer" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Computadora de Nuphos"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Komputer Nuphos"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuphos コンピューター"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuphos 컴퓨터"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "คอมพิวเตอร์ของ Nuphos"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuphos 电脑"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nuphos 電腦"
-          }
-        }
-      }
-    },
     "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy." : {
       "localizations" : {
         "es" : {
@@ -17583,6 +17999,52 @@
         }
       }
     },
+    "Nuphos runs it for you, with Claude Code, Codex, OpenCode and more." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos la ejecuta por ti, con Claude Code, Codex, OpenCode y más."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos menjalankannya untuk Anda, dengan Claude Code, Codex, OpenCode, dan lainnya."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos があなたのために実行します。Claude Code、Codex、OpenCode などを搭載しています。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos가 대신 실행하며 Claude Code, Codex, OpenCode 등이 포함됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos รันให้คุณ พร้อม Claude Code, Codex, OpenCode และอื่น ๆ"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 Nuphos 为你运行，内置 Claude Code、Codex、OpenCode 等。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 Nuphos 為你執行，內建 Claude Code、Codex、OpenCode 等。"
+          }
+        }
+      }
+    },
     "Nuphos sent passkey options this app could not read." : {
       "localizations" : {
         "es" : {
@@ -17717,6 +18179,144 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關閉"
+          }
+        }
+      }
+    },
+    "Off by default. Choose which computers you want to hear about." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivadas por defecto. Elige de qué computadoras quieres recibir avisos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nonaktif secara default. Pilih komputer yang ingin Anda terima notifikasinya."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期設定ではオフです。通知を受け取るコンピュータを選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본적으로 꺼져 있습니다. 알림을 받을 컴퓨터를 선택하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดไว้ตามค่าเริ่มต้น เลือกคอมพิวเตอร์ที่คุณต้องการรับการแจ้งเตือน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。选择你想接收通知的电脑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預設關閉。選擇你想接收通知的電腦。"
+          }
+        }
+      }
+    },
+    "Off by default. Selected computers notify you after 2 minutes offline and when they reconnect. Only your account is affected." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Desactivadas por defecto. Las computadoras seleccionadas te avisarán tras 2 minutos sin conexión y cuando se reconecten. Solo afecta a tu cuenta."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nonaktif secara default. Komputer yang dipilih akan memberi tahu setelah offline selama 2 menit dan saat terhubung kembali. Hanya berlaku untuk akun Anda."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期設定ではオフです。選択したコンピュータが2分間オフラインになったときと、再接続したときに通知します。自分のアカウントにのみ適用されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본적으로 꺼져 있습니다. 선택한 컴퓨터가 2분 동안 오프라인 상태이거나 다시 연결되면 알림을 받습니다. 내 계정에만 적용됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ปิดไว้ตามค่าเริ่มต้น คอมพิวเตอร์ที่เลือกจะแจ้งเตือนเมื่อออฟไลน์ครบ 2 นาทีและเมื่อเชื่อมต่ออีกครั้ง มีผลเฉพาะบัญชีของคุณเท่านั้น"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认关闭。所选电脑离线满 2 分钟及重新连接时会通知你。仅影响你的账号。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "預設關閉。所選電腦離線滿 2 分鐘及重新連線時會通知你。僅影響你的帳號。"
+          }
+        }
+      }
+    },
+    "Offline" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sin conexión"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Offline"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オフライン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오프라인"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออฟไลน์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "离线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離線"
           }
         }
       }
@@ -17951,6 +18551,52 @@
         }
       }
     },
+    "Online" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En línea"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Online"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "オンライン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "온라인"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ออนไลน์"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在线"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "線上"
+          }
+        }
+      }
+    },
     "Only people invited" : {
       "localizations" : {
         "es" : {
@@ -18046,6 +18692,52 @@
     "Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents." : {
       "comment" : "Legal text",
       "shouldTranslate" : false
+    },
+    "Only the owner can change model settings." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Solo el propietario puede cambiar la configuración del modelo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hanya pemilik yang dapat mengubah pengaturan model."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モデル設定を変更できるのはオーナーのみです。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "소유자만 모델 설정을 변경할 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เฉพาะเจ้าของเท่านั้นที่เปลี่ยนการตั้งค่าโมเดลได้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有所有者可以更改模型设置。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "只有擁有者可以變更模型設定。"
+          }
+        }
+      }
     },
     "Only the owner can change who has access." : {
       "localizations" : {
@@ -18785,6 +19477,7 @@
       }
     },
     "Or type your own answer" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -21413,6 +22106,52 @@
         }
       }
     },
+    "Rent a computer from Nuphos" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Alquilar una computadora de Nuphos"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sewa komputer dari Nuphos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos からコンピューターを借りる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos에서 컴퓨터 빌리기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เช่าคอมพิวเตอร์จาก Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向 Nuphos 租一台电脑"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "向 Nuphos 租一台電腦"
+          }
+        }
+      }
+    },
     "Replace codes" : {
       "localizations" : {
         "es" : {
@@ -21597,48 +22336,48 @@
         }
       }
     },
-    "Replying to %@ " : {
+    "Replying to %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Respondiendo a %@ "
+            "value" : "Respondiendo a %@"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Membalas %@ "
+            "value" : "Membalas %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ への返信 "
+            "value" : "%@ への返信"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@에게 답장 "
+            "value" : "%@에게 답장"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ตอบกลับ %@ "
+            "value" : "ตอบกลับ %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回复 %@ "
+            "value" : "回复 %@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "回覆 %@ "
+            "value" : "回覆 %@"
           }
         }
       }
@@ -26529,52 +27268,6 @@
         }
       }
     },
-    "Start a task from the bar below." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Inicia una tarea desde la barra de abajo."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Mulai tugas dari bilah di bawah."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "下のバーからタスクを開始してください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아래 입력창에서 태스크를 시작하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เริ่มงานจากแถบด้านล่าง"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "从下方的输入栏开始一个任务。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "從下方的輸入列開始一個任務。"
-          }
-        }
-      }
-    },
     "Started" : {
       "localizations" : {
         "es" : {
@@ -29990,6 +30683,52 @@
         }
       }
     },
+    "This is your conversation with %@. Talk about what you want help with, and shape how you work together." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esta es tu conversación con %@. Cuéntale qué ayuda necesitas y definan cómo trabajar juntos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ini percakapan Anda dengan %@. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここは %@ との会話です。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "นี่คือการสนทนาของคุณกับ %@ บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这里是你和 %@ 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這裡是你和 %@ 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。"
+          }
+        }
+      }
+    },
     "This passkey will no longer work for this account. Enter a code to confirm." : {
       "localizations" : {
         "es" : {
@@ -30032,6 +30771,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "這個密碼金鑰將無法再用於此帳號。請輸入驗證碼以確認。"
+          }
+        }
+      }
+    },
+    "This permanently deletes the computer, its files and its runtimes' sign-ins, and stops tasks running on it. Your task history stays in Nuphos." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Esto elimina de forma permanente la computadora, sus archivos y los inicios de sesión de sus entornos de ejecución, y detiene las tareas que se ejecutan en ella. Tu historial de tareas se conserva en Nuphos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ini menghapus komputer, file-nya, dan info masuk runtime-nya secara permanen, serta menghentikan tugas yang berjalan di sana. Riwayat tugas Anda tetap ada di Nuphos."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピュータ、そのファイル、ランタイムのサインイン情報を完全に削除し、実行中のタスクを停止します。タスク履歴は Nuphos に残ります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터와 파일, 런타임의 로그인 정보가 영구적으로 삭제되며 컴퓨터에서 실행 중인 작업이 중지됩니다. 작업 기록은 Nuphos에 유지됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การดำเนินการนี้จะลบคอมพิวเตอร์ ไฟล์ และการลงชื่อเข้าใช้ของรันไทม์บนเครื่องอย่างถาวร และหยุดงานที่ทำงานอยู่บนเครื่อง ประวัติงานของคุณยังคงอยู่ใน Nuphos"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作将永久删除该电脑、其文件及其运行环境的登录信息，并停止在其上运行的任务。你的任务历史记录会保留在 Nuphos 中。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這會永久刪除這台電腦、其檔案及執行環境的登入資訊，並停止其上執行中的任務。你的任務歷史記錄會保留在 Nuphos 中。"
           }
         }
       }
@@ -31328,52 +32113,6 @@
         }
       }
     },
-    "Undo" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Deshacer"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Urungkan"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "元に戻す"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "실행 취소"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "เลิกทำ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "撤销"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "復原"
-          }
-        }
-      }
-    },
     "Unexpected GitHub setup action: %@." : {
       "localizations" : {
         "es" : {
@@ -32156,6 +32895,52 @@
         }
       }
     },
+    "Usage %@." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El uso %@."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kuota penggunaan %@."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量は%@。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용량: %@."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "โควตาการใช้งาน%@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用量%@。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用量%@。"
+          }
+        }
+      }
+    },
     "Use Nuphos Cloud" : {
       "localizations" : {
         "es" : {
@@ -32893,6 +33678,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "驗證碼"
+          }
+        }
+      }
+    },
+    "Verify with Anthropic" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verificar con Anthropic"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verifikasi dengan Anthropic"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anthropic で認証"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anthropic에서 인증"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยืนยันกับ Anthropic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往 Anthropic 验证"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前往 Anthropic 驗證"
           }
         }
       }
@@ -34285,100 +35116,94 @@
         }
       }
     },
-    "Worked for %@ · %lld steps" : {
+    "Worked" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Worked for %1$@ · %2$lld steps"
-          }
-        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Trabajó %1$@ · %2$lld pasos"
+            "value" : "Trabajó"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bekerja %1$@ · %2$lld langkah"
+            "value" : "Selesai bekerja"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ 作業 · %2$lld ステップ"
+            "value" : "処理完了"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%1$@ 동안 작업 · %2$lld단계"
+            "value" : "작업 완료"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ทำงาน %1$@ · %2$lld ขั้นตอน"
+            "value" : "ทำงานเสร็จแล้ว"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工作了 %1$@ · %2$lld 个步骤"
+            "value" : "已处理"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "工作了 %1$@ · %2$lld 個步驟"
+            "value" : "已處理"
           }
         }
       }
     },
-    "Worked through %lld steps" : {
+    "Worked for %@" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Completó %lld pasos"
+            "value" : "Trabajó durante %@"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Menyelesaikan %lld langkah"
+            "value" : "Bekerja selama %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld ステップを実行"
+            "value" : "%@処理しました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%lld단계를 진행함"
+            "value" : "%@ 동안 작업함"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ทำไป %lld ขั้นตอน"
+            "value" : "ทำงาน %@"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "完成了 %lld 个步骤"
+            "value" : "处理了 %@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "完成了 %lld 個步驟"
+            "value" : "處理了 %@"
           }
         }
       }
@@ -34702,6 +35527,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你已核准此指令。"
+          }
+        }
+      }
+    },
+    "You can start by telling %@ what you would like to do." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes empezar contándole a %@ qué te gustaría hacer."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda bisa mulai dengan memberi tahu %@ apa yang ingin dilakukan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まずは %@ にやりたいことを伝えてみましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 %@에게 하고 싶은 일을 알려 주세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เริ่มด้วยการบอก %@ ว่าคุณอยากทำอะไร"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告诉 %@，你想做些什么。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告訴 %@，你想做些什麼。"
           }
         }
       }
@@ -35459,48 +36330,54 @@
         }
       }
     },
-    "resets %@" : {
+    "resets in %lldd %lldh" : {
       "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "resets in %1$lldd %2$lldh"
+          }
+        },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "se restablece el %@"
+            "value" : "se restablece en %1$lld d %2$lld h"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "direset %@"
+            "value" : "direset dalam %1$lld hari %2$lld j"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@にリセット"
+            "value" : "%1$lld 日 %2$lld 時間後にリセット"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 초기화"
+            "value" : "%1$lld일 %2$lld시간 후 재설정"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "รีเซ็ต %@"
+            "value" : "รีเซ็ตในอีก %1$lld วัน %2$lld ชม."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 重置"
+            "value" : "%1$lld 天 %2$lld 小时后重置"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 重設"
+            "value" : "%1$lld 天 %2$lld 小時後重設"
           }
         }
       }

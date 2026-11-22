@@ -15,7 +15,7 @@ test('the ACP sign-out refusal reaches clients as a named product state', () => 
   // The gateway's markdown wrapper is a dead end for the user: it names no
   // runtime, no account, and no action.
   expect(frame.errorText).not.toContain('-32000')
-  expect(frame.errorText).toContain('Sign the agent in again')
+  expect(frame.errorText).toContain('Sign it in again, ask its owner to')
 })
 
 test('a provider out of usage reaches clients as a named product state', () => {
@@ -77,6 +77,9 @@ test('a runtime out of disk space names the fix and keeps the raw cause in detai
   expect(frame.errorCode).toBe('runtime_disk_full')
   expect(frame.details).toMatchObject({ acp_error_code: -32603 })
   expect(frame.errorText).toContain('out of disk space')
+  // Said in the app's words, and pointing at who can free the space.
+  expect(frame.errorText).not.toMatch(/\bagent\b|\bsession\b/iu)
+  expect(frame.errorText).toContain('Ask someone who manages that computer to free space')
   expect(frame.errorText).not.toContain('-32603')
   expect(JSON.stringify(frame.details)).toContain('ENOSPC')
 })
@@ -123,7 +126,7 @@ test('the gateway relaying the sign-out refusal as -32603 is still a sign-out', 
   )
 
   expect(frame.errorCode).toBe('runtime_auth_required')
-  expect(frame.errorText).toContain('Sign the agent in again')
+  expect(frame.errorText).toContain('Sign it in again, ask its owner to')
 })
 
 test('a -32000 quoted outside the leading wrapper is not the adapter code', () => {
@@ -151,7 +154,7 @@ test('a Claude sign-in that expired reaches clients as a sign-out, not the gatew
   )
 
   expect(frame.errorCode).toBe('runtime_auth_required')
-  expect(frame.errorText).toContain('Sign the agent in again')
+  expect(frame.errorText).toContain('Sign it in again, ask its owner to')
 })
 
 test('Claude Code asking for /login reaches clients as a sign-out', () => {
@@ -164,7 +167,7 @@ test('Claude Code asking for /login reaches clients as a sign-out', () => {
   )
 
   expect(frame.errorCode).toBe('runtime_auth_required')
-  expect(frame.errorText).toContain('Sign the agent in again')
+  expect(frame.errorText).toContain('Sign it in again, ask its owner to')
 })
 
 test('a provider-failed turn keeps its own notice even when it names a disk error', () => {

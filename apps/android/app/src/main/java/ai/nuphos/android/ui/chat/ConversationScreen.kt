@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -129,7 +130,8 @@ fun ConversationScreen(
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
-        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack,
+            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
         return
     }
     val auth = LocalAuthSession.current
@@ -250,9 +252,9 @@ fun ConversationScreen(
         TaskSummarySheet(
             session = session,
             token = summaryToken,
-            childIds = store.conversations.filter {
+            children = store.conversations.filter {
                 it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
-            }.mapTo(mutableSetOf()) { it.sessionId },
+            }.sortedByDescending { it.lastActiveAt },
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { child ->
                 showSummary = false
@@ -521,8 +523,8 @@ fun ConversationScreen(
                         recalledFiles = recalledFiles,
                         onRecalledFilesRestored = { recalledFiles = emptyList() },
                         mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
-                            SessionMentionSource(draftTeam, sessionId) { query ->
-                                store.mentionableSessions(draftTeam, query)
+                            SessionMentionSource(draftTeam, sessionId) {
+                                store.mentionableSessions(draftTeam)
                             }
                         },
                         // Mentioning a computer selects it, and a Task under a Bot has no selection of its own.
@@ -551,7 +553,8 @@ fun ConversationScreen(
                         onStop = if (session.canCancel) session::stop else null,
                 stopsRuntimeTurn = session.isNative,
                         showControls = session.canManage,
-                        selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
+                        selection = (session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection())
+                            .reaching(store.credentialCatalog),
                         onSelectionChange = session::updateCredentials,
                         mode = session.permissionMode,
                         onModeChange = session::updatePermissionMode,
@@ -665,6 +668,37 @@ private fun ChatRowView(
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            val auth = LocalAuthSession.current
+            val store = LocalAgentStore.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val workspace = store.workspaceRevision
+            val consent = AiAccess.revision
+            val viewer = auth.user?.id
+            val generation = auth.generation
+            val valid = { auth.aiAllowed && session.readAllowed && store.selectedTeam?.id == session.teamId &&
+                store.workspaceRevision == workspace && AiAccess.revision == consent && auth.generation == generation }
+            val report = ChatRow.failureReport(row.id, session.messages)?.takeIf { valid() }
+            val retry = session.failedTurn(viewer)?.takeIf { it.rowId == row.id && valid() }
+            var copied by remember(row.id, report) { mutableStateOf(false) }
+            if (retry != null || report != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (retry != null) OutlinedButton(onClick = { if (valid()) session.retryFailedTurn(auth.user?.id) },
+                    modifier = Modifier.testTag("failed-turn-retry:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(R.drawable.failed_turn_retry), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.failed_turn_retry))
+                }
+                if (report != null) OutlinedButton(onClick = copy@{
+                    if (!valid()) return@copy
+                    val current = ChatRow.failureReport(row.id, session.messages) ?: return@copy
+                    (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(android.content.ClipData.newPlainText(row.text, current))
+                    copied = true
+                }, modifier = Modifier.testTag("failed-turn-copy:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(if (copied) R.drawable.failed_turn_check else R.drawable.failed_turn_copy), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(if (copied) R.string.failed_turn_copied else R.string.failed_turn_copy))
+                }
+            }
             // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
             val runtimeId = session.runtimeId
             val block = session.runtimeBlock?.takeIf { row.isError }
@@ -868,10 +902,8 @@ private fun WorkGroup(
     onOpenTool: (ChatPart.Tool) -> Unit,
 ) {
     var expanded by remember(row.id) { mutableStateOf(false) }
-    val title = row.duration?.takeIf { it >= 1 }?.let { pluralStringResource(R.plurals.chat_work_duration_steps, row.rows.size, it.toInt(), row.rows.size) }
-        ?: pluralStringResource(R.plurals.chat_work_steps, row.rows.size, row.rows.size)
     Column {
-        TranscriptDisclosure(title, expanded, { expanded = !expanded })
+        TranscriptDisclosure(row.title, expanded, { expanded = !expanded })
         if (expanded) {
             Column(Modifier.padding(start = 12.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChatRow.toolRuns(row.rows, live = false).forEach { child ->

@@ -6,10 +6,9 @@ import { randomUUID } from 'node:crypto'
 import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { answered, recordInChannel, said } from './decision-channel-reply'
+import { answered, recordInChannel } from './decision-channel-reply'
 import { reopenInputRequest, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
-import { answerInputRequest } from './plan-decision'
 import { ownBody } from './tools-skilled/decision-tools'
 
 import type { AgentConversation } from './db'
@@ -82,8 +81,7 @@ export function answerNotice(
 
 /**
  * Resolves an open question with a person's answer and wakes the agent that
- * asked it. A plan's question decides the plan, whose own decision wakes the
- * agent. Refused once the question is no longer open.
+ * asked it. Refused once the question is no longer open.
  */
 export async function answerDecision(args: {
   conversation: AgentConversation
@@ -102,21 +100,9 @@ export async function answerDecision(args: {
   if (
     (request.category === 'integration' &&
       (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
-    (request.category === 'credential' && !credentialStatusChoice(request, answer))
+    (request.category === 'credential' && !credentialChoice(request, answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
-  if (request.planId) {
-    await answerInputRequest({
-      sessionId: conversation.sessionId,
-      userId: conversation.userId,
-      requestId,
-      answer: said(answer),
-      actorUserId: actor.id,
-      teamId,
-    })
-
-    return
-  }
   if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
@@ -245,14 +231,16 @@ async function tellAbout(
   }
 }
 
-/** A login-status button is ordinary text; secret values never enter this endpoint. */
-function credentialStatusChoice(request: InputRequest, answer: DecisionAnswer): boolean {
-  return (
-    !request.secretName &&
-    !request.questions?.length &&
-    answer.text === undefined &&
-    answer.questions === undefined &&
-    (answer.choices?.length ?? 0) > 0 &&
-    (answer.choices?.every((choice) => request.options?.includes(choice)) ?? false)
-  )
+/**
+ * A credential question with options is a choice like any other: one of them, or words, as with
+ * Other… (#4029). A secret card, or one with no options, asks for a value, which never enters here.
+ */
+function credentialChoice(request: InputRequest, answer: DecisionAnswer): boolean {
+  if (request.secretName || request.questions?.length || !request.options?.length) return false
+  if (answer.questions !== undefined) return false
+  const picked = answer.choices ?? []
+
+  if (answer.text !== undefined) return picked.length === 0 && answer.text.trim() !== ''
+
+  return picked.length > 0 && picked.every((choice) => request.options?.includes(choice))
 }

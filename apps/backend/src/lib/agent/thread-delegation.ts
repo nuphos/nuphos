@@ -96,7 +96,11 @@ export async function prepareThread(
     !pick.model && !pick.effort && !pick.fast && (!runtime || runtime.id === source.runtimeId)
 
   try {
-    await setThreadModel(threadId, actor.userId, inherits ? currentPick(source) : pick)
+    await setThreadModel(threadId, actor.userId, inherits ? currentPick(source) : pick, {
+      actorId: actor.userId,
+      agentSessionId: actor.sessionId,
+      via: 'create_thread',
+    })
   } catch (error) {
     // A parent's model the thread cannot take leaves it on the agent's defaults.
     if (inherits) {

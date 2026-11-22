@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useSyncExternalStore } from 'react'
 
+import { parseAtlasError } from '../../api/errors.ts'
 import { api } from '../../api.ts'
 import { cardReplyId } from '../../components/agent/panel/replyTarget.ts'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
@@ -65,7 +66,8 @@ export function answeringInbox<T>(requestId: string | undefined, send: Promise<T
     },
     (error: unknown) => {
       answered.delete(requestId)
-      failures.set(requestId, error instanceof Error ? error.message : String(error))
+      // The server's own words, not the IPC wrapper and sentinel around them.
+      failures.set(requestId, parseAtlasError(error).message)
       emit()
     },
   )
@@ -160,62 +162,31 @@ export function dismissDecision(
   )
 }
 
-/** An Inbox question's reply waiting out its Undo window: an answer, or its dismissal. */
-export type HeldReply = DecisionAnswer | { dismissed: true; reason?: string }
-
-/** How long an Inbox answer waits, its question already gone, before it is sent: its Undo window. */
-export const ANSWER_UNDO_MS = 5_000
-
-// The one Inbox answer waiting out its Undo window: sent with true, undone with false.
-let held: ((send: boolean) => boolean) | undefined
-
-/** Sends the Inbox answer waiting out its Undo window now, if there is one. */
-export function sendHeldAnswer() {
-  held?.(true)
-}
-
-// Closing the window must not lose an answer the viewer already gave.
-if (typeof window !== 'undefined') window.addEventListener('pagehide', sendHeldAnswer)
+/** An Inbox question's reply: an answer, or its dismissal. */
+export type InboxReply = DecisionAnswer | { dismissed: true; reason?: string }
 
 /**
- * Answers an Inbox question after {@link ANSWER_UNDO_MS}: it leaves at once, and
- * the returned undo brings it back unsent until then, and says whether it did. The answer still waiting
- * goes at once when another is given, or with {@link sendHeldAnswer}. The viewer has moved on by
- * the time it is sent, so `onFailed` hears why it was refused.
+ * Sends an Inbox reply at once. The viewer has moved on to the next question by
+ * the time it is refused, so `onFailed` hears why.
  */
-export function holdAnswer(
+export function replyInInbox(
   teamId: string,
   sessionId: string,
   requestId: string,
-  answer: HeldReply,
+  reply: InboxReply,
   onFailed: (reason: string | undefined) => void,
-): () => boolean {
-  sendHeldAnswer()
-  answered.set(requestId, Infinity)
-  failures.delete(requestId)
-  emit()
-  const finish = (send: boolean): boolean => {
-    clearTimeout(timer)
-    if (held !== finish) return false
-    held = undefined
-    if (send)
-      void (
-        'dismissed' in answer
-          ? dismissDecision(teamId, sessionId, requestId, answer.reason)
-          : answerDecision(teamId, sessionId, requestId, answer)
-      ).then((ok) => {
-        if (!ok) onFailed(failures.get(requestId))
-      })
-    else if (answered.delete(requestId)) emit()
-
-    return true
-  }
-  const timer = setTimeout(() => finish(true), ANSWER_UNDO_MS)
-
-  held = finish
-
-  return () => finish(false)
+) {
+  void (
+    'dismissed' in reply
+      ? dismissDecision(teamId, sessionId, requestId, reply.reason)
+      : answerDecision(teamId, sessionId, requestId, { ...reply, answeredIn: 'inbox' })
+  ).then((ok) => {
+    if (!ok) onFailed(failures.get(requestId))
+  })
 }
+
+/** Why the last reply to this question failed, if it did. */
+export const answerFailure = (requestId: string) => failures.get(requestId)
 
 /** A conversation's cards answered through the server, each naming the open request it shows. */
 export function cardAnswers(

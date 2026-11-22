@@ -42,6 +42,16 @@ const effort = {
     choice('high'),
   ],
 }
+// The Codex agent's reasoning effort, which starts on Low as Codex can.
+const codexEffort = {
+  id: 'reasoning_effort',
+  name: 'Reasoning effort',
+  category: 'thought_level',
+  type: 'select',
+  currentValue: 'low',
+  options: [choice('low'), choice('medium'), choice('high')],
+}
+const codex = process.env.E2E_AGENT === 'codex'
 const newSettings = (sessionId) => {
   const claudeLike = first && existsSync(process.env.E2E_STAND_IN ?? '')
   const unlisted = unlistedFor(sessionId)
@@ -64,8 +74,13 @@ const newSettings = (sessionId) => {
       options: [choice('off'), choice('on')],
     },
     ...(claudeLike ? [effort] : []),
+    ...(codex ? [{ ...codexEffort, options: [...codexEffort.options] }] : []),
   ]
 }
+
+/** The model a session runs on now, which is the model its next turn receives. */
+export const currentModel = (sessionId) =>
+  settings.get(sessionId)?.find((option) => option.id === 'model')?.currentValue
 
 /** A session's settings, after setting `id` to `value` when that is on offer; `log` records the request. */
 export function applySetting(sessionId, id, value, log) {
@@ -83,3 +98,28 @@ export function applySetting(sessionId, id, value, log) {
 export function promptLanguage(text) {
   return /Response language: ([^.\n]+)\./.exec(text)?.[1]
 }
+
+/** What a turn's prompt says: its language, and the conversation a fresh session carries (#3970). */
+export function turnFacts(text) {
+  const history = text.includes('continues from earlier turns')
+    ? {
+        chars: text.length,
+        omitted: text.includes('Earlier turns are omitted'),
+        readConversation: text.includes('read_conversation'),
+      }
+    : undefined
+
+  return { language: promptLanguage(text), history }
+}
+
+/** The Claude Code settings a session was opened with that only a Bot's carry (#3970). */
+export const botEnv = (params) =>
+  Object.fromEntries(
+    Object.entries(params._meta?.claudeCode?.options?.env ?? {}).filter(([key]) =>
+      ['CLAUDE_CODE_AUTO_COMPACT_WINDOW', 'CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION'].includes(key),
+    ),
+  )
+
+/** E2E_LONG_REPLY: about 12k characters, so a few turns outgrow a fresh session's history. */
+export const longReply = (text) =>
+  text.includes('E2E_LONG_REPLY') ? ` ${'filler '.repeat(1_700)}` : ''

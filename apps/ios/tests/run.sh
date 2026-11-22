@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
-swiftc BotAvatars/BotAvatars.swift tests/BotAvatarTests.swift nuphos-ios/Services/Chat/ThreadReference.swift nuphos-ios/Services/ImageAttachment.swift tests/ImageAttachmentTests.swift nuphos-ios/Services/PastedFile.swift tests/PastedFileTests.swift nuphos-ios/Services/Chat/JSONValue.swift nuphos-ios/Services/Chat/RuntimeObservation.swift nuphos-ios/Services/Chat/ConversationUnread.swift nuphos-ios/Services/Chat/ChatModels.swift nuphos-ios/Services/NuphosAPIBase.swift nuphos-ios/Services/Chat/RuntimeTranscript.swift nuphos-ios/Services/Chat/UIStreamReducer.swift nuphos-ios/Services/Chat/ToolRuns.swift nuphos-ios/Services/Chat/ReasoningText.swift Shared/SessionLink.swift nuphos-ios/Services/Chat/AppLink.swift nuphos-ios/Views/Chat/PlanLink.swift tests/AppLinkTests.swift nuphos-ios/Services/Chat/StreamBacklog.swift nuphos-ios/Services/Chat/SSEClient.swift nuphos-ios/Services/Chat/StreamingMarkdown.swift nuphos-ios/Services/Chat/MessagePreview.swift nuphos-ios/Views/Chat/ChatRow.swift nuphos-ios/Models/Channel.swift nuphos-ios/Views/Home/ChatTime.swift tests/ChannelPostTests.swift nuphos-ios/Services/Chat/TransferDownloads.swift nuphos-ios/Services/Chat/TransferFiles.swift tests/TransferFilesTests.swift nuphos-ios/Views/Home/ComposerAction.swift nuphos-ios/Views/Home/ComposerReturn.swift tests/ComposerReturnTests.swift nuphos-ios/Views/Home/SessionMention.swift nuphos-ios/Models/AgentConversation.swift nuphos-ios/Services/ConversationNesting.swift nuphos-ios/Services/Chat/BotQuestions.swift nuphos-ios/Services/Chat/AnsweredQuestion.swift tests/BotQuestionsTests.swift nuphos-ios/Models/CredentialCatalog.swift nuphos-ios/Models/AgentRuntime.swift nuphos-ios/Models/SelectorBox.swift nuphos-ios/Models/NewRuntime.swift tests/NewRuntimeTests.swift nuphos-ios/Models/NuphosUser.swift nuphos-ios/Models/Team.swift nuphos-ios/Services/LaunchCache.swift tests/LaunchCacheTests.swift nuphos-ios/Services/Chat/ComposerDrafts.swift tests/ChatRowTests.swift tests/ComposerDraftsTests.swift tests/CredentialScopeTests.swift tests/ComposerActionTests.swift tests/SessionLinkTests.swift tests/SessionMentionTests.swift tests/SidebarFavoritesTests.swift tests/ConversationNestingTests.swift tests/TaskFollowsBotTests.swift tests/ResourceStripTests.swift tests/StreamBacklogTests.swift tests/SSEClientTests.swift tests/StreamingMarkdownTests.swift tests/MessagePreviewTests.swift nuphos-ios/Services/Chat/MarkdownImages.swift tests/MarkdownImagesTests.swift nuphos-ios/Services/Chat/BareURL.swift tests/BareURLTests.swift tests/LocalAgentTests.swift nuphos-ios/Services/SignInSessions.swift tests/SignInSessionsTests.swift Shared/TurnActivityAttributes.swift tests/LiveActivityCardTests.swift tests/RuntimeObservationTests.swift nuphos-ios/Services/Chat/ResumeFallback.swift tests/ResumeFallbackTests.swift nuphos-ios/Services/Chat/DockDestination.swift tests/DockDestinationTests.swift -o "$test_dir/runtime-tests"
+swiftc BotAvatars/BotAvatars.swift nuphos-ios/Services/BotFaces.swift tests/BotAvatarTests.swift nuphos-ios/Services/Chat/ThreadReference.swift nuphos-ios/Services/ImageAttachment.swift tests/ImageAttachmentTests.swift nuphos-ios/Services/PastedFile.swift tests/PastedFileTests.swift nuphos-ios/Services/Chat/JSONValue.swift nuphos-ios/Services/Chat/RuntimeObservation.swift nuphos-ios/Services/Chat/ConversationUnread.swift nuphos-ios/Services/Chat/ChatModels.swift nuphos-ios/Services/NuphosAPIBase.swift nuphos-ios/Services/Chat/RuntimeTranscript.swift nuphos-ios/Services/Chat/UIStreamReducer.swift nuphos-ios/Services/Chat/ToolRuns.swift nuphos-ios/Services/Chat/ReasoningText.swift Shared/SessionLink.swift nuphos-ios/Services/Chat/AppLink.swift nuphos-ios/Views/Chat/PlanLink.swift tests/AppLinkTests.swift nuphos-ios/Services/Chat/StreamBacklog.swift nuphos-ios/Services/Chat/SSEClient.swift nuphos-ios/Services/Chat/StreamingMarkdown.swift nuphos-ios/Services/Chat/MessagePreview.swift nuphos-ios/Views/Chat/ChatRow.swift nuphos-ios/Models/Channel.swift nuphos-ios/Views/Home/ChatTime.swift tests/ChannelPostTests.swift nuphos-ios/Services/Chat/TransferDownloads.swift nuphos-ios/Services/Chat/TransferFiles.swift tests/TransferFilesTests.swift nuphos-ios/Views/Home/ComposerAction.swift nuphos-ios/Views/Home/ComposerReturn.swift tests/ComposerReturnTests.swift nuphos-ios/Views/Home/SessionMention.swift nuphos-ios/Models/AgentConversation.swift nuphos-ios/Services/ConversationNesting.swift nuphos-ios/Services/Chat/BotQuestions.swift nuphos-ios/Services/Chat/AnsweredQuestion.swift tests/BotQuestionsTests.swift nuphos-ios/Models/CredentialCatalog.swift nuphos-ios/Models/AgentRuntime.swift nuphos-ios/Models/SelectorBox.swift nuphos-ios/Models/NewRuntime.swift tests/NewRuntimeTests.swift nuphos-ios/Models/NuphosUser.swift nuphos-ios/Models/Team.swift nuphos-ios/Services/LaunchCache.swift tests/LaunchCacheTests.swift nuphos-ios/Services/Chat/ComposerDrafts.swift tests/ChatRowTests.swift tests/ComposerDraftsTests.swift tests/CredentialScopeTests.swift tests/ComposerActionTests.swift tests/SessionLinkTests.swift tests/SessionMentionTests.swift tests/SidebarFavoritesTests.swift tests/ConversationNestingTests.swift tests/TaskFollowsBotTests.swift tests/ResourceStripTests.swift tests/StreamBacklogTests.swift tests/SSEClientTests.swift tests/StreamingMarkdownTests.swift tests/MessagePreviewTests.swift nuphos-ios/Services/Chat/MarkdownImages.swift tests/MarkdownImagesTests.swift nuphos-ios/Services/Chat/BareURL.swift tests/BareURLTests.swift tests/LocalAgentTests.swift nuphos-ios/Services/SignInSessions.swift tests/SignInSessionsTests.swift Shared/TurnActivityAttributes.swift tests/LiveActivityCardTests.swift tests/RuntimeObservationTests.swift nuphos-ios/Services/Chat/ResumeFallback.swift tests/ResumeFallbackTests.swift nuphos-ios/Services/Chat/DockDestination.swift tests/DockDestinationTests.swift -o "$test_dir/runtime-tests"
 desktop=nuphos-ios/Services/Desktop
 swiftc "$desktop/ZlibStream.swift" "$desktop/RFBFramebuffer.swift" "$desktop/RFBClient.swift" "$desktop/RFBKeysym.swift" "$desktop/H264Stream.swift" tests/DesktopTests.swift -o "$test_dir/desktop-tests"
 "$test_dir/desktop-tests"
@@ -27,8 +27,7 @@ swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
 "$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
 # A chat's real read builds against UIKit: as Mac Catalyst, it runs here without a simulator.
 macos_sdk=$(xcrun --sdk macosx --show-sdk-path)
-swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
-  -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
+chat_sources=(
   BotAvatars/BotAvatars.swift \
   nuphos-ios/Services/Chat/ThreadReference.swift \
   nuphos-ios/Services/ImageAttachment.swift \
@@ -43,6 +42,7 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   nuphos-ios/Models/Channel.swift \
   nuphos-ios/Views/Home/ChatTime.swift \
   nuphos-ios/Services/Chat/TransferDownloads.swift \
+  nuphos-ios/Services/Chat/MarkdownImages.swift \
   nuphos-ios/Models/AgentConversation.swift \
   nuphos-ios/Services/ConversationNesting.swift \
   nuphos-ios/Services/Chat/BotQuestions.swift \
@@ -63,5 +63,41 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   nuphos-ios/Views/Home/LucideIcon.swift \
   nuphos-ios/Views/Theme.swift \
   nuphos-ios/Services/Passkeys.swift \
-  nuphos-ios/Services/Chat/ChannelSession.swift tests/CancelledLoadTests.swift -o "$test_dir/cancelled-load-tests"
-"$test_dir/cancelled-load-tests"
+  nuphos-ios/Services/Chat/SSEClient.swift \
+  nuphos-ios/Services/Chat/ChannelSession.swift)
+for chat_test in CancelledLoadTests ChannelPushTests; do
+  swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
+    -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
+    "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"
+  "$test_dir/$chat_test"
+done
+
+swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
+"$test_dir/hosted-bot-avatar-tests"
+
+# The store and the session it keeps (#3525), with what they name. Analytics and AuthSession are stand-ins in the test.
+swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
+  -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
+  "${chat_sources[@]}" \
+  nuphos-ios/Services/AgentStore.swift \
+  nuphos-ios/Services/LaunchCache.swift \
+  nuphos-ios/Services/Chat/ChatSession.swift \
+  nuphos-ios/Services/Chat/UIStreamReducer.swift \
+  nuphos-ios/Services/Chat/RuntimeTranscript.swift \
+  nuphos-ios/Services/Chat/ResumeFallback.swift \
+  nuphos-ios/Services/Chat/StreamBacklog.swift \
+  nuphos-ios/Services/Chat/DockDestination.swift \
+  nuphos-ios/Services/Chat/BrowserTabs.swift \
+  nuphos-ios/Services/Chat/AnsweredQuestion.swift \
+  nuphos-ios/Services/Desktop/*.swift \
+  nuphos-ios/Services/Terminal/TerminalSession.swift \
+  nuphos-ios/Models/SelectorBox.swift \
+  nuphos-ios/Views/Chat/ChatRow.swift \
+  nuphos-ios/Views/Chat/ShareSessionSheet.swift \
+  nuphos-ios/Views/Components/AvatarView.swift \
+  nuphos-ios/Views/Home/HomePage.swift \
+  nuphos-ios/Views/Home/NewBox.swift \
+  ShareSupport/SubmissionAdmission.swift \
+  ShareSupport/SharedShareSession.swift \
+  tests/ChatReopenTests.swift -o "$test_dir/ChatReopenTests"
+"$test_dir/ChatReopenTests"
