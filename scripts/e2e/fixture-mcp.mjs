@@ -7,7 +7,10 @@ const tools = new Map()
 export const toolsServer = (sessionId) => tools.get(sessionId)
 export const setToolsServer = (sessionId, server) => tools.set(sessionId, server)
 
-/** One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream. */
+/**
+ * One JSON-RPC call to a streamable-HTTP MCP server; the reply is JSON or a one-event stream.
+ * A call still working after 20 s is answered with spaces before its JSON (http-answer.ts).
+ */
 async function mcp(server, sessionHeader, method, params) {
   const response = await fetch(server.url, {
     method: 'POST',
@@ -20,7 +23,7 @@ async function mcp(server, sessionHeader, method, params) {
     body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
   })
   const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
+  const data = /^data: (.+)$/m.exec(text)?.[1] ?? text
 
   return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
 }
