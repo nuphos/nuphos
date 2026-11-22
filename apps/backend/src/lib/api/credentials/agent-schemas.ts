@@ -69,6 +69,8 @@ const agentCredentialAccessSchema = z.object({
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
   personalConnectionIds: z.array(objectIdStringSchema).optional(),
+  // Sent instead of personalConnectionIds to anyone but the conversation's owner.
+  personalAccountCount: z.number().int().nonnegative().optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),

@@ -8,6 +8,7 @@ import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
+import { redactPersonalAccounts } from '@/lib/personal-credentials/redact'
 
 import { serializeConversationDoc } from './transcript'
 
@@ -179,7 +180,7 @@ export function serializeConversationForViewer(
   const triggerRun = normalizeConversationTriggerRun(metadata)
 
   return {
-    ...serializeConversationDoc(conversation, answering),
+    ...serializeConversationDoc(redactPersonalAccounts(conversation, isOwner), answering),
     claudeCodeRuntimeAttached: true,
     agentRuntime: runtimeProvider(conversation.agentRuntime),
     runtimeId: conversation.runtimeId,

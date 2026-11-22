@@ -73,7 +73,8 @@ sealed class ChatRow {
             return prompt.takeIf { it.isNotEmpty() }?.let { FailedTurn("interrupted.${reply.id}.${failure.id}", it) }
         }
 
-        private val hiddenTools = setOf("skill")
+        /** Tools the desktop never renders as a row. */
+        private fun isHidden(tool: ChatPart.Tool) = tool.toolName == "skill" || tool.isQuestionCard
 
         /** `presence`: how the conversation's computer stands right now. */
         fun rows(session: ChatSession, presence: ComputerPresence = ComputerPresence.Online): List<ChatRow> = rows(
@@ -202,7 +203,7 @@ sealed class ChatRow {
                         if (part.text.isNotEmpty()) body += Reasoning("reasoning.${message.id}.$pi", part)
                     }
                     is ChatPart.Tool -> {
-                        if (part.toolName !in hiddenTools) {
+                        if (!isHidden(part)) {
                             body += Tool("tool.${message.id}.${part.toolCallId}", message.id, part, part.toolCallId == lastApprovalCallId)
                         }
                     }

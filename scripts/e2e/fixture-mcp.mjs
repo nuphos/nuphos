@@ -143,6 +143,61 @@ export async function reportBack({ log, sessionId, marker }) {
   log({ sessionId, marker, event: 'called', name, result: message.result ?? message.error })
 }
 
+/** E2E_INSTRUCTION (#4427): writes a personal Instruction with the session's token, in the turn and after it. */
+export async function instruction({ log, sessionId, marker }) {
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const write = async (name) => {
+    const response = await fetch(`${team}/instructions`, {
+      method: 'POST',
+      headers: {
+        ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ scope: 'personal', title: name, content: 'Answer briefly.' }),
+    })
+    const body = await response.json().catch(() => ({}))
+
+    log({
+      sessionId,
+      marker,
+      event: 'instruction',
+      name,
+      result: { status: response.status, id: body.id, code: body.error?.code },
+    })
+  }
+
+  await write('live')
+  // Not awaited: the turn ends meanwhile.
+  setTimeout(() => void write('idle'), 5_000)
+}
+
+/** E2E_ACK_WORK:<done|failed> confirms the scheduled work (E2E_ACK_ID:<id> names another) over REST with this session's token. */
+export async function confirmWork({ log, sessionId, marker, text }) {
+  const id =
+    /E2E_ACK_ID:([0-9a-f]{24})/.exec(text)?.[1] ?? /Scheduled work ([0-9a-f]{24})/.exec(text)?.[1]
+  const outcome = /E2E_ACK_WORK:(done|failed)/.exec(text)?.[1]
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const response = await fetch(`${team}/agent-reminders/${id}/ack`, {
+    method: 'POST',
+    headers: {
+      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ outcome, reason: 'e2e says so' }),
+  })
+  const body = await response.json().catch(() => ({}))
+
+  log({
+    sessionId,
+    marker,
+    event: 'work-ack',
+    name: id,
+    result: { status: response.status, state: body.status, code: body.error?.code ?? body.code },
+  })
+}
+
 /** #3329: a Task on this same agent, as a Bot hands off work; a chat escapes E2E_CALL's JSON. */
 export async function subtask({ log, sessionId, marker }) {
   // #3409 and #4156 hand off more, which their scenarios tell apart by name.

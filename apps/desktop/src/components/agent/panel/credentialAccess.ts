@@ -4,9 +4,11 @@ import { EMPTY_CREDENTIAL_ACCESS, EMPTY_CREDENTIAL_OPTIONS } from './constants.t
 import { usableDeviceIds } from './credentialSections.ts'
 import { keepTeamIdentity, teamIdentityOf } from './personalIdentity.ts'
 
+import type { IdentityKey } from './personalIdentity.ts'
+
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 
-type AccessKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity' | 'personalCredentialIds'>
+type AccessKey = Exclude<keyof AgentCredentialSelection, IdentityKey>
 
 export function normalizeCredentialAccess(
   value: Partial<AgentCredentialSelection> | null | undefined,
