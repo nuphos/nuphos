@@ -92,6 +92,9 @@ export const mediaViewerScenarios: Scenario[] = [
       await until('the shown image saved under its name', async () =>
         existsSync(saved) ? readFileSync(saved).equals(bytes) : false,
       )
+      // Closed again, so the viewer doesn't cover the page for the next scenario.
+      await close.click()
+      await viewer.waitFor({ state: 'detached' })
     },
   },
 ]
