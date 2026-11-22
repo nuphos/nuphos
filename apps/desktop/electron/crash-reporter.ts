@@ -89,7 +89,13 @@ function stopLeftoverCrashHandlers(): void {
   try {
     const ps = execFileSync('/bin/ps', ['-A', '-ww', '-o', 'pid=,command='], { encoding: 'utf8' })
 
-    for (const pid of leftoverCrashHandlers(ps, app.getPath('crashDumps'))) process.kill(pid)
+    for (const pid of leftoverCrashHandlers(ps, app.getPath('crashDumps'))) {
+      try {
+        process.kill(pid)
+      } catch (error) {
+        console.error('[crash-reporter] leftover handler', pid, error)
+      }
+    }
   } catch (error) {
     console.error('[crash-reporter] leftover handlers', error)
   }
