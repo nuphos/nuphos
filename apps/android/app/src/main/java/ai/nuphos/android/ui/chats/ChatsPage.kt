@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -181,24 +182,31 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
+        // Flat, as the row was: the expressive default rounds it and reshapes it on press.
+        shapes = RectangleShape.let { ListItemDefaults.shapes(it, it, it, it, it, it) },
+        // As on iOS: the avatar and chevron sit centred on a two-line row, and the time stays on the name's line.
+        verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
             if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
         },
-        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         // As iMessage does: the dots stand in for the newest post until the reply lands. The post gets two lines (#4508).
         supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
             else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
                 if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
+                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.testTag("chat-chevron"), tint = MaterialTheme.colorScheme.outline)
             }
         },
-    )
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
     }
 }
 

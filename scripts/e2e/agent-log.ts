@@ -19,6 +19,8 @@ type AgentEntry = {
   history?: { chars: number; omitted: boolean; readConversation: boolean }
   /** Whether the system prompt a session opened with tells it to delegate work (#4156). */
   delegates?: boolean
+  /** A model discovery attempt, and whether the fixture refused it. */
+  failed?: boolean
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
   rule?: string
   /** Each system prompt section's start and hash, as the session opened or loaded with it. */
