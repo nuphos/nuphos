@@ -33,7 +33,6 @@ import {
   CONNECTION_LOST_TOOL_ERROR,
   HANDED_OFF,
   HANDED_OFF_TOOL_ERROR,
-  handOffPreviewTurn,
   handedOff,
   lostToReattach,
 } from './chat-preview-handoff'
@@ -215,11 +214,11 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     if ((await Promise.race([prompt, handedOff(state.signal)])) === HANDED_OFF) {
       pauses.abort()
       state.unbind()
-      await handOffPreviewTurn({
+      // The turn runs on here until shutdown hands it on with this replica's connection.
+      prompt.catch(() => {})
+      await persistHandedOffPreviewTurn({
         ...args,
         provider: args.endpoint.provider ?? 'claude-code',
-        actorUserId,
-        prompt,
         run: state.current(),
         orderedParts: orderedParts.materialize(
           interruptToolSteps(toolLog.list(), HANDED_OFF_TOOL_ERROR),
@@ -281,7 +280,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     await finishPreviewTurn({
       ...args,
       requestId,
-      startedAt,
       text: acc.text,
       reasoning: acc.reasoning,
       orderedParts: orderedParts.materialize(toolLog.list()),

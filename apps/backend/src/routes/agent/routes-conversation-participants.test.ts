@@ -326,6 +326,47 @@ describe('conversation participants API', () => {
   })
 })
 
+describe('only a Task a person opened, or a group chat, is shared', () => {
+  const refused = async (shape: Partial<AgentConversation>) => {
+    Object.assign(conversation!, shape)
+    const before = participantIds()
+    const invited = await invite([INVITEE])
+    const opened = await patch('access', { generalAccess: 'view' })
+
+    expect([invited.status, opened.status]).toEqual([403, 403])
+    expect(participantIds()).toEqual(before)
+  }
+
+  test('a Bot is never shared', () => refused({ avatar: '07-ada' }))
+  test('a Task an agent opened is never shared', () => refused({ parentSessionId: 'parent' }))
+  test('a trigger’s run is never shared', async () => {
+    await refused({
+      metadata: { source: 'app', trigger: { id: 'tr' } } as AgentConversation['metadata'],
+    })
+  })
+  test('a Slack, Discord or MCP Task is never shared', async () => {
+    for (const source of ['slack.agent', 'discord', 'mcp']) await refused({ metadata: { source } })
+  })
+  test('a Bot’s chat is never shared', () =>
+    refused({ kind: 'channel', agentSessionIds: ['bot'], participantIds: [] }))
+
+  // Speaking in a Slack or Discord thread, or a first message, still joins: only Share is refused.
+  test('a teammate still joins by speaking where sharing is refused', async () => {
+    const { addConversationParticipants } = await import('@/lib/agent/db/participants')
+
+    await refused({ metadata: { source: 'slack.thread' } })
+    await addConversationParticipants('shared', [INVITEE])
+    expect(participantIds()).toEqual([TEAMMATE, INVITEE])
+  })
+
+  test('a Task opened by hand is shared, and anything may still go private', async () => {
+    conversation!.metadata = { source: 'app' }
+    expect((await invite([INVITEE])).status).toBe(200)
+    conversation!.avatar = '07-ada'
+    expect((await patch('access', { generalAccess: 'none' })).status).toBe(200)
+  })
+})
+
 describe('a conversation on someone’s computer', () => {
   const DEVICE = 'owner-mac'
 
@@ -419,5 +460,27 @@ describe('a conversation on someone’s computer', () => {
     expect(response.status).toBe(403)
     expect(await response.json()).toMatchObject({ error: { code: 'computer_manage_required' } })
     expect(participantIds()).toEqual([TEAMMATE])
+  })
+
+  test('removing someone who still uses the computer says so, and leaves their use as it is', async () => {
+    computer({ userIds: [TEAMMATE] })
+    const response = await remove(TEAMMATE)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      computerStillShared: { deviceId: DEVICE, label: 'Owner’s Mac' },
+    })
+    expect(participantIds()).toEqual([])
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE])
+  })
+
+  test('no notice when they never used it, or when they leave on their own', async () => {
+    computer()
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+    conversation!.participantIds = [TEAMMATE]
+    memory.rows('agent_devices')[0]!.access[0].userIds = [TEAMMATE]
+    viewer = TEAMMATE
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE])
   })
 })

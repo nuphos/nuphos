@@ -1,6 +1,7 @@
 // The Desktop app under test: the real Electron main process and renderer, started the
 // way `bun run dev` starts them so they keep a profile of their own, and driven over the
 // DevTools port the main process opens for ATLAS_DEV_CDP_PORT.
+import { once } from 'node:events'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 
@@ -21,6 +22,8 @@ export type Desktop = {
   vitePort: number
   traceNextScenario: () => Promise<void>
   close: (failed?: boolean) => Promise<void>
+  /** Hands `url` to the app as the system does on Linux: a second app, which passes it on and quits. */
+  openDeepLink: (url: string) => Promise<void>
   /** Quits the app, for one started beside the suite's own. */
   stop: () => Promise<void>
 }
@@ -41,24 +44,24 @@ export async function startDesktop(
 
   mkdirSync(signIn, { recursive: true })
 
+  const profileEnv = {
+    ...env,
+    NUPHOS_API_URL: apiUrl,
+    // Lets the window keep the modules it fetched, so a scenario's reload costs no
+    // requests instead of ~2,100 at once (apps/desktop/vite.config.ts).
+    NUPHOS_E2E: '1',
+    // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
+    NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
+    // A name of its own gives the app a profile of its own, away from any installed app's.
+    ATLAS_DEV_SUFFIX: suffix ?? `e2e-${String(cdpPort)}`,
+    // Saving one file from a chat skips the save dialog and lands here.
+    NUPHOS_E2E_SAVE_DIR: join(artifacts, 'saved'),
+    // Adding an agent installs fixture-claude.mjs, never a vendor's CLI.
+    NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+  }
   const child = spawn(name, ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
     cwd: DESKTOP_DIR,
-    env: {
-      ...env,
-      NUPHOS_API_URL: apiUrl,
-      // Lets the window keep the modules it fetched, so a scenario's reload costs no
-      // requests instead of ~2,100 at once (apps/desktop/vite.config.ts).
-      NUPHOS_E2E: '1',
-      // The app's sign-in files, kept apart from the logs so a run's artifacts carry no token.
-      NUPHOS_CLI_CONFIG: join(signIn, 'cli.yaml'),
-      // A name of its own gives the app a profile of its own, away from any installed app's.
-      ATLAS_DEV_SUFFIX: suffix ?? `e2e-${String(cdpPort)}`,
-      ATLAS_DEV_CDP_PORT: String(cdpPort),
-      // Saving one file from a chat skips the save dialog and lands here.
-      NUPHOS_E2E_SAVE_DIR: join(artifacts, 'saved'),
-      // Adding an agent installs fixture-claude.mjs, never a vendor's CLI.
-      NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
-    },
+    env: { ...profileEnv, ATLAS_DEV_CDP_PORT: String(cdpPort) },
   })
   const cdp = `http://127.0.0.1:${String(cdpPort)}`
 
@@ -100,6 +103,21 @@ export async function startDesktop(
         await tracing.stopChunk({ path: join(artifacts, 'trace.zip') }).catch(() => {})
       await page!.screenshot({ path: join(artifacts, 'last-window.png') }).catch(() => {})
       // Not browser.close(): Electron ignores it, so it waited its full 30 s; stopAll ends the app.
+    },
+    openDeepLink: async (url) => {
+      // The same profile takes the app's single-instance lock, so this one hands `url` over.
+      const second = spawn(
+        `${name}-deep-link`,
+        ['pnpm', 'exec', 'electron', '.', '--no-sandbox', url],
+        // vite gives the first one VITE_DEV_SERVER_URL, without which it takes the installed app's profile.
+        {
+          cwd: DESKTOP_DIR,
+          env: { ...profileEnv, VITE_DEV_SERVER_URL: `http://localhost:${String(vitePort)}/` },
+        },
+      )
+      const [code] = await once(second, 'exit', { signal: AbortSignal.timeout(60_000) })
+
+      if (code !== 0) throw new Error(`The second app exited with ${String(code)}`)
     },
     stop: async () => {
       await browser.close().catch(() => {})

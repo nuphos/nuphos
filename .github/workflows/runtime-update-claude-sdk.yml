@@ -1,8 +1,6 @@
 name: Update Claude SDK
 
 on:
-  schedule:
-    - cron: '23 6 * * *'
   workflow_dispatch:
 
 # One update pull request at a time; never interrupt a run.

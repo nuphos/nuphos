@@ -36,6 +36,7 @@ const SESSION_ENV = new Set([
   'TEAM',
   'NUPHOS_SESSION_ID',
   'NUPHOS_SESSION_ACTOR',
+  'NUPHOS_SESSION_HOME_EPOCH',
   'NUPHOS_PLAN_API_BASE',
   'NUPHOS_PLAN_API_TOKEN',
   // The backend clears these for a selected connector, so the runtime's own do
@@ -525,12 +526,7 @@ export function runShim({
       }
       return {
         ...reply,
-        result: await nuphosApplyRuntimeDefaults(
-          agentApi,
-          { ...params, sessionId },
-          reply.result,
-          message.method !== 'session/new',
-        ),
+        result: await nuphosApplyRuntimeDefaults(agentApi, { ...params, sessionId }, reply.result),
       }
     })
     send({ ...message, params })

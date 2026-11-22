@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">Menyiapkan alat…</string>
     <string name="convtext_phase_building_prompt">Menyusun prompt…</string>
     <string name="convtext_phase_recalling_memory">Mengingat memori…</string>
-    <string name="convtext_phase_loading_history">Memuat riwayat…</string>
     <string name="convtext_phase_preparing_model">Menyiapkan model…</string>
     <string name="convtext_phase_connecting">Menghubungkan…</string>
     <string name="convtext_phase_thinking">Berpikir…</string>

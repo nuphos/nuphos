@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">กำลังเตรียมเครื่องมือ…</string>
     <string name="convtext_phase_building_prompt">กำลังสร้างพรอมต์…</string>
     <string name="convtext_phase_recalling_memory">กำลังเรียกคืนความจำ…</string>
-    <string name="convtext_phase_loading_history">กำลังโหลดประวัติ…</string>
     <string name="convtext_phase_preparing_model">กำลังเตรียมโมเดล…</string>
     <string name="convtext_phase_connecting">กำลังเชื่อมต่อ…</string>
     <string name="convtext_phase_thinking">กำลังคิด…</string>

@@ -206,7 +206,7 @@ A few rules:
   - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
   - Codex: `Co-authored-by: codex <codex@openai.com>`
 - Avoid duplicate trailers and preserve legitimate existing co-authors when carrying work forward. A participant email links to a GitHub profile only if registered there; report an unlinked co-author without substituting a different email.
-- A `Signed-off-by` line certifies the DCO for the commit's author only. Never sign off for the participant, a co-author or anyone else; when carrying other people's commits forward, keep their existing `Signed-off-by` lines and add yours below them. Merge commits from `POST /repos/OWNER/REPO/merges` need no sign-off.
+- A `Signed-off-by` line certifies the DCO for the commit's author, and a new commit gets only the author's line, copied verbatim from `commit-signoff.sh` (a DCO check compares it exactly, so a login in place of the author's name fails). When a member's Personal Credential makes the commit, the author is that member and the line is theirs: they asked for the commit under their own account, so add it without asking. Never add a line for a co-author, the runtime account or anyone else; when carrying other people's commits forward, keep their existing `Signed-off-by` lines and add the author's below them. Merge commits from `POST /repos/OWNER/REPO/merges` need no sign-off.
 - If the repo has CODEOWNERS or required reviews, mention that the PR will need a human reviewer — `gh` will not bypass branch protection.
 
 ## Safety

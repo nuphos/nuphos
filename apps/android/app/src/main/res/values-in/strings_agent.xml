@@ -63,6 +63,8 @@
     <string name="agent_ok">OK</string>
     <string name="agent_first_runtime_title">Hubungkan runtime pertama Anda</string>
     <string name="agent_first_runtime_body">Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri, atau minta administrator workspace untuk menghubungkannya.</string>
+    <string name="agent_first_runtime_starting_title">%1$s sedang disiapkan</string>
+    <string name="agent_first_runtime_starting_body">Akan muncul di sini segera setelah online. Ini bisa memakan waktu satu atau dua menit.</string>
     <string name="agent_cloud">Cloud</string>
     <plurals name="agent_runtime_count">
         <item quantity="other">%1$d runtime</item>

@@ -11,7 +11,7 @@ import type { PersonalCredentialProvider } from '../../../types'
 /**
  * The Connect card of a question naming the member's own credentials: only
  * selecting one in this conversation answers it, never a team binding. One not
- * connected yet is connected in Settings → Personal Credentials, not here.
+ * connected yet is connected in Connectors, not here.
  */
 export function PersonalConnectCard({
   toolCallId,

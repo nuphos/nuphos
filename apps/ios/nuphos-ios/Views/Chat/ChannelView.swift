@@ -229,9 +229,17 @@ struct ChannelView: View {
             VStack(alignment: .leading, spacing: 12) {
                 ChatIcon(faces: channel.faces, title: channel.title, size: 44)
                 Text(channel.title).font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
-                    .font(Theme.Text.secondary)
-                    .foregroundStyle(Theme.body)
+                // A Bot's own chat introduces the Bot, in Desktop's words.
+                Group {
+                    if channel.botId != nil {
+                        Text("This is where you and \(channel.title) get things done. Talk about what you want help with, and shape how you work together.")
+                        Text("You can start by telling \(channel.title) what you would like to do.")
+                    } else {
+                        Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
+                    }
+                }
+                .font(Theme.Text.secondary)
+                .foregroundStyle(Theme.body)
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("chat.empty")

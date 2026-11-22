@@ -227,15 +227,22 @@ describe('POST /webhooks/:triggerId', () => {
     expect((await post()).status).toBe(500)
   })
 
-  test('a Trigger paused by its own checks answers like a disabled one, not a 4xx', async () => {
-    stored = webhook()
-    refusal = new AppError(409, 'trigger_target_session_invalid', 'The Trigger was paused')
+  test.each([
+    'trigger_target_session_invalid',
+    'trigger_target_session_archived',
+    'trigger_execution_principal_invalid',
+  ])(
+    'a Trigger paused by its own checks (%s) answers like a disabled one, not a 4xx',
+    async (code) => {
+      stored = webhook()
+      refusal = new AppError(409, code, 'The Trigger was paused')
 
-    const res = await post()
+      const res = await post()
 
-    expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: false, reason: 'trigger_target_session_invalid' })
-  })
+      expect(res.status).toBe(200)
+      expect(await res.json()).toEqual({ ok: false, reason: code })
+    },
+  )
 
   test('any other conflict on the way is an error, not a delivery', async () => {
     stored = webhook()
@@ -297,5 +304,34 @@ describe('POST /webhooks/:triggerId', () => {
     expect(res.status).toBe(429)
     expect(res.headers.get('Retry-After')).toBe('180')
     expect(held).toHaveLength(0)
+  })
+})
+
+describe('payload filters', () => {
+  const filters = [{ path: 'action', in: ['opened', 'synchronize'] }]
+
+  test('a delivery that fails the rules is answered and starts no turn', async () => {
+    stored = webhook({ payloadFilters: filters })
+
+    const skipped = await post({ action: 'labeled' })
+
+    expect(skipped.status).toBe(200)
+    expect(await skipped.json()).toEqual({ ok: true, skipped: true, reason: 'filtered' })
+    expect(fires).toHaveLength(0)
+  })
+
+  test('a delivery that passes them fires once', async () => {
+    stored = webhook({ payloadFilters: filters })
+
+    expect((await post({ action: 'synchronize' })).status).toBe(200)
+    expect(fires).toHaveLength(1)
+  })
+
+  test('a filtered delivery does not use up the cooldown', async () => {
+    stored = webhook({ payloadFilters: filters, minIntervalSeconds: 300 })
+
+    await post({ action: 'edited' })
+    expect((await post({ action: 'opened' })).status).toBe(200)
+    expect(fires).toHaveLength(1)
   })
 })

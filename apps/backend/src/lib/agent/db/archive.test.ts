@@ -52,6 +52,7 @@ function matches(doc: Doc, filter: Doc): boolean {
 
 type Update = {
   $set?: Doc
+  $inc?: Doc
   $unset?: Doc
   $pull?: { inputRequests: { about: { $not: { $elemMatch: { $nin: unknown[] } } } } }
 }
@@ -72,8 +73,27 @@ class FakeConversations {
   find(filter: Doc) {
     return { toArray: async () => this.docs.filter((doc) => matches(doc, filter)) }
   }
-  private apply(doc: Doc, update: Update) {
+  private apply(doc: Doc, update: Update | Update[]) {
+    if (Array.isArray(update)) {
+      const stamp = update[0]?.$set?.archivedAt
+
+      doc.archivedAt = stamp
+      doc.archiveTriggersPendingAt = stamp
+      doc.triggerArchiveEpoch = Number(doc.triggerArchiveEpoch ?? 0) + 1
+      doc.archiveHomePendingEpochs = [
+        ...((doc.archiveHomePendingEpochs as unknown[]) ?? []),
+        {
+          epoch: Number(doc.sessionHomeEpoch ?? 0),
+          runtimeId: doc.runtimeId ?? null,
+          provider: doc.agentRuntime ?? 'claude-code',
+        },
+      ]
+
+      return
+    }
     Object.assign(doc, update.$set)
+    for (const [key, amount] of Object.entries(update.$inc ?? {}))
+      doc[key] = Number(doc[key] ?? 0) + Number(amount)
     for (const key of Object.keys(update.$unset ?? {})) delete doc[key]
     const tree = update.$pull?.inputRequests.about.$not.$elemMatch.$nin
 
@@ -87,7 +107,7 @@ class FakeConversations {
 
     return { modifiedCount: doc ? 1 : 0 }
   }
-  async updateMany(filter: Doc, update: Update) {
+  async updateMany(filter: Doc, update: Update | Update[]) {
     this.failIf('updateMany')
     for (const doc of this.docs.filter((d) => matches(d, filter))) this.apply(doc, update)
   }
@@ -95,7 +115,7 @@ class FakeConversations {
 
 const conversations = new FakeConversations()
 
-useDb({ db: (() => ({ collection: () => conversations })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection: () => conversations }) })
 
 const archived = (sessionId: string) =>
   Boolean(conversations.docs.find((doc) => doc.sessionId === sessionId)?.archivedAt)

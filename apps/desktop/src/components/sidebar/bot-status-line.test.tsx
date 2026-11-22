@@ -11,10 +11,10 @@ import type { Activity } from './bot-activity'
 const render = (activity: Activity) =>
   renderToStaticMarkup(createElement(BotStatusLine, { activity }))
 
-test('a question keeps its description', () => {
-  assert.ok(render({ kind: 'asking', question: 'Choose a project' }).includes('Choose a project'))
+test("a question adds no preview line: the row keeps the chat's newest post", () => {
+  assert.equal(render({ kind: 'asking' }), '')
 })
 
-test('an error says only that it failed; the chat explains why', () => {
-  assert.ok(render({ kind: 'error' }).includes('>Failed<'))
+test("a failed run adds no preview line: the row keeps the chat's newest post", () => {
+  assert.equal(render({ kind: 'error' }), '')
 })
