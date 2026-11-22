@@ -106,7 +106,6 @@ export function RuntimeSelector({
   /** Offers a first item that clears the choice, labelled with emptyLabel. */
   onClear?: () => void
 }) {
-  const providerName = AGENT_PROVIDER[value?.provider ?? 'claude-code'].label
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
   const [internalOpen, setInternalOpen] = useState(false)
@@ -163,7 +162,7 @@ export function RuntimeSelector({
   )
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
+    'flex min-w-0 max-w-fit grow basis-24 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
   )
 
   return (
@@ -187,7 +186,7 @@ export function RuntimeSelector({
         <MenuTrigger
           data-keep=""
           aria-label={t('Runtime: {label}', { label })}
-          title={`${label} · ${providerName}`}
+          title={value ? `${label} · ${AGENT_PROVIDER[value.provider].label}` : label}
           className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >
           {content}

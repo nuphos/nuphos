@@ -140,7 +140,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let runtime = metadata?["sender"]?["agentRuntime"]?.stringValue.flatMap(RuntimeInstance.Provider.init(rawValue:))
         let id = metadata?["sender"]?["id"]?.stringValue?.lowercased() ?? ""
         let logo = source == "agent.thread"
-            ? runtime.map { RuntimeInstance.Provider.logo($0.rawValue) }
+            ? runtime.flatMap { RuntimeInstance.Provider.logo($0.rawValue) }
             : ["github", "linear"].contains(id) ? "logo-\(id)" : nil
         let senderId = metadata?["sender"]?["id"]?.stringValue ?? ""
         let channelId = source == "agent.resource" && senderId.hasPrefix(Self.channelSenderPrefix)

@@ -162,5 +162,35 @@ export const threadModeScenario: Scenario = {
     await page.getByText('E2E thread', { exact: true }).click()
     await page.getByRole('button', { name: /^Deny/ }).click()
     await until('the thread to finish', async () => has('finish E2E_DELIVERY:thread-again'))
+    // #4602: finished, read and no longer open, the thread stays under its Task past the
+    // session list's 4 s poll, and the Task's fold hides it and brings it back.
+    await newTask(page)
+    const tasks = page.getByRole('tabpanel', { name: 'Tasks' })
+    const thread = tasks.locator('[data-sidebar-row]').filter({ hasText: 'E2E thread' }).first()
+    const light = () =>
+      page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+
+    await page.waitForTimeout(5_000)
+    if (!(await thread.isVisible())) throw new Error('The finished thread left the Tasks list')
+    await light()
+    await thread.scrollIntoViewIfNeeded()
+    await tasks.screenshot({ path: `${artifacts}/task-finished-thread-light.png` })
+    // Its siblings have no children, so the nearest fold control above it is its Task's.
+    await thread
+      .locator('xpath=preceding::*[@aria-label="Hide sub-tasks"][1]')
+      .dispatchEvent('click')
+    await thread.waitFor({ state: 'detached' })
+    const show = tasks.locator('[aria-label="Show sub-tasks"]')
+
+    await light()
+    await show.first().scrollIntoViewIfNeeded()
+    await tasks.screenshot({ path: `${artifacts}/task-finished-thread-folded-light.png` })
+
+    if ((await show.count()) !== 1) throw new Error('Another Task in the list is folded too')
+    await show.dispatchEvent('click')
+    await thread.waitFor()
   },
 }
