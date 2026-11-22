@@ -168,7 +168,7 @@ async function scenario(page: Page, stack: Stack) {
     typedTo: 'LONG_END',
   })
   await open(page, 'bot chat, first open', chatA, lastPost(chatA))
-  await open(page, 'task, first open, another', taskB, { history: 'ACK E2E_DELIVERY:switch-b' })
+  await open(page, 'task, first open, another', taskB, { history: ACK_B })
   await open(page, 'task, opened before', taskA, { history: ACK_A })
   await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
