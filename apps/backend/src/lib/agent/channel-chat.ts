@@ -129,13 +129,20 @@ export async function postAsAgent(
   agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
   text: string,
   files: object[] = [],
-  /** The index of the one post it answers, which it then quotes. */
+  /** The index of the one post it answers, which it then quotes unless that post is the newest. */
   replyTo?: number,
 ): Promise<void> {
   const channel = await getConversationBySessionId(channelId)
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
-  const quote = await replyQuote(channel, replyTo)
+  // Answering the newest post needs no quote: the reply lands right under it.
+  const newer =
+    replyTo !== undefined &&
+    (await agentMessages().findOne(
+      { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } },
+      { projection: { _id: 1 } },
+    ))
+  const quote = newer ? await replyQuote(channel, replyTo) : undefined
   // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
   const id =
     channel.external === 'slack'
