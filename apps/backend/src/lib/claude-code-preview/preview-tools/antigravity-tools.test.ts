@@ -5,7 +5,7 @@ import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 
 import { CREDENTIALS_MCP_SURFACE } from '../credentials-mcp'
-import { NUPHOS_TOOLS_INSTRUCTIONS, nuphosToolsSurface } from '../nuphos-tools-mcp'
+import { nuphosToolsSurface } from '../nuphos-tools-mcp'
 
 import { toolModuleFromAiSdkTools } from './ai-sdk-adapter'
 import { channelToolModule } from './channels'
@@ -68,13 +68,29 @@ describe('Antigravity tools', () => {
     )
   })
 
+  test('get instructions that name only the tools they keep', () => {
+    const all = names(nuphosToolsSurface(modules()).toolDefinitions)
+    const { instructions } = nuphosToolsSurface(
+      toolModulesForRuntime(modules(), 'antigravity'),
+      'antigravity',
+    )
+
+    expect(
+      all.filter((name) => instructions.includes(name) && !ANTIGRAVITY_TOOLS.has(name)),
+    ).toEqual([])
+    expect(nuphosToolsSurface(modules(), 'codex').instructions).toContain('render_artifact')
+  })
+
   test('fit in its tool budget with both servers instructions', () => {
-    const { toolDefinitions } = nuphosToolsSurface(toolModulesForRuntime(modules(), 'antigravity'))
+    const { instructions, toolDefinitions } = nuphosToolsSurface(
+      toolModulesForRuntime(modules(), 'antigravity'),
+      'antigravity',
+    )
     const total =
       bytes(toolDefinitions) +
       bytes(CREDENTIALS_MCP_SURFACE.toolDefinitions) +
-      Buffer.byteLength(NUPHOS_TOOLS_INSTRUCTIONS) +
-      Buffer.byteLength(CREDENTIALS_MCP_SURFACE.instructions ?? '')
+      Buffer.byteLength(instructions) +
+      Buffer.byteLength(CREDENTIALS_MCP_SURFACE.instructions)
 
     expect(total).toBeLessThanOrEqual(ANTIGRAVITY_BUDGET)
   })
