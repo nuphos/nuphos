@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 
 import { databaseConnectionUpdateSchema } from '@/lib/api/database-connections'
 import { invalidateMongoCatalogCache } from '@/lib/database-catalog'
+import { submittedDatabaseChangeStatus } from '@/lib/database-change-policy'
 import { parseDatabaseConnection } from '@/lib/database-connections'
 import { encryptDatabaseCredential } from '@/lib/database-credentials'
 import { probeDatabaseConnection } from '@/lib/database-health'
@@ -148,7 +149,7 @@ databaseConnectionAdminRoutes.patch(
         },
         {
           $set: {
-            status: 'pending_approval',
+            status: submittedDatabaseChangeStatus(nextChangePolicy),
             approvals: [],
             policySnapshot: nextChangePolicy,
             updatedAt: now,
