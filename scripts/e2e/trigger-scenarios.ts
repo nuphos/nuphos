@@ -192,7 +192,7 @@ export const triggerScenarios: Scenario[] = [
           throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
       // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
       // E2E_HOLD: that turn keeps running too, so its start is what shows it.
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
       )
@@ -210,7 +210,7 @@ export const triggerScenarios: Scenario[] = [
           after[0]!.indexOf('E2E_DELIVERY:hook-again')
       )
         throw new Error(`The later alerts did not run together, in order: ${JSON.stringify(turns)}`)
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to stop', async () =>
         agentEvents(stack).includes('cancelled E2E_DELIVERY:hook-again'),
       )
@@ -228,7 +228,7 @@ export const triggerScenarios: Scenario[] = [
       await until('the accepted one to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-limited'),
       )
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
     },
   },
   {

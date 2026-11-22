@@ -18,7 +18,7 @@ export async function shootSettings(page: Page, file: string, bot: string) {
   const channels = page.getByText('Connected channels').first()
 
   await channels.waitFor()
-  await page.getByText(bot, { exact: true }).first().waitFor()
+  await page.getByText(bot, { exact: true }).filter({ visible: true }).first().waitFor()
   await channels.evaluate((element) => element.scrollIntoView({ block: 'start' }))
   await page.waitForTimeout(300)
   await page.screenshot({ path: `${artifacts}/${file}` })

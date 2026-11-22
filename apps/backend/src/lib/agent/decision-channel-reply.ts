@@ -23,7 +23,7 @@ export type DecisionAnswer = {
 /** The person answering, as their posts name them. */
 export type Actor = { id: string; displayName: string; avatarURL?: string }
 
-export function said({ choices, text }: { choices?: string[]; text?: string }): string {
+function said({ choices, text }: { choices?: string[]; text?: string }): string {
   return text?.trim() || choices?.join(', ') || '(no answer)'
 }
 

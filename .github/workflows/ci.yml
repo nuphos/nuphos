@@ -466,13 +466,14 @@ jobs:
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
   # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
   e2e:
-    # The main scenarios and the suites that start a stack of their own run side by side;
-    # the main leg keeps the check name and the `e2e` artifact.
-    name: Desktop against a real backend${{ matrix.part == 'standalone' && ' (standalone suites)' || '' }}
+    # The two halves of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
+    # that start a stack of their own run side by side; the first half keeps the check name
+    # and the `e2e` artifact.
+    name: Desktop against a real backend${{ matrix.part == '2' && ' (second half)' || matrix.part == 'standalone' && ' (standalone suites)' || '' }}
     strategy:
       fail-fast: false
       matrix:
-        part: [main, standalone]
+        part: ['1', '2', standalone]
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     # Not in the merge queue: each PR already passed it, and one flaky run there ejects
@@ -482,8 +483,8 @@ jobs:
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    # The main leg takes about 46 minutes with openab from the cache, the standalone one
-    # about 6. A change to prepare.mjs or the openab source misses that cache until it
+    # Each half of the main scenarios takes about 25 minutes with openab from the cache,
+    # the standalone leg about 6. A change to prepare.mjs or the openab source misses that cache until it
     # lands on main, and compiling openab adds about 6 minutes.
     timeout-minutes: 50
     permissions:
@@ -533,7 +534,7 @@ jobs:
           docker pull mongo:8.0.32
           docker pull rustfs/rustfs:1.0.0
       - name: Run isolated real-disk Desktop evidence
-        if: matrix.part == 'main' && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        if: matrix.part == '1' && github.event_name == 'workflow_dispatch' && inputs.real_disk
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/real-disk-shots
           OPENAB: ${{ github.workspace }}/apps/desktop/build/local-runtime/linux-x64/openab
@@ -556,7 +557,7 @@ jobs:
           fallocate -l "$fill_bytes" "$mountpoint/fill"
           E2E_DISK_HOME="$mountpoint" E2E_DISK_FILL="$mountpoint/fill" xvfb-run --auto-servernum bun scripts/e2e/run-real-disk.ts
       - name: Upload real-disk screenshots
-        if: always() && matrix.part == 'main' && github.event_name == 'workflow_dispatch' && inputs.real_disk
+        if: always() && matrix.part == '1' && github.event_name == 'workflow_dispatch' && inputs.real_disk
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: real-disk-screenshots
@@ -576,9 +577,10 @@ jobs:
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e:entry-points
       - name: Run the end-to-end scenarios
-        if: matrix.part == 'main' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        if: matrix.part != 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
         env:
           E2E_ARTIFACTS: ${{ runner.temp }}/e2e
+          E2E_SHARD: ${{ matrix.part }}
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           xvfb-run --auto-servernum bun run e2e
@@ -609,7 +611,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
         with:
-          name: e2e${{ matrix.part == 'standalone' && '-standalone' || '' }}
+          name: e2e${{ matrix.part != '1' && format('-{0}', matrix.part) || '' }}
           path: |
             ${{ runner.temp }}/e2e
             !${{ runner.temp }}/e2e/mongo
