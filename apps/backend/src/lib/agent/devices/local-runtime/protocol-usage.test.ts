@@ -97,3 +97,22 @@ test('Antigravity presence survives tunnel validation with its sign-in status', 
     localRuntimeStatusSchema.parse({ agents: { antigravity: agent } }).agents.antigravity,
   ).toEqual(agent)
 })
+
+test('a computer names its account only by a 20-hex key, never anything else', () => {
+  const parse = (accountKey: unknown) =>
+    localRuntimeStatusSchema.parse({
+      agents: { 'claude-code': { cli: { installed: true, loggedIn: true }, accountKey } },
+    }).agents['claude-code']?.accountKey
+
+  expect(parse('0123456789abcdef0123')).toBe('0123456789abcdef0123')
+  // An email, a raw id, an older Desktop's person-only key or a longer hash costs
+  // the key, never the heartbeat.
+  for (const bad of [
+    'someone@example.com',
+    'acc-1',
+    '0123456789abcdef',
+    '0123456789abcdef01234',
+    42,
+  ])
+    expect(parse(bad)).toBeUndefined()
+})

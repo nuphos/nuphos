@@ -78,7 +78,7 @@ const defaultDeps: PanelRuntimeDeps = {
     (
       await Promise.all([
         ...OPENAB_PROVIDERS.map((provider) =>
-          resolveTeamRuntimeEndpoints(teamId, undefined, provider, 'control'),
+          resolveTeamRuntimeEndpoints(teamId, provider, 'control'),
         ),
         boxEndpoints(teamId, userId),
       ])
@@ -93,8 +93,9 @@ const defaultDeps: PanelRuntimeDeps = {
   },
 }
 
+/** Agents on someone's own computer never offer the panel job, so say what does (#4168). */
 export const NO_RUNTIME_MESSAGE =
-  "No agent can run this dashboard's panels. Panels run on one of the team's agents or on an online, signed-in Box agent of the panel's author: bring one online in Settings → Agent, then refresh."
+  "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Ask a team admin to rent one, then refresh."
 export const UNREACHABLE_RUNTIME_MESSAGE =
   "None of this team's agents could be reached. Check that an agent is online in Settings → Agent, then refresh."
 export const PARTLY_UNREACHABLE_RUNTIME_MESSAGE =
@@ -109,7 +110,7 @@ export async function selectPanelRuntime(
 ): Promise<PanelRuntime> {
   const candidates = await deps.listEndpoints(context.teamId, context.userId)
 
-  if (candidates.length === 0) throw new PanelExecError('runtime_unavailable', NO_RUNTIME_MESSAGE)
+  if (candidates.length === 0) throw new PanelExecError('no_runtime', NO_RUNTIME_MESSAGE)
   let unreachable = 0
 
   for (const endpoint of strategy(candidates, context)) {

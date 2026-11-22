@@ -10,7 +10,15 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) =>
+    ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => ipcRenderer.invoke('agent:snoozeDecision', sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,
@@ -19,6 +27,7 @@ export const agentApi = {
       choices?: string[]
       text?: string
       questions?: { choices?: string[]; text?: string }[]
+      answeredIn?: 'inbox'
     },
   ) => ipcRenderer.invoke('agent:answerDecision', sessionId, requestId, teamId, answer),
   agentMoveConversationRuntime: (
@@ -170,35 +179,6 @@ export const agentApi = {
     ipcRenderer.invoke('agent:listPlans', args),
   agentGetPlan: (planId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:getPlan', planId, teamId),
-  agentUpdatePlan: (
-    planId: string,
-    patch: {
-      status?:
-        'proposed' | 'approved' | 'rejected' | 'executing' | 'completed' | 'failed' | 'cancelled'
-      commandStatuses?: {
-        stepIdx: number
-        jobIdx: number
-        cmdIdx: number
-        status: 'pending' | 'running' | 'done' | 'failed'
-      }[]
-      commandResults?: {
-        stepIdx: number
-        jobIdx: number
-        cmdIdx: number
-        status: 'pending' | 'running' | 'done' | 'failed'
-        stdout?: string
-        stderr?: string
-        exitCode?: number
-        executedBy?: 'agent'
-      }[]
-      executionError?: string
-    },
-    teamId?: string,
-  ) => ipcRenderer.invoke('agent:updatePlan', planId, patch, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) =>
-    ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
@@ -254,6 +234,20 @@ export const agentApi = {
     ipcRenderer.on('ssh-terminal:event', handler)
 
     return () => ipcRenderer.off('ssh-terminal:event', handler)
+  },
+  /** Pushes `agent:changes` for the team's conversations until the app quits. */
+  agentFollowChanges: (teamId: string) => ipcRenderer.invoke('agent:followChanges', teamId),
+  onAgentChanges: (
+    cb: (change: { teamId: string; sessionId: string | null; connected?: boolean }) => void,
+  ) => {
+    const handler = (
+      _e: unknown,
+      change: { teamId: string; sessionId: string | null; connected?: boolean },
+    ) => cb(change)
+
+    ipcRenderer.on('agent:changes', handler)
+
+    return () => ipcRenderer.off('agent:changes', handler)
   },
   onAgentEvent: (cb: (payload: { streamId: string; event: unknown }) => void) => {
     const handler = (_e: unknown, payload: { streamId: string; event: unknown }) => cb(payload)

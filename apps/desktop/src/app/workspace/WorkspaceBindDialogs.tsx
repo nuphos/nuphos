@@ -57,7 +57,7 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
           onConnected={(teamId) => {
             setConnectAgent(null)
             switchTeam(teamId)
-            openSettingsSection('workspace.agent')
+            openSettingsSection('workspace.computers')
           }}
         />
       )}

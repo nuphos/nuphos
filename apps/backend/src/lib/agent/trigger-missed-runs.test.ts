@@ -1,9 +1,16 @@
 import { describe, expect, mock, test } from 'bun:test'
 
-import { MISSED_RUN_GRACE_MS, findMissedRun, sweepMissedTriggerRuns } from './trigger-missed-runs'
+import {
+  MISSED_RUN_GRACE_MS,
+  findMissedRun,
+  recordDroppedFire,
+  recordTriggerRan,
+  sweepMissedTriggerRuns,
+  triggerIdOf,
+} from './trigger-missed-runs'
 
 import type { AgentTrigger } from './trigger-db'
-import type { MissedRunSweepDeps } from './trigger-missed-runs'
+import type { MissedRunSweepDeps, TriggerRunDeps } from './trigger-missed-runs'
 import type { ObjectId } from 'mongodb'
 
 const DAILY_9 = '0 9 * * *'
@@ -199,7 +206,7 @@ describe('sweepMissedTriggerRuns', () => {
     ])
   })
 
-  test('alerts once per outage, and again after a fire ends it', async () => {
+  test('alerts once per outage, and again after a run ends it', async () => {
     const everyMinute = trigger({
       cronExpression: '* * * * *',
       lastFiredAt: new Date('2026-11-12T09:00:01.000Z'),
@@ -217,7 +224,7 @@ describe('sweepMissedTriggerRuns', () => {
     expect(state.row.missedRunAt?.getTime()).toBeGreaterThan(first?.getTime() ?? Infinity)
     expect(state.row.missedRunAt).toEqual(new Date(minutes(10).getTime() - MISSED_RUN_GRACE_MS))
 
-    // The scheduler fires: lastFiredAt set, missedRunAt unset.
+    // The scheduler fires and its turn runs: lastFiredAt set, missedRunAt unset.
     const { missedRunAt: _cleared, ...rest } = state.row
 
     state.row = { ...rest, lastFiredAt: minutes(11) }
@@ -285,5 +292,99 @@ describe('sweepMissedTriggerRuns', () => {
     expect(await sweepMissedTriggerRuns(STARTED_EARLY, NOW, deps)).toBe(0)
     expect(findOneAndUpdate).not.toHaveBeenCalled()
     expect(notify).not.toHaveBeenCalled()
+  })
+})
+
+describe('a fire its offline computer dropped', () => {
+  const TRIGGER_ID = '6af1a38b843a609932e6f66d'
+  const hours = (n: number) => new Date(DUE.getTime() + n * 3_600_000)
+
+  // One stored row, updated the way Mongo would for the two writes under test.
+  function fakeDeps(initial: AgentTrigger) {
+    const state = { row: initial }
+    const notify = mock(() => {})
+    const deps = {
+      triggers: {
+        findOneAndUpdate: (_filter: unknown, update: { $set: Partial<AgentTrigger> }) => {
+          if (!state.row.enabled) return Promise.resolve(null)
+          const before = state.row
+
+          state.row = { ...before, ...update.$set }
+
+          return Promise.resolve(before)
+        },
+        updateOne: (_filter: unknown, update: { $set: Partial<AgentTrigger> }) => {
+          const { missedRunAt: _cleared, ...rest } = state.row
+
+          state.row = { ...rest, ...update.$set }
+
+          return Promise.resolve({})
+        },
+      },
+      notify,
+    } as unknown as TriggerRunDeps
+
+    return { deps, state, notify }
+  }
+
+  test('is recorded as a missed run and its owner is told', async () => {
+    const { deps, state, notify } = fakeDeps(trigger({ lastFiredAt: DUE }))
+
+    await recordDroppedFire(TRIGGER_ID, DUE, deps)
+    expect(state.row.missedRunAt).toEqual(DUE)
+    expect(notify).toHaveBeenCalledWith(['owner'], {
+      sessionId: 'session-1',
+      teamId: 'team-1',
+      title: 'Trigger missed a run',
+      body: 'Morning digest was due at 2026-11-13 09:00 (UTC) and did not run.',
+    })
+  })
+
+  test('alerts once however long the computer stays offline', async () => {
+    const { deps, state, notify } = fakeDeps(trigger())
+
+    await recordDroppedFire(TRIGGER_ID, hours(0), deps)
+    await recordDroppedFire(TRIGGER_ID, hours(1), deps)
+    await recordDroppedFire(TRIGGER_ID, hours(2), deps)
+    expect(notify).toHaveBeenCalledTimes(1)
+    // The marker still follows the latest dropped fire.
+    expect(state.row.missedRunAt).toEqual(hours(2))
+  })
+
+  test('is cleared by the run after the computer is back, and the next outage alerts again', async () => {
+    const { deps, state, notify } = fakeDeps(trigger())
+
+    await recordDroppedFire(TRIGGER_ID, hours(0), deps)
+    await recordTriggerRan(TRIGGER_ID, deps)
+    expect(state.row.missedRunAt).toBeUndefined()
+    expect(state.row.lastRunAt).toBeInstanceOf(Date)
+
+    await recordDroppedFire(TRIGGER_ID, hours(5), deps)
+    expect(notify).toHaveBeenCalledTimes(2)
+  })
+
+  test('is not recorded for a disabled Trigger', async () => {
+    const { deps, state, notify } = fakeDeps(trigger({ enabled: false }))
+
+    await recordDroppedFire(TRIGGER_ID, DUE, deps)
+    expect(state.row.missedRunAt).toBeUndefined()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  test('only a Trigger message names a Trigger', () => {
+    const from = (id: string, source = 'agent.resource') => ({
+      source,
+      metadata: {
+        version: 1 as const,
+        sender: { type: 'system' as const, id, displayName: 'Sender' },
+        source: 'agent.resource' as const,
+        sentAt: DUE.toISOString(),
+      },
+    })
+
+    expect(triggerIdOf(from(`trigger:${TRIGGER_ID}`))).toBe(TRIGGER_ID)
+    expect(triggerIdOf(from('nuphos'))).toBeUndefined()
+    expect(triggerIdOf(from('trigger:not-an-id'))).toBeUndefined()
+    expect(triggerIdOf(from(`trigger:${TRIGGER_ID}`, 'agent.thread'))).toBeUndefined()
   })
 })

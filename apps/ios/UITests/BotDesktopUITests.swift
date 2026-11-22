@@ -25,4 +25,33 @@ final class BotDesktopUITests: XCTestCase {
         button.tap()
         XCTAssertTrue(app.buttons["Close desktop"].waitForExistence(timeout: 10), "The desktop viewer did not open")
     }
+
+    /// A desktop that can't connect says so below the keys, not over them (#3610).
+    func testTheErrorCardLeavesTheKeysUncovered() {
+        let fixture = URL(filePath: #filePath)
+            .deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/bot-desktop-responses.json")
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
+        app.launch()
+
+        app.staticTexts["Sign-in helper"].firstMatch.tap()
+        let button = app.buttons["chat.desktop"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10), "A Bot with a desktop has no desktop button")
+        button.tap()
+        let retry = app.buttons["Try again"]
+        XCTAssertTrue(retry.waitForExistence(timeout: 15), "The desktop did not fail as the fixture has it")
+        let card = app.otherElements["desktop.error"]
+        XCTAssertTrue(card.exists, "No error card")
+        let keys = ["esc", "tab", "←", "→"].map { app.buttons[$0].firstMatch }
+        for key in keys {
+            XCTAssertTrue(key.exists, "No \(key) key")
+            XCTAssertFalse(key.frame.intersects(card.frame), "The error card covers the \(key.label) key")
+        }
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "desktop-error-card"
+        shot.lifetime = .keepAlways
+        add(shot)
+    }
 }

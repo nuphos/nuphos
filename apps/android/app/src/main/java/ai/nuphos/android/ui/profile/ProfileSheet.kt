@@ -51,27 +51,29 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.NuphosAvatar
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, onDismiss: () -> Unit) {
-    val voiceContext = androidx.compose.ui.platform.LocalContext.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
-    val voiceServices = remember(voiceContext, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(voiceContext) }
+    val voiceServices = remember(context, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(context) }
     val auth = LocalAuthSession.current
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
     var deletion by remember(user.id) { mutableStateOf(false) }
     var devices by remember(user.id) { mutableStateOf(false) }
-    var twoFactor by remember(user.id) { mutableStateOf(false) }
+    var twoFactor by remember(user.id) { mutableStateOf(TwoFactorResume.take(context)) }
     var withdraw by remember(user.id) { mutableStateOf(false) }
     val uri = LocalUriHandler.current
     val clipboard = LocalClipboardManager.current
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), dragHandle = null, containerColor = MaterialTheme.colorScheme.background) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Account", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).testTag("account-sheet-title"))
-            TextButton(onClick = onDismiss) { Text("Done") }
+            Text(stringResource(R.string.account), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).testTag("account-sheet-title"))
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
         }
         ProfileContent(
             user = auth.user ?: user,
@@ -89,7 +91,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
-                ProfileAction("Workspace", subtitle = workspaceName, disclosure = true,
+                ProfileAction(stringResource(R.string.profile_workspace), subtitle = workspaceName, disclosure = true,
                     onClick = { if (workspacePicker != null) choosingWorkspace = true else onWorkspace?.invoke() })
             }) else null,
         )
@@ -108,24 +110,24 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
     if (withdraw) {
         AlertDialog(
             onDismissRequest = { withdraw = false },
-            title = { Text("Withdraw AI sharing consent?") },
-            text = { Text("This blocks new AI work from this app after the server confirms your choice. It does not undo data already sent or stop existing, scheduled or other-device runs. Unsent drafts will be cleared.") },
-            confirmButton = { TextButton(enabled = !auth.consentBusy, onClick = { withdraw = false; auth.setAIConsent(false) }) { Text("Withdraw") } },
-            dismissButton = { TextButton(onClick = { withdraw = false }) { Text("Cancel") } },
+            title = { Text(stringResource(R.string.profile_withdraw_title)) },
+            text = { Text(stringResource(R.string.profile_withdraw_body)) },
+            confirmButton = { TextButton(enabled = !auth.consentBusy, onClick = { withdraw = false; auth.setAIConsent(false) }) { Text(stringResource(R.string.profile_withdraw_confirm)) } },
+            dismissButton = { TextButton(onClick = { withdraw = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
     if (confirm) {
         AlertDialog(
             onDismissRequest = { confirm = false },
-            title = { Text("Sign out of Nuphos?") },
+            title = { Text(stringResource(R.string.sign_out_confirm)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirm = false
                     onDismiss()
                     auth.signOut()
-                }) { Text("Sign out", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -148,6 +150,7 @@ internal fun ProfileContent(
     workspaceSettings: (@Composable () -> Unit)? = null,
     accounts: (@Composable () -> Unit)? = null,
 ) {
+    val copyUserId = stringResource(R.string.profile_copy_user_id)
     Column(
         Modifier
             .fillMaxWidth()
@@ -162,7 +165,7 @@ internal fun ProfileContent(
             Column(
                 Modifier.fillMaxWidth().padding(vertical = 8.dp)
                     .pointerInput(user.id, onCopyUserId) { detectTapGestures(onLongPress = { onCopyUserId() }) }
-                    .semantics { customActions = listOf(CustomAccessibilityAction("Copy user ID") { onCopyUserId(); true }) },
+                    .semantics { customActions = listOf(CustomAccessibilityAction(copyUserId) { onCopyUserId(); true }) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -174,19 +177,19 @@ internal fun ProfileContent(
                 }
                 Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
-            if (accounts != null) ProfileGroup("Accounts") { accounts() }
-            ProfileGroup("Account") {
-                ProfileAction("Edit profile", onClick = onEdit)
+            if (accounts != null) ProfileGroup(stringResource(R.string.profile_group_accounts)) { accounts() }
+            ProfileGroup(stringResource(R.string.account)) {
+                ProfileAction(stringResource(R.string.profile_edit_title), onClick = onEdit)
                 ProfileDivider(Modifier.testTag("profile-account-line-edit"))
-                Info("Name", user.name)
+                Info(stringResource(R.string.profile_name), user.name)
                 ProfileDivider(Modifier.testTag("profile-account-line-name"))
-                Info("Username", user.username, mono = true)
+                Info(stringResource(R.string.profile_username), user.username, mono = true)
                 ProfileDivider(Modifier.testTag("profile-account-line-username"))
-                Info("Email", user.email)
+                Info(stringResource(R.string.profile_email), user.email)
                 ProfileDivider(Modifier.testTag("profile-account-line-email"))
-                ProfileAction("Signed-in devices", disclosure = true, onClick = onDevices)
+                ProfileAction(stringResource(R.string.profile_devices_title), disclosure = true, onClick = onDevices)
                 ProfileDivider(Modifier.testTag("profile-account-line-devices"))
-                ProfileAction("Two-factor authentication", disclosure = true, onClick = onTwoFactor)
+                ProfileAction(stringResource(R.string.profile_two_factor), disclosure = true, onClick = onTwoFactor)
                 if (workspaceSettings != null) {
                     ProfileDivider(Modifier.testTag("profile-account-line-workspace"))
                     workspaceSettings()
@@ -200,22 +203,22 @@ internal fun ProfileContent(
                     voiceSettings()
                 }
             }
-            ProfileGroup("App icon") { AppIconPicker() }
-            ProfileGroup("Privacy") {
-                ProfileAction("Privacy policy", onClick = onPrivacy)
+            ProfileGroup(stringResource(R.string.profile_group_app_icon)) { AppIconPicker() }
+            ProfileGroup(stringResource(R.string.profile_group_privacy)) {
+                ProfileAction(stringResource(R.string.profile_privacy_policy), onClick = onPrivacy)
                 if (canWithdraw) {
                     ProfileDivider()
-                    ProfileAction("Withdraw AI sharing consent", enabled = !consentBusy, onClick = onWithdraw)
+                    ProfileAction(stringResource(R.string.profile_withdraw_action), enabled = !consentBusy, onClick = onWithdraw)
                 }
                 ProfileDivider()
-                ProfileAction("Account deletion request", onClick = onDeletion)
-                if (!canWithdraw) Text("AI data sharing is off. Close Account to read the notice.", modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
+                ProfileAction(stringResource(R.string.profile_deletion_request_action), onClick = onDeletion)
+                if (!canWithdraw) Text(stringResource(R.string.profile_ai_sharing_off), modifier = Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall)
                 consentError?.let {
                     Text(it, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.error)
                 }
             }
             Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
-                ProfileAction("Sign out", destructive = true, onClick = onSignOut)
+                ProfileAction(stringResource(R.string.sign_out), destructive = true, onClick = onSignOut)
             }
             Spacer(Modifier.height(8.dp))
         }

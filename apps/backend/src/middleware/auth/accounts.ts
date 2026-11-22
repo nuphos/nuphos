@@ -1,6 +1,5 @@
 import { ObjectId } from 'mongodb'
 
-import { canUseAllowList } from '@/lib/byos/access'
 import {
   findLinodeAccount,
   findHetznerAccount,
@@ -10,6 +9,7 @@ import {
 } from '@/lib/byos/account'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
+import { canRequestUseBinding } from '@/middleware/auth/binding-access'
 
 import type {
   HetznerAccountVariables,
@@ -51,7 +51,7 @@ export function requireLinodeMemberAccess(): MiddlewareHandler<{
   Variables: LinodeAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('linodeAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('linodeAccess'))) {
       throw new AppError(
         403,
         'linode_account_access_denied',
@@ -93,7 +93,7 @@ export function requireHetznerMemberAccess(): MiddlewareHandler<{
   Variables: HetznerAccountVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('hetznerAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('hetznerAccess'))) {
       throw new AppError(
         403,
         'hetzner_account_access_denied',
@@ -139,7 +139,7 @@ export function requireVantaMemberAccess(): MiddlewareHandler<{
   Variables: VantaIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('vantaAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('vantaAccess'))) {
       throw new AppError(
         403,
         'vanta_integration_access_denied',
@@ -185,7 +185,7 @@ export function requireSecureframeMemberAccess(): MiddlewareHandler<{
   Variables: SecureframeIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('secureframeAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('secureframeAccess'))) {
       throw new AppError(
         403,
         'secureframe_integration_access_denied',
@@ -231,7 +231,7 @@ export function requireSonarqubeMemberAccess(): MiddlewareHandler<{
   Variables: SonarqubeIntegrationVariables
 }> {
   return async (c, next) => {
-    if (!canUseAllowList(c.get('sonarqubeAccess')?.memberAllowList, c.get('userId'))) {
+    if (!canRequestUseBinding(c, c.get('sonarqubeAccess'))) {
       throw new AppError(
         403,
         'sonarqube_integration_access_denied',

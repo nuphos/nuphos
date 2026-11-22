@@ -103,6 +103,24 @@ test('a question from the Bot or a sub-agent is asking', () => {
   assert.equal(work?.kind === 'asking' && work.question, 'Which region?')
 })
 
+const ask = (id: string, askedAt: string) => ({
+  inputRequests: [{ id, category: 'x', question: `${id}?`, status: 'open', askedAt }],
+})
+
+test('several open questions name the oldest and say how many', () => {
+  const work = botWorkOf(
+    run('bot', idle, ask('newer', '2026-11-14T00:00:00Z')),
+    [run('kid', idle, ask('older', '2026-11-13T00:00:00Z'))],
+    'c',
+  )
+
+  assert.deepEqual(work?.kind === 'asking' && [work.question, work.id, work.count], [
+    'older?',
+    'older',
+    2,
+  ])
+})
+
 test("a run's start reads both list formats and nothing else", () => {
   const started = (startedAt: string | null) =>
     runStartedAt(run('bot', turn(), { activeRun: { streamId: 's', startedAt } }))
@@ -153,4 +171,11 @@ test('a question and background work show no time', () => {
 
   assert.equal(workSince(botWorkOf(busy, [], 'c'), busy), undefined)
   assert.equal(workSince(null, bot), undefined)
+})
+
+test('an active plan is shown as a step without inventing a tool', () => {
+  assert.deepEqual(stepOf(turn({ phase: 'plan', label: 'Inspect fictional project', tools: [] })), {
+    kind: 'plan',
+    title: 'Inspect fictional project',
+  })
 })

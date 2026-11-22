@@ -3,14 +3,19 @@ import { randomBytes } from 'node:crypto'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
 import { clearAgentClusterContextCache } from '@/lib/byos/agent-kubeconfig/collect'
 import { relayConfigured } from '@/lib/byos/relay-token'
 import { encryptOnpremKubeconfig } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
-import { requireTeamRole } from '@/middleware/auth'
+import {
+  allowDisconnect,
+  canRequestUseBinding,
+  disconnectBinding,
+  requireTeamRole,
+} from '@/middleware/auth'
 import { teamByosBindings } from '@/models'
 import {
   appendCluster,
@@ -43,6 +48,7 @@ const enrolSchema = z
       .min(1)
       .max(256 * 1024)
       .optional(),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -98,7 +104,7 @@ export function registerOnpremEnrolmentRoutes(
           : {}),
         createdAt: now,
         tokenIssuedAt: now,
-        access: createDefaultAccess(c.get('userId'), now),
+        access: await newBindingAccess(c, { now: now, highPrivilege: true }),
       }
 
       if (!(await appendCluster(teamId, binding, now))) {
@@ -123,6 +129,14 @@ export function registerOnpremEnrolmentRoutes(
     async (c) => {
       const teamId = parseObjectId(c.get('teamId'), 'teamId')
       const binding = await loadBinding(teamId, c.req.param('clusterId'))
+
+      if (!canRequestUseBinding(c, binding.access)) {
+        throw new AppError(
+          403,
+          'onprem_cluster_access_denied',
+          'You are not allowed to use this cluster',
+        )
+      }
       const { kubeconfig } = c.req.valid('json')
       const { endpoint } = parseKubeconfigOrFail(kubeconfig)
 
@@ -168,6 +182,13 @@ export function registerOnpremEnrolmentRoutes(
       const clusterId = c.req.param('clusterId')
       const binding = await loadBinding(teamId, clusterId)
 
+      if (!canRequestUseBinding(c, binding.access)) {
+        throw new AppError(
+          403,
+          'onprem_cluster_access_denied',
+          'You are not allowed to use this cluster',
+        )
+      }
       const clusterKey = randomBytes(16).toString('hex')
       const now = new Date()
 
@@ -191,10 +212,8 @@ export function registerOnpremEnrolmentRoutes(
     const clusterId = c.req.param('clusterId')
     const binding = await loadBinding(teamId, clusterId)
 
-    await teamByosBindings().updateOne(
-      { _id: teamId },
-      { $pull: { onpremClusters: { id: binding.id } }, $set: { updatedAt: new Date() } },
-    )
+    allowDisconnect(c, binding.access)
+    await disconnectBinding(c, teamId, 'onpremClusters', { id: binding.id })
 
     return c.json({ deleted: true })
   })

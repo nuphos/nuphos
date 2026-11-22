@@ -1,4 +1,5 @@
-import { listChannelAgents } from './db/channels'
+import { chatName } from './db/archive'
+import { listChannelAgents } from './db/channel-agents'
 import { conversationParticipantIds } from './db/participants'
 import { agentMessages } from './db/shared'
 import { parseMessageMetadata } from './message-metadata'
@@ -10,12 +11,13 @@ export type ChannelFace = {
   id: string
   name: string
   avatarURL?: string
-  agent?: { avatar?: string; provider?: string }
+  agent?: { avatar?: string; avatarBackground?: string; provider?: string }
 }
 
 type Person = { id: string; name: string; avatarURL?: string }
 
-const FACES = 2
+// The design system's group icon clusters up to three members.
+const FACES = 3
 // Enough recent posts to find who spoke last.
 const RECENT_POSTS = 20
 
@@ -46,7 +48,11 @@ export async function channelMembers(
     members.set(agent.sessionId, {
       id: agent.sessionId,
       name: agent.title,
-      agent: { avatar: agent.avatar, provider: agent.provider },
+      agent: {
+        avatar: agent.avatar,
+        ...(agent.avatarBackground ? { avatarBackground: agent.avatarBackground } : {}),
+        provider: agent.provider,
+      },
     })
   for (const id of conversationParticipantIds(channel)) {
     const person = people.get(id)
@@ -72,11 +78,8 @@ export async function channelMembers(
  * named after the Bot, so renaming the Bot renames it. Other conversations carry neither.
  */
 export async function channelFacesField(
-  conversation: Parameters<typeof channelMembers>[0] & {
-    kind?: string
-    title?: string
-    group?: true
-  },
+  conversation: Parameters<typeof channelMembers>[0] &
+    Pick<AgentConversation, 'kind' | 'group'> & { title?: string },
   viewerId: string,
   people: Map<string, Person>,
 ): Promise<{ faces?: ChannelFace[]; title?: string }> {
@@ -88,11 +91,9 @@ export async function channelFacesField(
   const faces =
     agents.length === 1 ? [...agents, ...members.filter((member) => !member.agent)] : members
 
-  const botChat = !conversation.group && members.length === 1 && Boolean(members[0]?.agent)
-
   return {
     faces: faces.slice(0, FACES),
-    ...(conversation.title && !botChat
+    ...(chatName(conversation)
       ? {}
       : {
           // Alone in it, the viewer sees their own name rather than none.

@@ -1,5 +1,3 @@
-import type { BoxState } from '../api/device-types.ts'
-
 /** Every agent a team runtime can run. This computer's own agent is narrower: `LocalAgentProvider`. */
 export const AGENT_PROVIDERS = [
   'claude-code',
@@ -9,6 +7,7 @@ export const AGENT_PROVIDERS = [
   'opencode',
   'hermes',
   'dsh',
+  'pi',
 ] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
@@ -25,6 +24,7 @@ export const AGENT_PROVIDER: Record<
   opencode: { label: 'OpenCode', account: 'a model provider' },
   hermes: { label: 'Hermes Agent', account: 'a model provider' },
   dsh: { label: 'DeepSeek Harness', account: 'DeepSeek', preview: true },
+  pi: { label: 'Pi', account: 'a model provider', preview: true },
 }
 
 export type LocalRuntimeSummary = {
@@ -44,8 +44,6 @@ export type LocalRuntimeSummary = {
   instanceId?: string
   /** The team member who added this agent, and when; absent for older and default agents. */
   addedBy?: { userId: string; at: string }
-  /** The host can run more than one agent per provider; any agent on the device reports it. */
-  agentInstances?: boolean
   /** Whether its computer is connected now. Away, the agent stays listed with its last state. */
   online?: boolean
   /** Its computer opens its own screen on request (runtime-desktop). */
@@ -58,8 +56,10 @@ export type LocalRuntimeSummary = {
   usage?: unknown
   /** When that computer read the usage above. */
   usageAt?: string
-  /** Set when this computer is one of the owner's Boxes. */
-  box?: { state: BoxState }
+  /** Set when this computer is one of the owner's Boxes: who provides the machine, and no more.
+   *  The machine's state belongs to the device list (box-instabox-state.ts), which reads it from
+   *  the provider; this list is polled far too often to ask. */
+  box?: { provider: 'instabox' | 'k8s' }
   /** Set when it is a teammate's own computer they share with the viewer. */
   shared?: { level: 'approve' | 'full' }
 }
@@ -178,6 +178,8 @@ export type RuntimeLoginStatus = {
   authorizationUrl?: string
   step?: RuntimeLoginStep
   codeSubmitted?: boolean
+  /** The computer is installing the agent's CLI before the sign-in starts. */
+  installing?: true
   error?: string
   expiresAt: string
 }

@@ -18,13 +18,11 @@ import type {
   MemorySearchedObserver,
   MemorySupersededObserver,
 } from './tools-shared'
-import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
 export function createTeamMemoryTools(ctx: {
   userId: string
   teamId: string | null | undefined
   conversationId: string
-  origin?: AgentSessionOrigin
   // Semantic save event (Phase 2): the item/scope pair of a landed save. The
   // SPI adapter derives its MemorySavedEvent (real doc timestamps included)
   // from this; the RUNTIME renders the wire memory-ingest frame — the tool
@@ -53,7 +51,6 @@ export function createTeamMemoryTools(ctx: {
     userId,
     teamId,
     conversationId,
-    origin = 'user',
     onMemorySavedItem: rawOnMemorySavedItem,
     onMemoryFetched: rawOnMemoryFetched,
     onMemorySuperseded: rawOnMemorySuperseded,
@@ -88,7 +85,6 @@ export function createTeamMemoryTools(ctx: {
       userId,
       teamId,
       conversationId,
-      origin,
       onMemorySavedItem,
       onMemorySuperseded,
       getActivePlanId,

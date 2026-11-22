@@ -12,6 +12,19 @@ pub fn format_user_error(e: &SessionStartError) -> String {
         SessionStartError::Request(AcpRequestError::Timeout { method }) => {
             return format!("**Request Timeout**\nTimeout waiting for {method}, please try again.");
         }
+        SessionStartError::Request(AcpRequestError::ConnectionClosed {
+            stderr: Some(stderr),
+            ..
+        }) => {
+            let mut chars = stderr.chars();
+            let excerpt: String = chars.by_ref().take(200).collect();
+            let excerpt = if chars.next().is_some() {
+                format!("{}…", excerpt.chars().take(199).collect::<String>())
+            } else {
+                excerpt
+            };
+            return format!("**Agent Output**\n{excerpt}");
+        }
         SessionStartError::Request(AcpRequestError::ConnectionClosed { .. }) => {
             return "**Connection Lost**\nThe connection to the agent was lost, please try again."
                 .to_string();
@@ -167,9 +180,22 @@ mod tests {
     }
 
     #[test]
+    fn agent_output_is_limited_to_200_characters() {
+        let error = AcpRequestError::ConnectionClosed {
+            method: "initialize".into(),
+            stderr: Some("錯".repeat(250)),
+        };
+        let message = format_user_error(&error.into());
+        let output = message.strip_prefix("**Agent Output**\n").unwrap();
+        assert_eq!(output.chars().count(), 200);
+        assert!(output.ends_with('…'));
+    }
+
+    #[test]
     fn format_user_error_connection_closed() {
         let e = AcpRequestError::ConnectionClosed {
             method: "initialize".into(),
+            stderr: None,
         };
         assert!(format_user_error(&e.into()).contains("Connection Lost"));
     }

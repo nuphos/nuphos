@@ -8,9 +8,9 @@ enum SharePayloadLimits {
         case unavailable, invalidFile, capacity
         var errorDescription: String? {
             switch self {
-            case .unavailable: return "Open Nuphos and sign in. Shared Keychain provisioning is required before real sending is available."
-            case .invalidFile: return "This shared content cannot be imported. Nothing was sent."
-            case .capacity: return "Share up to 10 attachments, 20 MB each, and 256 KB of text."
+            case .unavailable: return String(localized: "Open Nuphos and sign in. Shared Keychain provisioning is required before real sending is available.")
+            case .invalidFile: return String(localized: "This shared content cannot be imported. Nothing was sent.")
+            case .capacity: return String(localized: "Share up to 10 attachments, 20 MB each, and 256 KB of text.")
             }
         }
     }

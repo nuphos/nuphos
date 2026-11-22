@@ -1,6 +1,5 @@
-import { afterAll, beforeEach, expect, spyOn, test } from 'bun:test'
+import { afterAll, afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
 
-import * as modes from '@/lib/agent/auto-mode/store'
 import * as turns from '@/lib/agent/conversation-turn'
 import { agentConversations } from '@/lib/agent/db/shared'
 import * as threads from '@/lib/agent/thread-bridge'
@@ -8,7 +7,14 @@ import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import { chatInMeeting, handleRecallEvent, joinMeeting, leaveMeetingTask } from './meetings'
+import {
+  JOIN_TIMEOUT_MS,
+  chatInMeeting,
+  handleRecallEvent,
+  joinMeeting,
+  leaveMeetingTask,
+  reportJoinTimeouts,
+} from './meetings'
 import * as recall from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -20,11 +26,9 @@ useDb({ db: (() => memory) as unknown as typeof dbActual.db })
 const created = spyOn(recall, 'createMeetingBot')
 const left = spyOn(recall, 'leaveMeeting')
 const typed = spyOn(recall, 'sendMeetingChat')
+const status = spyOn(recall, 'meetingBotStatus')
 const thread = spyOn(threads, 'createAgentThread')
 const turn = spyOn(turns, 'startConversationTurn')
-// Full Access per conversation; the Bot's own is createAgentThread's to apply.
-const fullAccess = spyOn(modes, 'getSessionBypass')
-
 const configured = spyOn(recall, 'recallConfig').mockReturnValue({
   botsPerTeamPerDay: 10,
 } as never)
@@ -34,13 +38,11 @@ const actor = (sessionId: string) => ({ userId: 'owner', teamId: 'team', session
 
 beforeEach(() => {
   memory = portabilityDb()
-  for (const spy of [created, left, typed, thread, turn]) spy.mockReset()
+  for (const spy of [created, left, typed, status, thread, turn]) spy.mockReset()
   created.mockResolvedValue('recall-bot')
   left.mockResolvedValue()
   typed.mockResolvedValue()
   turn.mockResolvedValue({ status: 'started', run: Promise.resolve(undefined) })
-  fullAccess.mockReset()
-  fullAccess.mockImplementation((sessionId) => Promise.resolve(sessionId === 'bot'))
   // The Task create_thread would make: a conversation under the actor.
   thread.mockImplementation((from, _prompt, title) => {
     memory.rows('agent_conversations').push({
@@ -79,7 +81,7 @@ beforeEach(() => {
 })
 // Other files in the run use the real ones.
 afterAll(() => {
-  for (const spy of [created, left, typed, thread, turn, configured, member, fullAccess])
+  for (const spy of [created, left, typed, status, thread, turn, configured, member])
     spy.mockRestore()
 })
 
@@ -99,15 +101,6 @@ test('a meeting is a Task under the Bot, which is in the call under the Bot’s 
   })
   // No chat is opened for the call, so the Bots list gains no row.
   expect(await agentConversations().find({ kind: 'channel' }).toArray()).toEqual([])
-})
-
-test('a Task in Auto Mode under a Full Access Bot keeps its meeting in Auto Mode', async () => {
-  await joinMeeting(actor('task'), 'https://meet.example.com/abc')
-  expect(thread.mock.calls[0]?.[0]).toMatchObject({ sessionId: 'bot' })
-  expect(thread.mock.calls[0]?.[3]).toEqual({ fullAccess: false })
-
-  await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
-  expect(thread.mock.calls[1]?.[3]).toEqual({ fullAccess: true })
 })
 
 test('a Task with no Bot above it is refused before any call bot or Task is made', async () => {
@@ -177,4 +170,117 @@ test('failed transcription is said in the call’s chat and to its Task', async 
 
   expect(typed.mock.calls[0]?.[1]).toContain('Speech recognition failed')
   expect(turn.mock.calls[0]?.[2]).toStartWith('Speech recognition failed')
+})
+
+const ended = (sub_code: string, event = 'bot.call_ended') => ({
+  event,
+  data: { data: { code: 'call_ended', sub_code }, bot: { id: 'recall-bot' } },
+})
+
+test('a bot that leaves on its own tells its Task once and ends the meeting', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_everyone_left'))
+  expect(turn).toHaveBeenCalledTimes(1)
+  expect(turn.mock.calls[0]?.[2]).toStartWith(
+    'You are no longer in the call (timeout_exceeded_everyone_left)',
+  )
+  await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
+  await expect(leaveMeetingTask(actor(threadId))).rejects.toThrow('not in a meeting')
+
+  // A later end event for the same bot says nothing again.
+  await handleRecallEvent('delivery-2', ended('bot_errored', 'bot.fatal'))
+  expect(turn).toHaveBeenCalledTimes(1)
+})
+
+test('a bot that leaves because its Task asked ends the meeting without waking the Task', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await handleRecallEvent('delivery-1', ended('bot_received_leave_call'))
+  expect(turn).not.toHaveBeenCalled()
+  await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
+})
+
+const { warn } = console
+let logged: string[] = []
+
+afterEach(() => {
+  // eslint-disable-next-line no-console -- restored even when a test throws
+  console.warn = warn
+})
+
+/** logEvent writes its record to console.warn; this collects what the test logs. */
+function captureWarnings(): { lines: () => Record<string, unknown>[] } {
+  logged = []
+  // eslint-disable-next-line no-console
+  console.warn = (line: unknown) => logged.push(String(line))
+
+  return { lines: () => logged.map((line) => JSON.parse(line) as Record<string, unknown>) }
+}
+
+test('a bot Recall gives up on logs meeting_bot.failed, even without a Task', async () => {
+  const warnings = captureWarnings()
+
+  await handleRecallEvent('delivery-1', ended('bot_errored', 'bot.fatal'))
+  expect(warnings.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.failed',
+      reason: 'fatal',
+      code: 'call_ended',
+      sub_code: 'bot_errored',
+      bot_id: 'recall-bot',
+    }),
+  ])
+})
+
+const MINUTE = 60_000
+
+async function sentAt(sent: number) {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.example.com/abc')
+
+  await agentConversations().updateOne(
+    { sessionId: threadId },
+    { $set: { createdAt: new Date(sent), lastActiveAt: new Date(sent) } },
+  )
+
+  return threadId
+}
+
+test('a bot that never got into its call logs join_timeout once, with no webhook needed', async () => {
+  const sent = Date.now()
+  const threadId = await sentAt(sent)
+
+  // Stuck in a state nobody has seen before: it still counts.
+  status.mockResolvedValue({ joined: false, last: { code: 'brand_new_state', sub_code: null } })
+  const warnings = captureWarnings()
+
+  // Still within the timeout, then in the window just past it, then in the one after.
+  await reportJoinTimeouts(10 * MINUTE, sent + 20 * MINUTE)
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 15 * MINUTE)
+  expect(status).toHaveBeenCalledTimes(1)
+  expect(warnings.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.failed',
+      reason: 'join_timeout',
+      code: 'brand_new_state',
+      bot_id: 'recall-bot',
+      session_id: threadId,
+    }),
+  ])
+})
+
+test('a bot Recall says got into its call, or whose meeting ended, is not a join_timeout', async () => {
+  const sent = Date.now()
+
+  await sentAt(sent)
+  status.mockResolvedValue({ joined: true, last: { code: 'in_call_recording', sub_code: null } })
+  const warnings = captureWarnings()
+
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_waiting_room'))
+  status.mockResolvedValue({ joined: false, last: undefined })
+  await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
+  expect(status).toHaveBeenCalledTimes(1)
+  expect(warnings.lines()).toEqual([])
 })

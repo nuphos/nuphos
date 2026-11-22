@@ -2,8 +2,9 @@ import { randomUUID } from 'node:crypto'
 
 import { logEvent } from '@/lib/observability'
 
-import { reportedAgents } from '../agent-registry'
+import { reportedAgentsKey } from '../agent-registry'
 
+import { heldTunnels } from './held-tunnels'
 import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
 import { streamRelay } from './stream-relay'
@@ -13,6 +14,7 @@ import type { BoxMetrics } from '../metrics-schema'
 import type { HolderMessage, LocalRuntimeStatus } from './protocol'
 
 export type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
+export { closeTunnelsForRestart, connectedComputerCount } from './held-tunnels'
 
 const DEFAULT_IDLE_TIMEOUT_MS = 15_000
 const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
@@ -20,13 +22,6 @@ const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
 export const TUNNEL_CLOSE_SUPERSEDED = 4000
 export const TUNNEL_CLOSE_IDLE = 4001
 export const TUNNEL_CLOSE_REVOKED = 4003
-
-let openTunnels = 0
-
-/** Computers whose tunnel this replica holds right now. */
-export function connectedComputerCount(): number {
-  return openTunnels
-}
 
 /**
  * Holds one desktop's reverse tunnel on this replica. Streams opened from any
@@ -43,7 +38,7 @@ export async function attachRuntimeTunnel(
   client?: string,
 ): Promise<RuntimeTunnel> {
   const conn = randomUUID()
-  const streams = new Map<string, { actorId: string; teamId: string }>() // who opened it, in which team
+  const streams = new Map<string, { actorId: string; teamId: string; purpose: string }>() // who opened it, in which team, for what
   const channel = holderChannel(userId, deviceId)
   let status: LocalRuntimeStatus | undefined
   let recorded: string | undefined
@@ -54,23 +49,37 @@ export async function attachRuntimeTunnel(
   let lastEchoAt = lastFrameAt
   let presenceAt = 0
   let ended = false
-  let counted = false
   let heartbeat: ReturnType<typeof setInterval> | undefined
   let unsubscribe = () => {}
 
-  const { toStream, toComputer } = streamRelay(deps.bus, streams, connection)
+  const { toStream, toComputer, usedAt } = streamRelay(deps.bus, streams, connection)
+  const current = () => ({
+    conn,
+    // Fixed for the life of this tunnel: what opened it, not what it reports.
+    ...(client ? { client } : {}),
+    ...(status ? { status } : {}),
+    ...(metrics ? { metrics, metricsReceivedAt } : {}),
+    usedAt: usedAt(),
+    seenAt: Date.now(),
+  })
+  // The computer moves here on this tunnel's first frame; until then the old one serves (#3366).
+  let claimed: Promise<unknown> | undefined
+  const claim = () => {
+    claimed = deps.presence.claim(userId, deviceId, conn, current()).then(async (previous) => {
+      if (previous)
+        await deps.bus.publish(
+          channel,
+          JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
+        )
+      if (!ended) deps.connectionChanged?.(userId, deviceId, true)
+    })
+
+    return claimed
+  }
   const refreshPresence = () =>
-    deps.presence
-      .put(userId, deviceId, {
-        conn,
-        // Fixed for the life of this tunnel: what opened it, not what it reports.
-        ...(client ? { client } : {}),
-        ...(status ? { status } : {}),
-        ...(metrics ? { metrics, metricsReceivedAt } : {}),
-        seenAt: Date.now(),
-      })
+    (claimed ? deps.presence.put(userId, deviceId, current()) : claim())
       .then((updated) => {
-        if (!updated) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
+        if (updated === false) shut(TUNNEL_CLOSE_IDLE, 'Device presence expired')
       })
       .catch(() => shut(TUNNEL_CLOSE_IDLE, 'Device presence unavailable'))
 
@@ -86,17 +95,21 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
-    if (counted) openTunnels--
+    heldTunnels.delete(shut)
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
     for (const s of streams.keys())
       void toStream(s, { t: 'close', reason: 'The computer running this agent disconnected' })
     streams.clear()
+    if (!claimed) return
     void deps.presence.clear(userId, deviceId, conn).catch(() => {})
     deps.connectionChanged?.(userId, deviceId, false)
   }
-  // Every close is logged once with its reason, whichever side ended the tunnel.
+  // Every close is logged once with its reason, whichever side ended the tunnel, and the teams
+  // whose streams it cut: a computer is in no team. Joined, since LogQL `| json` skips arrays.
+  const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
+  const own = () => ({ team_ids: cut(), max_buffered_bytes: connection.backlog?.() })
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
     logEvent('info', 'agent.local_runtime.tunnel_closed', {
       user_id: userId,
@@ -107,8 +120,8 @@ export async function attachRuntimeTunnel(
     })
   const shut = (code: number, reason: string) => {
     if (ended) return
+    logClosed(code, reason, own())
     end()
-    logClosed(code, reason)
     connection.close(code, reason)
   }
 
@@ -122,7 +135,7 @@ export async function attachRuntimeTunnel(
 
       return
     }
-    streams.set(message.s, { actorId: message.actorId, teamId: message.teamId })
+    streams.set(message.s, message)
     connection.send({
       t: 'open',
       s: message.s,
@@ -176,7 +189,8 @@ export async function attachRuntimeTunnel(
 
         return
       case 'data':
-        toComputer(message.s, message.d)
+        // Another tunnel of this computer hears it too and must not call it lost.
+        if (!message.conn || message.conn === conn) toComputer(message.s, message.d)
 
         return
       case 'close':
@@ -202,24 +216,8 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  try {
-    const previous = await deps.presence.claim(userId, deviceId, conn)
-
-    if (previous)
-      await deps.bus.publish(
-        channel,
-        JSON.stringify({ t: 'supersede', conn, previous } satisfies HolderMessage),
-      )
-  } catch (error) {
-    end()
-    throw error
-  }
   logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
-  if (!ended) {
-    openTunnels++
-    counted = true
-    deps.connectionChanged?.(userId, deviceId, true)
-  }
+  heldTunnels.add(shut)
 
   return {
     receive(raw) {
@@ -251,8 +249,8 @@ export async function attachRuntimeTunnel(
           const reported = frame.status
 
           status = reported
-          // Only a changed agent list is written, not every status report.
-          const agents = JSON.stringify(reportedAgents(reported))
+          // Only what reportedAgentsKey names is written at once, not every status report.
+          const agents = reportedAgentsKey(reported)
 
           if (deps.recordAgents && agents !== recorded) {
             const record = deps.recordAgents
@@ -267,8 +265,7 @@ export async function attachRuntimeTunnel(
           }
           break
         }
-        case 'pong':
-          // Answers the heartbeat; it counts as liveness like every other frame.
+        case 'pong': // Answers the heartbeat; it counts as liveness like every other frame.
           break
         case 'dropped':
           // The old tunnel died on the computer's side; its close never reached us.
@@ -291,7 +288,7 @@ export async function attachRuntimeTunnel(
       sawFrame()
     },
     closed(code, reason) {
-      if (!ended) logClosed(code, reason || 'The connection closed')
+      if (!ended) logClosed(code, reason || 'The connection closed', own())
       end()
     },
   }

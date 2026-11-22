@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
+import fs from 'node:fs'
 import { mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
+import { syncBuiltinESMExports } from 'node:module'
 import { createInterface } from 'node:readline'
-import { test } from 'node:test'
+import { mock, test } from 'node:test'
 
 import { SESSION_META, runShim } from '../image/acp-shim.mjs'
 
@@ -27,7 +29,7 @@ rl.on('line', (line) => {
 })
 `
 
-async function withShim(provider, run, agentScript = FAKE_AGENT) {
+async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRefusal) {
   const home = await mkdtemp(join(tmpdir(), 'nuphos-shim-test-'))
   const input = new PassThrough()
   const output = new PassThrough()
@@ -49,7 +51,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     runtimeEnv: { HOME: home, PATH: process.env.PATH },
     spawnAgent: (command, env) => {
       const child = spawn(process.execPath, ['-e', agentScript], {
-        env,
+        env: { ...env, FAKE_STATUS_PORT: command.includes('--port') ? command.at(-1) : '' },
         stdio: ['pipe', 'pipe', 'inherit'],
       })
       children.push({ command, child })
@@ -57,6 +59,9 @@ async function withShim(provider, run, agentScript = FAKE_AGENT) {
     },
     onExit: (code) => exits.push(code),
     settleMs: 20,
+    refusalPollMs: 50,
+    refusalQuietMs: 200,
+    ...(readOpenCodeRefusal ? { readOpenCodeRefusal } : {}),
   })
   let id = 0
   const call = (method, params) =>
@@ -151,7 +156,14 @@ test('opencode shares only its own data directory with the runtime home', async 
     await call('initialize', { protocolVersion: 1 })
     const { seen } = (await call('session/new', session('Be Nuphos.'))).result
 
-    assert.deepEqual(children[1].command, ['opencode', 'acp'])
+    assert.deepEqual(children[1].command.slice(0, 5), [
+      'opencode',
+      'acp',
+      '--hostname',
+      '127.0.0.1',
+      '--port',
+    ])
+    assert.ok(Number(children[1].command[5]) > 0)
     assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
     // The rest of XDG_DATA_HOME stays the conversation's own.
     assert.equal(seen.env.XDG_DATA_HOME, join(seen.env.HOME, '.local', 'share'))
@@ -168,6 +180,34 @@ test('opencode shares only its own data directory with the runtime home', async 
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)
   })
+})
+
+test('a link the OS refuses never fails the turn, and Windows gets a junction', async () => {
+  // Windows refuses a symlink to a user without Developer Mode or an administrator.
+  const links = []
+  const refused = mock.method(fs, 'symlinkSync', (...args) => {
+    links.push(args)
+    throw Object.assign(new Error('EPERM: operation not permitted, symlink'), { code: 'EPERM' })
+  })
+  syncBuiltinESMExports()
+  try {
+    await withShim('opencode', async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      const reply = await Promise.race([
+        call('session/new', session('Be Nuphos.')),
+        new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 5000)),
+      ])
+
+      assert.match(reply.result?.seen?.env.HOME ?? '', /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+      // OpenCode's two links and Gradle's caches.
+      assert.equal(links.length, 3)
+      // Node makes a junction from this on Windows and ignores it elsewhere.
+      for (const args of links) assert.equal(args[2], 'junction')
+    })
+  } finally {
+    refused.mock.restore()
+    syncBuiltinESMExports()
+  }
 })
 
 // Like DeepSeek Harness: resumes sessions, but has no session/load.
@@ -529,5 +569,285 @@ test('Antigravity forwards advertised capabilities, errors and process exit', as
    : { error: { code: -32000, message: 'Authentication required' } }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, ...response }) + '\\n')
  })`,
+  )
+})
+
+test('pi runs through the pi-acp adapter and gets the session MCP servers as its mcp.json', async () => {
+  await withShim('pi', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const servers = [{ name: 'nuphos', command: 'node', args: ['bridge.mjs'], env: [] }]
+    await call('session/new', { ...session('Be Nuphos.'), mcpServers: servers })
+    const [executable, adapter] = children.at(-1).command
+    assert.equal(executable, process.execPath)
+    assert.match(adapter, /node_modules[\\/]pi-acp[\\/]dist[\\/]index\.js$/u)
+    const { readdir, readFile } = await import('node:fs/promises')
+    const sessions = join(home, '.nuphos', 'session-homes')
+    const [sessionHome] = await readdir(sessions)
+    const mcp = JSON.parse(
+      await readFile(join(sessions, sessionHome, '.pi', 'agent', 'mcp.json'), 'utf8'),
+    )
+    assert.deepEqual(Object.keys(mcp.mcpServers), ['nuphos'])
+  })
+})
+
+// pi-acp as it answers a provider's refusal: Pi records the error in its session file
+// (here a prompt over the model's context, then the context_edit Pi adds), and pi-acp
+// ends the turn as if Pi had replied.
+const PI_REFUSED = `
+const fs = require('node:fs')
+const path = require('node:path')
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method === 'session/new') return reply(m.id, { sessionId: 's1', configOptions: [] })
+  if (m.method !== 'session/prompt') return reply(m.id, {})
+  const text = m.params.prompt.at(-1).text
+  const folder = path.join(process.env.PI_CODING_AGENT_DIR, 'sessions', '--workspace--')
+  fs.mkdirSync(folder, { recursive: true })
+  const entry = (e) => JSON.stringify(e) + '\\n'
+  fs.writeFileSync(path.join(folder, '2026-11-18T00-00-00-000Z_s1.jsonl'),
+    text === 'too long'
+      ? entry({ type: 'message', message: { role: 'assistant', stopReason: 'error', errorMessage: '400: request (46055 tokens) exceeds the available context size (8192 tokens)' } }) +
+        entry({ type: 'context_edit', targetId: 'm1', replacement: [] })
+      : entry({ type: 'message', message: { role: 'assistant', stopReason: 'stop', content: [] } }))
+  reply(m.id, { stopReason: 'end_turn' })
+})
+`
+
+test("a provider's refusal fails Pi's turn with the provider's words", async () => {
+  await withShim(
+    'pi',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1, clientCapabilities: {} })
+      await call('session/new', session('Be Nuphos.'))
+      const prompt = (text) =>
+        call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text }] })
+
+      const refused = await prompt('too long')
+      assert.equal(refused.result, undefined)
+      assert.deepEqual(refused.error, {
+        code: -32603,
+        message:
+          'Internal error: The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)',
+      })
+      // The failure is the turn's answer, never a reply the agent seems to have written.
+      assert.equal(
+        notifications.some((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk'),
+        false,
+      )
+      assert.deepEqual((await prompt('hi')).result, { stopReason: 'end_turn' })
+    },
+    PI_REFUSED,
+  )
+})
+
+// OpenCode 1.19 stand-in: a prompt never answers on its own, as when OpenCode retries a
+// provider error inside the turn; a cancel ends it.
+const STALLED_OPENCODE = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const open = new Map()
+const reply = (id, result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id, result }) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/cancel') {
+    for (const id of open.values()) reply(id, { stopReason: 'end_turn' })
+    return open.clear()
+  }
+  if (m.id === undefined) return
+  if (m.method === 'session/prompt') return void open.set(m.params.sessionId, m.id)
+  reply(m.id, m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {})
+})
+`
+
+const LIMIT =
+  'Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+
+test('an opencode turn its provider refuses fails with OpenCode’s own error instead of hanging (#3630, #3705)', async () => {
+  let refusal
+  await withShim(
+    'opencode',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const answered = call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+      const early = await Promise.race([answered, new Promise((r) => setTimeout(r, 300, 'open'))])
+      assert.equal(early, 'open', 'a retrying turn stays open until OpenCode reports why')
+      refusal = LIMIT
+      const reply = await Promise.race([answered, new Promise((r) => setTimeout(r, 5000, 'hung'))])
+
+      assert.notEqual(reply, 'hung', 'the turn ends once OpenCode reports the refusal')
+      // A failed turn, as Pi's: every client shows why, a Bot's chat included (#3705).
+      assert.equal(reply.result, undefined)
+      assert.equal(reply.error.code, -32603)
+      assert.match(
+        reply.error.message,
+        /^Internal error: The model provider refused the request: Free usage limit reached\./u,
+      )
+      // Never a reply the agent seems to have written.
+      assert.equal(
+        notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+          .length,
+        0,
+      )
+    },
+    STALLED_OPENCODE,
+    async (_endpoint, id) => (id === 'ses_1' ? refusal : undefined),
+  )
+})
+
+test('an opencode turn that answers is left alone', async () => {
+  await withShim('opencode', async ({ call, notifications }) => {
+    await call('initialize', { protocolVersion: 1 })
+    await call('session/new', session('Be Nuphos.'))
+    const reply = await call('session/prompt', {
+      sessionId: 's1',
+      prompt: [{ type: 'text', text: 'hi' }],
+    })
+
+    assert.ok(reply.result.seen, 'the agent’s own answer')
+    assert.equal(
+      notifications.filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk').length,
+      0,
+    )
+  })
+})
+
+test('an opencode turn still answering is never ended for a refusal', async () => {
+  // Streams for a while, then answers: a refusal OpenCode retried past.
+  const streaming = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.id === undefined) return
+  if (m.method !== 'session/prompt') return say({ jsonrpc: '2.0', id: m.id, result: m.method === 'session/new' ? { sessionId: 'ses_1', configOptions: [] } : {} })
+  let n = 0
+  const timer = setInterval(() => {
+    say({ jsonrpc: '2.0', method: 'session/update', params: { sessionId: 'ses_1', update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'x' } } } })
+    if (++n === 12) { clearInterval(timer); say({ jsonrpc: '2.0', id: m.id, result: { stopReason: 'end_turn' } }) }
+  }, 50)
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      const reply = await call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+
+      assert.equal(reply.result.stopReason, 'end_turn')
+      const text = notifications
+        .filter((n) => n.params?.update?.sessionUpdate === 'agent_message_chunk')
+        .map((n) => n.params.update.content.text)
+        .join('')
+      assert.equal(text, 'x'.repeat(12), 'only the agent’s own words')
+    },
+    streaming,
+    async () => LIMIT,
+  )
+})
+
+test('an OpenCode status response cannot cancel a turn that resumed while it was in flight', async () => {
+  const resumes = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method === 'session/cancel') return say({jsonrpc:'2.0', id: 3, result:{stopReason:'cancelled'}})
+  if (m.id === undefined) return
+  if (m.method !== 'session/prompt') return say({jsonrpc:'2.0', id:m.id, result:m.method === 'session/new' ? {sessionId:'ses_1',configOptions:[]} : {}})
+  setTimeout(() => say({jsonrpc:'2.0',method:'session/update',params:{sessionId:'ses_1',update:{sessionUpdate:'agent_message_chunk',content:{type:'text',text:'resumed'}}}}), 300)
+  setTimeout(() => say({jsonrpc:'2.0',id:m.id,result:{stopReason:'end_turn'}}), 450)
+})
+
+`
+  let calls = 0
+  await withShim(
+    'opencode',
+    async ({ call, notifications }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const result = await call('session/prompt', {
+        sessionId: 'ses_1',
+        prompt: [{ type: 'text', text: 'hi' }],
+      })
+
+      assert.equal(result.result.stopReason, 'end_turn')
+      assert.ok(calls > 0)
+      assert.ok(notifications.some((item) => item.params?.update?.content?.text === 'resumed'))
+    },
+    resumes,
+    async () => {
+      calls++
+      await new Promise((resolve) => setTimeout(resolve, 200))
+      return LIMIT
+    },
+  )
+})
+
+test('OpenCode retries without endpoint flags if it exits before initialize', async () => {
+  const failsWithFlags = `if (process.env.FAKE_STATUS_PORT) process.exit(9);\n${FAKE_AGENT}`
+
+  await withShim(
+    'opencode',
+    async ({ call, children, exits }) => {
+      const result = await Promise.race([
+        call('initialize', { protocolVersion: 1 }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 3000)),
+      ])
+
+      assert.equal(result.result?.seen.method, 'initialize')
+      assert.deepEqual(children[0].command.slice(0, 2), ['opencode', 'acp'])
+      assert.deepEqual(children[1].command, ['opencode', 'acp'])
+      assert.deepEqual(exits, [])
+      const opened = await call('session/new', session(''))
+
+      assert.equal(opened.result.sessionId, 's1')
+    },
+    failsWithFlags,
+  )
+})
+
+test('OpenCode shim reads its spawned process status over authenticated HTTP', async () => {
+  const serverAgent = `
+const http = require('node:http')
+const rl = require('node:readline').createInterface({input:process.stdin})
+const say = (m) => process.stdout.write(JSON.stringify(m) + '\\n')
+http.createServer((req,res) => {
+  const expected = 'Basic ' + Buffer.from('opencode:' + process.env.OPENCODE_SERVER_PASSWORD).toString('base64')
+  if (req.headers.authorization !== expected || !req.url.includes('directory=')) { res.writeHead(401); return res.end() }
+  res.setHeader('content-type','application/json')
+  res.end(JSON.stringify({ses_1:{type:'retry',message:'Free usage exceeded',action:{reason:'free_tier_limit'}}}))
+}).listen(Number(process.env.FAKE_STATUS_PORT), '127.0.0.1')
+let prompt
+rl.on('line', line => {
+  const m=JSON.parse(line)
+  if (m.method==='session/cancel' && prompt) return say({jsonrpc:'2.0',id:prompt,result:{stopReason:'cancelled'}})
+  if (m.id === undefined) return
+  if (m.method==='session/prompt') { prompt=m.id; return }
+  say({jsonrpc:'2.0',id:m.id,result:m.method==='session/new'?{sessionId:'ses_1',configOptions:[]}:{}})
+})
+`
+  await withShim(
+    'opencode',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session(''))
+      const reply = await Promise.race([
+        call('session/prompt', { sessionId: 'ses_1', prompt: [{ type: 'text', text: 'hi' }] }),
+        new Promise((resolve) => setTimeout(() => resolve({ timeout: true }), 5000)),
+      ])
+
+      assert.match(reply.error?.message ?? '', /Free usage exceeded/)
+    },
+    serverAgent,
   )
 })

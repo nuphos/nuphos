@@ -1,8 +1,16 @@
 import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
-import { getConversationBySessionId, recordAgentEvent } from '@/lib/agent/db'
+import {
+  getConversationBySessionId,
+  getReadableConversation,
+  recordAgentEvent,
+} from '@/lib/agent/db'
 import { AppError } from '@/lib/errors'
 
 import { agent } from './router'
+import { resolveVerifiedTeamId } from './team-scope'
+
+import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 // Desktop builds up to 0.77 ask this whether to show the permission-mode picker
 // on the home composer. Standing rules are gone, so the list is always empty.
@@ -11,7 +19,8 @@ agent.get('/auto-mode/policy/rules', (c) => c.json({ enabled: true, rules: [] })
 
 // Full Access: a per-conversation switch that allows the runtime's permission
 // requests without asking, for every participant's turn in the conversation.
-// Only the owner sets it.
+// Only the owner sets it. A Task under a Bot reads the Bot's switch and is
+// refused a change of its own (see auto-mode/store).
 async function assertCanSetMode(sessionId: string, userId: string) {
   const conversation = await getConversationBySessionId(sessionId)
 
@@ -20,13 +29,29 @@ async function assertCanSetMode(sessionId: string, userId: string) {
   }
 }
 
-agent.get('/auto-mode/bypass', async (c) => {
+/**
+ * Whose switch a viewer reads: the owner's, for anyone who may read the conversation, so a
+ * member sees whether a teammate's Bot runs in Full Access. Anyone else is told it is not there.
+ */
+async function modeOwner(c: Context<{ Variables: AuthVariables }>, sessionId: string) {
   const userId = c.get('userId')
+  const conversation = await getConversationBySessionId(sessionId)
+  const notFound = new AppError(404, 'not_found', 'Conversation not found')
+
+  if (!conversation) throw notFound
+  if (conversation.userId === userId) return userId
+  const teamId = conversation.teamId && (await resolveVerifiedTeamId(c, conversation.teamId))
+
+  if (!teamId || !(await getReadableConversation(sessionId, userId, teamId))) throw notFound
+
+  return conversation.userId
+}
+
+agent.get('/auto-mode/bypass', async (c) => {
   const sessionId = c.req.query('sessionId')
 
   if (!sessionId) throw new AppError(400, 'invalid_request', 'sessionId is required')
-  await assertCanSetMode(sessionId, userId)
-  const bypass = await getSessionBypass(sessionId, userId)
+  const bypass = await getSessionBypass(sessionId, await modeOwner(c, sessionId))
 
   return c.json({ enabled: true, bypass })
 })

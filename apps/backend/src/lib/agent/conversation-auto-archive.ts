@@ -1,7 +1,10 @@
 import { config } from '@/config'
+import { retryArchivedHomes, retryArchivedTaskTriggers } from '@/lib/agent/archive-cleanup'
+import { archiveUpdate, withdrawQuestionsAbout } from '@/lib/agent/db/archive'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
+import { claimRun } from '@/lib/redis'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
 import type { Filter } from 'mongodb'
@@ -30,11 +33,21 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
-  const result = await agentConversations().updateMany(idleConversationFilter(now, idleDays), {
-    $set: { archivedAt: now },
-  })
+  const result = await agentConversations().updateMany(
+    idleConversationFilter(now, idleDays),
+    archiveUpdate(now),
+  )
 
   if (result.modifiedCount > 0) {
+    const archived = await agentConversations()
+      .find({ archivedAt: now }, { projection: { sessionId: 1, userId: 1 } })
+      .toArray()
+
+    for (const userId of new Set(archived.map((one) => one.userId)))
+      await withdrawQuestionsAbout(
+        userId,
+        archived.filter((one) => one.userId === userId).map((one) => one.sessionId),
+      )
     logEvent('info', 'agent.conversation_auto_archive.swept', {
       archived: result.modifiedCount,
       idle_days: idleDays,
@@ -49,27 +62,35 @@ let sweepTimer: ReturnType<typeof setInterval> | undefined
 
 let sweeping = false
 
+/** The hourly sweep, on one replica: every replica ticks, the first to claim
+ *  the hour archives and reclaims. Manual archives are reclaimed even when idle
+ *  archiving is off. */
+export async function sweepOnOneReplica(): Promise<void> {
+  if (!(await claimRun('agent:conversation-auto-archive', SWEEP_INTERVAL_MS - 5 * 60 * 1000)))
+    return
+  await archiveIdleConversations().catch((err: unknown) => {
+    logError('agent.conversation_auto_archive.failed', err)
+  })
+  await retryArchivedTaskTriggers().catch((err: unknown) => {
+    logError('agent.archive_trigger_cleanup.failed', err)
+  })
+  await retryArchivedHomes().catch((err: unknown) => {
+    logError('agent.session_home_reclaim.failed', err)
+  })
+  await reclaimSessionHomes().catch((err: unknown) => {
+    logError('agent.session_home_reclaim.failed', err)
+  })
+}
+
 function runSweep() {
   // A slow reclaim must not overlap the next interval.
   if (sweeping) return
   sweeping = true
-  void archiveIdleConversations()
-    .catch((err: unknown) => {
-      logError('agent.conversation_auto_archive.failed', err)
-    })
-    .then(() => reclaimSessionHomes())
-    .catch((err: unknown) => {
-      logError('agent.session_home_reclaim.failed', err)
-    })
-    .finally(() => {
-      sweeping = false
-    })
+  void sweepOnOneReplica().finally(() => {
+    sweeping = false
+  })
 }
 
-/** Plain hourly interval on every replica: archiving is one idempotent
- *  updateMany, and reclaiming a home twice only finds it absent, so concurrent
- *  runs only repeat a no-op. Manual archives are reclaimed even when idle
- *  archiving is off. */
 export const conversationAutoArchive = {
   init(): void {
     warmupTimer = setTimeout(runSweep, WARMUP_DELAY_MS)

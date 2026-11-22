@@ -41,11 +41,14 @@ export function apiUrl(): string {
   return authSession.context().api
 }
 
+/** Whether the backend is Nuphos Cloud rather than a self-hosted one. */
+export function isNuphosCloud(): boolean {
+  return new URL(apiUrl()).hostname.replace(/\.$/u, '') === new URL(DEFAULT_API_URL).hostname
+}
+
 /** A dev window may use Cloud, but must not advertise this computer there. */
 export function deviceRegistrationAllowed(dev: boolean): boolean {
-  if (!dev) return true
-
-  return new URL(apiUrl()).hostname.replace(/\.$/u, '') !== new URL(DEFAULT_API_URL).hostname
+  return !dev || !isNuphosCloud()
 }
 
 /**

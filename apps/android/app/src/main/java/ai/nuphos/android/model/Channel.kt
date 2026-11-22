@@ -1,5 +1,6 @@
 package ai.nuphos.android.model
 
+import ai.nuphos.android.R
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.session.BotQuestion
 import kotlinx.serialization.Serializable
@@ -7,7 +8,41 @@ import java.time.Instant
 
 /** An agent brought into a chat (`GET /agent/conversations/:id/agents`). */
 @Serializable
-data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null, val provider: String? = null)
+data class ChannelAgent(val sessionId: String, val title: String = "", val ownerId: String? = null, val provider: String? = null,
+    /** Its face, which every member of the chat reads, whoever owns the Bot. */
+    val avatar: String? = null,
+    /** The tint its face sits on; null for none. */
+    val avatarBackground: String? = null,
+    /** Whether it can reply now, as the server works it out. */
+    val presence: BotPresence? = null) {
+    companion object {
+        /**
+         * The strip above the composer while a chat's Bot has its computer offline, as on Desktop: the
+         * Task's words in the Bot's own chat, and the Bot's name in a group chat.
+         */
+        fun offlineStrip(agents: List<ChannelAgent>, botId: String?): String? {
+            val away = agents.firstOrNull { it.presence?.state == "offline" && it.presence.reason == "computer_offline" } ?: return null
+            return if (away.sessionId == botId) Words(R.string.convtext_runtime_offline) else Words(R.string.chats_bot_computer_offline, away.title)
+        }
+    }
+}
+
+/** Whether a Bot can reply now (#3308): `online`, `busy`, or `offline` with a `reason`, and `resetsAt` for `usage_limit`. */
+@Serializable
+data class BotPresence(val state: String, val reason: String? = null, val resetsAt: String? = null) {
+    /** The colour of its dot: green can reply, amber needs a person or a wait, red cannot run, as in the runtime menu. */
+    enum class Tone { Ready, Waiting, Down }
+
+    /** What a chat's member list shows beside the Bot, in Desktop's words. */
+    val tag: Pair<Tone, String> get() = when {
+        state == "online" -> Tone.Ready to Words(R.string.chats_presence_online)
+        state == "busy" -> Tone.Ready to Words(R.string.chats_presence_busy)
+        reason == "computer_offline" -> Tone.Down to Words(R.string.chats_presence_offline)
+        reason == "sign_in_required" -> Tone.Waiting to Words(R.string.chats_presence_sign_in)
+        reason == "usage_limit" -> Tone.Waiting to Words(R.string.chats_presence_usage)
+        else -> Tone.Down to Words(R.string.chats_presence_unavailable)
+    }
+}
 
 @Serializable
 data class ChannelAgentsEnvelope(val agents: List<ChannelAgent> = emptyList())
@@ -38,20 +73,26 @@ data class ChannelPost(
     /** The post this one replies to. */
     val replyTo: ChannelReply? = null,
     val runtime: String? = null,
+    /** A record Nuphos left in the chat (an answer to a question, a new owner): a muted line, not a post. */
+    val isRecord: Boolean = false,
 ) {
     fun isMine(viewerId: String?): Boolean = !isAgent && viewerId != null && senderId == viewerId
 
     /** What a reply to this post quotes until the chat stores its own snapshot. */
-    fun asReply(): ChannelReply = ChannelReply(id, name, text.trim().take(200).ifEmpty { "File" })
+    fun asReply(): ChannelReply = ChannelReply(id, name, text.trim().take(200).ifEmpty { Words(R.string.convtext_file) })
     val groups: List<String> get() = uploads.map { it.groupId } + downloads
 
     companion object {
-        /** Null for a message without a sender, or with nothing to show. */
+        /** The senders of the records Nuphos leaves in a chat, as on Desktop and iOS. */
+        private val RECORDS = setOf("nuphos:decision", "nuphos:chat")
+
+        /** Null for a message without a sender, with nothing to show, or a system notice that is not a record. */
         fun from(message: ChatMessage): ChannelPost? {
             val metadata = message.metadata ?: return null
             val sender = metadata["sender"] ?: return null
             val type = sender["type"]?.stringValue ?: return null
-            if (type != "user" && type != "agent") return null
+            val record = type == "system" && sender["id"]?.stringValue in RECORDS
+            if (type != "user" && type != "agent" && !record) return null
             val senderId = (metadata["sourceSessionId"]?.stringValue ?: sender["id"]?.stringValue)
                 ?.takeIf { it.isNotEmpty() } ?: return null
             val name = sender["displayName"]?.stringValue?.takeIf { it.isNotBlank() } ?: return null
@@ -68,7 +109,8 @@ data class ChannelPost(
                 reply["text"]?.stringValue?.takeIf { it.isNotEmpty() }?.let { ChannelReply(reply["id"]?.stringValue, author, it) }
             }
             return ChannelPost(message.id, senderId, type == "agent", name,
-                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo, runtime = sender["agentRuntime"]?.stringValue)
+                SenderAvatar.trusted(sender["avatarURL"]?.stringValue), text, display.uploads, downloads, sentAt, replyTo = replyTo, runtime = sender["agentRuntime"]?.stringValue,
+                isRecord = record)
         }
 
         /** The posts still on their way: the chat has not returned them yet. */
@@ -91,6 +133,10 @@ data class ChannelPost(
                 val timed = ChatTime.showsTimestamp(post.sentAt, previous)
                 if (timed) post.sentAt?.let { rows += Timed(at, rows.size, ChannelItem.Time("time.${post.id}", it)) }
                 previous = post.sentAt ?: previous
+                if (post.isRecord) {
+                    rows += Timed(at, rows.size, ChannelItem.Record("record.${post.id}", post.text))
+                    return@forEachIndexed
+                }
                 val first = timed || index == 0 || posts[index - 1].senderId != post.senderId
                 rows += Timed(at, rows.size, ChannelItem.Post(post, first))
             }
@@ -122,6 +168,8 @@ sealed class ChannelItem {
     data class Time(override val key: String, val at: Instant) : ChannelItem()
     /** A line from the chat itself: its loop guard paused agents. */
     data class Paused(override val key: String, val text: String) : ChannelItem()
+    /** A record Nuphos left in the chat: an answer to a question, or a new owner. */
+    data class Record(override val key: String, val text: String) : ChannelItem()
     /** An agent could not reply: why, and, on the newest line, the fix. */
     data class ReplyFailed(override val key: String, val event: AgentConversationDetail.TimelineEvent, val actionable: Boolean) : ChannelItem()
     /** Agents in a turn right now. */

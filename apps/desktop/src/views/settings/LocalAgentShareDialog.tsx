@@ -21,6 +21,7 @@ import {
   shareRequest,
   shownRole,
 } from './computerAccess'
+import { AccessHistory } from './AccessHistory'
 import { SharedComputerNotice } from './SharedComputerNotice'
 
 import type { AccessRole } from './computerAccess'
@@ -145,7 +146,7 @@ function ShareForm({
       onClose={onClose}
       title={t('Share {device}', { device: deviceLabel })}
       description={t(
-        'Choose who may use this computer. Managers can also add agents, rename it and let others use it.',
+        'Choose who may use this computer. Managers can also add runtimes, rename it and let others use it.',
       )}
       width={560}
       footer={
@@ -218,6 +219,7 @@ function ShareForm({
             {t('Only the owner can choose who manages it.')}
           </p>
         )}
+        <AccessHistory deviceId={deviceId} teamId={teamId} />
       </div>
     </Modal>
   )

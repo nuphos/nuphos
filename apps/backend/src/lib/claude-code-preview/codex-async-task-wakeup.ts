@@ -23,5 +23,6 @@ export function observeCodexAsyncTask(
   session.asyncTaskToolCalls ??= new Map()
   if (update.phase === 'spawned' && update.toolCallId)
     session.asyncTaskToolCalls.set(update.asyncTaskId, update.toolCallId)
-  if (update.state === 'stopped') session.asyncTaskToolCalls.delete(update.asyncTaskId)
+  if (update.state === 'stopped' || update.state === 'cancelled')
+    session.asyncTaskToolCalls.delete(update.asyncTaskId)
 }

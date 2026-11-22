@@ -1,20 +1,25 @@
 import { chunkUpdate } from './openab-text-updates'
+import { autonomousResultOrigin, runtimeThreadStatus } from './openab-update-meta'
 import { parseToolUpdate, parseTurnUsageUpdate } from './preview-agent-update'
 import { parseSessionExecutionState } from './runtime-execution-snapshot'
+import { parseSessionConfigOptions } from './session-config-options'
 
 import type { PreviewAgentUpdate, PreviewTextMetadata } from './preview-agent-update'
 import type { SessionExecutionState } from './runtime-execution-snapshot'
+import type { SessionConfigOption } from './session-config-options'
 
 export type OpenAbSessionUpdate =
   | ({ kind: 'text'; text: string } & PreviewTextMetadata)
   | { kind: 'agent'; update: PreviewAgentUpdate }
   | { kind: 'status'; status: string; runtimeSnapshot?: SessionExecutionState }
   | { kind: 'prompt-suggestion'; suggestion: string }
+  // The settings the session runs, reported as it opens and when they change.
+  | { kind: 'session-config'; options: SessionConfigOption[] }
   | {
       kind: 'async-task'
       asyncTaskId: string
       phase: 'spawned' | 'terminal'
-      state?: 'completed' | 'failed' | 'stopped'
+      state?: 'completed' | 'failed' | 'cancelled' | 'stopped'
       name?: string
       toolCallId?: string
     }
@@ -58,54 +63,14 @@ export function observeOpenAbSessionUpdates(
   }
 }
 
-const AUTONOMOUS_RESULT_ORIGINS = new Set([
-  'task-notification',
-  'peer',
-  'coordinator',
-  'observer',
-  'observer-activity',
-])
-
-function autonomousResultOrigin(payload: Record<string, unknown>): Record<string, unknown> | null {
-  const meta = payload._meta
-
-  if (!meta || typeof meta !== 'object') return null
-  const origin = (meta as Record<string, unknown>)['_claude/origin']
-
-  if (!origin || typeof origin !== 'object') return null
-  const kind = (origin as Record<string, unknown>).kind
-
-  return typeof kind === 'string' && AUTONOMOUS_RESULT_ORIGINS.has(kind)
-    ? (origin as Record<string, unknown>)
-    : null
-}
-
-function runtimeThreadStatus(payload: Record<string, unknown>): string | null {
-  const meta = payload._meta
-
-  if (!meta || typeof meta !== 'object') return null
-  const common = (meta as Record<string, unknown>)['ai.nuphos/sessionState']
-
-  if (
-    common &&
-    typeof common === 'object' &&
-    typeof (common as Record<string, unknown>).state === 'string'
-  ) {
-    return (common as { state: string }).state
-  }
-  const codex = (meta as Record<string, unknown>).codex
-
-  if (!codex || typeof codex !== 'object') return null
-  const threadStatus = (codex as Record<string, unknown>).threadStatus
-
-  if (!threadStatus || typeof threadStatus !== 'object') return null
-  const status = (threadStatus as Record<string, unknown>).type
-
-  return typeof status === 'string' ? status : null
-}
-
 function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate | null {
   const kind = payload.sessionUpdate
+
+  if (kind === 'config_option_update' && Array.isArray(payload.configOptions)) {
+    const options = parseSessionConfigOptions(payload.configOptions)
+
+    return options.length ? { kind: 'session-config', options } : null
+  }
 
   if (
     kind === 'steering_message' &&
@@ -159,7 +124,7 @@ function normalizeUpdate(payload: Record<string, unknown>): OpenAbSessionUpdate 
     if (
       typeof asyncTaskId !== 'string' ||
       !asyncTaskId ||
-      (state !== 'completed' && state !== 'failed' && state !== 'stopped')
+      (state !== 'completed' && state !== 'failed' && state !== 'cancelled' && state !== 'stopped')
     )
       return null
 
@@ -234,15 +199,17 @@ export function deliverOpenAbSessionUpdate(args: {
     // states would be discarded before the authoritative turn boundary.
     return
   }
-  // Async-task lifecycle, provider status and the next-prompt suggestion
-  // belong to the session, not to whichever prompt is currently in flight.
+  // Async-task lifecycle, provider status, the next-prompt suggestion and the
+  // session's settings belong to the session, not to whichever prompt is
+  // currently in flight.
   // The persistent observer uses them to recognize work that outlives the
   // prompt response; passing any of them through PromptUpdateTarget would also
   // be invalid because none is prompt content.
   if (
     update.kind === 'async-task' ||
     update.kind === 'status' ||
-    update.kind === 'prompt-suggestion'
+    update.kind === 'prompt-suggestion' ||
+    update.kind === 'session-config'
   ) {
     if (args.cancelledSessions.has(sessionId)) return
     args.notify(sessionId, update)

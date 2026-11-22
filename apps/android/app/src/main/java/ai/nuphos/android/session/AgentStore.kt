@@ -1,5 +1,7 @@
 package ai.nuphos.android.session
 
+import kotlinx.coroutines.CancellationException
+import ai.nuphos.android.R
 import kotlinx.coroutines.ensureActive
 
 import android.content.Context
@@ -14,6 +16,7 @@ import ai.nuphos.android.data.ConversationActions
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.Words
 import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.botsList
 import ai.nuphos.android.model.ConversationScope
@@ -37,6 +40,7 @@ class AgentStore(
     enum class Phase { Idle, Loading, Loaded, Failed }
 
     val pageSize = 30
+    private val strings = context.resources
     private val prefs = context.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE)
 
     var teams: List<Team> by mutableStateOf(emptyList())
@@ -76,6 +80,21 @@ class AgentStore(
     fun historyObservation(row: AgentConversation): HistoryStatus.Observation? {
         historyRevision
         return historyObservations[(row.teamId ?: selectedTeam?.id.orEmpty()) to row.sessionId]
+    }
+    enum class TaskState { Waiting, Running, Idle }
+    /** What a Task is doing: its runtime's word while seen lately, the run its row reported otherwise. */
+    fun taskState(row: AgentConversation, now: Double = RuntimeObservation.now()): TaskState {
+        if (row.isWaiting) return TaskState.Waiting
+        val observed = historyObservation(row)?.takeIf { it.runtime.fresh(now) }
+        val running = if (observed != null) observed.label(now) == Words(R.string.convtext_status_running)
+            else row.activeRun != null && row.activeRun != JsonValue.Null
+        return if (running) TaskState.Running else TaskState.Idle
+    }
+    /** The Tasks a session dispatched: waiting, then running, then idle, newest first within each. */
+    fun tasks(under: String, teamId: String): List<AgentConversation> {
+        val now = RuntimeObservation.now()
+        return conversations.filter { it.parentSessionId == under && (it.teamId == null || it.teamId == teamId) }
+            .sortedWith(compareBy<AgentConversation> { taskState(it, now).ordinal }.thenByDescending { it.lastActiveAt })
     }
     suspend fun markRead(teamId: String, sessionId: String, seq: Long) = ConversationReadApi.mark(token, teamId, sessionId, seq)
     fun applyRead(teamId: String, sessionId: String, seq: Long, state: ConversationReadApi.State) {
@@ -118,6 +137,9 @@ class AgentStore(
     /** Null until a listing for this workspace answers. A failed one says nothing, so the last answer stays. */
     var hasRuntimes by mutableStateOf<Boolean?>(null)
         private set
+    var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
+        private set
+    val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
 
@@ -131,10 +153,13 @@ class AgentStore(
         val workspace = workspaceRevision
         val consent = AiAccess.revision
         storeScope.launch {
-            val any = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog().isNotEmpty() }
+            val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
-            if (any != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
-                workspaceRevision == workspace && generation == runtimesGeneration) hasRuntimes = any
+            if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
+                workspaceRevision == workspace && generation == runtimesGeneration) {
+                hasRuntimes = catalog.isNotEmpty()
+                creationRuntimes = catalog
+            }
         }
     }
 
@@ -153,6 +178,35 @@ class AgentStore(
 
     /** The Bots page: every chat, and each Bot without one yet. */
     val botsList: List<AgentConversation> get() = botsList(channels, bots)
+
+    private val botPins = BotPins(
+        scope = {
+            selectedTeam?.id?.takeIf { !disposed && hasAiAccess() }?.let {
+                BotPins.Scope(it, workspaceRevision, AiAccess.revision)
+            }
+        },
+        read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
+        write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
+    )
+    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    val pins: List<AgentConversation> get() {
+        val rows = botsList.associateBy { it.sessionId }
+        return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
+    }
+    val pinActionFailed get() = botPins.failed
+    val savingPins get() = botPins.saving
+    fun clearPinActionError() = botPins.clearError()
+    fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    suspend fun loadFavorites() = botPins.load()
+    suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
+        val team = selectedTeam?.id ?: return
+        if (row.teamId != null && row.teamId != team) return
+        val current = botsList.firstOrNull { it.sessionId == row.sessionId } ?: return
+        val label = if (current.isChannel) current.title.ifBlank {
+            current.faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: strings.getString(R.string.chats_untitled_chat)
+        } else current.displayTitle
+        botPins.setPinned(team, current.sessionId, label, pinned)
+    }
 
     var openingBotId by mutableStateOf<String?>(null)
         private set
@@ -228,7 +282,7 @@ class AgentStore(
                 kotlinx.coroutines.currentCoroutineContext().ensureActive()
                 if (!current()) return null
                 if (runtimes.isEmpty()) {
-                    newBotError = "This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot."
+                    newBotError = strings.getString(R.string.shell_bot_no_runtime)
                     return null
                 }
             }
@@ -247,8 +301,8 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (current()) newBotError = if (newBotWaitingForChat != null) "The Bot was created, but its chat didn't open. Try again."
-                else "Couldn't create this Bot. Try again."
+            if (current()) newBotError = if (newBotWaitingForChat != null) strings.getString(R.string.shell_bot_chat_failed)
+                else strings.getString(R.string.shell_bot_create_failed)
             return null
         } finally {
             if (workspaceRevision == workspace) creatingBot = false
@@ -277,9 +331,12 @@ class AgentStore(
                     async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
                 }
                 // A failed Bots read keeps the Bots shown and still refreshes the chats.
+                // Bots shared with the viewer too, as Desktop lists them (#3852).
                 val botPage = async {
                     try {
-                        NuphosApi.conversations(token, team.id, limit = 100, search = query, bots = true).rows
+                        listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
+                            async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, bots = true).rows }
+                        }.flatMap { it.await() }
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (_: Exception) {
@@ -289,13 +346,18 @@ class AgentStore(
                 chats.flatMap { it.await() } to botPage.await()
             }
             if (!current()) return
-            if (botRows != null) bots = botRows.filter { (it.teamId ?: team.id) == team.id }
+            if (botRows != null) {
+                bots = botRows.filter { (it.teamId ?: team.id) == team.id }.distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }
+                // A shared Bot is in no history here, so its face is learned from the listing.
+                BotFaces.learn(bots)
+            }
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
             BotFaces.learn(channels)
             channelsLoaded = true
             rememberHasChats()
+            if (current()) loadFavorites()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -358,8 +420,12 @@ class AgentStore(
     fun channelSession(sessionId: String, title: String? = null): ChannelSession? {
         val team = selectedTeam ?: return null
         if (disposed || !hasAiAccess()) return null
-        return channelSessions.getOrPut(team.id to sessionId) {
-            ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: "Chat",
+        val key = team.id to sessionId
+        // The most recent chats, as for Tasks: re-inserted last, the front let go past the limit.
+        channelSessions.remove(key)?.let { kept -> channelSessions[key] = kept; return kept }
+        if (channelSessions.size >= RETAINED_CHATS) channelSessions.remove(channelSessions.keys.first())
+        return channelSessions.getOrPut(key) {
+            ChannelSession(team.id, sessionId, title ?: channel(sessionId)?.displayTitle ?: strings.getString(R.string.shell_chat_fallback_title),
                 ChannelSession.Api(token, team.id, sessionId))
                 // The list row's icon shows at once; the chat's own load keeps it current.
                 .also { session ->
@@ -382,9 +448,11 @@ class AgentStore(
     }
 
     private fun resetHistory() {
+        botPins.reset()
         runtimesGeneration++
         runtimesListedFor = null
         hasRuntimes = null
+        creationRuntimes = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()
@@ -431,7 +499,7 @@ class AgentStore(
         reload()
     }
     suspend fun archive(session: ChatSession, archived: Boolean) {
-        require(session.canManage) { "Only the owner can archive this agent." }
+        require(session.canArchive) { "Only someone in this task can archive it." }
         ConversationActions.archive(token, session.teamId, session.sessionId, archived)
         session.reloadFromServer()
         reload()
@@ -442,11 +510,14 @@ class AgentStore(
     var rowActionError: String? by mutableStateOf(null)
         private set
     fun clearRowActionError() { rowActionError = null }
+    /** The owner archives it for everyone; someone else in a Task, for themselves (#3686). */
     fun canArchive(row: AgentConversation) = currentActionRow(row)?.let {
-        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+        (it.canArchive ?: it.canManage ?: (it.isOwner == true)) && it.readOnly != true
     } == true
 
-    fun canRename(row: AgentConversation) = canArchive(row)
+    fun canRename(row: AgentConversation) = currentActionRow(row)?.let {
+        (it.canManage ?: (it.isOwner == true)) && it.readOnly != true
+    } == true
 
     suspend fun rename(row: AgentConversation, title: String): Boolean {
         val current = currentActionRow(row) ?: return false
@@ -460,12 +531,12 @@ class AgentStore(
         rowActionError = null
         try {
             val validTitle = requireNotNull(ConversationActions.validTitle(title)) { "Title must contain 1–120 characters." }
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true))) { "Only the owner can rename this agent." }
             ConversationActions.rename(token, team, current.sessionId, validTitle)
             if (!valid()) return false
-            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val confirmed = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return false
             require(confirmed.title == validTitle) { "The updated title could not be confirmed. Refresh and try again." }
             conversations = conversations.map { if (it.sessionId == current.sessionId && (it.teamId ?: team) == team) it.copy(title = confirmed.title) else it }
@@ -474,7 +545,7 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            if (valid()) rowActionError = e.message ?: "Could not rename this agent. Try again."
+            if (valid()) rowActionError = e.message ?: strings.getString(R.string.shell_rename_failed)
             return false
         } finally {
             if (workspaceRevision == workspace) rowActionSessionId = null
@@ -497,9 +568,9 @@ class AgentStore(
         rowActionSessionId = current.sessionId
         rowActionError = null
         try {
-            val detail = NuphosApi.conversationDetail(token, team, current.sessionId)
+            val detail = NuphosApi.conversationDetail(token, team, current.sessionId, tail = 1, runtimeState = false)
             if (!valid()) return
-            require(detail.readOnly != true && (detail.canManage ?: (detail.isOwner == true)))
+            require(detail.readOnly != true && (detail.canArchive ?: detail.canManage ?: (detail.isOwner == true)))
             // A retained confirmation must not invert a concurrently changed archive state.
             require((detail.archivedAt != null) == row.isArchived)
             ConversationActions.archive(token, team, current.sessionId, archive)
@@ -507,7 +578,7 @@ class AgentStore(
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
-            if (valid()) rowActionError = "Action failed. Refresh the list and try again."
+            if (valid()) rowActionError = strings.getString(R.string.shell_action_failed)
         } finally {
             if (workspaceRevision == revision) rowActionSessionId = null
         }
@@ -549,7 +620,7 @@ class AgentStore(
         val chat = openBotChat(current.sessionId)
         if (chat == null && botChatError != null && valid()) {
             clearBotChatError()
-            rowActionError = "This is a Bot now, but its chat couldn't be opened. Open it from Bots to try again."
+            rowActionError = strings.getString(R.string.shell_bot_now_chat_failed)
         }
         return chat?.takeIf { valid() }
     }
@@ -635,7 +706,7 @@ class AgentStore(
             try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
             } catch (_: Exception) {
                 if (!disposed && hasAiAccess() && selectedTeam?.id == team && workspaceRevision == revision)
-                    watchError = "Could not refresh watch status. Try again."
+                    watchError = strings.getString(R.string.shell_watch_refresh_failed)
             }
         }
     }
@@ -670,10 +741,10 @@ class AgentStore(
                 try { session.refreshWatching() } catch (e: kotlinx.coroutines.CancellationException) { throw e
                 } catch (_: Exception) { if (session.loaded) refreshFailed = true }
             }
-            if (current() && refreshFailed) watchError = "Watch change saved, but status could not refresh. Refresh and try again."
+            if (current() && refreshFailed) watchError = strings.getString(R.string.shell_watch_saved_refresh_failed)
         } catch (e: kotlinx.coroutines.CancellationException) { throw e
         } catch (e: Exception) {
-            if (current()) watchError = "Could not update watch status. Refresh and try again."
+            if (current()) watchError = strings.getString(R.string.shell_watch_update_failed)
         } finally {
             writeEnded()
         }
@@ -715,10 +786,10 @@ class AgentStore(
             throw e
         } catch (e: Exception) {
             if (isCurrent()) unlinkError = when {
-                e is NuphosApi.Failure.Unauthorized -> "Your session has expired. Please sign in again."
+                e is NuphosApi.Failure.Unauthorized -> strings.getString(R.string.shell_session_expired)
                 e is ai.nuphos.android.data.AgentChatApi.Conflict.Other && e.status in setOf(403, 404) ->
-                    "This task is unavailable or you no longer have permission to unlink it."
-                else -> "Could not unlink agent. Try again."
+                    strings.getString(R.string.shell_unlink_forbidden)
+                else -> strings.getString(R.string.shell_unlink_failed)
             }
         } finally {
             if (isCurrent()) unlinkingSessionId = null
@@ -740,7 +811,20 @@ class AgentStore(
     private var searchJob: Job? = null
     private var loadGeneration = 0
     private data class SessionKey(val teamId: String, val sessionId: String)
+    // Insertion-ordered: the last one asked for is last, so the front is the least recently used.
     private val sessions = mutableMapOf<SessionKey, ChatSession>()
+
+    /**
+     * The chats kept in memory, as on Desktop (#3526): the most recent [RETAINED_CHATS]. One that is
+     * replying or sending is never let go, and a screen still holding one it lets go keeps using it.
+     */
+    private fun retained(key: SessionKey, make: () -> ChatSession): ChatSession {
+        val session = sessions.remove(key) ?: make()
+        sessions[key] = session
+        val over = sessions.size - RETAINED_CHATS
+        if (over > 0) sessions.entries.filter { it.key != key && it.value.idle }.take(over).forEach { sessions.remove(it.key) }
+        return session
+    }
     private val hasAiAccess = AiAccess.bind(token)
 
     private var newModelKey: Triple<Long, String, String>? = null
@@ -822,6 +906,7 @@ class AgentStore(
                 reload()
             }
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             if (disposed || !hasAiAccess() || request != membershipRequest) return
             if (e is NuphosApi.Failure.Unauthorized) onExpired()
             teamsPhase = Phase.Failed
@@ -897,13 +982,20 @@ class AgentStore(
         return catalog.allItems.filter { it.provider.optionsKey == "devices" }
     }
 
-    /** Same bounded scope=mine search as iOS, independent of history filters. */
-    suspend fun mentionableSessions(teamId: String, query: String): List<AgentConversation> {
+    /** The viewer's own Bots and Tasks in `teamId`, every page, for the composer's `@` to filter. */
+    suspend fun mentionableSessions(teamId: String): List<AgentConversation> {
+        val rows = mutableListOf<AgentConversation>()
+        val seen = mutableSetOf<String>()
+        var cursor: String? = null
+        do {
+            if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
+            val page = NuphosApi.conversations(token = token, teamId = teamId, cursor = cursor, limit = 100,
+                scope = ConversationScope.Mine)
+            rows += page.conversations
+            cursor = page.nextCursor?.takeIf { page.hasMore && seen.add(it) }
+        } while (cursor != null)
         if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        val page = NuphosApi.conversations(token = token, teamId = teamId, limit = 6,
-            scope = ConversationScope.Mine, search = query)
-        if (!hasAiAccess() || selectedTeam?.id != teamId) return emptyList()
-        return page.conversations
+        return rows
     }
 
     suspend fun reload() {
@@ -953,7 +1045,7 @@ class AgentStore(
                 isReloading = false
                 if (phase == Phase.Loading) {
                     phase = if (hasLoadedHistory) Phase.Loaded else Phase.Failed
-                    if (!hasLoadedHistory) phaseError = "Task list refresh was interrupted. Try again."
+                    if (!hasLoadedHistory) phaseError = strings.getString(R.string.shell_task_list_interrupted)
                 }
             }
         }
@@ -999,7 +1091,7 @@ class AgentStore(
     }
 
     fun session(forConversation: AgentConversation): ChatSession {
-        return sessions.getOrPut(SessionKey(forConversation.teamId ?: selectedTeam?.id.orEmpty(), forConversation.sessionId)) {
+        return retained(SessionKey(forConversation.teamId ?: selectedTeam?.id.orEmpty(), forConversation.sessionId)) {
             ChatSession(
                 token = token,
                 teamId = forConversation.teamId ?: selectedTeam?.id.orEmpty(),
@@ -1010,7 +1102,7 @@ class AgentStore(
     }
 
     fun session(sessionId: String, title: String): ChatSession {
-        return sessions.getOrPut(SessionKey(selectedTeam?.id.orEmpty(), sessionId)) {
+        return retained(SessionKey(selectedTeam?.id.orEmpty(), sessionId)) {
             ChatSession(
                 token = token,
                 teamId = selectedTeam?.id.orEmpty(),
@@ -1047,8 +1139,7 @@ class AgentStore(
         session.presetPermissionMode(permissionMode)
         session.presetModelSettings(model?.initialPick.orEmpty())
         session.credentialAccess = credentialSelection
-        sessions[SessionKey(team.id, session.sessionId)] = session
-        return session
+        return retained(SessionKey(team.id, session.sessionId)) { session }
     }
 
     fun disposeForConsent() {
@@ -1074,6 +1165,8 @@ class AgentStore(
     }
 
     companion object {
+        /** The chats kept in memory, Tasks and Bot chats each (#3526). */
+        private const val RETAINED_CHATS = 20
         private const val LAST_TEAM_KEY = "nuphos.workspace.lastTeamId"
         private const val HAS_CHATS_KEY = "nuphos.home.hasChats"
         private const val PERMISSION_KEY = "nuphos.agentPermissionMode"

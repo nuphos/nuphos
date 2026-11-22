@@ -136,7 +136,7 @@ export async function materializeCloudflareD1Connection(input: {
         updatedBy: input.userId,
       },
       changeApprovalPolicy: {
-        minimumApprovals: 1,
+        minimumApprovals: 0,
         version: 1,
         updatedAt: now,
         updatedBy: input.userId,

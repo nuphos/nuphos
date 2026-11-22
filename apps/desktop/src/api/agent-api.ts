@@ -14,7 +14,6 @@ import type {
   GeneralAccess,
 } from './agent-types.ts'
 import type { LocalSessionSource } from './app-types.ts'
-import type { PlanUpdatePatch } from './plan-types.ts'
 import type { CloudCliProvider } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
 
@@ -24,7 +23,14 @@ export const agentApi = {
     toolCallId: string,
     teamId?: string,
     resolution?: 'answered' | 'dismissed',
-  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution),
+    reason?: string,
+  ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution, reason),
+  agentSnoozeDecision: (
+    sessionId: string,
+    requestId: string,
+    teamId: string | undefined,
+    until: string | null,
+  ) => window.api.agentSnoozeDecision(sessionId, requestId, teamId, until),
   agentAnswerDecision: (
     sessionId: string,
     requestId: string,
@@ -85,12 +91,11 @@ export const agentApi = {
       /** 'shared' lists team sessions the viewer joined but does not own. */
       scope?: 'mine' | 'team' | 'shared'
       ownerId?: string
-      /** A Trigger's runs. Omitted lists Chats, which excludes them. */
-      triggerIds?: string[]
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
       pendingDecision?: boolean
+      includeOnboarding?: boolean
       /** Channels instead of agent conversations; lists never mix the two. */
       kind?: 'channel'
     },
@@ -113,8 +118,16 @@ export const agentApi = {
   },
   agentRenameConversation: (sessionId: string, title: string, teamId?: string) =>
     window.api.agentRenameConversation(sessionId, title, teamId),
-  agentSetConversationAvatar: (sessionId: string, avatar: string | null, teamId?: string) =>
-    window.api.agentSetConversationAvatar(sessionId, avatar, teamId),
+  agentSetConversationAvatar: (
+    sessionId: string,
+    avatar: string | null,
+    teamId?: string,
+    background?: string,
+  ) => window.api.agentSetConversationAvatar(sessionId, avatar, teamId, background),
+  agentUploadConversationAvatar: (sessionId: string, image: Uint8Array, teamId?: string) =>
+    window.api.agentUploadConversationAvatar(sessionId, image, teamId),
+  agentSetBotInstructions: (sessionId: string, instructions: string, teamId?: string) =>
+    window.api.agentSetBotInstructions(sessionId, instructions, teamId),
   agentSetConversationArchived: (sessionId: string, archived: boolean, teamId?: string) =>
     window.api.agentSetConversationArchived(sessionId, archived, teamId),
   agentSetConversationWatched: (sessionId: string, watching: boolean, teamId?: string) =>
@@ -230,11 +243,6 @@ export const agentApi = {
   agentListPlans: (args: { teamId?: string; mine?: boolean; cursor?: string; limit?: number }) =>
     window.api.agentListPlans(args),
   agentGetPlan: (planId: string, teamId?: string) => window.api.agentGetPlan(planId, teamId),
-  agentUpdatePlan: (planId: string, patch: PlanUpdatePatch, teamId?: string) =>
-    window.api.agentUpdatePlan(planId, patch, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) => window.api.agentGetPlanApprovalPolicy(teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    window.api.agentUpdatePlanApprovalPolicy(teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     window.api.agentListTriggers(teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>

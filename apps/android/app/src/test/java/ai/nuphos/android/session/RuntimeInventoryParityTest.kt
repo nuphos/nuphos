@@ -8,12 +8,12 @@ import org.junit.Test
 class RuntimeInventoryParityTest {
     private val cloud = AgentRuntime("cloud", "codex", "Cloud", "active", "managed")
     private val local = cloud.copy(id="local", kind="local", local=RuntimeHost("host", "Computer", true))
-    private val host = RuntimeDevice("host", "Box", true, true, "unavailable", null, null, null, "manage")
+    private val host = RuntimeDevice("host", "Box", true, RuntimeDevice.Box(null), "unavailable", null, null, null, "manage")
     @Test fun destinationsRespectExplicitBoxAccessAndWorkspaceRole() {
         assertEquals(InventoryDestination.CloudDetails, inventoryDestination(cloud,true,emptyList()))
         assertEquals(InventoryDestination.AdministratorInstructions, inventoryDestination(cloud,false,emptyList()))
         assertEquals(InventoryDestination.ProviderSignIn, inventoryDestination(local,false,listOf(host)))
-        for (h in listOf(host.copy(access="use"),host.copy(access=null),host.copy(box=false),host.copy(online=false)))
+        for (h in listOf(host.copy(access="use"),host.copy(access=null),host.copy(box=null),host.copy(online=false)))
             assertEquals(InventoryDestination.HostInstructions,inventoryDestination(local,true,listOf(h)))
         assertEquals(InventoryDestination.CloudDetails,inventoryDestination(cloud.copy(deleting=true),true,emptyList()))
     }
@@ -56,5 +56,10 @@ class RuntimeInventoryParityTest {
         assertFalse(validRuntimeAnswer(attempt.copy(step=RuntimeLoginStep("browser")),"reply"))
         assertTrue(validRuntimeAnswer(attempt.copy(step=RuntimeLoginStep("browser",paste="address")),"http://localhost/callback?code=fixture"))
         assertFalse(validRuntimeAnswer(attempt.copy(step=null,authorizationUrl="https://example.invalid"),"unbound"))
+        val legacy=attempt.copy(step=null,authorizationUrl="https://example.invalid")
+        assertTrue(validRuntimeAnswer(legacy,"code_1#state"));assertTrue(validRuntimeAnswer(legacy,"4/0Ab-c_d"))
+        assertTrue(validRuntimeAnswer(legacy,"http://127.0.0.1:41234/?state=s&code=4/abc"))
+        assertFalse(validRuntimeAnswer(legacy,"4/"));assertFalse(validRuntimeAnswer(legacy,"4/0Ab c"))
+        assertFalse(validRuntimeAnswer(legacy,"https://example.com/?code=x"))
     }
 }

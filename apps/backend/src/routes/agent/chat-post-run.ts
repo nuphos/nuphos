@@ -5,8 +5,10 @@
 // within the file-size budget.
 
 import { agentConversations } from '@/lib/agent/db'
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { trackAgentProducer } from '@/lib/agent/producer-drain'
 import { recordRuntimeTurnUsage } from '@/lib/agent/turn-usage-record'
+import { noteLostTurn } from '@/lib/agent/undelivered-send'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { mirrorAppTurnToDiscord } from '@/routes/discord/turn'
@@ -22,7 +24,7 @@ import {
   finishAgentRun,
 } from './run-frames'
 import { attachAgentRunFrameSink } from './run-registry'
-import { traceAgentChatError } from './trace'
+import { traceAgentChatError, traceAgentChatRefusal } from './trace'
 import { persistAcceptedConversationTurn } from './transcript'
 import { restoreArchivedSession } from './turn-unarchive'
 
@@ -86,8 +88,9 @@ export function launchAcceptedChatTurn(args: {
   releaseClaim: (() => void) | null
   slack: SlackBoundTurn | null
   chatRuntime: ConversationChatRuntime
-  /** Started from the session queue (see PreviewChatTurnArgs.queued). */
+  /** The message this turn runs, and whether it was sent just now (see PreviewChatTurnArgs). */
   queued?: PendingUserMessage
+  direct?: boolean
   /** A new conversation's turn, already stored by the route before the run was accepted. */
   storedTurn?: { isNew: boolean } | null
 }): void {
@@ -181,10 +184,11 @@ export function launchAcceptedChatTurn(args: {
       const kept = await initialPick
 
       if (kept && Object.keys(kept).length)
-        await agentConversations().updateOne(
-          { sessionId, teamId, claudeCodePreview: { $exists: false } },
-          { $set: { initialSessionConfig: kept } },
-        )
+        await keepFirstSessionPick(sessionId, teamId, kept, {
+          actorId: run.userId,
+          via: 'new_chat',
+          ...(chatCtx.client ? { client: chatCtx.client } : {}),
+        })
       // The task's folder is fixed before its first session exists, by its owner only.
       if (body.workspace && runtimeId && chatCtx.userId === run.userId && isFirstTurn(body, null))
         await agentConversations().updateOne(
@@ -197,7 +201,7 @@ export function launchAcceptedChatTurn(args: {
           },
           { $set: { workspace: { kind: 'folder', path: body.workspace.path, runtimeId } } },
         )
-      await runClaudeCodePreviewChatTurn({
+      const outcome = await runClaudeCodePreviewChatTurn({
         run,
         sessionId,
         teamId,
@@ -214,18 +218,23 @@ export function launchAcceptedChatTurn(args: {
           if (slackDelivery) attachFrameSink(next, slackDelivery.frameSink)
           if (discordSink) attachFrameSink(next, discordSink.frameSink)
         },
-        onTurnUsage: (usage) => {
+        onTurnUsage: (report) => {
           recordRuntimeTurnUsage({
             sessionId,
             userId: run.userId,
             teamId,
             provider: chatRuntime.endpoint.provider ?? 'claude-code',
-            usage,
+            ...report,
+            actorUserId: chatCtx.userId,
+            turnSource: 'app',
+            runtimeId: chatRuntime.endpoint.runtimeId,
+            deviceId: chatRuntime.endpoint.local?.deviceId,
           })
         },
         localToolsEnabled: chatCtx.localToolsEnabled,
+        secretCardEnabled: chatCtx.secretCardEnabled,
         decisionReplyTo: decisionReplyOf(body),
-        ...(args.queued ? { queued: args.queued } : {}),
+        ...(args.queued ? { queued: args.queued, direct: args.direct } : {}),
         ...(body.continueAfterInterruption
           ? { resume: { ...(body.resumeReason ? { reason: body.resumeReason } : {}) } }
           : {}),
@@ -242,10 +251,16 @@ export function launchAcceptedChatTurn(args: {
             }
           : {}),
       })
+
+      // Not awaited: it waits for the computer to come back, which may be never.
+      if (outcome === 'connection-lost')
+        void noteLostTurn({ userId: run.userId, teamId, targetSessionId: sessionId })
       chatSpan.end()
     } catch (err) {
       pumpError = err
-      traceAgentChatError('agent.chat.request.error', err, run.trace, {
+      const event = { error: 'agent.chat.request.error', queued: 'agent.chat.request.queued' }
+
+      traceAgentChatRefusal(event, err, run.trace, {
         provider: chatRuntime.runtime,
         model_id: chatRuntime.runtime,
         aborted: run.abortController.signal.aborted,

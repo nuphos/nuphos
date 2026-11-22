@@ -69,7 +69,7 @@ export function CloudCliSetupChoice({
           {check.checking
             ? t('Looking for the {name} command-line tool on this computer.', { name: label })
             : t(
-                'We found the {name} CLI on this computer. The agent can walk through setup with you, right in a new agent.',
+                'We found the {name} CLI on this computer. Nuphos can walk through setup with you, right in a new task.',
                 { name: label },
               )}
         </p>
@@ -189,11 +189,11 @@ export function CloudCliSetupChoice({
             ) : (
               <MessageSquare className="h-4 w-4" aria-hidden="true" />
             )}
-            {starting ? t('Opening your agent…') : t('Set up with agent')}
+            {starting ? t('Opening a task…') : t('Set up in a task')}
             {!starting && <ArrowRight className="ml-1 h-3.5 w-3.5" aria-hidden="true" />}
           </Button>
           <p className="mt-2 text-center text-[10.5px] text-tertiary">
-            {t('Opens a new agent on this computer')}
+            {t('Opens a new task on this computer')}
           </p>
         </div>
       )}

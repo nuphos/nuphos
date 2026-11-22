@@ -18,7 +18,7 @@ import androidx.core.view.WindowCompat
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
-import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import ai.nuphos.android.ui.chat.MessageImages
 import ai.nuphos.android.ui.chat.MessageImageDecoder
@@ -86,12 +86,12 @@ class MessageImagesFixtureDeviceTest {
         page(1).assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "100 percent zoom"))
         page(1).performTouchInput { swipeLeft() }
         ready(2)
-        compose.onNodeWithText("Previous image").performClick()
+        compose.onNodeWithText("Previous").performClick()
         ready(1)
-        compose.onNodeWithText("Previous image").performClick()
+        compose.onNodeWithText("Previous").performClick()
         ready(5)
         screenshot("synthetic-image-fifth")
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         ready(1)
         compose.onNodeWithText("Close").performClick()
         compose.onNodeWithText("1 / 5").assertDoesNotExist()
@@ -167,7 +167,7 @@ class MessageImagesFixtureDeviceTest {
         page(3).performTouchInput { doubleClick() }
         screenshot("synthetic-image-dark-zoom")
         compose.onNodeWithText("Reset zoom").performClick()
-        compose.onNodeWithText("Next image").performClick()
+        compose.onNodeWithText("Next").performClick()
         ready(4)
         compose.onNodeWithText("Close").performClick()
     }

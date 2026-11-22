@@ -1,7 +1,7 @@
 import {
   createWorkspaceState,
-  selectActiveTab,
   selectCurrentBucket,
+  selectMainPageTab,
   sessionKeyOf,
   teamScopeOf,
 } from './workspaceState.ts'
@@ -13,14 +13,14 @@ import type { PaneLayout, PaneSurface, WindowSurface } from '../../../api/window
 /** Nothing until the teams arrive: a surface reported before then would lose its team. */
 export function paneSurfaceOf(state: WorkspaceState): PaneSurface | null {
   if (!state.teamsKnown) return null
-  const mainPageTeam = state.mainPageOpen ? selectActiveTab(state)?.scope.teamId : undefined
+  const mainPageTeam = selectMainPageTab(state)?.scope.teamId
 
   return {
     sessionId: state.sessionId,
     readOnly: state.sessionReadOnly,
     teamId: mainPageTeam ?? state.teamScope?.teamId ?? null,
     mainPageOpen: state.mainPageOpen,
-    dockOpen: !state.mainPageOpen && selectCurrentBucket(state).dockOpen,
+    dockOpen: selectCurrentBucket(state).dockOpen,
   }
 }
 

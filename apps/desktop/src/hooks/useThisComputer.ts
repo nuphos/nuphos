@@ -12,3 +12,10 @@ export function useThisComputer(): ThisComputer {
 
   return useMemo(() => (userId && deviceId ? { userId, deviceId } : null), [userId, deviceId])
 }
+
+/** This computer's own connection, which knows first why it is down; undefined for others. */
+export function useThisComputerConnection(thisComputer: boolean) {
+  const connection = useLocalRuntimeState()?.connection
+
+  return thisComputer ? connection : undefined
+}

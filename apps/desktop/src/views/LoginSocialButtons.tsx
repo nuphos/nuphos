@@ -1,16 +1,17 @@
 import { faApple, faGoogle } from '@fortawesome/free-brands-svg-icons'
-import { faArrowRight, faKey } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { KeyRound as KeyRoundIcon, ArrowRight as ArrowRightIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../api'
 import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
+import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
 
 import type { SocialOption, SocialProvider, UserInfo } from '../types'
 
-const ICONS = { google: faGoogle, apple: faApple, oidc: faKey } as const
+const BRAND_ICONS = { google: faGoogle, apple: faApple } as const
 
 /** One button per provider, each straight to that provider's sign-in, then the "or" above email. */
 export function LoginSocialButtons({
@@ -65,11 +66,16 @@ export function LoginSocialButtons({
               className="group w-full titlebar-no-drag"
             >
               <span className="flex flex-1 items-center gap-2">
-                <FontAwesomeIcon icon={ICONS[p.provider]} />
+                {p.provider === 'oidc' ? (
+                  <UiIcon size={16} icon={KeyRoundIcon} />
+                ) : (
+                  <FontAwesomeIcon icon={BRAND_ICONS[p.provider]} />
+                )}
                 {t('Continue with {provider}', { provider: p.name })}
               </span>
-              <FontAwesomeIcon
-                icon={faArrowRight}
+              <UiIcon
+                size={16}
+                icon={ArrowRightIcon}
                 className="text-[14px] transition-transform duration-200 group-hover:translate-x-1"
               />
             </Button>

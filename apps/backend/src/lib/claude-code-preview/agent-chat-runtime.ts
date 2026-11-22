@@ -8,15 +8,14 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
+import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
-import { OpenAbRpcError } from './openab-acp-errors'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
+import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
-import {
-  assertConversationRuntimeAvailable,
-  assertRuntimeNotDeleting,
-} from './runtime-portability-store'
+import { noteTurnSignIn } from './runtime-auth-refusal'
+import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
 import {
   previewSessionPrincipalChanged,
@@ -33,9 +32,8 @@ import {
   RUNTIME_CWD,
 } from './team-openab-runtime'
 import { renewTurnCredentials } from './turn-credential-renewal'
-import { RuntimeStateProbeError } from './turn-diagnostics'
+import { probeFailure } from './turn-diagnostics'
 
-import type { previewSessionAccess } from './credentials-mcp'
 import type { AcpHttpMcpServer, PreviewAgentUpdate } from './openab-acp-client'
 import type { OpenAbPermissionHandler, OpenAbSessionRuntime } from './openab-acp-session'
 import type { RuntimeAttachment } from './runtime-attachments'
@@ -68,10 +66,14 @@ export {
 
 /**
  * Runs one prompt on the conversation's OpenAB session, streaming text deltas.
- * Reuses the shared Team connection, reattaches with `session/load` after a
- * transport loss, and keeps one active turn per conversation.
+ * Reuses the shared Team connection, reattaches with `session/load` after a transport loss, and
+ * keeps one active turn per conversation. `unsent`: stopped before the agent received the prompt.
+ * How it ends also notes whether the agent's provider refused its sign-in (runtime-auth-refusal).
  */
-export async function runClaudeCodePreviewPrompt(args: {
+export const runClaudeCodePreviewPrompt = (args: Parameters<typeof promptTurn>[0]) =>
+  noteTurnSignIn(args.teamId, args.endpoint.runtimeId, promptTurn(args))
+
+async function promptTurn(args: {
   teamId: string
   conversationId: string
   userId: string
@@ -100,12 +102,11 @@ export async function runClaudeCodePreviewPrompt(args: {
   onPermissionRequest?: OpenAbPermissionHandler
   /** Mints this turn's runtime env again; the running session gets it every 10 minutes. */
   renewRuntimeEnv?: Parameters<typeof renewTurnCredentials>[0]['mint']
-}): Promise<{ stopReason: string }> {
+}): Promise<{ stopReason: string; unsent?: true }> {
   if (args.conversationId.length > MAX_PREVIEW_CONVERSATION_ID_LENGTH) {
     throw new Error('Conversation id is invalid.')
   }
   await assertConversationRuntimeAvailable(args.conversationId)
-  await assertRuntimeNotDeleting(args.teamId, args.endpoint.runtimeId, args.endpoint.url)
   const currentAttachment = await getConversationPreviewAttachment(args.conversationId, args.teamId)
 
   if (currentAttachment && !sameRuntimeUrl(currentAttachment.runtimeUrl, args.endpoint.url))
@@ -139,7 +140,7 @@ export async function runClaudeCodePreviewPrompt(args: {
         openabSessionId: session.openabSessionId,
       },
     }).catch(async (cause: unknown) => {
-      throw await RuntimeStateProbeError.from(cause)
+      throw await probeFailure(cause, session.conversationId, session.endpoint)
     })
   const observed = await observe()
 
@@ -194,7 +195,9 @@ export async function runClaudeCodePreviewPrompt(args: {
     const client = await registry.acquire(session.teamId, session.endpoint)
 
     activeTurn.client = client
-    if (activeTurn.cancelled) return { stopReason: 'cancelled' }
+    if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
+    nextContext.runtime.defaults = await pendingTurnDefaults(client, session, currentAttachment)
+    if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
     // MCP tokens, runtime environment, and the personal portion of the system
     // prompt are execution-principal scoped. A shared Slack conversation can
     // legitimately switch actors between serialized turns; re-load even on
@@ -217,7 +220,7 @@ export async function runClaudeCodePreviewPrompt(args: {
 
       session.contextDeliveredAt = Date.now()
       if (!alive) fresh = await markBackgroundWorkLost(session, 'session_lost')
-      if (activeTurn.cancelled) return { stopReason: 'cancelled' }
+      if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
       // Transport routing only; runtime admission owns execution.
       if (rebind) {
         session.client = client
@@ -231,7 +234,7 @@ export async function runClaudeCodePreviewPrompt(args: {
       args.attachments ?? [],
     )
 
-    if (activeTurn.cancelled) return { stopReason: 'cancelled' }
+    if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
     // The lead ends with the current message's header, nearest its words.
     const lead = [
       attachments.length
@@ -279,11 +282,8 @@ export async function runClaudeCodePreviewPrompt(args: {
         attachments,
         lead,
       )
-      .catch((error: unknown) => {
-        // The runtime's own busy rejection: another turn won the race since the check above.
-        throw error instanceof OpenAbRpcError && error.code === -32001
-          ? refusal(error.message)
-          : error
+      .catch(async (error: unknown) => {
+        throw await promptFailure(error, session, nextContext.runtime.defaults)
       })
       .finally(() => {
         text.flush()

@@ -15,9 +15,10 @@ import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy } from './AgentAddedBy'
-import { agentName, localSignIn, managesRuntime } from './agentPresentation'
+import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
+import { editsRuntime } from './runtimeFallback'
 import { RuntimeFallbackPicker } from './RuntimeFallbackPicker'
 import { RuntimeLoginDialog } from './RuntimeLoginDialog'
 import { RuntimeMetricsCharts } from './RuntimeMetricsCharts'
@@ -85,7 +86,7 @@ export function RuntimeInstanceCard({
           label,
         )
       : api.atlasUpdateRuntimeInstance(teamId, instance.id, { label })
-  const canEdit = manages && instance.kind !== 'development' && !instance.deletion
+  const canEdit = editsRuntime(instance, manages)
   const status = runtimeStatusView(instance, runtime, statusError)
   const kindTag =
     instance.kind === 'external'
@@ -210,7 +211,7 @@ export function RuntimeInstanceCard({
         {instance.deletion ? (
           <p className="px-4 py-3 text-xs leading-relaxed text-secondary" role="status">
             {instance.deletion.error ??
-              t('Removing the runtime and its files. Agent history stays in Nuphos.')}
+              t('Removing the runtime and its files. Task history stays in Nuphos.')}
           </p>
         ) : (
           <>
@@ -251,6 +252,17 @@ export function RuntimeInstanceCard({
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
+            {instance.local && ownSignedInCli(instance) && (
+              <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
+                {t(
+                  'This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.',
+                  {
+                    provider: AGENT_PROVIDER[instance.provider].label,
+                    device: instance.local.deviceLabel,
+                  },
+                )}
+              </p>
+            )}
           </>
         )}
       </div>

@@ -50,6 +50,8 @@ export type RuntimeLoginFrame =
   | { type: 'device'; verificationUri: string; userCode: string }
   | { type: 'authorize'; url: string }
   | { type: 'step'; step: RuntimeLoginStep }
+  /** The computer is installing the agent's CLI before its sign-in can start. */
+  | { type: 'installing' }
   | { type: 'authenticated' }
   /** The runtime removed the API key it was signed in with. */
   | { type: 'signedOut' }
@@ -127,11 +129,12 @@ export function parseLoginStep(frame: Record<string, unknown>): RuntimeLoginStep
 }
 
 /**
- * The `code#state` Claude's callback page shows, or the loopback address Google's
- * sign-in leaves the browser on for Antigravity. The runtime checks the port itself.
+ * The `code#state` Claude's callback page shows, or for Antigravity the bare `4/…` code
+ * Google's sign-in shows or the loopback address it leaves the browser on. The runtime
+ * checks the port itself.
  */
 export const AUTHORIZATION_CODE =
-  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
+  /^(?:[\w.~-]{1,2048}#[\w.~-]{1,512}|4\/[\w-]{1,2048}|http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\?[\w.~%&=/+:-]{1,4096})$/u
 /** In place of the account sign-in: an API key for the runtime's CLI, or removing it. */
 export const API_KEY_ANSWER = /^(?:sk-[\w-]{20,400}|sign-out)$/u
 const LOOPBACK_ADDRESS = /^http:\/\/(?:127\.0\.0\.1|localhost):\d{1,5}\/\S*$/u

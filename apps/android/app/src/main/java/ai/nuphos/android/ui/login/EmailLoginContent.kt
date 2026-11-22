@@ -35,6 +35,8 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.data.AccountApi
+import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.R
 import ai.nuphos.android.data.NuphosApi
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -73,6 +75,7 @@ internal fun EmailLoginContent(
     var job by remember { mutableStateOf<Job?>(null) }
     var now by remember { mutableLongStateOf(nowMillis()) }
     val scope = rememberCoroutineScope()
+    val strings = androidx.compose.ui.platform.LocalResources.current
     val waiting = sending || busy
     val cleanEmail = email.trim()
     val validEmail = EmailCodeTiming.isEmail(cleanEmail)
@@ -99,12 +102,12 @@ internal fun EmailLoginContent(
             } catch (e: CancellationException) { throw e }
             catch (e: NuphosApi.Failure.Http) {
                 localError = when (e.code) {
-                    400 -> "Enter a valid email address."
-                    429 -> "Too many codes requested. Wait and try again later."
-                    else -> "Could not send the code. Check your connection and try again."
+                    400 -> strings.getString(R.string.shell_email_invalid)
+                    429 -> strings.getString(R.string.shell_email_too_many_codes)
+                    else -> strings.getString(R.string.shell_email_send_failed)
                 }
             } catch (_: Exception) {
-                localError = "Could not confirm delivery. Wait before trying again."
+                localError = strings.getString(R.string.shell_email_delivery_unconfirmed)
             } finally { sending = false }
         }
     }
@@ -121,23 +124,24 @@ internal fun EmailLoginContent(
         BackHandler { leaveCodeScreen() }
         Column(modifier.fillMaxSize().systemBarsPadding().imePadding()
             .verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Check your email", style = MaterialTheme.typography.headlineLarge)
-            Text("Enter the 6-digit code sent to", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.shell_check_email), style = MaterialTheme.typography.headlineLarge)
+            Text(stringResource(R.string.shell_code_sent_to), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            val differentEmail = stringResource(R.string.shell_use_different_email)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(sentEmail, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
                 TextButton(onClick = { leaveCodeScreen() }, enabled = !sending,
-                    modifier = Modifier.semantics { contentDescription = "Use a different email" }) { Text("Change") }
+                    modifier = Modifier.semantics { contentDescription = differentEmail }) { Text(stringResource(R.string.shell_change)) }
             }
             VerificationCodeField(code, isError = shownError != null, enabled = !waiting && !expired) {
                 code = it; if (shownError != null) clearFeedback()
             }
             shownError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Didn't get a code?", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (seconds > 0) Text("Resend code in ${seconds}s", style = MaterialTheme.typography.bodySmall,
+                Text(stringResource(R.string.shell_no_code), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (seconds > 0) Text(stringResource(R.string.shell_resend_code_in, seconds), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
-                else TextButton(onClick = { send() }, enabled = !waiting) { Text("Resend code") }
-                Text(if (expired) "Code expired. Request a new code." else "The code expires in 10 minutes.",
+                else TextButton(onClick = { send() }, enabled = !waiting) { Text(stringResource(R.string.shell_resend_code)) }
+                Text(if (expired) stringResource(R.string.shell_code_expired) else stringResource(R.string.shell_code_expires),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(8.dp))
@@ -148,7 +152,7 @@ internal fun EmailLoginContent(
                     onSubmit(sentEmail, submitted)
                 }
             }, enabled = !waiting && !expired && code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
-                Text(if (waiting) "Please wait…" else "Sign in")
+                Text(if (waiting) stringResource(R.string.shell_please_wait) else stringResource(R.string.sign_in))
             }
         }
         return
@@ -168,13 +172,13 @@ internal fun EmailLoginContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         header()
         OutlinedTextField(email, { email = it.take(254); if (shownError != null) clearFeedback() },
-            label = { Text("Email address") }, singleLine = true, enabled = !waiting,
+            label = { Text(stringResource(R.string.shell_email_address)) }, singleLine = true, enabled = !waiting,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email,
                 imeAction = if (usePassword) ImeAction.Next else ImeAction.Go),
             keyboardActions = KeyboardActions(onNext = { passwordFocus.requestFocus() }, onGo = { if (validEmail) continueWithEmail() }),
             modifier = Modifier.fillMaxWidth())
         if (usePassword) OutlinedTextField(password, { password = it.take(128); if (shownError != null) clearFeedback() },
-            label = { Text("Password") }, singleLine = true, enabled = !waiting,
+            label = { Text(stringResource(R.string.shell_password)) }, singleLine = true, enabled = !waiting,
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Go),
             keyboardActions = KeyboardActions(onGo = { submitPassword() }),
@@ -182,27 +186,33 @@ internal fun EmailLoginContent(
         Button(onClick = { if (usePassword) submitPassword() else continueWithEmail() },
             enabled = !waiting && if (usePassword) passwordReady else validEmail && (seconds == 0 || sentEmail == cleanEmail),
             modifier = Modifier.fillMaxWidth().height(52.dp)) {
-            Text(if (waiting) "Please wait…" else if (usePassword) "Sign in" else "Continue")
+            Text(stringResource(if (waiting) R.string.shell_please_wait else if (usePassword) R.string.sign_in else R.string.shell_continue))
         }
         shownError?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth()) }
         if (!usePassword && seconds > 0 && sentEmail != cleanEmail)
-            Text("You can request another code in ${seconds}s.", style = MaterialTheme.typography.bodySmall,
+            Text(stringResource(R.string.shell_request_code_in, seconds), style = MaterialTheme.typography.bodySmall,
                 textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         TextButton(onClick = { usePassword = !usePassword; password = ""; clearFeedback() }, enabled = !waiting,
             modifier = Modifier.align(Alignment.CenterHorizontally)) {
-            Text(if (usePassword) "Use an email code instead" else "Use a password")
+            Text(stringResource(if (usePassword) R.string.shell_use_email_code else R.string.shell_use_password))
         }
         alternatives()
+        val terms = stringResource(R.string.shell_terms_of_service)
+        val privacy = stringResource(R.string.shell_privacy_policy)
+        // One sentence with two link slots, so each language can place them where it needs.
+        val agreement = stringResource(R.string.shell_terms_agreement, "\u0000", "\u0001")
         Text(buildAnnotatedString {
-            append("By continuing, you agree to our ")
-            withLink(LinkAnnotation.Clickable("terms") { uri.openUri("https://nuphos.ai/terms") }) {
-                withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) { append("Terms of Service") }
+            agreement.forEach { c ->
+                when (c) {
+                    '\u0000' -> withLink(LinkAnnotation.Clickable("terms") { uri.openUri("https://nuphos.ai/terms") }) {
+                        withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) { append(terms) }
+                    }
+                    '\u0001' -> withLink(LinkAnnotation.Clickable("privacy") { uri.openUri("https://nuphos.ai/privacy") }) {
+                        withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) { append(privacy) }
+                    }
+                    else -> append(c)
+                }
             }
-            append(" and ")
-            withLink(LinkAnnotation.Clickable("privacy") { uri.openUri("https://nuphos.ai/privacy") }) {
-                withStyle(SpanStyle(textDecoration = TextDecoration.Underline)) { append("Privacy Policy") }
-            }
-            append(".")
         }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp))
     }
@@ -212,6 +222,7 @@ internal fun EmailLoginContent(
 @Composable
 private fun VerificationCodeField(code: String, isError: Boolean, enabled: Boolean, onChange: (String) -> Unit) {
     val focus = remember { FocusRequester() }
+    val fieldLabel = stringResource(R.string.shell_email_code_field)
     var focused by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
     BasicTextField(
@@ -222,7 +233,7 @@ private fun VerificationCodeField(code: String, isError: Boolean, enabled: Boole
         cursorBrush = SolidColor(Color.Transparent),
         textStyle = MaterialTheme.typography.bodyLarge.copy(color = Color.Transparent),
         modifier = Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged { focused = it.isFocused }
-            .testTag("email-code-input").semantics { contentDescription = "6-digit email code" },
+            .testTag("email-code-input").semantics { contentDescription = fieldLabel },
         decorationBox = { inner ->
             Box {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

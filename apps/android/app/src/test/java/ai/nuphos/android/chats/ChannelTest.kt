@@ -5,6 +5,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.TransferDownloadGroup
 import ai.nuphos.android.model.AgentConversationDetail
+import ai.nuphos.android.model.BotFaces
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
@@ -18,6 +19,7 @@ import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.ChannelSession
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.decodeFromString
 import org.junit.Assert.*
 import org.junit.Test
 import java.time.Instant
@@ -27,6 +29,16 @@ class ChannelTest {
     private val person = """{"id":"m1","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:20:00.000Z"},"parts":[{"type":"text","text":"Morning!"}]}"""
     private val agent = """{"id":"m2","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"agent-ops","displayName":"Release ops"},"sentAt":"2026-11-03T09:23:00.000Z","sourceSessionId":"agent-ops"},"parts":[{"type":"text","text":"Screenshots:"},{"type":"transfer-download","groupId":"g1"},{"type":"transfer-download","groupId":"g2"}]}"""
     private val upload = """{"id":"m3","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"diana","displayName":"Diana Prince"},"sentAt":"2026-11-03T09:40:00.000Z"},"parts":[{"type":"text","text":"Crash"},{"type":"transfer-upload","groupId":"64b5f1c2e4b0a1d2c3e4f5a7","status":"ready","files":[{"fileName":"crash.png","status":"ready"}]}]}"""
+
+    /** #3967: the portal Anthropic named for a held account, for Verify with Anthropic. */
+    @Test fun readsWhereAHeldAccountIsVerified() {
+        val held = Http.json.decodeFromString<AgentConversationDetail.TimelineEvent>(
+            """{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed","agentId":"bot-1","cause":"usage_limit","verifyUrl":"https://portal.anthropic.com/verify"}""")
+        assertEquals("https://portal.anthropic.com/verify", held.verifyUrl)
+        val other = Http.json.decodeFromString<AgentConversationDetail.TimelineEvent>(
+            """{"at":"2026-11-20T05:00:00Z","text":"Ops couldn’t reply.","kind":"agent_reply_failed"}""")
+        assertNull(other.verifyUrl)
+    }
 
     @Test fun typingAndPostAvatarsKeepKnownProvidersWithoutInventingMissingOnes() {
         for (provider in listOf("codex", "grok", null)) {
@@ -61,6 +73,18 @@ class ChannelTest {
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","parts":[{"type":"text","text":"no sender"}]}""")))
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","metadata":{"sender":{"type":"system","id":"s","displayName":"S"}},"parts":[{"type":"text","text":"x"}]}""")))
         assertNull(ChannelPost.from(message("""{"id":"x","role":"user","metadata":{"sender":{"type":"user","id":"d","displayName":"D"}},"parts":[{"type":"text","text":"  "}]}""")))
+    }
+
+    @Test fun answersAndANewOwnerAreRecordsAndOtherNoticesStayHidden() {
+        fun system(id: String, text: String) = message(
+            """{"id":"$id","role":"user","metadata":{"sender":{"type":"system","id":"$id","displayName":"Nuphos"},"sentAt":"2026-11-03T09:20:00Z"},"parts":[{"type":"text","text":"$text"}]}""")
+        val answer = ChannelPost.from(system("nuphos:decision", "Ann answered: Ship? → Ship it"))!!
+        val owner = ChannelPost.from(system("nuphos:chat", "Ann left. Bruce now owns this chat."))!!
+        assertTrue(answer.isRecord); assertTrue(owner.isRecord)
+        assertNull(ChannelPost.from(system("nuphos", "Release Helper finished a turn.")))
+        val items = ChannelPost.items(listOf(owner), emptyList(), emptyList())
+        assertEquals(listOf("time.nuphos:chat", "record.nuphos:chat"), items.map { it.key })
+        assertEquals("Ann left. Bruce now owns this chat.", (items[1] as ChannelItem.Record).text)
     }
 
     @Test fun runsPausedLineAndTypingAreOrdered() {
@@ -133,7 +157,8 @@ class ChannelTest {
                     "\",\"agent\":{\"avatar\":\"" + avatar + "\"}}],\"transcriptUpdatedAt\":\"" + stamp +
                     "\",\"messageCount\":" + count + ",\"activitySeq\":" + (activity ?: count) + ",\"messages\":[" + post + "]}")
         }
-        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listOf(ChannelAgent("agent-ops", "Release ops")) }
+        var listed = listOf(ChannelAgent("agent-ops", "Release ops"))
+        override suspend fun agents(): List<ChannelAgent> { agentsCalls++; return listed }
         override suspend fun attachment(groupId: String): TransferDownloadGroup {
             attachments += groupId
             if (failAttachment) error("offline")
@@ -154,6 +179,80 @@ class ChannelTest {
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
             landed = id
         }
+        /** The team's change stream; none, as on a backend without it, unless a test sets one. */
+        var pushes: (suspend (opened: () -> Unit, changed: (String) -> Unit) -> Boolean)? = null
+        override suspend fun changes(opened: () -> Unit, changed: (String) -> Unit) = pushes?.invoke(opened, changed) ?: false
+    }
+
+    /**
+     * Cut mid-chat: the stream ends, then the route answers 503 twice, then the stream is back. While it
+     * is down the chat polls every 4 s; once it is back up the chat is read at once and polling stops.
+     */
+    @Test fun aCutPushFallsBackToThePollAndFollowsThePushAgainOnceItIsBack() = runTest {
+        val transport = FakeTransport()
+        val cut = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var connects = 0
+        transport.pushes = { opened, _ ->
+            when (++connects) {
+                1 -> { opened(); cut.await(); true }
+                2, 3 -> throw ai.nuphos.android.data.SseClient.Failure.BadStatus(503, "Service Unavailable")
+                else -> { opened(); kotlinx.coroutines.awaitCancellation() }
+            }
+        }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        val polling = launch { session.poll() }
+        testScheduler.runCurrent()
+        val full = ChannelSession.TAIL
+        testScheduler.advanceTimeBy(2 * ChannelSession.POLL_MS)
+        testScheduler.runCurrent()
+        assertEquals("Up: read once and as the stream came up, no poll", listOf(full, full), transport.details)
+        cut.complete(Unit)
+        testScheduler.runCurrent()
+        // Reconnects back off 1 s, 2 s, then 4 s: down for about 7 s, so polls land in that window.
+        testScheduler.advanceTimeBy(6_000)
+        testScheduler.runCurrent()
+        assertEquals("Two 503s came after the stream ended", 3, connects)
+        assertTrue("Down, the chat polls again: ${transport.details}", 1 in transport.details.drop(2))
+        testScheduler.advanceTimeBy(2_000)
+        testScheduler.runCurrent()
+        assertEquals("The stream is back", 4, connects)
+        assertEquals("Back up, the chat is read at once", full, transport.details.last())
+        val reads = transport.details.size
+        testScheduler.advanceTimeBy(3 * ChannelSession.POLL_MS)
+        testScheduler.runCurrent()
+        assertEquals("Back up, the poll stops again", reads, transport.details.size)
+        polling.cancel(); polling.join()
+    }
+
+    /** The open chat follows the server's change push (#3906): read at once, never polled while it is up. */
+    @Test fun aPushedChangeIsReadAtOnceAndTheChatIsNotPolledWhileThePushIsUp() = runTest {
+        val transport = FakeTransport()
+        val dropped = kotlinx.coroutines.CompletableDeferred<Unit>()
+        var push: (String) -> Unit = {}
+        transport.pushes = { opened, changed ->
+            // Once dropped, the stream never comes back up in this test.
+            if (dropped.isCompleted) kotlinx.coroutines.awaitCancellation()
+            opened(); push = changed; dropped.await(); true
+        }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        val polling = launch { session.poll() }
+        testScheduler.runCurrent()
+        val full = ChannelSession.TAIL
+        assertEquals("The first read, and one as the stream comes up", listOf(full, full), transport.details)
+        testScheduler.advanceTimeBy(3 * ChannelSession.POLL_MS)
+        testScheduler.runCurrent()
+        assertEquals("No poll while the stream is up", listOf(full, full), transport.details)
+        push("another-chat")
+        testScheduler.runCurrent()
+        assertEquals("Another chat's change is not read", 2, transport.details.size)
+        repeat(5) { push("chat-release") }
+        testScheduler.runCurrent()
+        assertEquals("A burst of changes is read at once, and once", listOf(full, full, full), transport.details)
+        dropped.complete(Unit)
+        testScheduler.advanceTimeBy(ChannelSession.POLL_MS + 1)
+        testScheduler.runCurrent()
+        assertTrue("With the stream down the chat polls again", 1 in transport.details.drop(3))
+        polling.cancel(); polling.join()
     }
 
     @Test fun probeSkipsTheFullReadUntilTheChatChanges() = runTest {
@@ -169,6 +268,14 @@ class ChannelTest {
         session.refresh()
         assertEquals(listOf(ChannelSession.TAIL, 1, 1, ChannelSession.TAIL), transport.details)
         assertEquals(2, transport.agentsCalls); assertEquals(2L, session.activitySeq)
+    }
+
+    @Test fun aTeammatesBotPostsWithItsOwnFace() = runTest {
+        val transport = FakeTransport()
+        transport.listed = listOf(ChannelAgent("teammates-bot", "書記官", ownerId = "teammate", avatar = "07-ada"))
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        assertEquals("07-ada", BotFaces.face("teammates-bot"))
     }
 
     @Test fun renamingTheBotReadsTheChatAgainWithoutAPost() = runTest {

@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -65,7 +66,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import ai.nuphos.android.data.AgentChatApi
-import ai.nuphos.android.session.ShareApprovalWait
 import ai.nuphos.android.session.ConversationReads
 import ai.nuphos.android.session.AiAccess
 import androidx.compose.runtime.key
@@ -74,6 +74,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -105,6 +106,9 @@ import ai.nuphos.android.ui.components.MarkdownText
 import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -118,13 +122,16 @@ fun ConversationScreen(
     val store = LocalAgentStore.current
     val selectedTeamId = store.selectedTeam?.id
     val conversation = store.conversations.firstOrNull { it.sessionId == sessionId && (it.teamId == null || it.teamId == selectedTeamId) }
+    val newTaskTitle = stringResource(R.string.chat_new_task)
+    val taskTitle = stringResource(R.string.chat_task_fallback_title)
     val session = remember(store, sessionId, selectedTeamId) {
-        if (fresh) store.session(sessionId, "New task")
-        else conversation?.let { store.session(it) } ?: store.session(sessionId, "Task")
+        if (fresh) store.session(sessionId, newTaskTitle)
+        else conversation?.let { store.session(it) } ?: store.session(sessionId, taskTitle)
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
-        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack)
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack,
+            onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
         return
     }
     val auth = LocalAuthSession.current
@@ -192,8 +199,6 @@ fun ConversationScreen(
     LaunchedEffect(session, lifecycle) {
         lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { session.pollWhileIdle() }
     }
-    // A teammate's computer that asks its owner first: say so until they answer.
-    LaunchedEffect(session, session.runtimeId, session.queuedSends) { session.watchShareApproval() }
 
     // Initial entry, foreground and manual refresh work even during an active turn.
     // Turn completion is a separate event, never a resource polling loop.
@@ -232,12 +237,31 @@ fun ConversationScreen(
         }
         onDispose { session.bindLocalSender(null) { null } }
     }
-    val rows = ChatRow.rows(session)
+    val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
     if (showTriggers && auth.token != null) {
         ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+    }
+    var showSummary by remember(session, selectedTeamId) { mutableStateOf(false) }
+    val summaryToken = auth.token
+    val summaryAllowed = session.readAllowed && (!fresh || !session.isNew) && !newChat && auth.aiAllowed && selectedTeamId == session.teamId &&
+        summaryToken != null && conversation?.isBot != true && ai.nuphos.android.model.BotFaces.face(sessionId) == null
+    if (showSummary && summaryAllowed && summaryToken != null) {
+        TaskSummarySheet(
+            session = session,
+            token = summaryToken,
+            children = store.conversations.filter {
+                it.parentSessionId == sessionId && (it.teamId == null || it.teamId == session.teamId)
+            }.sortedByDescending { it.lastActiveAt },
+            allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
+            onOpen = { child ->
+                showSummary = false
+                nav.navigate("conversation/${android.net.Uri.encode(child)}")
+            },
+            onDismiss = { showSummary = false },
+        )
     }
     val chatCanvas = ai.nuphos.android.ui.theme.LocalChatCanvas.current
     Scaffold(
@@ -249,27 +273,34 @@ fun ConversationScreen(
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ai.nuphos.android.ui.components.AgentAvatar(session.sessionId, session.agentRuntime, 24.dp)
                         Column(Modifier.weight(1f)) {
+                            val showTriggersLabel = stringResource(R.string.chat_show_task_triggers)
                             Text(session.title, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.clickable { showTriggers = true }.semantics { contentDescription = "Show task triggers" })
+                                modifier = Modifier.clickable { showTriggers = true }.semantics { contentDescription = showTriggersLabel })
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
+                                val runtimeLabel = stringResource(R.string.chat_runtime_description, ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label))
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                     if (ai.nuphos.android.model.BotFaces.face(session.sessionId) != null) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
                                     Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.semantics { contentDescription = "Runtime: ${ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label)}" })
+                                        modifier = Modifier.semantics { contentDescription = runtimeLabel })
                                 }
                             }
                         }
                     }
                 },
                 navigationIcon = {
-                    if (newChat) TextButton(onClick = onBack) { Text("New task") }
-                    else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back") }
+                    if (newChat) TextButton(onClick = onBack) { Text(stringResource(R.string.chat_new_task)) }
+                    else IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
                 },
                 actions = {
+                    if (summaryAllowed) {
+                        IconButton(onClick = { showSummary = true }) {
+                            Icon(painterResource(R.drawable.ic_task_summary), stringResource(R.string.chat_summary_open))
+                        }
+                    }
                     ConversationMenu(session, store, onBack, onChooseRuntime = { showAgent = true })
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = chatCanvas),
@@ -291,13 +322,13 @@ fun ConversationScreen(
                 onRefresh = { refreshResources++ },
             )
             if (session.loaded && session.loadError == null && session.isArchived) {
-                Text("Archived task", Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                Text(stringResource(R.string.chat_archived_task), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             if (session.canReadDownloads && session.downloadsError != null) Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(session.downloadsError.orEmpty(), style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
                 val retryScope = rememberCoroutineScope()
-                TextButton(onClick = { retryScope.launch { session.refreshDownloads() } }) { Text("Retry files") }
+                TextButton(onClick = { retryScope.launch { session.refreshDownloads() } }) { Text(stringResource(R.string.chat_retry_files)) }
             }
             // The transcript runs on behind what's laid over its bottom edge, down to the composer's rounded card.
             var bottomInset by remember { mutableStateOf(0.dp) }
@@ -347,53 +378,35 @@ fun ConversationScreen(
                     }
                     .onSizeChanged { bottomInset = with(density) { (it.height.toDp() - COMPOSER_TOP_MARGIN).coerceAtLeast(0.dp) } }) {
                     Column(Modifier.fillMaxWidth().background(chatCanvas)) {
-                        session.shareApproval?.let { wait ->
-                            Surface(
-                                Modifier.padding(horizontal = 16.dp, vertical = 4.dp).fillMaxWidth(),
-                                shape = MaterialTheme.shapes.medium,
-                                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            ) {
-                                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        wait.message(session.runtimeDeviceLabel ?: "this computer"),
-                                        Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = if (wait == ShareApprovalWait.Denied) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-                                    )
-                                    // Declined: the conversation moves on to another runtime.
-                                    if (wait == ShareApprovalWait.Denied && session.canManage) SwitchRuntimeButton { showAgent = true }
-                                }
-                            }
-                        }
                         if (session.runtimeRecoveryRequired) {
-                            Text("Message delivery needs to be checked before you send again.", modifier = Modifier.padding(horizontal = 16.dp))
-                            TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text("Check delivery") }
+                            Text(stringResource(R.string.chat_delivery_check_needed), modifier = Modifier.padding(horizontal = 16.dp))
+                            TextButton(enabled = session.loaded && !session.readOnly, onClick = session::recoverRuntime) { Text(stringResource(R.string.chat_check_delivery)) }
                         }
                         if (session.steeringRetryRequired) {
-                            Text("Steering was rejected. Your unsent text is retained.", modifier = Modifier.padding(horizontal = 16.dp))
-                            TextButton(enabled = session.loaded && !session.readOnly, onClick = session::retryQueued) { Text("Retry steering") }
+                            Text(stringResource(R.string.chat_steering_rejected), modifier = Modifier.padding(horizontal = 16.dp))
+                            TextButton(enabled = session.loaded && !session.readOnly, onClick = session::retryQueued) { Text(stringResource(R.string.chat_retry_steering)) }
                         }
                         session.uploadDraft?.let { draft ->
                             Column(Modifier.padding(horizontal = 16.dp)) {
-                                Text(draft.text.ifBlank { "Attachment message" }, maxLines = 2)
+                                Text(draft.text.ifBlank { stringResource(R.string.chat_attachment_message) }, maxLines = 2)
                                 Text(draft.attachments.joinToString(", ") { it.name }, maxLines = 2)
                                 session.uploadProgress?.let { progress ->
                                     Text(when (progress.stage) {
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Intent -> "Preparing upload…"
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Uploading -> "Uploading ${progress.bytesWritten} / ${progress.totalBytes} bytes"
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Finalizing -> "Checking uploaded files…"
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Ready -> "Files ready"
+                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Intent -> stringResource(R.string.chat_upload_preparing)
+                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Uploading -> stringResource(R.string.chat_upload_progress, progress.bytesWritten, progress.totalBytes)
+                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Finalizing -> stringResource(R.string.chat_upload_checking)
+                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Ready -> stringResource(R.string.chat_upload_ready)
                                     })
                                 }
                                 session.uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                                 Row {
-                                    if (session.uploadBusy) TextButton(onClick = session::cancelUpload) { Text("Cancel upload") }
-                                    else TextButton(enabled = session.canSubmit, onClick = session::retryUpload) { Text("Retry attachment message") }
-                                    TextButton(onClick = session::discardUpload) { Text("Remove attachment message") }
+                                    if (session.uploadBusy) TextButton(onClick = session::cancelUpload) { Text(stringResource(R.string.chat_upload_cancel)) }
+                                    else TextButton(enabled = session.canSubmit, onClick = session::retryUpload) { Text(stringResource(R.string.chat_upload_retry)) }
+                                    TextButton(onClick = session::discardUpload) { Text(stringResource(R.string.chat_upload_remove)) }
                                 }
                             }
                         }
-                        if (session.readOnly) Text("Read-only task", modifier = Modifier.padding(horizontal = 16.dp))
+                        if (session.readOnly) Text(stringResource(R.string.chat_read_only_task), modifier = Modifier.padding(horizontal = 16.dp))
                         if (session.queued.isNotEmpty()) {
                             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 session.queued.forEachIndexed { i, item ->
@@ -435,7 +448,7 @@ fun ConversationScreen(
                             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                             containerColor = MaterialTheme.colorScheme.background) {
                             Column(Modifier.fillMaxWidth().fillMaxHeight()) {
-                                ai.nuphos.android.ui.agent.RuntimePickerHeader(title = "Computers and runtimes",
+                                ai.nuphos.android.ui.agent.RuntimePickerHeader(title = stringResource(R.string.chat_computers_and_runtimes),
                                     onClose = { showRuntimeManagement = false; showAgent = true })
                                 HorizontalDivider()
                                 ai.nuphos.android.ui.agent.RuntimesPage()
@@ -506,14 +519,16 @@ fun ConversationScreen(
                     ChatComposer(
                         promptSuggestion = { session.promptSuggestion },
                         modelSettings = session.modelSettings,
+                        followsBot = session.followsBot,
                         recalledFiles = recalledFiles,
                         onRecalledFilesRestored = { recalledFiles = emptyList() },
                         mentions = if (store.selectedTeam?.id != draftTeam) null else remember(store, draftTeam, sessionId) {
-                            SessionMentionSource(draftTeam, sessionId) { query ->
-                                store.mentionableSessions(draftTeam, query)
+                            SessionMentionSource(draftTeam, sessionId) {
+                                store.mentionableSessions(draftTeam)
                             }
                         },
-                        devices = if (!session.canManage || store.selectedTeam?.id != draftTeam) null
+                        // Mentioning a computer selects it, and a Task under a Bot has no selection of its own.
+                        devices = if (!session.canManage || session.followsBot || store.selectedTeam?.id != draftTeam) null
                         else remember(store, session, draftTeam, store.workspaceRevision) {
                             DeviceMentionSource(draftTeam,
                                 load = { store.mentionableComputers(draftTeam) },
@@ -538,7 +553,8 @@ fun ConversationScreen(
                         onStop = if (session.canCancel) session::stop else null,
                 stopsRuntimeTurn = session.isNative,
                         showControls = session.canManage,
-                        selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
+                        selection = (session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection())
+                            .reaching(store.credentialCatalog),
                         onSelectionChange = session::updateCredentials,
                         mode = session.permissionMode,
                         onModeChange = session::updatePermissionMode,
@@ -555,10 +571,10 @@ fun ConversationScreen(
     if (alwaysTarget != null) {
         AlertDialog(
             onDismissRequest = { alwaysTarget = null },
-            title = { Text("Always allow") },
+            title = { Text(stringResource(R.string.chat_always_allow_title)) },
             text = {
                 Column {
-                    Text("Commands matching this description will run without asking.")
+                    Text(stringResource(R.string.chat_always_allow_body))
                     TextField(alwaysRule, onValueChange = { alwaysRule = it }, modifier = Modifier.padding(top = 8.dp))
                 }
             },
@@ -569,9 +585,9 @@ fun ConversationScreen(
                         alwaysTarget = null
                     },
                     enabled = alwaysRule.isNotBlank(),
-                ) { Text("Allow") }
+                ) { Text(stringResource(R.string.chat_allow)) }
             },
-            dismissButton = { TextButton(onClick = { alwaysTarget = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { alwaysTarget = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -621,7 +637,7 @@ private fun ChatRowView(
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ai.nuphos.android.ui.components.AgentAvatar(reference.id, target?.agentRuntime, 24.dp)
                         Column(Modifier.weight(1f)) {
-                            Text(target?.displayTitle ?: reference.title ?: "Agent", maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+                            Text(target?.displayTitle ?: reference.title ?: stringResource(R.string.chat_agent_fallback_title), maxLines = 1, style = MaterialTheme.typography.bodyMedium)
                             Text(reference.verb, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Text("›", style = MaterialTheme.typography.titleMedium)
@@ -634,7 +650,7 @@ private fun ChatRowView(
         is ChatRow.Memory -> Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer) {
             Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Outlined.Memory, contentDescription = null, modifier = Modifier.size(14.dp))
-                Text("Memory updated", modifier = Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(R.string.chat_memory_updated), modifier = Modifier.padding(start = 6.dp), style = MaterialTheme.typography.labelMedium)
             }
         }
         is ChatRow.MemoryRecall -> MemoryRecallRow(
@@ -652,13 +668,45 @@ private fun ChatRowView(
         }
         is ChatRow.Hint -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(row.text, color = if (row.isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
+            val auth = LocalAuthSession.current
+            val store = LocalAgentStore.current
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val workspace = store.workspaceRevision
+            val consent = AiAccess.revision
+            val viewer = auth.user?.id
+            val generation = auth.generation
+            val valid = { auth.aiAllowed && session.readAllowed && store.selectedTeam?.id == session.teamId &&
+                store.workspaceRevision == workspace && AiAccess.revision == consent && auth.generation == generation }
+            val report = ChatRow.failureReport(row.id, session.messages)?.takeIf { valid() }
+            val retry = session.failedTurn(viewer)?.takeIf { it.rowId == row.id && valid() }
+            var copied by remember(row.id, report) { mutableStateOf(false) }
+            if (retry != null || report != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (retry != null) OutlinedButton(onClick = { if (valid()) session.retryFailedTurn(auth.user?.id) },
+                    modifier = Modifier.testTag("failed-turn-retry:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(R.drawable.failed_turn_retry), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.failed_turn_retry))
+                }
+                if (report != null) OutlinedButton(onClick = copy@{
+                    if (!valid()) return@copy
+                    val current = ChatRow.failureReport(row.id, session.messages) ?: return@copy
+                    (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                        .setPrimaryClip(android.content.ClipData.newPlainText(row.text, current))
+                    copied = true
+                }, modifier = Modifier.testTag("failed-turn-copy:${row.id}")) {
+                    Icon(androidx.compose.ui.res.painterResource(if (copied) R.drawable.failed_turn_check else R.drawable.failed_turn_copy), null, Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(if (copied) R.string.failed_turn_copied else R.string.failed_turn_copy))
+                }
+            }
             // A signed-out agent the viewer can't sign in: whoever can is asked through their Inbox.
             val runtimeId = session.runtimeId
-            val askLabel = if (row.text == AgentChatApi.signedOutError) AgentChatApi.signInAsk(runtimeId, LocalAuthSession.current.user?.id,
+            val block = session.runtimeBlock?.takeIf { row.isError }
+            val askLabel = if (block?.signedOut == true) AgentChatApi.signInAsk(runtimeId, LocalAuthSession.current.user?.id,
                 LocalAgentStore.current.teams.firstOrNull { it.id == session.teamId }?.isAdministrator == true) else null
             val ask = session.signInAsk?.takeIf { askLabel != null && it.runtimeId == runtimeId }
             if (ask != null) Text(ask.status, color = MaterialTheme.colorScheme.outline, style = MaterialTheme.typography.bodySmall)
-            val switch = onSwitchRuntime?.takeIf { row.text in AgentChatApi.switchRuntimeErrors }
+            val switch = onSwitchRuntime?.takeIf { block != null || row.id == "runtime-offline" }
             if ((askLabel != null && ask?.asked != true) || switch != null) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (askLabel != null && runtimeId != null && ask?.asked != true) {
                     val scope = rememberCoroutineScope()
@@ -734,7 +782,7 @@ private fun ReasoningTile(part: ChatPart.Reasoning) {
     var expanded by remember { mutableStateOf(false) }
     val thinking = part.state == ChatPart.StreamState.Streaming
     Column {
-        TranscriptDisclosure(if (thinking) "Thinking…" else "Thought", expanded, { expanded = !expanded })
+        TranscriptDisclosure(if (thinking) stringResource(R.string.chat_reasoning_thinking) else stringResource(R.string.chat_reasoning_thought), expanded, { expanded = !expanded })
         if (expanded) SelectionContainer {
             Text(part.text, modifier = Modifier.padding(start = 12.dp, top = 6.dp),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -775,7 +823,7 @@ private fun ToolCallRow(
                     Text(part.displayLabel, modifier = Modifier.padding(start = 8.dp).weight(1f),
                         style = MaterialTheme.typography.bodyMedium, maxLines = 1)
                     val duration = part.startedAt?.let { start -> part.completedAt?.let { end -> (end - start) / 1000 } }
-                    duration?.takeIf { it >= 0 }?.let { Text("${it.toInt()}s", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                    duration?.takeIf { it >= 0 }?.let { Text(stringResource(R.string.chat_duration_seconds, it.toInt()), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 part.input?.get("command")?.stringValue?.takeIf { it.isNotBlank() && it != part.displayLabel }?.let {
                     Text(it, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
@@ -784,12 +832,12 @@ private fun ToolCallRow(
             }
         }
         val authorizationNote = when {
-            part.approval?.approved == false || part.state == ChatPart.Tool.State.OutputDenied -> "You denied this command."
-            part.approval?.approved == true || part.state == ChatPart.Tool.State.ApprovalResponded -> "You approved this command."
+            part.approval?.approved == false || part.state == ChatPart.Tool.State.OutputDenied -> stringResource(R.string.chat_tool_you_denied)
+            part.approval?.approved == true || part.state == ChatPart.Tool.State.ApprovalResponded -> stringResource(R.string.chat_tool_you_approved)
             part.authorization?.get("decision")?.stringValue == "allow" -> when (part.authorization?.get("triggeredBy")?.get("kind")?.stringValue) {
-                "read_only" -> "Auto-authorized: read-only command."
-                "bypass" -> "Auto-authorized: bypass mode."
-                "prior_grant" -> "Auto-authorized: previously approved."
+                "read_only" -> stringResource(R.string.chat_tool_auto_read_only)
+                "bypass" -> stringResource(R.string.chat_tool_auto_bypass)
+                "prior_grant" -> stringResource(R.string.chat_tool_auto_prior_grant)
                 else -> null
             }
             else -> null
@@ -798,19 +846,19 @@ private fun ToolCallRow(
             color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 4.dp, top = 6.dp))
         if (part.state == ChatPart.Tool.State.ApprovalRequested) {
             val reason = part.authorization?.get("reason")?.stringValue
-            Text(reason?.let { "Authorization required — $it" } ?: "Authorization required", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
+            Text(reason?.let { stringResource(R.string.chat_authorization_required_reason, it) } ?: stringResource(R.string.chat_authorization_required), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
             if (canDecide) {
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(modifier = Modifier.testTag("approve-once:${part.toolCallId}"), enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Once) }) { Text("Approve once") }
+                    Button(modifier = Modifier.testTag("approve-once:${part.toolCallId}"), enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Once) }) { Text(stringResource(R.string.approve_once)) }
                     if (part.approval?.source != "openab") {
-                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text("For this task") }
+                        FilledTonalButton(enabled = session.canManage, onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Session) }) { Text(stringResource(R.string.for_session)) }
                     }
                 }
                 Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (part.approval?.source != "openab") {
-                        OutlinedButton(enabled = session.canManage, onClick = { onAlwaysAllow(part) }) { Text("Always allow…") }
+                        OutlinedButton(enabled = session.canManage, onClick = { onAlwaysAllow(part) }) { Text(stringResource(R.string.always_allow)) }
                     }
-                    OutlinedButton(enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Deny) }) { Text("Deny") }
+                    OutlinedButton(enabled = !session.readOnly && (if (session.isNative) session.canReply else session.canSubmit), onClick = { session.decide(part.toolCallId, ChatSession.ApprovalDecision.Deny) }) { Text(stringResource(R.string.deny)) }
                 }
             }
         }
@@ -831,14 +879,14 @@ private fun ToolRunGroup(
     // failed run folds like any other.
     val approval = calls.lastOrNull { it.part.state == ChatPart.Tool.State.ApprovalRequested }?.part?.toolCallId
     var expanded by remember(row.id, approval) { mutableStateOf(row.live || approval != null) }
-    val suffix = when {
-        calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested } -> " · Authorization required"
-        calls.any { it.part.state == ChatPart.Tool.State.OutputError } -> " · Failed"
-        row.live -> " · Running"
-        else -> ""
-    }
+    val detail = pluralStringResource(when {
+        calls.any { it.part.state == ChatPart.Tool.State.ApprovalRequested } -> R.plurals.chat_tool_run_calls_authorization
+        calls.any { it.part.state == ChatPart.Tool.State.OutputError } -> R.plurals.chat_tool_run_calls_failed
+        row.live -> R.plurals.chat_tool_run_calls_running
+        else -> R.plurals.chat_tool_run_calls
+    }, calls.size, calls.size)
     Column {
-        TranscriptDisclosure(calls.last().part.displayLabel, expanded, { expanded = !expanded }, " · ${calls.size} calls$suffix")
+        TranscriptDisclosure(calls.last().part.displayLabel, expanded, { expanded = !expanded }, " $detail")
         if (expanded) Column(Modifier.padding(start = 12.dp, top = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             row.rows.forEach { child -> key(child.id) { ChatRowView(child, session, onLink, onAlwaysAllow, onOpenTool) } }
         }
@@ -854,8 +902,8 @@ private fun WorkGroup(
     onOpenTool: (ChatPart.Tool) -> Unit,
 ) {
     var expanded by remember(row.id) { mutableStateOf(false) }
-    val title = row.duration?.takeIf { it >= 1 }?.let { "Worked for ${it.toInt()}s · ${row.rows.size} steps" }
-        ?: "Worked through ${row.rows.size} steps"
+    val title = row.duration?.takeIf { it >= 1 }?.let { pluralStringResource(R.plurals.chat_work_duration_steps, row.rows.size, it.toInt(), row.rows.size) }
+        ?: pluralStringResource(R.plurals.chat_work_steps, row.rows.size, row.rows.size)
     Column {
         TranscriptDisclosure(title, expanded, { expanded = !expanded })
         if (expanded) {
@@ -883,7 +931,7 @@ internal fun UserMessageBubble(text: String) {
             if (folded) Text(preview.orEmpty(), color = MaterialTheme.colorScheme.onSurface)
             else SelectionContainer { Text(text, color = MaterialTheme.colorScheme.onSurface) }
             if (preview != null) TextButton(onClick = { expanded = !expanded }, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text(if (expanded) "Show less" else "Show more", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (expanded) stringResource(R.string.chat_show_less) else stringResource(R.string.chat_show_more), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -891,8 +939,9 @@ internal fun UserMessageBubble(text: String) {
 
 @Composable
 internal fun TranscriptDisclosure(title: String, expanded: Boolean, onClick: () -> Unit, detail: String? = null) {
-    Row(Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) "Collapse" else "Expand", onClick = onClick)
-        .semantics { stateDescription = if (expanded) "Expanded" else "Collapsed" }
+    val expandedState = stringResource(if (expanded) R.string.chat_expanded else R.string.chat_collapsed)
+    Row(Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) stringResource(R.string.chat_collapse) else stringResource(R.string.chat_expand), onClick = onClick)
+        .semantics { stateDescription = expandedState }
         .padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(Icons.Outlined.Psychology, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -916,18 +965,18 @@ private fun ToolDetailDialog(part: ChatPart.Tool, onDismiss: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(part.displayLabel, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                TextButton(onClick = onDismiss) { Text("Done") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.done)) }
             }
             Text(when (part.state) {
-                ChatPart.Tool.State.OutputAvailable -> "Completed"
-                ChatPart.Tool.State.OutputError -> "Failed"
-                ChatPart.Tool.State.OutputDenied -> "Denied"
-                ChatPart.Tool.State.ApprovalRequested -> "Authorization required"
-                else -> "Pending"
+                ChatPart.Tool.State.OutputAvailable -> stringResource(R.string.chat_tool_state_completed)
+                ChatPart.Tool.State.OutputError -> stringResource(R.string.chat_tool_state_failed)
+                ChatPart.Tool.State.OutputDenied -> stringResource(R.string.chat_tool_state_denied)
+                ChatPart.Tool.State.ApprovalRequested -> stringResource(R.string.chat_authorization_required)
+                else -> stringResource(R.string.chat_tool_state_pending)
             }, style = MaterialTheme.typography.labelLarge)
             for ((label, content) in listOf(
-                "Input" to (part.input?.takeUnless { it.isNull }?.prettyPrinted ?: part.inputText.takeIf { it.isNotBlank() } ?: "No input available"),
-                "Output" to (part.output?.takeUnless { it.isNull }?.prettyPrinted ?: if (part.state == ChatPart.Tool.State.OutputDenied) "Execution was denied." else "No output available"),
+                stringResource(R.string.chat_tool_input) to (part.input?.takeUnless { it.isNull }?.prettyPrinted ?: part.inputText.takeIf { it.isNotBlank() } ?: stringResource(R.string.chat_tool_no_input)),
+                stringResource(R.string.chat_tool_output) to (part.output?.takeUnless { it.isNull }?.prettyPrinted ?: if (part.state == ChatPart.Tool.State.OutputDenied) stringResource(R.string.chat_tool_execution_denied) else stringResource(R.string.chat_tool_no_output)),
             )) {
                 Text(label, style = MaterialTheme.typography.titleSmall)
                 androidx.compose.foundation.text.selection.SelectionContainer {
@@ -943,6 +992,6 @@ private fun ToolDetailDialog(part: ChatPart.Tool, onDismiss: () -> Unit) {
 @Composable
 internal fun SwitchRuntimeButton(onClick: () -> Unit) {
     OutlinedButton(onClick = onClick, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)) {
-        Text("Switch runtime", style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(R.string.chat_switch_runtime), style = MaterialTheme.typography.labelMedium)
     }
 }

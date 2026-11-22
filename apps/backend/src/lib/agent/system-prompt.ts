@@ -82,9 +82,7 @@ export async function getSystemPrompt(
   const template = loadTemplate(SYSTEM_PROMPT_FILE)
 
   return {
-    prompt: renderPromptTemplate(SYSTEM_PROMPT_FILE, template, { locale, ...vars }, [
-      'max_output_tokens',
-    ]),
+    prompt: renderPromptTemplate(SYSTEM_PROMPT_FILE, template, { locale, ...vars }),
     source: 'repo',
     slug: SYSTEM_PROMPT_FILE,
   }

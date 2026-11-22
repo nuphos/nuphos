@@ -1,13 +1,16 @@
-import { useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
+import { participantsQuery, teamMembersQuery } from '../../../lib/query/team'
+import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { AppAlertDialog } from '../../ui/alert-dialog'
-import { needsComputerUse } from '../computerUse'
+import { computerUseNeeded, needsComputerUse } from '../computerUse'
 import { ComputerUseConfirm } from '../ComputerUseConfirm'
 
-import { matchDevices, matchMembers, mentionQuery } from './composerMention'
+import { matchDevices, matchMembers, matchSessions, mentionQuery } from './composerMention'
 import { mentionedMembers, optionChip } from './composerMentionChips'
 import { MentionPicker } from './composerMentionOptions'
 import { announceTimelineChange } from './timelineEvents'
@@ -15,7 +18,6 @@ import { announceTimelineChange } from './timelineEvents'
 import type { ComputerUseRequest } from '../computerUse'
 import type { ComposerSend, MentionOption } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
-import type { AgentConversation } from '../../../api/agent-types'
 import type { TeamMember } from '../../../types'
 import type { KeyboardEvent as ReactKeyboardEvent, RefObject } from 'react'
 
@@ -49,7 +51,6 @@ export function useComposerMentions(
   },
   credentials?: Pick<CredentialSelectorControl, 'options' | 'value' | 'onChange'>,
 ) {
-  const [members, setMembers] = useState<TeamMember[] | null>(null)
   const [query, setQuery] = useState<string | null>(null)
   const [active, setActive] = useState(0)
   const [anchor, setAnchor] = useState<{
@@ -58,63 +59,38 @@ export function useComposerMentions(
   } | null>(null)
   const [uninvited, setUninvited] = useState<TeamMember[]>([])
   const [computerUse, setComputerUse] = useState<ComputerUseRequest | null>(null)
-  // Tagged with the query they answer, so a list for an earlier keystroke is
-  // never shown (or picked) under a later one.
-  const [sessions, setSessions] = useState<{ query: string; list: AgentConversation[] }>()
-  // The query last asked about. A slow answer for an earlier keystroke can
-  // land after the latest one's and would otherwise replace it.
-  const asked = useRef<string | null>(null)
+  // Everything the menu offers is read once and kept fresh in the background —
+  // the Chats are the sidebar's own list — and every keystroke only filters it,
+  // so the menu opens complete, never section by section.
+  const teamId = scope?.teamId ?? ''
+  const only = scope?.only
+  const channelId = only ? scope.sessionId : undefined
+  const team = useQuery({ ...teamMembersQuery(teamId), enabled: Boolean(scope) })
+  const access = useQuery({
+    ...participantsQuery(teamId, channelId ?? ''),
+    enabled: Boolean(channelId),
+  })
+  const chats = useQuery({ ...agentSessionsQuery(teamId), enabled: Boolean(scope) })
+  const here = channelId ? new Set(access.data?.participants.map((person) => person.id)) : null
+  const members = (team.data ?? []).filter(
+    (m) => !here || (here.has(m.id) && m.id !== only?.selfId),
+  )
+  const loading = team.isLoading || access.isLoading || chats.isLoading
   const matches: MentionOption[] =
-    query === null
+    query === null || loading
       ? []
       : [
-          ...(members ? matchMembers(members, query) : []).map((member): MentionOption => ({
+          ...matchMembers(members, query).map((member): MentionOption => ({
             kind: 'member',
             member,
           })),
           ...matchDevices(credentials?.options.devices ?? [], query).map(
             (device): MentionOption => ({ kind: 'device', device }),
           ),
-          ...(sessions?.query === query ? sessions.list : []).map((session): MentionOption => ({
-            kind: 'session',
-            session,
-          })),
+          ...matchSessions(chats.data ?? [], query, scope?.sessionId).map(
+            (session): MentionOption => ({ kind: 'session', session }),
+          ),
         ]
-
-  function loadMembers() {
-    if (members || !scope) return
-    setMembers([])
-    const { only, sessionId, teamId } = scope
-
-    Promise.all([
-      api.atlasListTeamMembers(teamId),
-      only && sessionId ? api.agentGetConversationParticipants(sessionId, teamId) : undefined,
-    ])
-      .then(([team, access]) => {
-        const here = access && new Set(access.participants.map((person) => person.id))
-
-        setMembers(here ? team.filter((m) => here.has(m.id) && m.id !== only?.selfId) : team)
-      })
-      .catch(() => setMembers(null))
-  }
-
-  /** The viewer's own sessions matching the query, newest activity first. */
-  function loadSessions(next: string) {
-    if (!scope) return
-    asked.current = next
-    api
-      .agentListConversations(scope.teamId, { scope: 'mine', search: next || undefined, limit: 6 })
-      .then((page) => {
-        if (asked.current !== next) return
-        setSessions({
-          query: next,
-          list: page.conversations
-            .filter((session) => session.sessionId !== scope.sessionId)
-            .slice(0, 5),
-        })
-      })
-      .catch(() => setSessions(undefined))
-  }
 
   function onInput() {
     const el = editorRef.current
@@ -129,8 +105,6 @@ export function useComposerMentions(
     range.setStart(caret.node, caret.offset)
     range.collapse(true)
     setAnchor({ getBoundingClientRect: () => range.getBoundingClientRect(), contextElement: el })
-    loadMembers()
-    loadSessions(next)
   }
 
   function select(option: MentionOption) {
@@ -194,7 +168,7 @@ export function useComposerMentions(
     )
     const joined = new Set(participants.map((participant) => participant.id))
 
-    setUninvited((members ?? []).filter((m) => ids.includes(m.id) && !joined.has(m.id)))
+    setUninvited(members.filter((m) => ids.includes(m.id) && !joined.has(m.id)))
   }
 
   /** Read the mentions before the composer clears; ask about them once sent. */
@@ -251,7 +225,7 @@ export function useComposerMentions(
         cancelLabel={t("Don't invite")}
         onConfirm={async () => {
           if (!scope?.sessionId) return
-          const { sessionId, teamId } = scope
+          const { sessionId } = scope
           const ids = uninvited.map((member) => member.id)
           const invite = (grantComputerUse?: boolean) =>
             api
@@ -260,7 +234,11 @@ export function useComposerMentions(
 
           await invite().catch((err: unknown) => {
             if (!needsComputerUse(err)) throw err
-            setComputerUse({ count: ids.length, confirm: () => invite(true) })
+            setComputerUse({
+              count: ids.length,
+              ...computerUseNeeded(err),
+              confirm: () => invite(true),
+            })
           })
         }}
         onClose={() => setUninvited([])}

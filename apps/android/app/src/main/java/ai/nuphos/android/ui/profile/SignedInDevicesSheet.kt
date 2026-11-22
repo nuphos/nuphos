@@ -18,6 +18,9 @@ import ai.nuphos.android.ui.LocalAuthSession
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import java.time.Instant
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalResources
+import ai.nuphos.android.R
 
 sealed interface DevicesLoad {
     data object Loading : DevicesLoad
@@ -38,6 +41,7 @@ fun SignedInDevicesSheet(onDismiss: () -> Unit) {
     val token = auth.token ?: return
     val generation = auth.generation
     val scope = rememberCoroutineScope()
+    val resources = LocalResources.current
     var load by remember(token, generation) { mutableStateOf<DevicesLoad>(DevicesLoad.Loading) }
     var busy by remember(token, generation) { mutableStateOf(false) }
     var notice by remember(token, generation) { mutableStateOf<String?>(null) }
@@ -68,14 +72,14 @@ fun SignedInDevicesSheet(onDismiss: () -> Unit) {
                     try {
                         notice = if (target == null) {
                             val revoked = AccountApi(token).signOutOtherSessions()
-                            "Signed out $revoked other device${if (revoked == 1) "" else "s"}."
+                            resources.getQuantityString(R.plurals.profile_devices_signed_out_others, revoked, revoked)
                         } else {
                             AccountApi(token).signOutSession(target.id)
-                            "Signed out ${SignInSessions.device(target)}."
+                            resources.getString(R.string.profile_devices_signed_out, SignInSessions.device(target))
                         }
                     } catch (e: CancellationException) { throw e
                     } catch (e: Exception) {
-                        if (!failed(e)) notice = "Could not sign out. Please try again."
+                        if (!failed(e)) notice = resources.getString(R.string.profile_devices_sign_out_failed)
                     } finally {
                         if (current()) { refresh(); busy = false }
                     }
@@ -103,9 +107,9 @@ internal fun SignedInDevicesContent(
         Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Signed-in devices", style = MaterialTheme.typography.headlineSmall)
+        Text(stringResource(R.string.profile_devices_title), style = MaterialTheme.typography.headlineSmall)
         Text(
-            "Where your account is signed in. Sign out anything you don’t recognize, then change your password.",
+            stringResource(R.string.profile_devices_intro),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -113,18 +117,18 @@ internal fun SignedInDevicesContent(
             DevicesLoad.Loading -> CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
             DevicesLoad.SignInAgain -> Card {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Sign in again to manage your devices.", style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.profile_devices_sign_in_again_title), style = MaterialTheme.typography.titleSmall)
                     Text(
-                        "This device signed in before device management existed.",
+                        stringResource(R.string.profile_devices_sign_in_again_body),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Button(onClick = onSignInAgain, modifier = Modifier.padding(top = 6.dp)) { Text("Sign out and sign in again") }
+                    Button(onClick = onSignInAgain, modifier = Modifier.padding(top = 6.dp)) { Text(stringResource(R.string.profile_sign_out_and_sign_in_again)) }
                 }
             }
             DevicesLoad.Failed -> Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Couldn’t load your signed-in devices.", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onRetry) { Text("Retry") }
+                Text(stringResource(R.string.profile_devices_load_failed), Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.profile_retry)) }
             }
             is DevicesLoad.Ready -> {
                 Card {
@@ -134,7 +138,7 @@ internal fun SignedInDevicesContent(
                     }
                 }
                 if (load.sessions.any { it.current != true }) {
-                    OutlinedButton(onClick = { confirming = Confirming(null) }, enabled = !busy) { Text("Sign out all other devices") }
+                    OutlinedButton(onClick = { confirming = Confirming(null) }, enabled = !busy) { Text(stringResource(R.string.profile_devices_sign_out_all)) }
                 }
             }
         }
@@ -144,16 +148,16 @@ internal fun SignedInDevicesContent(
     confirming?.let { (session) ->
         AlertDialog(
             onDismissRequest = { confirming = null },
-            title = { Text(if (session == null) "Sign out all other devices?" else "Sign out ${SignInSessions.device(session)}?") },
+            title = { Text(if (session == null) stringResource(R.string.profile_devices_sign_out_all_confirm) else stringResource(R.string.profile_devices_sign_out_device_confirm, SignInSessions.device(session))) },
             text = {
-                Text(if (session == null) "Every device except this one will need to sign in again." else "That device will need to sign in again.")
+                Text(if (session == null) stringResource(R.string.profile_devices_sign_out_all_body) else stringResource(R.string.profile_devices_sign_out_device_body))
             },
             confirmButton = {
                 TextButton(onClick = { confirming = null; onSignOut(session) }) {
-                    Text("Sign out", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.sign_out), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = { confirming = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirming = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -186,7 +190,7 @@ private fun DeviceRow(session: SignInSession, now: Instant, enabled: Boolean, on
                 if (session.current == true) {
                     Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)) {
                         Text(
-                            "This device",
+                            stringResource(R.string.profile_devices_this_device),
                             Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelSmall,
@@ -203,7 +207,7 @@ private fun DeviceRow(session: SignInSession, now: Instant, enabled: Boolean, on
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                SignInSessions.activity(session, now) ?: "Last active: unknown",
+                SignInSessions.activity(session, now) ?: stringResource(R.string.profile_devices_last_active_unknown),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
@@ -211,7 +215,7 @@ private fun DeviceRow(session: SignInSession, now: Instant, enabled: Boolean, on
             )
         }
         if (session.current != true) {
-            TextButton(onClick = onSignOut, enabled = enabled) { Text("Sign out") }
+            TextButton(onClick = onSignOut, enabled = enabled) { Text(stringResource(R.string.sign_out)) }
         }
     }
 }

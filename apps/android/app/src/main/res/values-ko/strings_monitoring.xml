@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">모니터링 검색</string>
+    <string name="monitoring_clear_filters">필터 지우기</string>
+    <string name="monitoring_refresh">새로고침</string>
+    <string name="monitoring_all_providers">모든 공급자</string>
+    <string name="monitoring_all_statuses">모든 상태</string>
+    <string name="monitoring_select_team">모니터링을 보려면 팀을 선택하세요.</string>
+    <string name="monitoring_loading">모니터링 불러오는 중…</string>
+    <string name="monitoring_access_denied">모니터링 접근이 거부되었습니다. 팀 멤버십을 확인하세요.</string>
+    <string name="monitoring_load_failed">모니터링을 불러올 수 없습니다. %1$s</string>
+    <string name="monitoring_stale">오래된 데이터입니다. 새로고침하지 못했습니다. %1$s</string>
+    <string name="monitoring_provider_errors_title">일부 공급자를 불러올 수 없습니다</string>
+    <string name="monitoring_hide_provider_errors">공급자 오류 숨기기</string>
+    <string name="monitoring_show_provider_errors">공급자 오류 표시</string>
+    <string name="monitoring_empty_title">모니터링 검사 없음</string>
+    <string name="monitoring_empty_body">Better Stack, Grafana, GCP에서 지원되는 검사가 여기에 표시됩니다.</string>
+    <string name="monitoring_open_connectors">커넥터 열기</string>
+    <string name="monitoring_no_matching_checks">일치하는 검사 없음</string>
+    <string name="monitoring_detail_status">상태: %1$s</string>
+    <string name="monitoring_detail_provider">공급자: %1$s</string>
+    <string name="monitoring_detail_connector">커넥터: %1$s</string>
+    <string name="monitoring_detail_last_incident">최근 인시던트: %1$s</string>
+    <string name="monitoring_detail_kind">종류: %1$s</string>
+    <string name="monitoring_detail_resource">리소스: %1$s</string>
+    <string name="monitoring_detail_target">대상: %1$s</string>
+    <string name="monitoring_open_provider">공급자에서 열기</string>
+    <string name="monitoring_open_provider_failed">공급자 링크를 열 수 없습니다.</string>
+    <string name="monitoring_close">닫기</string>
+</resources>

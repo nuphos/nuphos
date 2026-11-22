@@ -1,0 +1,29 @@
+<resources>
+    <string name="monitoring_search">搜尋監控</string>
+    <string name="monitoring_clear_filters">清除篩選條件</string>
+    <string name="monitoring_refresh">重新整理</string>
+    <string name="monitoring_all_providers">所有供應商</string>
+    <string name="monitoring_all_statuses">所有狀態</string>
+    <string name="monitoring_select_team">請選取團隊以檢視監控。</string>
+    <string name="monitoring_loading">正在載入監控…</string>
+    <string name="monitoring_access_denied">無法存取監控。請確認你的團隊成員資格。</string>
+    <string name="monitoring_load_failed">無法載入監控。%1$s</string>
+    <string name="monitoring_stale">資料已過時，重新整理失敗。%1$s</string>
+    <string name="monitoring_provider_errors_title">部分供應商無法載入</string>
+    <string name="monitoring_hide_provider_errors">隱藏供應商錯誤</string>
+    <string name="monitoring_show_provider_errors">顯示供應商錯誤</string>
+    <string name="monitoring_empty_title">沒有監控檢查項目</string>
+    <string name="monitoring_empty_body">支援的 Better Stack、Grafana 與 GCP 檢查項目會顯示在這裡。</string>
+    <string name="monitoring_open_connectors">開啟連接器</string>
+    <string name="monitoring_no_matching_checks">沒有符合的檢查項目</string>
+    <string name="monitoring_detail_status">狀態：%1$s</string>
+    <string name="monitoring_detail_provider">供應商：%1$s</string>
+    <string name="monitoring_detail_connector">連接器：%1$s</string>
+    <string name="monitoring_detail_last_incident">最近一次事故：%1$s</string>
+    <string name="monitoring_detail_kind">類型：%1$s</string>
+    <string name="monitoring_detail_resource">資源：%1$s</string>
+    <string name="monitoring_detail_target">目標：%1$s</string>
+    <string name="monitoring_open_provider">在供應商中開啟</string>
+    <string name="monitoring_open_provider_failed">無法開啟供應商連結。</string>
+    <string name="monitoring_close">關閉</string>
+</resources>

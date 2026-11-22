@@ -31,8 +31,7 @@ struct PlanCard: View {
             }
         }
         .padding(14)
-        .background(Theme.chatSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Theme.hairline, lineWidth: 1))
+        .raisedCard()
         .task(id: planId) { await poll() }
         .alert("Request changes", isPresented: $showRevise) {
             TextField("What should change?", text: $reviseReason)
@@ -44,9 +43,9 @@ struct PlanCard: View {
 
     private func header(_ plan: Plan) -> some View {
         HStack(alignment: .top, spacing: 8) {
-            Image(systemName: "list.clipboard").font(Theme.Text.secondary.weight(.semibold)).foregroundStyle(Theme.body)
+            LucideIcon("clipboard-list").font(Theme.Text.secondary.weight(.semibold)).foregroundStyle(Theme.body)
             VStack(alignment: .leading, spacing: 2) {
-                Text(plan.number.map { "Plan #\($0)" } ?? "Plan #\(plan.id)").font(Theme.Text.micro.weight(.semibold)).foregroundStyle(Theme.muted)
+                Text(plan.number.map { String(localized: "Plan #\($0)") } ?? String(localized: "Plan #\(plan.id)")).font(Theme.Text.micro.weight(.semibold)).foregroundStyle(Theme.muted)
                 Text(plan.title).font(Theme.Text.body.weight(.semibold)).foregroundStyle(Theme.heading)
             }
             Spacer(minLength: 8)
@@ -91,20 +90,20 @@ struct PlanCard: View {
     private func commandStatus(_ status: String?) -> some View {
         switch status {
         case "running": ProgressView().controlSize(.mini)
-        case "done": Image(systemName: "checkmark.circle.fill").font(Theme.Text.caption).foregroundStyle(.green)
-        case "failed": Image(systemName: "xmark.circle.fill").font(Theme.Text.caption).foregroundStyle(.red)
-        default: Image(systemName: "circle").font(Theme.Text.caption).foregroundStyle(Theme.muted)
+        case "done": LucideIcon("circle-check").font(Theme.Text.caption).foregroundStyle(Theme.success)
+        case "failed": LucideIcon("circle-x").font(Theme.Text.caption).foregroundStyle(.red)
+        default: LucideIcon("circle").font(Theme.Text.caption).foregroundStyle(Theme.muted)
         }
     }
 
     private func facts(_ plan: Plan) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            if let c = plan.costSummary, !c.isEmpty { fact("Cost", c) }
-            if let r = plan.riskWorstCase, !r.isEmpty { fact("Worst case", r) }
-            if !plan.riskMitigations.isEmpty { fact("Mitigations", plan.riskMitigations.joined(separator: " · ")) }
+            if let c = plan.costSummary, !c.isEmpty { fact(String(localized: "Cost"), c) }
+            if let r = plan.riskWorstCase, !r.isEmpty { fact(String(localized: "Worst case"), r) }
+            if !plan.riskMitigations.isEmpty { fact(String(localized: "Mitigations"), plan.riskMitigations.joined(separator: " · ")) }
             if let p = plan.approvalProgress, !p.satisfied, plan.status == "proposed" {
                 let remaining = max(0, p.minimumOtherApprovals - p.otherApprovals)
-                if remaining > 0 { fact("Approvals", "waiting for \(remaining) more") }
+                if remaining > 0 { fact(String(localized: "Approvals"), String(localized: "waiting for \(remaining) more")) }
             }
         }
     }
@@ -149,7 +148,7 @@ struct PlanCard: View {
                 error = nil
                 guard p.isActive else { return }
             } catch {
-                if plan == nil { self.error = error.localizedDescription }
+                if plan == nil, !Task.isCancelled { self.error = error.localizedDescription }
             }
             try? await Task.sleep(for: .milliseconds(1500))
         }
@@ -167,7 +166,7 @@ struct PlanStepDisclosureStyle: DisclosureGroupStyle {
                 HStack {
                     configuration.label
                     Spacer(minLength: 8)
-                    Image(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
+                    LucideIcon(systemName: configuration.isExpanded ? "chevron.down" : "chevron.right")
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(Theme.muted)
                 }
@@ -212,7 +211,13 @@ struct StatusBadge: View {
 
     private var label: String {
         switch status {
-        case "cancelled": "Unplanned"
+        case "proposed": String(localized: "Proposed")
+        case "approved": String(localized: "Approved")
+        case "running": String(localized: "Running")
+        case "completed", "done": String(localized: "Completed")
+        case "partial": String(localized: "Partial")
+        case "failed": String(localized: "Failed")
+        case "cancelled": String(localized: "Unplanned")
         default: status.capitalized
         }
     }

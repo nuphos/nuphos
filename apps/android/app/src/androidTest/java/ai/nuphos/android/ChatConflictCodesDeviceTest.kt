@@ -114,8 +114,7 @@ class ChatConflictCodesDeviceTest {
     }
     @Test fun everyBlockedRuntimeOffersSwitchRuntime() {
         for (code in listOf("runtime_login_required", "runtime_disabled", "runtime_not_found", "runtime_offline")) {
-            val message = AgentChatApi.conflict(409, error(code, "Server wording")).message
-            assertTrue(code, message in AgentChatApi.switchRuntimeErrors)
+            assertTrue(code, AgentChatApi.conflict(409, error(code, "Server wording")) is AgentChatApi.Conflict.RuntimeBlocked)
         }
     }
     @Test fun anOtherRefusalShowsTheServersWordsAndKeepsTheDraft() =
@@ -128,6 +127,18 @@ class ChatConflictCodesDeviceTest {
         assertNull(session.error)
         assertNull("The draft doesn't come back, so it can't be sent twice", session.rejectedSubmission)
         assertEquals(1, session.queuedSends)
+    }
+
+    /** #4024: a signed-out or out-of-usage runtime refuses every retry the same way, so the turn fails once. */
+    @Test fun aRuntimeThatCannotRunFailsOnceWithTheServersWords() {
+        for (code in listOf("runtime_auth_required", "runtime_usage_exhausted")) {
+            posted.clear()
+            val frame = """{"type":"error","errorCode":"$code","errorText":"Words for $code"}"""
+            answers += 200 to "data: $frame\n\ndata: {\"type\":\"atlas-stream-done\"}\n\n"
+            val session = send()
+            assertEquals("No retry for $code", 1, posted.size)
+            assertEquals("Words for $code", session.error)
+        }
     }
 
     @Test fun outOfSyncRebasesThenResendsAndStopsThereWithTheSameMessage() {

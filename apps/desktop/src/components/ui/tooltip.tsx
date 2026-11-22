@@ -4,6 +4,7 @@ import clsx from 'clsx'
 import type { ReactElement, ReactNode } from 'react'
 
 type Side = NonNullable<TooltipPrimitive.Positioner.Props['side']>
+type Align = TooltipPrimitive.Positioner.Props['align']
 
 function popupOrigin(side: Side) {
   if (side === 'top') return 'bottom center'
@@ -12,6 +13,20 @@ function popupOrigin(side: Side) {
 
   return 'top center'
 }
+
+// Focus opens a tooltip only when a key moved it there. A dialog or menu closed with Esc or
+// Enter hands focus back to its button, and that tooltip would open unasked and take the
+// next Esc (#3961).
+let keyMovedFocus = false
+
+if (typeof document !== 'undefined')
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      keyMovedFocus = event.key === 'Tab' || event.key.startsWith('Arrow')
+    },
+    true,
+  )
 
 /**
  * Hover explanation for a control or label that cannot say enough on its own.
@@ -32,6 +47,7 @@ export function Tooltip({
   trigger,
   children,
   side = 'top',
+  align,
   disabled,
   triggerClassName,
   delay = 300,
@@ -42,6 +58,7 @@ export function Tooltip({
   /** The element to hover. Rendered as the trigger, so it must accept a ref. */
   children: ReactNode
   side?: Side
+  align?: Align
   disabled?: boolean
   /** Extra classes for the wrapping span, e.g. `min-w-0` so a child can truncate. */
   triggerClassName?: string
@@ -53,14 +70,24 @@ export function Tooltip({
     // these sit in table rows, and a shared group delay would make the second
     // hover appear instantly while sweeping the cursor down a column.
     <TooltipPrimitive.Provider delay={delay}>
-      <TooltipPrimitive.Root disabled={disabled}>
+      <TooltipPrimitive.Root
+        disabled={disabled}
+        onOpenChange={(open, details) => {
+          if (open && details.reason === 'trigger-focus' && !keyMovedFocus) details.cancel()
+        }}
+      >
         <TooltipPrimitive.Trigger
           render={trigger ?? <span className={clsx('inline-flex', triggerClassName)} />}
         >
           {children}
         </TooltipPrimitive.Trigger>
         <TooltipPrimitive.Portal>
-          <TooltipPrimitive.Positioner side={side} sideOffset={6} className="z-[1000]">
+          <TooltipPrimitive.Positioner
+            side={side}
+            align={align}
+            sideOffset={6}
+            className="z-[1000]"
+          >
             <TooltipPrimitive.Popup
               className={(state) =>
                 clsx(

@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -35,7 +37,7 @@ internal fun TransferCard(
     compact: Boolean = false,
 ) {
     if (!canAccess) {
-        Text("Attachments unavailable", style = MaterialTheme.typography.bodySmall)
+        Text(stringResource(R.string.composer_attachments_unavailable), style = MaterialTheme.typography.bodySmall)
         return
     }
     val context = LocalContext.current
@@ -116,9 +118,9 @@ internal fun TransferCard(
     }
     Surface(shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.padding(if (compact) 4.dp else 12.dp).widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            if (!compact) Text("Attachments", style = MaterialTheme.typography.labelMedium)
+            if (!compact) Text(stringResource(R.string.composer_attachments), style = MaterialTheme.typography.labelMedium)
             if (loading || unavailable) attachment.names.forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
-            if (loading) Text("Loading attachments…", style = MaterialTheme.typography.bodySmall)
+            if (loading) Text(stringResource(R.string.composer_loading_attachments), style = MaterialTheme.typography.bodySmall)
             val images = files.filter { it.isImage }.map { it.id }
             if (images.isNotEmpty()) MessageImages(images, "transfer.${attachment.groupId}", imageLoader,
                 originalWriter = { id, destination ->
@@ -129,7 +131,8 @@ internal fun TransferCard(
                 })
             files.forEach { file ->
                 if (!compact) Text(file.fileName, style = MaterialTheme.typography.bodySmall)
-                TextButton(modifier = Modifier.semantics { contentDescription = "Save ${file.fileName}" },
+                val saveLabel = stringResource(R.string.composer_save_file, file.fileName)
+                TextButton(modifier = Modifier.semantics { contentDescription = saveLabel },
                     enabled = busy == null && pendingSave == null, onClick = {
                     busy = file.id
                     failed = false
@@ -150,12 +153,12 @@ internal fun TransferCard(
                     }
                 }) {
                     if (compact) Icon(Icons.Outlined.InsertDriveFile, null, modifier = Modifier.size(18.dp).padding(end = 4.dp))
-                    Text(if (busy == file.id) "Downloading…" else if (compact) file.fileName else "Save ${file.fileName}")
+                    Text(if (busy == file.id) stringResource(R.string.composer_downloading) else if (compact) file.fileName else saveLabel)
                 }
             }
-            if (unavailable) Text("Attachments expired or unavailable", style = MaterialTheme.typography.bodySmall)
-            if (failed) Text("Couldn't save the file. Try again.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            if (unavailable || failed) TextButton(enabled = !loading && busy == null, onClick = { failed = false; retry++ }) { Text("Retry attachments") }
+            if (unavailable) Text(stringResource(R.string.composer_attachments_expired), style = MaterialTheme.typography.bodySmall)
+            if (failed) Text(stringResource(R.string.composer_save_failed), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+            if (unavailable || failed) TextButton(enabled = !loading && busy == null, onClick = { failed = false; retry++ }) { Text(stringResource(R.string.composer_retry_attachments)) }
         }
     }
 }

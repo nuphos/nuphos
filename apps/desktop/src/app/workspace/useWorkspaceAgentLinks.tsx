@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import { api } from '../../api'
 import { writeAccountStorage } from '../../app/accountStorage'
 import { LAST_TEAM_STORAGE_KEY } from '../../app/workspaceTabState'
+import { setSidebarMode } from '../../components/sidebar/sidebarModeStore'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { ATLAS_WEB_BASE_URL } from '../../lib/webBaseUrl'
 
@@ -63,6 +64,10 @@ export function useWorkspaceAgentLinks(a: Args) {
         .filter(Boolean)
         .join('\n\n')
 
+      const teamId = payload.teamId ?? selectScope(workspaceStore.getState())?.teamId
+
+      // As for any new task with a prompt: its composer is on the Tasks page.
+      if (teamId) setSidebarMode(teamId, 1)
       chatPromptNonceRef.current += 1
       workspaceActions.setSessionReadOnly(false)
       enqueueChatPrompt({
@@ -74,7 +79,7 @@ export function useWorkspaceAgentLinks(a: Args) {
         nonce: chatPromptNonceRef.current,
       })
     },
-    [chatPromptNonceRef, enqueueChatPrompt, workspaceActions],
+    [chatPromptNonceRef, enqueueChatPrompt, workspaceActions, workspaceStore],
   )
 
   useEffect(() => {

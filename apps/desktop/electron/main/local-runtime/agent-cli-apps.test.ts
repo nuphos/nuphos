@@ -134,6 +134,27 @@ test(
 )
 
 test(
+  "Grok Build's own installer location is found without it on PATH",
+  {
+    skip:
+      process.platform === 'win32' ||
+      findAgentCli('grok', { HOME: os.tmpdir(), PATH: '' }) !== null,
+  },
+  (t) => {
+    const home = mkdtempSync(path.join(os.tmpdir(), 'nuphos-grok-'))
+
+    t.after(() => rmSync(home, { recursive: true, force: true }))
+    const env = { HOME: home, PATH: '' }
+    const cli = path.join(home, '.grok', 'bin', 'grok')
+
+    assert.equal(findAgentCli('grok', env), null)
+    mkdirSync(path.dirname(cli), { recursive: true })
+    writeFileSync(cli, '#!/bin/sh\n', { mode: 0o700 })
+    assert.equal(findAgentCli('grok', env), cli)
+  },
+)
+
+test(
   "the OpenCode desktop app's own CLI is found without one on PATH",
   {
     skip:

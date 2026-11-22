@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { Laptop, Loader2, Shield, X } from 'lucide-react'
+import { ChevronRight, Laptop, Loader2, Shield, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { t } from '../../../i18n'
 import { usePersonalCredentialsQuery } from '../../../lib/query/account'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
+import { SummaryMenuRow } from '../summary/ChatSummaryRows'
 
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
 import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
@@ -20,6 +21,8 @@ type SelectorProps = CredentialSelectorControl & {
   positionerClassName?: string
   /** Offer the member's Personal Credentials as an identity per provider (composer only). */
   personalIdentity?: boolean
+  /** Two rows of a details panel, each opening its picker under it, instead of composer chips. */
+  asRow?: boolean
 }
 
 export function CredentialSelectorButton(props: SelectorProps) {
@@ -41,6 +44,7 @@ function SelectionButton({
   hero,
   positionerClassName,
   personalIdentity,
+  asRow,
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -59,9 +63,20 @@ function SelectionButton({
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
-  const title = devices ? t('Computers') : t('Agent credentials')
+  const title = devices ? t('Computers') : t('Credentials')
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
+  const hint = hasNew
+    ? t('{title} ({selected}/{total} selected) · new options available', {
+        title,
+        selected: selectedCount,
+        total: totalCount,
+      })
+    : t('{title} ({selected}/{total} selected)', {
+        title,
+        selected: selectedCount,
+        total: totalCount,
+      })
   const changeAll = (select: boolean) => {
     const next = select ? allCredentialAccess(options) : emptyCredentialAccess()
 
@@ -90,42 +105,44 @@ function SelectionButton({
         if (open) onOpen()
       }}
     >
-      <MenuTrigger
-        className={clsx(
-          'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
-          hero ? 'h-8 min-w-8 rounded-full px-2' : 'h-7 min-w-7 rounded-md px-1.5',
-        )}
-        title={
-          hasNew
-            ? t('{title} ({selected}/{total} selected) · new options available', {
-                title,
-                selected: selectedCount,
-                total: totalCount,
-              })
-            : t('{title} ({selected}/{total} selected)', {
-                title,
-                selected: selectedCount,
-                total: totalCount,
-              })
-        }
-        aria-label={title}
-      >
-        <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
-        {/* A plain count, not a badge: nothing here waits on the person.
-            Nothing to pick yet: a "0" reads as a warning, not a count. */}
-        {totalCount > 0 && (
-          <span className="text-[11.5px] leading-none tabular-nums">{selectedCount}</span>
-        )}
-        {hasNew && (
-          <span
-            aria-hidden
-            className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-action-primary"
-          />
-        )}
-      </MenuTrigger>
+      {asRow ? (
+        <SummaryMenuRow
+          title={hint}
+          icon={<Icon className="size-3.5" strokeWidth={1.8} />}
+          label={title}
+          note={
+            <span className="flex items-center gap-0.5 tabular-nums">
+              {selectedCount}
+              <ChevronRight className="size-3.5" strokeWidth={1.8} />
+            </span>
+          }
+        />
+      ) : (
+        <MenuTrigger
+          className={clsx(
+            'relative flex flex-shrink-0 items-center justify-center gap-1.5 transition-colors text-secondary hover:text-main hover:bg-state-hover data-[popup-open]:bg-state-selected data-[popup-open]:text-main',
+            hero ? 'h-8 min-w-8 rounded-full px-2' : 'h-7 min-w-7 rounded-md px-1.5',
+          )}
+          title={hint}
+          aria-label={title}
+        >
+          <Icon className={iconSize} strokeWidth={devices ? 1.75 : 2} />
+          {/* A plain count, not a badge: nothing here waits on the person.
+              Nothing to pick yet: a "0" reads as a warning, not a count. */}
+          {totalCount > 0 && (
+            <span className="text-[11.5px] leading-none tabular-nums">{selectedCount}</span>
+          )}
+          {hasNew && (
+            <span
+              aria-hidden
+              className="absolute -left-0.5 -top-0.5 h-2 w-2 rounded-full bg-action-primary"
+            />
+          )}
+        </MenuTrigger>
+      )}
       <MenuContent
-        side="top"
-        align="start"
+        side={asRow ? 'bottom' : 'top'}
+        align={asRow ? 'end' : 'start'}
         className="w-[340px]"
         positionerClassName={positionerClassName}
       >

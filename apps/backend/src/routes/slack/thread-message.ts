@@ -74,33 +74,20 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
   }
   const thread = await getSlackAgentThread(slackWorkspaceId, event.channel, event.thread_ts)
 
-  // A reply that @-mentions the bot also fires app_mention (a separate event
-  // id, so claimSlackEvent cannot dedupe it). The mention handler owns normal
-  // Slack-originated threads. Proactive notification threads stay here: the
-  // app_mention handler explicitly yields those to this generic message event.
-  if (
-    runtime.botUserId &&
-    (event.text ?? '').includes(`<@${runtime.botUserId}>`) &&
-    thread?.origin !== 'agent_notification'
-  ) {
-    await markSlackEvent(eventId, 'ignored')
-
-    return
-  }
-
-  if (!thread) {
+  // Only a notification thread continues here (#3702): a channel's own
+  // messages belong to its external chat, and the threads old mentions
+  // started are history.
+  if (thread?.origin !== 'agent_notification') {
     // This handler sees every threaded reply in every channel the bot is in, so
     // silence is right for a thread between other people. Under a root the bot
     // itself posted it is not: someone is talking to Nuphos and getting nothing
     // back, which is exactly how an unbound proactive post reads today. Tell
     // them how to reach it instead of dropping the message.
-    if (runtime.botUserId && event.parent_user_id === runtime.botUserId) {
-      await explainUnboundNuphosThread(runtime, event.channel, event.thread_ts)
-      await markSlackEvent(eventId, 'completed')
+    const unbound =
+      !thread && Boolean(runtime.botUserId) && event.parent_user_id === runtime.botUserId
 
-      return
-    }
-    await markSlackEvent(eventId, 'ignored')
+    if (unbound) await explainUnboundNuphosThread(runtime, event.channel, event.thread_ts)
+    await markSlackEvent(eventId, unbound ? 'completed' : 'ignored')
 
     return
   }
@@ -138,8 +125,6 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
     text: resolvedText,
   }).catch(() => {})
 
-  // Mentions never reach here for Slack-origin threads (they route to
-  // handleAppMention); in notification threads they stay.
   const mentionsBot =
     Boolean(runtime.botUserId) && (event.text ?? '').includes(`<@${runtime.botUserId}>`)
   const history = (thread.recentMessages ?? []).filter((record) => record.ts !== event.ts)
@@ -160,7 +145,6 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
 
   // Fail closed before resolving a turn actor: an unlinked Slack user must not
   // be able to drive a team conversation just by replying in its thread.
-  // Mirrors the mention handler.
   if (!senderMapping) {
     await postSenderNotice(
       runtime,
@@ -176,7 +160,6 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
     return
   }
   if (
-    thread.origin === 'agent_notification' &&
     !(await checkNotificationReplyAccess({
       runtime,
       thread,

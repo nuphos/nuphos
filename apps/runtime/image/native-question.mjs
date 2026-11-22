@@ -41,27 +41,37 @@ export function nuphosRememberDecisionServer(servers) {
   nuphosDecisionServer = { url: server.url, authorization: header?.value }
 }
 
+// request_user_decision keeps a question to one line of 120 characters and
+// wants what to decide from in its body: the full text goes there.
+const NUPHOS_QUESTION_MAX = 120
+
+function nuphosHeadline(text) {
+  return text.length <= NUPHOS_QUESTION_MAX ? text : `${text.slice(0, NUPHOS_QUESTION_MAX - 1)}…`
+}
+
 /** request_user_decision arguments for `questions`: [{ header?, question, options?: string[] }]. */
 export function nuphosDecisionArguments(questions) {
   const [first] = questions
   const label = String(first.header || first.question).slice(0, 80)
+  const question = nuphosHeadline(first.question)
   if (questions.length === 1) {
     const options = (first.options ?? []).slice(0, 5).map((option) => option.slice(0, 300))
     return {
       label,
       category: 'preference',
-      question: first.question.slice(0, 1000),
+      question,
+      body: first.question.slice(0, 8000),
       ...(options.length >= 2 ? { options } : {}),
     }
   }
-  // The decision holds one question; several are listed in it, choices inline.
-  const question = questions
+  // The decision holds one question; several are listed in its body, choices inline.
+  const body = questions
     .map(
       (entry, index) =>
         `${index + 1}. ${entry.question}${entry.options?.length ? ` (${entry.options.join(' / ')})` : ''}`,
     )
     .join('\n')
-  return { label, category: 'preference', question: question.slice(0, 1000) }
+  return { label, category: 'preference', question, body: body.slice(0, 8000) }
 }
 
 // Where OpenAB keeps the conversation token, its file is the credential, as in

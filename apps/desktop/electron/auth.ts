@@ -20,7 +20,7 @@ import {
   writeConfig,
 } from './auth/config.ts'
 import { unsavedReason } from './auth/unsaved.ts'
-import { apiError, apiErrorMessage } from './auth/web.ts'
+import { apiError } from './auth/web.ts'
 import { completeNativeLogin } from './auth/native.ts'
 import { runPasskeyCeremony } from './auth/passkey.ts'
 import { planLogin } from './auth/plan.ts'
@@ -78,9 +78,7 @@ export async function requestEmailCode(email: string): Promise<void> {
     signal: AbortSignal.timeout(20_000),
   })
 
-  if (!res.ok) {
-    throw new Error(await apiErrorMessage(res))
-  }
+  if (!res.ok) throw await apiError(res)
 }
 
 export async function verifyEmailCode(email: string, code: string): Promise<UserInfo> {

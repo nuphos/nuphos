@@ -59,12 +59,72 @@ final class ChannelSession {
 
     // MARK: - Reading
 
+    /// Why the open chat is read again: the poll's tick, a change the server pushed, or its
+    /// change stream coming up (it may have missed some while down) or going down.
+    private enum Wake { case tick, changed, up, down }
+
     /// Reads the chat until cancelled. `AgentStore.poll` runs it while this is the open chat.
+    /// The server pushes which conversations changed (#3906), so the chat is read the moment it
+    /// does and polls only while that stream is down. Its questions are polled either way.
     func poll() async {
+        let (wakes, wake) = AsyncStream.makeStream(of: Wake.self)
+        let ticker = Task {
+            while !Task.isCancelled {
+                wake.yield(.tick)
+                try? await Task.sleep(for: Self.pollInterval)
+            }
+        }
+        let changes = Task { await followChanges(wake) }
+        defer {
+            ticker.cancel()
+            changes.cancel()
+        }
+        var pushed = false
+        // One read at a time, so an older read never lands over a newer one.
+        for await reason in wakes {
+            switch reason {
+            case .up:
+                pushed = true
+                await refresh(force: true)
+            case .down: pushed = false
+            case .changed:
+                changePending = false
+                await refresh(force: true)
+            case .tick:
+                if !pushed { await refresh() }
+                await refreshQuestions()
+            }
+        }
+    }
+
+    /// A pushed change waits to be read: more changes before that read need no read of their own.
+    private var changePending = false
+
+    /// Follows the team's changes, waking the chat for its own, and reconnects with backoff.
+    private func followChanges(_ wake: AsyncStream<Wake>.Continuation) async {
+        var failures = 0
         while !Task.isCancelled {
-            await refresh()
-            await refreshQuestions()
-            try? await Task.sleep(for: Self.pollInterval)
+            var request = URLRequest(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/agent-changes"))
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "authorization")
+            request.setValue("text/event-stream", forHTTPHeaderField: "accept")
+            request.setValue("identity", forHTTPHeaderField: "accept-encoding")
+            request.setValue(AgentChatAPI.clientVersion, forHTTPHeaderField: "x-atlas-client")
+            request.timeoutInterval = 60
+            let started = ContinuousClock.now
+            do {
+                // Three missed 5 s heartbeats is a dead stream.
+                for try await event in SSEClient.events(for: request, idleTimeout: .seconds(15), onOpen: { wake.yield(.up) })
+                where !changePending && JSONValue.parse(event.data)?["sessionId"]?.stringValue == channelId {
+                    changePending = true
+                    wake.yield(.changed)
+                }
+            } catch SSEClient.Failure.badStatus(404, _) {
+                // A backend from before the push has no such route: the chat keeps polling.
+                return
+            } catch {}
+            wake.yield(.down)
+            failures = ContinuousClock.now - started > .seconds(30) ? 1 : failures + 1
+            try? await Task.sleep(for: .milliseconds(min(30_000, 500 << min(failures, 6))))
         }
     }
 
@@ -83,7 +143,9 @@ final class ChannelSession {
             await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
         } catch {
-            if !loaded { loadError = error.localizedDescription; loaded = true }
+            // Cancelled (the chat closed, the app left the foreground): not a
+            // failure, and not loaded, so the next poll reads it (#3620).
+            if !loaded, !Task.isCancelled { loadError = error.localizedDescription; loaded = true }
         }
     }
 
@@ -93,6 +155,8 @@ final class ChannelSession {
         sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
+        // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
+        for agent in listed { BotFaces.shared.learn(agent.sessionId, avatar: agent.avatar, background: agent.avatarBackground) }
         readOnly = detail.readOnly ?? false
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
@@ -138,6 +202,11 @@ final class ChannelSession {
     /// where it asked; no message is sent.
     func answer(_ question: BotQuestion, with answer: DecisionAnswer) {
         Task { await questions.answer(question, with: answer) }
+    }
+
+    /// Dismisses a question unanswered, as the desktop's Dismiss does: the agent that asked is told.
+    func dismiss(_ question: BotQuestion) {
+        Task { await questions.dismiss(question) }
     }
 
     // MARK: - Posting

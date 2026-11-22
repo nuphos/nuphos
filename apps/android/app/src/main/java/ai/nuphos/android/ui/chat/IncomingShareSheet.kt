@@ -1,5 +1,7 @@
 package ai.nuphos.android.ui.chat
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -20,6 +22,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun IncomingShareSheet(nav: NavHostController) {
     val app = LocalContext.current.applicationContext as NuphosApplication
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val mailbox = app.incomingShares
     val pending by mailbox.state.collectAsState()
     val mailboxRevision by mailbox.revision.collectAsState()
@@ -51,11 +54,11 @@ fun IncomingShareSheet(nav: NavHostController) {
                 navigate = { nav.navigate("home") { popUpTo("home"); launchSingleTop = true } },
                 release = mailbox::releaseDestination)
         } catch (e: CancellationException) { throw e }
-        catch (_: Exception) { routingError = "Could not open this draft. Your share has not been sent." }
+        catch (_: Exception) { routingError = resources.getString(R.string.composer_share_open_failed) }
     }
     val loadingWorkspace = team == null && store.teamsPhase in setOf(AgentStore.Phase.Idle, AgentStore.Phase.Loading)
     val problem = request.error ?: routingError ?: if (team == null && !loadingWorkspace)
-        "Open a workspace in Account to receive this share. Nothing has been sent." else null
+        stringResource(R.string.composer_share_no_workspace) else null
     // The normal path opens the draft without any dialog; only a problem or an unusually slow
     // preparation (large files, a slow workspace load) shows status with a way to cancel.
     var slow by remember(request.id) { mutableStateOf(false) }
@@ -64,8 +67,8 @@ fun IncomingShareSheet(nav: NavHostController) {
     AlertDialog(
         // Back and outside taps keep the share; only Cancel share discards it.
         onDismissRequest = {},
-        title = { Text(if (problem == null) "Preparing draft" else "Could not open draft") },
-        text = { Text(problem ?: if (request.loading) "Preparing shared content…" else "Opening your new draft. Nothing has been sent.") },
+        title = { Text(if (problem == null) stringResource(R.string.composer_preparing_draft) else stringResource(R.string.composer_open_draft_failed)) },
+        text = { Text(problem ?: if (request.loading) stringResource(R.string.composer_preparing_share) else stringResource(R.string.composer_opening_draft)) },
         confirmButton = {
             // Retry reuses the same share and its retained files; invalid input can only be cancelled.
             val retry: (() -> Unit)? = when {
@@ -74,9 +77,9 @@ fun IncomingShareSheet(nav: NavHostController) {
                 team == null && store.teamsPhase == AgentStore.Phase.Failed -> ({ scope.launch { store.loadTeams() } })
                 else -> null
             }
-            if (retry != null) TextButton(onClick = retry) { Text("Retry") }
+            if (retry != null) TextButton(onClick = retry) { Text(stringResource(R.string.composer_retry)) }
         },
-        dismissButton = { TextButton(onClick = { mailbox.cancel(request.id) }) { Text("Cancel share") } },
+        dismissButton = { TextButton(onClick = { mailbox.cancel(request.id) }) { Text(stringResource(R.string.composer_cancel_share)) } },
     )
 }
 

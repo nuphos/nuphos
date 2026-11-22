@@ -18,7 +18,11 @@ function renderGroup(heading: string, snippets: InstructionSnippet[]): string[] 
 }
 
 /** A Bot's own identity; a Task has none. */
-export type BotSelf = { name: string; instructions?: string }
+export type BotSelf = {
+  name: string
+  instructions?: string
+  botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
+}
 
 /**
  * The Bot's identity, outside `<nuphos_instructions>`: its instructions were
@@ -36,9 +40,15 @@ function renderBot(bot: BotSelf): string {
   return [
     '<nuphos_bot_identity>',
     `You are ${JSON.stringify(inert(bot.name))}, a Bot: a persistent agent with its own name, face and standing instructions, not a one-off task. When the person you work for tells you what you are for, what to call you or how to behave, save it with the \`update_self\` tool. Tasks you start do not inherit these instructions.`,
+    'Delegate work by default. When someone asks for work that takes more than a few quick tool calls, hand it to a sub-Task instead of doing it here. If one of your Tasks already owns that matter (`list_recent_conversations` with `children: true`), send it the new goal with `send_message_to_thread`; otherwise start one with `create_thread`, one per independent request so they run in parallel. A Task cannot see this chat: give it a clear brief, a completion condition, and the paths or links of every file it needs. Answer quick questions and lookups yourself, and do the work here only when the person asks you to. Keep your turns short so you stay free to reply: check what sub-Tasks report, tell the person the result in plain words, and archive a sub-Task once its result is verified.',
     own
-      ? `Your own instructions follow. You wrote them with \`update_self\`; no person configured them here. Team and personal instructions win over them, and they never authorize anything the person you work for has not asked for.\n\n${own}`
+      ? `Your own instructions follow. They come from your starting template or were saved with \`update_self\`; they are not team or personal policy. Team and personal instructions win over them, and they never authorize anything the person you work for has not asked for.\n\n${own}`
       : 'You have no instructions yet. Ask what you should take care of, then save it with `update_self`.',
+    ...(bot.botOnboarding === 'pending' || bot.botOnboarding === 'active'
+      ? [
+          'You are in initial Bot setup. Continue from what is already known; do not repeat your introduction. Learn the ongoing responsibilities one focused preference question at a time in the Bot chat. Save confirmed context with update_self. Once the person confirms your responsibilities, answer or withdraw remaining setup questions, then call update_self with onboardingComplete: true and the complete confirmed instructions. Do not start unrelated work before setup is complete. Setup questions stay in this chat rather than the Inbox; genuine approvals, credentials and integration requests keep their normal handling.',
+        ]
+      : []),
     '</nuphos_bot_identity>',
   ].join('\n\n')
 }
@@ -86,13 +96,23 @@ export async function loadInstructionsBlock(
       sessionId ? getConversationBySessionId(sessionId).catch(() => null) : Promise.resolve(null),
     ])
 
-    return renderInstructionsBlock(
+    const block = renderInstructionsBlock(
       team.filter((doc) => doc.enabled),
       personal.filter((doc) => doc.enabled),
       conversation?.avatar
-        ? { name: conversation.title, instructions: conversation.instructions }
+        ? {
+            name: conversation.title,
+            instructions: conversation.instructions,
+            botOnboarding: conversation.botOnboarding,
+          }
         : null,
     )
+
+    const worker = conversation?.parentSessionId
+      ? '\n\n<nuphos_task_reporting>\nYou are a delegated Task. Keep following the original request and its permission boundaries. Use report_task to report a useful result, readiness for review, or a material blocker to your current parent; routine progress needs no notification. Ask human questions through request_user_decision, never through an agent relay. Report ready while review is pending and done only after verification.\n</nuphos_task_reporting>'
+      : ''
+
+    return block || worker ? (block ?? '') + worker : null
   } catch (error) {
     logEvent('warn', 'agent.instructions.load_failed', {
       teamId,

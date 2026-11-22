@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="pins_pin_bot">Pin Bot</string>
+    <string name="pins_unpin_bot">Unpin Bot</string>
+    <string name="pins_pin">Pin</string>
+    <string name="pins_unpin">Unpin</string>
+    <string name="pins_no_messages">No messages yet</string>
+    <string name="pins_needs_input">Needs your input</string>
+    <string name="pins_running">Running</string>
+    <string name="pins_unread">Unread posts</string>
+</resources>

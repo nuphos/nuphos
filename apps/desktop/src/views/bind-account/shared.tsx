@@ -1,9 +1,13 @@
-import { faArrowUpRightFromSquare, faCheck, faCopy } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  ExternalLink as ExternalLinkIcon,
+  Check as CheckIcon,
+  Copy as CopyIcon,
+} from 'lucide-react'
 import { Fragment, useState } from 'react'
 
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 export function Field({
@@ -66,9 +70,10 @@ export function CopyableValue({ value, label }: { value: string; label?: string 
       className="inline-flex items-center gap-1.5 max-w-full px-1.5 py-0.5 rounded bg-surface-sunken border border-line-control hover:border-line-control font-mono text-[11.5px] text-main transition-colors align-middle"
     >
       <span className="truncate">{copied && label ? t('Copied') : (label ?? value)}</span>
-      <FontAwesomeIcon
-        icon={copied ? faCheck : faCopy}
-        className={clsx('w-3 h-3 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
+      <UiIcon
+        size={16}
+        icon={copied ? CheckIcon : CopyIcon}
+        className={clsx('w-4 h-4 flex-shrink-0', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )
@@ -83,7 +88,7 @@ export function ConsoleLink({ href, children }: { href: string; children: React.
       className="h-7 px-2.5 rounded-md bg-surface-sunken hover:bg-state-hover text-main text-[12px] font-medium inline-flex items-center gap-1.5 no-underline align-middle"
     >
       {children}
-      <FontAwesomeIcon icon={faArrowUpRightFromSquare} className="w-3.5 h-3.5 flex-shrink-0" />
+      <UiIcon size={14} icon={ExternalLinkIcon} className="w-3.5 h-3.5 flex-shrink-0" />
     </a>
   )
 }
@@ -128,9 +133,10 @@ export function CopyIconButton({ value, className }: { value: string; className?
         className,
       )}
     >
-      <FontAwesomeIcon
-        icon={copied ? faCheck : faCopy}
-        className={clsx('w-3 h-3', copied ? 'text-primary' : 'text-tertiary')}
+      <UiIcon
+        size={16}
+        icon={copied ? CheckIcon : CopyIcon}
+        className={clsx('w-4 h-4', copied ? 'text-primary' : 'text-tertiary')}
       />
     </button>
   )

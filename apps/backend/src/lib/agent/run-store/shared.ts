@@ -63,6 +63,11 @@ export function cancellationKey(userId: string, streamId: string): string {
 export function activeRunKey(userId: string, sessionId: string): string {
   return `atlas:agentrun-active:${userId}:${sessionId}`
 }
+// The sessions whose guard hash exists, so the abandoned-run sweep never walks the keyspace.
+export const ACTIVE_RUNS_KEY = 'atlas:agentrun-active-sessions'
+export function activeRunMember(userId: string, sessionId: string): string {
+  return `${userId}:${sessionId}`
+}
 export function activeRunReservationKey(userId: string, sessionId: string): string {
   return `${activeRunKey(userId, sessionId)}:reservation`
 }

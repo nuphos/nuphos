@@ -67,7 +67,7 @@ export async function exportArtifact(
 ): Promise<ArtifactExport> {
   const file = { fileName: artifactFileName(version), mimeType: artifactMimeType(version.kind) }
 
-  if (version.kind === 'markdown' || version.kind === 'code') {
+  if (version.kind === 'markdown' || version.kind === 'code' || version.kind === 'chart') {
     return { ...file, content: version.content, missing: [] }
   }
   const inliner = new Inliner(fetcher)

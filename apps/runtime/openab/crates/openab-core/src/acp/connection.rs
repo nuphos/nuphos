@@ -29,7 +29,10 @@ pub enum AcpRequestError {
     #[error("timeout waiting for {method} response")]
     Timeout { method: String },
     #[error("connection closed waiting for {method}")]
-    ConnectionClosed { method: String },
+    ConnectionClosed {
+        method: String,
+        stderr: Option<String>,
+    },
     /// The request could not be written, or its response was unusable.
     #[error(transparent)]
     Other(#[from] anyhow::Error),
@@ -175,6 +178,7 @@ pub struct SessionActivity {
     /// The agent's most recent stderr lines (redacted, bounded), so an internal
     /// error that carries no detail can still show what the agent last said.
     stderr_tail: std::sync::Mutex<std::collections::VecDeque<String>>,
+    stderr_done: tokio::sync::Notify,
 }
 
 const STDERR_TAIL_LINES: usize = 20;
@@ -287,6 +291,7 @@ impl SessionActivity {
             agent_permission_wait_ms: AtomicU64::new(0),
             process_death: Default::default(),
             stderr_tail: Default::default(),
+            stderr_done: Default::default(),
         }
     }
 
@@ -504,6 +509,10 @@ pub struct AcpConnection {
     /// The MCP servers this agent's session was opened with. The agent reads
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
+    /// The system prompt its session opened with, in whichever `_meta` shape the agent reads.
+    pub system_prompt: Option<serde_json::Value>,
+    /// Its env as it opened, without the credentials refreshed through files on every prompt.
+    pub stable_env: Option<serde_json::Value>,
     pub supports_load_session: bool,
     /// The agent also offers `session/resume`: the same restore without replaying
     /// the history, which nobody here reads.
@@ -516,18 +525,17 @@ pub struct AcpConnection {
     pub last_active: Instant,
     pub activity: Arc<SessionActivity>,
     pub session_reset: bool,
-    /// Dormant Part B scaffolding (https://agentclientprotocol.com/protocol/terminals):
-    /// tracks terminals created via the spec's `terminal/*` RPCs. No adapter this
-    /// gateway talks to today issues those RPCs (see `terminal.rs`).
-    pub terminal: Arc<super::terminal::TerminalManager>,
     _reader_handle: JoinHandle<()>,
     _stderr_handle: Option<JoinHandle<()>>,
+    /// The pool must not route to this connection again, even if the reader has not
+    /// observed the agent's exit yet. Set with [`AcpConnection::retire`] when a killed
+    /// process outlives the grace the caller gave it.
+    retired: bool,
     /// Revokes this session's facade token when the connection is dropped, on any evict path.
     /// Held only for its `Drop` side effect (never read).
     ///
     /// It used to cancel a per-session MCP proxy server; that server is gone and the guard now
     /// carries the minted token instead.
-    #[cfg(feature = "acp-mcp")]
     #[allow(dead_code)]
     facade_token_guard: Option<tokio_util::sync::DropGuard>,
 }
@@ -564,44 +572,15 @@ fn build_agent_env(
 /// legacy chat surfaces auto-approve permissions, while opted-in ACP clients
 /// can relay the request to their user before responding.
 ///
-/// Only `spawn()`'s production path needs `terminal/*` dispatch, so it goes
-/// straight to [`run_reader_loop_with_state_and_terminal`]; this narrower
-/// signature remains for tests that don't exercise terminals.
-#[cfg(test)]
+/// `stdin` answers the agent's own requests nothing past here would; tests that
+/// don't need that pass `None`.
 pub(crate) async fn run_reader_loop_with_state<R>(
     reader: R,
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>>,
     notify_tx: NotificationSender,
     idle_notify_tx: NotificationSender,
     execution: Option<Arc<SessionActivity>>,
-) where
-    R: AsyncRead + Unpin + Send + 'static,
-{
-    run_reader_loop_with_state_and_terminal(
-        reader,
-        pending,
-        notify_tx,
-        idle_notify_tx,
-        execution,
-        None,
-        None,
-    )
-    .await
-}
-
-/// Same as [`run_reader_loop_with_state`], additionally serving the dormant
-/// `terminal/*` RPC family (Part B: https://agentclientprotocol.com/protocol/terminals)
-/// directly off `stdin`/`terminal` when both are present. Split out so tests that
-/// don't care about terminals keep the simpler signature.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
-    reader: R,
-    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>>,
-    notify_tx: NotificationSender,
-    idle_notify_tx: NotificationSender,
-    execution: Option<Arc<SessionActivity>>,
     stdin: Option<Arc<Mutex<ChildStdin>>>,
-    terminal: Option<Arc<super::terminal::TerminalManager>>,
 ) where
     R: AsyncRead + Unpin + Send + 'static,
 {
@@ -662,26 +641,20 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
             }
         }
 
-        // Dormant Part B scaffolding: an agent-initiated `terminal/*` request
-        // (https://agentclientprotocol.com/protocol/terminals). No adapter this
-        // gateway talks to today issues these (see terminal.rs), but if one
-        // does, answer it directly here instead of routing it through the
-        // chat-turn subscriber — terminal lifecycle is client-local process
-        // management, not something a turn's UI needs to see.
-        if let (Some(id), Some(method), Some(stdin), Some(terminal)) = (
-            msg.id,
-            msg.method.as_deref(),
-            stdin.clone(),
-            terminal.clone(),
-        ) {
-            if let Some(handler) = terminal_method_handler(method) {
-                tokio::spawn(handle_terminal_request(
-                    id,
-                    handler,
-                    msg.params.clone(),
-                    stdin,
-                    terminal,
-                ));
+        // Of the agent's own requests only `session/request_permission` has an answerer
+        // past this point. Any other one (Antigravity's `elicitation/create`) would be
+        // dropped there, leaving the agent to wait out the inactivity timeout in silence.
+        // Refused at once, the agent carries on without it.
+        if let (Some(id), Some(method), Some(stdin)) =
+            (msg.id, msg.method.as_deref(), stdin.clone())
+        {
+            if method != "session/request_permission" {
+                let refusal = json!({
+                    "jsonrpc": "2.0",
+                    "id": id,
+                    "error": {"code": -32601, "message": format!("Method not found: {method}")},
+                });
+                tokio::spawn(async move { write_to_stdin(&stdin, &refusal.to_string()).await });
                 continue;
             }
         }
@@ -734,51 +707,8 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
     *idle_notify_tx.lock().await = None;
 }
 
-type TerminalHandler = for<'a> fn(
-    &'a super::terminal::TerminalManager,
-    Option<&'a Value>,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Value>> + Send + 'a>,
->;
-
-/// Maps a `terminal/*` method name to its [`super::terminal::TerminalManager`] handler.
-fn terminal_method_handler(method: &str) -> Option<TerminalHandler> {
-    match method {
-        "terminal/create" => Some(|m, p| Box::pin(m.create(p))),
-        "terminal/output" => Some(|m, p| Box::pin(m.output(p))),
-        "terminal/wait_for_exit" => Some(|m, p| Box::pin(m.wait_for_exit(p))),
-        "terminal/kill" => Some(|m, p| Box::pin(m.kill(p))),
-        "terminal/release" => Some(|m, p| Box::pin(m.release(p))),
-        _ => None,
-    }
-}
-
-/// Run one `terminal/*` handler and write its JSON-RPC response back to the
-/// agent. Spawned per-request so a slow `terminal/wait_for_exit` never blocks
-/// the reader loop from processing the agent's other traffic.
-async fn handle_terminal_request(
-    id: u64,
-    handler: TerminalHandler,
-    params: Option<Value>,
-    stdin: Arc<Mutex<ChildStdin>>,
-    terminal: Arc<super::terminal::TerminalManager>,
-) {
-    let response = match handler(&terminal, params.as_ref()).await {
-        Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
-        Err(err) => json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": {"code": -32000, "message": err.to_string()},
-        }),
-    };
-    if let Ok(data) = serde_json::to_string(&response) {
-        let _ = write_to_stdin(&stdin, &data).await;
-    }
-}
-
 /// Bounded raw write to an agent's stdin, mirroring [`AcpConnection::send_raw`].
-/// Standalone because the terminal RPC handlers run detached from an
-/// `AcpConnection` borrow (they own only an `Arc` clone of its stdin).
+/// Standalone because the reader loop owns only an `Arc` clone of the stdin.
 async fn write_to_stdin(stdin: &Arc<Mutex<ChildStdin>>, data: &str) -> Result<()> {
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
         let mut w = stdin.lock().await;
@@ -792,12 +722,10 @@ async fn write_to_stdin(stdin: &Arc<Mutex<ChildStdin>>, data: &str) -> Result<()
     Ok(())
 }
 
-/// Build a `Command` with the security baseline shared by every subprocess this
-/// crate spawns (the agent process itself and, for the dormant `terminal/*` RPC
-/// scaffolding, terminals the agent asks the client to create): its own process
-/// group for tree-wide kill, a cleared environment, and the minimal HOME/PATH/
-/// user vars a subprocess needs to function. Callers layer stdio and any
-/// additional env on top.
+/// Build a `Command` with the security baseline for the agent process: its own
+/// process group for tree-wide kill, a cleared environment, and the minimal
+/// HOME/PATH/user vars a subprocess needs to function. Callers layer stdio and
+/// any additional env on top.
 pub(crate) fn baseline_command(
     command: &str,
     args: &[String],
@@ -842,7 +770,7 @@ pub(crate) fn baseline_command(
     // Clear inherited env to prevent credential leakage (e.g. DISCORD_BOT_TOKEN).
     // Only explicit values + essential baseline vars are passed through.
     cmd.env_clear();
-    // Preserve the real HOME so agents/terminals can find OAuth/auth files
+    // Preserve the real HOME so agents can find OAuth/auth files
     // (~/.codex, ~/.claude, ~/.config/gh, etc.). working_dir is already set via
     // current_dir() above and is not necessarily the user's home directory.
     cmd.env(
@@ -882,8 +810,7 @@ pub(crate) fn baseline_command(
     cmd
 }
 
-/// SIGTERM → SIGKILL a process group. Shared by the agent connection's own
-/// teardown and the `terminal/kill` / `terminal/release` RPC handlers.
+/// SIGTERM → SIGKILL a process group, for the agent connection's teardown.
 /// Uses std::thread (not tokio::spawn) so SIGKILL fires even during
 /// runtime shutdown or panic unwinding.
 pub(crate) fn kill_process_group(pgid: i32) {
@@ -904,9 +831,18 @@ pub(crate) fn kill_process_group(pgid: i32) {
             }
         });
     }
-    #[cfg(not(unix))]
+    // No process groups to signal: end the whole tree, since codex-acp runs Codex under cmd.exe
+    // and a Codex left running keeps the session's thread, so restoring it fails (#3371).
+    #[cfg(windows)]
     {
-        let _ = pgid; // suppress unused warning on Windows
+        use std::os::windows::process::CommandExt;
+        let _ = std::process::Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pgid.to_string()])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .creation_flags(0x0800_0000) // CREATE_NO_WINDOW
+            .status();
     }
 }
 
@@ -982,6 +918,7 @@ impl AcpConnection {
                         Err(_) => break,
                     }
                 }
+                activity.stderr_done.notify_one();
             }))
         } else {
             None
@@ -994,15 +931,13 @@ impl AcpConnection {
         let idle_notify_tx: Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>> =
             Arc::new(Mutex::new(None));
 
-        let terminal = Arc::new(super::terminal::TerminalManager::new());
-        let reader_handle = tokio::spawn(run_reader_loop_with_state_and_terminal(
+        let reader_handle = tokio::spawn(run_reader_loop_with_state(
             stdout,
             pending.clone(),
             notify_tx.clone(),
             idle_notify_tx.clone(),
             Some(activity.clone()),
             Some(stdin.clone()),
-            Some(terminal.clone()),
         ));
 
         Ok(Self {
@@ -1015,6 +950,8 @@ impl AcpConnection {
             idle_notify_tx,
             acp_session_id: None,
             mcp_servers: Vec::new(),
+            system_prompt: None,
+            stable_env: None,
             supports_load_session: false,
             supports_resume_session: false,
             supports_steering: false,
@@ -1023,16 +960,14 @@ impl AcpConnection {
             last_active: Instant::now(),
             activity,
             session_reset: false,
-            terminal,
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
-            #[cfg(feature = "acp-mcp")]
+            retired: false,
             facade_token_guard: None,
         })
     }
 
     /// Attach the guard that revokes this session's facade token when the connection drops.
-    #[cfg(feature = "acp-mcp")]
     pub fn set_facade_token_guard(&mut self, guard: Option<tokio_util::sync::DropGuard>) {
         self.facade_token_guard = guard;
     }
@@ -1083,6 +1018,25 @@ impl AcpConnection {
         Ok(resp)
     }
 
+    async fn connection_closed(&self, method: &str) -> AcpRequestError {
+        let startup = matches!(
+            method,
+            "initialize" | "session/new" | "session/load" | "session/resume"
+        );
+        if startup {
+            // stdout and stderr are read independently; allow the final line to arrive.
+            let _ = tokio::time::timeout(
+                std::time::Duration::from_millis(500),
+                self.activity.stderr_done.notified(),
+            )
+            .await;
+        }
+        AcpRequestError::ConnectionClosed {
+            method: method.to_string(),
+            stderr: startup.then(|| self.activity.stderr_tail()).flatten(),
+        }
+    }
+
     /// Preserve explicit agent errors separately from a missing response.
     async fn send_request_response(
         &self,
@@ -1096,25 +1050,35 @@ impl AcpConnection {
         let (tx, rx) = oneshot::channel();
         self.pending.lock().await.insert(id, tx);
 
-        self.send_raw(&data).await?;
+        if let Err(error) = self.send_raw(&data).await {
+            self.pending.lock().await.remove(&id);
+            if error
+                .downcast_ref::<std::io::Error>()
+                .is_some_and(|e| e.kind() == std::io::ErrorKind::BrokenPipe)
+            {
+                return Err(self.connection_closed(method).await);
+            }
+            return Err(error.into());
+        }
 
-        let timeout_secs = if method == "session/new" { 120 } else { 30 };
-        let closed = || AcpRequestError::ConnectionClosed {
-            method: method.to_string(),
+        // Restoring a session does everything opening one does (auth, skills, MCP servers, the
+        // model list) plus reading its transcript, so it gets at least the same budget.
+        let timeout_secs = match method {
+            "session/new" | "session/load" | "session/resume" => 120,
+            _ => 30,
         };
         let resp = tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), rx)
             .await
             .map_err(|_| AcpRequestError::Timeout {
                 method: method.to_string(),
-            })?
-            .map_err(|_| closed())?;
+            })?;
 
-        // The reader synthesizes an id-less error when stdout closes. It is
-        // not an agent acknowledgement and cannot confirm a write's outcome.
-        if resp.id.is_none() {
-            return Err(closed());
+        if let Ok(message) = resp {
+            if message.id.is_some() {
+                return Ok(with_recent_stderr(message, &self.activity));
+            }
         }
-        Ok(with_recent_stderr(resp, &self.activity))
+        Err(self.connection_closed(method).await)
     }
 
     pub async fn initialize(&mut self) -> Result<(), AcpRequestError> {
@@ -1124,10 +1088,6 @@ impl AcpConnection {
                 Some(json!({
                     "protocolVersion": 1,
                     "clientCapabilities": {
-                        // Spec capability (agentclientprotocol.com/protocol/terminals).
-                        // Neither adapter this gateway runs against today reads it; see
-                        // `terminal_output` below, which is what they actually gate on.
-                        "terminal": true,
                         "_meta": {
                             "jetbrains": {
                                 "air": {
@@ -1138,7 +1098,7 @@ impl AcpConnection {
                             // Zed's own client-capability convention (claude-agent-acp is
                             // published from zed-industries/claude-code-acp), not part of the
                             // ACP spec. claude-agent-acp 0.74.0 and codex-acp 1.1.4 both gate
-                            // terminal behavior on this instead of `terminal` above.
+                            // terminal output on this, not on the spec's `terminal`.
                             "terminal_output": true
                         }
                     },
@@ -1199,6 +1159,8 @@ impl AcpConnection {
         info!(session_id = %session_id, "session created");
         self.acp_session_id = Some(session_id.clone());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
             if !self.config_options.is_empty() {
@@ -1292,7 +1254,7 @@ impl AcpConnection {
                 if let Some(error) = response.error {
                     // An explicit rejection leaves the last acknowledged state
                     // usable, so a subsequent valid selection can be retried.
-                    return Err(anyhow!("{error}"));
+                    return Err(error.into());
                 }
                 let options = response
                     .result
@@ -1457,7 +1419,16 @@ impl AcpConnection {
     }
 
     pub fn alive(&self) -> bool {
-        !self._reader_handle.is_finished()
+        !self.retired && !self._reader_handle.is_finished()
+    }
+
+    /// Stop routing to this connection, whatever the reader has seen. [`kill_agent`] waits for
+    /// its stdout to close; when that grace runs out the process is stuck or unkillable, and the
+    /// pool must rebuild instead of handing it the next prompt.
+    ///
+    /// [`kill_agent`]: AcpConnection::kill_agent
+    pub(crate) fn retire(&mut self) {
+        self.retired = true;
     }
 
     /// Resume a previous session by ID, with `session/resume` when the agent offers it.
@@ -1489,11 +1460,21 @@ impl AcpConnection {
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
+        self.system_prompt = meta_system_prompt(session_meta).cloned();
+        self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
         }
         self.activity.execution.initialized();
         Ok(())
+    }
+
+    /// End the agent process now. Its stdout closes, so the connection stops
+    /// reporting alive and the pool rebuilds it on the next message.
+    pub(crate) fn kill_agent(&mut self) {
+        // The tree first: on Windows it is found through the agent, which must still be running.
+        self.kill_process_group();
+        let _ = self._proc.start_kill();
     }
 
     /// Kill the entire process group: SIGTERM → SIGKILL.
@@ -1502,6 +1483,35 @@ impl AcpConnection {
             kill_process_group(pgid);
         }
     }
+}
+
+/// The system prompt in a client's `_meta`: Claude Code's `systemPrompt`, Codex's
+/// developer instructions, or the ACP shim's session prompt (backend `sessionMeta`).
+pub(crate) fn meta_system_prompt(meta: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
+    let meta = meta?;
+    meta.get("systemPrompt")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("developerInstructions"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("systemPrompt"))
+}
+
+/// The env in a client's `_meta`, in the same three shapes as the system prompt, without the
+/// credentials it also hands over to be refreshed as files: those change on every prompt.
+pub(crate) fn meta_stable_env(meta: Option<&serde_json::Value>) -> Option<serde_json::Value> {
+    let meta = meta?;
+    let env = meta
+        .pointer("/claudeCode/options/env")
+        .or_else(|| meta.get("ai.nuphos/codex")?.get("env"))
+        .or_else(|| meta.get("ai.nuphos/session")?.get("env"))?
+        .as_object()?;
+    let refreshed = meta
+        .get(super::session_credentials::SESSION_CREDENTIALS_META_KEY)
+        .and_then(serde_json::Value::as_object);
+    Some(serde_json::Value::Object(
+        env.iter()
+            .filter(|(name, _)| !refreshed.is_some_and(|keys| keys.contains_key(*name)))
+            .map(|(name, value)| (name.clone(), value.clone()))
+            .collect(),
+    ))
 }
 
 /// `session/new` params. `mcp_servers` are client-declared http-type entries
@@ -1541,9 +1551,6 @@ impl Drop for AcpConnection {
             handle.abort();
         }
         self.kill_process_group();
-        // Terminals are tracked independently of the agent process; a terminal
-        // the agent never `terminal/release`d must not outlive this connection.
-        self.terminal.shutdown();
     }
 }
 
@@ -1829,9 +1836,41 @@ mod request_error_tests {
     }
 
     #[tokio::test]
+    async fn a_startup_failure_shows_the_agents_error_output() {
+        let result = load_against("echo 'dsh: fatal uncaught exception: YAMLException: invalid config' >&2; read line; exit 1").await;
+        let Err(error) = result else {
+            panic!("expected a startup failure")
+        };
+        let message = crate::error_display::format_user_error(
+            &crate::acp::pool::SessionStartError::Request(error),
+        );
+        assert!(
+            message.contains("YAMLException: invalid config"),
+            "{message}"
+        );
+    }
+
+    #[tokio::test]
+    async fn an_agent_that_exits_before_the_request_keeps_its_output() {
+        let args = vec![
+            "-c".into(),
+            "echo 'Error: invalid config' >&2; exit 1".into(),
+        ];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let error = conn.session_load("sid", ".", &[], None).await.unwrap_err();
+        let message = crate::error_display::format_user_error(
+            &crate::acp::pool::SessionStartError::Request(error),
+        );
+        assert!(message.contains("Error: invalid config"), "{message}");
+    }
+
+    #[tokio::test]
     async fn an_agent_that_exits_is_a_closed_connection() {
         match load_against("read line").await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/load")
             }
             other => panic!("expected a closed connection, got {other:?}"),
@@ -1846,11 +1885,32 @@ mod request_error_tests {
             .unwrap();
         conn.supports_resume_session = true;
         match conn.session_load("sid", ".", &[], None).await {
-            Err(AcpRequestError::ConnectionClosed { method }) => {
+            Err(AcpRequestError::ConnectionClosed { method, .. }) => {
                 assert_eq!(method, "session/resume")
             }
             other => panic!("expected a closed connection, got {other:?}"),
         }
+    }
+}
+
+/// A process that outlived `kill_agent`'s grace must stop being routable even though its reader
+/// has seen no EOF. No timing here: the reader stays alive for the whole test.
+#[cfg(all(test, unix))]
+mod retirement_tests {
+    use super::AcpConnection;
+
+    #[tokio::test]
+    async fn a_retired_connection_stops_reporting_alive() {
+        let args = vec!["-c".to_string(), "sleep 30".to_string()];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        assert!(conn.alive());
+        conn.retire();
+        assert!(
+            !conn.alive(),
+            "a retired connection must not take the next prompt"
+        );
     }
 }
 
@@ -2450,6 +2510,7 @@ mod reader_loop_tests {
             notify.clone(),
             idle.clone(),
             Some(activity.clone()),
+            None,
         ));
         let frame = b"{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"working\"}}}}\n";
         writer.write_all(frame).await.unwrap();
@@ -2477,5 +2538,5 @@ async fn run_reader_loop<R: AsyncRead + Unpin + Send + 'static>(
     notify_tx: NotificationSender,
     idle_notify_tx: NotificationSender,
 ) {
-    run_reader_loop_with_state(reader, pending, notify_tx, idle_notify_tx, None).await;
+    run_reader_loop_with_state(reader, pending, notify_tx, idle_notify_tx, None, None).await;
 }

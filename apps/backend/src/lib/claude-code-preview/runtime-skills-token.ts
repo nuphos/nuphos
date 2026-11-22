@@ -66,3 +66,17 @@ export function verifyRuntimeSkillsToken(
 
   return userId ? { teamId, userId } : { teamId }
 }
+
+// The skill bundle's address and credential ride the session; the runtime runs
+// its own sync from them.
+export function skillSyncEnv(
+  teamId: string,
+  skillsOwnerId: string | undefined,
+  base: string,
+): Record<string, string> {
+  return {
+    NUPHOS_RUNTIME_SKILLS_URL: runtimeSkillsUrl(teamId, undefined, base),
+    // Naming a member lets the same sync fetch their personal skills as well.
+    NUPHOS_RUNTIME_SKILLS_TOKEN: mintRuntimeSkillsToken(teamId, skillsOwnerId),
+  }
+}

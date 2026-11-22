@@ -2,6 +2,7 @@ import { faPlus } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { useEffect, useRef, useState } from 'react'
 
+import { api } from '../../../api'
 import { SidebarToggleButton } from '../../../components/Sidebar'
 import { Kbd } from '../../../components/ui/kbd'
 import { Tooltip } from '../../../components/ui/tooltip'
@@ -33,6 +34,7 @@ export function WorkspaceTabs({
   onCloseOthers,
   onReorder,
   onCopyPageUrl,
+  pageWindowUrl,
   sidebarCollapsed,
   onToggleSidebarCollapse,
   leading,
@@ -50,6 +52,7 @@ export function WorkspaceTabs({
   // same closeTab action as Cmd+W, whose single-tab branch replaces the tab
   // with a fresh one and closes the right-hand workspace panel.
   const showClose = tabs.length > 0
+  const contextMenuWindowUrl = tabContextMenu && pageWindowUrl(tabContextMenu.tabId)
 
   const favoriteTeamKey = Array.from(new Set(tabs.map((tab) => tab.scope.teamId)))
     .sort((a, b) => a.localeCompare(b))
@@ -187,7 +190,7 @@ export function WorkspaceTabs({
     // sidebar header puts its own controls. A `pt-1` here pushed the tabs —
     // and the sidebar toggle that reappears beside them once the sidebar is
     // collapsed — 2px below all three.
-    <div className="workspace-dock-toggle-pad sheet-titlebar-row bg-main flex-shrink-0 flex items-center gap-0.5 titlebar-caption-pad titlebar-drag">
+    <div className="pr-[var(--dock-toggle-pad)] sheet-titlebar-row bg-main flex-shrink-0 flex items-center gap-0.5 titlebar-drag">
       {sidebarCollapsed && onToggleSidebarCollapse && (
         // Mirror the sidebar's titlebar button once the sidebar is hidden. On
         // macOS the leading margin clears the traffic lights it now sits beside;
@@ -241,6 +244,9 @@ export function WorkspaceTabs({
           onNew={onNew}
           onDuplicate={onDuplicate}
           onCopyPageUrl={onCopyPageUrl}
+          onOpenInWindow={
+            contextMenuWindowUrl ? () => api.openPageWindow(contextMenuWindowUrl) : undefined
+          }
           toggleFavorite={toggleFavorite}
           handleClose={onClose}
           onCloseOthers={onCloseOthers}

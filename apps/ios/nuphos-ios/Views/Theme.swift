@@ -8,34 +8,62 @@ import AppKit
 /// Palette that follows the system appearance. Every color here has a light
 /// and a dark value; views never force a color scheme.
 enum Theme {
-    /// Page background: #F7F7F7 light, #141414 dark.
-    static let canvas = adaptive(light: 0xF7F7F7, dark: 0x141414)
-    /// Grouped rows / cards on top of the canvas.
-    static let surface = adaptive(light: 0xFFFFFF, dark: 0x202024)
-    /// The chat transcript reads like a page: #FFFFFF light, #141414 dark.
-    static let chatCanvas = adaptive(light: 0xFFFFFF, dark: 0x141414)
-    /// Chips and cards inside the transcript, which `surface` cannot be
-    /// because it matches the transcript's own light-mode background.
-    static let chatSurface = adaptive(light: 0xF1F1F4, dark: 0x202024)
-    /// The user's own chat bubble: a shade off the canvas in either scheme.
-    static let bubble = adaptive(light: 0xE9E9EC, dark: 0x2A2A2E)
-    /// Brand violet (`--landing-brand`), brighter in the dark so it keeps contrast.
-    static let brand = adaptive(light: 0x7D36EC, dark: 0x8B4DFF)
-    /// Brand used as text/tint on the surfaces.
-    static let brandText = adaptive(light: 0x6D28D9, dark: 0xA469FF)
-    /// Unread reply dot — desktop's `bg-zViolet-500`, lifted in the dark
-    /// the way `brand` is so it keeps contrast against #141414.
-    static let unread = adaptive(light: 0x6300FF, dark: 0x8B4DFF)
-    /// Avatar fallback gradient — zViolet-500 → zViolet-700.
-    static let violet500 = Color(hex: 0x6300FF)
-    static let violet700 = Color(hex: 0x3E14A2)
+    // Nuphos Design System v0.6, November 2026.
+    static let canvas = adaptive(light: 0xF5F4F2, dark: 0x141312)
+    static let surface = adaptive(light: 0xFCFBF9, dark: 0x1A1917)
+    static let sunken = adaptive(light: 0xEEECE8, dark: 0x272624)
+    /// Cards that ask for an action, as the composer: lifted by a ring, not a tint.
+    static let raised = adaptive(light: 0xFFFFFE, dark: 0x242321)
+    static let heading = adaptive(light: 0x1C1A17, dark: 0xF2F0EC)
+    static let body = adaptive(light: 0x5C5852, dark: 0xB8B4AD)
+    static let muted = adaptive(light: 0x69645D, dark: 0xA09C95)
+    static let link = adaptive(light: 0x2F4F7F, dark: 0x7C9CCB)
+    static let success = adaptive(light: 0x2B7346, dark: 0x5FB57E)
+    static let attention = adaptive(light: 0xB83A0A, dark: 0xF47A3F)
+    static let warning = attention
+    static let unread = heading
+    static let badge = attention
 
-    static let heading = adaptive(light: 0x18181B, dark: 0xFFFFFF)
-    static let body = adaptive(light: 0x52525B, dark: 0xA1A1AA)
-    static let muted = adaptive(light: 0x84848C, dark: 0x71717A)
-    /// Desktop `--color-warning`, darkened in light mode for contrast.
-    static let warning = adaptive(light: 0xA04606, dark: 0xF5A623)
-    static let hairline = adaptive(light: 0x18181B, dark: 0xFFFFFF, lightAlpha: 0.08, darkAlpha: 0.10)
+    // Compatibility names keep existing controls on the shared palette.
+    static let chatCanvas = surface
+    static let bubble = sunken
+    static let brand = heading
+    static let brandText = link
+    static let violet500 = body
+    static let violet700 = heading
+    static let selected = sunken
+    static let control = sunken
+    static let faint = muted
+    static let outline = heading.opacity(0.12)
+    static let hairline = heading.opacity(0.08)
+    static let separator = heading.opacity(0.08)
+
+    /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
+    /// The characters are drawn for light discs, so the tints stay light in the dark.
+    private static let avatarBackgrounds: [String: Color] = [
+        "sand": adaptive(light: 0xF2E7D3, dark: 0xF2E7D3),
+        "peach": adaptive(light: 0xF8DCCB, dark: 0xF8DCCB),
+        "rose": adaptive(light: 0xF6D5DE, dark: 0xF6D5DE),
+        "lilac": adaptive(light: 0xE5DCF5, dark: 0xE5DCF5),
+        "sky": adaptive(light: 0xD6E6F7, dark: 0xD6E6F7),
+        "mint": adaptive(light: 0xD3EEDF, dark: 0xD3EEDF),
+        "sage": adaptive(light: 0xE1E9D1, dark: 0xE1E9D1),
+        "slate": adaptive(light: 0xE1E4EA, dark: 0xE1E4EA),
+    ]
+
+    /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
+    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { avatarBackgrounds[$0] } }
+
+    enum Space {
+        static let small: CGFloat = 8
+        static let medium: CGFloat = 12
+        static let large: CGFloat = 16
+        static let page: CGFloat = 20
+    }
+    enum Radius {
+        static let button: CGFloat = 10
+        static let card: CGFloat = 14
+    }
 
     private static func adaptive(
         light: UInt32, dark: UInt32,
@@ -59,11 +87,21 @@ enum Theme {
 }
 
 extension View {
+    /// A card that asks for an action (a question, a secret, a plan, a
+    /// connection): the raised surface and its ring, per the design system.
+    /// Passive fills inside the transcript (bubbles, chips) are `Theme.sunken`.
+    func raisedCard(cornerRadius: CGFloat = 14) -> some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+        return background(Theme.raised, in: shape)
+            .overlay(shape.strokeBorder(Theme.hairline, lineWidth: 1))
+            .shadow(color: .black.opacity(0.06), radius: 3, y: 1)
+    }
+
     /// The filled call-to-action. The app tints with `Theme.heading`, which
     /// is white in the dark — the color `.borderedProminent` draws its label
     /// in — so the fill takes the brand instead.
     func prominentButton() -> some View {
-        buttonStyle(.borderedProminent).tint(Theme.brand)
+        buttonStyle(DesignPrimaryButtonStyle())
     }
 
     /// Liquid Glass on iOS 26 and later; a material in the same shape before.
@@ -91,10 +129,10 @@ extension Theme {
     /// Chat typography. Semantic text styles, so the whole scale follows
     /// Dynamic Type; sizes in the comments are the default (Large) ones.
     enum Text {
-        /// Message prose — assistant answers and user bubbles. 17pt.
-        static let body = Font.body
-        /// Supporting prose: thinking, plan steps, tool titles. 15pt.
-        static let secondary = Font.subheadline
+        /// Message prose — assistant answers and user bubbles. 16pt.
+        static let body = Font.callout
+        /// Supporting prose: thinking, plan steps, tool titles. 13pt.
+        static let secondary = Font.footnote
         /// Activity and status lines. 13pt.
         static let label = Font.footnote
         /// Badges, timestamps and counters. 12pt.
@@ -171,5 +209,36 @@ extension View {
     /// for wide windows. Narrower windows are unaffected.
     func readableWidth() -> some View {
         frame(maxWidth: 720).frame(maxWidth: .infinity)
+    }
+}
+
+/// Shared filled action: ink, 10pt corners and a stable native touch target.
+struct DesignPrimaryButtonStyle: ButtonStyle {
+    var minimumHeight: CGFloat = 48
+    @Environment(\.isEnabled) private var enabled
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.callout.weight(.medium))
+            .padding(.horizontal, 16)
+            .frame(minHeight: minimumHeight)
+            .foregroundStyle(enabled ? Theme.surface : Theme.muted)
+            .background(enabled ? Theme.heading : Theme.sunken, in: RoundedRectangle(cornerRadius: 10))
+            .scaleEffect(configuration.isPressed && enabled ? 0.97 : 1)
+    }
+}
+
+struct SetupEmptyState: View {
+    let title: LocalizedStringKey
+    let message: LocalizedStringKey
+    let actionTitle: LocalizedStringKey
+    let action: () -> Void
+    var body: some View {
+        VStack(spacing: 16) {
+            Image("NuphosMark").resizable().scaledToFit().frame(width: 40, height: 40).accessibilityHidden(true)
+            Text(title).font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
+            Text(message).font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
+            Button(actionTitle, action: action).prominentButton().padding(.top, 4)
+        }
+        .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

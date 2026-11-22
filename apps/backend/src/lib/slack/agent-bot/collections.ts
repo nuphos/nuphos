@@ -7,7 +7,9 @@ export type SlackChannelMapping = {
   slackWorkspaceId: string
   slackChannelId: string
   teamId: string
-  agentUserId?: string
+  // The hidden record behind this channel as an external chat (#3702): what
+  // its Bots read and post. Set, it replaces the mention and thread paths.
+  externalChatId?: string
   enabled: boolean
   createdBy: string
   createdAt: Date

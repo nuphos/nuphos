@@ -1,5 +1,8 @@
 package ai.nuphos.android.ui.agent
 
+import ai.nuphos.android.R
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
@@ -35,39 +38,43 @@ internal fun RuntimeChoiceList(
         groups.forEach { group ->
             Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surface) {
                 Column {
+                    val groupState = stringResource(if (expanded == group.key) R.string.agent_expanded else R.string.agent_collapsed)
                     Surface(onClick = { expanded = if (expanded == group.key) null else group.key },
                         color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.semantics { stateDescription = if (expanded == group.key) "Expanded" else "Collapsed" }) {
+                        modifier = Modifier.semantics { stateDescription = groupState }) {
                         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.Top,
                             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box == true || group.key.startsWith("runtime:")) Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null)
+                            Icon(if (group.key == "cloud") Icons.Outlined.Cloud else if (group.device?.box != null || group.key.startsWith("runtime:")) Icons.Outlined.Inventory2 else Icons.Outlined.Computer, null)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(if (group.key == "cloud") "Cloud" else group.title, style = MaterialTheme.typography.titleMedium)
-                                Text("${group.runtimes.size} " + (if (group.runtimes.size == 1) "runtime" else "runtimes") + if (group.runtimes.any { it.id == selectedId }) " · Current" else "",
+                                Text(if (group.key == "cloud") stringResource(R.string.agent_cloud) else group.title, style = MaterialTheme.typography.titleMedium)
+                                val count = pluralStringResource(R.plurals.agent_runtime_count, group.runtimes.size, group.runtimes.size)
+                                Text(if (group.runtimes.any { it.id == selectedId }) stringResource(R.string.agent_runtime_count_current, count) else count,
                                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 group.device?.takeIf { it.online && it.metricsStatus == "live" }?.let { device ->
                                     if (device.cpuPercent != null && device.memory != null && device.disk != null) {
                                         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                            RuntimeResourceMeter("CPU", device.cpuPercent, Modifier.weight(1f))
-                                            RuntimeResourceMeter("MEM", device.memory.percent.toDouble(), Modifier.weight(1f))
-                                            RuntimeResourceMeter("DISK", device.disk.percent.toDouble(), Modifier.weight(1f))
+                                            RuntimeResourceMeter(stringResource(R.string.agent_meter_cpu), device.cpuPercent, Modifier.weight(1f))
+                                            RuntimeResourceMeter(stringResource(R.string.agent_meter_mem), device.memory.percent.toDouble(), Modifier.weight(1f))
+                                            RuntimeResourceMeter(stringResource(R.string.agent_meter_disk), device.disk.percent.toDouble(), Modifier.weight(1f))
                                         }
-                                        if (expanded == group.key) Text("Memory ${runtimeCapacity(device.memory)} · Disk ${runtimeCapacity(device.disk)}",
+                                        if (expanded == group.key) Text(stringResource(R.string.agent_memory_disk, runtimeCapacity(device.memory), runtimeCapacity(device.disk)),
                                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
                             }
                             Icon(if (expanded == group.key) Icons.Outlined.ExpandMore else Icons.Outlined.ChevronRight,
-                                if (expanded == group.key) "Collapse computer" else "Expand computer")
+                                stringResource(if (expanded == group.key) R.string.agent_collapse_computer else R.string.agent_expand_computer))
                         }
                     }
                     if (expanded == group.key) group.runtimes.forEach { runtime ->
                         val displayName = runtime.local?.agentLabel ?: if (runtime.local != null) runtimeProviderName(runtime.provider) else runtime.label
                         HorizontalDivider(Modifier.padding(start = 20.dp))
+                        val choice = if (runtime.id == selectedId) stringResource(R.string.agent_selected_runtime_named, runtime.label)
+                            else stringResource(R.string.agent_use_runtime_named, runtime.label)
                         Surface(onClick = { onSelect(runtime) },
                             enabled = enabled && runtime.selectable && runtime.local?.online != false && group.device?.online != false && quotas[runtime.id]?.needsSignIn != true,
                             color = MaterialTheme.colorScheme.surface,
-                            modifier = Modifier.fillMaxWidth().semantics { selected = runtime.id == selectedId; role = Role.RadioButton; contentDescription = if (runtime.id == selectedId) "Selected ${runtime.label}" else "Use ${runtime.label}" }) {
+                            modifier = Modifier.fillMaxWidth().semantics { selected = runtime.id == selectedId; role = Role.RadioButton; contentDescription = choice }) {
                             Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp).heightIn(min = 48.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 RuntimeMark(runtime.provider, 20.dp)
@@ -76,13 +83,13 @@ internal fun RuntimeChoiceList(
                                     if (displayName != runtimeProviderName(runtime.provider)) Text(runtimeProviderName(runtime.provider),
                                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     when {
-                                        runtime.local?.online == false -> Text("Computer offline", style = MaterialTheme.typography.bodySmall)
-                                        runtime.signedIn == false -> Text("Sign in required", style = MaterialTheme.typography.bodySmall)
+                                        runtime.local?.online == false -> Text(stringResource(R.string.agent_computer_offline), style = MaterialTheme.typography.bodySmall)
+                                        runtime.signedIn == false -> Text(stringResource(R.string.agent_sign_in_required), style = MaterialTheme.typography.bodySmall)
                                         else -> RuntimeUsage(quotas[runtime.id], compact = true)
                                     }
                                 }
-                                if (onDetail != null) IconButton(onClick = { onDetail(runtime) }) { Icon(Icons.Outlined.Info, "Details for ${runtime.label}") }
-                                if (runtime.id == selectedId) Icon(Icons.Outlined.Check, "Selected runtime")
+                                if (onDetail != null) IconButton(onClick = { onDetail(runtime) }) { Icon(Icons.Outlined.Info, stringResource(R.string.agent_details_for, runtime.label)) }
+                                if (runtime.id == selectedId) Icon(Icons.Outlined.Check, stringResource(R.string.agent_selected_runtime))
                             }
                         }
                     }
@@ -93,16 +100,20 @@ internal fun RuntimeChoiceList(
 }
 
 private fun runtimeProviderName(provider: String) = ai.nuphos.android.model.RuntimeIdentity.name(provider)
-private fun runtimeCapacity(capacity: RuntimeDevice.Capacity) = String.format(java.util.Locale.getDefault(), "%.1f / %.1f GB", capacity.used / 1_073_741_824, capacity.total / 1_073_741_824)
+@Composable
+internal fun runtimeCapacity(capacity: RuntimeDevice.Capacity) = stringResource(R.string.agent_capacity_gb, capacity.used / 1_073_741_824, capacity.total / 1_073_741_824)
 
 @Composable
 private fun RuntimeResourceMeter(title: String, value: Double, modifier: Modifier) {
     val percent = value.coerceIn(0.0, 100.0)
     val tint = if (percent >= 95) MaterialTheme.colorScheme.error else if (percent >= 80) androidx.compose.ui.graphics.Color(0xFFAF601A) else MaterialTheme.colorScheme.primary
-    Column(modifier.semantics(mergeDescendants = true) { contentDescription = "$title usage"; stateDescription = "${kotlin.math.round(percent).toInt()} percent used" }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val rounded = kotlin.math.round(percent).toInt()
+    val usage = stringResource(R.string.agent_meter_usage, title)
+    val used = stringResource(R.string.agent_percent_used, rounded)
+    Column(modifier.semantics(mergeDescendants = true) { contentDescription = usage; stateDescription = used }, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("${kotlin.math.round(percent).toInt()}%", style = MaterialTheme.typography.bodySmall, color = if (percent >= 80) tint else MaterialTheme.colorScheme.onSurface)
+            Text(stringResource(R.string.agent_percent, rounded), style = MaterialTheme.typography.bodySmall, color = if (percent >= 80) tint else MaterialTheme.colorScheme.onSurface)
         }
         ContinuousUsageBar(progress = (percent / 100).toFloat(), modifier = Modifier.height(3.dp), color = tint,
             trackColor = MaterialTheme.colorScheme.outlineVariant)

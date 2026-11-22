@@ -66,6 +66,8 @@ export type SessionResource = {
   draft?: boolean
   /** When a linked pull request was merged, as GitHub reports it. */
   mergedAt?: string
+  /** A GitHub issue rather than a pull request; absent for pull requests. */
+  kind?: 'issue'
   linkedAt: string
   /** When a read last checked the provider for changes webhooks may have missed. */
   checkedAt?: string
@@ -130,11 +132,14 @@ export async function bindSessionResource(
 }
 
 export async function unlinkSessionResource(actor: ResourceActor, id: string) {
-  await resourceConversation(actor, true)
+  const conversation = await resourceConversation(actor, true)
+  // The resource list exposes both the stable provider key and the binding UUID.
+  const bindingId = conversation.linkedResources?.find((entry) => entry.key === id)?.id ?? id
+
   await Promise.all([
     agentConversations().updateOne(
       { sessionId: actor.sessionId, teamId: actor.teamId },
-      { $pull: { linkedResources: { id } } },
+      { $pull: { linkedResources: { id: bindingId } } },
     ),
     unlinkSessionThread(actor.sessionId, id),
   ])
@@ -166,7 +171,12 @@ export async function refreshSessionResource(
   conversation: AgentConversation,
   resource: SessionResource,
 ) {
-  const fresh = await resolveResource(conversation, conversation.userId, lookupInput(resource))
+  const fresh = await resolveResource(
+    conversation,
+    conversation.userId,
+    lookupInput(resource),
+    resource,
+  )
 
   return writeFreshResource(conversation.sessionId, resource, fresh)
 }

@@ -17,12 +17,11 @@ import { test } from 'node:test'
 
 import {
   claudeHomeSettings,
-  hardLinkFrom,
-  podOwnerAgentHome,
   prepareAgentHome,
   prepareClaudeHome,
   prepareCodexHome,
 } from './agent-home.ts'
+import { linkOwnerFile } from './owner-file-link.ts'
 
 const CUA_CACHE = path.join('plugins', 'cache', 'openai-bundled', 'unified-computer-use')
 const CUA_CLIENT = path.join(
@@ -213,7 +212,7 @@ test('changing CODEX_HOME relinks only isolated symlinks, without copying creden
   assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{}')
 })
 
-test('on Windows the login is a hard link that follows the owner’s login', (t) => {
+test('on Windows the login follows the owner’s login', (t) => {
   const f = codexFixture(t)
   const home = path.join(f.dir, 'codex-home')
   const link = path.join(home, 'auth.json')
@@ -221,24 +220,24 @@ test('on Windows the login is a hard link that follows the owner’s login', (t)
   mkdirSync(home)
   // What earlier Windows builds left behind: a link Codex cannot read.
   symlinkSync(path.join(f.owner, 'auth.json'), link)
-  hardLinkFrom(f.owner, home, 'auth.json')
+  linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(statSync(link).ino, statSync(path.join(f.owner, 'auth.json')).ino)
 
-  // Codex rewrites the file in place, so a refreshed token reaches both homes.
+  // A write through the link reaches the owner's file.
   writeFileSync(link, '{"tokens":1}')
   assert.equal(readFileSync(path.join(f.owner, 'auth.json'), 'utf8'), '{"tokens":1}')
 
   // The owner signed in again: the stale hard link follows the new file.
   rmSync(path.join(f.owner, 'auth.json'))
   writeFileSync(path.join(f.owner, 'auth.json'), '{"tokens":2}')
-  hardLinkFrom(f.owner, home, 'auth.json')
+  linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(readFileSync(link, 'utf8'), '{"tokens":2}')
 
   // A login made here stays while the owner has none.
   rmSync(path.join(f.owner, 'auth.json'))
   rmSync(link)
   writeFileSync(link, '{"own":true}')
-  hardLinkFrom(f.owner, home, 'auth.json')
+  linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
 })
 
@@ -252,7 +251,7 @@ test('on Windows a login that cannot be linked leaves the current one in place',
   // A directory cannot be hard-linked, so linkSync fails as it does across volumes.
   rmSync(path.join(f.owner, 'auth.json'))
   mkdirSync(path.join(f.owner, 'auth.json'))
-  hardLinkFrom(f.owner, home, 'auth.json')
+  linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(readFileSync(link, 'utf8'), '{"own":true}')
   assert.deepEqual(readdirSync(home), ['auth.json'])
 })
@@ -263,36 +262,6 @@ test('on Windows without the owner’s login nothing is linked', (t) => {
 
   rmSync(path.join(f.owner, 'auth.json'))
   mkdirSync(home)
-  hardLinkFrom(f.owner, home, 'auth.json')
+  linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(existsSync(path.join(home, 'auth.json')), false)
-})
-
-test('a hosted pod’s owner uses the pod’s own Claude login; other members keep theirs', (t) => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-pod-owner-'))
-
-  t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const data = path.join(dir, 'agent')
-  const home = path.join(dir, 'home')
-  const prepare = podOwnerAgentHome('owner-1', data, { NUPHOS_AGENT_OWNER_ID: 'owner-1' }, home)
-  const member = (id: string) => path.join(data, 'users', id)
-
-  assert.equal(
-    prepare('claude-code', member('owner-1'), path.join(member('owner-1'), 'workspace'), {}),
-    path.join(home, '.claude'),
-  )
-  // Another member on a team-wide pod never reads the owner's login.
-  assert.equal(
-    prepare('claude-code', member('member-2'), path.join(member('member-2'), 'workspace'), {}),
-    path.join(member('member-2'), 'claude-home'),
-  )
-  // Without a named owner, as on a Box or a person's computer, nothing changes.
-  assert.equal(
-    podOwnerAgentHome('owner-1', data, {}, home)(
-      'claude-code',
-      member('owner-1'),
-      path.join(member('owner-1'), 'workspace'),
-      {},
-    ),
-    path.join(member('owner-1'), 'claude-home'),
-  )
 })

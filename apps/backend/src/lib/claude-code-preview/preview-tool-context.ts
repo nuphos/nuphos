@@ -17,8 +17,12 @@ export type PreviewToolContext = {
   /** Who started the active turn: a live user, or a trigger/automation/alert. */
   turnOrigin?: AgentSessionOrigin
   locale: string
+  /** The agent the conversation runs on (`antigravity`, `codex`, …), when pinned. */
+  agentRuntime?: string
   /** Whether the client driving this turn can run tools on the user's machine. */
   localTools?: boolean
+  /** Whether that client draws the secure input card, as the phone apps do without local tools. */
+  secretCard?: boolean
   /** Architecture diagram the desktop tab has open, when any. */
   diagramId?: string
   /** Slack thread the conversation is bound to, when any. */

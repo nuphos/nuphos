@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { nativeSkillFiles } from '@/lib/claude-code-preview/native-skills'
 import { useDb } from '@/lib/test/doubles/db'
 import { useSkillStoreService } from '@/lib/test/doubles/skill-store-service'
 import { repoTarball } from '@/lib/test/repo-tarball'
 
 import { CLAIM_TTL_MS } from './claims'
-import { installGithubSkills, previewGithubSkills } from './install'
+import { GITHUB_SKILL_LIMITS, installGithubSkills, previewGithubSkills } from './install'
 import { readRepoTarball } from './tarball'
 
 import type { SkillObjectWrite } from '@/lib/agent/skill-store/service'
@@ -139,6 +140,45 @@ describe('GitHub skill install', () => {
       ['pdf', null],
     ])
     expect(preview.skills.at(-1)).toMatchObject({ fileCount: 2, skipped: ['link'] })
+  })
+
+  test('a skill with hundreds of files installs, and one past the limit says what the limit is', async () => {
+    const files = (name: string, count: number) => [
+      { path: `skills/${name}/SKILL.md`, content: skillMd(name) },
+      ...Array.from({ length: count - 1 }, (_, index) => ({
+        path: `skills/${name}/assets/${String(index)}.txt`,
+        content: 'x',
+      })),
+    ]
+    const large = repoTarball([...files('large', 408), ...files('huge', 1001)], { commitSha: sha })
+    const read = async () =>
+      readRepoTarball(large) as ReturnType<typeof readRepoTarball> & { commitSha: string }
+    const preview = await previewGithubSkills(scope, 'acme/skills', read)
+
+    expect(Object.fromEntries(preview.skills.map((skill) => [skill.name, skill.problem]))).toEqual({
+      large: null,
+      huge: {
+        code: 'too_many_files',
+        message: 'Has 1,001 files; a skill can have at most 1,000',
+      },
+    })
+    await installGithubSkills(
+      scope,
+      { source: 'acme/skills', commitSha: sha, names: ['large'] },
+      context,
+      read,
+    )
+    expect(writes[0]).toHaveLength(408)
+  })
+
+  test('a skill at the file limit leaves the runtime bundle room for as many files again', () => {
+    // The bundle refuses the whole team's skills once it is over its own limit.
+    const files = Array.from({ length: GITHUB_SKILL_LIMITS.files * 2 }, (_, index) => ({
+      relPath: `skill/${String(index)}.txt`,
+      content: Buffer.from('x'),
+    }))
+
+    expect(nativeSkillFiles(files)).toHaveLength(files.length)
   })
 
   test('install writes the skill at the previewed commit and records its origin', async () => {

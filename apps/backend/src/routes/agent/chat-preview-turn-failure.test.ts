@@ -5,7 +5,10 @@ import { expect, test } from 'bun:test'
 import { runClaudeCodePreviewChatTurn } from './chat-preview-turn'
 import { createAgentRun } from './run-registry'
 
-import { OpenAbConnectionLostError } from '@/lib/claude-code-preview/openab-acp-errors'
+import {
+  OpenAbConnectionLostError,
+  OpenAbRpcError,
+} from '@/lib/claude-code-preview/openab-acp-errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useChatPreviewPrepare } from '@/lib/test/doubles/chat-preview-prepare'
 import { useClaudeCodePreviewRuntime } from '@/lib/test/doubles/claude-code-preview-runtime'
@@ -17,6 +20,8 @@ const persisted: { messages: { role: string; parts: unknown[] }[] }[] = []
 let cause: string | Error = ''
 let cleared = 0
 let carried: PendingUserMessage[] = []
+/** Set to stop that run before its prompt is sent, as the real prompt reports it. */
+let stopBeforeSend: ReturnType<typeof createAgentRun> | null = null
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
 useAgentDb({
@@ -42,6 +47,11 @@ useChatPreviewPrepare({
 })
 useClaudeCodePreviewRuntime({
   runClaudeCodePreviewPrompt: async (args) => {
+    if (stopBeforeSend) {
+      stopBeforeSend.abortController.abort()
+
+      return { stopReason: 'cancelled', unsent: true }
+    }
     args.onTextDelta('Saved the first change.')
     args.onAgentUpdate?.({
       kind: 'tool',
@@ -202,6 +212,38 @@ test('an app message refused by the runtime records nothing, so the app sends it
   expect(run.frames.join('')).not.toContain('turn-interrupted')
 })
 
+test('an answer whose computer is offline records nothing, so it waits and is not asked again', async () => {
+  const { AppError } = await import('@/lib/errors')
+
+  cause = new AppError(409, 'runtime_offline', 'The computer running this agent is offline.')
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-offline')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), clientResendsRefusal: true }),
+  ).rejects.toMatchObject({ code: 'runtime_offline' })
+  expect(persisted).toHaveLength(before)
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+})
+
+test('a queued turn whose agent is out of usage records nothing, so it waits in the queue', async () => {
+  cause = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your weekly limit · resets 4pm (UTC)",
+    -32603,
+  )
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-limit')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      clientResendsRefusal: true,
+      waitsOutUsage: true,
+    }),
+  ).rejects.toThrow('weekly limit')
+  expect(persisted).toHaveLength(before)
+})
+
 test('a refused turn is still recorded when nobody resends it', async () => {
   const { AppError } = await import('@/lib/errors')
 
@@ -233,5 +275,99 @@ test('an app refusal puts the queued messages it drained back for the resent tur
   expect(persisted).toHaveLength(before)
   expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
     expect.objectContaining({ id: 'queued', renderedText: 'also this' }),
+  ])
+})
+
+const waiting = (id: string, text: string): PendingUserMessage => ({
+  id,
+  renderedText: text,
+  source: 'app',
+  receivedAt: '2026-11-15T00:00:00Z',
+})
+
+test('Stop before the agent receives a queued message puts it back instead of recording it', async () => {
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+  const queued = waiting('user-message', 'fix it')
+
+  carried = [waiting('queued-behind', 'also this')]
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-stopped-unsent')
+
+  stopBeforeSend = run
+  try {
+    await runClaudeCodePreviewChatTurn({ ...turnArgs(run), queued })
+  } finally {
+    stopBeforeSend = null
+    carried = []
+  }
+  expect(persisted).toHaveLength(before)
+  expect(run.frames.join('')).not.toContain('turn-interrupted')
+  expect(run.done).toBe(true)
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'user-message', attempts: 1 }),
+    expect.objectContaining({ id: 'queued-behind' }),
+  ])
+})
+
+const outOfUsage = () =>
+  new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8am (UTC)",
+    -32603,
+  )
+
+test("a person's queued message whose agent is out of usage goes back to the queue, unrecorded", async () => {
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+
+  cause = outOfUsage()
+  const before = persisted.length
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-queued')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({ ...turnArgs(run), queued: waiting('user-message', 'fix it') }),
+  ).rejects.toThrow('session limit')
+  expect(persisted).toHaveLength(before)
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'user-message', attempts: 1 }),
+  ])
+})
+
+test('a direct send whose agent is out of usage is still recorded with the reason', async () => {
+  cause = outOfUsage()
+  const run = createAgentRun('user-failure', 'session-failure', 'run-usage-direct')
+
+  await expect(
+    runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      queued: waiting('user-message', 'fix it'),
+      direct: true,
+    }),
+  ).rejects.toThrow('session limit')
+  expect(persisted.at(-1)!.messages.at(-1)!.parts).toContainEqual(
+    expect.objectContaining({ type: 'turn-interrupted' }),
+  )
+})
+
+// #2872: a direct send carries its message too, for a refusal to queue, and Stop used to queue it.
+test('Stop before the agent receives a direct send records the stop and keeps what waited behind it', async () => {
+  const { drainPendingUserMessages } = await import('@/lib/agent/pending-messages')
+
+  carried = [waiting('queued-behind', 'also this')]
+  const run = createAgentRun('user-failure', 'session-failure', 'run-stopped-unsent-direct')
+
+  stopBeforeSend = run
+  try {
+    await runClaudeCodePreviewChatTurn({
+      ...turnArgs(run),
+      queued: waiting('user-message', 'fix it'),
+      direct: true,
+    })
+  } finally {
+    stopBeforeSend = null
+    carried = []
+  }
+  expect(persisted.at(-1)!.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+  expect(run.frames.join('')).toContain('turn-interrupted')
+  expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
+    expect.objectContaining({ id: 'queued-behind' }),
   ])
 })

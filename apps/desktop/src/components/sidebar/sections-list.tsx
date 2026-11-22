@@ -19,7 +19,6 @@ import { FoldedStatus } from './folded-status'
 import { NestedRowBody } from './nest-guides'
 import { SidebarSectionSkeleton } from './parts'
 import { RowDetail } from './row-detail'
-import { rowNote } from './row-note'
 import { SessionRowSurface } from './SessionRowSurface'
 import { SidebarSectionHeading } from './SidebarSectionHeading'
 import { isSidebarItemActive } from './types'
@@ -49,7 +48,7 @@ type SectionListProps = {
 function foldLabel(item: Item, folded: boolean): string {
   if (item.project) return folded ? t('Expand') : t('Collapse')
 
-  return folded ? t('Show sub-agents') : t('Hide sub-agents')
+  return folded ? t('Show sub-tasks') : t('Hide sub-tasks')
 }
 
 export function SidebarSectionList({
@@ -111,7 +110,7 @@ export function SidebarSectionList({
                     ) : (
                       folds(section)
                         .nest()
-                        .map(({ item, trail, hasChildren, hidden, done }) => {
+                        .map(({ item, trail, hasChildren, hidden }) => {
                           const Icon = item.icon
                           const leading = item.iconNode ?? (Icon && <SidebarNavIcon icon={Icon} />)
                           const isActive =
@@ -135,7 +134,13 @@ export function SidebarSectionList({
                           const bot = twoLine || Boolean(item.botNested)
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
-                              pin={Boolean(item.bot || item.botChannelOf)}
+                              pin={
+                                item.bot || item.botChannelOf
+                                  ? 'bot'
+                                  : item.channel
+                                    ? 'chat'
+                                    : undefined
+                              }
                               favorited={favorited}
                               label={item.label}
                               onToggle={() => toggleFavorite(item)}
@@ -154,9 +159,11 @@ export function SidebarSectionList({
                                 folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
-                                'flex-shrink-0 inline-flex items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
-                                // Always in flow so the row never reflows; shown at rest only when folded.
-                                !folded && 'invisible group-hover:visible',
+                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                                // Hidden controls take no width; folded rows keep their disclosure visible.
+                                folded
+                                  ? 'inline-flex'
+                                  : 'hidden group-hover:inline-flex group-focus-within:inline-flex',
                               )}
                             >
                               {folded ? (
@@ -204,10 +211,9 @@ export function SidebarSectionList({
                                 }}
                                 label={item.label}
                                 preview={twoLine ? (item.previewNode ?? item.preview) : undefined}
-                                labelShimmer={item.labelShimmer}
                                 time={twoLine ? item.time : undefined}
                                 animateLabel={chatRow}
-                                note={rowNote(item, done, folds(section))}
+                                note={item.note}
                                 badge={item.badge}
                                 trailing={
                                   <>

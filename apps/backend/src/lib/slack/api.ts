@@ -26,6 +26,8 @@ export {
   publishSlackHomeView,
   removeSlackReaction,
 } from '@/lib/slack/api/misc'
+export { fetchSlackChannelMembers } from '@/lib/slack/api/users'
 
 export type { SlackSuggestedPrompt } from '@/lib/slack/api/assistant'
 export type { SlackApiResponse } from '@/lib/slack/api/client'
+export type { SlackMember } from '@/lib/slack/api/users'

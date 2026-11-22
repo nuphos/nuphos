@@ -1,7 +1,7 @@
-// Renderer-side PostHog wrapper. Initializes posthog-js with autocapture +
-// masked session replay, and exposes typed helpers for identify/reset, custom
-// events, and pageviews. All calls are safe no-ops until init() runs and finds
-// a key, so callers never need to null-check.
+// Renderer-side PostHog wrapper. Initializes posthog-js with autocapture (no
+// element text or attributes, no session replay), and exposes typed helpers
+// for identify/reset, custom events, and pageviews. All calls are safe no-ops
+// while usage data is not being sent, so callers never need to null-check.
 import posthog from 'posthog-js'
 
 import { setFrontendErrorReporter } from './frontendErrorReporter'
@@ -23,7 +23,8 @@ const KEY =
   (import.meta.env.PROD ? DEFAULT_KEY : undefined)
 const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
-let started = false
+// Usage data is being sent. While it is not, nothing here calls into posthog-js.
+let sending = false
 let subscribed = false
 
 /** Closed event-name union so call sites stay consistent and greppable. */
@@ -33,8 +34,8 @@ export type AnalyticsEvent =
   | 'logout'
   | 'team_switched'
   | 'navigation'
-  | 'tab_opened'
-  | 'tab_closed'
+  // Click on a chat's row to its messages on screen, in ms.
+  | 'chat_switch'
   | 'agent_chat_started'
   | 'agent_client_tool_deadline_exceeded'
   | 'agent_message_sent'
@@ -53,9 +54,6 @@ export type AnalyticsEvent =
   | 'agent_resume_dispatched'
   | 'agent_end_effects_deferred'
   | 'agent_end_effects_drained'
-  | 'agent_plan_approved'
-  | 'agent_plan_rejected'
-  | 'agent_plan_changes_requested'
   // Trust depth. The decision is a GRADIENT (once < session < always), not a
   // boolean approve/reject: how far the user is willing to let the agent run
   // unattended is the signal, and it stays readable without knowing how wide
@@ -127,17 +125,20 @@ export function setActiveTeam(teamId: string | null): void {
 }
 
 export function initAnalytics(): void {
-  if (!subscribed && window.api?.onSendDiagnosticsChanged) {
+  if (!subscribed && window.api?.onSendUsageDataChanged) {
     subscribed = true
-    // "Send crash reports and usage data" changed (main owns the setting).
-    window.api.onSendDiagnosticsChanged((send) => {
-      if (!started) initAnalytics()
+    // The setting or the backend changed (main owns both): usage data is sent
+    // only with the setting on and Nuphos Cloud as the backend. Opting out is
+    // not enough, because identify and reset still ask the host for flags.
+    window.api.onSendUsageDataChanged((send) => {
+      sending = send && posthog.__loaded
+      if (!posthog.__loaded) initAnalytics()
       else if (send) posthog.opt_in_capturing()
       else posthog.opt_out_capturing()
     })
   }
-  if (started || !KEY || !(window.api?.sendDiagnostics() ?? true)) return
-  started = true
+  if (posthog.__loaded || !KEY || !(window.api?.sendUsageData() ?? true)) return
+  sending = true
   setFrontendErrorReporter(trackError)
   posthog.init(KEY, {
     api_host: HOST,
@@ -152,14 +153,10 @@ export function initAnalytics(): void {
     // listener on the window that forced a layout on every scroll anywhere in
     // the app, including each frame of the dock's width transition.
     disable_scroll_properties: true,
-    // This tool renders secrets, tokens, env vars, and pod logs. Record with
-    // heavy masking: every input is masked, plus any element tagged sensitive
-    // (logs/code/secret values) has its text scrubbed from the replay.
-    disable_session_recording: false,
-    session_recording: {
-      maskAllInputs: true,
-      maskTextSelector: '[data-ph-mask], .secret, .token, .sensitive, pre, code',
-    },
+    // Clicks carry no element text or attributes (titles, names, secrets); no replay.
+    mask_all_text: true,
+    mask_all_element_attributes: true,
+    disable_session_recording: true,
     persistence: 'localStorage',
     // Prevent PostHog from fetching/injecting any out-of-bundle scripts
     // (surveys, toolbar) into the renderer at runtime — those would execute
@@ -182,7 +179,7 @@ async function mirrorIdentityToMain(user: UserInfo): Promise<void> {
 }
 
 export function identifyUser(user: UserInfo): void {
-  if (started) {
+  if (sending) {
     posthog.identify(user.id, {
       email: user.email,
       name: user.name,
@@ -195,14 +192,14 @@ export function identifyUser(user: UserInfo): void {
 
 export function resetAnalytics(): void {
   // Unconditional: the next user may not be in this team, so the scope must
-  // drop even when posthog itself never started (no key configured).
+  // drop even when posthog itself is not in use (no key, or usage data off).
   setActiveTeam(null)
-  if (!started) return
+  if (!sending) return
   posthog.reset()
 }
 
 export function track(event: AnalyticsEvent, props?: Props): void {
-  if (!started) return
+  if (!sending) return
   posthog.capture(event, withTeam(props))
 }
 
@@ -231,7 +228,7 @@ const recentErrorReports = new Map<string, number>()
  * break the surface that is already handling a failure.
  */
 export function trackError(report: RendererErrorReport, cause?: unknown): void {
-  if (!started) return
+  if (!sending) return
   try {
     const message = sanitizeReportText(report.message) ?? 'unknown error'
     const description = sanitizeReportText(report.description)
@@ -282,7 +279,7 @@ export function trackError(report: RendererErrorReport, cause?: unknown): void {
 }
 
 export function trackPageview(location: { pathname: string; href: string }, props?: Props): void {
-  if (!started) return
+  if (!sending) return
   posthog.capture(
     '$pageview',
     withTeam({
@@ -294,7 +291,7 @@ export function trackPageview(location: { pathname: string; href: string }, prop
 }
 
 export function captureRendererException(error: unknown, props?: Props): string | null {
-  if (!started) return null
+  if (!sending) return null
 
   return posthog.captureException(error, withTeam(props))?.uuid ?? null
 }

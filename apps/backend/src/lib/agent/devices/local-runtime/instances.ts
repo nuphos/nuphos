@@ -15,18 +15,22 @@ const responseSchema = z.discriminatedUnion('ok', [
     ok: z.literal(true),
     instance: agentInstanceSchema.optional(),
     display: z.number().int().min(0).max(255).optional(),
+    enabled: z.boolean().optional(),
   }),
   z.object({ ok: z.literal(false), error: z.string().max(500) }),
 ])
 
 type Target = { userId: string; actorId: string; deviceId: string; teamId: string }
 type Options = { deps?: DeviceRuntimeSocketDeps; timeoutMs?: number }
-type Answer = { instance?: AgentInstance; display?: number }
+type Answer = { instance?: AgentInstance; display?: number; enabled?: boolean }
 
 /** One request over the device's own tunnel; the host answers once and closes. */
 function requestInstances(
   target: Target,
-  body: { method: 'create' | 'commit' | 'remove' | 'desktop' } & Record<string, unknown>,
+  body: { method: 'create' | 'commit' | 'remove' | 'desktop' | 'update' | 'autoInstall' } & Record<
+    string,
+    unknown
+  >,
   options: Options,
 ): Promise<Answer> {
   const socket = new DeviceRuntimeSocket(
@@ -45,14 +49,14 @@ function requestInstances(
       else resolve(result)
     }
     const timer = setTimeout(() => {
-      finish(new AppError(504, 'agent_instance_timeout', 'The Box did not answer in time.'))
+      finish(new AppError(504, 'agent_instance_timeout', 'The computer did not answer in time.'))
     }, options.timeoutMs ?? 10_000)
 
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify(body))
     })
     socket.addEventListener('close', () => {
-      finish(new AppError(409, 'runtime_offline', 'The Box disconnected before answering.'))
+      finish(new AppError(409, 'runtime_offline', 'The computer disconnected before answering.'))
     })
     socket.addEventListener('message', (event) => {
       try {
@@ -68,14 +72,14 @@ function requestInstances(
           (response.instance.instanceId !== body.instanceId ||
             (body.provider && response.instance.provider !== body.provider))
         )
-          throw new Error('The Box returned a different agent instance')
+          throw new Error('The computer returned a different agent instance')
         finish(undefined, response)
       } catch {
         finish(
           new AppError(
             502,
             'agent_instance_invalid_response',
-            'The Box returned an invalid answer.',
+            'The computer returned an invalid answer.',
           ),
         )
       }
@@ -101,7 +105,7 @@ export async function createLocalAgentInstance(
     throw new AppError(
       502,
       'agent_instance_invalid_response',
-      'The Box returned an invalid answer.',
+      'The computer returned an invalid answer.',
     )
 
   return created
@@ -147,8 +151,31 @@ export async function openLocalDesktop(
     throw new AppError(
       502,
       'agent_instance_invalid_response',
-      'The Box returned an invalid answer.',
+      'The computer returned an invalid answer.',
     )
 
   return display
+}
+
+/** Turns the computer's automatic updates on or off; it answers with the switch as it now is. */
+export async function setLocalAutoInstall(
+  target: Target,
+  enabled: boolean,
+  options: Options = {},
+): Promise<{ enabled: boolean }> {
+  const answer = await requestInstances(target, { method: 'autoInstall', enabled }, options)
+
+  if (typeof answer.enabled !== 'boolean')
+    throw new AppError(
+      502,
+      'agent_instance_invalid_response',
+      'The computer returned an invalid answer.',
+    )
+
+  return { enabled: answer.enabled }
+}
+
+/** Has the computer's Nuphos Desktop restart into the update it staged; it refuses while busy. */
+export async function updateLocalApp(target: Target, options: Options = {}): Promise<void> {
+  await requestInstances(target, { method: 'update' }, options)
 }

@@ -1,3 +1,5 @@
+import { isBot } from '@/lib/agent/db/read-state'
+
 import { previewSessionAccess } from './credentials-mcp'
 import { sessionMeta } from './openab-acp-session'
 import { runtimeProvider } from './runtime-provider'
@@ -25,6 +27,8 @@ export async function sessionConfigRestoreContext(
       external: endpoint?.external,
       backendUrl: endpoint?.backendUrl,
       parentSessionId: conversation.parentSessionId,
+      sessionHomeEpoch: conversation.sessionHomeEpoch,
+      bot: isBot(conversation),
     },
   )
   const provider = runtimeProvider(conversation.agentRuntime)
@@ -35,7 +39,6 @@ export async function sessionConfigRestoreContext(
     teamId,
     sessionId: conversation.sessionId,
     locale: conversation.metadata?.locale ?? 'en',
-    userTexts: [conversation.firstMessage],
     ...conversation.claudeCodePreviewContext,
   })
 

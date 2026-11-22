@@ -1,13 +1,20 @@
 import { agentApi } from './api/agent-api.ts'
 import { appApi } from './api/app-api.ts'
-import { channelsApi } from './api/channels-api.ts'
 import { awsApi } from './api/aws-api.ts'
+import { bindingAccessApi } from './api/binding-access-api.ts'
 import { browserExtensionsApi } from './api/browser-extensions-api.ts'
+import { channelsApi } from './api/channels-api.ts'
 import { cloudflareApi } from './api/cloudflare-api.ts'
 import { cloudflarePagesApi } from './api/cloudflare-pages-api.ts'
 import { databaseApi } from './api/database-api.ts'
 import { deviceApi } from './api/device-api.ts'
-import { isAccountGone, isNetworkError, isSessionRejected, parseAtlasError } from './api/errors.ts'
+import {
+  isAccountGone,
+  isNetworkError,
+  isNotFound,
+  isSessionRejected,
+  parseAtlasError,
+} from './api/errors.ts'
 import { gcpClustersApi } from './api/gcp-clusters-api.ts'
 import { gitApi } from './api/git-api.ts'
 import { instructionsApi } from './api/instructions-api.ts'
@@ -19,15 +26,17 @@ import { posthogApi } from './api/posthog-api.ts'
 import { providerAccessApi } from './api/provider-access-api.ts'
 import { shellApi } from './api/shell-api.ts'
 import { teamApi } from './api/team-api.ts'
+import { webhooksApi } from './api/webhooks-api.ts'
 import { reportFrontendError } from './lib/frontendErrorReporter.ts'
 import { instrumentApi } from './lib/instrumentApi.ts'
 import { withStepUp } from './lib/stepUp.ts'
 
 import type { WindowAgentApi } from './api/window-agent.ts'
 import type { WindowAppApi } from './api/window-app.ts'
-import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowAwsApi } from './api/window-aws.ts'
+import type { WindowBindingAccessApi } from './api/window-binding-access.ts'
 import type { WindowBrowserExtensionsApi } from './api/window-browser-extensions.ts'
+import type { WindowChannelsApi } from './api/window-channels.ts'
 import type { WindowCloudflarePagesApi } from './api/window-cloudflare-pages.ts'
 import type { WindowCloudflareApi } from './api/window-cloudflare.ts'
 import type { WindowDatabaseApi } from './api/window-database.ts'
@@ -44,6 +53,7 @@ import type { WindowProviderAccessApi } from './api/window-provider-access.ts'
 import type { WindowSessionAccessApi } from './api/window-session-access.ts'
 import type { WindowShellApi } from './api/window-shell.ts'
 import type { WindowTeamApi } from './api/window-team.ts'
+import type { WindowWebhooksApi } from './api/window-webhooks.ts'
 
 export * from './api/agent-audit-types.ts'
 export * from './api/agent-trigger-types.ts'
@@ -71,6 +81,7 @@ declare global {
       WindowIntegrationsApi &
       WindowPosthogApi &
       WindowPlaudApi &
+      WindowBindingAccessApi &
       WindowSessionAccessApi &
       WindowChannelsApi &
       WindowAwsApi &
@@ -79,6 +90,7 @@ declare global {
       WindowAgentApi &
       WindowShellApi &
       WindowInstructionsApi &
+      WindowWebhooksApi &
       WindowDeviceApi &
       WindowBrowserExtensionsApi
   }
@@ -96,6 +108,7 @@ const rawApi = {
   ...integrationsApi,
   ...posthogApi,
   ...plaudApi,
+  ...bindingAccessApi,
   ...awsApi,
   ...gcpClustersApi,
   ...gitApi,
@@ -103,6 +116,7 @@ const rawApi = {
   ...channelsApi,
   ...shellApi,
   ...instructionsApi,
+  ...webhooksApi,
   ...deviceApi,
   ...browserExtensionsApi,
 }
@@ -137,6 +151,12 @@ export const api = instrumentApi(
     // A file transfer is deleted a day after upload, so every view of an older
     // message resolves a group that is gone; its callers show it as expired.
     if (parsed.code === 'transfer_not_found' || parsed.code === 'transfer_expired') return
+    // A chat keeps the card of a Trigger deleted since, and the card re-reads it
+    // on every focus and shows it as removed.
+    if (operation === 'agentGetTrigger' && isNotFound(error)) return
+    // A chip for a pull request the team's GitHub App cannot read re-reads it
+    // every minute and still links to it.
+    if (parsed.code === 'pull_forbidden' || parsed.code === 'pull_not_found') return
 
     reportFrontendError(
       {

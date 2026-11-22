@@ -9,7 +9,7 @@ import {
 import { mongoDatabasePlanAction, mongoPlanChangeStatus } from '@/lib/database-change-plan/view'
 import { canAccessDatabaseConnection, classifyDatabaseError } from '@/lib/database-connections'
 import { decryptDatabaseCredential } from '@/lib/database-credentials'
-import { resolveDatabaseNetwork } from '@/lib/database-network'
+import { resolveDatabaseNetwork, savedNetwork } from '@/lib/database-network'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
 
@@ -125,6 +125,7 @@ export async function executeMongoDatabasePlan(input: {
       input.connection.teamId,
       input.connection.networkMode,
       input.connection.tailscale,
+      savedNetwork,
     )
 
     result = await runMongoDatabaseChange(

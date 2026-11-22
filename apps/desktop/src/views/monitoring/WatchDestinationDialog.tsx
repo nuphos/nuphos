@@ -1,8 +1,8 @@
 import { Dialog } from '@base-ui/react/dialog'
 import { RadioGroup } from '@base-ui/react/radio-group'
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
-import { faInbox, faUser, faXmark } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { X as XIcon, User as UserIcon, Inbox as InboxIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
@@ -10,6 +10,7 @@ import { parseAtlasError } from '../../api/errors'
 import { Button } from '../../components/ui/button'
 import { AppSelect } from '../../components/ui/select'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { slackDmRecipientCopy } from '../../lib/monitoringWatch'
 
@@ -161,7 +162,7 @@ export function WatchDestinationDialog({
               className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-tertiary hover:bg-state-hover hover:text-main"
               aria-label={t('Close')}
             >
-              <FontAwesomeIcon icon={faXmark} className="h-3.5 w-3.5" />
+              <UiIcon size={14} icon={XIcon} className="h-3.5 w-3.5" />
             </Dialog.Close>
           </div>
 
@@ -174,7 +175,7 @@ export function WatchDestinationDialog({
             <WatchDestinationCard
               value="nuphos"
               selected={destination === 'nuphos'}
-              icon={<FontAwesomeIcon icon={faInbox} className="h-4 w-4" />}
+              icon={<UiIcon size={14} icon={InboxIcon} className="h-3.5 w-3.5" />}
               title="Nuphos"
               description={t('Investigate and keep the findings in Nuphos.')}
             />
@@ -182,7 +183,7 @@ export function WatchDestinationDialog({
               value="slack_dm"
               selected={destination === 'slack_dm'}
               disabled={!dmAvailable}
-              icon={<FontAwesomeIcon icon={faUser} className="h-4 w-4" />}
+              icon={<UiIcon size={14} icon={UserIcon} className="h-3.5 w-3.5" />}
               title={dmCopy?.title ?? t('Slack DM')}
               description={
                 loadingSlack
@@ -236,7 +237,7 @@ export function WatchDestinationDialog({
               {t('Cancel')}
             </Dialog.Close>
             <Button size="sm" type="button" disabled={!canContinue} onClick={submit}>
-              {t('Continue in Agent')}
+              {t('Continue in a task')}
             </Button>
           </div>
         </Dialog.Popup>

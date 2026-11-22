@@ -14,13 +14,13 @@ const started: {
   messages: unknown[]
 }[] = []
 const answers: unknown[][] = []
+const dismissals: unknown[][] = []
 let answerFails = false
+let answerError = 'This question is no longer open'
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
   value: {
-    addEventListener: () => {},
-    removeEventListener: () => {},
     api: {
       onAgentEvent: (listener: Listener) => {
         listeners.add(listener)
@@ -30,9 +30,14 @@ Object.defineProperty(globalThis, 'window', {
       agentStart: async (args: (typeof started)[number]) => {
         started.push(args)
       },
+      agentResolveDecision: async (...args: unknown[]) => {
+        dismissals.push(args)
+
+        return { ok: true, resolved: true }
+      },
       agentAnswerDecision: async (...args: unknown[]) => {
         answers.push(args)
-        if (answerFails) throw new Error('This question is no longer open')
+        if (answerFails) throw new Error(answerError)
 
         return { ok: true }
       },
@@ -109,31 +114,49 @@ test('an answer the server refuses brings the card back', async () => {
   assert.equal(count(), 1)
 })
 
-test('a held Inbox answer leaves at once, comes back on Undo, and is sent when the next is given', async () => {
+test('an Inbox answer leaves at once and is sent at once, saying it was given in the Inbox', () => {
   answerFails = false
   publish([waiting('h1'), waiting('h2')])
   const before = answers.length
-  const undo = inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
 
+  inbox.replyInInbox('team', 'agent', 'h1', { choices: ['Yes'] }, () => {})
   assert.equal(count(), 1)
-  assert.equal(undo(), true)
-  assert.equal(count(), 2)
-  assert.equal(undo(), false, 'undoing twice does nothing')
-  assert.equal(answers.length, before, 'an undone answer is never sent')
+  assert.deepEqual(answers.slice(before), [
+    ['agent', 'h1', 'team', { choices: ['Yes'], answeredIn: 'inbox' }],
+  ])
+})
 
-  inbox.holdAnswer('team', 'agent', 'h1', { choices: ['Yes'] })
-  inbox.holdAnswer('team', 'agent', 'h2', { choices: ['No'] })
+test('an Inbox answer refused says why, though its question is already gone', async () => {
+  answerFails = true
+  publish([waiting('h3')])
+  const reasons: (string | undefined)[] = []
+
+  inbox.replyInInbox('team', 'agent', 'h3', { choices: ['Yes'] }, (reason) => reasons.push(reason))
   await settle()
-  assert.deepEqual(
-    answers.slice(before).map((args) => args[1]),
-    ['h1'],
-    'the next answer sends the one held before it',
-  )
-  inbox.sendHeldAnswer()
   await settle()
-  assert.deepEqual(
-    answers.slice(before).map((args) => args[1]),
-    ['h1', 'h2'],
-  )
+  assert.deepEqual(reasons, ['This question is no longer open'])
+  answerFails = false
+})
+
+test("a refused answer says the server's message, not the IPC error around it", async () => {
+  answerFails = true
+  answerError =
+    "Error invoking remote method 'agent:answerDecision': Error: __ATLAS_API_ERROR__" +
+    '{"message":"Answer this question in its own card","code":"decision_not_answerable"}'
+  publish([waiting('h4')])
+  const reasons: (string | undefined)[] = []
+
+  inbox.replyInInbox('team', 'agent', 'h4', { text: 'Done' }, (reason) => reasons.push(reason))
+  await settle()
+  await settle()
+  assert.deepEqual(reasons, ['Answer this question in its own card'])
+  answerFails = false
+  answerError = 'This question is no longer open'
+})
+
+test('an Inbox dismissal leaves at once and is sent at once with its reason', () => {
+  publish([waiting('d1')])
+  inbox.replyInInbox('team', 'agent', 'd1', { dismissed: true, reason: 'Not now' }, () => {})
   assert.equal(count(), 0)
+  assert.deepEqual(dismissals, [['agent', 'd1', 'team', 'dismissed', 'Not now']])
 })

@@ -5,7 +5,7 @@ import { z } from 'zod'
 
 import { tunnelBus } from './local-runtime/bus'
 import { runtimePresenceStore } from './local-runtime/presence'
-import { DeviceRuntimeSocket } from './local-runtime/socket'
+import { DeviceRuntimeSocket, UNSUPPORTED_CLOSE_CODE } from './local-runtime/socket'
 import { requireShellAccess } from './manage-access'
 
 import type { DeviceRuntimeSocketDeps } from './local-runtime/socket'
@@ -21,6 +21,7 @@ export type LocalExecDispatchOutcome =
   | { status: 'ok'; result: z.infer<typeof resultSchema> }
   | { status: 'timeout' }
   | { status: 'device_disconnected' }
+  | { status: 'unsupported' }
 
 /** One command and result on the existing device tunnel; no second presence
  * connection, result POST, Redis result key, or polling loop. */
@@ -71,8 +72,10 @@ export async function dispatchLocalExec(
     socket.addEventListener('open', () => {
       socket.send(command)
     })
-    socket.addEventListener('close', () => {
-      finish({ status: 'device_disconnected' })
+    socket.addEventListener('close', (event) => {
+      finish({
+        status: event.code === UNSUPPORTED_CLOSE_CODE ? 'unsupported' : 'device_disconnected',
+      })
     })
     socket.addEventListener('message', (event) => {
       if (settled) return

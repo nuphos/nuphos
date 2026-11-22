@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
@@ -25,8 +27,11 @@ function harness(
   let changes = 0
   const seenCli: (AgentCliStatus | null)[] = []
   const exits: ((code: number | null) => void)[] = []
-  let tunnelChange: ((connected: boolean, superseded: boolean) => void) | undefined
+  let tunnelChange:
+    ((connected: boolean, superseded: boolean, revoked?: boolean) => void) | undefined
   let tunnelStatus: (() => LocalRuntimeTunnelStatus) | undefined
+  let tunnelRuntime: ((provider: LocalAgentProvider) => unknown) | undefined
+  const envReads: boolean[] = []
   let usage: unknown
   let usageReads = 0
   const usageEnvs: { provider: LocalAgentProvider; env: NodeJS.ProcessEnv }[] = []
@@ -42,7 +47,11 @@ function harness(
     dataDir: () => '/data',
     nodeExecPath: '/electron',
     backendUrl: 'https://api.example.com',
-    userEnv: () => Promise.resolve({ PATH: '/bin' }),
+    userEnv: (fresh = false) => {
+      envReads.push(fresh)
+
+      return Promise.resolve({ PATH: '/bin' })
+    },
     probeCli: (provider, _env, agentHome) => {
       probeHomes.push(agentHome)
 
@@ -89,7 +98,8 @@ function harness(
         return () => {}
       },
     }),
-    createTunnel: (_runtime, status, onChange) => {
+    createTunnel: (runtime, status, onChange) => {
+      tunnelRuntime = runtime
       tunnelChange = onChange
       tunnelStatus = status
 
@@ -112,10 +122,13 @@ function harness(
     controller,
     events,
     exits,
-    connect: (connected: boolean, superseded = false) => {
-      tunnelChange?.(connected, superseded)
+    connect: (connected: boolean, superseded = false, revoked = false) => {
+      tunnelChange?.(connected, superseded, revoked)
     },
     status: () => tunnelStatus?.(),
+    /** What a stream from Nuphos gets when it asks for this agent. */
+    stream: (provider: LocalAgentProvider) => tunnelRuntime?.(provider) ?? null,
+    envReads,
     reportUsage: (value: unknown) => {
       usage = value
     },
@@ -164,6 +177,16 @@ test('the last known sign-in shows at once after a restart, then the fresh probe
   assert.deepEqual(cliCache.alice?.['claude-code'], signedOut)
 })
 
+test('a signed-out CLI still runs, so its team can sign it in through it', async () => {
+  const { controller, status, stream } = harness({
+    codex: { installed: true, path: process.execPath, loggedIn: false },
+  })
+
+  await controller.setUser('alice')
+  assert.ok(stream('codex'))
+  assert.equal(status()?.agents.codex?.cli.loggedIn, false)
+})
+
 test('the tunnel stays up with no agent installed, so the owner’s other computers can see it', async () => {
   const { controller, events, status } = harness({
     'claude-code': { installed: false },
@@ -188,6 +211,22 @@ test('online is exactly whether the tunnel is connected and that agent runs', as
   assert.equal(controller.state().agents['claude-code'].online, false)
 })
 
+test("this computer's connection says why it is not online, or that it is on its way back", async () => {
+  const { controller, connect } = harness()
+
+  assert.equal(controller.state().connection, undefined)
+  await controller.setUser('alice')
+  assert.equal(controller.state().connection, 'reconnecting')
+  connect(true)
+  assert.equal(controller.state().connection, 'online')
+  connect(false)
+  assert.equal(controller.state().connection, 'reconnecting')
+  connect(false, true)
+  assert.equal(controller.state().connection, 'superseded')
+  connect(false, false, true)
+  assert.equal(controller.state().connection, 'revoked')
+})
+
 test('installing a CLI later starts that agent on the next check', async () => {
   const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = { codex: { installed: false } }
   const { controller, events } = harness(cli)
@@ -198,6 +237,117 @@ test('installing a CLI later starts that agent on the next check', async () => {
   await controller.refresh()
 
   assert.deepEqual(events, [started('codex')])
+})
+
+test('a stream asking for an agent whose CLI was missing looks for it again', async () => {
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = { codex: { installed: false } }
+  const { controller, events, stream, envReads } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  envReads.length = 0
+
+  // Still missing: asked twice at once, it looks once, with the shell's current PATH.
+  assert.equal(stream('codex'), null)
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+  assert.deepEqual(events, [])
+
+  // Reading the state is not asking for the agent.
+  controller.state()
+  controller.runtime('codex')
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(envReads, [true])
+
+  // Installed since: the next ask starts it, and the one after is served by it.
+  cli.codex = { installed: true, path: process.execPath, loggedIn: true }
+  assert.equal(stream('codex'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, [started('codex')])
+  assert.ok(stream('codex'))
+  assert.equal(envReads.filter(Boolean).length, 2)
+})
+
+/** A CLI file the way the Claude app keeps its copy: under a folder named for its version. */
+function claudeAppCli(root: string, version: string): string {
+  const file = path.join(root, version, 'claude')
+
+  mkdirSync(path.dirname(file), { recursive: true })
+  writeFileSync(file, '')
+  chmodSync(file, 0o755)
+
+  return file
+}
+
+test('an agent whose CLI file is gone looks for it again and runs the copy that replaced it', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events, stream } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  assert.ok(stream('claude-code'))
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, [])
+
+  // The Claude app updates: the version the agent runs is deleted, a newer one takes its place.
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  const replacement = claudeAppCli(root, '2.1.328')
+
+  cli['claude-code'] = { installed: true, path: replacement, loggedIn: true }
+  assert.equal(stream('claude-code'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['stop', started('claude-code')])
+  assert.ok(stream('claude-code'))
+  const now = controller.state().agents['claude-code'].cli
+
+  assert.equal(now?.installed && now.path, replacement)
+})
+
+test('an agent whose CLI file is gone with nothing to replace it says it is not installed', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events, stream } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  cli['claude-code'] = { installed: false }
+  assert.equal(stream('claude-code'), null)
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.deepEqual(events, ['stop'])
+  assert.deepEqual(controller.state().agents['claude-code'].cli, { installed: false })
+})
+
+test('Check restarts an agent whose CLI moved, so a reinstall takes effect at once', async (t) => {
+  const root = mkdtempSync(path.join(os.tmpdir(), 'claude-code-'))
+
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  const cli: Partial<Record<LocalAgentProvider, AgentCliStatus>> = {
+    'claude-code': { installed: true, path: claudeAppCli(root, '2.1.325'), loggedIn: true },
+  }
+  const { controller, events } = harness(cli)
+
+  await controller.setUser('alice')
+  events.length = 0
+
+  // Nothing moved: the running agents are left alone.
+  await controller.refresh()
+  assert.deepEqual(events, [])
+
+  rmSync(path.join(root, '2.1.325'), { recursive: true })
+  cli['claude-code'] = { installed: true, path: claudeAppCli(root, 'local'), loggedIn: true }
+  await controller.refresh()
+  assert.deepEqual(events, ['stop', started('claude-code')])
 })
 
 test('a bundle staged while the app runs starts the agents without a restart', async () => {
@@ -449,7 +599,7 @@ test('reconnecting Codex after login leaves the Claude process running', async (
 })
 
 test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', async () => {
-  const { tunnelStatusOf } = await import('./controller-types.ts')
+  const { tunnelStatusOf } = await import('./controller-status.ts')
   const agents = {
     'claude-code': { runtime: null },
     codex: { runtime: null },
@@ -458,6 +608,7 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     opencode: { runtime: null },
     dsh: { runtime: null },
     hermes: { runtime: null },
+    pi: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 
@@ -471,4 +622,25 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     if (before === undefined) delete process.env.NUPHOS_CLI_VERSION
     else process.env.NUPHOS_CLI_VERSION = before
   }
+})
+
+test('a running agent reports which account it spends beside its usage, not in its CLI status', async () => {
+  const { tunnelStatusOf } = await import('./controller-status.ts')
+  const signedIn = {
+    installed: true,
+    path: '/bin/claude',
+    loggedIn: true,
+    accountKey: '359cc9796000792b',
+  }
+  const agents = Object.fromEntries(
+    ['claude-code', 'codex', 'grok', 'antigravity', 'opencode', 'dsh', 'hermes', 'pi'].map((p) => [
+      p,
+      p === 'claude-code' ? { runtime: {}, cli: signedIn } : { runtime: null },
+    ]),
+  ) as unknown as Parameters<typeof tunnelStatusOf>[0]
+
+  assert.deepEqual(tunnelStatusOf(agents, 'https://api.test').agents['claude-code'], {
+    cli: { installed: true, loggedIn: true },
+    accountKey: '359cc9796000792b',
+  })
 })

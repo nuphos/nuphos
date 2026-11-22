@@ -11,13 +11,13 @@ import {
   requireDeviceAccess,
   revokeBoxStreams,
 } from '@/lib/agent/devices/box-access'
+import { deleteBox } from '@/lib/agent/devices/box-delete'
 import {
   boxBackendUrl,
-  boxDesktopUrl,
+  boxPausedBy,
   boxState,
   boxesAvailable,
   createBox,
-  destroyBox,
   healBox,
   pauseBox,
   resumeBox,
@@ -41,9 +41,10 @@ import {
   revokeAgentDeviceCredential,
   upsertAgentDevice,
 } from '@/lib/agent/devices/store'
-import { boxDesktops } from '@/lib/claude-code-preview/session-desktops'
+import { boxDesktops, ownComputer } from '@/lib/claude-code-preview/session-desktops'
 import { AppError } from '@/lib/errors'
 import { getTeamMembers } from '@/lib/identity'
+import { logError } from '@/lib/observability'
 import { zv } from '@/lib/validate'
 
 import { agent } from './router'
@@ -52,7 +53,7 @@ import { createAgentDeviceBoxRoutes } from './routes-devices-box'
 import { readTeamIdCandidate } from './team-scope'
 
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
-import type { BoxState } from '@/lib/agent/devices/box-instabox'
+import type { BoxProvider } from '@/lib/agent/devices/box-instabox'
 import type { HolderMessage } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice, AgentDeviceRegistration } from '@/lib/agent/devices/store'
 import type { AuthVariables } from '@/middleware/auth'
@@ -96,6 +97,7 @@ export type AgentDeviceRouteDependencies = {
   listDeviceExecAudit: typeof listDeviceExecAudit
   conversationTitlesFor: (sessionIds: string[]) => Promise<Map<string, string>>
   boxDesktops: typeof boxDesktops
+  ownComputer: typeof ownComputer
   issueJoinToken: typeof issueDeviceJoinToken
   revokeCredential: (userId: string, deviceId: string) => Promise<boolean>
   disconnect: (userId: string, deviceId: string) => Promise<void>
@@ -108,19 +110,7 @@ export type AgentDeviceRouteDependencies = {
   /** Where a joining machine dials: this deployment's public URL, if it has one. */
   publicUrl: () => string | undefined
   /** Null only in tests that have no Box provider. */
-  box: {
-    create: typeof createBox
-    pause: (userId: string, deviceId: string) => Promise<AgentDevice>
-    resume: (userId: string, deviceId: string) => Promise<AgentDevice>
-    destroy: (userId: string, deviceId: string) => Promise<void>
-    /** A link to the Box's desktop, to watch and take over what its agents do. */
-    desktop: (userId: string, deviceId: string) => Promise<string>
-    /** Starts the host again on a running machine whose host dropped; rate-limited. */
-    heal: (userId: string, deviceId: string) => void
-    /** Whether Boxes can be ordered here: a provider and a public URL for the machine to dial. */
-    available: () => boolean
-    state: (device: AgentDevice, online: boolean) => Promise<BoxState | 'gone'>
-  } | null
+  box: BoxProvider | null
 }
 
 const defaultDependencies: AgentDeviceRouteDependencies = {
@@ -142,6 +132,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
   listDeviceExecAudit,
   conversationTitlesFor,
   boxDesktops,
+  ownComputer,
   listDevices: listAgentDevicesForUser,
   isOnline: isDevicePresent,
   deleteDevice: deleteAgentDevice,
@@ -153,11 +144,11 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     create: createBox,
     pause: pauseBox,
     resume: resumeBox,
-    destroy: destroyBox,
-    desktop: boxDesktopUrl,
+    delete: deleteBox,
     heal: healBox,
     available: boxesAvailable,
     state: boxState,
+    pausedBy: boxPausedBy,
   },
 }
 
@@ -172,7 +163,7 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     const registration = c.req.valid('json')
 
     if ((await deps.getAgentDevice(c.get('userId'), registration.deviceId))?.box)
-      throw new AppError(409, 'device_is_box', 'A Box is not registered from a computer')
+      throw new AppError(409, 'device_is_box', 'A computer from Nuphos is not registered this way')
     await deps.upsertAgentDevice(c.get('userId'), registration)
 
     return c.json({ ok: true })
@@ -216,8 +207,8 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
     },
   )
 
-  // Forgets an offline computer, credential and agents with it; opening Nuphos there registers it
-  // again. Online, it would just re-register, so it must be quit first. A Box has its own delete.
+  // Forgets a computer, online or not, credential and agents with it; opening Nuphos there again
+  // registers it again. A Box has its own delete.
   routes.delete(
     '/devices/:deviceId',
     zv('param', z.object({ deviceId: z.string().trim().min(1).max(128) })),
@@ -227,15 +218,20 @@ export function createAgentDeviceRoutes(deps: AgentDeviceRouteDependencies = def
       const device = await deps.getAgentDevice(userId, deviceId)
 
       if (!device) throw new AppError(404, 'device_not_found', 'Device is not registered')
-      if (device.box) throw new AppError(400, 'device_is_box', 'Delete a Box with its Box delete')
-      if (await deps.isOnline(userId, deviceId))
-        throw new AppError(409, 'device_online', 'Quit Nuphos on this computer first')
+      if (device.box)
+        throw new AppError(400, 'device_is_box', 'Use Delete for a computer from Nuphos')
       // Forgotten before the delete, so a failure here leaves the computer registered and
       // deletable again, rather than leaving these rows behind with nothing left to match.
       await deps.forgetDeviceShares(userId, deviceId)
       await deps.deleteDevice(userId, deviceId)
-      // In case it connected since the check: its credential is gone, so close what it holds.
-      await deps.disconnect(userId, deviceId)
+      // An online computer is told it was removed and stops, rather than registering again. The
+      // record is gone either way, so a failure here is logged, never the removal's.
+      await Promise.all([
+        deps.revokeCredential(userId, deviceId),
+        deps.disconnect(userId, deviceId),
+      ]).catch((error) =>
+        logError('agent.device.disconnect_failed', error, { user_id: userId, device_id: deviceId }),
+      )
 
       return c.json({ ok: true })
     },

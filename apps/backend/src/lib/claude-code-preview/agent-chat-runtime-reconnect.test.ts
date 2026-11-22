@@ -6,6 +6,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
+import { agentHostAway } from './openab-acp-connect'
 import { OpenAbRpcError } from './openab-acp-errors'
 import { classifyPreviewInterruption } from './preview-transcript'
 import { OpenAbTimeoutError, RuntimeStateProbeError, turnDiagnostics } from './turn-diagnostics'
@@ -111,7 +112,7 @@ afterEach(() => {
   acquire.mockRestore()
   sessionsByConversation.delete('team:conversation')
 })
-const run = (systemPrompt?: string) =>
+const run = (systemPrompt?: string, signal = new AbortController().signal) =>
   runClaudeCodePreviewPrompt({
     teamId: 'team',
     conversationId: 'conversation',
@@ -121,7 +122,7 @@ const run = (systemPrompt?: string) =>
     text: 'Continue',
     systemPrompt,
     endpoint,
-    signal: new AbortController().signal,
+    signal,
     onTextDelta: noop,
   })
 
@@ -201,6 +202,14 @@ test('an ordinary turn prompts the message itself', async () => {
   expect(prompted).toBe('Continue')
 })
 
+test('a turn stopped before its prompt is sent says the agent never received it', async () => {
+  const stop = new AbortController()
+
+  stop.abort()
+  expect(await run(undefined, stop.signal)).toEqual({ stopReason: 'cancelled', unsent: true })
+  expect(calls).not.toContain('prompt')
+})
+
 test('a turn the runtime refuses keeps the loss pending for the turn that lands', async () => {
   const session = sessionsByConversation.get('team:conversation')
 
@@ -251,12 +260,20 @@ test('changed identity instructions reload an already attached session before pr
   expect(loadedPrompt).toBe('new identity instructions')
 })
 
+test('a state check that times out fails as an agent host away, which the queue waits out for its grace', async () => {
+  probeError = new OpenAbTimeoutError(
+    'OpenAB ACP _openab/session/state timed out',
+    'call-deadline',
+    3000,
+  )
+  const failure = await run().catch((cause: unknown) => cause)
+
+  expect(agentHostAway(failure)).toBe(true)
+  // Nothing reached the agent, so sending it again cannot run it twice.
+  expect(calls).toEqual(['observe-control'])
+})
+
 for (const [name, error, diagnostics] of [
-  [
-    'timeout',
-    new OpenAbTimeoutError('OpenAB ACP _openab/session/state timed out', 'call-deadline', 3000),
-    { source: 'backend', timeoutKind: 'call-deadline', timeoutMs: 3000 },
-  ],
   ['invalid snapshot', new Error('Invalid runtime execution snapshot'), { source: 'unknown' }],
   [
     'unsupported RPC',
@@ -271,7 +288,7 @@ for (const [name, error, diagnostics] of [
     expect(failure).toBeInstanceOf(RuntimeStateProbeError)
     expect((failure as Error).cause).toBe(error)
     expect(classifyPreviewInterruption(failure, false)).toEqual({
-      reason: name === 'timeout' ? 'timeout' : 'error',
+      reason: 'error',
       message: `Could not check the agent's state: ${error.message}`,
     })
     expect(
@@ -283,6 +300,21 @@ for (const [name, error, diagnostics] of [
     expect(calls).toEqual(['observe-control'])
   })
 }
+
+test('an agent host the probe finds away fails the turn as away, which the queue waits out', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const { OpenAbConnectError } = await import('./openab-acp-connect')
+
+  for (const away of [
+    new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
+    new OpenAbConnectError('OpenAB ACP connection failed'),
+  ]) {
+    calls.length = 0
+    probeError = away
+    expect(await run().catch((cause: unknown) => cause)).toBe(away)
+    expect(calls).toEqual(['observe-control'])
+  }
+})
 
 test('a probe failure is redacted before display and cancellation still takes precedence', async () => {
   probeError = new Error('Authorization: Bearer abcdefghijklmnopqrstuvwxyz')

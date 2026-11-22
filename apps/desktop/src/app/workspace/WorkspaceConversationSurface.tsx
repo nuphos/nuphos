@@ -1,13 +1,18 @@
+import { clsx } from 'clsx'
 import { useState } from 'react'
 
 import { BotTaskMode } from './BotTaskMode'
 import { WorkspaceDockPanels } from './WorkspaceDockPanels'
+import { WorkspaceMainPage } from './WorkspaceMainPage'
 import { WorkspaceSessionPane } from './WorkspaceSessionPane'
 
 import type { WorkspaceController } from './useWorkspaceController'
 import type { UserInfo } from '../../types'
 
-/** Temporary Bot work covers the conversation without changing its dock or navigation. */
+/**
+ * The conversation column, or the management page in its place, with the dock
+ * beside either. Temporary Bot work covers the column; the dock stays usable.
+ */
 export function WorkspaceConversationSurface({
   ws,
   user,
@@ -26,26 +31,34 @@ export function WorkspaceConversationSurface({
   const taskOpen = Boolean(taskSessionId) && !ws.mainPageOpen
 
   return (
-    <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
-      <div className="flex flex-1 min-h-0 min-w-0" inert={taskOpen}>
-        <WorkspaceSessionPane
-          ws={ws}
-          user={user}
-          workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
-          onOpenTask={setTaskSessionId}
-        />
-        <WorkspaceDockPanels ws={ws} user={user} />
+    <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">
+      <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden">
+        <div
+          className={clsx('min-h-0 min-w-0 flex-1', ws.mainPageTab ? 'hidden' : 'flex')}
+          inert={taskOpen}
+        >
+          <WorkspaceSessionPane
+            ws={ws}
+            user={user}
+            workspaceExpanded={ws.workspaceDockExpanded || ws.mainPageOpen}
+            onOpenTask={setTaskSessionId}
+          />
+        </div>
+        {ws.mainPageTab && (
+          <WorkspaceMainPage key={ws.mainPageTab.id} ws={ws} user={user} tab={ws.mainPageTab} />
+        )}
+        {taskOpen && taskSessionId && ws.scope?.teamId && (
+          <BotTaskMode
+            ws={ws}
+            user={user}
+            teamId={ws.scope.teamId}
+            sessionId={taskSessionId}
+            onSessionChange={setTaskSessionId}
+            onBack={() => setTaskSessionId(null)}
+          />
+        )}
       </div>
-      {taskOpen && taskSessionId && ws.scope?.teamId && (
-        <BotTaskMode
-          ws={ws}
-          user={user}
-          teamId={ws.scope.teamId}
-          sessionId={taskSessionId}
-          onSessionChange={setTaskSessionId}
-          onBack={() => setTaskSessionId(null)}
-        />
-      )}
+      <WorkspaceDockPanels ws={ws} user={user} />
     </div>
   )
 }

@@ -1,4 +1,4 @@
-import { openInputRequests } from '../../lib/agentInputRequests.ts'
+import { attentionInputRequests, botIsOnboarding } from '../../lib/agentInputRequests.ts'
 import { chatRowIndicator, runtimeTurnActive } from '../../lib/runtimeExecution.ts'
 import { subAgentState } from '../../lib/subAgentState.ts'
 
@@ -7,27 +7,38 @@ import type { RuntimeExecution } from '../../lib/runtimeExecution.ts'
 
 export type Run = { conversation: AgentConversation; runtimeState: RuntimeExecution | undefined }
 
-/** What a Bot is doing: a question first, its own turn, a sub-agent's, then background work. */
+/** What a Bot is doing: a question, its turn, a sub-agent's, its setup, then background work. */
 export type Activity =
   | { kind: 'idle' }
-  | { kind: 'asking'; question: string }
+  | { kind: 'onboarding' }
+  | { kind: 'asking' }
   | { kind: 'working'; run: Run }
   | { kind: 'background'; run: Run | undefined }
-  | { kind: 'error'; label?: string }
+  | { kind: 'error' }
 
 export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const runs = [...(bot ? [bot] : []), ...kids]
-  const asking = runs.find((run) => openInputRequests(run.conversation).length > 0)
 
-  if (asking)
-    return { kind: 'asking', question: openInputRequests(asking.conversation)[0]?.question ?? '' }
+  if (runs.some((run) => attentionInputRequests(run.conversation).length > 0))
+    return { kind: 'asking' }
   if (bot && runtimeTurnActive(bot.runtimeState)) return { kind: 'working', run: bot }
   const busy = kids.find((kid) => runtimeTurnActive(kid.runtimeState))
 
   if (busy) return { kind: 'working', run: busy }
+  // Someone else's Bot: its Tasks are not in this viewer's list, only how many run (#4270).
+  if (bot && kids.length === 0 && (bot.conversation.tasks?.running ?? 0) > 0)
+    return { kind: 'working', run: bot }
+  // A Bot still in setup says so only while nothing runs: a working Bot shows it works.
+  if (
+    bot &&
+    botIsOnboarding(bot.conversation) &&
+    chatRowIndicator(bot.runtimeState, false) !== 'error'
+  )
+    return { kind: 'onboarding' }
   const indicator = chatRowIndicator(bot?.runtimeState, false)
 
-  if (indicator === 'error') return { kind: 'error', label: bot?.runtimeState?.label }
+  // The chat explains a failure in plain words; the run's label is raw transport text.
+  if (indicator === 'error') return { kind: 'error' }
   if (
     indicator === 'background' ||
     kids.some((kid) => subAgentState(kid.conversation, kid.runtimeState) === 'running')

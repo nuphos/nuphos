@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { forgetDeviceShares } from '@/lib/agent/devices/local-share-revoke'
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { createAgentDeviceRoutes } from '@/routes/agent/routes-devices'
 import { nextBoxLabel } from '@/routes/agent/routes-devices-box'
@@ -30,6 +30,7 @@ let role: NuphosTeamRole | null
 let revoked: { deviceIds: string[]; actorIds: string[] }[]
 let metricsReads: string[]
 let onlineNow = false
+let disconnectFails = false
 const members = [
   { id: 'user-1', role: 'ADMINISTRATOR' },
   { id: 'alice', role: 'EDITOR' },
@@ -152,6 +153,13 @@ function buildApp(box: BoxDeps | null = null) {
       },
       conversationTitlesFor: async (sessionIds) =>
         new Map(sessionIds.map((id) => [id, `Title ${id}`])),
+      ownComputer: async ({ userId, deviceId, managesBox }, viewer) =>
+        onlineNow && (userId === viewer || managesBox)
+          ? {
+              desktopRuntimeId: `local_${userId}_${deviceId}`,
+              app: { version: '0.120.0', update: { version: '0.121.0', ready: true } },
+            }
+          : {},
       boxDesktops: async (owner, deviceId, viewer, team) => [
         { display: 2, sessionId: `${owner}:${deviceId}:${viewer}:${String(team)}`, title: 'Fix' },
       ],
@@ -162,6 +170,7 @@ function buildApp(box: BoxDeps | null = null) {
       },
       revokeCredential: async (userId, deviceId) => credentials.delete(key(userId, deviceId)),
       disconnect: async (userId, deviceId) => {
+        if (disconnectFails) throw new Error('tunnel bus down')
         disconnected.push(key(userId, deviceId))
       },
     }),
@@ -183,6 +192,7 @@ beforeEach(() => {
   revoked = []
   metricsReads = []
   onlineNow = false
+  disconnectFails = false
   shareTables.agent_device_share_approvals = []
   shareTables.agent_device_share_trusts = []
 })
@@ -221,7 +231,7 @@ function registerDevice(userId: string, deviceId: string) {
 }
 
 describe('agent device routes', () => {
-  test('DELETE /agent/devices/:id removes an offline computer of the caller only', async () => {
+  test('DELETE /agent/devices/:id removes a computer of the caller only, online or not', async () => {
     const remove = (deviceId: string) =>
       buildApp().request(`/agent/devices/${deviceId}?teamId=team-1`, { method: 'DELETE' })
 
@@ -236,14 +246,25 @@ describe('agent device routes', () => {
     expect(disconnected).toEqual([key('user-1', 'gone')])
     expect((await remove('b1')).status).toBe(400)
     expect((await remove('theirs')).status).toBe(404)
-    onlineNow = true
-    const online = await remove('live')
+    credentials.add(key('user-1', 'live'))
 
-    expect(online.status).toBe(409)
-    expect(await online.json()).toMatchObject({ error: { code: 'device_online' } })
+    // Online, its credential goes and its open connection closes, so it cannot come back unasked.
+    expect((await remove('live')).status).toBe(200)
+    expect(credentials.has(key('user-1', 'live'))).toBe(false)
+    expect(disconnected).toEqual([key('user-1', 'gone'), key('user-1', 'live')])
     expect(new Set(Object.keys(devices))).toEqual(
-      new Set([key('user-1', 'live'), key('user-1', 'b1'), key('someone-else', 'theirs')]),
+      new Set([key('user-1', 'b1'), key('someone-else', 'theirs')]),
     )
+  })
+
+  test('DELETE /agent/devices/:id still removes a computer it could not disconnect', async () => {
+    registerDevice('user-1', 'live')
+    disconnectFails = true
+
+    expect(
+      (await buildApp().request('/agent/devices/live?teamId=team-1', { method: 'DELETE' })).status,
+    ).toBe(200)
+    expect(devices[key('user-1', 'live')]).toBeUndefined()
   })
 
   test('DELETE /agent/devices/:id forgets the computer share answers in every team', async () => {
@@ -492,18 +513,36 @@ describe('agent device routes', () => {
 
         return boxDevice(userId, deviceId)
       },
-      destroy: async (_userId, deviceId) => {
-        calls.push(`destroy ${deviceId}`)
+      delete: async (userId, deviceId) => {
+        calls.push(`delete ${deviceId}`)
+        delete devices[key(userId, deviceId)]
+
+        return true
       },
-      desktop: async (_userId, deviceId) => `https://desktop.example/${deviceId}`,
       heal: (_userId, deviceId) => {
         calls.push(`heal ${deviceId}`)
       },
       available: () => true,
       state: async (device, online) =>
         !device.box?.sandboxId ? 'creating' : online ? 'running' : machineState,
+      // instabox paused `evicted` on its own, its host out of memory.
+      pausedBy: async (device) => (device.deviceId === 'evicted' ? 'memory_pressure' : undefined),
     }
   }
+
+  test('a Box instabox paused on its own says why; one its owner paused does not', async () => {
+    machineState = 'paused'
+    devices[key('user-1', 'evicted')] = boxDevice('user-1', 'evicted')
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
+    const body = (await (
+      await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')
+    ).json()) as { devices: { deviceId: string; box?: Record<string, unknown> }[] }
+    const boxOf = (id: string) => body.devices.find((device) => device.deviceId === id)?.box
+
+    expect(boxOf('evicted')).toMatchObject({ state: 'paused', pausedBy: 'memory_pressure' })
+    expect(boxOf('b1')).toMatchObject({ state: 'paused' })
+    expect(boxOf('b1')).not.toHaveProperty('pausedBy')
+  })
 
   test('PUT /agent/devices never rewrites a Box row, even for its creator', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
@@ -567,6 +606,41 @@ describe('agent device routes', () => {
     expect((await list()).devices[0]?.desktops).toEqual([
       { display: 2, sessionId: 'user-1:b1:user-1:team-1', title: 'Fix' },
     ])
+  })
+
+  test("GET /devices offers a Box's desktop to whoever manages it, not to someone who only uses it", async () => {
+    onlineNow = true
+    // Teammates' Boxes: the caller manages one and only uses the other.
+    devices[key('user-2', 'managed')] = boxDevice('user-2', 'managed')
+    devices[key('user-2', 'used')] = boxDevice('user-2', 'used', {
+      userIds: ['user-1'],
+      managerIds: [],
+    })
+    const body = (await (
+      await buildApp(fakeBox([])).request('/agent/devices?teamId=team-1')
+    ).json()) as {
+      devices: { deviceId: string; desktopRuntimeId?: string }[]
+    }
+    const runtimeOf = (id: string) => body.devices.find((device) => device.deviceId === id)
+
+    expect(runtimeOf('managed')?.desktopRuntimeId).toBe('local_user-2_managed')
+    expect(runtimeOf('used')).toBeDefined()
+    expect(runtimeOf('used')?.desktopRuntimeId).toBeUndefined()
+  })
+
+  test('GET /devices tells the viewer where their own computer opens its screen, and its update', async () => {
+    registerDevice('user-1', 'mac')
+    const list = async () =>
+      (await (await buildApp().request('/agent/devices')).json()) as {
+        devices: { desktopRuntimeId?: string; app?: unknown }[]
+      }
+
+    expect((await list()).devices[0]).not.toContainKeys(['desktopRuntimeId', 'app'])
+    onlineNow = true
+    expect((await list()).devices[0]).toMatchObject({
+      desktopRuntimeId: 'local_user-1_mac',
+      app: { version: '0.120.0', update: { version: '0.121.0', ready: true } },
+    })
   })
 
   test('an unnamed Box counts up from the highest "Computer N" the caller has', () => {
@@ -650,36 +724,36 @@ describe('agent device routes', () => {
     const removed = await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })
 
     expect(removed.status).toBe(200)
-    expect(calls).toEqual(['pause b1', 'resume b1', 'destroy b1'])
-    expect(disconnected).toEqual([key('user-1', 'b1')])
+    expect(calls).toEqual(['pause b1', 'resume b1', 'delete b1'])
     expect(devices[key('user-1', 'b1')]).toBeUndefined()
   })
 
-  test('DELETE closes the Box tunnel before its machine goes, and keeps the row if the kill fails', async () => {
+  test('DELETE deletes a Box whose machine instabox would not kill, and says it may still run', async () => {
     devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
-    credentials.add(key('user-1', 'b1'))
-    const seen: string[] = []
-    let killFails = true
+    const box: BoxDeps = { ...fakeBox([]), delete: async () => false }
+    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
+      method: 'DELETE',
+    })
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, machineLeft: true })
+  })
+
+  test('DELETE keeps a Box whose machine is still pausing, so a later delete finds it', async () => {
+    devices[key('user-1', 'b1')] = boxDevice('user-1', 'b1')
     const box: BoxDeps = {
       ...fakeBox([]),
-      destroy: async () => {
-        seen.push(`destroy after ${disconnected.length} disconnect(s)`)
-        if (killFails) throw new Error('instabox is down')
-      },
+      delete: () =>
+        Promise.reject(
+          new AppError(409, 'box_busy', 'The computer is still pausing. Try again in a minute.'),
+        ),
     }
-    const app = buildApp(box)
+    const response = await buildApp(box).request('/agent/devices/b1/box?teamId=team-1', {
+      method: 'DELETE',
+    })
 
-    expect(
-      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
-    ).not.toBe(200)
-    expect(seen).toEqual(['destroy after 1 disconnect(s)'])
-    expect(credentials.has(key('user-1', 'b1'))).toBe(false)
-    expect(devices[key('user-1', 'b1')]).toBeDefined()
-    killFails = false
-    expect(
-      (await app.request('/agent/devices/b1/box?teamId=team-1', { method: 'DELETE' })).status,
-    ).toBe(200)
-    expect(devices[key('user-1', 'b1')]).toBeUndefined()
+    expect(response.status).toBe(409)
+    expect(await response.json()).toMatchObject({ error: { code: 'box_busy' } })
   })
   test('Box routes deny someone with use only, removed members and cross-team calls before provider dispatch', async () => {
     const calls: string[] = []

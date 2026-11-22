@@ -2,13 +2,10 @@
 // persist the assistant message (and any steered exchange segments) with
 // their tool steps, give the conversation a title, and record what the
 // agent's memory tools did this turn.
-import { randomUUID } from 'node:crypto'
 
-import { appendTranscriptMessages, getConversationMessagesHead } from '@/lib/agent/db'
+import { appendTranscriptMessages } from '@/lib/agent/db'
+import { deliverWaitingAnswers } from '@/lib/agent/deliver-waiting-answers'
 import { mergePreviewMemoryActivity } from '@/lib/agent/memory-slots/preview-activity-store'
-import { askPlanDecisions } from '@/lib/agent/plan-decision'
-import { listPlansCreatedForConversation } from '@/lib/agent/plans'
-import { withCurrentAgentNames } from '@/lib/agent/sender-names'
 import { partsWithoutFailureNotice } from '@/lib/claude-code-preview/codex-turn-failure'
 import { completedTurnOutput } from '@/lib/claude-code-preview/empty-turn'
 import {
@@ -19,9 +16,9 @@ import {
 } from '@/lib/claude-code-preview/preview-transcript'
 
 import { finishPreviewTurnMemory } from './chat-preview-memory'
-import { transcriptTailFrame } from './errors'
 import { traceAgentChatError } from './trace'
 import { getFirstTranscriptMessage, uiMessagesToTranscript } from './transcript'
+import { storedTranscriptTail } from './transcript-tail'
 
 import type { PreviewTurnMemory } from './chat-preview-memory'
 import type { AgentRun } from './types'
@@ -29,16 +26,14 @@ import type { PreviewToolStep } from '@/lib/claude-code-preview/preview-transcri
 import type { TurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import type { UIMessage } from 'ai'
 
-function insertBeforeFinalText(
-  parts: UIMessage['parts'],
-  inserted: UIMessage['parts'],
-): UIMessage['parts'] {
-  if (inserted.length === 0) return parts
-  const finalTextIndex = parts.findLastIndex((part) => part.type === 'text')
-
-  if (finalTextIndex < 0) return [...parts, ...inserted]
-
-  return [...parts.slice(0, finalTextIndex), ...inserted, ...parts.slice(finalTextIndex)]
+/**
+ * The id a run's reply is stored under: its stream's, which every client that
+ * streamed the turn already knows. A client gives its live reply the same id, so
+ * the stored transcript replaces it as the same message and nothing drawn in it
+ * is thrown away. A turn handed on to another run stores one reply per run.
+ */
+function replyMessageId(run: AgentRun): string {
+  return run.streamId
 }
 
 export async function finishPreviewTurn(args: {
@@ -51,7 +46,6 @@ export async function finishPreviewTurn(args: {
   locale: string
   provider: string
   requestId: string
-  startedAt: number
   /** The final segment's text (after the last steering boundary). */
   text: string
   reasoning: string
@@ -67,59 +61,23 @@ export async function finishPreviewTurn(args: {
   onRuntimeComplete?: () => void
 }): Promise<void> {
   const { run, sessionId, teamId, userId } = args
-  const existingPlanIds = new Set(
-    args.toolSteps.flatMap((step) => {
-      if (step.toolName !== 'plan_create' || !step.output || typeof step.output !== 'object')
-        return []
-      const planId = (step.output as Record<string, unknown>).planId
-
-      return typeof planId === 'string' ? [planId] : []
-    }),
-  )
-  const nativePlans = await listPlansCreatedForConversation(sessionId, new Date(args.startedAt), {
-    teamId,
-    userId,
-  }).catch(() => [])
-  const nativePlanSteps: PreviewToolStep[] = nativePlans
-    .filter((plan) => !existingPlanIds.has(plan.id))
-    .map((plan) => ({
-      toolCallId: `nuphos-plan-${plan.id}-${String(args.startedAt)}`,
-      toolName: 'plan_create',
-      input: { title: plan.title, overview: plan.overview },
-      output: { planId: plan.id, status: plan.status },
-    }))
-
-  await askPlanDecisions(sessionId, userId, nativePlans, nativePlanSteps)
-  const nativePlanParts = previewAssistantMessageParts({
-    reasoning: '',
-    text: '',
-    toolSteps: nativePlanSteps,
-  })
   const fallbackParts = previewAssistantMessageParts({
     reasoning: args.reasoning,
     text: args.text,
     toolSteps: args.toolSteps.slice(args.finalStepStart),
   })
-  const orderedParts = args.orderedParts ?? fallbackParts
-  // Native Plan records are discovered after the runtime finishes and have no
-  // stream event to place them precisely. Preserve their previous position
-  // immediately before the final answer instead of moving the answer's
-  // interleaved commentary and tools around them.
-  const { parts, steered } = completedTurnOutput(
-    insertBeforeFinalText(orderedParts, nativePlanParts),
-    args.steered,
-  )
+  const { parts, steered } = completedTurnOutput(args.orderedParts ?? fallbackParts, args.steered)
 
   const tail = [
     ...steered,
     // Preserve the completion boundary even when there is no visible output:
     // thread-delivery replay deduplicates messages before the last assistant.
-    { id: randomUUID(), role: 'assistant' as const, parts },
+    { id: replyMessageId(run), role: 'assistant' as const, parts },
   ]
   const transcriptMessages = uiMessagesToTranscript([...args.messages, ...tail])
 
   try {
-    const { count } = await appendTranscriptMessages({
+    const stored = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -130,14 +88,8 @@ export async function finishPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    // Emit the stored timestamps too: download cards use them to stay with
-    // their original turn instead of briefly piling onto the latest reply.
-    const stored = await withCurrentAgentNames(
-      await getConversationMessagesHead(sessionId, userId, count),
-      teamId,
-    )
 
-    args.emit(transcriptTailFrame(stored, count - tail.length))
+    args.emit(await storedTranscriptTail(sessionId, userId, teamId, stored, tail.length))
   } catch (err) {
     traceAgentChatError('agent.chat.preview_transcript_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -146,6 +98,8 @@ export async function finishPreviewTurn(args: {
   // The durable answer is now available to every replica. Memory enrichment
   // must not prolong runtime execution in the UI.
   args.onRuntimeComplete?.()
+  // The agent can run again: an answer that waited for it goes next.
+  void deliverWaitingAnswers(sessionId)
   if (args.memory) {
     const accumulator = args.memory.turnMemory.accumulator
 
@@ -219,11 +173,11 @@ export async function persistInterruptedPreviewTurn(args: {
   const transcriptMessages = uiMessagesToTranscript([
     ...args.messages,
     ...args.steered,
-    { id: randomUUID(), role: 'assistant', parts },
+    { id: replyMessageId(run), role: 'assistant', parts },
   ])
 
   try {
-    const { count } = await appendTranscriptMessages({
+    const stored = await appendTranscriptMessages({
       sessionId,
       userId,
       teamId,
@@ -234,14 +188,10 @@ export async function persistInterruptedPreviewTurn(args: {
       provider: args.provider,
       preserveTitle: true,
     })
-    // Emit the stored timestamps too: download cards use them to stay with
-    // their original turn instead of briefly piling onto the latest reply.
-    const stored = await withCurrentAgentNames(
-      await getConversationMessagesHead(sessionId, userId, count),
-      teamId,
-    )
 
-    args.emit(transcriptTailFrame(stored, count - args.steered.length - 1))
+    args.emit(
+      await storedTranscriptTail(sessionId, userId, teamId, stored, args.steered.length + 1),
+    )
   } catch (err) {
     traceAgentChatError('agent.chat.preview_interrupted_persist.error', err, run.trace, {
       message_count: transcriptMessages.length,
@@ -271,7 +221,7 @@ export async function persistHandedOffPreviewTurn(args: {
     ...args.messages,
     ...args.steered,
     ...(args.orderedParts.length > 0
-      ? [{ id: randomUUID(), role: 'assistant' as const, parts: args.orderedParts }]
+      ? [{ id: replyMessageId(args.run), role: 'assistant' as const, parts: args.orderedParts }]
       : []),
   ])
 
