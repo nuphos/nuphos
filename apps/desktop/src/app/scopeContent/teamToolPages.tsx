@@ -1,6 +1,5 @@
 import {
   Archive,
-  Bot,
   ChartLine,
   ClipboardList,
   HeartPulse,
@@ -27,7 +26,6 @@ import { InboxView } from '../../views/InboxView'
 import { MonitoringView } from '../../views/MonitoringView'
 import { PlansView } from '../../views/PlansView'
 import { RuntimeFilesView } from '../../views/RuntimeFilesView'
-import { AgentSection } from '../../views/settings/AgentSection'
 import { TeamMembersView } from '../../views/TeamMembersView'
 import { TerminalView } from '../../views/TerminalView'
 
@@ -58,11 +56,9 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
     onLoading,
     onOpenAgentChat,
     onOpenPlanInChat,
-    isTeamAdmin,
     onOpenAuditConversation,
     onOpenConversation,
     onOpenNodeLink,
-    onOpenNuphosLink,
     onSelectActive,
     renderPage,
   } = ctx
@@ -70,23 +66,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
   if (scope.kind !== 'team') return undefined
 
   if (active === 'team.home') return renderTeamHomePage(ctx)
-
-  if (active === 'team.agents') {
-    return renderPage(
-      'team.agents',
-      t('Computers'),
-      <Bot className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
-      <AgentSection
-        key={scope.teamId}
-        teamId={scope.teamId}
-        isAdmin={isTeamAdmin}
-        filter={filter}
-        refreshKey={refreshKey}
-        onCount={onCount}
-        onLoading={onLoading}
-      />,
-    )
-  }
 
   if (active === 'team.files') {
     return (
@@ -179,7 +158,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
         onCount={onCount}
         onLoading={onLoading}
         onOpenConversation={onOpenConversation}
-        onOpenLink={onOpenNuphosLink}
       />,
     )
   }

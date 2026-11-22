@@ -1,0 +1,123 @@
+import { Hono } from 'hono'
+
+import { confirmTask } from '@/lib/agent/reminder-task'
+import { cancelReminder, createReminder, getReminder, listReminders } from '@/lib/agent/reminders'
+import { reminderSchema } from '@/lib/api/reminders'
+import { AppError } from '@/lib/errors'
+import { requireAuth } from '@/middleware/auth'
+import { jsonObjectBody, triggerActor } from '@/routes/agent-triggers/shared'
+
+import type { Reminder, ReminderStatus } from '@/lib/agent/reminders'
+import type { AuthVariables } from '@/middleware/auth'
+
+const STATUSES = ['pending', 'dispatched', 'delivered', 'failed', 'unconfirmed', 'cancelled']
+
+function present(reminder: Reminder) {
+  return reminderSchema.parse({
+    id: reminder._id.toHexString(),
+    sessionId: reminder.sessionId,
+    teamId: reminder.teamId,
+    text: reminder.text,
+    dueAt: reminder.dueAt.toISOString(),
+    timeZone: reminder.timeZone,
+    kind: reminder.kind ?? 'text',
+    status: reminder.status,
+    dispatchedAt: reminder.dispatchedAt?.toISOString(),
+    attempts: reminder.attempts,
+    createdAt: reminder.createdAt.toISOString(),
+    ackedAt: reminder.ackedAt?.toISOString(),
+    failedAt: reminder.failedAt?.toISOString(),
+    failureReason: reminder.failureReason,
+    lastError: reminder.lastError,
+  })
+}
+
+const scopeOf = (actor: { userId: string; sessionId?: string }) => ({
+  userId: actor.userId,
+  ...(actor.sessionId ? { sessionId: actor.sessionId } : {}),
+})
+
+const text = (value: unknown) => (typeof value === 'string' && value.trim() ? value : undefined)
+
+// Owner-only: a reminder is the caller's own words in the caller's own conversation.
+// Mounted at /agent/reminders and, for conversation principals, /teams/:teamId/agent-reminders.
+export const agentRemindersRoutes = new Hono<{ Variables: AuthVariables }>()
+
+agentRemindersRoutes.use('*', async (c, next) => {
+  if (c.get('userId')) return next()
+
+  return requireAuth(c, next)
+})
+
+agentRemindersRoutes.post('/', async (c) => {
+  const body = await jsonObjectBody(c)
+  const sessionId = text(body.sessionId)
+  const reminderText = text(body.text)
+  const dueAt = text(body.dueAt)
+
+  const actor = await triggerActor(c, body.teamId)
+
+  // An agent conversation is the target by authenticated identity, so it needs no sessionId.
+  if ((!sessionId && !actor.sessionId) || !reminderText || !dueAt)
+    throw new AppError(400, 'invalid_request', 'sessionId, text and dueAt are required')
+  const { reminder, created } = await createReminder({
+    userId: actor.userId,
+    ...(actor.sessionId ? { callerSessionId: actor.sessionId } : {}),
+    ...(actor.teamId ? { teamId: actor.teamId } : {}),
+    ...(sessionId ? { sessionId } : {}),
+    text: reminderText,
+    dueAt,
+    ...(text(body.timeZone) ? { timeZone: text(body.timeZone)! } : {}),
+    ...(text(body.dedupeKey) ? { dedupeKey: text(body.dedupeKey)! } : {}),
+    ...(body.kind === 'task' ? { kind: 'task' as const } : {}),
+  })
+
+  return c.json(present(reminder), created ? 201 : 200)
+})
+
+agentRemindersRoutes.get('/', async (c) => {
+  const actor = await triggerActor(c, c.req.query('teamId'))
+  const status = c.req.query('status')
+
+  if (status && !STATUSES.includes(status))
+    throw new AppError(400, 'invalid_request', `status must be one of ${STATUSES.join(', ')}`)
+  const found = await listReminders(scopeOf(actor), {
+    ...(actor.teamId ? { teamId: actor.teamId } : {}),
+    ...(c.req.query('sessionId') ? { sessionId: c.req.query('sessionId')! } : {}),
+    ...(status ? { status: status as ReminderStatus } : {}),
+  })
+
+  return c.json({ reminders: found.map(present) })
+})
+
+agentRemindersRoutes.get('/:reminderId', async (c) => {
+  const actor = await triggerActor(c, c.req.query('teamId'))
+
+  return c.json(present(await getReminder(scopeOf(actor), c.req.param('reminderId'))))
+})
+
+agentRemindersRoutes.delete('/:reminderId', async (c) => {
+  const actor = await triggerActor(c, c.req.query('teamId'))
+
+  return c.json(present(await cancelReminder(scopeOf(actor), c.req.param('reminderId'))))
+})
+
+// Only the conversation a task was given to may settle it; confirmTask checks that.
+agentRemindersRoutes.post('/:reminderId/ack', async (c) => {
+  const body = await jsonObjectBody(c)
+  const actor = await triggerActor(c, c.req.query('teamId'))
+
+  if (body.outcome !== 'done' && body.outcome !== 'failed')
+    throw new AppError(400, 'invalid_request', 'outcome must be done or failed')
+
+  return c.json(
+    present(
+      await confirmTask(
+        scopeOf(actor),
+        c.req.param('reminderId'),
+        body.outcome,
+        typeof body.reason === 'string' ? body.reason : undefined,
+      ),
+    ),
+  )
+})

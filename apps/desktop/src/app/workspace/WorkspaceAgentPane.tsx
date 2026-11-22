@@ -108,7 +108,7 @@ export function WorkspaceAgentPane({
     [workspaceActions],
   )
   const handleOpenAgentSettings = useCallback(
-    () => openSettingsSection('workspace.agent'),
+    () => openSettingsSection('workspace.computers'),
     [openSettingsSection],
   )
   const handleImportConsumed = useCallback(

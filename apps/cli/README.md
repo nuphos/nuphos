@@ -84,6 +84,10 @@ nuphos bots NAME --create --agent RUNTIME    # ... on a chosen runtime
 nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
+nuphos vault enroll [--name N]               # add this device to your end-to-end encrypted vault
+nuphos vault devices | approve ID | remove-device ID
+echo -n "..." | nuphos vault set NAME        # save an item; the value comes from stdin
+nuphos vault get NAME | list | rm NAME
 nuphos login | logout
 nuphos login --device                        # sign in with a code approved on another device
 nuphos login --token -                       # an agent token from nuphos.ai/settings/tokens, on stdin
@@ -145,7 +149,9 @@ On Linux with systemd, `nuphos agent` does not stay in the foreground: it
 installs the user service `nuphos-agent` and starts it, so the runtime starts
 again after a crash or a reboot. With `--join` it returns once the machine has
 joined. The service runs `nuphos agent` with the `PATH` and `NUPHOS_*`
-variables of the shell that installed it (kept in `~/.config/nuphos/agent.env`);
+variables of the shell that installed it, plus any
+[model-provider variables](#your-own-model-provider) set there (kept in
+`~/.config/nuphos/agent.env`);
 run `nuphos agent` again to refresh them. A revoked computer or a refused token
 exits with status 78, which the service does not restart. `nuphos update`
 restarts the service on the new version. Its log is

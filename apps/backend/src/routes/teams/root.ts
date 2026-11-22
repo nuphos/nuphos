@@ -1,6 +1,7 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { startFirstTeamBox } from '@/lib/agent/devices/box-first-team'
 import { AppError } from '@/lib/errors'
 import {
   createTeamForUser,
@@ -31,6 +32,9 @@ export function registerTeamsRootRoutes(teamsRoutes: Hono<{ Variables: AuthVaria
     const userId = c.get('userId')
     const { name } = c.req.valid('json')
     const team = await createTeamForUser(userId, name)
+
+    // Not awaited: the team is made whether or not its free Box starts (#4186).
+    void startFirstTeamBox(userId, team.id)
 
     // `createTeamForUser` reports the creator's seeded role, so this response
     // carries the same fields GET / does. Clients adopt it as the active team

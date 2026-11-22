@@ -10,6 +10,7 @@ import { t } from '../../i18n'
 import { formatDate } from '../members/memberRows'
 
 import { PasskeyList } from './PasskeyList'
+import { resumeTwoFactorAfterSignIn } from './resumeTwoFactor'
 import { SectionHeader } from './shared'
 import { TotpSetup } from './TotpSetup'
 
@@ -83,7 +84,15 @@ export function TwoFactorSection({ onSignOut }: { onSignOut: () => void }) {
           <p className="mt-1 text-[12.5px] text-tertiary">
             {t('For your security, this needs a sign-in from the last 10 minutes.')}
           </p>
-          <Button type="button" size="sm" className="mt-3" onClick={onSignOut}>
+          <Button
+            type="button"
+            size="sm"
+            className="mt-3"
+            onClick={() => {
+              resumeTwoFactorAfterSignIn()
+              onSignOut()
+            }}
+          >
             {t('Sign out and sign in again')}
           </Button>
         </div>

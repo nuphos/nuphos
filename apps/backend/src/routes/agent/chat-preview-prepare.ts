@@ -8,6 +8,7 @@ import {
   clearConversationPreviewTurn,
   getConversationBySessionId,
   openConversationPromptSuggestion,
+  resolveInputRequest,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { turnLanguage } from '@/lib/agent/db/ancestor-user-texts'
@@ -19,11 +20,10 @@ import {
 } from '@/lib/agent/message-metadata'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
-import { answerHumanTurn } from '@/lib/agent/plan-decision'
 import { markCarried } from '@/lib/agent/retract-marks'
 import { nuphosToolsVersion } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
-import { buildPreviewSystemPrompt } from '@/lib/claude-code-preview/preview-prompt'
+import { buildPreviewSystemPrompt, withPageContext } from '@/lib/claude-code-preview/preview-prompt'
 import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
@@ -140,7 +140,8 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
-  if (args.humanTurn) await answerHumanTurn(args)
+  if (args.humanTurn && args.decisionReplyTo)
+    await resolveInputRequest(args.sessionId, args.userId, args.decisionReplyTo)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,
@@ -209,9 +210,6 @@ export async function preparePreviewTurn(
         teamId,
         sessionId,
         locale: args.locale,
-        ...(args.kubeContext ? { kubeContext: args.kubeContext } : {}),
-        ...(args.diagramId ? { diagramId: args.diagramId } : {}),
-        ...(args.currentUrl ? { currentUrl: args.currentUrl } : {}),
         ...(args.slackThread ? { slackThread: args.slackThread } : {}),
       }).catch((err: unknown): string | undefined => {
         traceAgentChatError('agent.chat.preview_prompt.error', err, args.run.trace, {})
@@ -241,11 +239,13 @@ export async function preparePreviewTurn(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
       )
-
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
-    turnContext: args.turnContext,
+    turnContext: await withPageContext(args.turnContext, {
+      ...args,
+      provider: args.endpoint.provider,
+    }),
     carried: carried.length > 0 ? renderInjectedUserMessages(carried) : '',
     language,
   })
@@ -258,6 +258,7 @@ export async function preparePreviewTurn(
       humanTurn: args.humanTurn,
       toolsVersion,
       parentSessionId: conversation?.parentSessionId,
+      sessionHomeEpoch: conversation?.sessionHomeEpoch,
       bot: isBot(conversation),
     },
     message: lead(),

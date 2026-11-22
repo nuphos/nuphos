@@ -32,7 +32,6 @@ export function claudeCodePreviewMasterKey() {
 type RuntimeCredentialDoc = {
   _id: string
   teamId: string
-  managedBy?: 'provisioner'
   authKeyEnvelope?: EncryptedEnvelope
   controlKeyEnvelope?: EncryptedEnvelope
   updatedAt: Date
@@ -86,7 +85,7 @@ export async function rotateRuntimeKeys(
   const authKey = keys.authKey.trim()
   const controlKey = normalizeRuntimeKeys(authKey, keys.controlKey?.trim())
   const result = await runtimeCredentials().updateOne(
-    { _id: runtimeId, teamId, managedBy: { $exists: false } },
+    { _id: runtimeId, teamId },
     {
       $set: {
         authKeyEnvelope: sealRuntimeAuthKey(authKey),
@@ -128,7 +127,7 @@ async function readControlKey(teamId: string, runtimeId: string): Promise<string
   const stored = storedAuthKey(doc?.controlKeyEnvelope)
 
   if (stored) return stored
-  if (!doc || doc.managedBy) return null
+  if (!doc) return null
   const password = storedAuthKey(doc.authKeyEnvelope)
 
   return password ? deriveRuntimeControlKey(password) : null

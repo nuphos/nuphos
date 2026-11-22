@@ -1,6 +1,6 @@
 ---
 name: google-workspace
-description: Read and act on the message sender's own Gmail, Google Drive and Google Calendar — search, read, label, draft and send mail; search, read, upload, and share Drive files and Google Docs/Sheets; list, create and update calendar events — through the Gmail, Google Drive or Google Calendar Personal Credential the member connected in Nuphos Settings. Use whenever the user asks about their email or inbox, wants a reply drafted or sent, asks to find, read, or save a file in their Google Drive, or asks about their schedule or to set up a meeting. Nuphos hands the agent a short-lived Google access token; the agent calls the Gmail, Drive and Calendar REST APIs directly with curl.
+description: "Read and act on the sender's own Gmail, Google Drive and Calendar: search, draft and send mail; find, read and share files; manage events. Uses their Personal Credential."
 ---
 
 # google-workspace
@@ -23,6 +23,13 @@ actions and wait for them to confirm, even when they asked for a filter.
 ## Setup
 
 Run once per conversation, and again on a 401 (tokens last about an hour).
+
+Several Google accounts: `list_credentials` shows each account with its `connectionId`. When more
+than one is authorized and the request does not say which, ask the user; never pick one yourself.
+Pass the chosen id as `GOOGLE_CONNECTION_ID=<id>` before `setup-credentials.sh` or `composio.sh`.
+A 409 `personal_credential_account_required` lists the choices; a 403
+`personal_credential_account_not_authorized` means the owner has not given this conversation that
+account, so ask them to select it.
 `<teamId>` is the current team id from the session context:
 
 ```bash
@@ -38,7 +45,12 @@ env file in each call that uses it.
 
 A 404 `personal_credential_not_connected` means this member has not connected
 that provider through this team: ask them to connect Gmail, Google Drive or Google Calendar under
-Settings → Personal Credentials, then retry. A 409
+Settings → Personal Credentials, then retry. A 403
+`personal_credential_not_selected` means the member has connected it, but it is
+not selected for this conversation: ask them to select it with
+`request_user_decision` (category `integration`, `credentials`
+`[{provider: "personal", id: "gmail"}]`, or `google-drive` / `google-calendar`),
+then retry. Do not tell them to reconnect it. A 409
 `google_oauth_client_not_configured` means the team has no Google OAuth client
 yet: a team administrator adds one in Team settings (guide:
 https://docs.nuphos.ai/connectors/google-workspace). There is no team fallback.

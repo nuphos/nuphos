@@ -184,7 +184,9 @@ describe('ownPersonalCredentialOptions', () => {
       credential({ userId: 'user-2', provider: 'gmail', teamId: TEAM }),
     ]
 
-    expect(await ownPersonalCredentialOptions('user-1', TEAM)).toEqual([
+    const options = await ownPersonalCredentialOptions('user-1', TEAM)
+
+    expect(options.map(({ provider, login }) => ({ provider, login }))).toEqual([
       { provider: 'github', login: 'octocat' },
       { provider: 'linear', login: 'Octo Cat' },
       { provider: 'gmail', login: 'octo@example.com' },

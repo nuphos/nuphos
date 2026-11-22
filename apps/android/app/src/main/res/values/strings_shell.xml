@@ -196,6 +196,4 @@
     <string name="shell_desktop_type">Type</string>
     <string name="shell_inbox_snoozed">Snoozed</string>
     <string name="shell_inbox_unsnooze">Unsnooze</string>
-    <string name="shell_inbox_undo">Undo</string>
-    <string name="shell_inbox_dismissed">Dismissed. It carries on without an answer.</string>
 </resources>

@@ -7,7 +7,10 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import type { AgentTrigger } from './trigger-db'
 
 const writes: { name: string; filter: unknown; update: unknown }[] = []
-const conversations = new Map<string, { sessionId: string; userId: string; teamId?: string }>()
+const conversations = new Map<
+  string,
+  { sessionId: string; userId: string; teamId?: string; archivedAt?: Date }
+>()
 
 useDb({
   db: () => ({
@@ -65,6 +68,18 @@ beforeEach(() => {
 describe('resolveExecutionAuthorization', () => {
   beforeEach(() => {
     member = true
+  })
+
+  test('an old Trigger cannot wake an archived Task', async () => {
+    conversations.set('archived', {
+      sessionId: 'archived',
+      userId: 'principal',
+      teamId: 'team-1',
+      archivedAt: new Date(),
+    })
+    await expect(
+      resolveExecutionAuthorization(trigger({ targetSessionId: 'archived' })),
+    ).rejects.toThrow()
   })
 
   test('a Trigger runs in its Task', async () => {

@@ -56,16 +56,32 @@ test('a sub-agent at work is the Bot at work, through its run', () => {
   assert.equal(activity.kind === 'working' && activity.run, kid)
 })
 
+test("someone else's Bot with Tasks running that this viewer does not list is at work", () => {
+  const shared = run('bot', idle, { tasks: { running: 1, waiting: 0 } })
+
+  assert.deepEqual(activityOf(shared, []), { kind: 'working', run: shared })
+  // A Bot still in setup that works says it works, as with listed Tasks.
+  const settingUp = run('bot', idle, {
+    tasks: { running: 1, waiting: 0 },
+    botOnboarding: 'pending',
+  })
+
+  assert.equal(activityOf(settingUp, []).kind, 'working')
+  assert.equal(activityOf(run('bot', idle, { tasks: { running: 0, waiting: 1 } }), []).kind, 'idle')
+  // The owner lists the Tasks themselves, and those decide.
+  assert.equal(activityOf(shared, [run('Done', idle)]).kind, 'idle')
+})
+
 test('a question from the Bot or a sub-agent outranks work', () => {
   const activity = activityOf(run('bot', turn()), [run('kid', idle, asking)])
 
-  assert.deepEqual(activity, { kind: 'asking', question: 'Include Slack?' })
+  assert.deepEqual(activity, { kind: 'asking' })
 })
 
-test('a failed run shows as an error', () => {
-  const activity = activityOf(run('bot', { ...idle, phase: 'failed', label: 'tests failed' }), [])
+test('a failed run shows as an error, without its raw label', () => {
+  const activity = activityOf(run('bot', { ...idle, phase: 'failed', label: 'Request failed' }), [])
 
-  assert.deepEqual(activity, { kind: 'error', label: 'tests failed' })
+  assert.deepEqual(activity, { kind: 'error' })
 })
 
 test('an onboarding question is setup, while a real approval still needs attention', () => {

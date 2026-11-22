@@ -18,8 +18,28 @@ test('an agent CLI that cannot start is one plain sentence, live and stored alik
   expect(classifyPreviewInterruption(einval, false).message).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
 })
 
+// Reinstalling with npm on Windows brings the same .cmd back, so that alone is not the way out.
+test('a CLI that cannot start is told to switch runtime or use the official installer', () => {
+  expect(formatAgentStreamError(einval)).toContain('Switch this Bot to another runtime')
+  expect(formatAgentStreamError(einval)).toContain('official installer')
+})
+
 test('Node’s spawn error code never reaches the user', () => {
   expect(formatAgentStreamError(einval)).not.toContain('EINVAL')
+})
+
+// The ACP shim on Windows, spawning npm's opencode.cmd without a shell, as logged on 2026-11-21:
+// the shim dies, and openab passes on the start of its stderr (path shortened).
+const shimEinval = new OpenAbRpcError(
+  "**Agent Output**\nnode:internal/child_process:421\n    throw new ErrnoException(err, 'spawn');\n    ^\n\nError: spawn EINVAL\n    at ChildProcess.spawn (node:internal/child_process:421:11)\n    at spawn (node:child_process:7…",
+)
+
+test('a shim-run CLI that cannot start gets the same sentence, not its stack', () => {
+  expect(formatAgentStreamError(shimEinval)).toBe(AGENT_CLI_UNSTARTABLE_MESSAGE)
+  expect(classifyPreviewInterruption(shimEinval, false)).toMatchObject({
+    message: AGENT_CLI_UNSTARTABLE_MESSAGE,
+    cause: 'cli',
+  })
 })
 
 test("npm's placeholder claude.exe, before its postinstall ran, gets the same sentence", () => {

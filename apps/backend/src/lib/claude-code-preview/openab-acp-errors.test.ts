@@ -133,6 +133,19 @@ describe('turnFailureCause', () => {
     expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
     expect(isRuntimeAuthRequired(refused)).toBe(false)
   })
+
+  test('OpenCode’s free usage limit, as the runtime relays it, is the agent out of usage', () => {
+    const notice =
+      'The model provider refused the request: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+    const refused = wrapped(notice)
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    // Any other refusal the runtime relays stays unclassified.
+    expect(turnFailureCause(wrapped('The model provider refused the request: overloaded'))).toBe(
+      'other',
+    )
+  })
 })
 
 describe('the adapter error behind the gateway', () => {

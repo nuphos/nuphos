@@ -2,7 +2,7 @@
 import { agentLog } from './agent-log.ts'
 import { joinTeam } from './dashboard-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, pickInSubmenu, send } from './ui.ts'
+import { newTask, pickInRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -14,11 +14,7 @@ const SECOND = 'E2E second agent'
 async function choose(page: Page, trigger: Locator, label: string) {
   await trigger.click()
   // The computer's row opens a submenu of its runtimes.
-  await page.getByRole('menu').getByText(label).click()
-  await pickInSubmenu(
-    page,
-    page.getByRole('menuitem', { name: new RegExp(`^${label}.*Claude Code`) }),
-  )
+  await pickInRow(page, label, new RegExp(`^${label}.*Claude Code`))
 }
 
 async function call(
@@ -84,7 +80,11 @@ export const fallbackSetupScenarios: Scenario[] = [
       await newTask(page)
       await choose(page, page.getByRole('button', { name: /^Runtime:/ }), FIXTURE)
       await send(page, `Out of usage E2E_USAGE_LIMIT ${marker}`)
-      await page.getByText('You’ve hit your usage limit').first().waitFor()
+      await page
+        .getByText('You’ve hit your usage limit')
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       // #3313: Switch runtime opens one runtime list, the one beside this failure.
       await page.getByRole('button', { name: 'Switch runtime' }).first().click()
       await page.getByRole('menu').first().waitFor()

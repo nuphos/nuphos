@@ -1,22 +1,9 @@
 import assert from 'node:assert/strict'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  symlinkSync,
-  utimesSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 
-import {
-  SESSION_WORKSPACE_IDLE_MS,
-  SESSION_WORKSPACE_MARKER,
-  sessionWorkspaceName,
-} from './disk-reclaim.ts'
 import {
   DISK_MAINTENANCE_DELAY_MS,
   measureDirectory,
@@ -102,29 +89,6 @@ test('a directory that is not there reads as nothing, and is not an error', asyn
   assert.deepEqual(usage, { bytes: 0, entries: 0, complete: true })
 })
 
-test('a finished session workspace is reclaimed, and the workspace is reported', async (t) => {
-  const root = tempRoot(t)
-  const dir = path.join(root, sessionWorkspaceName('conversation-1'))
-  const marker = path.join(dir, SESSION_WORKSPACE_MARKER)
-  const at = new Date(Date.now() - SESSION_WORKSPACE_IDLE_MS - 24 * 60 * 60 * 1000)
-  const logged: { message: string; data?: Record<string, unknown> }[] = []
-
-  mkdirSync(dir)
-  writeFileSync(marker, JSON.stringify({ version: 1, sessionId: 'conversation-1' }))
-  utimesSync(marker, at, at)
-  utimesSync(dir, at, at)
-  await runDiskMaintenance({
-    workspaces: () => [root],
-    inUse: () => false,
-    leftAlone: null,
-    log: (message, data) => logged.push({ message, data }),
-  })
-
-  assert.equal(existsSync(dir), false)
-  assert.deepEqual(logged[0]?.data?.reclaimed, 1)
-  assert.equal(logged[0]?.data?.workspace, root)
-})
-
 test('the directory this build does not use is reported, and left exactly where it is', async (t) => {
   const leftAlone = tempRoot(t, 'nuphos-disk-left-alone-')
 
@@ -133,7 +97,6 @@ test('the directory this build does not use is reported, and left exactly where 
 
   await runDiskMaintenance({
     workspaces: () => [],
-    inUse: () => false,
     leftAlone,
     log: (message, data) => logged.push({ message, data }),
   })
@@ -153,7 +116,6 @@ test('a workspace that cannot be read does not stop the pass', async (t) => {
 
   await runDiskMaintenance({
     workspaces: () => [path.join(tempRoot(t), 'not-there')],
-    inUse: () => false,
     leftAlone: null,
     log: (message) => logged.push(message),
   })
@@ -167,7 +129,6 @@ test('a workspace list that throws is the caller of the pass to catch, not a pro
       workspaces: () => {
         throw new Error('no state yet')
       },
-      inUse: () => false,
       leftAlone: null,
     }),
     /no state yet/u,
@@ -179,7 +140,6 @@ test('the scheduled pass waits, and can be cancelled before it runs', () => {
   const cancel = startDiskMaintenance(
     {
       workspaces: () => [],
-      inUse: () => false,
       leftAlone: null,
       log: (message) => logged.push(message),
     },

@@ -56,11 +56,13 @@ export const providerMoveScenarios: Scenario[] = [
         await pickAgent(page, 'E2E fixture agent')
         await send(page, 'On Claude Code E2E_DELIVERY:provider-start')
         await page.getByText('ACK E2E_DELIVERY:provider-start').waitFor()
-        // #3970: a Task's session keeps Claude Code's defaults, unlike a Bot's.
+        // #4195: a Task's session compacts at 200k like a Bot's, but keeps next-prompt suggestions.
         const taskEnv = sessionOf(stack, 'first', 'E2E_DELIVERY:provider-start').env
 
-        if (taskEnv && Object.keys(taskEnv).length > 0)
-          throw new Error(`The Task's session carries a Bot's settings: ${JSON.stringify(taskEnv)}`)
+        if (
+          JSON.stringify(taskEnv) !== JSON.stringify({ CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000' })
+        )
+          throw new Error(`The Task's session has the wrong settings: ${JSON.stringify(taskEnv)}`)
         // Three replies of about 12k characters outgrow the history a fresh session gets.
         for (const turn of ['long-1', 'long-2', 'long-3']) {
           await send(page, `Answer at length E2E_LONG_REPLY E2E_DELIVERY:provider-${turn}`)
@@ -69,7 +71,10 @@ export const providerMoveScenarios: Scenario[] = [
 
         // Claude Code → Codex: the Codex agent's own effort, named, never a blank "Default".
         await pickAgent(page, 'E2E Codex agent', 'Codex')
-        await page.getByText('moved this task from E2E fixture agent to E2E Codex agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E Codex agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-codex', /Low/)
         // A model picked there is saved with that effort, not alone.
         await chip(page).click()
@@ -94,7 +99,10 @@ export const providerMoveScenarios: Scenario[] = [
 
         // Codex → Claude Code: Claude Code's effort, named, and stored for its next session.
         await pickAgent(page, 'E2E fixture agent')
-        await page.getByText('moved this task from E2E Codex agent to E2E fixture agent').waitFor()
+        await page
+          .getByText('moved this task from E2E Codex agent to E2E fixture agent')
+          .filter({ visible: true })
+          .waitFor()
         await namedSettings(page, 'provider-move-back', /Low/)
         await send(page, 'Back on Claude Code E2E_DELIVERY:provider-back')
         await page.getByText('ACK E2E_DELIVERY:provider-back').waitFor()

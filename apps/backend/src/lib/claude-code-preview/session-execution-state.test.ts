@@ -169,8 +169,9 @@ test('a conversation moved before the fix is read the same way', async () => {
   expect(snapshot.actions?.send).toBe(true)
 })
 
+// A state query that is only slow is not a failure for admission: it waits, and
+// the two tests below cover it. These are answers the runtime did give.
 for (const [failure, message] of [
-  ['timeout', 'OpenAB ACP _openab/session/state timed out'],
   ['invalid snapshot', 'Invalid runtime execution snapshot'],
   ['unsupported RPC', 'Method not found'],
 ] as const) {
@@ -200,10 +201,9 @@ for (const [failure, message] of [
                 error: { code: -32601, message: 'Method not found' },
               }),
             )
-          } else if (failure === 'invalid snapshot') {
+          } else {
             ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, result: { state: 'idle' } }))
           }
-          // timeout: the runtime is connected, but never answers the state query.
         },
       },
     })
@@ -269,6 +269,62 @@ test('admission waits out a slow socket open that status readers give up on', as
   endpoint = `ws://127.0.0.1:${String(server.port)}/acp`
   const conversation = {
     sessionId: 'slow-open',
+    teamId: 'team',
+    agentRuntime: 'claude-code',
+  } as AgentConversation
+
+  try {
+    expect((await probeExecutionState(conversation)).actions?.send).toBe(true)
+    expect(await conversationExecutionState(conversation)).toEqual({ state: 'disconnected' })
+  } finally {
+    await server.stop(true)
+  }
+}, 20_000)
+
+test('admission waits out a slow state answer that status readers give up on', async () => {
+  // The same delay on the call rather than the open: a tunnel that has just
+  // reconnected is slow over its first round trip too, and admission losing the
+  // turn there costs the same.
+  const server = Bun.serve({
+    port: 0,
+    fetch(request, socketServer) {
+      if (socketServer.upgrade(request)) return
+
+      return new Response('upgrade required', { status: 400 })
+    },
+    websocket: {
+      async message(ws, data) {
+        const frame = JSON.parse(String(data))
+
+        if (frame.method === 'initialize') {
+          ws.send(JSON.stringify({ jsonrpc: '2.0', id: frame.id, result: { protocolVersion: 1 } }))
+
+          return
+        }
+        await Bun.sleep(4_000)
+        ws.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: frame.id,
+            result: {
+              schemaVersion: 2,
+              epoch: 'runtime',
+              revision: 1,
+              state: 'idle',
+              phase: 'idle',
+              label: 'Ready',
+              tools: [],
+              actions: { send: true, cancel: false, steer: false },
+            },
+          }),
+        )
+      },
+    },
+  })
+
+  endpoint = `ws://127.0.0.1:${String(server.port)}/acp`
+  const conversation = {
+    sessionId: 'slow-answer',
     teamId: 'team',
     agentRuntime: 'claude-code',
   } as AgentConversation

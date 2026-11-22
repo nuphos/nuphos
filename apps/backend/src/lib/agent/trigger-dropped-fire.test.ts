@@ -15,7 +15,6 @@ import {
   hasPendingUserMessages,
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
-import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AgentConversation } from './db'
@@ -52,15 +51,17 @@ useConversationChatRoute({
 })
 useBoxWake({ wakeOfflineBox: () => wake() })
 useDb({
-  db: (() => ({
+  db: () => ({
     collection: () => ({
+      // The fired Trigger still exists.
+      findOne: async () => ({ _id: TRIGGER_ID }),
       updateOne: write('updateOne'),
       findOneAndUpdate: write('findOneAndUpdate'),
     }),
-  })) as unknown as typeof dbActual.db,
+  }),
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async () => target,
   getConversationWithMessages: async () => ({ conversation: target, messages: [] }),
 })
@@ -172,18 +173,13 @@ test('a fire on a Box its plan will not start fails, and counts toward pausing i
       "Your team's free cloud computer has used its 50 hours this month.",
     )
   }
-  // Another Trigger's fire queues behind it, as its own turn.
+  // Another Trigger's fire waiting behind it fails in the same turn.
   const other = '6af1a38b843a609932e6f66e'
 
-  installQueuedTurnStarter(startQueuedTurn)
   await enqueuePendingUserMessage('owner', 'target', fire())
   await enqueuePendingUserMessage('owner', 'target', fire(undefined, other))
 
   await startQueuedTurn('owner', 'target')
-  expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID])
-  // The retry that follows meets the same refusal, so nothing waits on forever.
-  for (let i = 0; i < 100 && writes.length < 2; i++)
-    await new Promise((resolve) => setTimeout(resolve, 50))
   expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
   expect(writes.map((w) => String(w.filter._id))).toEqual([TRIGGER_ID, other])
   for (const { op, update } of writes) {
