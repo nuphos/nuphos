@@ -74,33 +74,37 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if let store, !store.teams.isEmpty {
+                // One item holds the team and, on an iPhone, the actions. On iPhone Duo's folded
+                // cover screen iOS moved any other item into the column beside its side tab bar,
+                // where Account hung past the screen's edge (#3433). As a group, iOS 27 folded
+                // Account and Computers into "More".
+                if store?.teams.isEmpty == false || sizeClass != .regular || openChat != nil {
                     ToolbarItem(placement: .topBarLeading) {
-                        Button { showTeamPicker = true } label: {
-                            HStack(spacing: 6) {
-                                if let team = store.selectedTeam { TeamAvatar(team: team) }
-                                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
-                                LucideIcon("chevron-down", size: 14)
+                        HStack(spacing: 0) {
+                            if let store, !store.teams.isEmpty {
+                                Button { showTeamPicker = true } label: {
+                                    HStack(spacing: 6) {
+                                        if let team = store.selectedTeam { TeamAvatar(team: team) }
+                                        Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
+                                            .font(.subheadline.weight(.semibold))
+                                            .lineLimit(1)
+                                            .truncationMode(.tail)
+                                            .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
+                                        LucideIcon("chevron-down", size: 14)
+                                    }
+                                }
+                                .sheet(isPresented: $showTeamPicker) {
+                                    TeamSwitcherPopover(store: store)
+                                        .presentationDetents([.medium, .large])
+                                        .presentationDragIndicator(.visible)
+                                        .presentationBackground(.ultraThinMaterial)
+                                }
+                                .accessibilityLabel("Switch team")
+                            }
+                            if sizeClass != .regular || openChat != nil {
+                                HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                             }
                         }
-                        .sheet(isPresented: $showTeamPicker) {
-                            TeamSwitcherPopover(store: store)
-                                .presentationDetents([.medium, .large])
-                                .presentationDragIndicator(.visible)
-                                .presentationBackground(.ultraThinMaterial)
-                        }
-                        .accessibilityLabel("Switch team")
-                    }
-                }
-                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
-                // and Account and Computers went with it.
-                if sizeClass != .regular || openChat != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
@@ -338,10 +342,9 @@ struct HomeView: View {
         }
     }
 
-    /// On an iPhone the team's name takes only the width the rest of the toolbar leaves, so
-    /// Create, Computers and Account never fold into "More". Measured on iOS 27: the team
-    /// pill's margin, avatar, chevron, spacing and padding (82 pt), the trailing pill with
-    /// its margin (136 pt), and a gap between them (16 pt). At most 180 pt.
+    /// On an iPhone the team's name takes only the width the actions beside it leave, so they
+    /// stay on screen. Measured on iOS 27: the team pill's margin, avatar, chevron, spacing and
+    /// padding (82 pt), the actions with their margin (136 pt), and a gap (16 pt). At most 180 pt.
     private static var compactTeamNameWidth: CGFloat {
         min(180, UIScreen.main.bounds.width - 234)
     }

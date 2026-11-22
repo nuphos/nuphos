@@ -220,6 +220,28 @@ final class HomeTabsUITests: XCTestCase {
         shot("new-task-submitted")
     }
 
+    /// #3433: on iPhone Duo's folded cover screen the three actions left the navigation bar and
+    /// Account hung past the screen's edge. On every device they sit in a navigation bar, on screen.
+    func testHomeActionsStayInNavigationBar() throws {
+        let app = XCUIApplication()
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/channel-responses.json")
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-AppleInterfaceStyle", "Light"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 10))
+        let window = app.windows.firstMatch.frame
+        let bars = app.navigationBars.allElementsBoundByIndex.map(\.frame)
+        for name in ["Create", "Computers & runtimes", "Account"] {
+            let button = app.buttons[name].firstMatch
+            XCTAssertTrue(button.isHittable, "\(name) must be tappable")
+            XCTAssertTrue(window.contains(button.frame), "\(name) at \(button.frame) must be inside \(window)")
+            XCTAssertTrue(bars.contains { $0.contains(button.frame) }, "\(name) at \(button.frame) must be in a navigation bar \(bars)")
+        }
+        shot("home-actions-in-navigation-bar")
+    }
+
     private func shot(_ name: String) {
         let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         capture.name = name
