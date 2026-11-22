@@ -4,8 +4,7 @@ import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
 /** The selection keys that are identity or own-account choices, not credential options. */
-export type IdentityKey =
-  'teamIdentity' | 'personalCredentialIds' | 'personalConnectionIds' | 'personalAccountCount'
+export type IdentityKey = 'teamIdentity' | 'personalCredentialIds'
 
 // Who the agent acts as on the team's binding of GitHub / Linear: the member, or
 // the team. Not the member's own credential (personalCredentialIds), which is a
@@ -49,15 +48,11 @@ export function setPersonalIdentity(
 // is kept, not dropped: the backend reads a missing key as "keep what is stored".
 export function teamIdentityOf(
   value: Partial<AgentCredentialSelection> | null | undefined,
-): Pick<AgentCredentialSelection, Exclude<IdentityKey, 'personalAccountCount'>> {
+): Pick<AgentCredentialSelection, IdentityKey> {
   return {
     ...(value?.teamIdentity ? { teamIdentity: [...value.teamIdentity] } : {}),
     ...(value?.personalCredentialIds
       ? { personalCredentialIds: [...value.personalCredentialIds] }
-      : {}),
-    // Without it the backend keeps what is stored, so a save never drops the owner's pick.
-    ...(value?.personalConnectionIds
-      ? { personalConnectionIds: [...value.personalConnectionIds] }
       : {}),
   }
 }

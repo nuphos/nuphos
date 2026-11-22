@@ -2,24 +2,6 @@ import { AppError } from '@/lib/errors'
 
 import type { PersonalCredential } from '@/models'
 
-/**
- * Which of a member's accounts a call may use: those the conversation lists, or all of them when
- * it lists none, because ticking a provider means every account of that provider.
- */
-export function allowedAccounts(
-  docs: PersonalCredential[],
-  authorized?: string[],
-): PersonalCredential[] {
-  return authorized ? docs.filter((doc) => authorized.includes(doc._id.toHexString())) : docs
-}
-
-export const notAuthorized = () =>
-  new AppError(
-    403,
-    'personal_credential_account_not_authorized',
-    'This account is not authorized for this conversation: the owner selects which accounts it may use',
-  )
-
 /** Several accounts qualify and the call named none: list them, never pick one. */
 export const accountRequired = (docs: PersonalCredential[]) =>
   new AppError(
@@ -33,10 +15,7 @@ export const accountRequired = (docs: PersonalCredential[]) =>
 export function chooseCredential(
   docs: PersonalCredential[],
   connectionId?: string,
-  authorized?: string[],
 ): PersonalCredential | null {
-  const allowed = allowedAccounts(docs, authorized)
-
   if (connectionId) {
     const named = docs.find((doc) => doc._id.toHexString() === connectionId)
 
@@ -47,12 +26,10 @@ export function chooseCredential(
         'No such connected account for this member',
       )
     }
-    if (!allowed.includes(named)) throw notAuthorized()
 
     return named
   }
-  if (allowed.length > 1) throw accountRequired(allowed)
-  if (allowed.length === 0 && docs.length > 0) throw notAuthorized()
+  if (docs.length > 1) throw accountRequired(docs)
 
-  return allowed[0] ?? null
+  return docs[0] ?? null
 }
