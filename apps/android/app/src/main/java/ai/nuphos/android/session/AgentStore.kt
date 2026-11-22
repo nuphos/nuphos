@@ -139,6 +139,9 @@ class AgentStore(
         private set
     var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
         private set
+    /** The label of a Box that is still coming up while the workspace has no runtime. */
+    var startingBox by mutableStateOf<String?>(null)
+        private set
     val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
