@@ -17,7 +17,10 @@ class FakeApp extends EventEmitter {
     if (this.prevented('before-quit') || this.windowRefusesToClose) return
     this.quitting = true
     if (!this.prevented('will-quit')) this.exited = true
-    else setImmediate(() => (this.quitting = false))
+    else
+      setImmediate(() => {
+        this.quitting = false
+      })
   }
   private prevented(name: string): boolean {
     let prevented = false
