@@ -55,6 +55,8 @@ export const archivePopoverScenarios: Scenario[] = [
     run: async (page, stack) => {
       await archivedTask(stack, FIRST)
       await page.reload()
+      // Captures for the PR are in the light theme.
+      await page.evaluate(() => document.documentElement.classList.replace('dark', 'light'))
       await openArchived(page, FIRST)
       await closeArchived(page)
       // The window stays open; the archive changes behind it.
