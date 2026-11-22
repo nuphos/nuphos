@@ -103,9 +103,11 @@ test('the runtime offers only its bundled fixed programs as jobs', () => {
     )
     // Every computer reclaims an archived conversation's home with its own fixed program.
     writeFileSync(path.join(root, 'session-home-reclaim-job.mjs'), '')
+    const reclaim = `/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`
+
     assert.equal(
       openabEnv(bundled).OPENAB_RUNTIME_JOBS,
-      `${jobs};session-homes=/usr/bin/env ELECTRON_RUN_AS_NODE=1 HOME=/Users/me ${launch.nodeExecPath} ${path.join(root, 'session-home-reclaim-job.mjs')}`,
+      `${jobs};session-homes=${reclaim};session-homes-v2=${reclaim}`,
     )
     // A spaced HOME leaves out only the job that needs it.
     assert.equal(

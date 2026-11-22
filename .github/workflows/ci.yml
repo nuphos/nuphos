@@ -367,16 +367,6 @@ jobs:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
-      # For the `*.mongo.test.ts` suites, which check what the database itself does
-      # with a document. Same image and rseq setting as deploy/compose.
-      mongo:
-        image: mongo:8.0.32
-        env:
-          GLIBC_TUNABLES: glibc.pthread.rseq=1
-        ports:
-          - 27017:27017
-        options: >-
-          --health-cmd "mongosh --quiet --eval 'db.runCommand({ ping: 1 }).ok'" --health-interval 5s --health-timeout 5s --health-retries 12
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -434,13 +424,23 @@ jobs:
             bun test "$suite"
             echo "::endgroup::"
           done
+      # For the `*.mongo.test.ts` suites, which check what the database itself does
+      # with a document. Same image, rseq setting and single-node replica set as
+      # deploy/compose: transactions need one, and a service container takes no command.
+      - name: Start MongoDB
+        run: |
+          docker run -d --name mongo -p 27017:27017 -e GLIBC_TUNABLES=glibc.pthread.rseq=1 \
+            mongo:8.0.32 --replSet rs0 --bind_ip_all
+          timeout 120 bash -c 'until docker exec mongo mongosh --quiet --eval "
+            try { rs.status() } catch (e) { rs.initiate({ _id: \"rs0\", members: [{ _id: 0, host: \"127.0.0.1:27017\" }] }) }
+            quit(db.hello().isWritablePrimary ? 0 : 1)"; do sleep 2; done'
       # Their own process: MONGODB_URI is read once, when the config module loads,
       # and the unit tests above must keep the unreachable address they are given.
       - name: Tests against a real MongoDB
         working-directory: apps/backend
         env:
-          TEST_MONGODB_URI: mongodb://127.0.0.1:27017
-          MONGODB_URI: mongodb://127.0.0.1:27017
+          TEST_MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
+          MONGODB_URI: mongodb://127.0.0.1:27017/?replicaSet=rs0
           MONGODB_DB: nuphos_test
         # A suite that skips here passes without having touched the database.
         run: |

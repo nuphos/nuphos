@@ -11,6 +11,7 @@ import { formSteps } from './acp-fixture-form.mjs'
 import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
 import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
+import { fileLink } from './fixture-file-link.mjs'
 import { answerPermission, askPermission } from './fixture-permission.mjs'
 import { hop, inherit, startThread } from './fixture-hop.mjs'
 import {
@@ -32,7 +33,7 @@ import {
   longReply,
   turnFacts,
 } from './fixture-settings.mjs'
-import { INITIALIZE, opening } from './fixture-session.mjs'
+import { discoveryFails, initialize, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -164,6 +165,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  fileLink({ send, sessionId, text })
   scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
   if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
@@ -205,10 +207,11 @@ async function prompt({ sessionId, prompt: parts }) {
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
-      return INITIALIZE
+      return initialize(request.params)
     case 'session/new': {
       const sessionId = randomUUID()
 
+      if (discoveryFails(log)) throw new Error('The fixture cannot list its models yet')
       log({ event: 'opening' })
       // A slow agent start: the session does not open while this file exists.
       while (existsSync(process.env.E2E_HOLD_OPENING)) {

@@ -73,6 +73,7 @@ describe('credentialsMcpTools', () => {
       NUPHOS_TOKEN: 'scoped',
       NUPHOS_BACKEND_URL: 'https://backend.example',
       NUPHOS_SESSION_ID: 'conv-1',
+      NUPHOS_SESSION_HOME_EPOCH: '0',
       TEAM: 'team-1',
       NUPHOS_TEAM_ID: 'team-1',
     })
