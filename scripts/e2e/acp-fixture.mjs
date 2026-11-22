@@ -32,7 +32,7 @@ import {
   longReply,
   turnFacts,
 } from './fixture-settings.mjs'
-import { INITIALIZE, opening } from './fixture-session.mjs'
+import { discoveryFails, initialize, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -205,10 +205,11 @@ async function prompt({ sessionId, prompt: parts }) {
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
-      return INITIALIZE
+      return initialize(request.params)
     case 'session/new': {
       const sessionId = randomUUID()
 
+      if (discoveryFails(log)) throw new Error('The fixture cannot list its models yet')
       log({ event: 'opening' })
       // A slow agent start: the session does not open while this file exists.
       while (existsSync(process.env.E2E_HOLD_OPENING)) {
