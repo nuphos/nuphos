@@ -461,4 +461,26 @@ describe('a conversation on someone’s computer', () => {
     expect(await response.json()).toMatchObject({ error: { code: 'computer_manage_required' } })
     expect(participantIds()).toEqual([TEAMMATE])
   })
+
+  test('removing someone who still uses the computer says so, and leaves their use as it is', async () => {
+    computer({ userIds: [TEAMMATE] })
+    const response = await remove(TEAMMATE)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({
+      computerStillShared: { deviceId: DEVICE, label: 'Owner’s Mac' },
+    })
+    expect(participantIds()).toEqual([])
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE])
+  })
+
+  test('no notice when they never used it, or when they leave on their own', async () => {
+    computer()
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+    conversation!.participantIds = [TEAMMATE]
+    memory.rows('agent_devices')[0]!.access[0].userIds = [TEAMMATE]
+    viewer = TEAMMATE
+    expect(await (await remove(TEAMMATE)).json()).not.toHaveProperty('computerStillShared')
+    expect(memory.rows('agent_devices')[0]!.access[0].userIds).toEqual([TEAMMATE])
+  })
 })

@@ -46,6 +46,8 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
+  /** Where a question under "Needs your input" opens instead: a Bot's details send it to the Inbox. */
+  onSelectRequest?: (request: SessionInputRequest) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -162,6 +164,7 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
+  onSelectRequest,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -180,17 +183,14 @@ function SummaryBody({
   const frameRef = useRef<HTMLSpanElement>(null)
   const docked = useChatSummaryDocked(paneId)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
-  // A question this conversation asked is answered in its own chat: a second copy
-  // of the same transcript beside it would only repeat it.
+  // Its own question is answered in its own chat, not in a second copy beside it.
   const select = (request: SessionInputRequest) => {
-    if (request.sessionId === sessionId) {
-      const { id, question, options } = request.inputRequest
+    if (onSelectRequest) return onSelectRequest(request)
+    if (request.sessionId !== sessionId) return setSelected(request)
+    const { id, question, options } = request.inputRequest
 
-      setSelected(null)
-      onOpenRequest(sessionId, { toolCallId: id, question, options })
-    } else {
-      setSelected(request)
-    }
+    setSelected(null)
+    onOpenRequest(sessionId, { toolCallId: id, question, options })
   }
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   // The lists that listed these threads published their states to the shared store.

@@ -17,6 +17,7 @@ import {
   computerUseGap,
   resolveConversationAccess,
 } from '@/lib/agent/devices/conversation-computer'
+import { computerStillSharedOrNone } from '@/lib/agent/devices/conversation-computer-use'
 import { addTeamUse } from '@/lib/agent/devices/device-grants'
 import { inviteToConversation } from '@/lib/agent/mentions'
 import { systemSender } from '@/lib/agent/message-metadata'
@@ -220,8 +221,13 @@ conversationParticipantsRoutes.delete(
       : await removeConversationParticipant(sessionId, userId, targetId)
 
     if (!updated) throw new AppError(404, 'not_found', 'Conversation not found')
+    // The removal is done; failing to work out the notice must not report it as failed.
+    const shared = await computerStillSharedOrNone(conversation, userId, targetId)
 
-    return c.json(await serializeAccess(updated, teamId))
+    return c.json({
+      ...(await serializeAccess(updated, teamId)),
+      ...(shared ? { computerStillShared: shared } : {}),
+    })
   },
 )
 

@@ -14,6 +14,7 @@ import {
   runtimeUsageExhaustedMessage,
   SESSION_OUTPUT_SINK_UNAVAILABLE,
 } from './openab-acp-errors'
+import { outOfUsageUntilReset } from './runtime-refusal'
 
 describe('retrySessionPromptWhenBusy', () => {
   test('retries a prompt rejected before dispatch until the active sink drains', async () => {
@@ -48,6 +49,24 @@ describe('retrySessionPromptWhenBusy', () => {
     expect(isSessionOutputSinkUnavailable(new Error('permission denied'))).toBe(false)
     await expect(result).rejects.toThrow('permission denied')
     expect(calls).toBe(1)
+  })
+})
+
+describe('outOfUsageUntilReset', () => {
+  const wrapped = (notice: string) =>
+    new OpenAbRpcError(`**Internal Error** (code: -32603)\nInternal error: ${notice}`, -32603)
+
+  test('a usage limit passes with its reset; an account held for verification does not', () => {
+    expect(outOfUsageUntilReset(wrapped("You've hit your weekly limit · resets 4pm (UTC)"))).toBe(
+      true,
+    )
+    expect(
+      outOfUsageUntilReset(
+        wrapped(
+          "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify",
+        ),
+      ),
+    ).toBe(false)
   })
 })
 

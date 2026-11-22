@@ -8,6 +8,7 @@ import { join, resolve } from 'node:path'
 import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
+import { rollBackend, startRedis } from './replicas.ts'
 import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
 import { startWebhookReceiver } from './webhook-receiver.ts'
@@ -38,6 +39,8 @@ export type Stack = {
   freezeAgentHost: (whileFrozen: () => Promise<void>) => Promise<void>
   /** Stops the backend and starts it again on the same address and database, as a deploy does. */
   restartBackend: () => Promise<void>
+  /** A rolling deploy: a new replica on its own address is ready, then the old one is sent SIGTERM and drains. Needs `redis`. */
+  rollBackend: () => Promise<{ apiUrl: string; log: string; exited: Promise<void> }>
   /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
   freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
   /** The `state` of the newest Cloudflare authorization the app started. */
@@ -135,11 +138,12 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(
-  options: { botOnboarding?: boolean; boxes?: boolean } = {},
+  options: { botOnboarding?: boolean; boxes?: boolean; redis?: boolean } = {},
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
   const fakes = {
+    ...(options.redis ? await startRedis() : {}),
     ...(await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
@@ -211,11 +215,11 @@ export async function startStack(
   }
   // The newest CLI release is fixed: GitHub rate-limits its unauthenticated lookup.
   const stub = resolve(import.meta.dirname, 'cli-release-stub.ts')
-  const startBackend = () =>
-    spawn('backend', ['bun', 'run', '--preload', stub, 'src/index.ts'], {
+  const startBackend = (name = 'backend', port = backendPort, url = apiUrl) =>
+    spawn(name, ['bun', 'run', '--preload', stub, 'src/index.ts'], {
       cwd: BACKEND_DIR,
       env: {
-        ...backendEnv(backendPort, apiUrl, mongoUri),
+        ...backendEnv(port, url, mongoUri),
         ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
         ...fakes,
       },
@@ -286,6 +290,7 @@ export async function startStack(
       backends.push(startBackend())
       await backendReady()
     },
+    rollBackend: async () => rollBackend(backends, startBackend),
     freezeBackend: (whileFrozen) => frozen(backends.at(-1)!, whileFrozen),
     cloudflareState: () => cloudflareState(mongoUri),
   }

@@ -1,5 +1,5 @@
 // Turns the fixture refuses, worded as OpenAB reports Claude Code's refusals.
-import { existsSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
 
 /** #3926: Claude Code's refusal for an account Anthropic holds for verification, as production logged it. */
 export const VERIFICATION_HOLD =
@@ -27,6 +27,15 @@ export function refuse(text, outOfUsage) {
       ),
       { code: 1001 },
     )
+  // A turn that cannot reach the API once; Nuphos resends it with the next turn, which goes through.
+  const once = `${process.env.E2E_ACP_LOG}.failed-once`
+
+  if (text.includes('E2E_FAIL_ONCE') && !existsSync(once)) {
+    writeFileSync(once, '')
+    throw Object.assign(new Error('Internal error: API Error: Unable to connect to API (EPROTO)'), {
+      code: -32603,
+    })
+  }
   // #3160: a conversation too long for the model, on any agent.
   // #3401: Claude Code unable to reach its API, through a proxy or VPN in the way.
   const reason = text.includes('E2E_TOO_LONG')

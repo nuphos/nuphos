@@ -1,5 +1,12 @@
-import type { ConversationAccessState, GeneralAccess } from './agent-types.ts'
+import type { AgentConversationParticipant, GeneralAccess } from './agent-types.ts'
 import type { SessionResourcesResponse } from './session-resource-types'
+
+export type ConversationAccessState = {
+  generalAccess: GeneralAccess
+  participants: AgentConversationParticipant[]
+  /** After a removal: the chat's computer the removed person can still use. */
+  computerStillShared?: { deviceId: string; label: string }
+}
 
 /** Who may open a session and what they may do there. */
 export type WindowSessionAccessApi = {

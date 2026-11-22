@@ -6,7 +6,7 @@ import { t } from '../../../i18n'
 import { participantsQuery, teamMembersQuery } from '../../../lib/query/team'
 import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { AppAlertDialog } from '../../ui/alert-dialog'
-import { needsComputerUse } from '../computerUse'
+import { computerUseNeeded, needsComputerUse } from '../computerUse'
 import { ComputerUseConfirm } from '../ComputerUseConfirm'
 
 import { matchDevices, matchMembers, matchSessions, mentionQuery } from './composerMention'
@@ -224,7 +224,11 @@ export function useComposerMentions(
 
           await invite().catch((err: unknown) => {
             if (!needsComputerUse(err)) throw err
-            setComputerUse({ count: ids.length, confirm: () => invite(true) })
+            setComputerUse({
+              count: ids.length,
+              ...computerUseNeeded(err),
+              confirm: () => invite(true),
+            })
           })
         }}
         onClose={() => setUninvited([])}
