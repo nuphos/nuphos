@@ -770,4 +770,66 @@ class HomeNavigationFixtureDeviceTest {
         compose.onNodeWithTag("account-sheet-title").assertDoesNotExist()
         compose.onNodeWithText("Turn on").assertDoesNotExist()
     }
+
+    // Ways into the product from home (#4205). One test per path, named after the path,
+    // starting on home and tapping what a person taps. A change that removes one of these
+    // has to change the test that says, by name, what it removes. Where an entry sits is
+    // not asserted, only that it is there and opens what it names.
+
+    /** Waits for what [find] matches, failing with [missing] rather than a bare timeout. */
+    private fun reach(missing: String, find: () -> SemanticsNodeInteractionCollection) =
+        assertTrue(missing, runCatching { compose.waitUntil(8_000) { find().fetchSemanticsNodes().isNotEmpty() } }.isSuccess)
+
+    @Test fun homeReachesTheInboxAndAQuestionInIt() {
+        render()
+        reach("Home has no Inbox") { compose.onAllNodesWithTag("home-tab-inbox") }
+        select("inbox")
+        reach("The Inbox lists no open question to answer") { compose.onAllNodesWithTag("inbox-question", useUnmergedTree = true) }
+        noWrites()
+    }
+
+    @Test fun homeReachesComputersAndRuntimes() {
+        render()
+        reach("Home has no way into Computers & runtimes") { compose.onAllNodesWithTag("home-runtimes") }
+        compose.onNodeWithTag("home-runtimes").assertHasClickAction().performClick()
+        reach("Computers & runtimes did not open") { compose.onAllNodesWithTag("home-runtimes-close") }
+        noWrites()
+    }
+
+    @Test fun homeReachesTheAccount() {
+        render()
+        reach("Home has no way into the Account") { compose.onAllNodesWithContentDescription("Account") }
+        compose.onNodeWithContentDescription("Account").assertHasClickAction().performClick()
+        reach("The Account did not open") { compose.onAllNodesWithTag("account-sheet-title") }
+        noWrites()
+    }
+
+    @Test fun homeReachesConnectors() {
+        render()
+        menu()
+        reach("The page menu has no Connectors") { compose.onAllNodesWithTag("home-page-connectors") }
+        compose.onNodeWithTag("home-page-connectors").performScrollTo().performClick()
+        reach("Connectors did not open") {
+            compose.onAllNodes(hasTestTag("connector-inventory-list") or hasTestTag("connector-catalog"))
+        }
+        noWrites()
+    }
+
+    @Test fun homeReachesNewTaskAndNewBot() {
+        render()
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        reach("Home has no Create") { compose.onAllNodesWithTag("home-create") }
+        compose.onNodeWithTag("home-create").assertIsEnabled().performClick()
+        val newTask = app.getString(R.string.home_toolbar_new_task)
+        val newBot = app.getString(R.string.home_toolbar_new_bot)
+        reach("Create offers no New Task") { compose.onAllNodesWithText(newTask) }
+        reach("Create offers no New Bot") { compose.onAllNodesWithText(newBot) }
+        compose.onNodeWithText(newBot).assertIsEnabled().performClick()
+        reach("New Bot did not open") { compose.onAllNodesWithText(app.getString(R.string.chats_new_bot_name)) }
+        pressSystemBack()
+        compose.onNodeWithTag("home-create").performClick()
+        compose.onNodeWithText(newTask).assertIsEnabled().performClick()
+        reach("New Task did not open") { compose.onAllNodesWithTag("new-task-sheet") }
+        noWrites()
+    }
 }
