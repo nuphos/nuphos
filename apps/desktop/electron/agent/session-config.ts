@@ -1,4 +1,4 @@
-import { callJson, callJsonForRenderer, teamQuery } from './http'
+import { callJson, teamQuery } from './http'
 
 import type { SessionConfigSelection, SessionConfigState } from '../../src/api/session-config-types'
 
@@ -19,7 +19,7 @@ export function setSessionConfig(
   // The picker tells the user why a change was refused, so the backend's own
   // message and code have to survive the IPC boundary (callJson alone keeps
   // them as properties, which IPC strips).
-  return callJsonForRenderer(
+  return callJson(
     'PATCH',
     `/agent/conversations/${encodeURIComponent(sessionId)}/model-config${teamQuery(teamId)}`,
     selection,

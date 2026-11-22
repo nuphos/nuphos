@@ -1,4 +1,4 @@
-import { callJson, callJsonForRenderer, teamQuery } from './http'
+import { callJson, teamQuery } from './http'
 
 import type { ConversationAccessState, GeneralAccess } from '../../src/api/agent-types'
 
@@ -28,7 +28,7 @@ export function inviteConversationParticipants(
   userIds: string[],
   grantComputerUse: boolean,
 ): Promise<ParticipantsResponse> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     participantsPath(sessionId, teamId),
     { userIds, grantComputerUse },

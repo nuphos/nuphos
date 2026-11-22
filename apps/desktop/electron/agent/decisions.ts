@@ -1,4 +1,4 @@
-import { callJsonForRenderer, teamQuery } from './http.ts'
+import { callJson, teamQuery } from './http.ts'
 
 export function resolveDecision(
   sessionId: string,
@@ -7,7 +7,7 @@ export function resolveDecision(
   resolution: 'answered' | 'dismissed' = 'answered',
   reason?: string,
 ): Promise<{ ok: boolean; resolved: boolean }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(toolCallId)}/resolve${teamQuery(teamId)}`,
     { resolution, ...(reason ? { reason } : {}) },
@@ -21,7 +21,7 @@ export function snoozeDecision(
   teamId: string | undefined,
   until: string | null,
 ): Promise<{ ok: boolean; snoozedUntil: string | null }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(requestId)}/snooze${teamQuery(teamId)}`,
     { until },
@@ -43,7 +43,7 @@ export function answerDecision(
   teamId: string | undefined,
   answer: DecisionAnswer,
 ): Promise<{ ok: boolean }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/decisions/${encodeURIComponent(requestId)}/answer${teamQuery(teamId)}`,
     answer,

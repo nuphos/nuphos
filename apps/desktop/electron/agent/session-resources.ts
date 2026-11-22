@@ -1,4 +1,4 @@
-import { callJsonForRenderer, teamQuery } from './http'
+import { callJson, teamQuery } from './http'
 
 import type { SessionResourcesResponse } from '../../src/api/session-resource-types'
 
@@ -6,7 +6,7 @@ export function getSessionResources(
   sessionId: string,
   teamId: string,
 ): Promise<SessionResourcesResponse> {
-  return callJsonForRenderer(
+  return callJson(
     'GET',
     `/agent/conversations/${encodeURIComponent(sessionId)}/resources${teamQuery(teamId)}`,
     undefined,
@@ -19,7 +19,7 @@ export function unlinkSessionResource(
   teamId: string,
   resourceId: string,
 ): Promise<{ ok: boolean }> {
-  return callJsonForRenderer(
+  return callJson(
     'DELETE',
     `/agent/conversations/${encodeURIComponent(sessionId)}/resources/${encodeURIComponent(resourceId)}${teamQuery(teamId)}`,
     undefined,
