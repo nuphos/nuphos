@@ -1,5 +1,6 @@
 import type { AgentCredentialAccess } from './db'
 import type { TriggerCredentialMode } from './trigger-credential-access'
+import type { PayloadFilter } from './trigger-payload-filter'
 import type { ObjectId } from 'mongodb'
 
 export type TriggerType = 'cron' | 'webhook'
@@ -66,12 +67,16 @@ export type AgentTrigger = {
    * are user-initiated, so only webhook deliveries consult this.
    */
   minIntervalSeconds?: number
+  /** Webhook only: a delivery that fails these rules is answered and starts no turn. */
+  payloadFilters?: PayloadFilter[]
   /**
    * Optimistic fence for execution-affecting edits. Legacy rows without this
    * field are revision 0; new triggers start at revision 1.
    */
   configRevision?: number
   lastRunAt?: Date
+  /** Task archive epoch in which this Trigger was created. */
+  archiveEpoch?: number
   /** Webhook deliveries that arrived inside the minimum-interval window, oldest first. */
   heldDeliveries?: unknown[]
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */

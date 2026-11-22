@@ -82,7 +82,12 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a fire the runtime refused', () 
     refusals = 0
     await agentMessages().deleteMany({ sessionId: SESSION })
     await agentTriggers().deleteMany({ _id: TRIGGER })
-    await agentTriggers().insertOne({ _id: TRIGGER, teamId: TEAM, enabled: true } as never)
+    await agentTriggers().insertOne({
+      _id: TRIGGER,
+      teamId: TEAM,
+      targetSessionId: SESSION,
+      enabled: true,
+    } as never)
     installTurnRunner({
       hasActiveAgentRunForSession: async () => false,
       claimAgentRunForSession: async () => () => {},

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { agentRuns } from '@/lib/agent/run-admission'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -33,6 +34,7 @@ let frames: Record<string, { id: string; frame: string }[]>
 // A self-hosted compose stack runs without Redis: runs live in this process only.
 let redisOn: boolean
 
+useArchiveCleanup({ cleanUpArchived: async () => {} })
 useIdentity({ getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null) })
 useAgentDb({
   getReadableConversation: async () => readable,

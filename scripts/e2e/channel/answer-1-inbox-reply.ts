@@ -47,14 +47,14 @@ const scenario: Scenario = {
 
     await openBotChat(page)
     // The chat in front: a Bot chat stays mounted, inert, behind other pages.
-    const answers = page.locator('.group\\/post:not([inert] *)', { hasText: ANSWER })
+    const answers = page.locator('.group\\/post:not([inert] *):visible', { hasText: ANSWER })
     const post = answers.last()
     const bubble = post.locator('.user-message-bubble')
 
     // The quote is the bubble's first line: the Bot's name, then its question.
     await bubble.getByRole('button', { name: new RegExp(`^E2E Bot\\s*${QUESTION}`) }).waitFor()
     await post.getByText('Answered in Inbox', { exact: true }).waitFor()
-    const asking = page.locator('.group\\/post:not([inert] *)', {
+    const asking = page.locator('.group\\/post:not([inert] *):visible', {
       hasText: 'POSTED E2E_DELIVERY:inbox-reply',
     })
 
@@ -64,7 +64,7 @@ const scenario: Scenario = {
     for (const earlier of (await answers.all()).slice(0, -1))
       if ((await earlier.getByText('Answered in Inbox').count()) > 0)
         throw new Error('An answer given on its card in the chat says "Answered in Inbox"')
-    if ((await page.locator('[data-decision-record]').count()) > 0)
+    if ((await page.locator('[data-decision-record]:visible').count()) > 0)
       throw new Error('An answer left the old "answered:" line instead of a post')
 
     // The posts were written, not posted: no channel notice woke the Bot for them.

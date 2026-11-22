@@ -143,6 +143,7 @@ export async function adoptRuntimeHandoff(handoff: RuntimeHandoff): Promise<void
       backendUrl: endpoint.backendUrl,
       humanTurn: handoff.humanTurn,
       parentSessionId: conversation.parentSessionId,
+      sessionHomeEpoch: conversation.sessionHomeEpoch,
       bot: isBot(conversation),
       toolsVersion: await nuphosToolsVersion({
         userId: handoff.actorUserId,
@@ -203,6 +204,9 @@ export async function adoptRuntimeHandoffs(
         session_id: handoff.conversationId,
         attempts,
         retry,
+        offline_cause: offline
+          ? (error.details as { cause?: string } | undefined)?.cause
+          : undefined,
       })
       if (retry)
         await withRedis((redis) =>

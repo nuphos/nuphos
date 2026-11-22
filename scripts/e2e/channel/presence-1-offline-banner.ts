@@ -64,7 +64,7 @@ export default {
       await post(stack, `/agent/conversations/${group.sessionId ?? ''}/agents`, {
         sessionId: bot?.sessionId,
       })
-      await page.getByText('E2E offline group').first().click()
+      await page.getByText('E2E offline group').filter({ visible: true }).first().click()
       await page
         .getByText('E2E Bot’s computer is offline.', { exact: true })
         .waitFor({ timeout: 60_000 })

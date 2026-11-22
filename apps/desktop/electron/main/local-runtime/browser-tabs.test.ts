@@ -124,6 +124,7 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
+  mock.module('./download-notice.ts', { namedExports: { showDownloadNotice: () => {} } })
   mock.module('../../agent/http.ts', {
     namedExports: {
       callJson: (_method: string, route: string, body: unknown) => {
@@ -184,10 +185,10 @@ test("open loads the page in a hidden desktop-sized window on the user's browser
   assert.deepEqual([window.options.width, window.options.height], [1440, 900])
   assert.equal(window.webContents.session, browserSession)
   assert.equal(window.webContents.url, 'https://example.com')
-  // Its first paint shows it once, unseen, then hides it, so the page can be captured yet sleeps.
+  // It is never shown just to be hidden again, which can leave its page never painting (#4305).
   assert.equal(window.opacity, 0)
   window.emit('ready-to-show')
-  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [true, false, 1])
+  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [false, false, 1])
   await tick()
   assert.equal(done, false, 'the page is still loading')
 
@@ -278,7 +279,7 @@ test("a hidden tab's popup is the conversation's tab too: unseen, driven, and sh
   assert.deepEqual(await listed('popup-1'), [page.id, popup.webContents.id])
   // Its first paint stays unseen too, so the agent can capture and drive the sign-in page.
   popup.emit('ready-to-show')
-  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [true, false, 1])
+  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [false, false, 1])
   popup.webContents.script = Promise.resolve('signed in')
   const result = await runBrowserCall({
     action: 'eval',

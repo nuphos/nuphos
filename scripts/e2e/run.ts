@@ -20,6 +20,7 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { computersEntryScenarios } from './computers-entry-scenarios.ts'
 import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -27,6 +28,7 @@ import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { teamSwitchTasksScenarios } from './team-switch-tasks-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
@@ -37,6 +39,7 @@ import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
+import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { startDesktop } from './desktop.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
@@ -70,6 +73,7 @@ import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
+import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
@@ -177,6 +181,24 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It needs the Bot the access scenarios create.
+  ...computersEntryScenarios,
+  // It removes a member from the team.
+  ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
+  // Right after the one above, which leaves the app in another team: it switches back.
+  ...teamSwitchTasksScenarios,
+  // Right after the one above, back on a Task that 404s: its new Task leaves it.
+  // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
+  ...splitPaneScenarios,
+  // Makes its own Task and Bot, so it can sit here while the main window is still in use.
+  ...triggerLinkScenarios,
+]
+
+// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's half.
+const later: Scenario[] = [
   ...computerScenarios,
   ...computerUpdateScenarios,
   ...mcpFileScenarios,
@@ -197,12 +219,8 @@ const scenarios: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
-  // It removes a member from the team.
-  ...dashboardScenarios,
-  // Right after the one above: it opens the dashboards that scenario leaves behind.
-  ...dashboardUiScenarios,
-  // It leaves the window split, then closes a pane.
-  ...splitPaneScenarios,
+  // A computer of its own, which it stops and forgets again.
+  ...modelRecoveryScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
@@ -211,7 +229,15 @@ const scenarios: Scenario[] = [
   ...cliBrowserScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
+  formScenario,
 ]
+const shard = process.env.E2E_SHARD
+const selected =
+  shard === '1'
+    ? scenarios
+    : shard === '2'
+      ? [...signInScenarios, ...later]
+      : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
@@ -222,7 +248,7 @@ try {
 
   desktop = await startDesktop(stack.apiUrl)
   desktop.page.setDefaultTimeout(30_000)
-  for (const [index, scenario] of [...scenarios, formScenario].entries()) {
+  for (const [index, scenario] of selected.entries()) {
     await desktop.traceNextScenario()
     const from = backendLines()
 

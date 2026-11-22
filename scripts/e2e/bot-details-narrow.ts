@@ -64,7 +64,7 @@ export async function narrowDetails(page: Page) {
 
   try {
     await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-    await page.locator('[data-summary-toggle][aria-expanded="false"]').waitFor()
+    await page.locator('[data-summary-toggle][aria-expanded="false"]:visible').waitFor()
     await details(page).waitFor({ state: 'detached' })
     await shoot(page, 'narrow-closed')
     await peekNarrow(page)

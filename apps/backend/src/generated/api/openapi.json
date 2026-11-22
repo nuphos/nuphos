@@ -7658,7 +7658,7 @@
                             "properties": {
                               "minimumApprovals": {
                                 "type": "integer",
-                                "minimum": 1
+                                "minimum": 0
                               },
                               "version": {
                                 "type": "integer",
@@ -8217,7 +8217,7 @@
                       "properties": {
                         "minimumApprovals": {
                           "type": "integer",
-                          "minimum": 1
+                          "minimum": 0
                         },
                         "version": {
                           "type": "integer",
@@ -8837,7 +8837,7 @@
                       "properties": {
                         "minimumApprovals": {
                           "type": "integer",
-                          "minimum": 1
+                          "minimum": 0
                         },
                         "version": {
                           "type": "integer",
@@ -9039,7 +9039,7 @@
                     "properties": {
                       "minimumApprovals": {
                         "type": "integer",
-                        "minimum": 1,
+                        "minimum": 0,
                         "maximum": 20
                       }
                     },
@@ -9406,7 +9406,7 @@
                       "properties": {
                         "minimumApprovals": {
                           "type": "integer",
-                          "minimum": 1
+                          "minimum": 0
                         },
                         "version": {
                           "type": "integer",
@@ -9901,7 +9901,7 @@
                       "properties": {
                         "minimumApprovals": {
                           "type": "integer",
-                          "minimum": 1
+                          "minimum": 0
                         },
                         "version": {
                           "type": "integer",
@@ -16594,6 +16594,7 @@
                               "minIntervalSeconds": {
                                 "type": "number"
                               },
+                              "payloadFilters": {},
                               "credentialMode": {
                                 "type": "string"
                               },
@@ -16646,6 +16647,7 @@
                               "minIntervalSeconds": {
                                 "type": "number"
                               },
+                              "payloadFilters": {},
                               "credentialMode": {
                                 "type": "string"
                               },

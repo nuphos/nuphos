@@ -236,8 +236,13 @@ test('a Bot an agent nested is a top-level Bot; a nested Task keeps its parent',
   assert.equal(nested(null).parentKey, 'agent-session:lead')
 })
 
-test('reading a Bot question clears its dot but keeps the action-needed preview', () => {
-  const chat = { ...item(), key: 'chat', channel: true }
+test('a Bot question stays out of the preview, which keeps the newest post', () => {
+  const chat = {
+    ...item(),
+    key: 'chat',
+    channel: true,
+    preview: 'The newest reply posted in this chat',
+  }
   const bot = {
     conversation: {
       ...conversation,
@@ -268,7 +273,8 @@ test('reading a Bot question clears its dot but keeps the action-needed preview'
     assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
     assert.equal(row.trailing.props.dot, unread ? 'unread' : null)
     assert.equal(row.dot, unread ? 'unread' : null)
-    assert.ok(row?.previewNode)
+    assert.equal(row.previewNode, undefined)
+    assert.equal(row.preview, 'The newest reply posted in this chat')
   }
 })
 
