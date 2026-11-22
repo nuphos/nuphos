@@ -195,7 +195,7 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
                 if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
+                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.testTag("chat-chevron"), tint = MaterialTheme.colorScheme.outline)
             }
         },
     )
