@@ -31,6 +31,10 @@ class ReplyFilesTest {
             "````\n```\n![x](https://nuphos.ai/_reply-images/$id)\n````",
             "```\n``` not a close\n![x](https://nuphos.ai/_reply-images/$id)\n```",
             "~~~\n```\n![x](https://nuphos.ai/_reply-images/$id)\n~~~",
+            // A fence that opens a list item or a block quote.
+            "- ~~~\n  ![example](https://nuphos.ai/_reply-images/$id)\n  ~~~",
+            "1. ```\n   ![example](https://nuphos.ai/_reply-images/$id)\n   ```",
+            "> ```\n> ![example](https://nuphos.ai/_reply-images/$id)\n> ```",
             // An unterminated fence runs to the end.
             "```kotlin\n![x](https://nuphos.ai/_reply-images/$id)",
         ).forEach { assertEquals(it, listOf(Segment.Text(it)), ReplyFiles.segments(it)) }
@@ -40,6 +44,8 @@ class ReplyFilesTest {
         assertEquals(listOf(Segment.Text("```\r\ncode\r\n``` \r"), Segment.Files(id)),
             ReplyFiles.segments("```\r\ncode\r\n``` \r\n![](https://nuphos.ai/_reply-images/$id) \t\r"))
         assertEquals(listOf(Segment.Files(id)), ReplyFiles.segments("   ![](https://nuphos.ai/_reply-images/$id)"))
+        assertEquals(listOf(Segment.Text("- ~~~\n  x\n  ~~~"), Segment.Files(id)),
+            ReplyFiles.segments("- ~~~\n  x\n  ~~~\n![](https://nuphos.ai/_reply-images/$id)"))
     }
 
     @Test fun aStreamingCitationKeepsTheCardBelowUntilItsRowShows() {

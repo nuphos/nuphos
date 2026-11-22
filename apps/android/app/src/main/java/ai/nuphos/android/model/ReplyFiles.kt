@@ -14,6 +14,8 @@ object ReplyFiles {
     // Lowercase hex only, as Desktop's `MessageResponse` matches it.
     private val citation = Regex("""!\[[^\]\n]*]\(https://nuphos\.ai/_reply-images/([0-9a-f]{24})\)""")
     private val fenceRun = Regex("""^(`{3,}|~{3,})""")
+    /** Block quote and list markers a fence can follow on its line, as in `- ~~~`. */
+    private val container = Regex("""^(?:>\s?|[-*+]\s+|\d{1,9}[.)]\s+)*""")
 
     /** Leading columns, a tab reaching the next multiple of four as in CommonMark. Four or more is a code block. */
     private fun indent(line: String): Int {
@@ -35,12 +37,13 @@ object ReplyFiles {
         for (line in text.split("\n")) {
             val trimmed = line.trim()
             val shallow = indent(line) < 4
-            val run = if (shallow) fenceRun.find(trimmed)?.value else null
+            val body = container.replace(trimmed, "")
+            val run = if (shallow) fenceRun.find(body)?.value else null
             val open = fence
             if (open != null) {
                 // A fence closes only on a bare run of its own character at least as long as the one that opened it.
-                if (run != null && run[0] == open[0] && run.length >= open.length && trimmed.length == run.length) fence = null
-            } else if (run != null && !(run[0] == '`' && trimmed.drop(run.length).contains('`'))) {
+                if (run != null && run[0] == open[0] && run.length >= open.length && body.length == run.length) fence = null
+            } else if (run != null && !(run[0] == '`' && body.drop(run.length).contains('`'))) {
                 fence = run
             } else if (shallow && citation.containsMatchIn(trimmed) && citation.replace(trimmed, "").isBlank()) {
                 flush()
