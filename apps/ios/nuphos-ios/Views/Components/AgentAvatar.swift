@@ -33,7 +33,7 @@ struct AgentAvatar: View {
                         }
                     }
                     .overlay(alignment: .bottomTrailing) {
-                        if showBadge {
+                        if showBadge, runtime != nil {
                             AgentRuntimeBadge(runtime: runtime, size: size <= 24 ? 9 : 12)
                         }
                     }

@@ -33,6 +33,8 @@ import {
 } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
+import { startQueuedTurn } from './queued-turn'
+import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 import { noteReplyFailed } from './reply-failed'
 
@@ -856,6 +858,28 @@ describe('a person posting while an agent’s turn runs', () => {
     ).toHaveLength(1)
   })
 
+  test('a notice that cannot steer never reads as the session let go', async () => {
+    // #4164: each give-up said the session was released, so a turn waiting out a usage limit
+    // was sent again every few seconds rather than after its wait.
+    const starts: boolean[] = []
+
+    installQueuedTurnStarter(async (_userId, _sessionId, released) => {
+      starts.push(released)
+    })
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    steerable = false
+    try {
+      await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+      expect(starts).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+    }
+  })
+
   test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
     running.set('agent-a', 'agent-a-owner')
     running.set('agent-b', 'mei')
@@ -1281,6 +1305,25 @@ describe('an agent speaks in a channel only with channel_post', () => {
         metadata: { sender: { type: 'agent', id: 'agent-a' } },
       },
     ])
+  })
+
+  test('a reply quotes the post it answers unless that post is the newest', async () => {
+    runTurns(async () => {})
+    await say('first')
+    await say('second')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const indexOf = async (messageId: string) =>
+      (await agentMessages().findOne({ sessionId: 'channel', messageId }))!.index as number
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+
+    // Right under the post it answers, a quote of it only repeats it.
+    await postAsAgent('channel', agent, 'Hi', [], await indexOf('m2'))
+    await postAsAgent('channel', agent, 'About that', [], await indexOf('m1'))
+
+    const [plain, quoting] = await agentPosts()
+
+    expect(plain?.metadata).not.toHaveProperty('replyTo')
+    expect(quoting?.metadata).toMatchObject({ replyTo: { text: 'first' } })
   })
 })
 

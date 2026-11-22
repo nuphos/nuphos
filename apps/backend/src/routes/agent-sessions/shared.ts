@@ -252,10 +252,6 @@ export function normalizeCredentialAccess(
       (id): id is PersonalCredentialProvider =>
         (PERSONAL_CREDENTIAL_PROVIDERS as readonly string[]).includes(id),
     ),
-    // Absent is not team-wide here: it keeps a lone account usable and grants no second one.
-    ...(access?.personalConnectionIds
-      ? { personalConnectionIds: optionalCredentialIds(access.personalConnectionIds) }
-      : {}),
     deviceIds: credentialIds(access?.deviceIds),
   }
 }

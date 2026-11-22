@@ -78,8 +78,8 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // #3702: a Bot answers one post with replyTo, and its answer quotes that post.
-    name: "a Bot's answer to one post quotes it",
+    // #4654: a Bot answering the newest post with replyTo lands right under it, so it quotes nothing.
+    name: "a Bot's answer to the newest post does not quote it",
     run: async (page, stack) => {
       const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
@@ -98,8 +98,9 @@ export const channelScenarios: Scenario[] = [
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
       await transcriptPost(page, 'POSTED E2E_DELIVERY:reply').waitFor()
-      // The quote above the answer is a button titled with the post it answers.
-      await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
+      // A quote above the answer would be a button titled with the post it answers.
+      if ((await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').count()) > 0)
+        throw new Error('The answer to the newest post quoted it')
     },
   },
   {
@@ -207,7 +208,9 @@ export const channelScenarios: Scenario[] = [
           document.documentElement.classList.add('light')
         })
         await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
-        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+        // Case-sensitive, since a string matches any case and the Bot's sub-Task "E2E bot kid"
+        // stays listed under it.
+        const stale = await rows.filter({ hasText: /E2E Bot/ }).count()
 
         if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
       } finally {
@@ -218,7 +221,7 @@ export const channelScenarios: Scenario[] = [
       // Renamed from outside the app, the Bot's sidebar row follows on its own, with no reload.
       await page
         .locator('[data-sidebar-row]')
-        .filter({ hasText: 'E2E Bot' })
+        .filter({ hasText: /E2E Bot/ })
         .first()
         .waitFor({ timeout: 10_000 })
     },

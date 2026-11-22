@@ -1,4 +1,4 @@
-import { readableByFilter } from '../db/access'
+import { ACCESS_PROJECTION, readableByFilter } from '../db/access'
 
 import { plans } from './collections'
 import { parsePlanNumber, scopedNumberFilter, withTeamScope } from './scope'
@@ -100,7 +100,7 @@ export function readablePlanStages(viewerId: string): Document[] {
         from: CONVERSATIONS,
         localField: 'sourceConversationId',
         foreignField: 'sessionId',
-        pipeline: [{ $project: { userId: 1, generalAccess: 1, participantIds: 1 } }],
+        pipeline: [{ $project: ACCESS_PROJECTION }],
         as: 'source',
       },
     },
