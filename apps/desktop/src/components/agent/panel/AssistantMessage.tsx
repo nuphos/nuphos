@@ -176,6 +176,7 @@ export const AssistantMessage = memo(
       if (p.type === 'tool' && p.toolName !== 'skill') {
         const card = renderCardToolPart(p, partKey, {
           teamId,
+          sessionId,
           onOpen: onOpenNuphosLink,
           now,
           canAct: isLatestReply && !streaming && canActOnPlans,

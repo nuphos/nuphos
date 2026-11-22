@@ -63,7 +63,7 @@ const listed = [
 ]
 
 /** The card's footer, as it reads, once the trigger running in `to` has loaded. */
-async function footer(to: string) {
+async function footer(to: string, shownIn = 'task-here') {
   target = to
   const client = new QueryClient()
 
@@ -76,7 +76,7 @@ async function footer(to: string) {
       createElement(
         QueryClientProvider,
         { client },
-        createElement(TriggerCard, { part, teamId: 'team' }),
+        createElement(TriggerCard, { part, teamId: 'team', sessionId: shownIn }),
       ),
     )
   })
@@ -86,11 +86,19 @@ async function footer(to: string) {
   return container.querySelector('footer')?.textContent ?? null
 }
 
-// #4301: the footer said "Open conversation", whatever it opened.
-test('a Trigger that runs in a Task links to Open Task', async () => {
-  assert.equal(await footer('task-1'), 'Open Task')
+// #4301 and #4304: the footer said "Open conversation", whatever it opened.
+test("a Trigger card's link names the Task it opens", async () => {
+  assert.equal(await footer('task-1'), 'Weekly metrics')
 })
 
-test('a Trigger that runs in a Bot links to Open Bot', async () => {
-  assert.equal(await footer('bot-1'), 'Open Bot')
+test("a Trigger card's link names the Bot it opens", async () => {
+  assert.equal(await footer('bot-1'), 'Metrics Bot')
+})
+
+test('a target the sidebar has not listed reads Open', async () => {
+  assert.equal(await footer('task-archived'), 'Open')
+})
+
+test('a Trigger that runs in the chat it is shown in has no link', async () => {
+  assert.equal(await footer('task-here', 'task-here'), null)
 })

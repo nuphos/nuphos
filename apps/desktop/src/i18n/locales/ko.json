@@ -3289,7 +3289,6 @@
   "Only {name} can change the plan.": "{name}만 요금제를 변경할 수 있습니다.",
   "Only {name} can change this.": "{name}만 변경할 수 있습니다.",
   "Open": "열기",
-  "Open Bot": "봇 열기",
   "Open Connectors": "커넥터 열기",
   "Open IAM in Google Cloud Console": "Google Cloud 콘솔에서 IAM 열기",
   "Open Nuphos at login": "로그인 시 Nuphos 열기",
