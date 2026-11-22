@@ -372,6 +372,18 @@ mod tests {
         assert_eq!(open(&item_key, "github-token", &sealed).unwrap(), b"ghp_example");
     }
 
+    /// Made by Desktop (`apps/desktop/electron/vault/crypto.ts`) for the
+    /// private key 0x11 x 32 and the item key 0x22 x 32.
+    #[test]
+    fn opens_what_desktop_wrapped_and_sealed() {
+        let key = PrivateKey::from_bytes(&[0x11u8; 32]).unwrap();
+        let wrapped = "t+xL8fwNZ2wtS3K9/3xHowoAHbiQwAQFhMjYuZ2NLQ3wLbnSZj2UqvcrDYKMbFJma6Lg//iSmYiAcVHFc6L2NAcrITpAnRFkWeIXaB2cn7Q=";
+        let item_key = unwrap(wrapped, "github-token", &key).unwrap();
+        assert_eq!(item_key, [0x22u8; 32]);
+        let sealed = "ydWnj73hmkELeBsotFkEkxEQcIkvwyxYro/Md9+mMlIbMvZSHuXi";
+        assert_eq!(open(&item_key, "github-token", sealed).unwrap(), b"ghp_example");
+    }
+
     #[test]
     fn a_key_or_ciphertext_moved_to_another_name_does_not_open() {
         let (key, public) = X25519HkdfSha256::gen_keypair(&mut OsRng);

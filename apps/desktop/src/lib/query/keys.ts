@@ -51,4 +51,7 @@ export const queryKeys = {
   /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
   cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
     [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
+  /** The signed-in user's vault: its devices, and its item names. */
+  vault: (userId: string) => ['user', userId, 'vault'] as const,
+  vaultItems: (userId: string) => [...queryKeys.vault(userId), 'items'] as const,
 }
