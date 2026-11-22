@@ -69,7 +69,6 @@ import { terminalScenarios } from './terminal-scenarios.ts'
 import { threadModeScenario, threadScenarios } from './thread-scenarios.ts'
 import { triggerHistoryScenarios } from './trigger-history-scenarios.ts'
 import { instructionScenarios } from './instruction-scenarios.ts'
-import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
@@ -204,7 +203,6 @@ const scenarios: Scenario[] = [
   ...dashboardUiScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
-  ...triggerLinkScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
