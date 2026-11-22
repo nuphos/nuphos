@@ -75,6 +75,8 @@ export type AgentTrigger = {
    */
   configRevision?: number
   lastRunAt?: Date
+  /** Task archive epoch in which this Trigger was created. */
+  archiveEpoch?: number
   /** Webhook deliveries that arrived inside the minimum-interval window, oldest first. */
   heldDeliveries?: unknown[]
   /** When a scheduled fire last reached the worker, whatever the turn's outcome. */

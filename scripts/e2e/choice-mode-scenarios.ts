@@ -19,12 +19,12 @@ const light = (page: Page) =>
 
 /** A question's card in the chat. */
 const card = (page: Page, question: string) =>
-  page.locator(`[data-decision-question="${question}"]`)
+  page.locator(`[data-decision-question="${question}"]:visible`)
 
 /** Opens a question of the Inbox list and waits for it to be drawn. */
 async function openInInbox(page: Page, question: string) {
   await page.locator('[data-inbox-question]', { hasText: question }).click()
-  await page.getByText(question).last().waitFor()
+  await page.getByText(question).filter({ visible: true }).last().waitFor()
   await page.waitForTimeout(500)
 }
 
@@ -62,7 +62,7 @@ export const choiceModeScenarios: Scenario[] = [
         },
         'E2E_DELIVERY:ask-multi',
       )
-      await page.locator(`[data-decision-question="${MULTI}"]`).scrollIntoViewIfNeeded()
+      await page.locator(`[data-decision-question="${MULTI}"]:visible`).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `${artifacts}/choice-modes-chat.png` })
       // Each card on its own, for its row of options up close.
       await card(page, SINGLE).screenshot({ path: `${artifacts}/choice-modes-card-single.png` })
@@ -83,7 +83,7 @@ export const choiceModeScenarios: Scenario[] = [
         },
         'E2E_DELIVERY:ask-several',
       )
-      await page.locator(`[data-decision-question="${SEVERAL}"]`).scrollIntoViewIfNeeded()
+      await page.locator(`[data-decision-question="${SEVERAL}"]:visible`).scrollIntoViewIfNeeded()
       await page.screenshot({ path: `${artifacts}/choice-modes-chat-several.png` })
       await card(page, SEVERAL).screenshot({ path: `${artifacts}/choice-modes-card-several.png` })
 

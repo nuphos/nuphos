@@ -11,6 +11,13 @@ type ChangePermissionInput = {
   memberCanUse: boolean
 }
 
+/** A submitted request is approved at once when its policy needs no approvals. */
+export function submittedDatabaseChangeStatus(
+  policy: Pick<DatabaseChangeApprovalPolicy, 'minimumApprovals'>,
+): 'approved' | 'pending_approval' {
+  return policy.minimumApprovals === 0 ? 'approved' : 'pending_approval'
+}
+
 export function validDatabaseChangeApprovalCount(
   request: Pick<DatabaseChangeRequest, 'approvals' | 'statementDigest'>,
   policy: Pick<DatabaseChangeApprovalPolicy, 'version'>,

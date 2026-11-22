@@ -56,5 +56,10 @@ class RuntimeInventoryParityTest {
         assertFalse(validRuntimeAnswer(attempt.copy(step=RuntimeLoginStep("browser")),"reply"))
         assertTrue(validRuntimeAnswer(attempt.copy(step=RuntimeLoginStep("browser",paste="address")),"http://localhost/callback?code=fixture"))
         assertFalse(validRuntimeAnswer(attempt.copy(step=null,authorizationUrl="https://example.invalid"),"unbound"))
+        val legacy=attempt.copy(step=null,authorizationUrl="https://example.invalid")
+        assertTrue(validRuntimeAnswer(legacy,"code_1#state"));assertTrue(validRuntimeAnswer(legacy,"4/0Ab-c_d"))
+        assertTrue(validRuntimeAnswer(legacy,"http://127.0.0.1:41234/?state=s&code=4/abc"))
+        assertFalse(validRuntimeAnswer(legacy,"4/"));assertFalse(validRuntimeAnswer(legacy,"4/0Ab c"))
+        assertFalse(validRuntimeAnswer(legacy,"https://example.com/?code=x"))
     }
 }

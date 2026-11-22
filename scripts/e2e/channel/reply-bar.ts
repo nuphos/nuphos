@@ -40,7 +40,7 @@ const layout = (page: Page, post: string) =>
   }, post)
 
 async function reply(page: Page, post: string) {
-  const row = page.locator('.group\\/post', { hasText: post }).last()
+  const row = page.locator('.group\\/post:visible', { hasText: post }).last()
 
   await row.hover()
   await row.getByRole('button', { name: 'Reply', exact: true }).click()

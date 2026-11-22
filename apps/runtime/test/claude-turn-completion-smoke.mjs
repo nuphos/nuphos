@@ -291,3 +291,37 @@ test('a newer steer arriving while a matched result is being published retains o
   await h.emit(result(latest))
   await until(() => h.settled.length === 1)
 })
+
+test('compaction is a step that ends, not reply text', async (t) => {
+  const h = harness(t)
+  const status = (fields) => ({
+    type: 'system',
+    subtype: 'status',
+    session_id: 'test-session',
+    uuid: randomUUID(),
+    ...fields,
+  })
+
+  for (const outcome of ['success', 'failed']) {
+    await h.emit(status({ status: 'compacting' }))
+    await h.emit(status({ status: null, compact_result: outcome, compact_error: 'too long' }))
+  }
+  const updates = h.updates.map(({ update }) => update)
+
+  assert.deepEqual(
+    updates.filter((u) => u.sessionUpdate === 'agent_message_chunk'),
+    [],
+  )
+  assert.deepEqual(
+    updates.map((u) => [u.sessionUpdate, u.title, u.status]),
+    [
+      ['tool_call', 'Context compacting', 'in_progress'],
+      ['tool_call_update', 'Context compacted', 'completed'],
+      ['tool_call', 'Context compacting', 'in_progress'],
+      ['tool_call_update', 'Context compaction failed', 'failed'],
+    ],
+  )
+  assert.equal(updates[0].toolCallId, updates[1].toolCallId)
+  assert.notEqual(updates[0].toolCallId, updates[2].toolCallId)
+  assert.equal(updates[3].rawOutput, 'too long')
+})

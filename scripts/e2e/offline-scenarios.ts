@@ -24,7 +24,10 @@ export const offlineScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:before-offline').waitFor()
       await page.getByRole('button', { name: /^Runtime:/ }).click()
       await pickInRow(page, LAPTOP, /Claude Code/)
-      await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+      await page
+        .getByText(`moved this task from E2E fixture agent to`)
+        .filter({ visible: true })
+        .waitFor()
       goOffline()
       const banner = page.getByRole('status').filter({ hasText: `${LAPTOP} is offline.` })
 
@@ -57,7 +60,10 @@ export const offlineScenarios: Scenario[] = [
         await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
         await pickInRow(page, LAPTOP, /Claude Code/)
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        await page
+          .getByText(`moved this task from E2E fixture agent to`)
+          .filter({ visible: true })
+          .waitFor()
         const banner = page
           .getByRole('status')
           .filter({ hasText: `Nuphos on ${LAPTOP} is out of date. Bots and tasks on it may fail.` })
@@ -151,7 +157,10 @@ export const offlineScenarios: Scenario[] = [
         await pickInRow(page, MATE_LAPTOP, /Claude Code/)
         // A teammate's computer asks first: its owner can see the work.
         await page.getByRole('button', { name: 'Move', exact: true }).click()
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        await page
+          .getByText(`moved this task from E2E fixture agent to`)
+          .filter({ visible: true })
+          .waitFor()
         // The device list is read once the runtime is picked; give it time to say anything.
         await page.waitForTimeout(3_000)
         const banners = await page
