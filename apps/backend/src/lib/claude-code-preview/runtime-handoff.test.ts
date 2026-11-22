@@ -19,7 +19,6 @@ import {
   adoptRuntimeHandoff,
   adoptRuntimeHandoffs,
   publishRuntimeHandoffs,
-  queueRuntimeHandoff,
 } from './runtime-handoff'
 import {
   HANDOFF_MAX_AGE_MS,
@@ -524,25 +523,29 @@ test('shutdown hands on a runtime-started turn this replica carries, even mid-tu
   expect(published()).toEqual(['team:carried'])
 })
 
-test('a session already handed off for its turn is handed off once', async () => {
-  hold(
-    'conv',
+test('shutdown hands on a force-paused turn still running here, and closes its connection', async () => {
+  // The drain let go of the turn, but the runtime keeps running it and sends
+  // its output to this replica's connection until that connection closes.
+  const closed = hold(
+    'force-paused',
     Promise.resolve({
       ...snapshot,
       state: 'active',
-      phase: 'working',
+      phase: 'running_tools',
     }),
   )
-  queueRuntimeHandoff({
-    teamId: 'team',
-    conversationId: 'conv',
-    ownerUserId: 'owner',
-    actorUserId: 'turn-actor',
-    locale: 'zh-TW',
-  })
+
+  sessionsByConversation.get('team:force-paused')!.activeTurn = { cancelled: false }
+  hold('stopped', Promise.resolve({ ...snapshot, state: 'active', phase: 'cancelling' }))
+  sessionsByConversation.get('team:stopped')!.activeTurn = { cancelled: true }
 
   expect(await publishRuntimeHandoffs()).toBe(1)
-  expect(JSON.parse(stored.get('team:conv')!)).toMatchObject({ actorUserId: 'turn-actor' })
+  expect(published()).toEqual(['team:force-paused'])
+  expect(closed).toEqual(['force-paused'])
+  expect(JSON.parse(stored.get('team:force-paused')!)).toMatchObject({
+    ownerUserId: 'owner',
+    actorUserId: 'actor',
+  })
 })
 
 test('a runtime that never answers does not hold up shutdown', async () => {

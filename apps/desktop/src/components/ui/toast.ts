@@ -147,8 +147,11 @@ export const toast = {
       timeoutMs: opts?.timeoutMs,
       dedupe: opts?.dedupe,
     }),
-  info: (title: ReactNode, description?: ReactNode, opts?: { action?: ToastAction }) =>
-    emit('info', title, description, opts?.action),
+  info: (
+    title: ReactNode,
+    description?: ReactNode,
+    opts?: { action?: ToastAction; timeoutMs?: number },
+  ) => emit('info', title, description, opts?.action, { timeoutMs: opts?.timeoutMs }),
 }
 
 // Dev convenience: trigger toasts straight from the devtools console, e.g.

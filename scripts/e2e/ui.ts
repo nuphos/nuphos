@@ -1,12 +1,14 @@
 // What a person does in the app that most scenarios repeat.
 import { until } from './processes.ts'
 
+import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
-  run: (page: Page, stack: Stack) => Promise<void>
+  /** `desktop` is given by the main suite (run.ts) alone. */
+  run: (page: Page, stack: Stack, desktop?: Desktop) => Promise<void>
   /** A backend failure this scenario alone is known to cause. */
   expected?: RegExp
 }
@@ -52,7 +54,7 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
  *  row's hover guard and closes it. Waits for the menu's own word that the item can be taken,
- *  since a runtime is disabled while its conversation still streams. */
+ *  since a runtime is disabled while a move is in flight. */
 export async function pickInSubmenu(page: Page, item: Locator) {
   await until(
     'the menu item to take a key',

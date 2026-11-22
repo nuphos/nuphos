@@ -1,15 +1,14 @@
 import { executable } from './agent-cli-apps.ts'
 import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
 import { discoverModels } from './agent-models.ts'
+import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
   prepareHomeFor,
   scheduleAgentRestart,
   stopAgentProcess,
-  runtimeStateOf,
   saveCli,
-  tunnelStatusOf,
   userDir,
 } from './controller-types.ts'
 import { InstanceControllers } from './instance-controllers.ts'

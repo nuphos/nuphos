@@ -40,10 +40,6 @@ export type AgentCredentialSelection = {
   teamIdentity?: PersonalCredentialProvider[]
   /** The member's own Personal Credentials this conversation may use, binding or not. */
   personalCredentialIds?: PersonalCredentialProvider[]
-  /** Which of the member's own accounts, by connection id. Only the owner receives it. */
-  personalConnectionIds?: string[]
-  /** What everyone else receives instead of personalConnectionIds. Read-only: never sent back. */
-  personalAccountCount?: number
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {

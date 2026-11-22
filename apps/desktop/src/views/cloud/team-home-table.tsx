@@ -4,10 +4,8 @@ import { useMemo } from 'react'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 import { CATALOG } from '../addIntegrationCatalog'
-import {
-  PERSONAL_CREDENTIALS_SECTION,
-  matchingPersonalConnectors,
-} from '../settings/personalCredentials'
+import { matchingPersonalConnectors } from '../settings/personalCredentials'
+import { TEAM_SETTINGS_DEFAULT_SECTION } from '../settings/settingsNav'
 
 import { CatalogLogo } from './catalog-logo'
 import { CONNECTOR_HOVER } from './connector-actions'
@@ -159,7 +157,6 @@ export function IntegrationCatalog({
     items: category.items.filter((item) => terms.every((term) => item.haystack.includes(term))),
   })).filter((category) => category.items.length > 0)
   const personal = useMemo(() => matchingPersonalConnectors(searchTerms(filter)), [filter])
-  const openPersonalCredentials = () => onOpenSettingsSection(PERSONAL_CREDENTIALS_SECTION)
 
   return (
     <div className="connector-quiet-focus flex-1 overflow-y-auto">
@@ -176,7 +173,6 @@ export function IntegrationCatalog({
             onFilterChange={onFilterChange}
             installed={installedKeys}
             personal={personal}
-            onPickPersonal={openPersonalCredentials}
             onPick={(item) => {
               const installed = rows.filter((row) => row.provider === item.key)
 
@@ -203,7 +199,7 @@ export function IntegrationCatalog({
               <PersonalConnectors
                 teamId={teamId}
                 items={personal}
-                onOpenSettings={openPersonalCredentials}
+                onOpenTeamSettings={() => onOpenSettingsSection(TEAM_SETTINGS_DEFAULT_SECTION)}
               />
             )}
             {visibleCategories.map((category) => (

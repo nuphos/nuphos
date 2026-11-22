@@ -3,12 +3,12 @@ import { normalizeConversationActivitySource } from '@/lib/agent/conversation-ac
 import { normalizeConversationTriggerRun } from '@/lib/agent/conversation-trigger-run'
 import { canReply, generalAccessOf } from '@/lib/agent/db/access'
 import { conversationReadState } from '@/lib/agent/db/read-state'
+import { isShareable } from '@/lib/agent/db/shareable'
 import { fetchCachedUsers } from '@/lib/agent/directory'
 import { slackThreadFallbackUrl } from '@/lib/agent/session-thread-resources'
 import { runtimeProvider } from '@/lib/claude-code-preview/runtime-provider'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
-import { redactPersonalAccounts } from '@/lib/personal-credentials/redact'
 
 import { serializeConversationDoc } from './transcript'
 
@@ -180,7 +180,7 @@ export function serializeConversationForViewer(
   const triggerRun = normalizeConversationTriggerRun(metadata)
 
   return {
-    ...serializeConversationDoc(redactPersonalAccounts(conversation, isOwner), answering),
+    ...serializeConversationDoc(conversation, answering),
     claudeCodeRuntimeAttached: true,
     agentRuntime: runtimeProvider(conversation.agentRuntime),
     runtimeId: conversation.runtimeId,
@@ -199,6 +199,8 @@ export function serializeConversationForViewer(
     // they may at least read, so null here means a personal conversation.
     access,
     generalAccess: generalAccessOf(grants),
+    // Whether Share is offered: never on a Bot, its chat, or what an agent opened.
+    shareable: isShareable(grants),
     readOnly: !canReply(access),
     // iOS v0.8.0 and earlier read these two and treat a missing value as
     // false, which hides steering, approvals and Stop during a turn. Anyone

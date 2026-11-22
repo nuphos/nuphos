@@ -166,7 +166,6 @@
   "backend.shutdown.budget_ready",
   "backend.shutdown.drain_deadline_exceeded",
   "backend.shutdown.guard_flush_failed",
-  "backend.shutdown.producer_drain_timed_out",
   "backend.shutdown.runtime_handoff_failed",
   "backend.shutdown.server_stop_failed",
   "backend.shutdown.started",

@@ -27,15 +27,15 @@ export async function backOnFixture(page: Page, marker: string) {
 
 export const outdatedTurnScenarios: Scenario[] = [
   {
-    // #3560: a Desktop above the floor with an update downloaded failed every turn on a runtime
-    // bug the update fixed, and nothing said an update would help (#3562).
-    name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
+    // #3562: a Desktop below the floor with an update downloaded says the update is ready. At or
+    // above the floor a failed turn keeps its own error (#4630).
+    name: 'a turn that fails on a computer below the floor with an update waiting says to update it',
     // The turn there fails on purpose.
     expected: new RegExp(RESTORE_FAILED),
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.127.0',
-        app: { version: '0.127.0', update: { version: '0.131.0', ready: true } },
+        client: 'nuphos-desktop/0.123.0',
+        app: { version: '0.123.0', update: { version: '0.131.0', ready: true } },
         restoreFails: true,
       })
 

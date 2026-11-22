@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { setTimeout as sleep } from 'node:timers/promises'
 
 import { updateConversationSettings } from '@/lib/agent/db/settings-history'
 import { agentConversations } from '@/lib/agent/db/shared'
@@ -82,14 +83,12 @@ export async function moveConversationRuntime(
   let retry: FailedPrompt | null | undefined
 
   try {
-    release = options.claimed
-      ? () => {}
-      : await claimAgentRunForSession(ownerId, conversation.sessionId, true)
+    release = options.claimed ? () => {} : await claimSession(conversation, !options.reason)
     if (!release)
       throw new AppError(
         409,
         'conversation_busy',
-        'Wait for the current response to finish before moving this conversation.',
+        'The current response has not stopped yet. Try the move again.',
       )
     const latestTarget = await requireRuntimeInstance(teamId, target.id, userId)
 
@@ -187,6 +186,33 @@ export async function moveConversationRuntime(
   void deliverWaitingAnswers(conversation.sessionId)
 
   return { runtimeId: target.id, runtimeLabel: target.label, agentRuntime: target.provider }
+}
+
+/** How long a person's move waits for the turn it stopped to end. */
+const STOP_WAIT_MS = 15_000
+
+/**
+ * The session's run claim. A person's move stops the turn holding it, as Stop
+ * does, and takes the claim once that turn has ended; a fallback never stops one.
+ */
+async function claimSession(conversation: AgentConversation, stopTurn: boolean) {
+  const claim = () => claimAgentRunForSession(conversation.userId, conversation.sessionId, true)
+  const release = await claim()
+
+  if (release || !stopTurn) return release
+  // Lazy so importing the move does not pull in the route graph.
+  const { stopConversationTurn } = await import('@/routes/agent/run-cancel')
+
+  await stopConversationTurn(conversation)
+  const until = Date.now() + STOP_WAIT_MS
+  let stopped = await claim()
+
+  while (!stopped && Date.now() < until) {
+    await sleep(250)
+    stopped = await claim()
+  }
+
+  return stopped
 }
 
 /**

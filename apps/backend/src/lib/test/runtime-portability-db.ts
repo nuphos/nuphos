@@ -10,6 +10,7 @@ const valueAt = (doc: Doc, key: string): any =>
 function matches(doc: Doc, query: Doc): boolean {
   return Object.entries(query).every(([key, expected]) => {
     if (key === '$or') return expected.some((part: Doc) => matches(doc, part))
+    if (key === '$nor') return !expected.some((part: Doc) => matches(doc, part))
     // A path through an array matches when any element does, as in Mongo.
     const [head = key, ...rest] = key.split('.')
 
@@ -160,13 +161,36 @@ export function portabilityDb() {
 
     return stores.get(name)!
   }
+  // A projection keeps what Mongo would: a test misses a field a read left out.
+  // Dotted paths keep their whole top-level field.
+  const project = (doc: Doc, projection?: Doc): Doc => {
+    if (!projection) return doc
+    const kept = new Set(Object.keys(projection).map((path) => path.split('.')[0]!))
+    const including = Object.entries(projection).some(([key, on]) => key !== '_id' && on)
+
+    return Object.fromEntries(
+      Object.entries(doc).filter(([key]) =>
+        key === '_id' ? projection._id !== 0 : including === kept.has(key) && projection[key] !== 0,
+      ),
+    )
+  }
   const collection = (name: string) => ({
-    find: (query: Doc) => {
-      let docs = () => rows(name).filter((doc) => matches(doc, query))
+    find: (query: Doc, options?: Doc) => {
+      let docs = () =>
+        rows(name)
+          .filter((doc) => matches(doc, query))
+          .map((doc) => project(doc, options?.projection))
       // Rows come back in insertion order; the fixtures insert them in the order wanted.
       const cursor = {
         toArray: async () => docs(),
         project: () => cursor,
+        map: (fn: (doc: Doc) => unknown) => {
+          const unmapped = docs
+
+          docs = () => unmapped().map(fn) as Doc[]
+
+          return cursor
+        },
         sort: () => cursor,
         limit: (count: number) => {
           const unlimited = docs
@@ -184,7 +208,11 @@ export function portabilityDb() {
 
       return { insertedId: doc._id }
     },
-    findOne: async (query: Doc) => rows(name).find((doc) => matches(doc, query)) ?? null,
+    findOne: async (query: Doc, options?: Doc) => {
+      const doc = rows(name).find((entry) => matches(entry, query))
+
+      return doc ? project(doc, options?.projection) : null
+    },
     countDocuments: async (query: Doc) => rows(name).filter((doc) => matches(doc, query)).length,
     findOneAndUpdate: async (query: Doc, mutation: Doc, options?: Doc) => {
       let doc = rows(name).find((entry) => matches(entry, query))

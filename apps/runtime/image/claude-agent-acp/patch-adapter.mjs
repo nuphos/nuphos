@@ -89,15 +89,16 @@ patched = patched
   )
 // The adapter announces compaction as reply text ("Compacting...", "Compacting
 // completed."), which stays in the answer. Report it as a step instead, in the
-// shape codex-acp uses, so both runtimes show it the same way.
+// shape codex-acp uses, so both runtimes show it the same way. Claude Code may
+// say "compacting" again before the result; that is the same step, not a new one.
 const compactionUpdate = (sessionUpdate, fields) =>
   [`sessionUpdate: "${sessionUpdate}"`, 'toolCallId: compactionStep', 'kind: "other"', ...fields]
     .concat('_meta: { contextCompaction: true },')
     .join(',\n                                            ')
 const compactionBanners = [
   [
-    '                                    compactionInProgress = true;\n                                    await sendUpdate({\n                                        sessionId: message.session_id,\n                                        update: {\n                                            sessionUpdate: "agent_message_chunk",\n                                            content: { type: "text", text: "Compacting..." },',
-    `                                    compactionInProgress = \`compaction-\${message.uuid}\`;\n                                    const compactionStep = compactionInProgress;\n                                    await sendUpdate({\n                                        sessionId: message.session_id,\n                                        update: {\n                                            ${compactionUpdate('tool_call', ['title: "Context compacting"', 'status: "in_progress"'])}`,
+    '                                if (message.status === "compacting") {\n                                    compactionInProgress = true;\n                                    await sendUpdate({\n                                        sessionId: message.session_id,\n                                        update: {\n                                            sessionUpdate: "agent_message_chunk",\n                                            content: { type: "text", text: "Compacting..." },',
+    `                                if (message.status === "compacting" && !compactionInProgress) {\n                                    compactionInProgress = \`compaction-\${message.uuid}\`;\n                                    const compactionStep = compactionInProgress;\n                                    await sendUpdate({\n                                        sessionId: message.session_id,\n                                        update: {\n                                            ${compactionUpdate('tool_call', ['title: "Context compacting"', 'status: "in_progress"'])}`,
   ],
   [
     '                                    compactionInProgress = false;\n                                    await sendUpdate({\n                                        sessionId: message.session_id,\n                                        update: {\n                                            sessionUpdate: "agent_message_chunk",\n                                            content: { type: "text", text: "\\n\\nCompacting completed." },',

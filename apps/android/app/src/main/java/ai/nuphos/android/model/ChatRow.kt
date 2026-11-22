@@ -17,7 +17,11 @@ sealed class ChatRow {
     data class Reasoning(override val id: String, val part: ChatPart.Reasoning) : ChatRow()
     data class Tool(override val id: String, val messageId: String, val part: ChatPart.Tool, val canDecide: Boolean) : ChatRow()
     data class ToolRun(override val id: String, val rows: List<ChatRow>, val live: Boolean) : ChatRow()
-    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow()
+    data class Work(override val id: String, val rows: List<ChatRow>, val duration: Double?) : ChatRow() {
+        /** The desktop's label: `Worked for 2m 37s`, or `Worked` with no duration. */
+        val title: String
+            get() = duration?.takeIf { it >= 1 }?.let { Words(R.string.chat_work_duration, formatWorkDuration(it.toInt())) } ?: Words(R.string.chat_work)
+    }
     data class Downloads(override val id: String, val group: ai.nuphos.android.data.TransferDownloadGroup) : ChatRow()
     data class Memory(override val id: String, val created: Int, val updated: Int) : ChatRow()
     data class MemoryRecall(override val id: String, val entries: List<MemoryEntry>, val fetched: Int) : ChatRow()
@@ -111,7 +115,12 @@ sealed class ChatRow {
             sendQueued: Boolean = false,
         ): List<ChatRow> {
             val rows = mutableListOf<ChatRow>()
-            val anchoredDownloads = AgentDownloads.anchor(downloads, messages)
+            // Only a citation a row actually shows hides the card: a part still streaming stays Markdown.
+            val cited = messages.withIndex().filter { it.value.role == ChatMessage.Role.Assistant }.flatMap { (index, message) ->
+                message.parts.filterIsInstance<ChatPart.Text>().filterNot { streaming(isStreaming && index == messages.lastIndex, it) }
+            }.flatMapTo(mutableSetOf()) { ReplyFiles.cited(it.text) }
+            val anchoredDownloads = AgentDownloads.anchor(downloads.filter { it.groupId !in cited }, messages)
+            val groups = downloads.associateBy { it.groupId }
             val events = timeline.distinctBy { it.at to it.text }.sortedBy { it.at }.groupBy { event ->
                 messages.indexOfFirst { it.createdAt?.isAfter(event.at) == true }
             }
@@ -152,7 +161,7 @@ sealed class ChatRow {
                     }
                     ChatMessage.Role.Assistant -> {
                         val isLive = isStreaming && index == messages.lastIndex
-                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders)
+                        rows += assistantRows(message, isLive, lastApprovalCallId, steeringIds, steeringSenders, groups)
                         rows += anchoredDownloads[message.id].orEmpty().map { Downloads("downloads.${it.groupId}", it) }
                         if (message.stoppedByUser == true && !isLive && message.parts.none { interruption(it)?.reason == "cancelled" }) {
                             val calls = message.parts.count { it is ChatPart.Tool }
@@ -186,13 +195,23 @@ sealed class ChatRow {
             return rows
         }
 
-        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>): List<ChatRow> {
+        private fun streaming(live: Boolean, part: ChatPart.Text) = live && part.state == ChatPart.StreamState.Streaming
+
+        private fun assistantRows(message: ChatMessage, live: Boolean, lastApprovalCallId: String?, steeringIds: MutableSet<String>, steeringSenders: Map<String, MessageAttribution>, groups: Map<String, ai.nuphos.android.data.TransferDownloadGroup>): List<ChatRow> {
             val body = mutableListOf<ChatRow>()
             message.parts.forEachIndexed { pi, part ->
                 when (part) {
                     is ChatPart.Text -> {
-                        if (part.text.isNotBlank()) {
-                            body += AssistantText("text.${message.id}.$pi", message.id, part.text, live && part.state == ChatPart.StreamState.Streaming)
+                        val streaming = streaming(live, part)
+                        val segments = if (streaming) listOf(ReplyFiles.Segment.Text(part.text)) else ReplyFiles.segments(part.text)
+                        segments.forEachIndexed { si, segment ->
+                            val id = if (segments.size == 1) "text.${message.id}.$pi" else "text.${message.id}.$pi.$si"
+                            when (segment) {
+                                is ReplyFiles.Segment.Text -> if (segment.text.isNotBlank()) body += AssistantText(id, message.id, segment.text, streaming)
+                                // A group no longer listed (expired) still gets its card, which says so.
+                                is ReplyFiles.Segment.Files -> body += Downloads(id, groups[segment.groupId]
+                                    ?: ai.nuphos.android.data.TransferDownloadGroup(segment.groupId, "", emptyList()))
+                            }
                         }
                     }
                     is ChatPart.Reasoning -> {
@@ -300,6 +319,13 @@ sealed class ChatRow {
                 } else result += rows[index++]
             }
             return result
+        }
+
+        /** `12s`, `3m 5s`, `1h 20m`: the desktop's `formatWorkDuration`. */
+        fun formatWorkDuration(seconds: Int): String = when {
+            seconds < 60 -> "${seconds}s"
+            seconds < 3600 -> if (seconds % 60 > 0) "${seconds / 60}m ${seconds % 60}s" else "${seconds / 60}m"
+            else -> if (seconds % 3600 / 60 > 0) "${seconds / 3600}h ${seconds % 3600 / 60}m" else "${seconds / 3600}h"
         }
 
         private fun workDuration(message: ChatMessage): Double? {
