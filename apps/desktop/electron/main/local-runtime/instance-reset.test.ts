@@ -24,13 +24,23 @@ function setup(t: { after: (fn: () => void) => void }) {
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const events: string[] = []
   const removedCredentials: string[] = []
-  // What OpenCode answers once its files are gone, and a stop that waits when held.
-  const probe = { loggedIn: false }
+  // An OpenCode 2.x whose `auth list` answers what `connections` holds, and a stop that waits
+  // when held.
+  const bin = path.join(root, 'bin')
+  const connections = path.join(root, 'connections')
   let held: Promise<void> | undefined
+
+  mkdirSync(bin)
+  writeFileSync(connections, '[]')
+  writeFileSync(
+    path.join(bin, 'opencode'),
+    `#!/bin/sh\nif [ "$1 $2" = "auth list" ]; then cat '${connections}'; exit 0; fi\nexit 1\n`,
+    { mode: 0o700 },
+  )
   const deps = {
     dataDir: () => root,
-    userEnv: async () => ({}),
-    probeCli: async () => ({ installed: true, loggedIn: probe.loggedIn }),
+    userEnv: async () => ({ PATH: `${bin}:/usr/bin:/bin`, HOME: root }),
+    probeCli: async () => ({ installed: true, version: '2.3.0', loggedIn: true }),
   } as unknown as LocalRuntimeControllerDeps
   const instances = new InstanceControllers(
     deps,
@@ -82,7 +92,7 @@ function setup(t: { after: (fn: () => void) => void }) {
     held = until
   }
 
-  return { root, instances, events, removedCredentials, dirOf, write, probe, hold }
+  return { root, instances, events, removedCredentials, dirOf, write, connections, hold }
 }
 
 /** Created and signed in, as the backend leaves an added agent once its sign-in finished. */
@@ -156,23 +166,27 @@ test('reset refuses an unknown or invalid agent', async (t) => {
   )
 })
 
-test('an OpenCode that still reports a provider fails the reset, and runs again', async (t) => {
-  const context = setup(t)
-  const { instances, events, dirOf, probe } = context
+test(
+  'an OpenCode that still reports a provider fails the reset, and runs again',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const context = setup(t)
+    const { instances, events, dirOf, connections } = context
 
-  await instances.load('alice')
-  const agent = await signedIn(context, 'opencode')
+    await instances.load('alice')
+    const agent = await signedIn(context, 'opencode')
 
-  // OpenCode 2.x keeps provider credentials in its database, which no file deletion reaches.
-  probe.loggedIn = true
-  await assert.rejects(
-    instances.request({ method: 'reset', instanceId: agent.instanceId }, 'alice'),
-    /OpenCode still holds provider credentials/,
-  )
-  await new Promise((resolve) => setImmediate(resolve))
-  assert.deepEqual(events, ['stop', 'start'])
-  assert.equal(existsSync(path.join(dirOf(agent.instanceId), LOGIN.opencode)), false)
-})
+    // OpenCode 2.x keeps provider credentials in its database, which no file deletion reaches.
+    writeFileSync(connections, JSON.stringify([{ id: 'openai', connections: [{ type: 'env' }] }]))
+    await assert.rejects(
+      instances.request({ method: 'reset', instanceId: agent.instanceId }, 'alice'),
+      /OpenCode still holds provider credentials/,
+    )
+    await new Promise((resolve) => setImmediate(resolve))
+    assert.deepEqual(events, ['stop', 'start'])
+    assert.equal(existsSync(path.join(dirOf(agent.instanceId), LOGIN.opencode)), false)
+  },
+)
 
 test('an agent removed while its reset stops it is not started again', async (t) => {
   const context = setup(t)

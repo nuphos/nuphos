@@ -10,8 +10,6 @@ import {
   deleteDefaultCredentials,
 } from './agent-credentials.ts'
 
-import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-
 function home(t: { after: (fn: () => void) => void }, files: Record<string, string>) {
   const root = mkdtempSync(path.join(os.tmpdir(), 'nuphos-agent-credentials-'))
 
@@ -157,7 +155,7 @@ test('a default Codex also loses the owner login its home links to', (t) => {
 
 test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI without one', async () => {
   const asked: string[] = []
-  const answering = (cli: object | Error) =>
+  const answering = (connected: boolean | undefined, cli: object | Error) =>
     ({
       userEnv: async () => ({}),
       probeCli: async (provider: string, _env: unknown, home: string | undefined) => {
@@ -166,49 +164,53 @@ test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI with
 
         return cli
       },
-      logout: async () => {},
-    }) as unknown as Pick<LocalRuntimeControllerDeps, 'probeCli' | 'userEnv'>
-  const left = async (cli: object | Error, provider: 'opencode' | 'codex' = 'opencode') =>
-    String(await credentialsLeft(provider, '/home/oc', answering(cli)))
+      logout: async () => connected,
+    }) as unknown as Parameters<typeof credentialsLeft>[2]
+  const left = async (
+    connected: boolean | undefined,
+    cli: object | Error = { installed: true, version: '2.0.1', loggedIn: true },
+    provider: 'opencode' | 'codex' = 'opencode',
+  ) => String(await credentialsLeft(provider, '/home/oc', answering(connected, cli)))
 
   // A 2.x database still holding a provider, as no file deletion reaches.
-  assert.match(
-    await left({ installed: true, version: '2.0.1', loggedIn: true }),
-    /still holds provider credentials/,
-  )
+  assert.match(await left(true), /still holds provider credentials/)
+  // OpenCode always reports itself signed in, to its free models: only the list decides.
+  asked.length = 0
+  assert.equal(await left(false), 'undefined')
+  assert.deepEqual(asked, [])
   // A 2.x list that could not be read, or a probe that failed, proves nothing.
   for (const cli of [
-    { installed: true, version: '2.0.1', loggedIn: false, credentialsUnread: true },
-    { installed: true, loggedIn: false, credentialsUnread: true },
+    { installed: true, version: '2.0.1', loggedIn: true },
+    { installed: true, loggedIn: true },
     new Error('probe failed'),
   ])
-    assert.match(await left(cli), /could not read which providers/)
-  assert.equal(await left({ installed: true, version: '2.0.1', loggedIn: false }), 'undefined')
+    assert.match(await left(undefined, cli), /could not read which providers/)
   // 1.x keeps no list: its login is the auth.json deleted above.
   assert.equal(
-    await left({ installed: true, version: '1.19.5', loggedIn: false, credentialsUnread: true }),
+    await left(undefined, { installed: true, version: '1.19.5', loggedIn: true }),
     'undefined',
   )
-  assert.equal(await left({ installed: false }), 'undefined')
+  assert.equal(await left(undefined, { installed: false }), 'undefined')
   // Every other agent's sign-in is the files deleted above, so none is asked.
   asked.length = 0
-  assert.equal(await left({ installed: true, loggedIn: true }, 'codex'), 'undefined')
+  assert.equal(await left(true, { installed: true, loggedIn: true }, 'codex'), 'undefined')
   assert.deepEqual(asked, [])
 })
 
-test('a reset of OpenCode logs out each credential before it checks the list', async () => {
+test('a reset of OpenCode logs out in the agent home, and a logout that fails proves nothing', async () => {
   const steps: string[] = []
-  const deps = (logout: () => Promise<void>) =>
+  const deps = (logout: () => Promise<boolean | undefined>) =>
     ({
       userEnv: async () => ({ PATH: '/bin' }),
       probeCli: async () => {
         steps.push('check')
 
-        return { installed: true, version: '2.3.0', loggedIn: false }
+        return { installed: true, version: '2.3.0', loggedIn: true }
       },
       logout: async (env: NodeJS.ProcessEnv, home: string) => {
         steps.push(`logout ${String(env.PATH)} ${home}`)
-        await logout()
+
+        return logout()
       },
     }) as unknown as Parameters<typeof credentialsLeft>[2]
 
@@ -216,27 +218,28 @@ test('a reset of OpenCode logs out each credential before it checks the list', a
     await credentialsLeft(
       'opencode',
       '/home/oc',
-      deps(async () => {}),
+      deps(async () => false),
     ),
     undefined,
   )
-  assert.deepEqual(steps, ['logout /bin /home/oc', 'check'])
-  // A logout that fails is left to the check, which still decides.
+  assert.deepEqual(steps, ['logout /bin /home/oc'])
   steps.length = 0
-  assert.equal(
-    await credentialsLeft(
-      'opencode',
-      '/home/oc',
-      deps(() => Promise.reject(new Error('no server'))),
+  assert.match(
+    String(
+      await credentialsLeft(
+        'opencode',
+        '/home/oc',
+        deps(() => Promise.reject(new Error('no server'))),
+      ),
     ),
-    undefined,
+    /could not read which providers/,
   )
   assert.deepEqual(steps, ['logout /bin /home/oc', 'check'])
   steps.length = 0
   await credentialsLeft(
     'codex',
     '/home/cx',
-    deps(async () => {}),
+    deps(async () => true),
   )
   assert.deepEqual(steps, [])
 })
