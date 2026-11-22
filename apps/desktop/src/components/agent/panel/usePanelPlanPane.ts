@@ -144,8 +144,10 @@ export function usePanelPlanPane(acc: Acc) {
   // Re-reported when the server comes to have the chat, not on every streamed delta.
   const stored = activeTab ? serverHasConversation(activeTab) : false
   // The name the sidebar lists the chat by, so a rename made anywhere reaches the titlebar too.
+  // Read from what the sidebar already listed; it asks the backend nothing.
   const { data: listedTitle } = useQuery({
-    ...agentSessionsQuery(teamId),
+    ...agentSessionsQuery(teamId ?? ''),
+    enabled: false,
     select: (rows) => rows.find((row) => row.sessionId === activeTab?.sessionId)?.title,
   })
 
