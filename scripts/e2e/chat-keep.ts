@@ -89,14 +89,21 @@ export async function focused(page: Page, name: string) {
 
 const HOME_DRAFT = 'Draft on the New Task page'
 
-/** Leaves a draft on the New Task page on screen. */
+/** The New Task page, on screen. */
+async function home(page: Page) {
+  await newTask(page)
+  await page.getByText(/^What's up next/).waitFor()
+}
+
+/** Goes to the New Task page and leaves a draft there. */
 export async function leaveHome(page: Page) {
+  await home(page)
   await composer(page).fill(HOME_DRAFT)
 }
 
 /** Back to the New Task page, which kept the draft `leaveHome` left. */
 export async function backHome(page: Page) {
-  await newTask(page)
+  await home(page)
   await until(
     'the New Task page to keep its draft',
     async () => (await composer(page).innerText()).trim() === HOME_DRAFT,

@@ -134,11 +134,9 @@ async function open(
 
 /** Back to a fresh renderer, as after starting the app: nothing opened, nothing cached. */
 async function restart(page: Page) {
-  // On a new Task, so the reloaded window restores no chat.
-  await newTask(page)
   await page.reload()
-  // On the New Task page, so the first open switches away from it on screen (#4584).
-  await page.getByRole('tab', { name: 'Tasks' }).click()
+  // On the New Task page, whichever chat the window restored: the first open then switches away
+  // from it on screen (#4584).
   await leaveHome(page)
 }
 
