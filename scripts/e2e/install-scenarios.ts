@@ -238,6 +238,13 @@ export const installScenarios: Scenario[] = [
         await pickInRow(page, hostname(), /^Claude Code/)
         await send(page, 'Start Claude Code')
         await page.getByText(REINSTALL).first().waitFor({ timeout: 60_000 })
+        // Desktop starts a turn that broke mid-stream again a few times before it gives up.
+        // Wait for the last attempt, or its error lands in the next scenario's backend log.
+        await until(
+          'the turn to stop retrying',
+          async () => (await page.locator('button[title="Stop"]').count()) === 0,
+          60_000,
+        )
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
         await shot(page, 'local-6-chat-reinstall')
         const raw = await page.getByText(/ENOENT|native binary|-32603/).count()
