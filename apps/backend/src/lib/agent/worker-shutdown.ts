@@ -1,7 +1,10 @@
+import { stopReminderSweeper } from './reminder-delivery'
 import { closeTriggerQueues, stopTriggerWorkers } from './trigger-scheduler'
 
 /** Stop consumers now; queue clients must remain usable by draining HTTP requests. */
 export function quiesceAgentWorkers(): Promise<unknown> {
+  stopReminderSweeper()
+
   return Promise.allSettled([stopTriggerWorkers()])
 }
 

@@ -197,7 +197,10 @@ test('a video with no frame at all fails record_stop instead of writing an empty
   const { contents } = tab()
   const video = await startVideo(contents.debugger, () => Promise.resolve(helper({ empty: true })))
 
-  await assert.rejects(stopVideo(video, join(temp, 'empty.webm')), /No frame/)
+  await assert.rejects(
+    stopVideo(video, join(temp, 'empty.webm')),
+    /No frame of the tab was recorded \(1 sent, \{"drawn":2,.*\}\)/,
+  )
 })
 
 const settle = () => new Promise((resolve) => setImmediate(resolve))
