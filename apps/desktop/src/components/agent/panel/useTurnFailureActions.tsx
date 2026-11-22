@@ -19,6 +19,18 @@ import { latestFailure, reinstallProvider, turnSwitchAgent } from './turnFailure
 import type { PanelViewCtx } from './ctx'
 import type { RuntimeControl } from './RuntimeSelector'
 
+/** Open in the chat it was opened in, closed by a switch: the panel stays mounted across one. */
+function useOpenIn(sessionId: string | undefined): [boolean, (open: boolean) => void] {
+  const [openIn, setOpenIn] = useState<string | undefined>()
+
+  if (openIn !== undefined && openIn !== sessionId) setOpenIn(undefined)
+
+  return [
+    openIn !== undefined && openIn === sessionId,
+    (open) => setOpenIn(open ? sessionId : undefined),
+  ]
+}
+
 /**
  * The actions on a Task's failed turn. Switch runtime opens this panel's runtime list, whose
  * open state lives here so no other composer for the session opens too. When the runtime could
@@ -26,7 +38,7 @@ import type { RuntimeControl } from './RuntimeSelector'
  * runtime details shows) and moves the Task there.
  */
 export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl | undefined) {
-  const agentMenu = useState(false)
+  const agentMenu = useOpenIn(c.activeTab?.sessionId)
   const teamId = c.teamId ?? ''
   const failure = latestFailure(c.activeTab)
   const failed = Boolean(teamId && failure?.cause)
@@ -37,7 +49,7 @@ export function useTurnFailureActions(c: PanelViewCtx, control: RuntimeControl |
   }).list?.devices.find((entry) => entry.deviceId === runtime?.local?.deviceId)
   const { fallbacks, save } = useRuntimeFallback(teamId, runtime?.id, failed)
   const reinstall = reinstallProvider(failure?.cause, runtime, useThisComputer())
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useOpenIn(c.activeTab?.sessionId)
   const move = control?.onSelect
   const offered = offersFallbackSetup({
     cause: failure?.cause,
