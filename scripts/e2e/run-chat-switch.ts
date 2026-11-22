@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { backendLog } from './backend-log.ts'
 import { backHome, focused, kept, leave, leaveHome, notKept } from './chat-keep.ts'
 import { LONG_POSTS, loadEarlier } from './chat-switch-earlier.ts'
+import { startLatencyProxy } from './latency-proxy.ts'
 import { overlayFailed, overlayLines, overlayScenarios } from './chat-switch-overlays.ts'
 import { watchSwitch } from './chat-switch-timing.ts'
 import { startDesktop } from './desktop.ts'
@@ -29,8 +30,8 @@ const POSTS = 40
 const MAX_TYPED_FRAMES = 3
 const ACK_A = 'ACK E2E_DELIVERY:switch-a'
 const ACK_B = 'ACK E2E_DELIVERY:switch-b'
-// Measure only (#3523): a finished Task with many long turns.
-const DONE_TURNS = 12
+// Measure only (#3523): a finished Task with many turns of tool cards, as a Bot's long run.
+const DONE_TURNS = 8
 const done = (turn: number) => `E2E_DELIVERY:switch-done-${String(turn).padStart(2, '0')}`
 const DONE_LAST = `ACK ${done(DONE_TURNS)}`
 
@@ -131,9 +132,13 @@ async function open(
     .first()
   const watch = await watchSwitch(page, by === 'tab' ? tab : row, texts)
   const requests = readsFor(chat.sessionId, watch.clickedAt, watch.shownAt ?? Date.now())
+  // Requests the latency proxy held between the click and the first frame, and for how long.
+  const proxied = proxy.held
+    .filter(({ at }) => at >= watch.clickedAt && at <= (watch.shownAt ?? Date.now()))
+    .map(({ ms, path }) => `${String(Math.round(ms))} ms ${path.split('?')[0] ?? ''}`)
 
   cases.push({ name, watch, requests })
-  console.log(`${name}: ${JSON.stringify({ ...watch, requests })}`)
+  console.log(`${name}: ${JSON.stringify({ ...watch, requests, proxied })}`)
 }
 
 /** Back to a fresh renderer, as after starting the app: nothing opened, nothing cached. */
@@ -167,12 +172,12 @@ async function scenario(page: Page, stack: Stack) {
     page,
     stack,
     'Switch task done',
-    `Done E2E_LONG_REPLY ${done(1)}`,
+    `Done E2E_TOOLS ${done(1)}`,
     `ACK ${done(1)}`,
   )
 
   for (let turn = 2; turn <= DONE_TURNS; turn++) {
-    await send(page, `Done E2E_LONG_REPLY ${done(turn)}`)
+    await send(page, `Done E2E_TOOLS ${done(turn)}`)
     await page
       .getByText(`ACK ${done(turn)}`)
       .filter({ visible: true })
@@ -215,27 +220,37 @@ async function scenario(page: Page, stack: Stack) {
   await backHome(page)
   await open(page, 'task, from the New Task page', taskA, { history: ACK_A })
   await kept(page, 'task, from the New Task page', taskA.title, ACK_A)
-  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB }, '')
-  // The same with a slow network between the window and the backend.
-  const cdp = await page.context().newCDPSession(page)
-
-  await cdp.send('Network.enable')
-  await cdp.send('Network.emulateNetworkConditions', {
-    offline: false,
-    latency: LATENCY_MS,
-    downloadThroughput: -1,
-    uploadThroughput: -1,
-  })
-  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB }, ` +${String(LATENCY_MS)} ms`)
+  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB, longChat }, '')
+  // The same with the backend far away: every request, answer and socket frame of the app's.
+  proxy.latency(150, 300)
+  await probeLatency(stack)
+  await measure(page, stack, { longDone, taskA, taskB, chatA, chatB, longChat }, ' +150-300 ms')
+  proxy.latency(0)
 }
 
-const LATENCY_MS = 300
+/** That the latency applies: one read straight to the backend, and through the proxy. */
+async function probeLatency(stack: Stack) {
+  const path = `/agent/conversations?teamId=${stack.teamId}&limit=1`
+  const time = async (base: string) => {
+    const started = performance.now()
+
+    await fetch(`${base}${path}`, { headers: { authorization: `Bearer ${stack.token}` } })
+
+    return Math.round(performance.now() - started)
+  }
+  const direct = [await time(stack.apiUrl), await time(stack.apiUrl), await time(stack.apiUrl)]
+  const proxied = [await time(proxy.url), await time(proxy.url), await time(proxy.url)]
+
+  console.log(
+    `latency probe: direct ${direct.join('/')} ms, through the proxy ${proxied.join('/')} ms`,
+  )
+}
 
 /** Measure-only rows for #3523, with no budget: what a long Task and a Task reply cost. */
 async function measure(
   page: Page,
   stack: Stack,
-  { longDone, taskA, taskB, chatA, chatB }: Record<string, Chat>,
+  { longDone, taskA, taskB, chatA, chatB, longChat }: Record<string, Chat>,
   suffix: string,
 ) {
   const name = (what: string) => `measure: ${what}${suffix}`
@@ -244,6 +259,12 @@ async function measure(
 
   await restart(page)
   await open(page, name('long finished task, first open'), longDone, { history: DONE_LAST })
+  await open(
+    page,
+    name('bot chat, first open, 200 posts'),
+    longChat,
+    lastPost(longChat, LONG_POSTS),
+  )
   await open(page, name('task, first open'), taskA, { history: ACK_A })
   await open(page, name('bot chat, first open'), chatB, lastPost(chatB))
   await open(page, name('long finished task, reopened'), longDone, { history: DONE_LAST })
@@ -251,6 +272,14 @@ async function measure(
   await open(page, name('task, first open, another'), taskB, { history: ACK_B })
   await open(page, name('task, reopened'), taskA, { history: ACK_A })
   await open(page, name('long finished task, after eviction'), longDone, { history: DONE_LAST })
+  // A Bot chat post said while away.
+  await api(stack, `/agent/conversations/${chatB.sessionId}/channel-messages`, {
+    text: `Said while away, measured${suffix}`,
+  })
+  await open(page, name('bot chat, new post while away'), chatB, {
+    ...lastPost(chatB),
+    newest: `Said while away, measured${suffix}`,
+  })
   // A Task reply that lands while another chat is on screen.
   await open(page, name('task, reopened, to send'), taskB, { history: ACK_B })
   await send(page, `Away E2E_WAIT_RELEASE ${away}`)
@@ -318,6 +347,7 @@ function check(baseline: Record<string, number> | null) {
 }
 
 let desktop: Desktop | undefined
+let proxy!: Awaited<ReturnType<typeof startLatencyProxy>>
 let failed = false
 
 try {
@@ -327,7 +357,8 @@ try {
   process.env.OPENAB_ACP_STREAMING = 'true'
   const stack = await startStack()
 
-  desktop = await startDesktop(stack.apiUrl)
+  proxy = await startLatencyProxy(stack.apiUrl)
+  desktop = await startDesktop(proxy.url)
   desktop.page.setDefaultTimeout(30_000)
   const { page } = desktop
 
@@ -362,6 +393,7 @@ try {
   console.error(`FAIL: logs and the last screenshot are in ${artifacts}`)
 } finally {
   await desktop?.close()
+  proxy?.close()
   await stopAll()
 }
 process.exit(failed ? 1 : 0)
