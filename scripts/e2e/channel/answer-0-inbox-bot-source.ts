@@ -45,7 +45,7 @@ const scenario: Scenario = {
     await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
     // #4065: a link in the Bot's question card opens in the dock, as in a Task's
     // chat, never in the system browser.
-    await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
+    await page.locator('[data-open-question]:visible a[href$="/health/ready"]').last().click()
     const address = page.getByRole('textbox', { name: 'Search or enter URL' })
 
     await address.waitFor({ timeout: 10_000 })
