@@ -5152,7 +5152,6 @@
   "Users": "ユーザー",
   "Uses your SSH config, keys and ssh-agent on this computer. Nuphos never sees them.": "このコンピューターの SSH 設定・鍵・ssh-agent を使います。Nuphos がそれらを見ることはありません。",
   "Using a custom provider ({host}).": "カスタムプロバイダー（{host}）を使用中です。",
-  "Using {tool}": "使用中：{tool}",
   "Utilization": "使用率",
   "VKE Clusters": "VKE クラスター",
   "VKE clusters & ECS instances.": "VKE クラスターと ECS インスタンス。",

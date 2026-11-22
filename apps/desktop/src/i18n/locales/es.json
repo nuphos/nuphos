@@ -5152,7 +5152,6 @@
   "Users": "Usuarios",
   "Uses your SSH config, keys and ssh-agent on this computer. Nuphos never sees them.": "Usa la configuración SSH, las claves y el ssh-agent de este ordenador. Nuphos nunca los ve.",
   "Using a custom provider ({host}).": "Usando un proveedor personalizado ({host}).",
-  "Using {tool}": "Usando {tool}",
   "Utilization": "Utilización",
   "VKE Clusters": "Clústeres de VKE",
   "VKE clusters & ECS instances.": "Clústeres de VKE e instancias de ECS.",

@@ -5152,7 +5152,6 @@
   "Users": "使用者",
   "Uses your SSH config, keys and ssh-agent on this computer. Nuphos never sees them.": "使用這台電腦上的 SSH 設定、金鑰與 ssh-agent。Nuphos 不會取得它們。",
   "Using a custom provider ({host}).": "正在使用自訂供應商（{host}）。",
-  "Using {tool}": "正在使用：{tool}",
   "Utilization": "使用率",
   "VKE Clusters": "VKE 叢集",
   "VKE clusters & ECS instances.": "VKE 叢集與 ECS 執行個體。",

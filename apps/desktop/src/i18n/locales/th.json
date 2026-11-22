@@ -5152,7 +5152,6 @@
   "Users": "ผู้ใช้",
   "Uses your SSH config, keys and ssh-agent on this computer. Nuphos never sees them.": "ใช้การตั้งค่า SSH คีย์ และ ssh-agent บนคอมพิวเตอร์นี้ Nuphos ไม่เห็นข้อมูลเหล่านี้",
   "Using a custom provider ({host}).": "กำลังใช้ผู้ให้บริการแบบกำหนดเอง ({host})",
-  "Using {tool}": "กำลังใช้ {tool}",
   "Utilization": "การใช้งาน",
   "VKE Clusters": "คลัสเตอร์ VKE",
   "VKE clusters & ECS instances.": "คลัสเตอร์ VKE และอินสแตนซ์ ECS",
