@@ -17,7 +17,7 @@ import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
 import { ReplyButton } from './ReplyButton'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 export type Links = {
@@ -25,6 +25,8 @@ export type Links = {
   onLinkClick?: (href: string, beside?: boolean) => boolean
   /** The chat: its files load through it, so every member sees them. */
   channelId: string
+  /** The chat's agents, named as a post's `@Name` addresses them. */
+  agentMentions?: AgentMessageMention[]
 }
 
 /**
@@ -83,7 +85,8 @@ export function ChannelMessage({
       renderLink={links.renderLink}
       onLinkClick={links.onLinkClick}
     >
-      {linkMentions(text, metadata.mentions)}
+      {/* People last, so a person keeps a name an agent shares. */}
+      {linkMentions(text, [...(links.agentMentions ?? []), ...(metadata.mentions ?? [])])}
     </MessageResponse>
   )
 

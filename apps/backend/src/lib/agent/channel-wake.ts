@@ -17,7 +17,6 @@ import {
   requeuePendingAtHead,
   takePendingUserMessages,
 } from './pending-queue'
-import { sessionReleased } from './session-released'
 
 import type { AgentConversation } from './db'
 import { systemSender } from './message-metadata'
@@ -87,7 +86,9 @@ export const QUEUED_NOTICE_STEER = { attempts: 15, delayMs: 2_000 }
  * steer yet (it was still starting) must not wait for that whole turn to end.
  * Like a waiting message the composer steers, the notice leaves the queue,
  * steers, and goes back to the front if the turn still refuses it. Once no turn
- * runs, the queue starts it as its own turn.
+ * runs, the queue starts it as its own turn: on that turn's release, or on the
+ * backstop sweep if the turn ended while the notice was off the queue. A give-up
+ * here is no release, so a queue waiting out a refusal keeps waiting (#4164).
  */
 export function steerQueuedNotice(
   agent: AgentConversation,
@@ -123,8 +124,6 @@ async function retrySteer(
     if (!notice) return
     if (await steerRunningTurn(agent, channel, metadata)) return
     await requeuePendingAtHead(userId, sessionId, [notice])
-    // The turn may have ended while the notice was off the queue.
-    sessionReleased(userId, sessionId)
   }
 }
 

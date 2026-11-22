@@ -1,6 +1,12 @@
 package ai.nuphos.android
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.res.Configuration
+import android.os.ParcelFileDescriptor
+import android.view.WindowInsets
+import android.view.WindowManager
+import android.view.inspector.WindowInspector
+import android.view.accessibility.AccessibilityNodeInfo
 import android.util.DisplayMetrics
 import android.content.Context
 import androidx.activity.compose.setContent
@@ -121,11 +127,10 @@ class HomeNavigationFixtureDeviceTest {
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${b.id}/monitoring/overview")
-                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val mfa = request.method == "GET" && path == "/auth/mfa"
                 val mfaSetup = request.method == "POST" && path == "/auth/mfa/totp/setup"
                 val endSession = request.method == "DELETE" && path == "/auth/sessions/current"
-                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
+                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -165,7 +170,6 @@ class HomeNavigationFixtureDeviceTest {
                     browsing -> "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
-                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     mfa -> """{"enabled":false}"""
                     // A sign-in older than ten minutes may not start setup (the backend's rule for accounts without 2FA).
                     mfaSetup -> if (signedInAgain) """{"secret":"JBSWY3DPEHPK3PXP","otpauthUrl":"otpauth://totp/Nuphos:fixture?secret=JBSWY3DPEHPK3PXP"}"""
@@ -256,10 +260,7 @@ class HomeNavigationFixtureDeviceTest {
         else { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick() }
         compose.waitForIdle()
     }
-    // The Tasks list's reads. The Bots listing reads mine and shared, as the chats do (#3852).
-    private fun assertFixedListSelectors() = assertTrue(requests.filter {
-        it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("bots") != "true"
-    }.all {
+    private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
     private fun noWrites() = assertTrue(requests.none { it.method != "GET" })
@@ -270,6 +271,88 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
+    @Test fun newTaskComposerMeetsKeyboardAndGreetingFits() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        val registry = InstrumentationRegistry.getInstrumentation()
+        val automation = registry.uiAutomation
+        val serviceInfo = automation.serviceInfo
+        val originalFlags = serviceInfo.flags
+        serviceInfo.flags = originalFlags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        automation.serviceInfo = serviceInfo
+
+        fun keyboardTop(): Int? = compose.runOnIdle {
+            val decor = WindowInspector.getGlobalWindowViews().firstOrNull { it.hasWindowFocus() }
+                ?: return@runOnIdle null
+            val insets = decor.rootWindowInsets ?: return@runOnIdle null
+            val ime = insets.getInsets(WindowInsets.Type.ime()).bottom
+            if (ime == 0) return@runOnIdle null
+            decor.context.getSystemService(WindowManager::class.java).currentWindowMetrics.bounds.bottom - ime
+        }
+        fun shell(command: String) =
+            ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+        val previousImeSetting = shell("settings get secure show_ime_with_hard_keyboard")
+
+        try {
+            shell("settings put secure show_ime_with_hard_keyboard 1")
+            render(newTask = true)
+            compose.onNodeWithTag("new-task-open").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.waitUntil(8_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNode(hasSetTextAction()).performClick()
+            compose.waitUntil(8_000) { keyboardTop() != null }
+            automation.waitForIdle(300, 5_000)
+            compose.waitForIdle()
+
+            val imeTop = requireNotNull(keyboardTop())
+            val composer = compose.onNodeWithTag("chat-composer-surface").fetchSemanticsNode().boundsInWindow
+            assertEquals("Composer bottom should meet the IME", imeTop.toFloat(), composer.bottom, 2f)
+            compose.onNodeWithContentDescription(app.getString(R.string.send)).assertIsDisplayed()
+
+            val greetingText = app.getString(R.string.new_task_welcome_name, NuphosUser.preview.name.orEmpty().substringBefore(' '))
+            val greeting = compose.onNodeWithText(greetingText)
+            val shortScreen = InstrumentationRegistry.getArguments().getString("newTaskShortScreen") == "true"
+            fun greetingExposed(): Boolean {
+                val roots = automation.windows.mapNotNull { it.root }.filter { it.packageName == app.packageName }
+                assertTrue("Expected a Nuphos accessibility window", roots.isNotEmpty())
+                fun visibleGreeting(node: AccessibilityNodeInfo): Boolean {
+                    return (node.isVisibleToUser && node.text?.toString() == greetingText) ||
+                        (0 until node.childCount).any { node.getChild(it)?.let(::visibleGreeting) == true }
+                }
+                return roots.any(::visibleGreeting)
+            }
+            if (shortScreen) {
+                greeting.assertIsNotDisplayed()
+                assertFalse("Hidden greeting should not be exposed to accessibility", greetingExposed())
+            } else {
+                greeting.assertIsDisplayed()
+                compose.waitUntil(8_000) { greetingExposed() }
+            }
+            shot("3799-keyboard-open")
+
+            compose.onNode(hasSetTextAction()).performTextClearance()
+            compose.onNode(hasSetTextAction()).performTextInput("Synthetic keyboard draft")
+            val draft = compose.onNodeWithText("Synthetic keyboard draft")
+            compose.waitUntil(8_000) { draft.isDisplayed() }
+            pressSystemBack()
+            compose.waitUntil(8_000) { keyboardTop() == null && draft.isDisplayed() && greeting.isDisplayed() }
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.waitUntil(8_000) { greetingExposed() }
+            shot("3799-keyboard-closed")
+            compose.onNodeWithTag("new-task-cancel").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+            noWrites()
+        } finally {
+            if (previousImeSetting in setOf("0", "1")) {
+                shell("settings put secure show_ime_with_hard_keyboard $previousImeSetting")
+            } else {
+                shell("settings delete secure show_ime_with_hard_keyboard")
+            }
+            serviceInfo.flags = originalFlags
+            automation.serviceInfo = serviceInfo
+        }
+    }
+
     @Test fun newTaskSheetCancelAndReopenPreservesDraft() {
         app.incomingShares.identityReset()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
