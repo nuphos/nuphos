@@ -3,7 +3,6 @@ import { useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
-import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { participantsQuery, teamMembersQuery } from '../../../lib/query/team'
 import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { AppAlertDialog } from '../../ui/alert-dialog'
@@ -190,8 +189,6 @@ export function useComposerMentions(
     }
   }
 
-  const bot = Boolean(scope?.sessionId && agentAvatarPick(scope.sessionId))
-
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
@@ -208,22 +205,12 @@ export function useComposerMentions(
         open={uninvited.length > 0}
         title={
           uninvited.length === 1
-            ? bot
-              ? t('Invite {name} to this Bot?', { name: names[0] })
-              : t('Invite {name} to this task?', { name: names[0] })
-            : bot
-              ? t('Invite {n} people to this Bot?', { n: String(uninvited.length) })
-              : t('Invite {n} people to this task?', { n: String(uninvited.length) })
+            ? t('Invite {name} to this task?', { name: names[0] })
+            : t('Invite {n} people to this task?', { n: String(uninvited.length) })
         }
-        description={
-          bot
-            ? t('You mentioned {names}, but they are not in this Bot yet.', {
-                names: names.join(', '),
-              })
-            : t('You mentioned {names}, but they are not in this task yet.', {
-                names: names.join(', '),
-              })
-        }
+        description={t('You mentioned {names}, but they are not in this task yet.', {
+          names: names.join(', '),
+        })}
         confirmLabel={t('Invite')}
         cancelLabel={t("Don't invite")}
         onConfirm={async () => {
