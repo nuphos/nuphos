@@ -16,9 +16,12 @@ export async function archivedTask(stack: Stack, title: string, parentSessionId?
   const api = rest(stack, stack.token)
   const sessionId = randomUUID()
 
+  // A conversation is stored only with its runtime (#4614): seed it as an imported local session.
   await api('PUT', `/agent/conversations/${sessionId}/transcript`, {
     teamId: stack.teamId,
     title,
+    agentRuntime: 'claude-code',
+    import: true,
     messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
   })
   if (parentSessionId)
