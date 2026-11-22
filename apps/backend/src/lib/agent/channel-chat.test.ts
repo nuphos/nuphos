@@ -1306,6 +1306,25 @@ describe('an agent speaks in a channel only with channel_post', () => {
       },
     ])
   })
+
+  test('a reply quotes the post it answers unless that post is the newest', async () => {
+    runTurns(async () => {})
+    await say('first')
+    await say('second')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const indexOf = async (messageId: string) =>
+      (await agentMessages().findOne({ sessionId: 'channel', messageId }))!.index as number
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+
+    // Right under the post it answers, a quote of it only repeats it.
+    await postAsAgent('channel', agent, 'Hi', [], await indexOf('m2'))
+    await postAsAgent('channel', agent, 'About that', [], await indexOf('m1'))
+
+    const [plain, quoting] = await agentPosts()
+
+    expect(plain?.metadata).not.toHaveProperty('replyTo')
+    expect(quoting?.metadata).toMatchObject({ replyTo: { text: 'first' } })
+  })
 })
 
 describe('an agent whose computer is offline', () => {
