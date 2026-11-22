@@ -21,7 +21,8 @@ import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
-import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { queueForOfflineComputer } from './session-queue-offline'
+import { isQueued, queuedReply } from './session-queue-share-approval'
 import { queueForSignIn } from './session-queue-sign-in'
 import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
 import { readTeamIdCandidate, resolveVerifiedTeamId, sanitizeKubeContextHeader } from './team-scope'
@@ -110,7 +111,7 @@ agent.post('/chat', async (c) => {
       sessionId: id,
       ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
       ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-    }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams)))
+    }).catch((error: unknown) => queueForOfflineComputer(error, resumeParams)))
 
   if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime
