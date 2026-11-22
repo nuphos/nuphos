@@ -22,8 +22,7 @@ import type {
 } from './shared'
 import type { ConversationTimelineEvent } from './timeline-events'
 
-// Sticky content-filter model-fallback helpers live in a sibling file (this
-// one is at the max-lines limit); re-exported so existing import paths hold.
+// Model-fallback helpers live in a sibling file; re-exported so import paths hold.
 export {
   buildModelFallbackMark,
   getConversationModelFallbackModelId,
@@ -35,11 +34,8 @@ export async function upsertConversationShell(
   data: ConversationShellInput,
 ): Promise<{ isNew: boolean }> {
   const now = new Date()
-  // MongoDB rejects the same field appearing in both $setOnInsert and $set
-  // ("Updating the path 'title' would create a conflict at 'title'", error
-  // code 40). When data.title is truthy, $set.title fires, so don't also
-  // include title in $setOnInsert. When data.title is empty (preserveTitle
-  // path), $set doesn't touch title, so $setOnInsert can default it.
+  // MongoDB rejects one field in both $setOnInsert and $set (error code 40): a
+  // truthy title is $set, so only an empty one is defaulted in $setOnInsert.
   const setOnInsert: Record<string, unknown> = {
     sessionId: data.sessionId,
     userId: data.userId,
