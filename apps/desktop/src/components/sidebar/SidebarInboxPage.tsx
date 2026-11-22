@@ -66,7 +66,7 @@ export function SidebarInboxPage({
       )}
       <nav
         onScroll={onScroll}
-        className="sidebar-page-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-2 scrollbar-thin scrollbar-overlay"
+        className="sidebar-page-list t-scroll-fade min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-2 scrollbar-thin scrollbar-overlay"
       >
         <SkeletonReveal
           className="t-sidebar-section-reveal"

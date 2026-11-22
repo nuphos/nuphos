@@ -8,6 +8,7 @@ import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
+import { useRunCancel } from '@/lib/test/doubles/run-cancel'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { sessionsByConversation } from './agent-chat-registry'
@@ -21,6 +22,7 @@ import type { AgentConversation } from '@/lib/agent/db/shared'
 
 let memory = portabilityDb()
 let busy = false
+let stopped: string[] = []
 let target: RuntimeInstance
 let conversation: AgentConversation
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
@@ -52,6 +54,15 @@ useAgentRunStore({
   getActiveAgentRunForSession: async () => (busy ? { streamId: 'active' } : null),
   reserveActiveAgentRunForSession: async () => async () => {},
 })
+// The turn ends once Stop reaches it, which lets the move claim the session.
+useRunCancel({
+  stopConversationTurn: async ({ sessionId }) => {
+    stopped.push(sessionId)
+    busy = false
+
+    return 'requested'
+  },
+})
 useRuntimeCatalog({
   requireRuntimeInstance: async () => target,
   developmentRuntimeEndpoint: () => {},
@@ -64,6 +75,7 @@ useRuntimeRegistry({
 beforeEach(() => {
   memory = portabilityDb()
   busy = false
+  stopped = []
   destinationModels = allModels
   destinationDefaults = { modelId: 'default' }
   target = {
@@ -159,11 +171,19 @@ test('a move records where the conversation came from', async () => {
   // Not in the capped timeline, which could evict it.
   expect(conversation.timelineEvents ?? []).toEqual([])
 })
-test('an active turn preserves the original placement and releases the operation lock', async () => {
+test('a move during a turn stops it as Stop does, then moves', async () => {
   busy = true
-  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
-    code: 'conversation_busy',
-  })
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(stopped).toEqual(['conversation'])
+  expect(conversation.runtimeId).toBe('new')
+  expect(conversation.runtimeOperation).toBeUndefined()
+})
+test('a fallback leaves a running turn alone and the conversation where it is', async () => {
+  busy = true
+  await expect(
+    moveConversationRuntime({ ...conversation }, 'new', 'owner', { reason: 'quota' }),
+  ).rejects.toMatchObject({ code: 'conversation_busy' })
+  expect(stopped).toEqual([])
   expect(conversation.runtimeId).toBe('old')
   expect(conversation.runtimeOperation).toBeUndefined()
 })

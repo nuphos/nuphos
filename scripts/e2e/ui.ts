@@ -54,7 +54,7 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
  *  row's hover guard and closes it. Waits for the menu's own word that the item can be taken,
- *  since a runtime is disabled while its conversation still streams. */
+ *  since a runtime is disabled while a move is in flight. */
 export async function pickInSubmenu(page: Page, item: Locator) {
   await until(
     'the menu item to take a key',

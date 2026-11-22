@@ -8,8 +8,6 @@ import { t } from '../../i18n/index.ts'
 import { isBotRow } from '../../lib/agentAvatarChoices'
 import { announceChatUnarchived } from '../../lib/chatArchiveEvents'
 
-import { appendArchivedPage } from './archivedChatsList'
-
 import type { AgentConversation } from '../../api'
 
 const PAGE_SIZE = 30
@@ -96,7 +94,7 @@ export function useArchivedChats({
       const page = await readPage(cursor)
 
       if (requestIdRef.current !== requestId) return
-      setItems((prev) => appendArchivedPage(prev, page.conversations))
+      setItems((prev) => [...prev, ...page.conversations])
       setCursor(page.hasMore ? page.nextCursor : null)
     } catch (err) {
       if (requestIdRef.current === requestId)
