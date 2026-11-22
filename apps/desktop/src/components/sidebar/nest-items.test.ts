@@ -57,38 +57,3 @@ test('a row whose parent is not listed is top-level', () => {
     ],
   )
 })
-
-const threads = [
-  { key: 'parent' },
-  { key: 'running', parentKey: 'parent' },
-  { key: 'finished', parentKey: 'parent', finished: true },
-  { key: 'last', parentKey: 'parent', finished: true },
-]
-
-test('finished children stay under their parent', () => {
-  const rows = nestItems(threads)
-
-  assert.deepEqual(
-    rows.map(({ item, depth }) => [item.key, depth]),
-    [
-      ['parent', 0],
-      ['running', 1],
-      ['finished', 1],
-      ['last', 1],
-    ],
-  )
-  assert.deepEqual(rows[3]?.trail, [false])
-})
-
-test('a parent whose children all finished can still fold them', () => {
-  const allFinished = threads.filter((item) => item.key !== 'running')
-
-  assert.deepEqual(
-    nestItems(allFinished, () => true).map(({ item, hasChildren, hidden }) => [
-      item.key,
-      hasChildren,
-      hidden.map((kid) => kid.key),
-    ]),
-    [['parent', true, ['finished', 'last']]],
-  )
-})

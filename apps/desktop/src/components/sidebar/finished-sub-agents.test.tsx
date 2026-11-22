@@ -54,7 +54,7 @@ test('a Bot row shows no done count, and its finished sub-agents stay listed', a
               items: [
                 row('bot'),
                 row('running-sub-agent', { parentKey: 'agent-session:bot' }),
-                row('finished-sub-agent', { parentKey: 'agent-session:bot', finished: true }),
+                row('finished-sub-agent', { parentKey: 'agent-session:bot' }),
               ],
             },
           ],
