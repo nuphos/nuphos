@@ -1,12 +1,11 @@
 import { faRotateRight } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useReportLoading } from '../../components/useReportLoading'
 import { TimeSeriesPanel } from '../../grafana/components/TimeSeriesPanel'
 import { t } from '../../i18n'
-import { queryKeys } from '../../lib/query/keys'
+import { useResetOnKey } from '../useResetOnKey'
 
 import { ErrorBlock } from './ErrorBlock'
 
@@ -22,36 +21,52 @@ const LAMBDA_RANGE_OPTIONS: readonly { label: string; minutes: number }[] = [
 ]
 
 export function LambdaMetricsPanel({
-  scope,
   fn,
   loader,
   onCount,
   onLoading,
 }: {
-  scope: string
   fn: AwsLambdaFunction
   loader: (fn: AwsLambdaFunction, rangeMinutes: number) => Promise<AwsLambdaMetricsResponse>
   onCount: (n: number) => void
   onLoading?: (loading: boolean) => void
 }) {
   const [rangeMinutes, setRangeMinutes] = useState(60)
+  const [data, setData] = useState<AwsLambdaMetricsResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [reloadTick, setReloadTick] = useState(0)
   const loaderRef = useRef(loader)
 
   useEffect(() => {
     loaderRef.current = loader
   })
-
-  const metrics = useQuery({
-    queryKey: queryKeys.lambda(scope, fn.region, fn.name, 'metrics', rangeMinutes),
-    queryFn: () => loaderRef.current(fn, rangeMinutes),
-    // A new range keeps the last charts on screen while it loads.
-    placeholderData: keepPreviousData,
-  })
-  const data = metrics.data ?? null
-  const loading = metrics.isFetching
-  const errorMessage = metrics.error?.message ?? null
-
   useReportLoading(loading, onLoading)
+
+  useResetOnKey(`${fn.name}|${fn.region}|${String(rangeMinutes)}|${String(reloadTick)}`, () => {
+    setLoading(true)
+    setErrorMessage(null)
+  })
+  useEffect(() => {
+    let cancelled = false
+
+    loaderRef
+      .current(fn, rangeMinutes)
+      .then((res) => {
+        if (cancelled) return
+        setData(res)
+        setLoading(false)
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return
+        setErrorMessage(String(e instanceof Error ? e.message : e))
+        setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [fn, rangeMinutes, reloadTick])
 
   useEffect(() => {
     onCount(data?.series.length ?? 0)
@@ -111,7 +126,7 @@ export function LambdaMetricsPanel({
         ))}
         <button
           type="button"
-          onClick={() => void metrics.refetch()}
+          onClick={() => setReloadTick((n) => n + 1)}
           className="ml-2 inline-flex items-center gap-1 text-tertiary hover:text-main text-[12px]"
           title={t('Reload metrics')}
         >
