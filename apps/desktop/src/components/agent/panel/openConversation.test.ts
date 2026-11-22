@@ -5,8 +5,9 @@ import type { AgentConversationDetail } from '../../../api.ts'
 import type { OpenConversationCtx } from './openConversation.ts'
 import type { Tab } from './model.ts'
 
-const { QueryClient } = await import('@tanstack/react-query')
-const queryClient = new QueryClient()
+// The app's own client and defaults: a copy read under 30 s ago is fresh to a plain query.
+const { createQueryClient } = await import('../../../lib/query/client.ts')
+const queryClient = createQueryClient()
 const reads: string[] = []
 let served: AgentConversationDetail
 // Each read answers when the test lets it, as one still on the way.
