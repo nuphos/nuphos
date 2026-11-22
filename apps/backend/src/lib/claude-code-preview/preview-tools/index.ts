@@ -183,16 +183,51 @@ const EXTRA_MODULES: ModuleFactory[] = [
   () => Promise.resolve(localBrowserToolModule),
 ]
 
+/**
+ * Antigravity loads MCP tools into one budget per session, shared by every server and
+ * filled smallest first, and cannot call a tool left out of it (#4148). So it gets only
+ * what a Task or Bot needs, plus `nuphos-credentials`, within that budget.
+ */
+export const ANTIGRAVITY_TOOLS: ReadonlySet<string> = new Set([
+  'create_thread',
+  'send_message_to_thread',
+  'report_task',
+  'update_self',
+  'request_user_decision',
+  'save_memory',
+  'memory_get',
+  'local_exec',
+  'channel_post',
+])
+
+/** The modules as the conversation's agent should see them. */
+export function toolModulesForRuntime(
+  modules: PreviewToolModule[],
+  agentRuntime?: string,
+): PreviewToolModule[] {
+  if (agentRuntime !== 'antigravity') return modules
+
+  return modules.map((module) => ({
+    ...module,
+    definitions: module.definitions.filter((definition) =>
+      ANTIGRAVITY_TOOLS.has((definition as { name: string }).name),
+    ),
+  }))
+}
+
 export async function previewToolModules(ctx: PreviewToolContext): Promise<PreviewToolModule[]> {
   const [sets, extras] = await Promise.all([
     previewAiSdkToolSets(ctx),
     Promise.all(EXTRA_MODULES.map((factory) => factory(ctx))),
   ])
 
-  return [
-    ...Object.values(sets)
-      .filter((tools) => Object.keys(tools).length > 0)
-      .map((tools) => toolModuleFromAiSdkTools(tools)),
-    ...extras,
-  ]
+  return toolModulesForRuntime(
+    [
+      ...Object.values(sets)
+        .filter((tools) => Object.keys(tools).length > 0)
+        .map((tools) => toolModuleFromAiSdkTools(tools)),
+      ...extras,
+    ],
+    ctx.agentRuntime,
+  )
 }
