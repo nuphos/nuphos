@@ -161,7 +161,7 @@ export function GeneralSection({
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
-          <GoogleOAuthClientCard key={team.id} team={team} />
+          <GoogleOAuthClientCard team={team} />
 
           <DataMigrationCard team={team} />
 

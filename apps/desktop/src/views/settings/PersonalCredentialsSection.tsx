@@ -1,5 +1,4 @@
-import { useMutation } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 import { api } from '../../api'
 import { parseAtlasError } from '../../api/errors'
@@ -10,19 +9,24 @@ import { Button } from '../../components/ui/button'
 import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import {
-  personalCredentialsChanged,
-  usePersonalCredentialsQuery,
-  useTeamGoogleClientQuery,
-} from '../../lib/query/account'
 
 import { GOOGLE_CLIENT_GUIDE_URL } from './GoogleOAuthClientCard'
-import { credentialFor, isGoogle, nameOf } from './personalCredentials'
+import {
+  PERSONAL_CREDENTIALS_CHANGED,
+  credentialFor,
+  isGoogle,
+  nameOf,
+} from './personalCredentials'
 import { TEAM_SETTINGS_DEFAULT_SECTION } from './settingsNav'
 import { SectionHeader } from './shared'
 import { useAdminName } from './useAdminName'
 
-import type { AtlasTeam, PersonalCredentialProvider } from '../../types'
+import type {
+  AtlasTeam,
+  PersonalCredential,
+  PersonalCredentialProvider,
+  TeamGoogleClient,
+} from '../../types'
 
 const PROVIDERS: { provider: PersonalCredentialProvider; name: string; description: string }[] = [
   {
@@ -61,30 +65,56 @@ export function PersonalCredentialsSection({
   /** Switch Settings to another section, e.g. Team settings for the Google OAuth client. */
   onOpenSection?: (section: string) => void
 }) {
-  const listed = usePersonalCredentialsQuery()
-  const credentials = listed.data ?? null
-  const loadFailed = listed.isError
+  const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
   // Gmail / Google Drive go through the current team's own OAuth client, else Nuphos's Composio.
-  // Unknown while loading or when it could not be read: Connect stays available and says why if it fails.
-  const { data: googleClient } = useTeamGoogleClientQuery(team?.id)
+  // Null while unknown, or when it could not be read: Connect stays available and says why if it fails.
+  const [googleClient, setGoogleClient] = useState<TeamGoogleClient | null>(null)
   const admin = useAdminName(team?.id, Boolean(team && team.role !== 'ADMINISTRATOR'))
+  const [loadFailed, setLoadFailed] = useState(false)
+  const [busy, setBusy] = useState<PersonalCredentialProvider | null>(null)
   const [disconnecting, setDisconnecting] = useState<PersonalCredentialProvider | null>(null)
-  const refresh = () => void listed.refetch()
 
+  const refresh = useCallback(() => {
+    void api
+      .atlasListPersonalCredentials()
+      .then((list) => {
+        setCredentials(list)
+        setLoadFailed(false)
+      })
+      .catch((err: unknown) => {
+        setLoadFailed(true)
+        toast.apiError(t('Could not load Personal Credentials'), err)
+      })
+    if (team) {
+      void api
+        .atlasGetTeamGoogleClient(team.id)
+        .then(setGoogleClient)
+        .catch(() => setGoogleClient(null))
+    }
+  }, [team])
+
+  // Refetch after a claimed deep link, and on focus as a fallback.
   useEffect(() => {
-    if (listed.error) toast.apiError(t('Could not load Personal Credentials'), listed.error)
-  }, [listed.error])
+    refresh()
+    window.addEventListener('focus', refresh)
+    window.addEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
 
-  const connect = useMutation({
-    mutationFn: async (provider: PersonalCredentialProvider) => {
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
+    }
+  }, [refresh])
+
+  async function connect(provider: PersonalCredentialProvider) {
+    setBusy(provider)
+    try {
       const { authorizeUrl } = await api.atlasStartPersonalCredential(
         provider,
         isGoogle(provider) ? team?.id : undefined,
       )
 
       await api.appOpenExternal(authorizeUrl)
-    },
-    onError: (err, provider) => {
+    } catch (err) {
       if (parseAtlasError(err).code === 'personal_credential_not_configured') {
         toast.error(
           t('Could not connect {name}', { name: nameOf(provider) }),
@@ -93,18 +123,23 @@ export function PersonalCredentialsSection({
       } else {
         toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
       }
-    },
-  })
-  const disconnect = useMutation({
-    mutationFn: (provider: PersonalCredentialProvider) =>
-      api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? team?.id : undefined),
-    onSuccess: (_result, provider) =>
-      toast.success(t('{name} disconnected', { name: nameOf(provider) })),
-    onError: (err, provider) =>
-      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err),
-    onSettled: personalCredentialsChanged,
-  })
-  const busy = [connect, disconnect].find((write) => write.isPending)?.variables ?? null
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function disconnect(provider: PersonalCredentialProvider) {
+    setBusy(provider)
+    try {
+      await api.atlasDeletePersonalCredential(provider, isGoogle(provider) ? team?.id : undefined)
+      toast.success(t('{name} disconnected', { name: nameOf(provider) }))
+    } catch (err) {
+      toast.apiError(t('Could not disconnect {name}', { name: nameOf(provider) }), err)
+    } finally {
+      setBusy(null)
+      refresh()
+    }
+  }
 
   return (
     <div>
@@ -211,7 +246,7 @@ export function PersonalCredentialsSection({
                       type="button"
                       size="sm"
                       disabled={busy === provider || needsTeamClient}
-                      onClick={() => connect.mutate(provider)}
+                      onClick={() => void connect(provider)}
                     >
                       {t('Connect')}
                     </Button>
@@ -239,10 +274,7 @@ export function PersonalCredentialsSection({
         }
         confirmLabel={t('Disconnect')}
         destructive
-        onConfirm={async () => {
-          // The toast says what failed, so the dialog just closes.
-          if (disconnecting) await disconnect.mutateAsync(disconnecting).catch(() => null)
-        }}
+        onConfirm={() => (disconnecting ? disconnect(disconnecting) : undefined)}
         onClose={() => setDisconnecting(null)}
       />
     </div>

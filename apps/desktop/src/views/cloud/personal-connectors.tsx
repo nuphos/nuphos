@@ -1,14 +1,20 @@
 import clsx from 'clsx'
+import { useCallback, useEffect, useState } from 'react'
 
+import { api } from '../../api'
 import { CloudLogo } from '../../components/CloudLogo'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
-import { usePersonalCredentialsQuery } from '../../lib/query/account'
-import { credentialFor, nameOf } from '../settings/personalCredentials'
+import {
+  PERSONAL_CREDENTIALS_CHANGED,
+  credentialFor,
+  nameOf,
+} from '../settings/personalCredentials'
 
 import { CONNECTOR_HOVER } from './connector-actions'
 import { OverflowMarquee } from './overflow-marquee'
 
+import type { PersonalCredential } from '../../types'
 import type { PersonalConnector } from '../settings/personalCredentials'
 
 /**
@@ -24,8 +30,25 @@ export function PersonalConnectors({
   items: PersonalConnector[]
   onOpenSettings: () => void
 }) {
+  const [credentials, setCredentials] = useState<PersonalCredential[] | null>(null)
   // Status only decorates the rows; if it cannot be read they still open Settings.
-  const credentials = usePersonalCredentialsQuery().data ?? null
+  const refresh = useCallback(() => {
+    void api
+      .atlasListPersonalCredentials()
+      .then(setCredentials)
+      .catch(() => setCredentials(null))
+  }, [])
+
+  useEffect(() => {
+    refresh()
+    window.addEventListener('focus', refresh)
+    window.addEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
+
+    return () => {
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener(PERSONAL_CREDENTIALS_CHANGED, refresh)
+    }
+  }, [refresh])
 
   return (
     <section>
