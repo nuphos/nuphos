@@ -1,5 +1,5 @@
 import { Globe } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import { api } from '../../api'
 import { Age } from '../../components/Age'
@@ -54,6 +54,9 @@ export function S3BucketsView({
 }) {
   const [menu, setMenu] = useState<{ bucket: AwsS3Bucket; x: number; y: number } | null>(null)
   const missingDetailToastRef = useRef<string | null>(null)
+  // A list without a cache key (its role is unresolved) keeps its buckets' objects to itself.
+  const ownScope = useId()
+  const scope = loader.cacheKey ?? ownScope
   const { pollTick } = useWorkspaceTab()
   const inDetail = !!s3Detail
   const needsDetailRegion = !!s3Detail && !s3Detail.region
@@ -140,6 +143,7 @@ export function S3BucketsView({
 
     return (
       <S3BucketDetailView
+        scope={scope}
         bucketName={s3Detail.bucket}
         region={detailRegion}
         prefix={s3Detail.prefix}
