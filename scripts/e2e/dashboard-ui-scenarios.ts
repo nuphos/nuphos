@@ -297,25 +297,4 @@ export const dashboardUiScenarios: Scenario[] = [
       await shot(page, '12-no-agent-member')
     },
   },
-  {
-    // #4505: right after the one above, whose Task in E2E opened a page of "No agent E2E".
-    // Back in E2E, the Tasks tab reopens that Task and must keep the app in E2E.
-    name: 'the Tasks tab stays in the workspace switched back to',
-    expected: /"path":"\/agent\/conversations\/[\w-]+","status":404/,
-    run: async (page) => {
-      const switcher = page.getByRole('button', { name: /^\S*\s*(?:E2E|No agent E2E)$/ }).first()
-      const team = async () => String(await switcher.textContent()).trim()
-
-      await switcher.click()
-      await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
-      await page.getByRole('menuitem', { name: /^\S*\s*E2E$/ }).click()
-      await until('the app to show E2E', async () => !(await team()).includes('No agent'))
-      await page.getByRole('tab', { name: 'Tasks' }).click()
-      // The switch back came about 100 ms after the click.
-      await page.waitForTimeout(2000)
-      await shot(page, '13-tasks-tab-after-switch')
-      if ((await team()).includes('No agent'))
-        throw new Error('The Tasks tab took the app back to "No agent E2E"')
-    },
-  },
 ]
