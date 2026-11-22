@@ -120,6 +120,24 @@ const createBotScenario: Scenario = {
   },
 }
 
+// Part 1 skips the Bot chats, one of which ends the Bot's setup; its later Bot scenarios need
+// an established Bot.
+const finishBotSetupScenario: Scenario = {
+  name: "finish the Bot's setup in its chat",
+  run: async (page, stack) => {
+    await send(page, 'Confirmed: review releases. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:bot-setup')
+    await until('the Bot setup turn to finish', async () =>
+      agentEvents(stack).includes('finish E2E_DELIVERY:bot-setup'),
+    )
+    await page
+      .locator('[data-sidebar-row]')
+      .filter({ hasText: 'E2E Bot' })
+      .first()
+      .getByText('Getting started', { exact: true })
+      .waitFor({ state: 'hidden' })
+  },
+}
+
 // One run of scenarios in the chat of the Bot created above, each picking up where the one
 // before left it. CI runs them on a runner of their own (E2E_SHARD=bots).
 const botChatScenarios: Scenario[] = [
@@ -257,7 +275,13 @@ const later: Scenario[] = [
 const shard = process.env.E2E_SHARD
 const selected =
   shard === '1'
-    ? scenarios.filter((scenario) => !botChatScenarios.includes(scenario))
+    ? scenarios.flatMap((scenario) =>
+        scenario === createBotScenario
+          ? [scenario, finishBotSetupScenario]
+          : botChatScenarios.includes(scenario)
+            ? []
+            : [scenario],
+      )
     : shard === '2'
       ? [...signInScenarios, ...later]
       : shard === 'bots'
