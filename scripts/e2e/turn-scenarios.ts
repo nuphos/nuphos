@@ -55,16 +55,13 @@ export const turnScenarios: Scenario[] = [
         agentEvents(stack).includes('cancelled E2E_DELIVERY:move-held'),
       )
       await send(page, 'Now on the new agent E2E_DELIVERY:move-after')
-      const started = () =>
-        agentLog(stack).find(
-          (entry) => entry.event === 'start' && entry.marker === 'E2E_DELIVERY:move-after',
-        )
-
-      await until('the next message to start', async () => started())
-      const after = started()
+      await until('the next message to start on the new agent', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:move-after'),
+      )
+      const after = agentLog(stack).find((entry) => entry.marker === 'E2E_DELIVERY:move-after')
 
       if (after?.agent !== 'second')
-        throw new Error(`The next message did not run on the new agent: ${JSON.stringify(after)}`)
+        throw new Error(`Not on the new agent: ${JSON.stringify(after)}`)
       await page.screenshot({ path: `${artifacts}/move-mid-turn-light.png` })
       // The moved history still says E2E_HOLD, so the fixture holds this turn too.
       await page.locator('button[title="Stop"]:visible').click()
