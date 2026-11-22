@@ -469,6 +469,17 @@ class HomeNavigationFixtureDeviceTest {
         shot("bottom-tabs-tasks")
     }
 
+    @Test fun emptyBotsTabSaysWhatABotIsAndOffersTheFirstOne() {
+        render()
+        select("chats")
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        waitText(app.getString(R.string.chats_first_bot_title))
+        shot("bots-empty")
+        compose.onNodeWithText(app.getString(R.string.chats_new_bot)).assertIsEnabled().performClick()
+        compose.onNodeWithText(app.getString(R.string.chats_new_bot_name)).assertIsDisplayed()
+        noWrites()
+    }
+
     @Test fun toolbarNewTaskOpensAndDismissesWithoutChangingTabs() {
         render()
         select("inbox")
