@@ -5342,7 +5342,7 @@
   "You are always included. Approval alone never adds an executor.": "나는 항상 포함됩니다. 승인만으로는 실행자가 추가되지 않습니다.",
   "You are here": "현재 위치",
   "You can also add runtimes to it, rename it and choose who uses it.": "런타임을 추가하고, 이름을 바꾸고, 사용할 사람을 선택할 수도 있습니다.",
-  "You can always use a connection you add. Change this later from its page.": "직접 추가한 연결은 항상 사용할 수 있습니다. 나중에 해당 페이지에서 변경할 수 있습니다.",
+  "You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.": "직접 추가한 연결은 항상 사용할 수 있으며, 누군가와 공유하면 관리자도 사용할 수 있습니다. 나중에 해당 페이지에서 변경할 수 있습니다.",
   "You can change it after they join.": "가입 후에 변경할 수 있습니다.",
   "You can connect more runtimes later on the Runtimes page.": "나중에 런타임 페이지에서 더 많은 런타임을 연결할 수 있습니다.",
   "You can execute": "실행할 수 있음",

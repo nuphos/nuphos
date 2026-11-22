@@ -5342,7 +5342,7 @@
   "You are always included. Approval alone never adds an executor.": "あなたは常に含まれます。承認だけで実行者が追加されることはありません。",
   "You are here": "現在地",
   "You can also add runtimes to it, rename it and choose who uses it.": "ランタイムの追加、名前の変更、使用できる人の選択もできます。",
-  "You can always use a connection you add. Change this later from its page.": "自分で追加した接続はいつでも使えます。あとから接続のページで変更できます。",
+  "You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.": "自分で追加した接続はいつでも使えます。誰かと共有すると、管理者も使えるようになります。あとから接続のページで変更できます。",
   "You can change it after they join.": "参加後に変更できます。",
   "You can connect more runtimes later on the Runtimes page.": "後から［ランタイム］ページでランタイムを追加できます。",
   "You can execute": "実行できます",

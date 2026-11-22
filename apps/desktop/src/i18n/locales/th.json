@@ -5342,7 +5342,7 @@
   "You are always included. Approval alone never adds an executor.": "คุณจะถูกรวมไว้เสมอ การอนุมัติเพียงอย่างเดียวไม่ได้เพิ่มผู้ดำเนินการ",
   "You are here": "คุณอยู่ที่นี่",
   "You can also add runtimes to it, rename it and choose who uses it.": "คุณยังเพิ่มรันไทม์ เปลี่ยนชื่อ และเลือกว่าใครใช้เครื่องนี้ได้ด้วย",
-  "You can always use a connection you add. Change this later from its page.": "คุณใช้การเชื่อมต่อที่คุณเพิ่มได้เสมอ เปลี่ยนภายหลังได้จากหน้าของการเชื่อมต่อนั้น",
+  "You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.": "คุณใช้การเชื่อมต่อที่คุณเพิ่มได้เสมอ และผู้ดูแลระบบก็ใช้ได้เช่นกันเมื่อแชร์ให้ใครก็ตาม เปลี่ยนได้ภายหลังจากหน้าของการเชื่อมต่อ",
   "You can change it after they join.": "คุณเปลี่ยนได้หลังจากที่เขาเข้าร่วม",
   "You can connect more runtimes later on the Runtimes page.": "คุณเชื่อมต่อรันไทม์เพิ่มเติมได้ภายหลังในหน้ารันไทม์",
   "You can execute": "คุณดำเนินการได้",
