@@ -88,7 +88,7 @@ internal fun ConversationAgentSheet(
                 if (!session.canManage) Text(stringResource(R.string.composer_runtime_view_only))
                 else if (!session.canMoveAgent && !session.movingAgent) Text(stringResource(R.string.composer_runtime_wait))
                 if (refreshing) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(stringResource(R.string.composer_loading_runtimes)) }
-                val choices = catalog?.filter { (session.isOwner || it.kind == "managed") && it.selectable &&
+                val choices = catalog?.filter { session.isOwner && it.selectable &&
                     it.local?.online != false && quotas[it.id]?.needsSignIn != true }
                 if (choices != null && choices.isEmpty()) {
                     Text(stringResource(R.string.composer_no_runtimes), style = MaterialTheme.typography.titleMedium)

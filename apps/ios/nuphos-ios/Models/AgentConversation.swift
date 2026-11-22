@@ -6,6 +6,8 @@ import os
 struct ChatFace: Codable, Equatable, Hashable, Sendable {
     struct Agent: Codable, Equatable, Hashable, Sendable {
         let avatar: String?
+        /// The tint its face sits on, e.g. `sky`; nil for none (#3504).
+        var avatarBackground: String? = nil
         let provider: String?
     }
 
@@ -34,7 +36,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var displayName: String {
             if let name, !name.isEmpty { return name }
             if let email, !email.isEmpty { return email }
-            return "User"
+            return String(localized: "User")
         }
     }
 
@@ -75,10 +77,23 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         /// An integration question's providers (any access answers it), or the exact credentials it names.
         var providers: [String]? = nil
         var credentials: [CredentialRef]? = nil
+        /// The secret a credential question asks for: answered with the secure input card.
+        var secretName: String? = nil
+        /// A web form's details asked together in that card, and the site they are entered on.
+        var fields: [FormField]? = nil
+        var site: String? = nil
         /// Any number of `options` may be picked.
         var multiSelect: Bool? = nil
         /// Related questions answered together; `question` is their headline.
         var questions: [DecisionQuestion]? = nil
+        /// ISO time its owner snoozed it until: out of their Inbox till then, still answerable where it was asked.
+        var snoozedUntil: String? = nil
+    }
+
+    /// One input of a card that asks for a web form's details: its file name and what the person reads.
+    struct FormField: Codable, Equatable, Hashable, Sendable {
+        let name: String
+        let label: String
     }
 
     /// One question of a card that asks several, with its own choices.
@@ -92,6 +107,11 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     struct CredentialRef: Codable, Equatable, Hashable, Sendable {
         let provider: String
         let id: String
+    }
+
+    struct TaskCounts: Codable, Equatable, Hashable, Sendable {
+        let running: Int
+        let waiting: Int
     }
 
     let sessionId: String
@@ -108,6 +128,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// The owner, or a teammate invited to manage it: may switch the mode and
     /// the agent, and archive it.
     let canManage: Bool
+    /// The owner archives it for everyone; someone else in a Task, for themselves.
+    let canArchive: Bool
     let tokenUsage: TokenUsage?
     let activitySource: ActivitySource?
     /// `nuphos` | `claude-code` | `codex` | `grok` | `antigravity` | `opencode` | `dsh`.
@@ -135,10 +157,15 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var agentSessionIds: [String]?
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
+    /// The tint a Bot's face sits on, e.g. `sky`; nil for none (#3504).
+    var avatarBackground: String?
     /// Absent when the chat has no post yet, or from an older backend.
     var lastMessage: LastMessage?
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
+    var botOnboarding: String?
+    /// A Bot's own Tasks at work or waiting on someone, counted for anyone who can see the Bot (#4270).
+    var tasks: TaskCounts?
 
     var id: String { sessionId }
 
@@ -172,11 +199,12 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var displayTitle: String {
         if !title.isEmpty { return title }
         if !firstMessage.isEmpty { return firstMessage }
-        return isChannel ? "New Group Chat" : "Untitled task"
+        return isChannel ? String(localized: "New Group Chat") : String(localized: "Untitled task")
     }
 
     /// An open question waits on the viewer.
-    var isWaiting: Bool { inputRequests?.isEmpty == false }
+    var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "active"].contains(botOnboarding ?? "") || $0.category != "preference" } }
+    var isWaiting: Bool { !attentionInputRequests.isEmpty }
 
     var ownsChat: Bool { isOwner == true && readOnly != true }
 
@@ -193,6 +221,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage) ?? (isOwner == true && readOnly != true)
+        canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive) ?? canManage
         tokenUsage = try c.decodeIfPresent(TokenUsage.self, forKey: .tokenUsage)
         activitySource = try c.decodeIfPresent(ActivitySource.self, forKey: .activitySource)
         agentRuntime = try c.decodeIfPresent(String.self, forKey: .agentRuntime)
@@ -209,8 +238,11 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
+        avatarBackground = try? c.decodeIfPresent(String.self, forKey: .avatarBackground)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
+        botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
+        tasks = try? c.decodeIfPresent(TaskCounts.self, forKey: .tasks)
     }
 
     init(
@@ -233,6 +265,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         self.isOwner = isOwner
         self.readOnly = readOnly
         canManage = isOwner == true && readOnly != true
+        canArchive = canManage
         self.tokenUsage = tokenUsage
         self.activitySource = activitySource
         self.agentRuntime = agentRuntime
@@ -355,6 +388,8 @@ struct AgentConversationDetail: Decodable, Sendable {
         var cause: String? = nil
         /// `agent_reply_failed`: when an agent out of usage gets it back.
         var resetsAt: Date? = nil
+        /// `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do.
+        var verifyUrl: URL? = nil
     }
 
     let messages: [ChatMessage]
@@ -364,6 +399,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     let runtimeState: JSONValue?
     let isOwner: Bool?
     let canManage: Bool?
+    let canArchive: Bool?
     let readOnly: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
@@ -379,9 +415,16 @@ struct AgentConversationDetail: Decodable, Sendable {
     let readSeq: Int?
     let watching: Bool?
     let timelineEvents: [TimelineEvent]
+    /// Answered questions whose agent has not run the answer yet, with the line their row shows.
+    let waitingAnswers: [WaitingAnswer]
+    struct WaitingAnswer: Decodable, Equatable, Sendable {
+        let requestId: String
+        let note: String
+    }
     /// The runtime's guess at what the user will send next.
     let promptSuggestion: String?
     /// `channel` for a chat; nil for an agent.
+    let avatar: String?
     let kind: String?
     /// With `transcriptUpdatedAt`, what a chat's cheap probe compares to tell a new post.
     let messageCount: Int?
@@ -411,7 +454,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -427,6 +470,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         runtimeState = try c.decodeIfPresent(JSONValue.self, forKey: .runtimeState)
         isOwner = try c.decodeIfPresent(Bool.self, forKey: .isOwner)
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
+        canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)
@@ -439,7 +483,9 @@ struct AgentConversationDetail: Decodable, Sendable {
         readSeq = try? c.decodeIfPresent(Int.self, forKey: .readSeq)
         watching = try? c.decodeIfPresent(Bool.self, forKey: .watching)
         timelineEvents = (try? c.decodeIfPresent([TimelineEvent].self, forKey: .timelineEvents)) ?? []
+        waitingAnswers = (try? c.decodeIfPresent([WaitingAnswer].self, forKey: .waitingAnswers)) ?? []
         promptSuggestion = try? c.decodeIfPresent(String.self, forKey: .promptSuggestion)
+        avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         kind = try? c.decodeIfPresent(String.self, forKey: .kind)
         messageCount = try? c.decodeIfPresent(Int.self, forKey: .messageCount)
         faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []

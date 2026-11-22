@@ -96,12 +96,13 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
     const { sessionId, teamId, aps, speaker, ...alert } = push
     const projectId = deps.fcmProject?.()
     const badge = await deps.unreadCount(userId)
+    const agentIdentity = conversation ? (speaker ?? notificationIdentity(conversation)) : undefined
 
     if (sessionId && teamId && deps.sendFcm && projectId)
       await sendAndroidAlert(
         devices,
         projectId,
-        { userId, teamId, sessionId, ...alert, badge },
+        { userId, teamId, sessionId, ...alert, badge, ...(agentIdentity ? { agentIdentity } : {}) },
         deps.sendFcm,
         (token) => deps.devices.removeToken(token),
       )
@@ -116,7 +117,7 @@ export function createTurnNotifier(deps: TurnNotifierDeps) {
           ...aps,
         },
         accountId: userId,
-        ...(conversation ? { agentIdentity: speaker ?? notificationIdentity(conversation) } : {}),
+        ...(agentIdentity ? { agentIdentity } : {}),
         ...(sessionId ? { sessionId } : {}),
         ...(teamId ? { teamId } : {}),
       },

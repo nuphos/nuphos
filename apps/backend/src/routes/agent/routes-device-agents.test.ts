@@ -109,6 +109,24 @@ test('create dispatches exact retry id and provider and returns a usable runtime
   ])
 })
 
+// Adding is what has the computer install a missing CLI, so whoever may add may install.
+test("a manager adds an agent to someone else's computer; without manage nothing reaches it", async () => {
+  const theirs = { ...device, userId: 'someone-else' }
+  const managed = app({ requireAccess: async () => theirs })
+
+  expect((await managed.create({ provider: 'claude-code' })).status).toBe(201)
+  expect(managed.calls).toMatchObject([{ target: { actorId: 'owner', userId: 'someone-else' } }])
+
+  const refused = app({
+    requireAccess: async (_actorId, _teamId, _deviceId, level) => {
+      throw Object.assign(new Error(`No ${level} access`), { status: 403 })
+    },
+  })
+
+  expect((await refused.create({ provider: 'claude-code' })).status).toBe(403)
+  expect(refused.calls).toEqual([])
+})
+
 test('unknown devices and hosts without instance support never receive create', async () => {
   for (const override of [
     {

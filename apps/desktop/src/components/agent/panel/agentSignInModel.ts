@@ -21,9 +21,16 @@ export function localRuntimeOwner(runtimeId: string | undefined): string | undef
   return runtimeId.slice('local_'.length).split('_')[0] || undefined
 }
 
+/** The computer a local agent's id names: `local_<owner>_<device>[_<provider>[_<instance>]]`. */
+export function localRuntimeDevice(runtimeId: string | undefined): string | undefined {
+  if (!runtimeId?.startsWith('local_')) return undefined
+
+  return runtimeId.slice('local_'.length).split('_')[1] || undefined
+}
+
 /**
  * Mirrors the backend's rule: a team's agent is signed in by an administrator, a
- * member's own computer or Box by that member only.
+ * member's own computer or Box by that member and whoever manages it.
  */
 export function signInRoute({
   runtimeId,
@@ -32,6 +39,7 @@ export function signInRoute({
   onThisComputer,
   instance,
   members,
+  manages,
 }: {
   runtimeId: string | undefined
   viewerId: string | undefined
@@ -39,6 +47,8 @@ export function signInRoute({
   onThisComputer: boolean
   instance: RuntimeInstance | undefined
   members: TeamMember[] | null
+  /** Whether the viewer manages this computer: its managers sign its agents in too (#2431). */
+  manages?: (deviceId: string) => boolean
 }): SignInRoute {
   if (!runtimeId) return { kind: 'none' }
   // Grok Build, OpenCode, DSH, Hermes Agent and Pi sign in with the runtime sign-in below, as
@@ -55,7 +65,11 @@ export function signInRoute({
   const owner = instance?.local?.ownerUserId ?? localRuntimeOwner(runtimeId)
 
   if (owner) {
-    if (owner !== viewerId) return { kind: 'ask', name: memberName(members, owner) }
+    // From the id too, before the agent is listed (or while it is away and not).
+    const deviceId = instance?.local?.deviceId ?? localRuntimeDevice(runtimeId)
+    const manager = Boolean(deviceId && manages?.(deviceId))
+
+    if (owner !== viewerId && !manager) return { kind: 'ask', name: memberName(members, owner) }
 
     return instance ? { kind: 'dialog', instance } : { kind: 'none' }
   }

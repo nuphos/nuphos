@@ -1,22 +1,22 @@
 import { Hono } from 'hono'
-import { ObjectId } from 'mongodb'
 
 import {
   getCloudflareOAuthClient,
   getCloudflareOAuthSetupRedirect,
   exchangeCloudflareCodeForTokens,
   discoverCloudflareAccount,
-  invalidateCloudflareAccessToken,
 } from '@/lib/byos/cloudflare-oauth'
-import { appendEnvironmentBinding } from '@/lib/byos/environment-bindings'
 import { encryptCloudflareApiKey } from '@/lib/byos/secrets'
 import { finishConnectorOAuth } from '@/lib/connector-oauth'
 import { desktopCallbackResponse } from '@/lib/desktop-callback-page'
 import { AppError } from '@/lib/errors'
-import { cloudflarePendingOAuth, cloudflareOAuthResult, teamByosBindings } from '@/models'
+import { cloudflarePendingOAuth, cloudflareOAuthResult } from '@/models'
+import { persistCloudflareBinding } from '@/routes/cloudflare-accounts/persist'
 
-import type { CloudflareAccountBinding } from '@/models'
+import type { CloudflareBindingDraft } from '@/routes/cloudflare-accounts/persist'
 import type { Context } from 'hono'
+
+export { persistCloudflareBinding }
 
 export const cloudflareAppRoutes = new Hono()
 
@@ -26,6 +26,26 @@ const DESKTOP_CALLBACK = 'nuphos://cloudflare-callback'
 
 const desktopCallback = (c: Context, params: Record<string, string>) =>
   desktopCallbackResponse(c, DESKTOP_CALLBACK, params)
+
+// Record Cloudflare's rejection for the desktop's poll too, so a deep link
+// captured by another app can't leave the dialog waiting. The pending request
+// stays: a replayed error must not cancel it, and a later approval replaces
+// this result.
+async function recordAuthorizeError(state: string, error: string, errorDescription: string) {
+  const pending = await cloudflarePendingOAuth().findOne({ _id: state })
+
+  if (!pending) return
+  await cloudflareOAuthResult().replaceOne(
+    { _id: state },
+    {
+      teamId: pending.teamId,
+      error,
+      errorDescription,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    },
+    { upsert: true },
+  )
+}
 
 cloudflareAppRoutes.get('/setup', async (c) => {
   const state = c.req.query('state') ?? ''
@@ -37,11 +57,11 @@ cloudflareAppRoutes.get('/setup', async (c) => {
   }
 
   if (errorParam) {
-    return desktopCallback(c, {
-      state,
-      error: errorParam,
-      error_description: c.req.query('error_description') ?? '',
-    })
+    const errorDescription = c.req.query('error_description') ?? ''
+
+    await recordAuthorizeError(state, errorParam, errorDescription)
+
+    return desktopCallback(c, { state, error: errorParam, error_description: errorDescription })
   }
 
   if (!code) {
@@ -127,118 +147,13 @@ cloudflareAppRoutes.get('/setup', async (c) => {
       state,
       teamId: pending.teamId,
       requesterUserId: pending.requesterUserId,
+      share: pending.share,
+      highPrivilege: true,
       draft,
       persist: persistCloudflareBinding,
     }),
   )
 })
-
-type CloudflareBindingDraft = Pick<CloudflareAccountBinding, 'accountId' | 'accountName'> & {
-  // Keys the Desktop polling result below.
-  state: string
-  oauth: NonNullable<CloudflareAccountBinding['oauth']>
-}
-
-// Re-binding the same account replaces its credentials (preserving the id)
-// instead of accumulating duplicates. Keyed by accountId and done with
-// conditional writes so two concurrent callbacks for the same account can't
-// both observe "no existing binding" and each $push a duplicate.
-export async function persistCloudflareBinding(
-  teamId: ObjectId,
-  draft: CloudflareBindingDraft,
-): Promise<Record<string, string>> {
-  const now = new Date()
-  const { state, accountId, accountName, oauth: oauthEnvelope } = draft
-
-  // Atomically replace an existing entry for this account in place. The
-  // positional `$` only touches the OAuth fields, so a previously-bound
-  // account's R2 S3 credentials and createdAt are preserved; $unset drops a
-  // legacy API key when converting an api_token binding to OAuth.
-  const rebindInPlace = () =>
-    teamByosBindings().updateOne(
-      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-      {
-        $set: {
-          'cloudflareAccounts.$.accountName': accountName,
-          'cloudflareAccounts.$.authType': 'oauth',
-          'cloudflareAccounts.$.oauth': oauthEnvelope,
-          updatedAt: now,
-        },
-        $unset: { 'cloudflareAccounts.$.encryptedApiKey': '' },
-      },
-    )
-  const idForAccount = async (): Promise<ObjectId> => {
-    const doc = await teamByosBindings().findOne(
-      { _id: teamId, 'cloudflareAccounts.accountId': accountId },
-      { projection: { 'cloudflareAccounts.$': 1 } },
-    )
-
-    return doc?.cloudflareAccounts?.[0]?.id ?? new ObjectId()
-  }
-
-  let bindingId: ObjectId
-
-  if ((await rebindInPlace()).matchedCount > 0) {
-    bindingId = await idForAccount()
-  } else {
-    bindingId = new ObjectId()
-    const newBinding: CloudflareAccountBinding = {
-      id: bindingId,
-      accountId,
-      accountName,
-      authType: 'oauth',
-      oauth: oauthEnvelope,
-      createdAt: now,
-    }
-    const inserted = await appendEnvironmentBinding(
-      teamId,
-      { 'cloudflareAccounts.accountId': { $ne: accountId } },
-      { $push: { cloudflareAccounts: newBinding }, $set: { updatedAt: now } },
-    )
-
-    if (!inserted) {
-      // Another flow connected the same account while OAuth was in progress.
-      // Refresh that binding in place rather than consuming another slot.
-      if ((await rebindInPlace()).matchedCount > 0) {
-        bindingId = await idForAccount()
-      } else {
-        throw new AppError(
-          409,
-          'cloudflare_account_already_bound',
-          'Cloudflare account is already bound',
-        )
-      }
-    }
-  }
-
-  // bindingId is preserved across re-binds, and getCloudflareOAuthAccessToken
-  // caches by teamId:bindingId — drop the stale entry so the new token/scopes
-  // take effect immediately.
-  invalidateCloudflareAccessToken(teamId, bindingId)
-
-  // Record the result keyed by `state` so the desktop can finish the bind by
-  // polling even if the nuphos:// deep link below is captured by another app.
-  await cloudflareOAuthResult().updateOne(
-    { _id: state },
-    {
-      $set: {
-        teamId,
-        bindingId,
-        accountId,
-        accountName,
-        expiresAt: new Date(now.getTime() + 10 * 60 * 1000),
-      },
-    },
-    { upsert: true },
-  )
-
-  return {
-    binding_id: bindingId.toHexString(),
-    team_id: teamId.toHexString(),
-    account_id: accountId,
-    account_name: accountName ?? '',
-  }
-}
 
 // Desktop polling fallback: returns the bind result keyed by the unguessable
 // `state` token. One-shot — the record is consumed so it can't be replayed,
@@ -255,6 +170,11 @@ cloudflareAppRoutes.get('/result/:state', async (c) => {
 
   if (!result) {
     return c.json({ ready: false })
+  }
+  // A rejection stays `ready: false`: desktops before the error field resolved
+  // any ready result as a successful bind.
+  if (!result.bindingId) {
+    return c.json({ ready: false, error: result.error, errorDescription: result.errorDescription })
   }
 
   return c.json({

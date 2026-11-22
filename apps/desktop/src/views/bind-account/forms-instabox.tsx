@@ -50,7 +50,10 @@ export function InstaboxForm({ st }: { st: BindState }) {
           className={INPUT}
         />
       </Field>
-      <Field label={t('API Key')} hint={t('Encrypted before storage; agents never see it.')}>
+      <Field
+        label={t('API Key')}
+        hint={t('Encrypted before storage; Bots and tasks never see it.')}
+      >
         <input
           type="password"
           value={instaboxApiKey}

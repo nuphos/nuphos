@@ -23,6 +23,9 @@ export const STAMP_SOURCES = [
 ]
 /** The backend's fixed attachment program, which the local runtime runs as its own job. */
 export const ATTACHMENT_JOB = '../../backend/src/lib/claude-code-preview/attachment-job.mjs'
+/** The backend's fixed program that reclaims an archived conversation's home, run the same way. */
+export const SESSION_HOMES_JOB =
+  '../../backend/src/lib/claude-code-preview/session-home-reclaim-job.mjs'
 /** The runtime image's adapters, staged as the image stages them. */
 export const RUNTIME_DIR = join(here, '../../runtime/image')
 /** The openab source the runtime image and the Local runtime both build. */
@@ -41,6 +44,7 @@ export const RUNTIME_SOURCES = [
   'hermes-providers.json',
   'acp-shim.mjs',
   'hermes-session.mjs',
+  'opencode-session.mjs',
   'pi-login.mjs',
   'pi-session.mjs',
   'pi-acp/package.json',
@@ -54,6 +58,7 @@ export const RUNTIME_SOURCES = [
   'session-home.mjs',
   'process-death.mjs',
   ATTACHMENT_JOB,
+  SESSION_HOMES_JOB,
   ...[
     'package.json',
     'package-lock.json',
@@ -74,6 +79,7 @@ export const RUNTIME_SOURCES = [
     'process-death.mjs',
     'ask-user-input.mjs',
     'ultrafast.mjs',
+    'turn-usage.mjs',
   ].map((file) => `codex-acp/${file}`),
 ]
 

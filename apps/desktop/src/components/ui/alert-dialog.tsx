@@ -17,6 +17,8 @@ type AppAlertDialogProps = {
   confirmLabel?: string
   cancelLabel?: string
   destructive?: boolean
+  /** Defaults to a warning triangle; a routine confirm can pass a calmer icon. */
+  icon?: ReactNode
   onConfirm: () => void | Promise<void>
   onClose: () => void
 }
@@ -28,6 +30,7 @@ export function AppAlertDialog({
   confirmLabel = t('Confirm'),
   cancelLabel = t('Cancel'),
   destructive,
+  icon = <AlertTriangle className="h-4 w-4" strokeWidth={2} />,
   onConfirm,
   onClose,
 }: AppAlertDialogProps) {
@@ -80,7 +83,7 @@ export function AppAlertDialog({
                 destructive ? 'bg-error/10 text-error' : 'bg-state-selected text-primary',
               )}
             >
-              <AlertTriangle className="h-4 w-4" strokeWidth={2} />
+              {icon}
             </div>
             <div className="min-w-0 flex-1">
               <AlertDialogPrimitive.Title className="text-[14px] font-semibold text-main">

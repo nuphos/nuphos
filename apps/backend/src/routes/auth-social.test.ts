@@ -378,7 +378,7 @@ test('device page counts every code lookup and decision against the approval quo
   expect(post.status).toBe(429)
   expect(keys).toEqual(Array(3).fill(`device-login:approve:${user.id}`))
 })
-test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC provider', async () => {
+test('nuphos login uses its configured approval page with or without OIDC', async () => {
   const cli = new Hono().onError(errorHandler).route(
     '/',
     createCliAuthRoutes(async () => true),
@@ -388,12 +388,25 @@ test('nuphos login keeps nuphos.ai/device unless this server has its own OIDC pr
 
     return ((await response.json()) as { verificationUri: string }).verificationUri
   }
+  const saved = config.auth.publicBaseUrl
 
-  expect(await verificationUri()).toBe('https://nuphos.ai/device')
-  Object.assign(config.auth.oidc, {
-    issuer: 'https://sso.example.test/oidc',
-    clientId: 'c',
-    clientSecret: 's',
-  })
-  expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
+  try {
+    config.auth.publicBaseUrl = 'https://backend.example.test'
+    expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
+    Object.assign(config.auth.oidc, {
+      issuer: 'https://sso.example.test/oidc',
+      clientId: 'c',
+      clientSecret: 's',
+    })
+    expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
+    config.auth.oidc.issuer = undefined
+    for (const base of ['https://api.nuphos.ai', 'https://nuphos.ai']) {
+      config.auth.publicBaseUrl = base
+      expect(await verificationUri()).toBe('https://nuphos.ai/device')
+    }
+    config.auth.publicBaseUrl = 'https://api.nuphos.ai.example.test'
+    expect(await verificationUri()).toBe(`${config.auth.publicBaseUrl}/auth/social/device`)
+  } finally {
+    config.auth.publicBaseUrl = saved
+  }
 })

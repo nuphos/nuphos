@@ -10,18 +10,24 @@ export const channelsApi = {
   agentApplyBotImport: (target: BotImportTarget, id: string, selection: BotImportSelection) =>
     ipcRenderer.invoke('agent:applyBotImport', target, id, selection),
   agentSaveGrokExportSkill: () => ipcRenderer.invoke('agent:saveGrokExportSkill'),
-  agentCreateChannel: (teamId: string, group?: boolean) =>
-    ipcRenderer.invoke('agent:createChannel', teamId, group),
+  agentCreateChannel: (teamId: string, group?: boolean, title?: string) =>
+    ipcRenderer.invoke('agent:createChannel', teamId, group, title),
   agentCreateBot: (
     teamId: string,
     bot?: {
+      onboarding?: boolean
+      starter?: 'coordinate'
+      locale?: string
       title?: string
       avatar?: string
+      background?: string
       runtimeId?: string
       agentRuntime?: string
       runtimeLabel?: string
     },
   ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
+  agentStartBotOnboarding: (sessionId: string, teamId: string, channelId: string) =>
+    ipcRenderer.invoke('agent:startBotOnboarding', sessionId, teamId, channelId),
   agentMakeBot: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>
@@ -49,7 +55,6 @@ export const channelsApi = {
     upload?: string,
     mentions?: string[],
     replyTo?: string,
-    decisionReplyTo?: string,
   ) =>
     ipcRenderer.invoke(
       'agent:postChannelMessage',
@@ -60,6 +65,5 @@ export const channelsApi = {
       upload,
       mentions,
       replyTo,
-      decisionReplyTo,
     ),
 }

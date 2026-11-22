@@ -17,14 +17,23 @@ enum CredentialScopeTests {
         precondition(stored.json["githubInstallationIds"]?.arrayValue?.compactMap(\.stringValue) == ["166"])
         precondition(stored.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         precondition(stored.json["teamIdentity"]?.arrayValue?.compactMap(\.stringValue) == ["linear"])
-        // Never picked for the member by a new chat's defaults, but "Select all" ticks it like every row (#1928).
+        // A new chat's defaults tick it, as the desktop's do, so the server does not refuse it (#4028).
         var personalDefaults = CredentialSelection()
         personalDefaults.selectDefaults(in: personal)
-        precondition(personalDefaults.count == 0)
+        precondition(personalDefaults.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
         var personalAll = CredentialSelection()
         personalAll.selectAll(in: personal)
         precondition(personalAll.containsAll(in: personal))
         precondition(personalAll.json["personalCredentialIds"]?.arrayValue?.compactMap(\.stringValue) == ["github"])
+        // An integration question's picker offers only what answers it: its providers' kinds and the member's own of that name.
+        let team = CredentialCatalog(json: JSONValue.parse(#"{"awsRoles":[{"roleId":"aws","accountId":"1"}],"gcpServiceAccounts":[{"serviceAccountId":"gcp","projectId":"p"}],"githubInstallations":[{"installationId":"166","accountLogin":"o"}],"personalCredentials":[{"provider":"github","login":"octocat"},{"provider":"linear","login":"me"}]}"#)!)
+        precondition(team.answering(["gcp"]).allItems.map(\.id) == ["gcp"])
+        precondition(Set(team.answering(["github"]).allItems.map(\.id)) == ["github", "166"])
+        precondition(team.answering(["play-console"]).isEmpty)
+        precondition(team.answering(nil).allItems.count == 5)
+        var gcp = CredentialSelection()
+        gcp.selectAll(in: team.answering(["gcp"]))
+        precondition(gcp.json["gcpServiceAccountIds"]?.arrayValue?.compactMap(\.stringValue) == ["gcp"] && gcp.count == 1)
         let catalog = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"mac","label":"Mac","platform":"darwin"}],"awsRoles":[{"roleId":"aws","accountId":"123"}]}"#)!)
         let iam = catalog.scoped(to: .credentials)
         let devices = catalog.scoped(to: .devices)
@@ -130,5 +139,26 @@ enum CredentialScopeTests {
         precondition(Set((none.json.objectValue ?? [:]).keys) == ["personalCredentialIds"])
         // A new conversation still states every kind.
         precondition(CredentialSelection().json.objectValue?["githubInstallationIds"]?.arrayValue?.isEmpty == true)
+        anUnsetTeamWideKindIsShownInFull()
+    }
+
+    /// What `nuphos_ask` stores leaves GitHub unset, which the server reads as every installation (#4034).
+    private static func anUnsetTeamWideKindIsShownInFull() {
+        let team = CredentialCatalog(json: JSONValue.parse(
+            #"{"awsRoles":[{"roleId":"aws","accountId":"1"},{"roleId":"aws2","accountId":"2"}],"githubInstallations":[{"installationId":"166","accountLogin":"o"},{"installationId":"177","accountLogin":"p"}]}"#)!)
+        let github = team.allItems.filter { $0.provider.selectionKey == "githubInstallationIds" }
+        let aws2 = team.allItems.first { $0.id == "aws2" }!
+        let asked = CredentialSelection(json: JSONValue.parse(#"{"awsRoleIds":["aws"]}"#)!)
+        var shown = asked.reaching(team)
+        precondition(github.allSatisfy(shown.contains), "An unset GitHub key reaches every installation")
+        precondition(!shown.contains(aws2), "Other kinds show only what is stored")
+        precondition(asked.reaching(nil) == asked, "Nothing to fill before the catalog loads")
+        // Unticking one installation stores the rest as a list.
+        shown.toggle(github[0])
+        precondition(shown.json["githubInstallationIds"]?.arrayValue?.compactMap(\.stringValue) == ["177"])
+        // An explicit empty list is none, and a new conversation keeps its own defaults.
+        let none = CredentialSelection(json: JSONValue.parse(#"{"githubInstallationIds":[]}"#)!)
+        precondition(!github.contains(where: none.reaching(team).contains))
+        precondition(CredentialSelection().reaching(team) == CredentialSelection())
     }
 }

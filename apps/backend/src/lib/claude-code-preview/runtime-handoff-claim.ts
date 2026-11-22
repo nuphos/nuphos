@@ -55,6 +55,8 @@ export async function claimRuntimeHandoffs(now = Date.now()): Promise<RuntimeHan
     const stale = handoff !== null && now - handoff.at >= HANDOFF_MAX_AGE_MS
     let moved = stale
 
+    if (!stale && handoff?.retryAfter && now < handoff.retryAfter) continue
+
     // An offline computer is waited for, not tried: the handoff stays as it is,
     // spends no attempt and logs nothing, and is adopted once the computer is back.
     // A conversation that has since moved off it never needs it back, so its

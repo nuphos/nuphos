@@ -4,12 +4,15 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
 
+import { locale } from '../../i18n'
+
 import type { RuntimeInstance } from '../../types/runtime'
 import type { ReactNode } from 'react'
 
 let runtime: RuntimeInstance | null = null
 const created: unknown[] = []
 const groups: unknown[][] = []
+const introductions: string[] = []
 
 mock.module('../agent/panel/useNewConversationRuntime', () => ({
   useNewConversationRuntime: () => ({
@@ -20,11 +23,17 @@ mock.module('../agent/panel/useNewConversationRuntime', () => ({
 }))
 mock.module('../../api', () => ({
   api: {
+    agentStartBotOnboarding: (botId: string) => {
+      introductions.push(botId)
+
+      return Promise.resolve()
+    },
     agentCreateBot: (_team: string, bot: unknown) => {
       created.push(bot)
 
       return Promise.resolve({ sessionId: 'made-bot' })
     },
+    atlasListTeamMembers: () => Promise.resolve([]),
     agentCreateChannel: (team: string, group?: boolean) => {
       groups.push([team, group])
 
@@ -48,6 +57,8 @@ mock.module('../channels/botChannel', () => ({
   createBotChannel: () => Promise.resolve('made-chat'),
 }))
 mock.module('../channels/BotImportDialog', () => ({ BotImportDialog: () => null }))
+mock.module('../../hooks/useCurrentUser', () => ({ useCurrentUser: () => ({ id: 'me' }) }))
+mock.module('../agent/TeammatePicker', () => ({ TeammatePicker: () => null }))
 mock.module('../Modal', () => ({
   Modal: ({ children, title }: { children: ReactNode; title: string }) =>
     createElement('div', { 'data-modal': title }, children),
@@ -131,7 +142,7 @@ test('connect before creating, preserving the name and avatar when returning to 
     await click('[data-pick-avatar]')
     await submit()
     assert.equal(created.length, 0, 'no Bot shell is created before an agent exists')
-    assert.ok(container.querySelector('[data-modal="Connect your agent"]'))
+    assert.ok(container.querySelector('[data-modal="Connect a runtime"]'))
     assert.ok(form.closest('[hidden]'))
     const back = [...container.querySelectorAll('button')].find(
       (button) => button.textContent === 'Back',
@@ -152,6 +163,8 @@ test('connect before creating, preserving the name and avatar when returning to 
     await submit()
     assert.deepEqual(created, [
       {
+        onboarding: true,
+        locale,
         title: 'Helper',
         avatar: '03-mona-lisa',
         runtimeId: 'ready-runtime',
@@ -160,11 +173,13 @@ test('connect before creating, preserving the name and avatar when returning to 
       },
     ])
     assert.deepEqual(opened, ['made-chat'])
-    // New Group Chat makes an empty chat marked as a group and opens it.
+    // New Group Chat only opens its dialog: nothing exists until Create.
     await pick('New Group Chat')
     await act(async () => {})
-    assert.deepEqual(groups, [['team', true]])
-    assert.deepEqual(opened, ['made-chat', 'made-group'])
+    assert.deepEqual(groups, [])
+    assert.ok(container.querySelector('[data-modal="New Group Chat"]'))
+    assert.deepEqual(opened, ['made-chat'])
+    assert.deepEqual(introductions, ['made-bot'])
   } finally {
     await act(() => root.unmount())
     await dom.happyDOM.close()

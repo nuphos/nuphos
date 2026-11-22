@@ -7,6 +7,7 @@ import type {
   LarkInstallation,
   LarkPairCode,
   LarkUserMapping,
+  SlackChannelBot,
   SlackChannelMapping,
   SlackChannelOption,
   SlackConnectionStatus,
@@ -48,6 +49,7 @@ import type {
   SidebarFavoriteCloudEntry,
   SidebarFavoritesCloudSnapshot,
 } from '../types/team.ts'
+import type { TeamUsageAnswer, TeamUsageQuery } from '../types/usage.ts'
 
 export type WindowTeamApi = {
   atlasExportTeam(teamId: string): Promise<boolean>
@@ -167,6 +169,7 @@ export type WindowTeamApi = {
   ): Promise<unknown>
   atlasGetTeamActivity(teamId: string, range: TeamActivityRange): Promise<TeamActivity>
   atlasGetAgentStats(teamId: string, query: AgentStatsQuery): Promise<AgentStats>
+  atlasQueryTeamUsage(teamId: string, query: TeamUsageQuery): Promise<TeamUsageAnswer>
   atlasPutHomeLayout(
     teamId: string,
     scope: 'personal' | 'team',
@@ -187,10 +190,27 @@ export type WindowTeamApi = {
   atlasLeaveTeam(teamId: string): Promise<void>
   atlasUpdateTeamMemberRole(teamId: string, memberId: string, role: TeamRole): Promise<TeamMember>
   atlasListMyInvitations(): Promise<TeamInvitation[]>
-  atlasInviteTeamMember(teamId: string, inviteeEmail: string): Promise<TeamInvitation>
+  /** `emailSent` is false when the email failed or is not set up: the invitation still stands. */
+  atlasInviteTeamMember(
+    teamId: string,
+    inviteeEmail: string,
+    role?: TeamRole,
+  ): Promise<{ invitation: TeamInvitation; emailSent: boolean }>
+  atlasResendTeamInvitation(
+    teamId: string,
+    invitationId: string,
+  ): Promise<{ invitation: TeamInvitation; emailSent: boolean }>
   atlasAcceptInvitation(invitationId: string): Promise<TeamInvitation>
   atlasRejectInvitation(invitationId: string): Promise<TeamInvitation>
-  atlasListSlackChannelMappings(teamId: string): Promise<SlackChannelMapping[]>
+  atlasListSlackChannelMappings(
+    teamId: string,
+  ): Promise<{ mappings: SlackChannelMapping[]; myBots: SlackChannelBot[] }>
+  atlasSetSlackChannelBot(
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ): Promise<SlackChannelBot[]>
   atlasGetSlackConnectionStatus(teamId: string): Promise<SlackConnectionStatus>
   atlasGetSlackInstallation(
     teamId: string,
@@ -219,7 +239,6 @@ export type WindowTeamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ): Promise<void>
-  atlasListSlackUserMappings(teamId: string): Promise<SlackUserMapping[]>
   atlasUpsertSlackUserMapping(
     teamId: string,
     input: {

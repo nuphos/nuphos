@@ -61,8 +61,8 @@ export function buildMemoryColumns(
               if (!s || s.turns === 0) return <span className="text-tertiary">—</span>
               const reach =
                 s.reachConversations === 1
-                  ? t('reached {count} agent', { count: String(s.reachConversations) })
-                  : t('reached {count} agents', { count: String(s.reachConversations) })
+                  ? t('reached {count} task', { count: String(s.reachConversations) })
+                  : t('reached {count} tasks', { count: String(s.reachConversations) })
               const corrected =
                 s.corrections > 0
                   ? ` · ${t('corrected {count}×', { count: String(s.corrections) })}`

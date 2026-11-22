@@ -1,6 +1,6 @@
 ---
 name: tencent
-description: Run Tencent Cloud CLI (tccli) commands from the sandbox to inspect or change Tencent resources (TKE, CVM, CLB, VPC, etc.). Includes a script to load short-lived credentials for an Nuphos-bound Tencent account.
+description: Run tccli to inspect or change Tencent Cloud resources (TKE, CVM, CLB, VPC). Includes a script that loads short-lived credentials for a Nuphos-bound account.
 ---
 
 # Tencent Cloud CLI (tccli)

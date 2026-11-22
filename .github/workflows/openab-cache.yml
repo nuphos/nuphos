@@ -16,14 +16,6 @@ on:
       - apps/runtime/openab/**
       - .github/workflows/openab-cache.yml
       - .github/actions/openab-binaries/action.yml
-  # Compiles an openab change for every shipped target before it merges.
-  # Its cache and attestations are scoped to the PR, which no release accepts.
-  pull_request:
-    paths:
-      - apps/desktop/local-runtime/prepare.mjs
-      - apps/runtime/openab/**
-      - .github/workflows/openab-cache.yml
-      - .github/actions/openab-binaries/action.yml
   # GitHub evicts a cache nobody has read for 7 days.
   schedule:
     - cron: '17 3 * * *'
@@ -71,14 +63,13 @@ jobs:
         env:
           TARGETS: ${{ matrix.targets }}
         run: node local-runtime/prepare.mjs --targets "$TARGETS" --require
-      # A fork PR gets no id-token, so it only builds.
-      - if: steps.openab.outputs.hit != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      - if: steps.openab.outputs.hit != 'true'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: |
             ~/.cache/nuphos/openab-*/target/*/release/openab
             ~/.cache/nuphos/openab-*/target/*/release/openab.exe
-      - if: steps.openab.outputs.hit != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+      - if: steps.openab.outputs.hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           key: ${{ steps.openab.outputs.key }}
@@ -86,10 +77,9 @@ jobs:
             ~/.cache/nuphos/openab-*/target/*/release/openab
             ~/.cache/nuphos/openab-*/target/*/release/openab.exe
       # A rejected entry keeps its key, so saving cannot replace it and every
-      # release would compile without anyone noticing. A PR run rejects main's
-      # entries by design (it verifies against its own ref), so it never fails.
+      # release would compile without anyone noticing.
       - name: Fail on a rejected cache entry
-        if: steps.openab.outputs.rejected != '0' && github.event_name != 'pull_request'
+        if: steps.openab.outputs.rejected != '0'
         env:
           KEY: ${{ steps.openab.outputs.key }}
         run: |

@@ -2,7 +2,8 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
-import { createDefaultAccess } from '@/lib/byos/access'
+import { bindingShareSchema, newBindingAccess } from '@/lib/byos/initial-access'
+import { registerBindingAccessRoutes } from '@/lib/byos/access-routes'
 import {
   NOTION_VERSION,
   NotionApiError,
@@ -14,6 +15,8 @@ import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import {
+  disconnectBinding,
+  requireCanDisconnect,
   requireNotionIntegration,
   requireNotionMemberAccess,
   requireTeamRole,
@@ -33,6 +36,7 @@ const bindSchema = z
   .object({
     label: z.string().trim().min(1).max(100),
     token: z.string().trim().min(1).max(300),
+    share: bindingShareSchema.optional(),
   })
   .strict()
 
@@ -88,7 +92,7 @@ notionIntegrationsRoutes.post(
       botId: info.botId,
       encryptedToken: encryptNotionSecret(token),
       createdAt: now,
-      access: createDefaultAccess(c.get('userId'), now),
+      access: await newBindingAccess(c, { now: now }),
     }
 
     await teamByosBindings().updateOne(
@@ -116,6 +120,7 @@ notionIntegrationsRoutes.post(
 const integrationScoped = new Hono<{ Variables: NotionIntegrationVariables }>()
 
 integrationScoped.use('*', requireNotionIntegration())
+registerBindingAccessRoutes(integrationScoped, 'notionIntegrations', (c) => c.get('notionBinding'))
 
 integrationScoped.get('/', (c) => {
   const binding = c.get('notionBinding')
@@ -127,23 +132,22 @@ integrationScoped.get('/', (c) => {
   })
 })
 
-integrationScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
-  const teamId = parseObjectId(c.get('teamId'), 'teamId')
-  const integrationId = new ObjectId(c.get('notionIntegrationId'))
-  const result = await teamByosBindings().updateOne(
-    { _id: teamId },
-    {
-      $pull: { notionIntegrations: { id: integrationId } },
-      $set: { updatedAt: new Date() },
-    },
-  )
+integrationScoped.delete(
+  '/',
+  requireTeamRole('ADMINISTRATOR'),
+  requireCanDisconnect('notionAccess'),
+  async (c) => {
+    const teamId = parseObjectId(c.get('teamId'), 'teamId')
+    const integrationId = new ObjectId(c.get('notionIntegrationId'))
+    const result = await disconnectBinding(c, teamId, 'notionIntegrations', { id: integrationId })
 
-  if (result.modifiedCount === 0) {
-    throw new AppError(404, 'notion_integration_not_bound', 'Notion integration not found')
-  }
+    if (result.modifiedCount === 0) {
+      throw new AppError(404, 'notion_integration_not_bound', 'Notion integration not found')
+    }
 
-  return c.body(null, 204)
-})
+    return c.body(null, 204)
+  },
+)
 
 // Agent credential handout, mirroring linear-workspaces /credentials: the
 // sandbox exchanges its NUPHOS_TOKEN for the binding's Notion token and talks to

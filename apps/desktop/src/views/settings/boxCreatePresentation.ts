@@ -2,9 +2,14 @@ import { t } from '../../i18n/index.ts'
 
 import type { BoxUsage } from '../../api/device-types'
 
+/** A computer rented from Nuphos, as an option next to a computer of your own. */
+export const RENTED_COMPUTER_DESCRIPTION = t(
+  'Nuphos runs it for you, with Claude Code, Codex, OpenCode and more.',
+)
+
 /** What New computer says it makes. */
 export const NEW_BOX_DESCRIPTION = t(
-  "A Linux machine in the cloud with Claude Code and Codex on it. Running computers count against your plan's vCPU; paused ones do not.",
+  "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not.",
 )
 
 /** The name the backend gives an unnamed Box: "Computer N", after the highest the caller has. */
@@ -61,9 +66,9 @@ export function boxCreateSize(
   )?.vcpus
 }
 
-/** Columns for `count` size cards: one each up to three, then wrapping; one while there are none. */
+/** Columns for `count` size cards: one each up to three, two for four (2 × 2), then three; one while there are none. */
 export function sizeGridColumns(count: number): 1 | 2 | 3 {
   if (count <= 1) return 1
 
-  return count === 2 ? 2 : 3
+  return count === 2 || count === 4 ? 2 : 3
 }

@@ -1,24 +1,25 @@
-import { agentConversations, liveAttachment } from '@/lib/agent/db/shared'
+import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
+import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
-import { reachableRuntimeEndpoint } from './dev-runtime-forward'
 import { OpenAbAcpClient } from './openab-acp-client'
 import { OpenAbConnectError } from './openab-acp-connect'
-import { OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig } from './session-config-catalog'
+import { catalogState, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
-import { storeSessionConfig } from './session-config-record'
+import { clearReplacedPick, storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
-import type { RuntimeModelCatalog } from './runtime-models'
+import type { CatalogFor } from './session-config-catalog'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
+import type { SettingsChangeBy } from '@/lib/agent/db/settings-history'
 
 export async function controlSessionConfig(
   client: Pick<OpenAbAcpClient, 'getSessionConfigOptions' | 'setSessionConfigOption'>,
@@ -106,30 +107,30 @@ export async function restoreSessionConfigForWrite(
   }
 }
 
+/** `by` says who makes a `selection` and from where; absent, the viewer through the picker. */
 export async function conversationSessionConfig(
   conversation: AgentConversation,
   selection?: SessionConfigSelection,
   viewerUserId?: string,
+  by: SettingsChangeBy = { actorId: viewerUserId ?? 'system', via: 'picker' },
 ): Promise<SessionConfigState> {
   const attachment = liveAttachment(conversation)
 
   if (!conversation.teamId) return { status: 'unsupported', options: [] }
-  if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId)
+  if (!attachment) return await initialSessionConfig(conversation, selection, viewerUserId, by)
   const catalogFor = runtimeCatalog(conversation, viewerUserId)
 
   if (!selection) {
     if (shouldPrewarm(conversation, viewerUserId)) prewarmSession(conversation, attachment)
 
-    return await sessionConfigView(storedPick(attachment), catalogFor)
+    return namedModel(await sessionConfigView(storedPick(attachment), catalogFor), attachment)
   }
-  const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId)
+  const picked = await applySessionConfig(conversation, attachment, selection, viewerUserId, by)
 
   return await sessionConfigView(picked, catalogFor)
 }
 
-type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
-
-function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
+export function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
   const { teamId, runtimeId } = conversation
 
   return teamId && runtimeId
@@ -146,35 +147,23 @@ export async function sessionConfigView(
   picked: RuntimeDefaults,
   catalogFor: CatalogFor,
 ): Promise<SessionConfigState> {
-  const { status, options } = await catalogState(picked, catalogFor, true)
+  const { status, options, reason } = await catalogState(picked, catalogFor, true)
 
-  return { status: status === 'dormant' ? 'ready' : status, options }
+  return { status: status === 'dormant' ? 'ready' : status, options, ...(reason ? { reason } : {}) }
 }
 
-async function catalogState(
-  picked: RuntimeDefaults,
-  catalogFor: CatalogFor,
-  confirmedOnly = false,
-): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
-  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
-  try {
-    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
-  } catch {
-    return { status: 'offline', options: [], kept: {} }
-  }
-}
-
-// Before attachment, choices come from the catalog and explicit picks are saved.
+// Before attachment, choices come from the catalog. A change saves the effort
+// and fast mode the session will start on with it, never a model alone.
 async function initialSessionConfig(
   conversation: AgentConversation,
   selection: SessionConfigSelection | undefined,
   viewerUserId: string | undefined,
+  by: SettingsChangeBy,
 ): Promise<SessionConfigState> {
   const stored = conversation.initialSessionConfig ?? {}
-  const { status, options, kept } = await catalogState(
+  const { status, options, kept, reason } = await catalogState(
     selection ? { ...stored, [selection.configId]: selection.value } : stored,
     runtimeCatalog(conversation, viewerUserId),
-    Boolean(conversation.runtimeMigration),
   )
 
   if (selection && status === 'offline')
@@ -190,16 +179,9 @@ async function initialSessionConfig(
     )
   // Reading a catalog must not erase a saved choice it no longer offers.
   if (selection && JSON.stringify(kept) !== JSON.stringify(stored))
-    await agentConversations().updateOne(
-      {
-        sessionId: conversation.sessionId,
-        teamId: conversation.teamId,
-        claudeCodePreview: { $exists: false },
-      },
-      { $set: { initialSessionConfig: kept } },
-    )
+    await keepFirstSessionPick(conversation.sessionId, conversation.teamId, kept, by)
 
-  return { status, options }
+  return { status, options, ...(reason ? { reason } : {}) }
 }
 
 // Restore a reaped agent when its owner opens a recent chat; older ones are mostly just read.
@@ -232,8 +214,9 @@ function prewarmSession(
     .catch((error: unknown) => {
       // An unavailable runtime is not a failure here: the next prompt reports it.
       if (error instanceof AppError) return
-      // Nor is a host that did not answer, as while it restarts: a warning, if it never does.
-      if (error instanceof OpenAbConnectError)
+      // Nor is a host that did not answer, or hung up mid-call, as while it
+      // restarts: a warning, if it never does.
+      if (error instanceof OpenAbConnectError || error instanceof OpenAbConnectionLostError)
         logEvent('warn', 'agent.session.prewarm_offline', { session_id: conversation.sessionId })
       else logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
     })
@@ -248,7 +231,8 @@ async function applySessionConfig(
   conversation: AgentConversation,
   attachment: NonNullable<ReturnType<typeof liveAttachment>>,
   selection: SessionConfigSelection,
-  viewerUserId?: string,
+  viewerUserId: string | undefined,
+  by: SettingsChangeBy,
 ): Promise<RuntimeDefaults> {
   const options = await withSessionClient(conversation, attachment, async (client, endpoint) => {
     await restoreSessionConfigForWrite(
@@ -267,9 +251,18 @@ async function applySessionConfig(
     conversation.teamId,
     attachment.openabSessionId,
     options,
+    by,
+  )
+  const current = await clearReplacedPick(
+    conversation.sessionId,
+    conversation.teamId,
+    attachment,
+    options,
+    selection.configId,
+    by,
   )
 
-  return storedPick({ ...attachment, sessionConfig: options })
+  return storedPick({ ...current, sessionConfig: options })
 }
 
 async function withSessionClient<T>(
@@ -285,7 +278,7 @@ async function withSessionClient<T>(
   // Do not session/resume here: it would claim the live output sink from
   // another backend replica. This connection only writes configuration.
   const client = await OpenAbAcpClient.connect({
-    ...(await reachableRuntimeEndpoint(endpoint)),
+    ...endpoint,
     callTimeoutMs: 100_000,
   })
 

@@ -5,12 +5,14 @@ import { t } from '../../i18n/index.ts'
 import { refreshInputRequests } from '../../lib/inputRequestRefresh.ts'
 import { queryClient } from '../../lib/query/client.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
+import { announceSavedSelection } from '../../lib/savedCredentialSelection.ts'
 import { EMPTY_CREDENTIAL_OPTIONS } from '../agent/panel/constants.ts'
+import { storedConversationCredentialAccess } from '../agent/panel/conversationCredentialAccess.ts'
 import {
   normalizeCredentialAccess,
   normalizeCredentialOptions,
-  reconcileStoredCredentialAccess,
 } from '../agent/panel/credentialAccess.ts'
+import { keepTaskSelection } from '../agent/panel/taskTranscript.ts'
 import { toast } from '../ui/toast.ts'
 
 import { listedConversation } from './channelShared.ts'
@@ -23,11 +25,12 @@ type Held<T> = { botId: string; value: T }
 /**
  * The credential picker of a Bot's chat: the Bot's own conversation selection,
  * since the Bot's turns run there. Absent until a Bot its viewer owns is known.
+ * `unset` while the Bot has never been given a selection, so it runs with none.
  */
 export function useBotCredentials(
   teamId: string,
   botId: string | undefined,
-): CredentialSelectorControl | undefined {
+): (CredentialSelectorControl & { unset: boolean }) | undefined {
   // Both start from what is already known, so the picker is there from the first frame:
   // the team's options as any chat last loaded them, the selection as the sidebar listed it.
   const [options, setOptions] = useState<AgentCredentialOptions>(
@@ -36,13 +39,14 @@ export function useBotCredentials(
       EMPTY_CREDENTIAL_OPTIONS,
   )
   // The stored selection and an unsaved change, each kept with the Bot it is for.
-  const [stored, setStored] = useState<Held<Partial<AgentCredentialSelection> | null> | undefined>(
-    () => {
-      const listed = listedConversation(teamId, botId)
+  // null is the Bot's own answer that it has none; the sidebar's copy never says so.
+  const [stored, setStored] = useState<
+    Held<Partial<AgentCredentialSelection> | null | undefined> | undefined
+  >(() => {
+    const listed = listedConversation(teamId, botId)
 
-      return botId && listed ? { botId, value: listed.credentialAccess ?? null } : undefined
-    },
-  )
+    return botId && listed ? { botId, value: listed.credentialAccess } : undefined
+  })
   const keepOptions = useCallback(
     (loaded: AgentCredentialOptions) => {
       const next = normalizeCredentialOptions(loaded)
@@ -91,7 +95,10 @@ export function useBotCredentials(
   return {
     options,
     value:
-      draft?.botId === botId ? draft.value : reconcileStoredCredentialAccess(stored.value, options),
+      draft?.botId === botId
+        ? draft.value
+        : storedConversationCredentialAccess(stored.value, options),
+    unset: stored.value === null,
     saving: saving || refreshing,
     onOpen: () => {
       setRefreshing(true)
@@ -106,9 +113,14 @@ export function useBotCredentials(
         .agentUpdateConversationCredentials({ sessionId: botId, teamId, credentialAccess: next })
         .then((result) => {
           if (latest.current !== request) return
+          const saved = normalizeCredentialAccess(result.credentialAccess)
+
           keepOptions(result.options)
-          setStored({ botId, value: normalizeCredentialAccess(result.credentialAccess) })
+          setStored({ botId, value: saved })
           setDraft(undefined)
+          // The conversation may be a Task, open or read ahead: both show what was saved here.
+          keepTaskSelection(queryClient, teamId, botId, saved)
+          announceSavedSelection({ sessionId: botId, credentialAccess: saved })
           // Selecting a credential a question asked for answers it on the server.
           refreshInputRequests()
         })

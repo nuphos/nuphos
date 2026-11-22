@@ -1,6 +1,6 @@
 ---
 name: setup-aws-iam
-description: Connect a new AWS account to Nuphos using the user's LOCAL aws cli. Walks through listing roles, granting the Nuphos connector trust, and binding the role via the create_connector MCP tool. Use when a user wants to onboard / bind an AWS account and has aws cli configured on their own machine.
+description: "Connect a new AWS account to Nuphos with the user's local aws CLI: pick a role, grant the Nuphos connector trust, and register it with create_connector."
 ---
 
 # Setup AWS IAM (local aws cli)

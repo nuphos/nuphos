@@ -1,11 +1,11 @@
-import { faPencil, faTrash } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Pencil as PencilIcon, Trash2 as Trash2Icon } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api } from '../../api'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Table } from '../../components/Table'
 import { toast } from '../../components/ui/toast'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { useToolbarPrimaryAction } from '../../hooks/useToolbarPrimaryAction'
 import { useWorkspaceTab } from '../../hooks/useWorkspaceTab'
 import { t } from '../../i18n'
@@ -132,7 +132,7 @@ export function CloudflareKvView({
                   className="w-6 h-6 rounded text-tertiary hover:bg-state-hover hover:text-main flex items-center justify-center"
                   title={t('Rename')}
                 >
-                  <FontAwesomeIcon icon={faPencil} className="w-3.5 h-3.5" />
+                  <UiIcon size={16} icon={PencilIcon} className="w-4 h-4" />
                 </button>
                 <button
                   onClick={(e) => {
@@ -142,7 +142,7 @@ export function CloudflareKvView({
                   className="w-6 h-6 rounded text-tertiary hover:bg-error/15 hover:text-error flex items-center justify-center"
                   title={t('Delete namespace')}
                 >
-                  <FontAwesomeIcon icon={faTrash} className="w-3.5 h-3.5" />
+                  <UiIcon size={16} icon={Trash2Icon} className="w-4 h-4" />
                 </button>
               </div>
             ),
@@ -183,7 +183,7 @@ export function CloudflareKvView({
       )}
 
       <ConfirmDialog
-        open={!!pendingDelete}
+        open={Boolean(pendingDelete)}
         title={t('Delete KV namespace?')}
         description={
           pendingDelete

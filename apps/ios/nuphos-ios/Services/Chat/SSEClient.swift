@@ -24,22 +24,24 @@ enum SSEClient {
 
         var errorDescription: String? {
             switch self {
-            case .badStatus(let code, let body): body.flatMap(SSEClient.errorMessage) ?? "Nuphos returned status \(code)."
+            case .badStatus(let code, let body): body.flatMap(SSEClient.errorMessage) ?? String(localized: "Nuphos returned status \(code).")
             case .notEventStream(let type): "Expected an event stream, got \(type ?? "nothing")."
-            case .queued: "Your message waits for the turn ahead."
-            case .idleTimeout: "The connection went quiet for too long."
-            case .frameTimeout: "The runtime went quiet; the reply was closed."
+            case .queued: String(localized: "Your message waits for the turn ahead.")
+            case .idleTimeout: String(localized: "The connection went quiet for too long.")
+            case .frameTimeout: String(localized: "The runtime went quiet; the reply was closed.")
             }
         }
     }
 
     /// Opens `request` and streams its events. The stream ends when the
     /// server closes the connection; cancel the consuming task to abort.
+    /// `onOpen` hears when the server has accepted the stream, before any event.
     static func events(
         for request: URLRequest,
         idleTimeout: Duration = .seconds(45),
         frameTimeout: Duration = .seconds(40 * 60),
-        configuration: URLSessionConfiguration = .default
+        configuration: URLSessionConfiguration = .default,
+        onOpen: (@Sendable () -> Void)? = nil
     ) -> AsyncThrowingStream<SSEEvent, Error> {
         AsyncThrowingStream { continuation in
             let activity = ActivityClock()
@@ -69,6 +71,7 @@ enum SSEClient {
                     guard contentType.contains("text/event-stream") else {
                         throw Failure.notEventStream(contentType)
                     }
+                    onOpen?()
 
                     var pending = SSEEvent(data: "")
                     var hasData = false

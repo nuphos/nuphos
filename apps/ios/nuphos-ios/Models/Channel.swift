@@ -6,6 +6,10 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     let title: String
     let ownerId: String
     var provider: String? = nil
+    /// Its face, which every member of the chat reads, whoever owns the Bot.
+    var avatar: String? = nil
+    /// The tint its face sits on; nil for none.
+    var avatarBackground: String? = nil
     var id: String { sessionId }
 }
 
@@ -39,6 +43,8 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
     var sending = false
     /// The record an answer to an agent's question leaves here: a line from Nuphos, not a post.
     var isRecord = false
+    /// The question card this post answers, when its answer was given in the Inbox (#3548).
+    var inboxRequest: String?
 
     init(id: String, senderId: String, isAgent: Bool, name: String, avatar: URL? = nil, runtime: String? = nil,
          text: String, uploads: [TransferUpload] = [], downloads: [String] = [], sentAt: Date?,
@@ -59,11 +65,11 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
 
     /// Nil for a message without a sender, with nothing to show, or not posted
     /// by a person or an agent: a chat shows only their posts, and the records
-    /// answers to questions leave.
+    /// Nuphos leaves (answers to questions, a new owner).
     init?(_ message: ChatMessage) {
         let metadata = message.metadata
         guard let sender = metadata?["sender"], let type = sender["type"]?.stringValue,
-              type == "user" || type == "agent" || sender["id"]?.stringValue == Self.decisionRecord,
+              type == "user" || type == "agent" || sender["id"]?.stringValue.map(Self.records.contains) == true,
               let senderId = metadata?["sourceSessionId"]?.stringValue ?? sender["id"]?.stringValue else { return nil }
         let attributed = message.sender
         guard attributed != nil || type == "system" else { return nil }
@@ -86,10 +92,12 @@ struct ChannelPost: Equatable, Identifiable, Sendable {
                   avatar: attributed?.avatar, runtime: sender["agentRuntime"]?.stringValue,
                   text: text, uploads: uploads, downloads: downloads, sentAt: sentAt, replyTo: replyTo)
         isRecord = type == "system"
+        inboxRequest = metadata?["answeredIn"]?.stringValue == "inbox" ? metadata?["requestId"]?.stringValue : nil
     }
 
-    /// The sender of the record an answer to a question leaves in the chat it was asked in.
-    static let decisionRecord = "nuphos:decision"
+    /// The senders of the records Nuphos leaves in a chat: an answer to a
+    /// question, and a change of owner when the owner leaves.
+    static let records: Set<String> = ["nuphos:decision", "nuphos:chat"]
 
     /// What a reply to this post quotes until the chat stores its own snapshot.
     var asReply: ChannelReply {
@@ -114,8 +122,10 @@ enum ChannelItem: Equatable, Sendable {
     case time(Date)
     /// A line from the chat itself: its loop guard paused agents.
     case paused(String)
-    /// "Yuanlin answered: Question → answer": the record an answer to a question leaves.
+    /// "Yuanlin answered: Question → answer": the record an answer to a question left before answers were posts.
     case record(String)
+    /// "Answered in Inbox", under the last answer of a question card.
+    case answeredInInbox(ChannelPost)
     /// An agent could not reply: why, and, on the newest line, the fix.
     case replyFailed(AgentConversationDetail.TimelineEvent, actionable: Bool)
     /// Agents in a turn right now.
@@ -149,6 +159,9 @@ extension ChannelPost {
             }
             let first = timed || index == 0 || posts[index - 1].senderId != post.senderId
             rows.append((at: at, id: "post.\(post.id)", item: ChannelItem.post(post, first: first)))
+            if let request = post.inboxRequest, index == posts.count - 1 || posts[index + 1].inboxRequest != request {
+                rows.append((at: at, id: "answered.\(post.id)", item: ChannelItem.answeredInInbox(post)))
+            }
         }
         let lastPost = posts.compactMap(\.sentAt).max() ?? .distantPast
         for event in events {

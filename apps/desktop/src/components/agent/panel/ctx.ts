@@ -11,7 +11,7 @@ import type { ComposerRecall } from './composerRecall'
 import type { CredentialSelectorControl } from './credentialSections'
 import type { AgentPromptSeed, Message, MessageRating, Tab } from './model'
 import type { AuthorizationDecisionAction, ToolPart, TransferUploadPart } from './parts'
-import type { ComposerReplyTarget, ReplyQuestion } from './replyTarget'
+import type { ReplyQuestion } from './replyTarget'
 import type { StallDetail } from './stall'
 import type { TextStreamBuffer } from './streamBuffer'
 import type { PermissionMode } from '../../../lib/permissionMode'
@@ -67,9 +67,7 @@ export type PanelCtx = {
   focusComposerOnOpen: boolean
   composerDraftId?: string
   newChatDraftId: string
-  decisionReplyTo?: string
   hideTranscript: boolean
-  replyTarget?: ComposerReplyTarget
   openQuestions?: ReplyQuestion[]
   kubeContext?: string | null
   runtimeKubeContextRef?: Ref<string | null | undefined>
@@ -160,8 +158,6 @@ export type PanelCtx = {
   locateInChat: (target: JournalChatTarget) => boolean
   activePlanCanAct: {
     toolCallId: string
-    canApprove: boolean
-    canChat: boolean
     keepPolling: boolean
   } | null
   dockCurrentSession: () => void
@@ -223,12 +219,6 @@ export type PanelCtx = {
     mode?: 'queue',
   ) => boolean
   steerQueued: (tabId: string, queuedId: string) => Promise<void>
-  handleRejectPlan: (
-    planId: string,
-    reason: string,
-    mode: 'revise' | 'delete',
-    label: string,
-  ) => Promise<void>
   decideAuthorization: (toolCallId: string, decision: AuthorizationDecisionAction) => void
   resumePermissionTurn: (toolCallId: string, output: Record<string, unknown>) => void
   authorizationContextValue: {

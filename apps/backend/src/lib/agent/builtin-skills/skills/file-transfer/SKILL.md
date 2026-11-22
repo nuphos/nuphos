@@ -1,6 +1,6 @@
 ---
 name: file-transfer
-description: Move files between the user and the sandbox/cluster through Nuphos's short-lived transfer store. Use when the user uploaded files for you to work on, or when you produced/fetched a file the user should download. Pull user uploads into the sandbox; push files out so the user can download them (single files or a zip).
+description: "Move files between the user and the sandbox: pull the user's uploads, push files for them to download (single or zip), or save straight to a selected computer."
 ---
 
 # File transfer
@@ -124,8 +124,9 @@ need to know how the transfer works.
 
 When the person names a file on their computer, use **local_upload** with its
 absolute path (or `~/path`) and the selected device ID. It uses the computer's
-internal uploader and returns only `groupId`, `fileName` and `size`.
-Immediately pull that group into the agent workspace:
+internal uploader and returns only `groupId`, `fileName` and `size`, as soon
+as the upload starts. Immediately pull that group into the agent workspace; the
+pull waits for the upload to arrive:
 
 ```bash
 bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
@@ -134,14 +135,28 @@ bash skills/file-transfer/scripts/transfer-pull.sh <TEAM> <groupId> ./uploads
 This needs an online, selected computer with local exec allowed and an updated
 Desktop or CLI host. It does not need an AWS login or a CLI transfer command.
 Only one regular file is supported; directories are not uploaded by this tool.
-A transfer has a two-minute timeout and the store's existing size/TTL limits.
-Report a missing file, offline/old host, or transfer failure directly.
+The store's existing size/TTL limits apply. If the pull says the file is still
+uploading, run it again; if it says the upload failed, start `local_upload`
+again. Report a missing file, offline/old host, or transfer failure directly.
 
 Signed URLs stay inside the trusted implementation. Never put them in
 `local_exec` arguments, tool results, transcript, logs or replies. Encoding a
 command does not hide its capability. Do not stage files through GitHub releases
 or another external service. Do not ask the person to drag the same file into
 chat when `local_upload` can import it.
+
+When the person asks for a file **on** their computer ("save it to my laptop"),
+push it first, then use **local_download** with the `groupId` the push printed,
+an absolute target path (or `~/path`) and the selected device ID:
+
+```bash
+bash skills/file-transfer/scripts/transfer-push.sh <TEAM> ./out/deck.html
+```
+
+The computer fetches the file itself and answers `{path, size}` once it is
+written. If it answers `file_exists`, ask the person before calling again with
+`overwrite: true`. If it answers `update_required`, tell them to update Nuphos
+on that computer. Pass `fileName` when the group holds several files.
 
 ## Failure handling
 
@@ -150,6 +165,12 @@ The scripts surface explicit errors: `file_too_large`, `too_many_files`,
 `transfer_not_found`. If the store is unconfigured (`503
 file_transfer_unconfigured`), tell the user file transfer isn't enabled on
 this deployment rather than retrying.
+
+`file_transfer_rate_limited` (429) means the team used its hourly transfer
+limit. Do not retry: retries fail the same way until the hour turns. Tell the
+user the limit was reached and when it resets (the error's message, or
+`retryAfter` from `local_upload`), and offer to work with what is already in
+the sandbox.
 
 ## Safety
 

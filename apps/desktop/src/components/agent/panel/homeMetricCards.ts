@@ -14,7 +14,7 @@ function card(kind: HomeMetricKind) {
   return { title, icon, category, size }
 }
 
-const NO_TURNS = t('No agent turns in this range')
+const NO_TURNS = t('No turns in this range')
 
 /**
  * How each kind of metric card draws, in the order the gallery lists them;
@@ -27,7 +27,7 @@ export const METRIC_CARDS: MetricCardDef[] = [
     ...card('agent-time'),
     noteIcon: true,
     note: t(
-      'An estimate. Agent time adds up each turn, from your message to the last reply, so agents running side by side count separately. Human time divides it by an 8 hour workday.',
+      'An estimate. Work time adds up each turn, from your message to the last reply, so Bots and tasks running side by side count separately. Human time divides it by an 8 hour workday.',
     ),
     empty: NO_TURNS,
     isEmpty: (s) => s.current.agentMs === 0,
@@ -36,7 +36,7 @@ export const METRIC_CARDS: MetricCardDef[] = [
   {
     kind: 'sessions',
     ...card('sessions'),
-    note: t('Sessions started in the range. Sub-agents are sessions another session started.'),
+    note: t('Tasks started in the range. Sub-tasks are tasks another task started.'),
     empty: t('No sessions started in this range'),
     isEmpty: (s) => s.current.sessions + s.current.subAgents === 0,
     Body: SessionsBody,
@@ -46,9 +46,9 @@ export const METRIC_CARDS: MetricCardDef[] = [
     ...card('pull-requests'),
     noteIcon: true,
     note: t(
-      'Pull requests linked to agent sessions, each counted once. Merges from before merge times were recorded are not counted. Overnight means midnight to 7:00 in your time zone, so "while you slept" is a guess.',
+      'Pull requests linked to tasks, each counted once. Merges from before merge times were recorded are not counted. Overnight means midnight to 7:00 in your time zone, so "while you slept" is a guess.',
     ),
-    empty: t('No pull requests linked to agents in this range'),
+    empty: t('No pull requests linked to tasks in this range'),
     isEmpty: (s) => s.current.prsOpened + s.current.prsMerged === 0,
     Body: PullRequestsBody,
   },
@@ -58,9 +58,9 @@ export const METRIC_CARDS: MetricCardDef[] = [
     fixedRange: true,
     noteIcon: true,
     note: t(
-      'Days in a row with at least one agent turn, in your time zone, counted over the last 60 days.',
+      'Days in a row with at least one turn, in your time zone, counted over the last 60 days.',
     ),
-    empty: t('No agent turns in the last 60 days'),
+    empty: t('No turns in the last 60 days'),
     isEmpty: (s) => s.streak.best === 0,
     Body: StreakBody,
   },
@@ -75,7 +75,7 @@ export const METRIC_CARDS: MetricCardDef[] = [
   {
     kind: 'runtime-mix',
     ...card('runtime-mix'),
-    note: t("Each agent's share of agent time."),
+    note: t("Each runtime's share of work time."),
     empty: NO_TURNS,
     isEmpty: (s) => s.runtimes.length === 0,
     Body: RuntimeMixBody,

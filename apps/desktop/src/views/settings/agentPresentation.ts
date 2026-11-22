@@ -1,8 +1,10 @@
 import { t } from '../../i18n/index.ts'
+import { isThisComputer } from '../../lib/agentName.ts'
 import { AGENT_PROVIDER } from '../../types/runtime.ts'
 
 import type { AgentDevice, LocalAgentProvider } from '../../api/device-types'
-import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
+import type { ThisComputer } from '../../lib/agentName.ts'
+import type { LocalRuntimeSummary, RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /**
  * A person's own computer's default agent whose CLI is signed in. That computer's report
@@ -108,9 +110,13 @@ export function agentOffline(instance: RuntimeInstance, quota?: RuntimeQuota): b
   return instance.local?.online === false || quota?.offline === true
 }
 
+/** The computer a local agent runs on: its owner's, as one machine can hold several accounts. */
+const computerOf = (local?: LocalRuntimeSummary) =>
+  local && { userId: local.ownerUserId, deviceId: local.deviceId }
+
 export function agentRunsOn(
   instance: RuntimeInstance,
-  currentDeviceId?: string,
+  here?: ThisComputer,
   quota?: RuntimeQuota,
 ): string {
   const local = instance.local
@@ -118,7 +124,7 @@ export function agentRunsOn(
 
   if (instance.kind === 'local') {
     where = local?.deviceLabel.trim() ? local.deviceLabel : t('Computer')
-    if (currentDeviceId && local?.deviceId === currentDeviceId) where = t('This computer')
+    if (isThisComputer(here ?? null, computerOf(local))) where = t('This computer')
   }
 
   if (instance.status !== 'active') return t('{where} · Disabled', { where })
@@ -152,7 +158,7 @@ export function managesRuntime(
  */
 export function localSignIn(
   instance: RuntimeInstance,
-  thisComputer: { deviceId: string } | null,
+  thisComputer: ThisComputer,
 ): 'claude-code' | 'codex' | 'runtime' | undefined {
   const local = instance.local
 
@@ -161,14 +167,15 @@ export function localSignIn(
   // An ended sign-in is renewed only through Nuphos, not by the CLI's own login.
   if (local.signInEnded) return 'runtime'
 
-  return !local.instanceId && local.deviceId === thisComputer?.deviceId
+  return !local.instanceId && isThisComputer(thisComputer, computerOf(local))
     ? instance.provider
     : 'runtime'
 }
 
 /**
  * What New Agent does for a provider: sign in the machine's signed-out one first, so a lapsed
- * sign-in never turns into a second agent; else add an agent when the host can.
+ * sign-in never turns into a second agent; else add an agent. An older host is the backend's to
+ * refuse: the agents a computer lists say nothing about what its host can do.
  */
 export function newAgentAction(
   agents: RuntimeInstance[],
@@ -177,8 +184,7 @@ export function newAgentAction(
   const idle = agents.find((agent) => agent.provider === provider && agent.local?.signedIn !== true)
 
   if (idle) return { signIn: idle.id }
-  // Native keyring sign-in is shared; another home does not create another account.
-  if (provider === 'antigravity') return null
 
-  return agents.some((agent) => agent.local?.agentInstances === true) ? { create: true } : null
+  // Native keyring sign-in is shared; another home does not create another account.
+  return provider === 'antigravity' ? null : { create: true }
 }

@@ -1,10 +1,7 @@
 <resources>
     <string name="profile_consent_title">使用 AI Agent 之前</string>
-    <string name="profile_consent_intro">使用 Agent 時，你的提示詞、對話記錄、上傳的圖片與檔案，以及已連接工具的相關結果，會傳送給執行你的請求所需的供應商。</string>
     <string name="profile_consent_recipients_title">誰會收到這些資料</string>
-    <string name="profile_consent_recipients_body">視你使用的執行環境與模型而定，可能包括 Anthropic（Claude）、OpenAI（Codex）、Google 或 Amazon Web Services。Nuphos 也會使用 Braintrust 儲存 AI 執行追蹤記錄（可能包含對話與工具內容），用於診斷及改善服務。</string>
     <string name="profile_consent_choice_title">由你選擇</string>
-    <string name="profile_consent_choice_body">請只分享你有權分享的資訊。你可以拒絕，並仍能管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料共享」中撤回許可。撤回後，此 App 將不再進行新的 AI 使用；但不會撤銷已完成的傳輸，也不會停止已在執行的工作，包括在其他裝置上或由排程 Agent 啟動的工作。</string>
     <string name="profile_consent_read_privacy_policy">閱讀隱私權政策</string>
     <string name="profile_consent_agree">同意並繼續</string>
     <string name="profile_consent_not_now">稍後再說 — 管理我的帳號</string>
@@ -23,11 +20,8 @@
     <string name="profile_username">使用者名稱</string>
     <string name="profile_email">電子郵件</string>
     <string name="profile_deletion_title">刪除帳號</string>
-    <string name="profile_deletion_body">我們將在 30 天內永久刪除你的帳號及相關個人資料。我們的團隊會協調工作區擁有權與共享資料的處理。依法須保存的紀錄，以及你的團隊共同持有的資料可能會被保留。</string>
-    <string name="profile_deletion_request_note">這會送出一項申請，不會立即清除你的帳號。處理期間你仍可繼續使用帳號。重新登入不會取消此申請。</string>
     <string name="profile_privacy_policy">隱私權政策</string>
     <string name="profile_deletion_received">已收到申請</string>
-    <string name="profile_deletion_saved">你的申請已儲存。你不需要聯絡客服即可開始刪除。</string>
     <string name="profile_deletion_password_label">帳號密碼</string>
     <string name="profile_deletion_code_sent">驗證碼已傳送 — 請查看你的收件匣</string>
     <string name="profile_deletion_send_code">傳送驗證碼</string>
@@ -87,7 +81,6 @@
     <string name="profile_two_factor_replace_codes_body">目前的復原碼將會失效。請輸入一組驗證碼以確認。</string>
     <string name="profile_two_factor_replace_codes">更換復原碼</string>
     <string name="profile_withdraw_title">要撤回 AI 共享同意嗎？</string>
-    <string name="profile_withdraw_body">伺服器確認你的選擇後，此 App 將無法再發起新的 AI 工作。這不會撤銷已傳送的資料，也不會停止現有、已排程或在其他裝置上的執行。尚未傳送的草稿將被清除。</string>
     <string name="profile_withdraw_confirm">撤回</string>
     <string name="profile_group_accounts">帳號</string>
     <string name="profile_group_app_icon">App 圖示</string>

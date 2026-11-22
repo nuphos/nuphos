@@ -1,13 +1,17 @@
 import { t } from '../../i18n'
 import { openQuestion } from '../../views/inbox/inboxItems'
 import { selectInboxQuestion, useInboxSelection } from '../../views/inbox/inboxSelection'
-import { QuestionRail } from '../../views/inbox/QuestionRail'
+import { snoozeQuestion } from '../../views/inbox/dismissQuestion'
+import { QuestionRail, SnoozedRail } from '../../views/inbox/QuestionRail'
 import { useInboxQuestions } from '../../views/inbox/useInboxQuestions'
 import { SIDEBAR_GROUP_TITLE_CLASS } from '../SidebarNavItem'
+import { SkeletonReveal } from '../SkeletonReveal'
+
+import { SidebarSectionSkeleton } from './parts'
 
 import type { UIEventHandler } from 'react'
 
-/** The sidebar's Inbox page: the open questions, one opening in the Inbox beside it. */
+/** The sidebar's Inbox page: the open questions, one opening in the Inbox beside it, and those snoozed below. */
 export function SidebarInboxPage({
   teamId,
   onOpenInbox,
@@ -18,6 +22,7 @@ export function SidebarInboxPage({
   onScroll: UIEventHandler<HTMLElement>
 }) {
   const rows = useInboxQuestions(teamId)
+  const snoozed = useInboxQuestions(teamId, undefined, true)
   const selected = useInboxSelection(teamId)
   const open = rows ? openQuestion(rows, selected) : undefined
 
@@ -30,20 +35,32 @@ export function SidebarInboxPage({
         onScroll={onScroll}
         className="sidebar-page-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-2.5 pb-2 scrollbar-thin scrollbar-overlay"
       >
-        {rows?.length === 0 ? (
-          <p className="px-3 py-6 text-center text-[12px] text-tertiary">
-            {t("You're all caught up")}
-          </p>
-        ) : (
-          <QuestionRail
-            rows={rows ?? []}
-            openId={open?.request.id}
-            onSelect={(row) => {
-              selectInboxQuestion(teamId, { id: row.request.id, index: rows!.indexOf(row) })
-              onOpenInbox()
-            }}
+        <SkeletonReveal
+          className="t-sidebar-section-reveal"
+          ready={rows !== null}
+          skeleton={<SidebarSectionSkeleton />}
+        >
+          {rows?.length === 0 ? (
+            <p className="px-3 py-6 text-center text-[12px] text-tertiary">
+              {t("You're all caught up")}
+            </p>
+          ) : (
+            <QuestionRail
+              rows={rows ?? []}
+              openId={open?.request.id}
+              onSelect={(row) => {
+                selectInboxQuestion(teamId, row.request.id)
+                onOpenInbox()
+              }}
+            />
+          )}
+          <SnoozedRail
+            rows={snoozed ?? []}
+            onUnsnooze={(row) =>
+              void snoozeQuestion(teamId, row.conversation.sessionId, row.request.id, null)
+            }
           />
-        )}
+        </SkeletonReveal>
       </nav>
     </div>
   )

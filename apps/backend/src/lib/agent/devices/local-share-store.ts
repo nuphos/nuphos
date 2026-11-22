@@ -1,8 +1,5 @@
-import { randomUUID } from 'node:crypto'
-
 import { db } from '@/lib/db'
 
-import type { AgentDevice } from './store'
 import type { Collection } from 'mongodb'
 
 /** One teammate's conversation waiting for, or given, a computer owner's answer. */
@@ -52,28 +49,6 @@ export async function findShareApproval(
   actorId: string,
 ): Promise<ShareApproval | null> {
   return shareApprovals().findOne({ ownerId, deviceId, sessionId, actorId })
-}
-
-export async function requestShareApproval(input: {
-  device: AgentDevice
-  teamId: string
-  actorId: string
-  sessionId: string
-}): Promise<void> {
-  const { device, teamId, actorId, sessionId } = input
-
-  await shareApprovals().updateOne(
-    { ownerId: device.userId, deviceId: device.deviceId, sessionId, actorId },
-    {
-      $setOnInsert: {
-        _id: randomUUID(),
-        teamId,
-        status: 'pending',
-        requestedAt: new Date(),
-      },
-    },
-    { upsert: true },
-  )
 }
 
 /** The latest answer this person has for their own conversation, if they asked. */

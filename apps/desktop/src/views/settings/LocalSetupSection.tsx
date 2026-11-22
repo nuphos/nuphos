@@ -194,7 +194,7 @@ export function LocalSetupSection({ team }: { team: AtlasTeam | undefined }) {
       <SectionHeader
         title={t('Sync my setup')}
         description={t(
-          'Bring this computer’s skill folders and ~/.claude/CLAUDE.md into {team} as your personal skills and instructions, so every agent you run here starts with the same context as your own CLI. Only your agents get them.',
+          'Bring this computer’s skill folders and ~/.claude/CLAUDE.md into {team} as your personal skills and instructions, so every Bot and task you run here starts with the same context as your own CLI. Only yours get them.',
           { team: team?.name ?? t('this team') },
         )}
       />

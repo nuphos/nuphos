@@ -9,7 +9,8 @@ export const monitoringChannels = {
     label: string,
     uptimeApiToken: string | null,
     telemetryApiToken: string | null,
-  ) => atlas.bindBetterStackIntegration(teamId, label, uptimeApiToken, telemetryApiToken),
+    share?: atlas.BindingShare,
+  ) => atlas.bindBetterStackIntegration(teamId, label, uptimeApiToken, telemetryApiToken, share),
   'atlas:updateBetterStackIntegration': (
     _e: unknown,
     teamId: string,
@@ -148,7 +149,8 @@ export const monitoringChannels = {
       password?: string | null
       authToken?: string | null
     },
-  ) => atlas.bindUptimeKumaInstance(teamId, input),
+    share?: atlas.BindingShare,
+  ) => atlas.bindUptimeKumaInstance(teamId, input, share),
   'atlas:updateUptimeKumaInstance': (
     _e: unknown,
     teamId: string,

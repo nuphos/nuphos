@@ -5,6 +5,7 @@ enum MarkdownImagesTests {
         leavesTextWithoutImagesWhole()
         splitsAroundImageLines()
         keepsInlineAndFencedImages()
+        recognisesCitedReplyFiles()
         print("Markdown images passed")
     }
 
@@ -36,5 +37,15 @@ enum MarkdownImagesTests {
         ] {
             precondition(MarkdownImages.segments(of: text) == [.markdown(text)], text)
         }
+    }
+
+    private static func recognisesCitedReplyFiles() {
+        let id = "0123456789abcdef01234567"
+        precondition(MarkdownImages.replyGroupId(URL(string: "https://nuphos.ai/_reply-images/\(id)")!) == id)
+        precondition(MarkdownImages.replyGroupId(shot) == nil)
+        precondition(MarkdownImages.replyGroupId(URL(string: "https://example.com/_reply-images/\(id)")!) == nil)
+        precondition(MarkdownImages.replyGroupId(URL(string: "https://nuphos.ai/_reply-images/abc")!) == nil)
+        precondition(MarkdownImages.replyGroupId(URL(string: "https://nuphos.ai/_reply-images/\(id)/x")!) == nil)
+        precondition(MarkdownImages.cites("See ![shot](https://nuphos.ai/_reply-images/\(id))", groupId: id))
     }
 }

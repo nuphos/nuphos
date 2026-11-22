@@ -22,6 +22,7 @@
     <string name="convtext_stopped_by_user">Stopped by user.</string>
     <string name="convtext_empty_reply">The agent returned an empty reply.</string>
     <string name="convtext_steering_rejected">Steering was rejected. Retry when the runtime permits it.</string>
+    <string name="convtext_stop_runtime_unreachable">The runtime didn\'t respond; the turn was stopped here.</string>
     <string name="convtext_steering_unconfirmed">Steering delivery is unconfirmed. Check the task before retrying.</string>
     <string name="convtext_delivery_unconfirmed">Message delivery is unconfirmed. Resume the original connection.</string>
     <string name="convtext_task_reloaded">This task changed elsewhere and was reloaded. Retry to send your message.</string>
@@ -37,7 +38,6 @@
     <string name="convtext_phase_preparing_tools">Preparing tools…</string>
     <string name="convtext_phase_building_prompt">Building prompt…</string>
     <string name="convtext_phase_recalling_memory">Recalling memory…</string>
-    <string name="convtext_phase_loading_history">Loading history…</string>
     <string name="convtext_phase_preparing_model">Preparing model…</string>
     <string name="convtext_phase_connecting">Connecting…</string>
     <string name="convtext_phase_thinking">Thinking…</string>
@@ -66,6 +66,8 @@
     <string name="convtext_runtime_disabled">This task\'s runtime is disabled. Switch to another runtime to continue.</string>
     <string name="convtext_runtime_not_found">This runtime is no longer available in this workspace. Switch to another runtime to continue.</string>
     <string name="convtext_runtime_offline">The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.</string>
+    <string name="convtext_runtime_paused">%1$s is paused. It resumes when you send.</string>
+    <string name="convtext_runtime_starting">%1$s is starting. It will be ready in a few seconds.</string>
     <string name="convtext_ask_owner">Ask owner</string>
     <string name="convtext_ask_admin">Ask an admin</string>
     <string name="convtext_server_status">Nuphos returned status %1$d.</string>

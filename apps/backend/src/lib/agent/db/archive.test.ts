@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 import { useTokenRevocation } from '@/lib/test/doubles/token-revocation'
 
-import { restoreArchivedConversation, setConversationArchived } from './archive'
+import {
+  archiveConversationAs,
+  restoreArchivedConversation,
+  setConversationArchived,
+} from './archive'
 
 import type * as dbActual from '@/lib/db'
 
@@ -18,8 +22,19 @@ useTokenRevocation({
 
 type Doc = Record<string, unknown>
 
+type Question = { id: string; about?: string[] }
+
+const questions = (doc: Doc) => (doc.inputRequests ?? []) as Question[]
+const isAbout = (question: Question, ids: unknown[]) =>
+  Boolean(question.about?.some((ref) => ids.includes(ref)))
+const onlyAbout = (question: Question, ids: unknown[]) =>
+  Boolean(question.about?.length) && Boolean(question.about?.every((ref) => ids.includes(ref)))
+
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, value]) => {
+    if (key === 'inputRequests.about') {
+      return questions(doc).some((question) => isAbout(question, (value as { $in: unknown[] }).$in))
+    }
     const actual = doc[key] ?? null
 
     if (value instanceof Date) return actual instanceof Date && actual.getTime() === value.getTime()
@@ -33,6 +48,13 @@ function matches(doc: Doc, filter: Doc): boolean {
     // A scalar matches an array holding it, as in Mongo.
     return Array.isArray(actual) ? actual.includes(value) : actual === value
   })
+}
+
+type Update = {
+  $set?: Doc
+  $inc?: Doc
+  $unset?: Doc
+  $pull?: { inputRequests: { about: { $not: { $elemMatch: { $nin: unknown[] } } } } }
 }
 
 class FakeConversations {
@@ -51,11 +73,33 @@ class FakeConversations {
   find(filter: Doc) {
     return { toArray: async () => this.docs.filter((doc) => matches(doc, filter)) }
   }
-  private apply(doc: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  private apply(doc: Doc, update: Update | Update[]) {
+    if (Array.isArray(update)) {
+      const stamp = update[0]?.$set?.archivedAt
+
+      doc.archivedAt = stamp
+      doc.archiveTriggersPendingAt = stamp
+      doc.triggerArchiveEpoch = Number(doc.triggerArchiveEpoch ?? 0) + 1
+      doc.archiveHomePendingEpochs = [
+        ...((doc.archiveHomePendingEpochs as unknown[]) ?? []),
+        {
+          epoch: Number(doc.sessionHomeEpoch ?? 0),
+          runtimeId: doc.runtimeId ?? null,
+          provider: doc.agentRuntime ?? 'claude-code',
+        },
+      ]
+
+      return
+    }
     Object.assign(doc, update.$set)
+    for (const [key, amount] of Object.entries(update.$inc ?? {}))
+      doc[key] = Number(doc[key] ?? 0) + Number(amount)
     for (const key of Object.keys(update.$unset ?? {})) delete doc[key]
+    const tree = update.$pull?.inputRequests.about.$not.$elemMatch.$nin
+
+    if (tree) doc.inputRequests = questions(doc).filter((question) => !onlyAbout(question, tree))
   }
-  async updateOne(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  async updateOne(filter: Doc, update: Update) {
     this.failIf('updateOne')
     const doc = this.docs.find((d) => matches(d, filter))
 
@@ -63,7 +107,7 @@ class FakeConversations {
 
     return { modifiedCount: doc ? 1 : 0 }
   }
-  async updateMany(filter: Doc, update: { $set?: Doc; $unset?: Doc }) {
+  async updateMany(filter: Doc, update: Update | Update[]) {
     this.failIf('updateMany')
     for (const doc of this.docs.filter((d) => matches(d, filter))) this.apply(doc, update)
   }
@@ -71,7 +115,7 @@ class FakeConversations {
 
 const conversations = new FakeConversations()
 
-useDb({ db: (() => ({ collection: () => conversations })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection: () => conversations }) })
 
 const archived = (sessionId: string) =>
   Boolean(conversations.docs.find((doc) => doc.sessionId === sessionId)?.archivedAt)
@@ -94,6 +138,32 @@ describe('setConversationArchived', () => {
     expect(archived('unrelated')).toBe(false)
     // A thread never outlives its parent: every token the tree was issued is revoked.
     expect(revokedSessions.at(-1)?.toSorted()).toEqual(['child', 'grandchild', 'root'])
+  })
+
+  // #3470: a question about a thread that was archived waits on nothing.
+  test('withdraws the questions asked about a conversation it archives', async () => {
+    const root = conversations.docs[0]!
+
+    root.inputRequests = [
+      { id: 'about-child', about: ['child'] },
+      { id: 'about-pr', about: ['pr-1'] },
+      { id: 'about-both', about: ['grandchild', 'pr-1'] },
+      { id: 'plain' },
+    ]
+    conversations.docs.push({
+      sessionId: 'teammate-root',
+      userId: 'v',
+      teamId: 't',
+      inputRequests: [{ id: 'theirs', about: ['child'] }],
+    })
+    await setConversationArchived('child', true)
+
+    expect(questions(root).map((question) => question.id)).toEqual([
+      'about-pr',
+      'about-both',
+      'plain',
+    ])
+    expect(questions(conversations.docs.at(-1)!).map((question) => question.id)).toEqual(['theirs'])
   })
 
   test("leaves a teammate's conversation alone", async () => {
@@ -265,5 +335,37 @@ describe('archiving a redundant Bot chat', () => {
     conversations.docs.find((doc) => doc.sessionId === 'shared')!.archivedAt = new Date(0)
     await setConversationArchived('empty', true)
     expect(['empty', 'bot', 'work'].map(archived)).toEqual([true, true, true])
+  })
+})
+
+describe('archiveConversationAs', () => {
+  const doc = (sessionId: string) => conversations.docs.find((d) => d.sessionId === sessionId)!
+  const as = (sessionId: string) => doc(sessionId) as never
+
+  test('the owner archives the conversation with the Tasks below it, then restores it', async () => {
+    expect(await archiveConversationAs(as('root'), 'u', true)).toEqual({ sessionIds: ['root'] })
+    expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
+
+    await archiveConversationAs(as('root'), 'u', false)
+    expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
+  })
+
+  test('someone else in a Task archives it only for themselves', async () => {
+    doc('teammate').participantIds = ['u']
+
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toEqual({
+      sessionIds: ['teammate'],
+    })
+    expect(archived('teammate')).toBe(false)
+    // The fake applies `$set` keys literally, so the dotted path is one key here.
+    expect(doc('teammate')['memberArchivedAt.u']).toBeInstanceOf(Date)
+  })
+
+  test('nobody else archives a Task they are not in, or a group chat', async () => {
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    Object.assign(doc('teammate'), { participantIds: ['u'], kind: 'channel' })
+    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    expect(archived('teammate')).toBe(false)
+    expect(doc('teammate')['memberArchivedAt.u']).toBeUndefined()
   })
 })

@@ -9,6 +9,8 @@ const app = new EventEmitter()
 const browserSession = {}
 /** window-session.ts's flag: set by before-quit, and by an update restart before it. */
 let appQuitting = false
+/** The hand-backs the app reported to the server: route and body. */
+const handBacks: { route: string; body: unknown }[] = []
 const windows: Window[] = []
 let runBrowserCall: typeof RunBrowserCall
 
@@ -122,6 +124,17 @@ before(async () => {
     namedExports: { browserSession: () => browserSession },
   })
   mock.module('../window-session.ts', { namedExports: { isAppQuitting: () => appQuitting } })
+  mock.module('./download-notice.ts', { namedExports: { showDownloadNotice: () => {} } })
+  mock.module('../../agent/http.ts', {
+    namedExports: {
+      callJson: (_method: string, route: string, body: unknown) => {
+        handBacks.push({ route, body })
+
+        return Promise.resolve({ ok: true })
+      },
+      teamQuery: (team?: string) => (team ? `?teamId=${team}` : ''),
+    },
+  })
   ;({ runBrowserCall } = await import('./browser-tabs.ts'))
 })
 
@@ -172,10 +185,10 @@ test("open loads the page in a hidden desktop-sized window on the user's browser
   assert.deepEqual([window.options.width, window.options.height], [1440, 900])
   assert.equal(window.webContents.session, browserSession)
   assert.equal(window.webContents.url, 'https://example.com')
-  // Its first paint shows it once, unseen, then hides it, so the page can be captured yet sleeps.
+  // It is never shown just to be hidden again, which can leave its page never painting (#4305).
   assert.equal(window.opacity, 0)
   window.emit('ready-to-show')
-  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [true, false, 1])
+  assert.deepEqual([window.shownOnce, window.visible, window.opacity], [false, false, 1])
   await tick()
   assert.equal(done, false, 'the page is still loading')
 
@@ -218,6 +231,45 @@ test('show puts the tab on screen, and closing its window hides it again', async
   assert.deepEqual(await listed('show-1'), [page.id])
 })
 
+test('closing a shown window hands the browser back once, and a hidden one never', async () => {
+  const { window, page } = await opened('hand-back-1')
+
+  handBacks.length = 0
+  // Only a window on screen is one the person can close; any other close is no hand-back.
+  window.close()
+  assert.deepEqual(handBacks, [])
+  await runBrowserCall({ action: 'show', team: 't1', session: 'hand-back-1', tab: page.id })
+  assert.deepEqual(handBacks, [])
+  window.close()
+  window.close()
+  assert.deepEqual(handBacks, [
+    {
+      route: '/agent/conversations/hand-back-1/browser/hand-back?teamId=t1',
+      body: { tab: page.id },
+    },
+  ])
+})
+
+test("the agent's own close and an app quit hand nothing back", async () => {
+  const closed = await opened('hand-back-2')
+  const quitting = await opened('hand-back-3')
+
+  handBacks.length = 0
+  await runBrowserCall({
+    action: 'close',
+    team: 't1',
+    session: 'hand-back-2',
+    tab: closed.page.id,
+  })
+  appQuitting = true
+  try {
+    quitting.window.close()
+  } finally {
+    appQuitting = false
+  }
+  assert.deepEqual(handBacks, [])
+})
+
 test("a hidden tab's popup is the conversation's tab too: unseen, driven, and shown with its tab", async () => {
   const { window, page } = await opened('popup-1')
   // webview-guard.ts opens a hidden tab's popup hidden and transparent.
@@ -227,7 +279,7 @@ test("a hidden tab's popup is the conversation's tab too: unseen, driven, and sh
   assert.deepEqual(await listed('popup-1'), [page.id, popup.webContents.id])
   // Its first paint stays unseen too, so the agent can capture and drive the sign-in page.
   popup.emit('ready-to-show')
-  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [true, false, 1])
+  assert.deepEqual([popup.shownOnce, popup.visible, popup.opacity], [false, false, 1])
   popup.webContents.script = Promise.resolve('signed in')
   const result = await runBrowserCall({
     action: 'eval',
@@ -302,13 +354,35 @@ test('eval settles when its script navigates the tab to a new document', async (
   })
 
   await tick()
+  page.emit('did-navigate', {}, 'https://example.com/edit')
+  // The stream turns a rejected call into an error result for the agent.
+  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+})
+
+test('eval still answers when its click starts a download instead of a new page (#3299)', async () => {
+  const { page } = await opened()
+  let answer = (_value: unknown) => {}
+
+  page.script = new Promise((resolve) => {
+    answer = resolve
+  })
+  const result = runBrowserCall({
+    action: 'eval',
+    team: 't1',
+    session: 's1',
+    tab: page.id,
+    script: 'clickDownloadLink()',
+  })
+
+  await tick()
+  // Chromium starts a navigation for the link, then turns it into a download: no commit.
   page.emit('did-start-navigation', {
-    url: 'https://example.com/edit',
+    url: 'https://example.com/file',
     isMainFrame: true,
     isSameDocument: false,
   })
-  // The stream turns a rejected call into an error result for the agent.
-  await assert.rejects(result, /navigated to https:\/\/example\.com\/edit/)
+  answer('clicked')
+  assert.equal(textOf(await result), 'clicked')
 })
 
 test('eval keeps waiting through a client-side route change', async () => {

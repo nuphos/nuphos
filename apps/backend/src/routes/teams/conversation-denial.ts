@@ -41,6 +41,7 @@ const DOMAIN_COLLECTIONS = new Set([
   'architecture-diagrams',
   'designs',
   'agent-triggers',
+  'agent-reminders',
   'knowledge',
   'instructions',
   'database-connections',

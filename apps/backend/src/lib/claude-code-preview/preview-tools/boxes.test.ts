@@ -2,6 +2,7 @@ import { ObjectId } from 'mongodb'
 import { afterEach, beforeEach, expect, test } from 'bun:test'
 
 import { deviceAccessDeps } from '@/lib/agent/devices/box-access'
+import { AppError } from '@/lib/errors'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useAgentDevicePresence } from '@/lib/test/doubles/agent-devices-presence'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
@@ -60,6 +61,16 @@ useAgentDeviceStore({
   getAgentDevice: (_u: string, id: string) =>
     Promise.resolve(devices.find((d) => d.deviceId === id) ?? null),
   listTeamBoxes: () => Promise.resolve(devices),
+  revokeAgentDeviceCredential: (_u: string, id: string) => {
+    calls.push(['revoke', id])
+
+    return Promise.resolve(false)
+  },
+  deleteAgentDevice: (_u: string, id: string) => {
+    calls.push(['remove', id])
+
+    return Promise.resolve(true)
+  },
 })
 useAgentDevicePresence({
   isDevicePresent: () => Promise.resolve(true),
@@ -76,6 +87,13 @@ useBoxInstabox({
     calls.push(['pause', id])
 
     return Promise.resolve(box(id))
+  },
+  destroyBox: (_u: string, id: string) => {
+    calls.push(['destroy', id])
+
+    return Promise.reject(
+      new AppError(409, 'box_busy', 'The computer is still pausing. Try again in a minute.'),
+    )
   },
 })
 
@@ -143,6 +161,18 @@ test('a Box on the deployment’s account is out of reach', async () => {
   expect(refused.isError).toBe(true)
   await handlers().update_box!({ label: 'Stop', deviceId: 'team-box', action: 'stop' })
   expect(calls).toEqual([['pause', 'team-box']])
+})
+
+test('deleting a Box whose machine is still pausing keeps it usable', async () => {
+  const result = await handlers().update_box!({
+    label: 'Delete',
+    deviceId: 'team-box',
+    action: 'delete',
+  })
+
+  expect(result.isError).toBe(true)
+  // Nothing is revoked or removed, so its host keeps its credential and a later delete finds it.
+  expect(calls).toEqual([['destroy', 'team-box']])
 })
 
 test('a conversation that selected instabox accounts reaches only those', async () => {

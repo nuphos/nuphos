@@ -1,6 +1,8 @@
 import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
 import { getActiveAgentRunForSession, requestAgentRunCancellation } from '@/lib/agent/run-store'
 import { sessionReleased } from '@/lib/agent/session-released'
+import { abandonPendingPreviewWaits } from '@/lib/claude-code-preview/decision-waiter'
+import { OpenAbConnectError } from '@/lib/claude-code-preview/openab-acp-connect'
 import { cancelConversationRuntime } from '@/lib/claude-code-preview/session-execution-state'
 import { leaveMeeting } from '@/lib/meetings/recall'
 import { logError } from '@/lib/observability'
@@ -42,8 +44,12 @@ export async function cancelSessionRun(userId: string, sessionId: string): Promi
  * A conversation's Stop. It ends what a waiting message is behind: the
  * runtime's turn, and a run the backend still holds for the session, which a
  * dropped runtime connection can leave without the other. Then the queue goes.
+ * A runtime that does not answer cannot be reached by anyone, so its turn
+ * ends here: nothing stays parked on its cards.
  */
-export async function stopConversationTurn(conversation: AgentConversation): Promise<void> {
+export async function stopConversationTurn(
+  conversation: AgentConversation,
+): Promise<'requested' | 'runtime_unreachable'> {
   const { userId, sessionId } = conversation
 
   // The call's next sentence would start the turn again, so its bot leaves.
@@ -56,8 +62,19 @@ export async function stopConversationTurn(conversation: AgentConversation): Pro
 
   try {
     await cancelConversationRuntime(conversation)
+
+    return 'requested'
   } catch (error) {
+    if (error instanceof OpenAbConnectError) {
+      await abandonPendingPreviewWaits({ userId, sessionId, reason: 'turn_cancelled' }).catch(
+        () => undefined,
+      )
+
+      return 'runtime_unreachable'
+    }
     if (!runStopped) throw error
+
+    return 'requested'
   } finally {
     sessionReleased(userId, sessionId)
   }

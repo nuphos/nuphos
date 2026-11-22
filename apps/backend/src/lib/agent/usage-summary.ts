@@ -1,7 +1,10 @@
+import { canSeeConversationName } from '@/lib/agent/conversation-visibility'
 import { agentConversations } from '@/lib/agent/db'
 import { providerCostUsd } from '@/lib/agent/model-pricing'
 import { agentTokenUsage } from '@/lib/agent/token-usage'
 import { KIND_TOKEN_SUMS } from '@/lib/agent/usage-aggregation'
+
+import type { NuphosTeamRole } from '@/lib/identity/types'
 
 // One member's spend on a single day.
 export type MemberDayUsage = {
@@ -19,7 +22,8 @@ export type DailyUsagePoint = {
 // A single conversation's spend within a range (for the "by session" list).
 export type SessionUsage = {
   sessionId: string
-  title: string
+  /** Null where the viewer may not see it: another member's, to anyone but an administrator. */
+  title: string | null
   userId: string
   costUsd: number
   totalTokens: number
@@ -103,7 +107,12 @@ function topSessions(rows: UsageGroupRow[]): Omit<SessionUsage, 'title'>[] {
     .slice(0, TOP_SESSIONS)
 }
 
-export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSeries> {
+/** Every member sees the whole team's usage; `canSeeConversationName` decides which titles. */
+export async function getTeamUsageSeries(
+  teamId: string,
+  viewer: { userId: string; teamRole: NuphosTeamRole },
+): Promise<TeamUsageSeries> {
+  const scope = { teamId }
   const ranges = {
     '7d': utcDayStart(6),
     '14d': utcDayStart(13),
@@ -118,7 +127,7 @@ export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSerie
   // Daily per-member series (chart) — one aggregation.
   const dailyRows = await agentTokenUsage()
     .aggregate<UsageGroupRow>([
-      { $match: { teamId, createdAt: { $gte: since } } },
+      { $match: { ...scope, createdAt: { $gte: since } } },
       {
         $group: {
           _id: {
@@ -202,7 +211,7 @@ export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSerie
   ]
   const [facet] = await agentTokenUsage()
     .aggregate<Record<keyof SessionsByRange, UsageGroupRow[]>>([
-      { $match: { teamId, createdAt: { $gte: since } } },
+      { $match: { ...scope, createdAt: { $gte: since } } },
       {
         $facet: {
           '7d': sessionPipeline(ranges['7d']),
@@ -225,23 +234,28 @@ export async function getTeamUsageSeries(teamId: string): Promise<TeamUsageSerie
   const sessionIds = Array.from(
     new Set(Object.values(topByRange).flatMap((list) => list.map((s) => s.sessionId))),
   )
-  const titleById = new Map<string, string>()
+  const titleById = new Map<string, string | null>()
 
   if (sessionIds.length > 0) {
     const convs = await agentConversations()
       .find(
-        { sessionId: { $in: sessionIds } },
-        { projection: { sessionId: 1, title: 1, firstMessage: 1 } },
+        { teamId, sessionId: { $in: sessionIds } },
+        { projection: { sessionId: 1, title: 1, firstMessage: 1, userId: 1, generalAccess: 1 } },
       )
       .toArray()
 
     for (const conv of convs) {
-      titleById.set(conv.sessionId, conv.title || conv.firstMessage || 'Untitled chat')
+      const title = conv.title || conv.firstMessage || 'Untitled chat'
+
+      titleById.set(conv.sessionId, canSeeConversationName(conv, viewer) ? title : null)
     }
   }
 
   const withTitles = (list: Omit<SessionUsage, 'title'>[]): SessionUsage[] =>
-    list.map((s) => ({ ...s, title: titleById.get(s.sessionId) ?? 'Untitled chat' }))
+    list.map((s) => ({
+      ...s,
+      title: titleById.has(s.sessionId) ? (titleById.get(s.sessionId) ?? null) : 'Untitled chat',
+    }))
 
   return {
     days,

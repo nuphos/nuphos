@@ -4,21 +4,18 @@ import { z } from 'zod'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { isLocalRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { boxUpdateStatus } from '@/lib/claude-code-preview/box-update'
-import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-catalog'
+import { localRuntimeStatus } from '@/lib/claude-code-preview/local-runtime-report'
 import { isAllowedRemoteOpenAbUrl } from '@/lib/claude-code-preview/runtime-backend-url'
 import {
   listRuntimeInstances,
-  MANAGED_RUNTIME_RETIRED,
   requireRuntimeInstance,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
-import { requestRuntimeDeletion } from '@/lib/claude-code-preview/runtime-deletion'
 import {
   deviceMetricsRuntimeId,
   listRuntimeMetricSamples,
 } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
-import { assertRuntimeNotDeleting } from '@/lib/claude-code-preview/runtime-portability-store'
 import { probeExternalRuntimeProvider } from '@/lib/claude-code-preview/runtime-provider-probe'
 import {
   removeTeamRuntime,
@@ -44,7 +41,6 @@ import { registerRuntimeDesktopRoutes } from './runtime-desktop'
 import { registerRuntimeFileRoutes } from './runtime-files'
 import { registerRuntimeQuotaRoutes } from './runtime-quota'
 
-import type { RuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 import type { TeamAuthVariables } from '@/middleware/auth'
 import type { Context, Hono } from 'hono'
 
@@ -77,12 +73,6 @@ function teamRuntimeId(runtimeId: string): string {
     )
 
   return runtimeId
-}
-
-/** Nuphos-hosted runtimes are retired (#2401): their routes say so instead of failing later. */
-function assertNotRetired(instance: RuntimeInstance) {
-  if (instance.kind === 'managed')
-    throw new AppError(410, 'managed_runtime_retired', MANAGED_RUNTIME_RETIRED)
 }
 
 export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
@@ -133,13 +123,13 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     '/agent-runtimes/:runtimeId/model-config',
     zv('query', sessionConfigPickSchema),
     async (c) => {
-      const { options } = await offeredSessionConfig(
+      const { options, reason } = await offeredSessionConfig(
         (model) =>
           runtimeModelCatalog(c.get('teamId'), c.req.param('runtimeId'), model, c.get('userId')),
         c.req.valid('query'),
       )
 
-      return c.json({ status: 'dormant', options })
+      return c.json({ status: 'dormant', options, ...(reason ? { reason } : {}) })
     },
   )
   teamScoped.get(
@@ -172,7 +162,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       c.get('userId'),
     )
 
-    assertNotRetired(instance)
     if (instance.kind === 'local') {
       const runtimeUpdate = await boxUpdateStatus(instance.id)
       const status = await localRuntimeStatus(instance.id)
@@ -195,8 +184,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         c.req.param('runtimeId'),
         c.get('userId'),
       )
-
-      assertNotRetired(instance)
 
       return c.json(await requestRuntimeUpdate(c.get('teamId'), instance, c.get('userId')), 202)
     },
@@ -227,7 +214,7 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
     throw new AppError(
       410,
       'managed_runtime_retired',
-      'Managed runtimes are being retired. Add a Nuphos Box or connect your own computer instead.',
+      'Managed runtimes are being retired. Add a computer from Nuphos or connect your own computer instead.',
     )
   })
   teamScoped.patch(
@@ -239,8 +226,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
       const instance = await requireRuntimeInstance(teamId, teamRuntimeId(c.req.param('runtimeId')))
       const patch = c.req.valid('json')
 
-      assertNotRetired(instance)
-      await assertRuntimeNotDeleting(teamId, instance.id)
       if (
         instance.kind === 'development' &&
         (patch.label !== undefined || patch.status !== undefined)
@@ -269,11 +254,6 @@ export function registerAgentRuntimeRoutes(teamScoped: Hono<{ Variables: TeamAut
         'invalid_request',
         'Manage this agent in the local development configuration',
       )
-    if (instance.kind === 'managed') {
-      await requestRuntimeDeletion(teamId, instance, c.get('userId'))
-
-      return c.json({ status: 'deleting' }, 202)
-    }
     await removeTeamRuntime(teamId, instance.id)
 
     return c.body(null, 204)

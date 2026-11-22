@@ -34,16 +34,6 @@ use crate::transcript::{self as tx, is_tool, is_tool_settled, part_type, parts, 
 /// Alternate scroll mode: in the alternate screen, the wheel arrives as ↑/↓.
 const ALTERNATE_SCROLL_ON: &str = "\x1b[?1007h";
 const ALTERNATE_SCROLL_OFF: &str = "\x1b[?1007l";
-/// The Nuphos mark (apps/desktop/public/logo.svg) in braille, 14×7.
-const LOGO: [&str; 7] = [
-    "⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⠀⠀⠀⠀",
-    "⠀⢀⣴⣶⣶⣶⣤⡀⠈⠻⣷⣄⠀⠀",
-    "⣰⣿⠋⠁⠀⠉⠻⣿⣦⡀⠈⠻⣷⣄",
-    "⣿⣇⠀⠠⣾⣦⡀⠈⠻⡿⠂⠀⢹⣿",
-    "⠙⢿⣦⡀⠈⠻⣿⣦⡀⠀⢀⣠⣿⠏",
-    "⠀⠀⠙⢿⣦⡀⠈⠛⠿⠿⠿⠛⠁⠀",
-    "⠀⠀⠀⠀⠉⠀⠀⠀⠀⠀⠀⠀⠀⠀",
-];
 const TIPS: [&str; 4] = [
     "Press ctrl+\\ to jump between your tasks.",
     "A reply keeps running on the server when you quit; `nuphos resume` picks it up.",
@@ -612,7 +602,7 @@ impl App {
         self.is_new && self.messages.is_empty() && self.input.is_empty() && self.picker.is_none() && self.ask.is_none()
     }
 
-    /// Grok Build's home: the mark and the shortcuts in a box a third of the
+    /// Grok Build's home: the name and the shortcuts in a box a third of the
     /// way down, a tip above the composer, and the endpoint in the corner.
     fn draw_welcome(&mut self, f: &mut Frame, area: Rect) {
         let bold = Style::default().add_modifier(Modifier::BOLD);
@@ -624,10 +614,7 @@ impl App {
             ("Quit", "ctrl+c"),
         ];
         let width = area.width.saturating_sub(4).min(120);
-        // The mark goes when the box gets narrow; the menu needs the room.
-        let mark = if width >= 70 { LOGO.len() as u16 } else { 0 };
-        let mark_width = if mark > 0 { LOGO[0].chars().count() as u16 + 4 } else { 0 };
-        let text_width = width.saturating_sub(mark_width + 6) as usize;
+        let text_width = width.saturating_sub(6) as usize;
         let headline = match &self.update {
             Some(update) => Span::styled(
                 update.clone(),
@@ -653,7 +640,7 @@ impl App {
                 Span::styled(key, dim()),
             ]));
         }
-        let box_height = (text.len() as u16).max(mark) + 4;
+        let box_height = text.len() as u16 + 4;
 
         let [top, rest] = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).areas(area);
         f.render_widget(Span::styled(self.team_label(), dim()), top);
@@ -665,10 +652,7 @@ impl App {
             let block = Block::bordered().border_type(BorderType::Rounded).border_style(dim());
             let inner = block.inner(hero).inner(Margin { horizontal: 2, vertical: 1 });
             f.render_widget(block, hero);
-            let [logo, body] = Layout::horizontal([Constraint::Length(mark_width), Constraint::Min(0)]).areas(inner);
-            let gray = Style::default().fg(Color::Gray).add_modifier(Modifier::DIM);
-            f.render_widget(Paragraph::new(LOGO.map(|l| Line::from(Span::styled(l, gray))).to_vec()), logo);
-            f.render_widget(Paragraph::new(text), body);
+            f.render_widget(Paragraph::new(text), inner);
         }
 
         let [_, tip, _, composer, _, footer] = Layout::vertical([

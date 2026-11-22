@@ -38,7 +38,7 @@ export async function removeDefaultAgent(
   refresh: RefreshDefault | undefined,
 ): Promise<unknown> {
   if (!deps.ownsMachine || !refresh)
-    throw new Error('Only a cloud computer removes its default runtimes')
+    throw new Error('Only a computer from Nuphos removes its default runtimes')
   const agent = deletableProvider(provider)
 
   deleteDefaultLogin(agent, userDir(deps.dataDir(), userId), await deps.userEnv())
@@ -60,7 +60,7 @@ async function resetDefaultAgent(
   stop: StopDefault | undefined,
 ): Promise<unknown> {
   if (!deps.ownsMachine || !refresh || !stop)
-    throw new Error('Only a cloud computer resets its default runtimes')
+    throw new Error('Only a computer from Nuphos resets its default runtimes')
   const agent = deletableProvider(provider)
   const env = await deps.userEnv()
 

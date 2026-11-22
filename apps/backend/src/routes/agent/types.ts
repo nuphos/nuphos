@@ -64,6 +64,8 @@ export type InternalChatCtx = {
   currentUrl: string | null
   localToolsEnabled: boolean
   secretCardEnabled?: boolean
+  /** The app that sent the turn (requestClient), for the record of settings it picks. */
+  client?: string
   // Kubeconfig context the desktop's current workspace tab is bound to (sent
   // via X-Atlas-Kube-Context). Plumbed into the system prompt so the agent
   // knows which `context` to pass to typed K8s tools like port_forward_start
@@ -104,6 +106,10 @@ export type AgentRun = {
   /** Every message the turn started with was a channel's wake-up notice. */
   channelWoken?: boolean
   frames: string[]
+  /** The last runtime snapshot this run carried, to drop an unchanged repeat. */
+  lastRuntimeSnapshot?: string
+  /** The slash commands a snapshot last carried; later ones leave unchanged ones out. */
+  lastRuntimeCommands?: string
   done: boolean
   // Latest finishReason observed from streamText's onFinish. Stays undefined
   // when the run aborts/errors before onFinish fires, which is exactly the

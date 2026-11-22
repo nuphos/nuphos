@@ -5,6 +5,7 @@ import { app, BrowserWindow, session } from 'electron'
 
 import { guardBrowserDownloads } from './browser-downloads.ts'
 import { CHANGELOG_PAGE_PREFIX } from './changelog-feed.ts'
+import { saveAgentDownload } from './local-runtime/agent-downloads.ts'
 import { openExternal } from './open-external.ts'
 
 function isHttp(url: string) {
@@ -59,7 +60,8 @@ export function initWebviewGuard() {
   browserSession.setPermissionCheckHandler(() => false)
   browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
   browserSession.setDevicePermissionHandler(() => false)
-  guardBrowserDownloads(browserSession)
+  const trackDownloads = guardBrowserDownloads(browserSession, saveAgentDownload)
+
   // Sites that remember a trusted browser (Apple ID) bind it to the user agent, so drop the
   // app and Electron tokens that change with every release and present plain Chrome.
   browserSession.setUserAgent(
@@ -100,6 +102,8 @@ export function initWebviewGuard() {
 
     // Session identity remains stable during redirects and failed navigation.
     const browser = contents.session === browserSession
+
+    if (browser) trackDownloads(contents)
     // Extension popups and pages are windows of their own in the user's session; Dock tabs never
     // show extension pages.
     const extensionHost = contents.session === browserSession && contents.getType() !== 'webview'

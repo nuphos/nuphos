@@ -56,7 +56,10 @@ function fail(error) {
 
   // stdout is capped by the runtime job. stderr is intentionally left for
   // interactive runner debugging only and is discarded by production exec.
-  process.stdout.write(ERROR_SENTINEL + JSON.stringify({ message: diagnostic }) + '\n')
+  const notConnected = typeof error?.notConnected === 'string' ? error.notConnected : undefined
+  const envelope = JSON.stringify({ message: diagnostic, notConnected })
+
+  process.stdout.write(ERROR_SENTINEL + envelope + '\n')
   process.stderr.write(diagnostic + '\n')
   process.exit(1)
 }
@@ -66,6 +69,35 @@ if (!runDir) fail('panel-runner: missing run directory argument')
 
 const backendUrl = (process.env.NUPHOS_BACKEND_URL || '').replace(/\/$/, '')
 const token = process.env.NUPHOS_TOKEN || ''
+
+// A route answers `<integration>_not_bound` when the integration it reads is no
+// longer connected to the team (or not selected for this panel). Its name, as a
+// person would say it, lets the panel say what to reconnect.
+const BRANDS = {
+  github: 'GitHub',
+  gitlab: 'GitLab',
+  posthog: 'PostHog',
+  sonarqube: 'SonarQube',
+  betterstack: 'Better Stack',
+  uptime_kuma: 'Uptime Kuma',
+}
+const CLOUD = {
+  account: 'AWS account',
+  role: 'AWS role',
+  project: 'GCP project',
+  service_account: 'GCP service account',
+}
+
+function notConnectedName(code) {
+  const key = /^([a-z][a-z_]*)_not_bound$/.exec(typeof code === 'string' ? code : '')?.[1]
+
+  if (!key) return undefined
+  if (CLOUD[key]) return CLOUD[key]
+  const brand = Object.keys(BRANDS).find((name) => key === name || key.startsWith(`${name}_`))
+  const rest = key.slice(brand ? brand.length : 1).replace(/_/g, ' ')
+
+  return (brand ? BRANDS[brand] : key[0].toUpperCase()) + rest
+}
 
 // Thin, GET-only Nuphos client restricted to this dashboard's team and the
 // configured backend origin. Selected credentials stay reachable so panels can
@@ -99,7 +131,10 @@ async function request(path) {
   }
   if (!res.ok) {
     const detail = typeof parsed === 'string' ? parsed : JSON.stringify(parsed)
-    throw new Error(`nuphos GET ${path} failed: ${res.status} ${detail}`)
+    const error = new Error(`nuphos GET ${path} failed: ${res.status} ${detail}`)
+
+    error.notConnected = notConnectedName(parsed?.error?.code)
+    throw error
   }
   return parsed
 }
