@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client'
 
 const toasts: string[] = []
 let tabRefresh = () => Promise.resolve()
+const refreshErrors: (Error | null)[] = []
 const silentRefresh = { useSilentTick: (_fn: () => void, _tick: number) => undefined as void }
 
 mock.module('../components/ui/toast.ts', {
@@ -16,11 +17,20 @@ mock.module('../components/ui/toast.ts', {
 mock.module('../lib/frontendErrorReporter.ts', { namedExports: { reportFrontendError: () => {} } })
 mock.module('../lib/query/tabQuery.ts', {
   namedExports: {
-    useRefreshKey: (query: { refetch: () => Promise<unknown> }, refreshKey: number) => {
+    // The real hook's contract: `refetch` resolves to the read's `error`, which it reads off.
+    useRefreshKey: (
+      query: { refetch: () => Promise<{ error: Error | null }> },
+      refreshKey: number,
+    ) => {
       tabRefresh = async () => {
-        await query.refetch()
+        const { error } = await query.refetch()
+
+        refreshErrors.push(error)
       }
-      silentRefresh.useSilentTick(() => void query.refetch(), refreshKey)
+      silentRefresh.useSilentTick(
+        () => void query.refetch().then(({ error }) => refreshErrors.push(error)),
+        refreshKey,
+      )
     },
   },
 })
@@ -112,8 +122,10 @@ test('a failed background read keeps the rows quietly; the tab refresh says it f
 
   assert.deepEqual(shown[0].at(-1), { items: ['old'], loading: false, error: null })
   assert.deepEqual(toasts, [])
+  refreshErrors.length = 0
   await act(() => tabRefresh())
   assert.deepEqual(toasts, ['Could not refresh — showing cached data'])
+  assert.deepEqual(refreshErrors, [refusal])
   assert.deepEqual(shown[0].at(-1)?.items, ['old'])
   await unmount()
 })

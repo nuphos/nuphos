@@ -91,11 +91,13 @@ export function useResourceList<T>(
   // A poll that fails stays quiet; only the tab's refresh says it could not refresh. A refresh that
   // comes with a new list joins the read the new list started instead of starting it over.
   const refresh = async () => {
-    if (!enabled) return
+    if (!enabled) return { error: null }
     const result = await query.refetch({ cancelRefetch: shownKeyRef.current === listKey })
 
     if (result.isError && result.data?.length)
       toast.apiError(t('Could not refresh — showing cached data'), result.error)
+
+    return result
   }
 
   useRefreshKey({ isPending: loading, refetch: refresh }, refreshKey, onLoading)
