@@ -162,7 +162,7 @@ class AgentStore(
             val starting = if (catalog?.isEmpty() != true) null else try {
                 val devices = ai.nuphos.android.data.AgentRuntimeApi(token, team.id).devices(metrics = false)
                 ai.nuphos.android.data.ComputerPresence.starting(devices)?.label
-            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { startingBox }
             if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
                 workspaceRevision == workspace && generation == runtimesGeneration) {
                 hasRuntimes = catalog.isNotEmpty()
