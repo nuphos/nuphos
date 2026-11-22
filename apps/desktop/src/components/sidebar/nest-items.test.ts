@@ -65,59 +65,30 @@ const threads = [
   { key: 'last', parentKey: 'parent', finished: true },
 ]
 
-test('finished children leave the list', () => {
+test('finished children stay under their parent', () => {
   const rows = nestItems(threads)
-
-  assert.deepEqual(
-    rows.map(({ item }) => item.key),
-    ['parent', 'running'],
-  )
-  // The guide stops at the last listed child, not at a finished one.
-  assert.deepEqual(rows[1]?.trail, [false])
-})
-
-test('a parent whose children all finished has none to fold', () => {
-  const rows = nestItems(
-    threads.filter((item) => item.key !== 'running'),
-    () => true,
-  )
-
-  assert.deepEqual(
-    rows.map(({ item, hasChildren, hidden }) => [item.key, hasChildren, hidden.length]),
-    [['parent', false, 0]],
-  )
-})
-
-test('a folded parent hides only the children still listed', () => {
-  const rows = nestItems(threads, (key) => key === 'parent')
-
-  assert.deepEqual(
-    rows[0]?.hidden.map((item) => item.key),
-    ['running'],
-  )
-})
-
-test('a finished child stays while one of its own children still shows', () => {
-  const rows = nestItems([
-    { key: 'parent' },
-    { key: 'child', parentKey: 'parent', finished: true },
-    { key: 'grandchild', parentKey: 'child' },
-    { key: 'quiet', parentKey: 'child', finished: true },
-  ])
 
   assert.deepEqual(
     rows.map(({ item, depth }) => [item.key, depth]),
     [
       ['parent', 0],
-      ['child', 1],
-      ['grandchild', 2],
+      ['running', 1],
+      ['finished', 1],
+      ['last', 1],
     ],
   )
+  assert.deepEqual(rows[3]?.trail, [false])
 })
 
-test('a finished row without a listed parent stays at the top level', () => {
+test('a parent whose children all finished can still fold them', () => {
+  const allFinished = threads.filter((item) => item.key !== 'running')
+
   assert.deepEqual(
-    nestItems([{ key: 'thread', parentKey: 'pinned', finished: true }]).map(({ item }) => item.key),
-    ['thread'],
+    nestItems(allFinished, () => true).map(({ item, hasChildren, hidden }) => [
+      item.key,
+      hasChildren,
+      hidden.map((kid) => kid.key),
+    ]),
+    [['parent', true, ['finished', 'last']]],
   )
 })

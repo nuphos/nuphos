@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { nestItems } from './nest-items.ts'
 import { threadFoldsAway } from './thread-status.ts'
 
 import type { AgentInputRequest } from '../../api/agent-types.ts'
@@ -39,23 +38,4 @@ test('a failed run stays listed and a run the user stopped folds', () => {
     false,
   )
   assert.equal(threadFoldsAway({ ...base, runtimeState: { ...idle, phase: 'stopped' } }), true)
-})
-
-/** The rows a parent and its one thread produce for a given runtime state. */
-function rows(runtimeState: RuntimeExecution) {
-  return nestItems([
-    { key: 'parent' },
-    { key: 'thread', parentKey: 'parent', finished: threadFoldsAway({ ...base, runtimeState }) },
-  ])
-}
-
-test('a counted thread is listed again once a newer state says it runs', () => {
-  assert.deepEqual(
-    rows(idle).map(({ item }) => item.key),
-    ['parent'],
-  )
-  assert.deepEqual(
-    rows(turn).map(({ item }) => item.key),
-    ['parent', 'thread'],
-  )
 })
