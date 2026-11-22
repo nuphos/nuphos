@@ -220,6 +220,37 @@ final class HomeTabsUITests: XCTestCase {
         shot("new-task-submitted")
     }
 
+    /// On a wide window, as on an unfolded iPhone Duo or an iPad, Create, Computers and
+    /// Account stay in the toolbar and open in one tap; iOS 27 must not fold them into "More" (#3433).
+    func testWideHomeToolbarKeepsActionsOutOfMore() throws {
+        continueAfterFailure = false
+        let app = XCUIApplication()
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .appending(path: "tests/fixtures/channel-responses.json")
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-AppleInterfaceStyle", "Light"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
+        app.launch()
+        XCTAssertTrue(app.tabBars.firstMatch.waitForExistence(timeout: 10))
+        guard app.windows.firstMatch.horizontalSizeClass == .regular else {
+            throw XCTSkip("The wide toolbar shows only on a regular-width window")
+        }
+        let create = app.buttons["Create"], computers = app.buttons["Computers & runtimes"], account = app.buttons["Account"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        for action in [create, computers, account] {
+            XCTAssertTrue(action.isHittable, "\(action) folded out of the toolbar")
+        }
+        XCTAssertFalse(app.buttons["TopOverflowBarButtonItem"].exists, "The toolbar folded actions into More")
+        shot("wide-toolbar")
+        computers.tap()
+        XCTAssertTrue(app.navigationBars["Computers & runtimes"].waitForExistence(timeout: 5))
+        app.buttons["Close workspace"].tap()
+        account.tap()
+        XCTAssertTrue(app.buttons["Connectors"].waitForExistence(timeout: 5))
+        app.buttons["Close account"].tap()
+        create.tap()
+        XCTAssertTrue(app.buttons["New Task"].waitForExistence(timeout: 5))
+    }
+
     private func shot(_ name: String) {
         let capture = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         capture.name = name
