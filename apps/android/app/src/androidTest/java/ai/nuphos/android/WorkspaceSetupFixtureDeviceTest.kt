@@ -275,6 +275,17 @@ class WorkspaceSetupFixtureDeviceTest {
         compose.onNodeWithText("Set up a workspace").performClick()
         waitText("Workspace name"); waitText("Join Fixture Beta")
     }
+    @Test fun homeSheetOpensFullyExpandedAndClosesAfterCreate() {
+        renderHome(emptyList())
+        compose.onNodeWithText("Set up a workspace").performClick()
+        waitText("Join Fixture Beta")
+        // Fully expanded, so the last control is on screen without dragging the sheet up.
+        compose.onNodeWithText("Close").assertIsDisplayed()
+        create()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Workspace name").fetchSemanticsNodes().isEmpty() }
+        compose.runOnIdle { assertEquals(a, agent.selectedTeam) }
+        assertEquals(1, posts())
+    }
     @Test fun activityRecreationWithFailedReadKeepsUncertainWriteBlocked() {
         release = CountDownLatch(1); renderHome(emptyList())
         compose.runOnIdle {
