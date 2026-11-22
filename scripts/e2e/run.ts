@@ -90,6 +90,47 @@ import { webhookSecretScenarios } from './webhook-secret-scenarios.ts'
 import type { Desktop } from './desktop.ts'
 import type { Scenario } from './ui.ts'
 
+// The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
+// Later scenarios in both the first part and the Bot chats need this Bot.
+const createBotScenario: Scenario = {
+  name: 'create a Bot, talk to it in its chat, and answer its question there',
+  run: async (page, stack) => {
+    await page.getByRole('button', { name: 'New Bot', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
+    await page.getByRole('button', { name: 'Create', exact: true }).click()
+    // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
+    // The fixture's missing marker proves the turn did not originate from a delivery prompt.
+    await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+    await until('the unprompted Bot introduction to finish', async () =>
+      agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
+    )
+    await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
+    await send(
+      page,
+      'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
+    )
+    await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+    await checkDecisionOutline(page)
+    await checkOutgoingChip(page)
+    await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
+    await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
+    await until('the answer in the Bot chat to reach the Bot', async () =>
+      agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
+    )
+  },
+}
+
+// One run of scenarios in the chat of the Bot created above, each picking up where the one
+// before left it. CI runs them on a runner of their own (E2E_SHARD=bots).
+const botChatScenarios: Scenario[] = [
+  { name: 'a reply and low disk warning remain visible together', run: replyDiskScenario },
+  ...botUnreadScenarios,
+  ...channelScenarios,
+  ...botWorkingDotsScenarios,
+  ...channelAwayScenarios,
+  ...channelRestartScenarios,
+]
+
 const scenarios: Scenario[] = [
   ...signInScenarios,
   ...sidebarScenarios,
@@ -109,40 +150,8 @@ const scenarios: Scenario[] = [
       await page.getByRole('tab', { name: 'Bots' }).click()
     },
   },
-  {
-    // The flow #2412 was reported in: a Bot's credential question with choices, answered in its chat.
-    name: 'create a Bot, talk to it in its chat, and answer its question there',
-    run: async (page, stack) => {
-      await page.getByRole('button', { name: 'New Bot', exact: true }).click()
-      await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')
-      await page.getByRole('button', { name: 'Create', exact: true }).click()
-      // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
-      // The fixture's missing marker proves the turn did not originate from a delivery prompt.
-      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
-      await until('the unprompted Bot introduction to finish', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
-      )
-      await page.screenshot({ path: `${artifacts}/bot-first-reply.png` })
-      await send(
-        page,
-        'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
-      )
-      await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
-      await checkDecisionOutline(page)
-      await checkOutgoingChip(page)
-      await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).click()
-      await until('the answer in the Bot chat to reach the Bot', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-      )
-    },
-  },
-  { name: 'a reply and low disk warning remain visible together', run: replyDiskScenario },
-  ...botUnreadScenarios,
-  ...channelScenarios,
-  ...botWorkingDotsScenarios,
-  ...channelAwayScenarios,
-  ...channelRestartScenarios,
+  createBotScenario,
+  ...botChatScenarios,
   ...mcpDefaultsScenarios,
   ...mcpCredentialDefaultsScenarios,
   ...teammateBotScenarios,
@@ -206,8 +215,9 @@ const scenarios: Scenario[] = [
   runEndTraceScenario,
 ]
 
-// CI runs the two halves on two runners (#4471); the second signs in again on its own stack.
-// A scenario that needs something created earlier in the run stays in its creator's half.
+// CI runs three parts on three runners (#4471, #4445): the first part without the Bot chats,
+// the Bot chats, and these. Each after the first signs in again on its own stack.
+// A scenario that needs something created earlier in the run stays in its creator's part.
 const later: Scenario[] = [
   ...computerScenarios,
   ...computerUpdateScenarios,
@@ -247,10 +257,12 @@ const later: Scenario[] = [
 const shard = process.env.E2E_SHARD
 const selected =
   shard === '1'
-    ? scenarios
+    ? scenarios.filter((scenario) => !botChatScenarios.includes(scenario))
     : shard === '2'
       ? [...signInScenarios, ...later]
-      : [...scenarios, ...later]
+      : shard === 'bots'
+        ? [...signInScenarios, createBotScenario, ...botChatScenarios, runEndTraceScenario]
+        : [...scenarios, ...later]
 
 let desktop: Desktop | undefined
 let failed = false
