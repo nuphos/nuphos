@@ -58,14 +58,17 @@ export function keepTaskSelection(
   if (detail) client.setQueryData(key, { ...detail, credentialAccess })
 }
 
+/** Reads a Task into its copy; one read already on the way (a prefetch) is joined, not repeated. */
+export function fetchTask(client: QueryClient, teamId: string, sessionId: string) {
+  return client.query({
+    queryKey: queryKeys.task(teamId, sessionId),
+    queryFn: () => readTask(teamId, sessionId),
+    retry: false,
+  })
+}
+
 /** Reads a Task before it is opened, unless its copy is current, so the click shows it from memory. */
 export function prefetchTask(client: QueryClient, teamId: string, sessionId: string) {
   if (cachedTask(client, teamId, sessionId)) return
-  client
-    .query({
-      queryKey: queryKeys.task(teamId, sessionId),
-      queryFn: () => readTask(teamId, sessionId),
-      retry: false,
-    })
-    .catch(() => {})
+  fetchTask(client, teamId, sessionId).catch(() => {})
 }
