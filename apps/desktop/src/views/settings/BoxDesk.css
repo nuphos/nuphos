@@ -390,10 +390,8 @@
 }
 
 .desk-mini .desk-mark.is-nuphos {
-  width: 46px;
-  height: 40px;
-  fill: rgba(255, 255, 255, 0.95);
-  shape-rendering: geometricPrecision;
+  width: 64px;
+  height: 64px;
 }
 
 /* The face: its round corners turn away from the light at both ends; ports on the left, the power

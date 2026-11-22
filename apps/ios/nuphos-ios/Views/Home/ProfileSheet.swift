@@ -9,13 +9,24 @@ struct ProfileSheet: View {
     /// Absent when shown before sign-in finishes (the AI consent screen).
     @Environment(AgentStore.self) private var store: AgentStore?
     let user: NuphosUser
+    /// Back to two-factor setup after the sign-in it asked for.
+    var openTwoFactor = false
     private var currentUser: NuphosUser { session.user ?? user }
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
 
     @State private var editing = false
     @State private var showAppIcons = false
+    @State private var showTwoFactor = false
     @State private var privacyError: String?
     @AppStorage(Whisper.promptKey) private var whisperPrompt = Whisper.defaultPrompt
+
+    private var twoFactor: some View {
+        TwoFactorView {
+            TwoFactorView.resumeAfterSignIn()
+            dismiss()
+            session.signOut()
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -43,12 +54,7 @@ struct ProfileSheet: View {
                             session.signOut()
                         }
                     }
-                    NavigationLink("Two-factor authentication") {
-                        TwoFactorView {
-                            dismiss()
-                            session.signOut()
-                        }
-                    }
+                    NavigationLink("Two-factor authentication") { twoFactor }
                 }
                 .listRowBackground(Theme.surface)
 
@@ -143,6 +149,8 @@ struct ProfileSheet: View {
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showAppIcons = true } }
             #endif
+            .navigationDestination(isPresented: $showTwoFactor) { twoFactor }
+            .onAppear { if openTwoFactor { showTwoFactor = true } }
             .sheet(isPresented: $editing) { EditProfileSheet(user: currentUser) }
             .refreshable { await session.refreshUser() }
             #if os(iOS)

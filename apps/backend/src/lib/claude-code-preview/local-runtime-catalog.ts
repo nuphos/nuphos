@@ -217,6 +217,7 @@ export async function resolveLocalRuntimeEndpoint(
   // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
   const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
+  const offlineCause = presence ? 'agent_unreported' : 'no_presence' // logged by adopt_failed
 
   // Removed from its computer: no report will bring it back, so it is gone, not offline.
   if (!agent && !kept && purpose !== 'login') throw runtimeGone()
@@ -228,7 +229,7 @@ export async function resolveLocalRuntimeEndpoint(
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
       // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
-      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
+      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label, cause: offlineCause },
     )
   if (agent?.cli.probeError && purpose !== 'login')
     throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)
@@ -260,11 +261,11 @@ export async function localRuntimeModels(
   const agent = ref
     ? reportedLocalAgent((await deps.getPresence(ref.userId, ref.deviceId))?.status, ref)
     : undefined
-  const catalog = agent?.models
+  const catalog = agent?.models?.failed ? undefined : agent?.models
+  const missing = agent?.models?.failed ? 'undiscovered' : 'unreported'
 
-  // A signed-out agent lists nothing until someone signs it in on that computer.
   if (!catalog)
-    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : 'unreported' }
+    return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : missing }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
   // A controls-only report names no model: its entry answers a caller asking for none.
   const split = catalog.controlsOnly && (!model || model === 'default')

@@ -1,5 +1,5 @@
 import type { capabilitiesOf } from './runtime'
-import type { MemoryObserver, MemoryProvider, MemorySessionOrigin, MemoryViewer } from './types'
+import type { MemoryObserver, MemoryProvider, MemoryViewer } from './types'
 
 export type ConformanceTenant = {
   userId: string
@@ -13,13 +13,12 @@ export type ConformanceHarness = {
   tenantB: ConformanceTenant
   /** Seed one memory via the provider's NATURAL write path (its own tool /
    * surface, never a raw store write). Returns the new memory id, or
-   * null when the provider refused the write (e.g. non-user origin — that
-   * refusal is itself under test). `opts.observer` is threaded into the write
+   * null when the provider refused the write. `opts.observer` is threaded into the write
    * path so observer corroboration can capture the emitted events. */
   seed(
     tenant: ConformanceTenant,
     input: { text: string; title: string },
-    opts?: { origin?: MemorySessionOrigin; observer?: MemoryObserver },
+    opts?: { observer?: MemoryObserver },
   ): Promise<string | null>
   /** Ground truth BYPASSING RecordsSurface (raw collection / vendor API):
    * true while the item is live in the provider's real store; false once
@@ -40,7 +39,7 @@ export type ConformanceContext = {
   seedOrThrow: (
     tenant: ConformanceTenant,
     input: { text: string; title: string },
-    opts?: { origin?: MemorySessionOrigin; observer?: MemoryObserver },
+    opts?: { observer?: MemoryObserver },
   ) => Promise<string>
 }
 

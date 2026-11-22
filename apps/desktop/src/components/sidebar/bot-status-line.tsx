@@ -21,24 +21,12 @@ export function TypingPreview() {
   )
 }
 
-/** A Bot's preview line when it needs something: a question, a failure or its setup. */
+/** A Bot's preview line while it is in setup or has failed; a question stays in the Inbox. */
 export function BotStatusLine({ activity }: { activity: Activity }) {
   if (activity.kind === 'onboarding')
     return <span className="truncate text-tertiary">{t('Getting started')}</span>
-  if (activity.kind === 'asking')
-    return (
-      <span className="truncate text-secondary">
-        {activity.question
-          ? t('Needs your input: {q}', { q: activity.question })
-          : t('Needs your input')}
-      </span>
-    )
   if (activity.kind === 'error')
-    return (
-      <span className="truncate text-status-danger">
-        {activity.label ? `${t('Failed')}: ${activity.label}` : t('Failed')}
-      </span>
-    )
+    return <span className="truncate text-status-danger">{t('Failed')}</span>
 
   return null
 }

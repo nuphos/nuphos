@@ -1,5 +1,5 @@
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
@@ -25,6 +25,7 @@ import {
   PANE,
   TOGGLE,
   panelClass,
+  shown,
   slotClass,
   useDismissOutside,
   useSummaryMotion,
@@ -59,6 +60,8 @@ type Props = {
   onClose?: () => void
   /** What a press outside the floating panel does; by default onClose. */
   onDismiss?: () => void
+  /** Opened for a look where it has no room beside: gone once the mouse leaves it. */
+  popover?: boolean
 }
 
 /** The panel beside the transcript, mounted while open and while it slides shut. */
@@ -149,7 +152,7 @@ function closeOnEscape(event: KeyboardEvent, root: HTMLElement | null, close: ()
   if (!event.currentTarget.contains(event.target as Node)) return
   event.preventDefault()
   close()
-  root?.closest(PANE)?.querySelector<HTMLElement>(TOGGLE)?.focus()
+  shown(root?.closest(PANE), TOGGLE)?.focus()
 }
 
 /** What this chat did and what it runs on. A block appears only when it has something. */
@@ -168,6 +171,7 @@ function SummaryBody({
   label,
   onClose: close,
   onDismiss: dismiss,
+  popover,
   motion,
 }: Props & { onClose: () => void; onDismiss: () => void; motion: Motion }) {
   const closing = motion === 'out'
@@ -197,7 +201,19 @@ function SummaryBody({
   const background = shellsFromRuntimeState(runtimeStates.get(sessionId))
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
-  useDismissOutside(rootRef, dismiss, floating && !closing)
+  useDismissOutside(rootRef, dismiss, floating && !closing, popover)
+  // A chat opened before stays in the page, hidden, for a quick switch back. This floating panel
+  // sits at the root, outside what hides, so it hides with its chat and shows again with it.
+  useEffect(() => {
+    const frame = frameRef.current
+    const root = rootRef.current
+
+    root?.style.removeProperty('display')
+
+    return () => {
+      if (root && !frame?.checkVisibility()) root.style.display = 'none'
+    }
+  }, [floating])
 
   const panel = (
     <aside

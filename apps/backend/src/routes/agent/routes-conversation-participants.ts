@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 
 import { Hono } from 'hono'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { appendConversationMessages, getReadableConversation } from '@/lib/agent/db'
 import { generalAccessOf, generalAccessValues } from '@/lib/agent/db/access'
 import { isBotChat, setConversationArchived } from '@/lib/agent/db/archive'
@@ -234,6 +235,7 @@ async function leaveChannelAsOwner(
 
   if (!handed) {
     await setConversationArchived(channel.sessionId, true)
+    await cleanUpArchived([channel.sessionId])
 
     return channel
   }

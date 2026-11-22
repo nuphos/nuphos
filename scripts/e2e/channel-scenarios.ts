@@ -16,10 +16,9 @@ import {
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -34,10 +33,6 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
-
-/** A post in the open chat's transcript. A sidebar row can preview the same words. */
-const transcriptPost = (page: Page, text: string) =>
-  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
@@ -112,7 +107,7 @@ export const channelScenarios: Scenario[] = [
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
-      const posts = page.locator('[data-post-id]')
+      const posts = page.locator('[data-post-id]:visible')
 
       await posts.first().waitFor()
       await page.evaluate(() => {
@@ -203,7 +198,11 @@ export const channelScenarios: Scenario[] = [
         await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
         await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
         await page.getByText('Message E2E Scout', { exact: true }).waitFor()
-        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page
+          .locator('[data-post-id]:visible')
+          .filter({ hasText: 'E2E Scout' })
+          .first()
+          .waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
@@ -247,7 +246,7 @@ export const channelScenarios: Scenario[] = [
       await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
       // #4065: a link in the Bot's question card opens in the dock, as in a Task's
       // chat, never in the system browser.
-      await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
+      await page.locator('[data-open-question]:visible a[href$="/health/ready"]').last().click()
       const address = page.getByRole('textbox', { name: 'Search or enter URL' })
 
       await address.waitFor({ timeout: 10_000 })
@@ -294,5 +293,4 @@ export const channelScenarios: Scenario[] = [
   },
   // A new channel scenario is a file of its own in ./channel, not one more entry here.
   ...(await scenarioFiles()),
-  // Skipped: flaky, menu item aria-disabled while streaming; tracked in #4238
-].filter((s) => s.name !== 'the Bot composer and the Task composer both show the runtime usage bar')
+]

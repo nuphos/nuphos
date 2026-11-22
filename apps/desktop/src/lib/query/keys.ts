@@ -17,6 +17,9 @@ export const queryKeys = {
   credentialOptions: (teamId: string) => [...queryKeys.team(teamId), 'credential-options'] as const,
   channel: (teamId: string, channelId: string) =>
     [...queryKeys.team(teamId), 'channel', channelId] as const,
+  /** A Task's transcript as last read, so it opens without a read first. */
+  task: (teamId: string, sessionId: string) =>
+    [...queryKeys.team(teamId), 'task', sessionId] as const,
   /** The computers in a team the viewer manages: they sign those computers' agents in. */
   managedComputers: (teamId: string) => [...queryKeys.team(teamId), 'managed-computers'] as const,
   runtimeInstances: (teamId: string) => [...queryKeys.team(teamId), 'runtime-instances'] as const,
@@ -40,6 +43,7 @@ export const queryKeys = {
   /** Under `memoryScope`, so a change marks both the live and the removed list. */
   memories: (teamId: string, scope: string, state = 'live') =>
     [...queryKeys.memoryScope(teamId, scope), state] as const,
+  webhooks: (teamId: string) => [...queryKeys.team(teamId), 'webhooks'] as const,
   grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>

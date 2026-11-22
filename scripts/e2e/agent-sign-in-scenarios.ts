@@ -32,7 +32,7 @@ export function inDatabase(mongoUri: string, script: string, ...args: string[]):
 }
 
 /** Signs another person in; accepting an invitation, they join as an Editor. */
-async function join(stack: Flow, owner: Client, name: string) {
+export async function join(stack: Flow, owner: Client, name: string) {
   const email = `e2e-${name}-${String(Date.now())}@example.com`
   const anonymous = client(stack.apiUrl, '')
 

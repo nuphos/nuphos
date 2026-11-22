@@ -9,7 +9,7 @@ import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { listSelectedCredentials, listSessionCredentials } from './credential-listing'
 import { mintPreviewMcpToken } from './mcp-token'
 import { runtimeBackendUrl } from './runtime-backend-url'
-import { mintRuntimeSkillsToken, runtimeSkillsUrl } from './runtime-skills-token'
+import { skillSyncEnv } from './runtime-skills-token'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
 import type { AgentRef } from '@/lib/agents/identity'
@@ -31,20 +31,6 @@ export function previewMcpBaseUrl(external?: boolean, backendUrl?: string): stri
   return backendUrl ?? runtimeBackendUrl(external)
 }
 
-// The skill bundle's address and credential ride the session; the runtime runs
-// its own sync from them.
-function skillSyncEnv(
-  teamId: string,
-  skillsOwnerId: string | undefined,
-  base: string,
-): Record<string, string> {
-  return {
-    NUPHOS_RUNTIME_SKILLS_URL: runtimeSkillsUrl(teamId, undefined, base),
-    // Naming a member lets the same sync fetch their personal skills as well.
-    NUPHOS_RUNTIME_SKILLS_TOKEN: mintRuntimeSkillsToken(teamId, skillsOwnerId),
-  }
-}
-
 export function previewSessionEnv(args: {
   base: string
   token: string
@@ -54,6 +40,7 @@ export function previewSessionEnv(args: {
   personalSkillsOf?: string
   /** Names a HOME other than the owner's: a teammate's own, or the automated turns' one. */
   sessionActor?: string
+  sessionHomeEpoch?: number
 }): Record<string, string> {
   return {
     ...skillSyncEnv(args.teamId, args.personalSkillsOf, args.base),
@@ -63,6 +50,7 @@ export function previewSessionEnv(args: {
     NUPHOS_TOKEN: args.token,
     NUPHOS_BACKEND_URL: args.base,
     NUPHOS_SESSION_ID: args.conversationId,
+    NUPHOS_SESSION_HOME_EPOCH: String(args.sessionHomeEpoch ?? 0),
     ...(args.sessionActor ? { NUPHOS_SESSION_ACTOR: args.sessionActor } : {}),
     // Skills address team-scoped routes as /teams/$TEAM/...
     TEAM: args.teamId,
@@ -111,6 +99,7 @@ export type PreviewSessionAccessOptions = {
   toolsVersion?: string
   /** Set for a sub-agent thread: its tokens name the parent as the RFC 8693 actor. */
   parentSessionId?: string
+  sessionHomeEpoch?: number
   /** A Bot's own session, which it resumes for weeks. */
   bot?: boolean
 }
@@ -173,12 +162,12 @@ export async function previewSessionAccess(
         // nobody's skills are written into a conversation home that belongs to someone else.
         personalSkillsOf: userId === conversationOwnerUserId ? userId : undefined,
         sessionActor: previewSessionActor(userId, conversationOwnerUserId, options?.humanTurn),
+        sessionHomeEpoch: options?.sessionHomeEpoch,
       }),
-      // A Bot compacts at a 200k window, not the model's full one (its ~57k fixed prompt
-      // needs the headroom, #3970), and skips the next-prompt suggestion nobody sees.
-      ...(options?.bot
-        ? { CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000', CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' }
-        : {}),
+      // Every session compacts at 200k, not the model's full window (the ~57k fixed prompt
+      // needs the headroom, #3970, #4195); a Bot skips the next-prompt suggestion nobody sees.
+      CLAUDE_CODE_AUTO_COMPACT_WINDOW: '200000',
+      ...(options?.bot ? { CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION: '0' } : {}),
     },
   }
 }

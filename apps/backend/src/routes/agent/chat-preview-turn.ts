@@ -116,8 +116,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       orderedParts.appendTool(update.toolCallId)
     }
   }
-  const permissionRequest: OpenAbPermissionHandler = (request) => {
-    return handleOpenAbPermissionRequest({
+  const permissionRequest: OpenAbPermissionHandler = (request) =>
+    handleOpenAbPermissionRequest({
       userId: actorUserId,
       conversationOwnerUserId: userId,
       conversationId: sessionId,
@@ -126,8 +126,8 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       handleTool,
       signal: state.signal,
       onDecision: adopt,
+      run,
     })
-  }
 
   const promptOnce = () =>
     runClaudeCodePreviewPrompt({
@@ -281,7 +281,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     await finishPreviewTurn({
       ...args,
       requestId,
-      startedAt,
       text: acc.text,
       reasoning: acc.reasoning,
       orderedParts: orderedParts.materialize(toolLog.list()),

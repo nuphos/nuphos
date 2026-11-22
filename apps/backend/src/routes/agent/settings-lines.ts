@@ -67,7 +67,7 @@ const sentence = (line: Line) =>
 const runtimeActor = (provider?: OpenAbProvider): LineActor =>
   provider
     ? { type: 'runtime', label: runtimeLabel(provider), provider }
-    : { type: 'runtime', label: 'The agent' }
+    : { type: 'runtime', label: 'The runtime' }
 
 function lineOf(
   change: SettingsChange,

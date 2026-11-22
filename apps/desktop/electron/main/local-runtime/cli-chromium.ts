@@ -134,8 +134,13 @@ export function launchChromium(executable: string, profile: string): Browser {
 
 /** A blank https page in a window of its own, so the tab it records stays in front (browser-video.ts). */
 export async function helperPage(cdp: Cdp): Promise<Helper> {
+  // A context of its own: some machines never finish a navigation in the default one (#4347).
+  const { browserContextId } = await cdp.send<{ browserContextId: string }>(
+    'Target.createBrowserContext',
+  )
   const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', {
     url: 'about:blank',
+    browserContextId,
     newWindow: true,
   })
   const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', {
@@ -167,7 +172,7 @@ export async function helperPage(cdp: Cdp): Promise<Helper> {
     },
     close: () => {
       cdp.listeners.delete(blank)
-      void cdp.send('Target.closeTarget', { targetId }).catch(() => {})
+      void cdp.send('Target.disposeBrowserContext', { browserContextId }).catch(() => {})
     },
   }
 }

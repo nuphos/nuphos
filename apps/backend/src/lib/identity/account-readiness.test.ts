@@ -431,7 +431,7 @@ test('deletion can use the account password without access to the email inbox', 
     requestAccountDeletion(user, { confirmation: 'DELETE', password: wrongPassword }),
   ).rejects.toMatchObject({ code: 'invalid_credentials' })
   expect((await getDeletionRequest(user.id)).request).toBeNull()
-  docs('personal_credentials').push({ userId: user.id, provider: 'github' })
+  docs('personal_credentials').push({ _id: new ObjectId(), userId: user.id, provider: 'github' })
   const result = await requestAccountDeletion(user, {
     confirmation: 'DELETE',
     password: testPassword,

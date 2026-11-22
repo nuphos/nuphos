@@ -78,6 +78,10 @@ const newSettings = (sessionId) => {
   ]
 }
 
+/** The model a session runs on now, which is the model its next turn receives. */
+export const currentModel = (sessionId) =>
+  settings.get(sessionId)?.find((option) => option.id === 'model')?.currentValue
+
 /** A session's settings, after setting `id` to `value` when that is on offer; `log` records the request. */
 export function applySetting(sessionId, id, value, log) {
   log?.({ sessionId, event: 'setting', detail: `${id}=${value}` })
