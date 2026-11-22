@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
-import { formatViewerRun } from '../../../views/triggers/scheduleDisplay'
+import { formatViewerRun, sourceScheduleRule } from '../../../views/triggers/scheduleDisplay'
 
 import { pausedNote, untilRun } from './triggerCards'
 
@@ -41,6 +41,7 @@ export function NextRuns({ trigger }: { trigger: AgentTrigger }) {
           </li>
         ))}
       </ul>
+      <p className="text-[11.5px] text-tertiary">{sourceScheduleRule(trigger)}</p>
     </div>
   )
 }

@@ -13,17 +13,18 @@ const now = new Date('2026-01-15T00:00:00Z')
 test('UTC monthly schedules show exact Taipei dates first', () => {
   const text = userScheduleSummary(trigger('0 1 1 * *'), 'Asia/Taipei', now)
 
-  assert.match(text, /^Scheduled times: 2\/1\/2026, 9:00:00 AM \(Asia\/Taipei, UTC\+8\)/)
-  assert.match(text, /3\/1\/2026, 9:00:00 AM/)
-  assert.match(text, /Source rule:/)
+  assert.match(text, /^Scheduled: 2\/1\/2026, 9:00:00 AM \(Asia\/Taipei, UTC\+8\)/)
+  assert.doesNotMatch(text, /3\/1\/2026/)
+  assert.doesNotMatch(text, /Source rule:/)
 })
 
+const allTimes = (value: ReturnType<typeof trigger>, zone: string, at: Date) =>
+  upcomingScheduleTimes(value, at)
+    .map((run) => formatViewerRun(run, zone))
+    .join('; ')
+
 test('negative offsets cross month and year boundaries without inventing day 1', () => {
-  const text = userScheduleSummary(
-    trigger('0 1 1 * *'),
-    'America/New_York',
-    new Date('2025-12-15T00:00Z'),
-  )
+  const text = allTimes(trigger('0 1 1 * *'), 'America/New_York', new Date('2025-12-15T00:00Z'))
 
   assert.match(text, /12\/31\/2025, 8:00:00 PM/)
   assert.match(text, /1\/31\/2026, 8:00:00 PM/)
@@ -41,18 +42,14 @@ test('weekly midnight crossings use the actual previous local day', () => {
 })
 
 test('UTC recurrence remains UTC across a viewer DST transition', () => {
-  const text = userScheduleSummary(
-    trigger('0 9 * * *'),
-    'America/Los_Angeles',
-    new Date('2026-03-07T00:00Z'),
-  )
+  const text = allTimes(trigger('0 9 * * *'), 'America/Los_Angeles', new Date('2026-03-07T00:00Z'))
 
   assert.match(text, /3\/7\/2026, 1:00:00 AM \(America\/Los_Angeles, UTC-8\)/)
   assert.match(text, /3\/9\/2026, 2:00:00 AM \(America\/Los_Angeles, UTC-7\)/)
 })
 
 test('non-UTC source schedules are evaluated in their own DST zone', () => {
-  const text = userScheduleSummary(
+  const text = allTimes(
     trigger('0 9 * * *', 'America/New_York'),
     'Asia/Taipei',
     new Date('2026-03-07T00:00Z'),
@@ -60,7 +57,6 @@ test('non-UTC source schedules are evaluated in their own DST zone', () => {
 
   assert.match(text, /3\/7\/2026, 10:00:00 PM/)
   assert.match(text, /3\/8\/2026, 9:00:00 PM/)
-  assert.match(text, /America\/New_York/)
 })
 
 test('month-end skips and leap years come from the actual scheduler parser', () => {

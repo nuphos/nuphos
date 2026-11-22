@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { api } from '../../../api'
 import { useOpenChatLabel } from '../../../hooks/useOpenChatLabel'
 import { t } from '../../../i18n'
-import { userScheduleSummary } from '../../../views/triggers/scheduleDisplay'
+import { sourceScheduleRule, userScheduleSummary } from '../../../views/triggers/scheduleDisplay'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
@@ -105,7 +105,10 @@ export function TriggerCard({
               {info.action === 'created' ? t('Created') : t('Updated')}
             </span>
           </div>
-          <p className="mt-0.5 text-[12.5px] leading-snug text-secondary">
+          <p
+            className="mt-0.5 text-[12.5px] leading-snug text-secondary"
+            title={sourceScheduleRule(trigger)}
+          >
             {scheduleLine(trigger)}
           </p>
         </div>

@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
-import { formatViewerRun, userScheduleSummary } from '../../../views/triggers/scheduleDisplay'
+import {
+  formatViewerRun,
+  sourceScheduleRule,
+  userScheduleSummary,
+} from '../../../views/triggers/scheduleDisplay'
 import { Switch } from '../../ui/Switch'
 import { NextRuns } from '../panel/TriggerCardBody'
 import { pausedNote } from '../panel/triggerCards'
@@ -134,10 +138,17 @@ export function ChatSummaryTriggers({
               className="-mx-1.5 min-w-0 flex-1 rounded-md px-1.5 py-1 text-left hover:bg-state-hover"
             >
               <span className="block break-words text-[13px] text-main">{trigger.name}</span>
-              <span className="mt-1 block text-xs leading-5 text-tertiary">
+              <span
+                className="mt-1 block text-xs leading-5 text-tertiary"
+                title={sourceScheduleRule(trigger)}
+              >
                 {userScheduleSummary(trigger)}
               </span>
-              <span className="block text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</span>
+              {(!trigger.enabled || trigger.triggerType !== 'cron') && (
+                <span className="block text-xs leading-5 text-tertiary">
+                  {nextRunLabel(trigger)}
+                </span>
+              )}
             </button>
             <span className="pt-1">
               <Switch

@@ -74,17 +74,19 @@ async function mount() {
 test('a Trigger row opens its details, and its switch does not', async () => {
   const container = await mount()
 
-  assert.ok(container.textContent?.includes('Scheduled times:'))
+  assert.ok(container.textContent?.includes('Scheduled:'))
   assert.ok(container.textContent?.includes(Intl.DateTimeFormat().resolvedOptions().timeZone))
   assert.ok(!container.textContent?.includes('Schedule: 0 1 1 * *'))
   const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
 
   assert.ok(row, 'the row is a disclosure button')
+  assert.equal(container.textContent?.includes('Source rule:'), false)
   assert.equal(row.getAttribute('aria-expanded'), 'false')
   assert.ok(!container.textContent?.includes(trigger.messageTemplate))
 
   await act(async () => row.click())
   assert.equal(row.getAttribute('aria-expanded'), 'true')
+  assert.ok(container.textContent?.includes('Source rule:'))
   assert.ok(container.textContent?.includes(trigger.messageTemplate), 'shows what it sends')
   const edit = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Edit')
 

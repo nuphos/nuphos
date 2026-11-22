@@ -32,9 +32,9 @@ export function upcomingScheduleTimes(trigger: DisplaySchedule, now: Date): Date
 }
 
 /**
- * Lead with exact dates in the viewer's zone. A shifted UTC month-day or a DST
+ * Lead with the next exact date in the viewer's zone. A shifted UTC month-day or a DST
  * clock cannot be safely described as a fixed local recurrence, so never
- * manufacture one. Keep the unmodified source rule after these local dates.
+ * manufacture one. More occurrences and the source rule live in the details.
  * No user timezone preference exists yet; callers can provide a viewing zone,
  * otherwise viewerTimeZone() follows the device's Intl setting.
  */
@@ -48,8 +48,9 @@ export function userScheduleSummary(
 
   if (runs.length === 0) return rule
 
-  return t('Scheduled times: {times}. Source rule: {rule}', {
-    times: runs.map((run) => formatViewerRun(run, timeZone)).join('; '),
-    rule,
-  })
+  return t('Scheduled: {time}', { time: formatViewerRun(runs[0], timeZone) })
+}
+
+export function sourceScheduleRule(trigger: DisplaySchedule): string {
+  return t('Source rule: {rule}', { rule: scheduleSummary(trigger, 'UTC') })
 }
