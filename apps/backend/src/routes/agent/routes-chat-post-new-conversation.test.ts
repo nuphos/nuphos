@@ -3,7 +3,7 @@
 import { beforeEach, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
-import { errorHandler } from '@/lib/errors'
+import { AppError, errorHandler } from '@/lib/errors'
 import { useAgentTranscript } from '@/lib/test/doubles/agent-transcript'
 import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useChatConversation } from '@/lib/test/doubles/chat-conversation'
@@ -24,6 +24,7 @@ const state = {
   conversation: null as unknown,
   teamId: 'team-1' as string | undefined,
   persistFails: false,
+  staleTail: false,
   released: 0,
 }
 
@@ -37,7 +38,10 @@ useTeamScope({ resolveVerifiedTeamId: () => Promise.resolve(state.teamId) })
 useChatConversation({ resolveChatConversation: () => Promise.resolve(state.conversation) })
 useChatValidate({
   validateChatBody: () => {},
-  acceptClientTail: (body) => Promise.resolve(body.messages),
+  acceptClientTail: (body) =>
+    state.staleTail
+      ? Promise.reject(new AppError(409, 'transcript_out_of_sync', 'Stored transcript has 1 messages'))
+      : Promise.resolve(body.messages),
 })
 useSessionQueueSignIn({ queueForSignIn: () => Promise.resolve(null) })
 useClaudeCodePreviewRuntime({
@@ -60,7 +64,8 @@ const installQueueTurn = useSessionQueueTurn({
 })
 
 useChatSlackBound({
-  findSlackBoundThread: () => Promise.resolve(null),
+  // A later tick, so a client tail that fails meanwhile is not yet awaited.
+  findSlackBoundThread: () => Bun.sleep(5).then(() => null),
   buildSlackBoundTurnPlan: () => Promise.resolve(null),
 })
 useTurnStartFrame({
@@ -107,6 +112,7 @@ beforeEach(() => {
   state.conversation = null
   state.teamId = 'team-1'
   state.persistFails = false
+  state.staleTail = false
   state.released = 0
   installTranscript({
     persistAcceptedConversationTurn: async () => {
@@ -169,5 +175,24 @@ test('a new message to a runtime that does not answer queues without asking it f
 
   expect(response.status).toBe(200)
   expect(await response.text()).toContain('atlas-stream-done')
+  expect(order).toEqual([])
+})
+
+test('a stale client tail during the Slack lookup is the 409 reply, not an unhandled rejection', async () => {
+  state.conversation = { sessionId: 'old-3', userId: USER, teamId: 'team-1' }
+  state.staleTail = true
+  const unhandled: unknown[] = []
+  const onUnhandled = (reason: unknown) => unhandled.push(reason)
+
+  process.on('unhandledRejection', onUnhandled)
+  try {
+    const response = await post('old-3')
+
+    expect(response.status).toBe(409)
+    await Bun.sleep(10)
+  } finally {
+    process.off('unhandledRejection', onUnhandled)
+  }
+  expect(unhandled).toEqual([])
   expect(order).toEqual([])
 })
