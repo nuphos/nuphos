@@ -31,6 +31,7 @@ try {
   await dock.getByRole('cell', { name: '120', exact: true }).waitFor()
   assert.ok((await dock.textContent()).includes('=1+2'), 'uncached formula stays text')
   await dock.getByRole('combobox').click()
+  await page.getByRole('option', { name: 'Details', exact: true }).waitFor()
   assert.equal(await page.getByRole('option').count(), 3)
   await page.getByRole('option', { name: 'Details', exact: true }).click()
   await dock
