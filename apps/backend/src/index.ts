@@ -241,9 +241,8 @@ async function shutdown(sig: string) {
     })
   }
 
-  // 3. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
-  closeTunnelsForRestart()
-  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
+  // 3. A force-paused turn keeps running, and its output comes here until this connection
+  // closes. Hand it and other carried work to a ready replica now, not after the HTTP drain.
   stopRuntimeHandoffAdoption()
   try {
     await publishRuntimeHandoffs()
@@ -251,7 +250,11 @@ async function shutdown(sig: string) {
     logError('backend.shutdown.runtime_handoff_failed', err)
   }
 
-  // 4. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
+  // 4. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
+  closeTunnelsForRestart()
+  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
+
+  // 5. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([
     flushGuardWrites(shutdownBudget.guardFlushMs).catch((err: unknown) => {
       logError('backend.shutdown.guard_flush_failed', err, {
@@ -264,7 +267,7 @@ async function shutdown(sig: string) {
   ])
   await closeAgentWorkerQueues()
 
-  // 5. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
+  // 6. Flush exporters while storage is open, so work detached by server.stop(true) still succeeds.
   await Promise.allSettled([
     shutdownPostHog(),
     shutdownTelemetry().catch((err: unknown) => {
@@ -272,7 +275,7 @@ async function shutdown(sig: string) {
     }),
   ])
 
-  // 6. Let transcript writes started by closed tunnels land, then close storage and exit at once.
+  // 7. Let transcript writes started by closed tunnels land, then close storage and exit at once.
   await drainAgentProducers(shutdownBudget.guardFlushMs)
   await Promise.allSettled([closeRedis(), closeDb()])
   process.exit(0)
