@@ -6,6 +6,7 @@ import {
   boxUpdateConfirm,
   boxUpdateLabel,
 } from './boxRestartPresentation'
+import { restartsIntoUpdate } from './computerOutdated'
 import { useBoxHostUpdate } from './useBoxHostUpdate'
 
 import type { AgentDevice } from '../../api'
@@ -20,7 +21,14 @@ export function useComputerUpdate(
   host: { cloud: boolean; thisComputer: boolean; running: boolean; hostAgent?: string },
 ) {
   const boxUpdate = useBoxHostUpdate(teamId, host.hostAgent)
-  const app = !host.cloud && !host.thisComputer && host.running ? device?.app : undefined
+  const app =
+    !host.cloud &&
+    !host.thisComputer &&
+    host.running &&
+    device?.app &&
+    restartsIntoUpdate(device.app)
+      ? device.app
+      : undefined
   const appUpdate = app?.update?.ready ? app.update.version : undefined
   const boxLabel = boxUpdate === undefined ? undefined : boxUpdateLabel(boxUpdate)
 
