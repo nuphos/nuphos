@@ -91,7 +91,6 @@ const defaultDeps: LocalRuntimeCatalogDeps = {
   isMember: (userId, teamId) => isActiveTeamMember(userId, teamId),
   getPresence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
 }
-
 /** Explicit instances never fall back to a provider's legacy default. */
 export function reportedLocalAgent(
   status: LocalRuntimeStatus | undefined,
@@ -103,7 +102,6 @@ export function reportedLocalAgent(
       )
     : status?.agents[ref.provider]
 }
-
 /**
  * The agents this person may place a conversation on, in a team they belong to:
  * their own computers, the Boxes shared with them, and teammates' computers shared with them.
@@ -206,6 +204,7 @@ export async function resolveLocalRuntimeEndpoint(
   try {
     const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
     const device = await access(userId, teamId, ref.deviceId, deps.access)
+
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
       throw runtimeGone()
@@ -273,9 +272,9 @@ export async function localRuntimeModels(
   const controls = catalog.controls[modelId] ?? (split ? catalog.controls.default : undefined)
 
   if (!controls) return { models: catalog.models }
+
   return { models: catalog.models, controls: { ...(modelId ? { modelId } : {}), ...controls } }
 }
-
 /** A local runtime's status comes from its computer's tunnel, not a probe. */
 export async function localRuntimeStatus(
   runtimeId: string,
@@ -286,6 +285,7 @@ export async function localRuntimeStatus(
   const agent = ref ? reportedLocalAgent(presence?.status, ref) : undefined
   const online = agent !== undefined
   const signedIn = agent?.cli.loggedIn
+
   return {
     configured: true,
     selected: true,
