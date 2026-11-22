@@ -13,6 +13,8 @@ const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
 // Back and Forward off macOS, the same history as the sidebar's buttons.
 const BACK = 'Alt+ArrowLeft'
 const FORWARD = 'Alt+ArrowRight'
+// A narrow pane hides the details button; the shortcut still opens and closes them.
+const DETAILS = 'Control+KeyI'
 
 /** What failed, and one line per step for the report. */
 export const overlayFailed: string[] = []
@@ -76,6 +78,12 @@ async function pressUntilShown(page: Page, key: string, mark: string) {
   )
 }
 
+/** Toggles the details by key, from no field: a composer could take Ctrl+I for itself. */
+async function toggleDetails(page: Page) {
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+  await page.keyboard.press(DETAILS)
+}
+
 function note(line: string, failure?: string) {
   overlayLines.push(failure ? `- **Failed**: ${line}: ${failure}` : `- ${line}`)
   if (failure) overlayFailed.push(`${line}: ${failure}`)
@@ -89,7 +97,7 @@ async function floatingDetails(page: Page, a: Chat, b: Chat) {
     await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
     await openRow(page, a)
     await openRow(page, b)
-    await page.locator('[data-summary-toggle][aria-expanded="false"]:visible').click()
+    await toggleDetails(page)
     await markPanel(page, 'b')
     // Back to A by key: the pointer stays put, so nothing presses outside the popover.
     await page.keyboard.press(BACK)
@@ -117,7 +125,7 @@ async function floatingDetails(page: Page, a: Chat, b: Chat) {
       `floating details, back to ${b.title}: its own panel shown again ${when}, ${a.title}'s hidden ${String(aHidden)}, ${String(count)} on screen`,
       failure,
     )
-    await page.locator('[data-summary-toggle][aria-expanded="true"]:visible').click()
+    await toggleDetails(page)
     await until('the panel closed', async () => (await visiblePanels(page)) === 0, 10_000)
   } finally {
     await cdp.send('Emulation.clearDeviceMetricsOverride')
