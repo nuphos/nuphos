@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 
-import { queuedReply } from './session-queue-share-approval'
+import { queuedReply } from './session-queue-sign-in'
 
 test('a send held for a sign-in tells the desktop who it waits for', () => {
   expect(
