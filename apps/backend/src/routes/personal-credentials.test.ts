@@ -640,15 +640,17 @@ describe('Google token handout', () => {
       })
     })
 
-    test('a selection made before a second account existed never reaches it', async () => {
+    test('a selection that ticks only the provider reaches every account, and still asks which', async () => {
       const { a, b } = accounts()
 
-      // The stored selection names no accounts: legacy, from when only one was connected.
-      const res = await named(ref(b))
+      // The stored selection names no accounts: the provider is ticked, so all of them count.
+      expect(await (await named(ref(a))).json()).toMatchObject({ token: 'owner-mail' })
+      expect(await (await named(ref(b))).json()).toMatchObject({ token: 'mail-b' })
 
-      expect(res.status).toBe(403)
-      expect((await named(ref(a))).status).toBe(403)
-      expect((await fetchToken('gmail', await turn('owner', true))).status).toBe(403)
+      const none = await fetchToken('gmail', await turn('owner', true))
+
+      expect(none.status).toBe(409)
+      expect(await none.json()).toEqual({ code: 'personal_credential_account_required' })
     })
 
     test('another member’s account id is refused, never used', async () => {
