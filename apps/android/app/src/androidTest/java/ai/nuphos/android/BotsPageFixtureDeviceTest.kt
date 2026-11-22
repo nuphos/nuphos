@@ -243,7 +243,8 @@ class BotsPageFixtureDeviceTest {
         image.recycle()
 
         val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
-        compose.onNodeWithText(long).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        // The row merges its texts, so read the preview's own node rather than the row's first text, its title.
+        compose.onNodeWithText(long, useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals("The preview takes two lines", 2, layouts.single().lineCount)
         assertTrue("and is cut after them", layouts.single().hasVisualOverflow)
     }
