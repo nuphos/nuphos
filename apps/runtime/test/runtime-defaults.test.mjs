@@ -110,15 +110,17 @@ test("a default the agent does not offer leaves a new session on the agent's own
     result.configOptions.map((entry) => entry.currentValue),
     ['b', 'medium'],
   )
-  // An agent that answers but keeps its own value: the session opens on that value.
-  assert.deepEqual(
-    await nuphosApplyRuntimeDefaults(
-      { setSessionConfigOption: async () => response },
-      params({ model: 'b' }),
+  // An agent that answers but keeps its own value, or answers without its controls:
+  // the session opens on the agent's value and keeps its controls.
+  for (const answer of [response, {}])
+    assert.deepEqual(
+      await nuphosApplyRuntimeDefaults(
+        { setSessionConfigOption: async () => answer },
+        params({ model: 'b' }),
+        response,
+      ),
       response,
-    ),
-    response,
-  )
+    )
 })
 
 test('a rejected default fails before any prompt', async () => {

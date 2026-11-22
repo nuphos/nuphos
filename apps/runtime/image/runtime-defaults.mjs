@@ -302,7 +302,7 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
       configId: option.id,
       value,
     })
-    options = updated.configOptions
+    options = updated?.configOptions ?? options
   }
   const model = options?.find((entry) => kindOf(entry) === 'model')
   return {
