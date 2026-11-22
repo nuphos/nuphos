@@ -7,7 +7,7 @@ import { client } from './binding-access-scenarios.ts'
 import { checkDecisionOutline } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { createWebhook, deliver } from './trigger-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -33,6 +33,44 @@ export const turnScenarios: Scenario[] = [
       ) {
         throw new Error(`The queued message ran before the turn was stopped: ${events.join(', ')}`)
       }
+    },
+  },
+  {
+    // #4619: a move used to wait for the turn to end; it stops the turn as Stop does instead.
+    name: 'move a Task while it answers, and its turn stops and the next message runs on the new agent',
+    run: async (page, stack) => {
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Work until moved E2E_HOLD E2E_DELIVERY:move-held')
+      await until('the agent to start the held turn', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:move-held'),
+      )
+      await pickAgent(page, 'E2E second agent')
+      await page
+        .getByText('moved this task from E2E fixture agent to E2E second agent')
+        .filter({ visible: true })
+        .waitFor()
+      await page.getByText('Turn stopped').filter({ visible: true }).waitFor()
+      await until('the held turn to be cancelled', async () =>
+        agentEvents(stack).includes('cancelled E2E_DELIVERY:move-held'),
+      )
+      await send(page, 'Now on the new agent E2E_DELIVERY:move-after')
+      const started = () =>
+        agentLog(stack).find(
+          (entry) => entry.event === 'start' && entry.marker === 'E2E_DELIVERY:move-after',
+        )
+
+      await until('the next message to start', async () => started())
+      const after = started()
+
+      if (after?.agent !== 'second')
+        throw new Error(`The next message did not run on the new agent: ${JSON.stringify(after)}`)
+      await page.screenshot({ path: `${artifacts}/move-mid-turn-light.png` })
+      // The moved history still says E2E_HOLD, so the fixture holds this turn too.
+      await page.locator('button[title="Stop"]:visible').click()
+      await until('the next turn to be stopped', async () =>
+        agentEvents(stack).includes('cancelled E2E_DELIVERY:move-after'),
+      )
     },
   },
   {

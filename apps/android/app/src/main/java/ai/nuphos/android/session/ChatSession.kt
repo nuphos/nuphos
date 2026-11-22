@@ -279,8 +279,9 @@ class ChatSession(
         canManage && isOwner
     }
 
-    val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
-        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
+    /** A running turn does not block a move: the server stops it as Stop does (#4619). */
+    val canMoveAgent get() = canManage && serverMetadataObserved &&
+        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
