@@ -25,6 +25,8 @@ type TeamPlanApprovalPolicy = {
   version: number
   updatedAt: Date
   updatedBy: string
+  /** When #2316 moved this minimum onto the team's database connections. */
+  migratedAt?: Date
 }
 
 export const planApprovalPolicies = (): Collection<TeamPlanApprovalPolicy> =>

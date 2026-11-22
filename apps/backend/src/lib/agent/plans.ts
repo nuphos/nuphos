@@ -16,11 +16,10 @@ export {
   getPlan,
   getPlanDocument,
   listActivePlansForConversation,
-  listPlansCreatedForConversation,
   listMongoDatabasePlanDocuments,
   listPlans,
 } from './plans/queries'
-export { cancelOpenAgentPlans } from './plans/retire'
+export { cancelOpenAgentPlans, migrateTeamPlanApprovalPolicies } from './plans/retire'
 export type { PlanScope } from './plans/scope'
 export { serializePlan } from './plans/serialize'
 export type { PlanDTO } from './plans/serialize'

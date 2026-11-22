@@ -216,6 +216,7 @@ export async function resolveLocalRuntimeEndpoint(
   // An offline Box is not woken here: the session queue waits for it (queued-turn.ts).
   const presence = await deps.getPresence(ref.userId, ref.deviceId)
   const agent = reportedLocalAgent(presence?.status, ref)
+  const offlineCause = presence ? 'agent_unreported' : 'no_presence' // logged by adopt_failed
 
   // Removed from its computer: no report will bring it back, so it is gone, not offline.
   if (!agent && !kept && purpose !== 'login') throw runtimeGone()
@@ -227,7 +228,7 @@ export async function resolveLocalRuntimeEndpoint(
       'runtime_offline',
       'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
       // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
-      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label },
+      { runtimeId, deviceId: ref.deviceId, runtimeLabel: label, cause: offlineCause },
     )
   if (agent?.cli.probeError && purpose !== 'login')
     throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)

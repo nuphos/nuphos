@@ -138,7 +138,7 @@ export const dashboardUiScenarios: Scenario[] = [
       const addPanel = await page
         .getByRole('button', { name: 'Add Panel', exact: true })
         .boundingBox()
-      const windowWidth = page.viewportSize()?.width ?? 0
+      const windowWidth = await page.evaluate(() => window.innerWidth)
 
       if (!addPanel || addPanel.x + addPanel.width > windowWidth)
         throw new Error(`Add Panel runs past the panel edge: ${JSON.stringify(addPanel)}`)

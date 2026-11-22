@@ -179,10 +179,6 @@ export const agentApi = {
     ipcRenderer.invoke('agent:listPlans', args),
   agentGetPlan: (planId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:getPlan', planId, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) =>
-    ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>
