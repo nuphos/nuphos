@@ -38,11 +38,14 @@ export function refuse(text, outOfUsage) {
   }
   // #3160: a conversation too long for the model, on any agent.
   // #3401: Claude Code unable to reach its API, through a proxy or VPN in the way.
+  // #4037: a model the endpoint lacks, on the first agent only so the turn goes on after fallback.
   const reason = text.includes('E2E_TOO_LONG')
     ? 'Prompt is too long'
     : text.includes('E2E_API_UNREACHABLE')
       ? 'API Error: Unable to connect to API (EPROTO)'
-      : outOfUsage && 'You’ve hit your usage limit'
+      : text.includes('E2E_MODEL_NOT_FOUND') && process.env.E2E_AGENT !== 'second'
+        ? 'API Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-e2e-retired"}}'
+        : outOfUsage && 'You’ve hit your usage limit'
 
   if (reason) throw Object.assign(new Error(`Internal error: ${reason}`), { code: -32603 })
 }
