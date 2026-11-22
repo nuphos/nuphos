@@ -39,15 +39,15 @@ class FakeConversations {
     if (match) {
       Object.assign(match, update.$set ?? {}) // existing doc: $setOnInsert must NOT re-fire
 
-      return { upsertedCount: 0 }
+      return { matchedCount: 1, upsertedCount: 0 }
     }
     if (opts?.upsert) {
       this.docs.push({ ...(update.$setOnInsert ?? {}), ...(update.$set ?? {}) })
 
-      return { upsertedCount: 1 }
+      return { matchedCount: 0, upsertedCount: 1 }
     }
 
-    return { upsertedCount: 0 }
+    return { matchedCount: 0, upsertedCount: 0 }
   }
 }
 
@@ -66,6 +66,7 @@ describe('upsertConversationShell memoryProvider stamp', () => {
       userId: 'u1',
       title: 'T',
       firstMessage: 'hi',
+      agentRuntime: 'claude-code',
     })
 
     expect(r.isNew).toBe(true)
@@ -73,7 +74,13 @@ describe('upsertConversationShell memoryProvider stamp', () => {
   })
 
   test('never overwrites the stamp on a later upsert (immutable)', async () => {
-    await upsertConversationShell({ sessionId: 's1', userId: 'u1', title: 'T', firstMessage: 'hi' })
+    await upsertConversationShell({
+      sessionId: 's1',
+      userId: 'u1',
+      title: 'T',
+      firstMessage: 'hi',
+      agentRuntime: 'claude-code',
+    })
     convs.docs[0]!.memoryProvider = 'xtrace' // if the stamp lived in $set, the next call would reset it
     await upsertConversationShell({
       sessionId: 's1',
@@ -82,6 +89,43 @@ describe('upsertConversationShell memoryProvider stamp', () => {
       firstMessage: 'again',
     })
     expect(convs.docs[0]!.memoryProvider).toBe('xtrace')
+  })
+})
+
+describe('upsertConversationShell runtime', () => {
+  beforeEach(() => {
+    convs.docs = []
+  })
+
+  test('refuses to store a new conversation without its runtime', async () => {
+    const shell = { sessionId: 's1', userId: 'u1', title: 'T', firstMessage: 'hi' }
+
+    await expect(upsertConversationShell(shell)).rejects.toMatchObject({ code: 'runtime_required' })
+    expect(convs.docs).toHaveLength(0)
+  })
+
+  test('a later turn without one updates the conversation already stored', async () => {
+    convs.docs.push({ sessionId: 's1', userId: 'u1' })
+    const r = await upsertConversationShell({
+      sessionId: 's1',
+      userId: 'u1',
+      title: 'T',
+      firstMessage: 'hi',
+    })
+
+    expect(r.isNew).toBe(false)
+  })
+
+  test('a group chat has no runtime of its own', async () => {
+    const r = await upsertConversationShell({
+      sessionId: 'g1',
+      userId: 'u1',
+      title: 'G',
+      firstMessage: '',
+      kind: 'channel',
+    })
+
+    expect(r.isNew).toBe(true)
   })
 })
 
@@ -161,6 +205,7 @@ describe('conversation general access stamp', () => {
     userId: 'u1',
     title: 'T',
     firstMessage: 'hi',
+    agentRuntime: 'claude-code' as const,
     ...(source ? { source } : {}),
   })
 
