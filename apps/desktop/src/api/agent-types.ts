@@ -61,12 +61,12 @@ export type AgentFace = {
 export type AgentConversationParticipant = AgentConversationPerson & {
   isOwner: boolean
   role: ConversationAccess | null
-  agent?: AgentFace // Set on a channel's agent, which the Share card lists among its people.
+  /** Set on a channel's agent, which the Share card lists among its people. */
+  agent?: AgentFace
 }
 
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
-  shareable?: boolean // False for a Bot, its chat or what an agent opened. Older servers omit it.
   participants: AgentConversationParticipant[]
 }
 
