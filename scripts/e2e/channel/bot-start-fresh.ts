@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 
 import { agentEvents, agentLog } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
-import { noMenuOpen, setBotDetails } from '../ui.ts'
+import { setBotDetails } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -108,7 +108,8 @@ async function copyLink(page: Page) {
       Reflect.deleteProperty(navigator.clipboard, 'copied')
     })
   }
-  await noMenuOpen(page)
+  // The context menu is gone, a closing one included, before the link is used.
+  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 
   return link!
 }
@@ -163,7 +164,7 @@ async function leave(page: Page, stack: Stack, sessionId: string) {
   if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
   await openE2EBot(page)
   await until(`${NAME} to leave the Bots list`, async () => (await rows(page, NAME).count()) === 0)
-  await noMenuOpen(page)
+  await page.locator('[role="menu"]').first().waitFor({ state: 'detached' })
 }
 
 /** The fixture turn that answered `marker`. */

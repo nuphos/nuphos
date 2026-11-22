@@ -104,8 +104,7 @@ export type AgentConversation = ConversationTaskState & {
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */
   readSeq?: number
-  /** What a fresh session reads instead of the messages stored below `compactionMessageCount`. */
-  compactionSummary?: string
+  compactionSummary?: string // What a fresh session reads instead of the messages below compactionMessageCount.
   compactionMessageCount?: number
   parentSessionId?: string // The managing conversation: create_thread's opener or set_thread_parent's choice.
   // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
