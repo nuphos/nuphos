@@ -76,7 +76,7 @@ export const outdatedTurnScenarios: Scenario[] = [
           .getByText(/couldn’t reply:.*Nuphos Desktop on E2E laptop is out of date/)
           .waitFor()
         await page
-          .getByText(/The downloaded update is ready. Quit and reopen Nuphos/)
+          .getByText(/The downloaded update is ready\. Quit Nuphos fully/)
           .last()
           .waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-bot-error.png') })
