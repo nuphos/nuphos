@@ -367,7 +367,7 @@ struct HomeView: View {
                     HStack(spacing: 0) { homeActions }.buttonStyle(.plain).padding(.horizontal, 4)
                         .glass(interactive: true, in: Capsule())
                 }
-                .padding(.horizontal, 16)
+                .padding([.horizontal, .top], 16)
             }
         } else {
             measured
