@@ -643,3 +643,26 @@ test('a handoff retained after an offline failure is refused at the age limit', 
   expect(stored.has('team:conv')).toBe(false)
   expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
 })
+
+test('an offline adoption failure logs which offline condition refused it', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const logged = spyOn(console, 'error')
+
+  try {
+    for (const cause of ['no_presence', 'agent_unreported']) {
+      stored.set('team:conv', JSON.stringify(handoff(Date.now() - HANDOFF_SETTLE_MS)))
+      logged.mockClear()
+      await adoptRuntimeHandoffs(async () => {
+        throw new AppError(409, 'runtime_offline', 'offline', { cause })
+      })
+      const failure = logged.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((entry) => entry.event === 'agent.runtime_handoff.adopt_failed')
+
+      expect(failure).toMatchObject({ offline_cause: cause, retry: true })
+      stored.delete('team:conv')
+    }
+  } finally {
+    logged.mockRestore()
+  }
+})

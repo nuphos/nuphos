@@ -10,6 +10,7 @@ import { agentConversations } from '../db/shared'
 import { assertCanCreateTrigger } from '../trigger-access'
 import { agentTriggers, generateWebhookSecret } from '../trigger-db'
 import { changedBy, writeTrigger } from '../trigger-history'
+import { parsePayloadFilters } from '../trigger-payload-filter'
 import { scheduleCronTrigger } from '../trigger-scheduler'
 
 import { validateCreateTriggerShape } from './create-validation'
@@ -67,6 +68,10 @@ export async function createTrigger(
   if (input.minIntervalSeconds !== undefined)
     validateMinInterval(input.triggerType, input.minIntervalSeconds)
 
+  const payloadFilters =
+    input.payloadFilters === undefined
+      ? []
+      : parsePayloadFilters(input.triggerType, input.payloadFilters)
   const { dedupeKey } = input
 
   // Idempotency: a dedupeKey that already exists returns the existing trigger
@@ -106,6 +111,7 @@ export async function createTrigger(
     ...(input.minIntervalSeconds !== undefined
       ? { minIntervalSeconds: input.minIntervalSeconds }
       : {}),
+    ...(payloadFilters.length > 0 ? { payloadFilters } : {}),
     configRevision: 1,
     createdAt: now,
     updatedAt: now,

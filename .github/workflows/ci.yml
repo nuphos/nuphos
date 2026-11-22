@@ -212,7 +212,9 @@ jobs:
           only=true
           while read -r f; do
             case "$f" in
-              apps/cli/* | apps/runtime/* | apps/ios/whats-new.txt) ;;
+              apps/cli/* | apps/ios/whats-new.txt) ;;
+              # The runtime's SDK pins; its own code under apps/runtime is not a bump (#4481).
+              apps/runtime/README.md | apps/runtime/image/Dockerfile | apps/runtime/image/*-acp/package*.json) ;;
               apps/*/package.json)
                 old=$(git show "FETCH_HEAD:$f" | jq -S 'del(.version)') &&
                   new=$(jq -S 'del(.version)' "$f") &&
@@ -519,6 +521,11 @@ jobs:
           bun install --frozen-lockfile
           (cd apps/backend && bun install --frozen-lockfile)
           (cd apps/desktop && pnpm install --frozen-lockfile)
+      # Before the 35-minute run, since a scenario that does not typecheck fails late and
+      # obscurely. Here rather than in its own job: the scenarios reach into the Desktop
+      # sources, so they need the install above to resolve what those import.
+      - name: Typecheck the scenarios
+        run: ./node_modules/.bin/tsc -p scripts/tsconfig.json
       # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
       # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
       - name: Pull the MongoDB and file store images

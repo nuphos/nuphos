@@ -234,7 +234,7 @@ describe('local runtime catalog', () => {
 
     await expect(
       resolveLocalRuntimeEndpoint('t1', codexId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'agent_unreported' } })
   })
 
   test('a team the owner is not in, or has left, is refused at the next request', async () => {
@@ -254,7 +254,7 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t1', 'owner', deps)).toEqual([])
     await expect(
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'no_presence' } })
   })
 
   test('an unusable CLI reports its probe failure on a conversation turn', async () => {
