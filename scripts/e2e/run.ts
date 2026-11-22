@@ -178,6 +178,8 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
+  // It needs the Bot the access scenarios create.
+  ...computersEntryScenarios,
   // It removes a member from the team.
   ...dashboardScenarios,
   // Right after the one above: it opens the dashboards that scenario leaves behind.
@@ -191,7 +193,6 @@ const scenarios: Scenario[] = [
 // A scenario that needs something created earlier in the run stays in its creator's half.
 const later: Scenario[] = [
   ...computerScenarios,
-  ...computersEntryScenarios,
   ...computerUpdateScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
