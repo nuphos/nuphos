@@ -208,6 +208,7 @@ export const fallbackScenarios: Scenario[] = [
     // #4037. Fails without the fix: a model the endpoint does not serve was not the agent
     // failing, so the conversation stayed on E2E fixture agent and the wait for the move times out.
     name: 'a turn on a model its endpoint does not serve moves down the fallback list and goes on',
+    expected: /model: claude-e2e-retired/,
     run: async (_page, stack) => {
       const owner = rest(stack, stack.token)
       const team = `/teams/${stack.teamId}`
