@@ -1,17 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
+import { queryKeys } from '../../lib/query/keys'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { useAgentSessions } from '../sidebar/agentSessions'
 
-import { botWorkOf, runStartedAt, workSince } from './botWork'
+import { botWorkOf, workSince } from './botWork'
 
 import type { BotWork } from './botWork'
 import type { Run } from '../sidebar/bot-activity'
-
-const BOT_TURN_POLL_MS = 1_000
-// A turn the runtime never closes must not keep the fast poll up for as long as the chat is open.
-const BOT_TURN_FAST_FOR_MS = 120_000
 
 /**
  * What the Bot of this chat is doing, read as its sidebar row reads it: the
@@ -34,18 +32,33 @@ export function useBotWork(
   const kids = botId ? (sessions ?? []).filter((row) => row.parentSessionId === botId).map(run) : []
   const work = botWorkOf(bot, kids, channelId)
 
-  // Only the list says a turn ended: in a turn's first two minutes, read it every second, so
-  // the header and its row stop soon after the Bot does. Asked again after every listing.
-  const active = runtimeTurnActive(bot?.runtimeState)
-  const started = runStartedAt(bot)
-
-  useAgentSessions(teamId, () =>
-    active && started !== undefined && Date.now() - started < BOT_TURN_FAST_FOR_MS
-      ? BOT_TURN_POLL_MS
-      : false,
+  useRelistWhenTurnEnds(
+    teamId,
+    botId,
+    runtimeTurnActive(bot?.runtimeState) ? conversation?.activeRun?.streamId : undefined,
   )
 
   return { work, since: workSince(work, bot) }
+}
+
+/** The list polls every 4 s; while the Bot's turn runs, its end lists again at once, so the
+ *  header and its row stop with the Bot. */
+function useRelistWhenTurnEnds(teamId: string, botId: string | undefined, streamId?: string) {
+  const client = useQueryClient()
+
+  useEffect(() => {
+    if (!botId || !streamId) return
+    let open = true
+
+    void window.api.agentWaitForRunEnd({ sessionId: botId, teamId, streamId }).then(() => {
+      if (open) void client.invalidateQueries({ queryKey: queryKeys.agentSessions(teamId) })
+    })
+
+    return () => {
+      open = false
+      void window.api.agentStopWaitingForRunEnd(streamId)
+    }
+  }, [client, teamId, botId, streamId])
 }
 
 /** The time now, once a second while `on`. */
