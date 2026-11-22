@@ -177,11 +177,15 @@ export async function moveConversationRuntime(
     closeMovedSession(teamId, conversation.sessionId)
   } finally {
     // Unlock first: the release starts any queued message, which a lock refuses.
-    await agentConversations().updateOne(
-      { sessionId: conversation.sessionId, teamId, 'runtimeOperation.token': token },
-      { $unset: { runtimeOperation: '' } },
-    )
-    release?.()
+    // A failed unlock still releases; the lock expires, the claim would not.
+    try {
+      await agentConversations().updateOne(
+        { sessionId: conversation.sessionId, teamId, 'runtimeOperation.token': token },
+        { $unset: { runtimeOperation: '' } },
+      )
+    } finally {
+      release?.()
+    }
   }
   if (retry) resendFailedPrompt(conversation.sessionId, retry)
   void deliverWaitingAnswers(conversation.sessionId)

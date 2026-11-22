@@ -52,8 +52,9 @@ useRuntimeModels({
   },
 })
 
-// Writes take a round trip, as Mongo's do, where a test asks for it.
+// Writes take a round trip, as Mongo's do, where a test asks for it, or fail.
 let writeMs = 0
+let writesFail = false
 
 useDb({
   db: () => ({
@@ -65,6 +66,7 @@ useDb({
         ...collection,
         updateOne: async (...args: Parameters<typeof collection.updateOne>) => {
           await new Promise((resolve) => setTimeout(resolve, writeMs))
+          if (writesFail) throw new Error('Mongo unavailable')
 
           return collection.updateOne(...args)
         },
@@ -116,6 +118,7 @@ beforeEach(() => {
   onStop = null
   queuedClaim = null
   writeMs = 0
+  writesFail = false
   destinationModels = allModels
   destinationDefaults = { modelId: 'default' }
   target = {
@@ -234,6 +237,21 @@ test('a message queued behind a turn a failed move stopped runs as soon as the m
   })
   expect(await claimed).toBe('claimed')
   expect(conversation.runtimeId).toBe('old')
+})
+test('a failed move that cannot unlock still lets the session go', async () => {
+  busy = true
+  onStop = () => {
+    target.status = 'disabled'
+    writesFail = true
+  }
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toThrow(
+    'Mongo unavailable',
+  )
+  // The lock expires on its own; the run claim would be held until a restart.
+  const release = await claimAgentRunForSession('owner', 'conversation', true)
+
+  expect(release).toBeFunction()
+  release?.()
 })
 test('a fallback leaves a running turn alone and the conversation where it is', async () => {
   busy = true
