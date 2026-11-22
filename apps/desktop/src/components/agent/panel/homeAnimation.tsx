@@ -4,35 +4,17 @@ import { ChevronRight } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 
 import { t } from '../../../i18n'
+import { toGraphemes } from '../../../lib/graphemes'
 
 import { PRESETS } from './stall'
 import { getAgentLocale } from './textUtils'
 
 import type { ReactNode } from 'react'
 
+// Whole words, so the title wraps only at its spaces and an email stays in one piece;
+// CJK has no spaces and wraps between characters.
 function splitForAnimation(text: string, lang: string): string[] {
-  try {
-    const isCJK = /^(zh|ja|ko)/i.test(lang)
-    const SegmenterCtor = (
-      Intl as unknown as {
-        Segmenter?: new (
-          l: string,
-          opts: { granularity: 'grapheme' | 'word' },
-        ) => { segment(s: string): Iterable<{ segment: string }> }
-      }
-    ).Segmenter
-
-    if (!SegmenterCtor) {
-      return isCJK ? Array.from(text) : text.split(/(\s+)/)
-    }
-    const segmenter = new SegmenterCtor(lang, {
-      granularity: isCJK ? 'grapheme' : 'word',
-    })
-
-    return Array.from(segmenter.segment(text), (s) => s.segment)
-  } catch {
-    return text.split(/(\s+)/)
-  }
+  return /^(zh|ja|ko)/i.test(lang) ? toGraphemes(text) : text.split(/(\s+)/)
 }
 
 export function AgentHomeAnimation({ title = t('What should we work on?') }: { title?: string }) {
@@ -77,7 +59,7 @@ export function AgentHomeAnimation({ title = t('What should we work on?') }: { t
               duration: 0.35,
               ease: easeOut,
             }}
-            style={{ display: 'inline-block', whiteSpace: 'pre' }}
+            style={{ display: 'inline-block', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             aria-hidden
           >
             {segment}

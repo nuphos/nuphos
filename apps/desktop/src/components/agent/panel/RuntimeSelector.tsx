@@ -163,7 +163,7 @@ export function RuntimeSelector({
   )
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
+    'flex min-w-0 max-w-fit grow basis-24 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
   )
 
   return (
