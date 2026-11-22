@@ -242,6 +242,15 @@ export const installScenarios: Scenario[] = [
           .filter({ visible: true })
           .first()
           .waitFor({ timeout: 60_000 })
+        // Desktop starts a turn that broke mid-stream again a few times before it gives up.
+        // Wait for the last attempt, or its error lands in the next scenario's backend log.
+        // Only this chat's Stop: chats opened before stay mounted, hidden.
+        await until(
+          'the turn to stop retrying',
+          async () =>
+            (await page.locator('button[title="Stop"]').filter({ visible: true }).count()) === 0,
+          60_000,
+        )
         await page.getByRole('button', { name: 'Install Claude Code' }).last().waitFor()
         await shot(page, 'local-6-chat-reinstall')
         const raw = await page.getByText(/ENOENT|native binary|-32603/).count()

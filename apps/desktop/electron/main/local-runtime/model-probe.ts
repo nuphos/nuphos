@@ -28,6 +28,7 @@ export type LocalModelCatalog = {
   controls: Record<string, ModelControls>
   /** Controls but no model list: `controls` holds one entry and a pick starts the session. */
   controlsOnly?: true
+  failed?: true // The read failed, so this emptiness is not a list still on its way.
 }
 
 type ConfigOption = {

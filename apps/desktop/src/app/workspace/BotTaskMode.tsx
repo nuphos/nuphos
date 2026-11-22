@@ -138,7 +138,7 @@ function BotTaskBody({
             onLocateConsumed={() => ws.setAuditChatLocate(null)}
             onSessionChange={(nextId) => (nextId ? onSessionChange(nextId) : requestClose())}
             onOpenNuphosLink={ws.stableOpenNuphosLinkFromChat}
-            onOpenAgentSettings={() => ws.openSettingsSection('workspace.agent')}
+            onOpenAgentSettings={() => ws.openSettingsSection('workspace.computers')}
             onTitleChange={(nextTitle, reportedId, agentRuntime) => {
               if (reportedId !== sessionId) return
               setTitle(nextTitle)

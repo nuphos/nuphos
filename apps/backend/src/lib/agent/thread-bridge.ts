@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { getSessionBypass, setSessionBypass } from '@/lib/agent/auto-mode/store'
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
 import { resolveConversationChatRuntime } from '@/lib/claude-code-preview/conversation-chat-route'
@@ -285,6 +286,7 @@ export async function setAgentThreadArchived(
     throw new Error('Target must be a conversation you own in this team.')
   }
   await setConversationArchived(threadId, archived)
+  if (archived) await cleanUpArchived([threadId])
 
   return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
 }

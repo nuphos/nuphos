@@ -24,6 +24,7 @@ const legacyTrigger = {
 
 const conversations: Record<string, unknown> = {
   'bound-session': { sessionId: 'bound-session', userId: OWNER, teamId: TEAM },
+  archived: { sessionId: 'archived', userId: OWNER, teamId: TEAM, archivedAt: new Date() },
   'someone-elses': {
     sessionId: 'someone-elses',
     userId: new ObjectId().toHexString(),
@@ -69,7 +70,7 @@ function collection(name: string) {
 }
 
 useDb({
-  db: () => ({ collection }) as never,
+  db: () => ({ collection }),
   withTransaction: (body: (session: never) => Promise<void>) => body({} as never),
 })
 
@@ -90,6 +91,14 @@ describe('re-creating a Trigger with the same dedupeKey', () => {
     dedupeKey: 'import:cpu',
   }
   const ctx = { userId: OWNER, teamId: TEAM, source: 'user' as const }
+
+  test('does not create a Trigger in an archived Task', async () => {
+    await expect(
+      createTrigger({ ...input, targetSessionId: 'archived' }, ctx),
+    ).rejects.toMatchObject({
+      code: 'invalid_target_session',
+    })
+  })
 
   test('returns the existing Trigger without writing', async () => {
     storedTrigger = { ...legacyTrigger, targetSessionId: 'bound-session', dedupeKey: 'import:cpu' }

@@ -27,6 +27,7 @@ export async function sessionConfigRestoreContext(
       external: endpoint?.external,
       backendUrl: endpoint?.backendUrl,
       parentSessionId: conversation.parentSessionId,
+      sessionHomeEpoch: conversation.sessionHomeEpoch,
       bot: isBot(conversation),
     },
   )

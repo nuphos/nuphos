@@ -239,7 +239,6 @@ export async function preparePreviewTurn(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
       )
-
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
@@ -259,6 +258,7 @@ export async function preparePreviewTurn(
       humanTurn: args.humanTurn,
       toolsVersion,
       parentSessionId: conversation?.parentSessionId,
+      sessionHomeEpoch: conversation?.sessionHomeEpoch,
       bot: isBot(conversation),
     },
     message: lead(),
