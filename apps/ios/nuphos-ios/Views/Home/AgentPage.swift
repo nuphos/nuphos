@@ -511,9 +511,9 @@ struct AgentPage: View {
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A Bot's
 /// chat is named after the Bot. A chat shows its newest post (`lastMessage`),
-/// and when it last moved. A question from the Bot or a thread it dispatched
-/// comes first; otherwise the row shows the chat's typing dots exactly while
-/// the chat shows them (#3522). A Bot at work adds nothing else here.
+/// on up to two lines, and when it last moved. The row shows the chat's typing
+/// dots exactly while the chat shows them (#3522). A question from the Bot stays
+/// in the Inbox (#4508), and a Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -521,9 +521,6 @@ struct ChannelRow: View {
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         let title = store.title(of: channel)
-        let bot = channel.isChannel ? store.bot(of: channel) : nil
-        let runs = bot.map { [$0] + store.threads(of: $0) } ?? []
-        let question = runs.lazy.compactMap { $0.attentionInputRequests.first?.question }.first
         HStack(spacing: 12) {
             if channel.isChannel {
                 ChatIcon(faces: channel.faces ?? [], title: title, size: 36)
@@ -542,12 +539,7 @@ struct ChannelRow: View {
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
-                if let question {
-                    Text("Needs your input: \(question)")
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.body)
-                        .lineLimit(1)
-                } else if channel.botTyping(in: store.observations, team: team) {
+                if channel.botTyping(in: store.observations, team: team) {
                     // As iMessage does: the dots stand in for the newest post until the reply lands.
                     TypingDots(size: 5)
                         .frame(height: 16)
@@ -556,7 +548,7 @@ struct ChannelRow: View {
                     Text(preview)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             }
             if store.unread.contains(team: team, session: channel.sessionId) {
