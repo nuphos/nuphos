@@ -298,7 +298,8 @@ final class BotsAndTasksListUITests: XCTestCase {
         ["id": id, "name": name, "agent": ["avatar": avatar, "provider": "claude-code"]]
     }
 
-    private static let longPost = "Moved the staging rollout to Thursday so the database migration can finish first, and asked the on-call team to watch the error rate after it ships."
+    // Under the 128 characters an XCUITest query takes.
+    private static let longPost = "Moved the staging rollout to Thursday so the migration can finish first, and the on-call team will watch the error rate."
 
     private static func chat(
         _ id: String, _ title: String, at time: String, faces: [[String: Any]], group: Bool = false, agents: [String]? = nil,
