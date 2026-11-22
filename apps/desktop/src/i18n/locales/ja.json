@@ -2775,6 +2775,7 @@
   "Napoleon": "ナポレオン",
   "Navigate": "移動",
   "Needs a Google OAuth client in Team settings.": "チーム設定で Google OAuth クライアントを追加する必要があります。",
+  "Needs a Google OAuth client. Ask {name} to add one in Team settings.": "Google OAuth クライアントが必要です。{name} にチーム設定での追加を依頼してください。",
   "Needs attention": "要対応",
   "Needs attention:": "要対応：",
   "Needs input": "入力待ち",

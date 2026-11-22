@@ -2775,6 +2775,7 @@
   "Napoleon": "นโปเลียน",
   "Navigate": "ไปยัง",
   "Needs a Google OAuth client in Team settings.": "ต้องเพิ่ม Google OAuth client ในการตั้งค่าทีมก่อน",
+  "Needs a Google OAuth client. Ask {name} to add one in Team settings.": "ต้องมีไคลเอนต์ Google OAuth ขอให้ {name} เพิ่มในการตั้งค่าทีม",
   "Needs attention": "ต้องตรวจสอบ",
   "Needs attention:": "ต้องตรวจสอบ:",
   "Needs input": "รอการตอบ",

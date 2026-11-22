@@ -2775,6 +2775,7 @@
   "Napoleon": "拿破崙",
   "Navigate": "瀏覽",
   "Needs a Google OAuth client in Team settings.": "需要先在團隊設定中加入 Google OAuth 用戶端。",
+  "Needs a Google OAuth client. Ask {name} to add one in Team settings.": "需要 Google OAuth 用戶端。請 {name} 在團隊設定中新增。",
   "Needs attention": "需要處理",
   "Needs attention:": "需要注意：",
   "Needs input": "需要輸入",

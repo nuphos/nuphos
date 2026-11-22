@@ -2775,6 +2775,7 @@
   "Napoleon": "Napoleón",
   "Navigate": "Navegar",
   "Needs a Google OAuth client in Team settings.": "Requiere un cliente OAuth de Google en la configuración del equipo.",
+  "Needs a Google OAuth client. Ask {name} to add one in Team settings.": "Necesita un cliente OAuth de Google. Pide a {name} que añada uno en los ajustes del equipo.",
   "Needs attention": "Requiere atención",
   "Needs attention:": "Requiere atención:",
   "Needs input": "Requiere respuesta",

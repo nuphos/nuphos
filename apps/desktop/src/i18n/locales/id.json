@@ -2775,6 +2775,7 @@
   "Napoleon": "Napoleon",
   "Navigate": "Navigasi",
   "Needs a Google OAuth client in Team settings.": "Memerlukan klien OAuth Google di Pengaturan tim.",
+  "Needs a Google OAuth client. Ask {name} to add one in Team settings.": "Memerlukan klien OAuth Google. Minta {name} untuk menambahkannya di pengaturan Tim.",
   "Needs attention": "Perlu perhatian",
   "Needs attention:": "Perlu perhatian:",
   "Needs input": "Perlu input",

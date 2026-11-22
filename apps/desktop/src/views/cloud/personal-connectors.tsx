@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { INLINE_LINK } from '../../components/ui/inline-link'
 import { toast } from '../../components/ui/toast'
+import { useTeamRole } from '../../hooks/useTeamRole'
 import { t } from '../../i18n'
 import { isGoogle } from '../../types'
 import { needsTeamGoogleClient } from '../settings/googleClient'
@@ -17,11 +18,48 @@ import {
   connectPersonalCredential,
   nameOf,
 } from '../settings/personalCredentials'
+import { useAdminName } from '../settings/useAdminName'
 
 import { OverflowMarquee } from './overflow-marquee'
 
 import type { PersonalCredential, PersonalCredentialProvider, TeamGoogleClient } from '../../types'
 import type { PersonalConnector } from '../settings/personalCredentials'
+
+/** A Google account waits for the team's OAuth client: admins can add it, everyone else asks one. */
+function GoogleClientHint({
+  teamId,
+  onOpenTeamSettings,
+}: {
+  teamId: string
+  onOpenTeamSettings: () => void
+}) {
+  const role = useTeamRole(teamId)
+  const isAdmin = role === 'ADMINISTRATOR'
+  const admin = useAdminName(teamId, role !== undefined && !isAdmin)
+
+  return (
+    <p className="mt-1 text-[12px] text-secondary">
+      {admin
+        ? t('Needs a Google OAuth client. Ask {name} to add one in Team settings.', { name: admin })
+        : t('Needs a Google OAuth client in Team settings.')}{' '}
+      <button
+        type="button"
+        className={INLINE_LINK}
+        onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
+      >
+        {t('Setup guide')}
+      </button>
+      {isAdmin && (
+        <>
+          {' · '}
+          <button type="button" className={INLINE_LINK} onClick={onOpenTeamSettings}>
+            {t('Open Team settings')}
+          </button>
+        </>
+      )}
+    </p>
+  )
+}
 
 /**
  * The member's own accounts, listed beside the team's connectors so Connectors is the one place to
@@ -123,20 +161,7 @@ export function PersonalConnectors({
                   />
                 )}
                 {needsTeamClient && (
-                  <p className="mt-1 text-[12px] text-secondary">
-                    {t('Needs a Google OAuth client in Team settings.')}{' '}
-                    <button
-                      type="button"
-                      className={INLINE_LINK}
-                      onClick={() => void api.appOpenExternal(GOOGLE_CLIENT_GUIDE_URL)}
-                    >
-                      {t('Setup guide')}
-                    </button>
-                    {' · '}
-                    <button type="button" className={INLINE_LINK} onClick={onOpenTeamSettings}>
-                      {t('Open Team settings')}
-                    </button>
-                  </p>
+                  <GoogleClientHint teamId={teamId} onOpenTeamSettings={onOpenTeamSettings} />
                 )}
               </div>
               {accounts.length === 0 && (
