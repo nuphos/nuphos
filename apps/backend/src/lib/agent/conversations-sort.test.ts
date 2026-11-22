@@ -33,14 +33,14 @@ describe('getConversations sorting', () => {
   test('defaults to newest activity', async () => {
     await getConversations(VIEWER, { teamId: TEAM, cursor: CURSOR })
 
-    expect(lastSort).toEqual({ lastActiveAt: -1 })
+    expect(lastSort).toEqual({ lastActiveAt: -1, _id: -1 })
     expect(lastQuery?.lastActiveAt).toEqual({ $lt: new Date(CURSOR) })
   })
 
   test('can keep the sidebar stable by creation time', async () => {
     await getConversations(VIEWER, { teamId: TEAM, cursor: CURSOR, sort: 'created' })
 
-    expect(lastSort).toEqual({ createdAt: -1 })
+    expect(lastSort).toEqual({ createdAt: -1, _id: -1 })
     expect(lastQuery?.createdAt).toEqual({ $lt: new Date(CURSOR) })
     expect(lastQuery?.lastActiveAt).toBeUndefined()
   })
