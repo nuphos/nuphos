@@ -40,7 +40,9 @@ useChatValidate({
   validateChatBody: () => {},
   acceptClientTail: (body) =>
     state.staleTail
-      ? Promise.reject(new AppError(409, 'transcript_out_of_sync', 'Stored transcript has 1 messages'))
+      ? Promise.reject(
+          new AppError(409, 'transcript_out_of_sync', 'Stored transcript has 1 messages'),
+        )
       : Promise.resolve(body.messages),
 })
 useSessionQueueSignIn({ queueForSignIn: () => Promise.resolve(null) })

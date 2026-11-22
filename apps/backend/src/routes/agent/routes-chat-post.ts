@@ -50,8 +50,7 @@ agent.post('/chat', async (c) => {
     await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
-  // Resolve Slack binding alongside attribution.
-  const clientViewPromise = acceptClientTail(
+  const clientView = await acceptClientTail(
     body,
     id,
     runOwnerUserId,
@@ -65,7 +64,6 @@ agent.post('/chat', async (c) => {
     !body.resume && conversationForResume
       ? await findSlackBoundThread(id, conversationForResume.metadata?.source)
       : null
-  const clientView = await clientViewPromise
 
   const kubeContext = sanitizeKubeContextHeader(c.req.header('X-Atlas-Kube-Context'))
   const requestedCredentialAccess =
