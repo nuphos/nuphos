@@ -113,11 +113,11 @@ final class AgentStore {
     }
 
     /// Chats opened since sign-in: one opened again shows what it last read at once,
-    /// while its poll reads it again (#3525).
+    /// while its poll reads it again (#3525). One that failed to load starts over, as an agent session does.
     private var openedChannels: [String: ChannelSession] = [:]
 
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
-        let channel = openedChannels[sessionId] ?? {
+        let channel = openedChannels[sessionId].flatMap { $0.loadError == nil ? $0 : nil } ?? {
             let fresh = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
             // The list row's icon shows at once; the chat's own load keeps it current.
             let row = channels.first { $0.sessionId == sessionId }
