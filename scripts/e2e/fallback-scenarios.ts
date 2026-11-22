@@ -216,6 +216,7 @@ export const fallbackScenarios: Scenario[] = [
   movesDown(
     'a session limit hit mid-turn ends the turn at once and moves down the fallback list',
     'Mid-turn limit E2E_SESSION_LIMIT E2E_DELIVERY:session-limit',
+    /hit your session limit/,
   ),
 ]
 
