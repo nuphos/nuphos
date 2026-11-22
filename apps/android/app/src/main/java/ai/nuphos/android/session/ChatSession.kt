@@ -1726,7 +1726,6 @@ class ChatSession(
             "preparing-tools" -> Words(R.string.convtext_phase_preparing_tools)
             "building-prompt" -> Words(R.string.convtext_phase_building_prompt)
             "recalling-memory" -> Words(R.string.convtext_phase_recalling_memory)
-            "loading-compaction" -> Words(R.string.convtext_phase_loading_history)
             "preparing-model" -> Words(R.string.convtext_phase_preparing_model)
             "connecting-model" -> Words(R.string.convtext_phase_connecting)
             "thinking" -> Words(R.string.convtext_phase_thinking)
