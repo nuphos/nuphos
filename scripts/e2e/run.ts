@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { archivePopoverScenarios } from './archive-popover-scenarios.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
@@ -148,6 +149,7 @@ const scenarios: Scenario[] = [
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
+  ...archivePopoverScenarios,
   ...leaveChatScenarios,
   ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
