@@ -207,7 +207,9 @@ export const channelScenarios: Scenario[] = [
           document.documentElement.classList.add('light')
         })
         await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
-        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+        // Case-sensitive, since a string matches any case and the Bot's sub-Task "E2E bot kid"
+        // stays listed under it.
+        const stale = await rows.filter({ hasText: /E2E Bot/ }).count()
 
         if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
       } finally {
@@ -218,7 +220,7 @@ export const channelScenarios: Scenario[] = [
       // Renamed from outside the app, the Bot's sidebar row follows on its own, with no reload.
       await page
         .locator('[data-sidebar-row]')
-        .filter({ hasText: 'E2E Bot' })
+        .filter({ hasText: /E2E Bot/ })
         .first()
         .waitFor({ timeout: 10_000 })
     },
