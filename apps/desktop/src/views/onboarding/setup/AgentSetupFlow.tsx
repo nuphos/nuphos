@@ -26,7 +26,6 @@ export function AgentSetupFlow({
       <div className="titlebar-drag absolute inset-x-0 top-0 h-11" aria-hidden="true" />
       {done ? (
         <SetupComplete
-          teamId={teamId}
           workspaceCreated={workspaceCreated}
           onFinish={onFinish}
           onBack={() => setDone(false)}

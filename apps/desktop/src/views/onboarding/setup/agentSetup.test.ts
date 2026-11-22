@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { boxOpenCode, localAgentStatus, readyLocalAgents, setupAgentStatus } from './agentSetup.ts'
+import { localAgentStatus, readyLocalAgents, setupAgentStatus } from './agentSetup.ts'
 
-import type { AgentDevice, LocalRuntimeState } from '../../../api/device-types.ts'
-import type { RuntimeInstance } from '../../../types/runtime.ts'
+import type { LocalRuntimeState } from '../../../api/device-types.ts'
 
 const installed = (loggedIn: boolean | null) =>
   ({ installed: true, path: '/usr/local/bin/agent', loggedIn }) as const
@@ -62,24 +61,4 @@ test('disabled dev detection and runtime failures never stay checking', () => {
     ),
     'unavailable',
   )
-})
-
-const on = (deviceId: string, provider = 'opencode') =>
-  ({ id: `${provider}@${deviceId}`, provider, local: { deviceId } }) as RuntimeInstance
-
-test('the Box’s OpenCode is the team’s runtime, not OpenCode on a person’s own computer', () => {
-  const devices = [
-    {
-      deviceId: 'box',
-      label: 'Computer 1',
-      platform: 'linux',
-      box: { provider: 'instabox', state: 'running' },
-    },
-    { deviceId: 'mac', label: 'Mac', platform: 'darwin' },
-  ] as AgentDevice[]
-
-  assert.equal(boxOpenCode([on('mac'), on('box', 'codex')], devices), undefined)
-  assert.equal(boxOpenCode([on('mac'), on('box')], devices)?.id, 'opencode@box')
-  // Before the device list arrives nothing is a Box.
-  assert.equal(boxOpenCode([on('box')]), undefined)
 })

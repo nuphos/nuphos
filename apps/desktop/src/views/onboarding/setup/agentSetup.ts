@@ -1,10 +1,8 @@
 import type {
   AgentCliStatus,
-  AgentDevice,
   CliLoginProvider,
   LocalRuntimeState,
 } from '../../../api/device-types.ts'
-import type { RuntimeInstance } from '../../../types/runtime.ts'
 
 export const LOCAL_SETUP_PROVIDERS = [
   'claude-code',
@@ -54,22 +52,4 @@ export function setupAgentStatus(
   if (state?.detectionDisabled || (!agent?.cli && agent?.error)) return 'unavailable'
 
   return localAgentStatus(agent?.cli)
-}
-
-/**
- * OpenCode on the team's Box: it answers on OpenCode's free models with no sign-in, so a new
- * team's free Box gives it a runtime before anything is connected. Listed once the Box joined.
- */
-export function boxOpenCode(
-  instances: RuntimeInstance[],
-  devices: AgentDevice[] = [],
-): RuntimeInstance | undefined {
-  const boxes = new Set(devices.filter((device) => device.box).map((device) => device.deviceId))
-
-  return instances.find(
-    (instance) =>
-      instance.provider === 'opencode' &&
-      instance.local !== undefined &&
-      boxes.has(instance.local.deviceId),
-  )
 }

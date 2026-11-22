@@ -1,13 +1,12 @@
 import { Check, FolderOpen, Monitor } from 'lucide-react'
 
-import { AgentProviderIcon, ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
+import { ClaudeIcon, CodexIcon } from '../../../components/agent/panel/icons'
 import { Button } from '../../../components/ui/button'
 import { useLocalRuntimeState } from '../../../hooks/useLocalRuntimeState'
 import { t } from '../../../i18n'
 
 import { LOCAL_AGENT_INFO, readyLocalAgents } from './agentSetup'
 import { SetupScreen, StatusPill } from './SetupChrome'
-import { useBoxOpenCode } from './useBoxOpenCode'
 
 import type { ReactNode } from 'react'
 
@@ -38,19 +37,16 @@ function AgentRow({
 
 /** Summarize readiness and let the user choose when to enter the workspace. */
 export function SetupComplete({
-  teamId,
   onFinish,
   onBack,
   workspaceCreated = false,
 }: {
-  teamId?: string
   onFinish: () => void
   onBack: () => void
   workspaceCreated?: boolean
 }) {
   const local = readyLocalAgents(useLocalRuntimeState())
-  const { box, runtime: boxRuntime } = useBoxOpenCode(teamId)
-  const empty = local.length === 0 && !boxRuntime
+  const empty = local.length === 0
 
   return (
     <SetupScreen
@@ -101,14 +97,6 @@ export function SetupComplete({
               {t('Connect a runtime')}
             </Button>
           </li>
-        )}
-        {box && boxRuntime && (
-          <AgentRow
-            icon={<AgentProviderIcon provider="opencode" className="h-5 w-5" />}
-            name="OpenCode"
-            where={box.label}
-            status="ready"
-          />
         )}
         {local.map((provider) => {
           const Icon = provider === 'codex' ? CodexIcon : ClaudeIcon

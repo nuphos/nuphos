@@ -20,9 +20,7 @@ import {
   readyLocalAgents,
 } from './agentSetup'
 import { openCloudComputer } from './agentSetupStore'
-import { BoxOpenCodeCard } from './BoxOpenCodeCard'
 import { SetupScreen, StatusPill } from './SetupChrome'
-import { useBoxOpenCode } from './useBoxOpenCode'
 
 import type { CliLoginProvider } from '../../../api'
 
@@ -169,8 +167,7 @@ export function LocalAgentsStep({
   onCloud?: () => void
 }) {
   const state = useLocalRuntimeState()
-  const { box, runtime: boxRuntime } = useBoxOpenCode(teamId)
-  const ready = readyLocalAgents(state).length > 0 || Boolean(boxRuntime)
+  const ready = readyLocalAgents(state).length > 0
   const checking = LOCAL_SETUP_PROVIDERS.some(
     (provider) => setupAgentStatus(state, provider) === 'checking',
   )
@@ -206,10 +203,7 @@ export function LocalAgentsStep({
         </>
       }
     >
-      <div className="space-y-3">
-        {box && <BoxOpenCodeCard computer={box.label} ready={Boolean(boxRuntime)} />}
-        <LocalAgentSetupCards teamId={teamId} onCloud={onCloud} />
-      </div>
+      <LocalAgentSetupCards teamId={teamId} onCloud={onCloud} />
     </SetupScreen>
   )
 }
