@@ -177,8 +177,12 @@ const scenarios: Scenario[] = [
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
-  // It leaves the window split, then closes a pane. Here and not in the second half: it needs
-  // the Bot that the access scenarios create.
+  // It removes a member from the team.
+  ...dashboardScenarios,
+  // Right after the one above: it opens the dashboards that scenario leaves behind.
+  ...dashboardUiScenarios,
+  // Right after the one above, whose last Task 404s in another team: its new Task leaves it.
+  // It needs the Bot the access scenarios create. It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
 ]
 
@@ -205,10 +209,6 @@ const later: Scenario[] = [
   ...sidebarPageScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
-  // It removes a member from the team.
-  ...dashboardScenarios,
-  // Right after the one above: it opens the dashboards that scenario leaves behind.
-  ...dashboardUiScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.

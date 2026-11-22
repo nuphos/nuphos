@@ -1,4 +1,5 @@
-// The Personal and Team dashboards screens (#2988) against the real backend, as the team's owner.
+// The Personal and Team dashboards screens (#2988) in the app, against the real backend.
+// The app is signed in as the team's owner, its Administrator.
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
@@ -236,7 +237,7 @@ export const dashboardUiScenarios: Scenario[] = [
     },
   },
   {
-    // #4168: a member reads the backend's words, no button. It ends in E2E, as its Task 404s here.
+    // #4168: a member reads the backend's words, no button; the open Task 404s in the new team.
     name: 'a member sees why no agent can run a panel, and is sent to a team admin',
     expected: /dashboard\.panel\.exec_failed|"path":"\/agent\/conversations\/[\w-]+","status":404/,
     run: async (page, stack) => {
@@ -269,7 +270,6 @@ export const dashboardUiScenarios: Scenario[] = [
         visibility: 'team',
       })
       const dashboardId = String(created.body.id)
-      const url = `https://nuphos.ai/teams/${teamId}/dashboards/${dashboardId}`
 
       // Its first run finds no agent at all, so the backend fails it as no_runtime itself.
       await admin('POST', `/teams/${teamId}/dashboards/${dashboardId}/panels`, {
@@ -278,7 +278,10 @@ export const dashboardUiScenarios: Scenario[] = [
         code: 'export default async () => ({ kind: "scalar", title: "Spend", value: 1 })',
       })
       await newTask(page)
-      await send(page, `Open ${url} E2E_DELIVERY:no-agent-member`)
+      await send(
+        page,
+        `Open https://nuphos.ai/teams/${teamId}/dashboards/${dashboardId} E2E_DELIVERY:no-agent-member`,
+      )
       await until('the agent to read the link', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:no-agent-member'),
       )
@@ -292,9 +295,6 @@ export const dashboardUiScenarios: Scenario[] = [
       if ((await page.getByRole('button', { name: 'Rent a computer from Nuphos' }).count()) > 0)
         throw new Error('A member was offered a computer to rent')
       await shot(page, '12-no-agent-member')
-      await page.getByRole('button', { name: 'No agent E2E' }).first().click()
-      await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
-      await page.getByRole('menuitem', { name: /^\S*\s*E2E$/ }).click()
     },
   },
 ]
