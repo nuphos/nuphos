@@ -119,7 +119,7 @@ export const boxScenarios: Scenario[] = [
           .click()
         await page.keyboard.type('Computers')
         await page.getByRole('option', { name: 'Computers' }).first().click()
-        await page.getByText(label).first().waitFor()
+        await page.getByText(label).filter({ visible: true }).first().waitFor()
         await page.getByRole('status').filter({ hasText: NOTICE }).waitFor()
         // The cards fade in; the picture is taken once they have.
         await page.waitForTimeout(1_500)
@@ -132,8 +132,10 @@ export const boxScenarios: Scenario[] = [
     },
   },
   {
-    // #3733: a Box whose machine instabox would not kill could never be deleted.
-    name: 'a Box instabox will not kill is still deleted, and its owner hears it may still run',
+    // #3733: a Box whose machine instabox would not kill could never be deleted. On the
+    // deployment's account the machine is Nuphos's to clean up from the log (#4094), so the
+    // owner is not sent to an instabox account they do not have.
+    name: "a Box the deployment's instabox will not kill is still deleted, without sending its owner to instabox",
     // The refused kill is logged, as it should be.
     expected: /"event":"agent\.box\.kill_failed"/,
     run: async (page, stack) => {
@@ -163,7 +165,9 @@ export const boxScenarios: Scenario[] = [
         await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
         await page.getByRole('alertdialog').getByRole('button', { name: 'Delete computer' }).click()
         await card.first().waitFor({ state: 'detached' })
-        await page.getByText(KILL_REFUSED).waitFor()
+        await page.waitForTimeout(1_000)
+        if (await page.getByText(KILL_REFUSED).count())
+          throw new Error('A deployment-account Box sent its owner to an instabox account')
         await page.screenshot({ path: join(artifacts, 'box-delete-kill-refused.png') })
         if (!backendLog(from).some((line) => line.includes('"event":"agent.box.kill_failed"')))
           throw new Error('The refused kill was not logged')
@@ -234,7 +238,7 @@ export const boxScenarios: Scenario[] = [
 
         await send(page, text)
         // It waits in the conversation for the Box instead of being refused.
-        await page.getByText(text).first().waitFor({ timeout: 30_000 })
+        await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout: 30_000 })
         if (await page.getByText('Its computer is offline').count())
           throw new Error('the send to a Box that is away was refused as offline')
         await page.screenshot({ path: join(artifacts, 'box-paused-queued.png') })

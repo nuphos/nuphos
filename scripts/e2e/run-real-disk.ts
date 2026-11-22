@@ -80,7 +80,10 @@ try {
   await send(page, 'Prepare the fictional release E2E_DELIVERY:disk-first')
   await page.getByText('ACK E2E_DELIVERY:disk-first').waitFor({ timeout: 60_000 })
   await chooseLocal(page)
-  await page.getByText('moved this task from E2E fixture agent to').waitFor()
+  await page
+    .getByText('moved this task from E2E fixture agent to')
+    .filter({ visible: true })
+    .waitFor()
   await send(page, 'Check the fictional release on this computer')
   await page.getByText('Check the fictional release on this computer').waitFor()
   const warning = (p: Page) => p.getByRole('status').filter({ hasText: 'disk is almost full' })
@@ -136,11 +139,19 @@ try {
   const vitePort = desktop.vitePort
 
   await desktop.stop()
+  // The window's HTTP cache holds the stopped Vite server's modules, kept immutable under
+  // NUPHOS_E2E; they import dependency versions the new server answers with 504, so the app
+  // never mounted. Only the cache goes: sign-in, localStorage and the window session stay.
+  rmSync(join(desktop.profile, 'Cache'), { recursive: true, force: true })
   desktop = await startDesktop(stack.apiUrl, { ...options, vitePort })
   page = desktop.page
   page.setDefaultTimeout(30_000)
   await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByText('Prepare the fictional release', { exact: false }).first().click()
+  await page
+    .getByText('Prepare the fictional release', { exact: false })
+    .filter({ visible: true })
+    .first()
+    .click()
   await page.waitForTimeout(65_000)
   if (await warning(page).isVisible()) throw new Error('Warning returned after restarting Desktop')
   await screenshot(page, 'restarted')
@@ -152,7 +163,11 @@ try {
   await page.waitForTimeout(70_000)
   await page.reload()
   await page.getByRole('tab', { name: 'Tasks' }).click()
-  await page.getByText('Prepare the fictional release', { exact: false }).first().click()
+  await page
+    .getByText('Prepare the fictional release', { exact: false })
+    .filter({ visible: true })
+    .first()
+    .click()
   await page.waitForTimeout(5_000)
   if (await warning(page).isVisible()) throw new Error('Warning remains after freeing space')
   await screenshot(page, 'space-freed')
@@ -162,10 +177,8 @@ try {
 } catch (error) {
   failed = true
   console.error(error)
-  if (!desktop && existsSync(logPath('real-disk')))
-    console.error(
-      `Desktop startup log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`,
-    )
+  if (existsSync(logPath('real-disk')))
+    console.error(`Desktop log:\n${readFileSync(logPath('real-disk'), 'utf8').slice(-8_000)}`)
   if (desktop) await screenshot(desktop.page, 'failure').catch(() => {})
 } finally {
   await desktop?.close(failed)

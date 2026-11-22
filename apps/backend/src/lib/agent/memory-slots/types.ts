@@ -27,11 +27,6 @@ export const MEMORY_SPI_VERSION = 1
 
 export type MemoryScope = 'personal' | 'team'
 
-/** Duplicate of the runtime's AgentSessionOrigin — deliberate: the SPI must not
- * import runtime modules. A compile-time assertion in runtime.ts locks the two
- * unions identical. */
-export type MemorySessionOrigin = 'user' | 'trigger'
-
 /** Where the provider's memory corpus physically lives. 'external' arms the
  * egress machinery: vendorName required, the per-team override doubles as the
  * consent switch, attribution digests are withheld until
@@ -73,9 +68,6 @@ export type MemoryToolContext = {
   userId: string
   teamId: string | null
   conversationId: string
-  /** Contract: providers MUST refuse durable writes unless origin === 'user'
-   * (conformance-tested). Reads are origin-free. */
-  origin: MemorySessionOrigin
   /** Pre-wrapped fail-open by the runtime. */
   observer: MemoryObserver
   /** Runtime-owned: resolves the single active plan number for this

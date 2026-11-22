@@ -575,3 +575,94 @@ test('an adopter that held the session before resumes it instead of reusing the 
 
   expect(loads).toEqual([{ session: 'sess_live', servers: expect.any(Array) }])
 })
+
+test('a transient offline failure does not exhaust a local handoff before its age limit', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const computer = { userId: 'owner', deviceId: 'laptop', provider: 'claude-code' as const }
+  let now = Date.now()
+  const clock = spyOn(Date, 'now').mockImplementation(() => now)
+
+  attachedRuntimeUrl = localRuntimeUrl(computer, 'team')
+  stored.set(
+    'team:conv',
+    JSON.stringify({ ...handoff(now - HANDOFF_SETTLE_MS), runtimeUrl: attachedRuntimeUrl }),
+  )
+  await runtimePresenceStore().claim(computer.userId, computer.deviceId, 'tunnel')
+  await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+    conn: 'tunnel',
+    seenAt: Date.now(),
+  })
+  try {
+    let tries = 0
+
+    for (let i = 0; i < 6; i++) {
+      await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+        conn: 'tunnel',
+        seenAt: now,
+      })
+      await adoptRuntimeHandoffs(async () => {
+        tries++
+        throw new AppError(409, 'runtime_offline', 'offline')
+      })
+      await adoptRuntimeHandoffs(async () => {
+        tries++
+      })
+      expect(tries).toBe(i + 1)
+      now += 10_000
+    }
+    await runtimePresenceStore().put(computer.userId, computer.deviceId, {
+      conn: 'tunnel',
+      seenAt: now,
+    })
+    expect(stored.has('team:conv')).toBe(true)
+    expect(tries).toBeGreaterThan(0)
+    const adopted: string[] = []
+
+    await adoptRuntimeHandoffs(async (claimed) => {
+      adopted.push(claimed.conversationId)
+    })
+    expect(adopted).toEqual(['conv'])
+  } finally {
+    clock.mockRestore()
+    await runtimePresenceStore().clear(computer.userId, computer.deviceId, 'tunnel')
+  }
+})
+
+test('a handoff retained after an offline failure is refused at the age limit', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const now = Date.now()
+
+  stored.set('team:conv', JSON.stringify(handoff(now - HANDOFF_SETTLE_MS)))
+  await adoptRuntimeHandoffs(async () => {
+    throw new AppError(409, 'runtime_offline', 'offline')
+  })
+  expect(stored.has('team:conv')).toBe(true)
+  const claimed = await claimRuntimeHandoffs(now + HANDOFF_MAX_AGE_MS)
+
+  expect(claimed).toEqual([])
+  expect(stored.has('team:conv')).toBe(false)
+  expect(workLost).toEqual([{ sessionId: 'conv', reason: 'unreachable' }])
+})
+
+test('an offline adoption failure logs which offline condition refused it', async () => {
+  const { AppError } = await import('@/lib/errors')
+  const logged = spyOn(console, 'error')
+
+  try {
+    for (const cause of ['no_presence', 'agent_unreported']) {
+      stored.set('team:conv', JSON.stringify(handoff(Date.now() - HANDOFF_SETTLE_MS)))
+      logged.mockClear()
+      await adoptRuntimeHandoffs(async () => {
+        throw new AppError(409, 'runtime_offline', 'offline', { cause })
+      })
+      const failure = logged.mock.calls
+        .map(([line]) => JSON.parse(String(line)))
+        .find((entry) => entry.event === 'agent.runtime_handoff.adopt_failed')
+
+      expect(failure).toMatchObject({ offline_cause: cause, retry: true })
+      stored.delete('team:conv')
+    }
+  } finally {
+    logged.mockRestore()
+  }
+})

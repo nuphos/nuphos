@@ -137,9 +137,22 @@ export function ModelSelector({
     onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }
-  // Closing returns to the message box, so typing carries on.
-  const finalFocus = () =>
-    composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true
+  // Closing returns to the message box, so typing carries on, unless the person
+  // already moved on: the runtime list opened while this menu closed lost focus
+  // to it and closed again (#3862).
+  const finalFocus = () => {
+    const focused = document.activeElement
+    // The chip counts as the menu's own: pressing it to close still returns to typing.
+    const movedOn =
+      focused !== null &&
+      focused !== document.body &&
+      !menuRef.current?.contains(focused) &&
+      !chipRef.current?.contains(focused)
+
+    return movedOn
+      ? false
+      : (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+  }
 
   // Shown once the task's own settings are known, never a placeholder before them.
   if (loading && !slow && !error && !data) return null

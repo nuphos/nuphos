@@ -1,14 +1,16 @@
 // The disk-almost-full banner: a computer with nothing to free, and a Box that clears caches.
+// Then the out-of-memory notice on a computer's card (#4345).
 import { join } from 'node:path'
 
 import { instaboxMachines } from './instabox-stub.ts'
 import { LAPTOP, laptopOnline } from './laptop-fixture.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
 const BOX = 'E2E disk Box'
+const MEMORY = 'In the last day, the system stopped a process because memory ran low'
 
 export const diskScenarios: Scenario[] = [
   {
@@ -24,9 +26,11 @@ export const diskScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-disk')
         await page.getByText('ACK E2E_DELIVERY:before-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        await pickInRow(page, LAPTOP, /Claude Code/)
+        await page
+          .getByText(`moved this task from E2E fixture agent to`)
+          .filter({ visible: true })
+          .waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${LAPTOP}’s disk is almost full (93%). Bots and tasks on it may fail.`,
         })
@@ -36,7 +40,10 @@ export const diskScenarios: Scenario[] = [
         // #3567, from #3568: the banner floats over the transcript's end, which keeps its last
         // message clear of it. A short, narrow window makes the transcript scroll and the reason
         // wrap, so the banner has something to cover.
-        const last = page.getByText(`moved this task from E2E fixture agent to`).last()
+        const last = page
+          .getByText(`moved this task from E2E fixture agent to`)
+          .filter({ visible: true })
+          .last()
         const size = page.viewportSize()
 
         await page.setViewportSize({ width: 720, height: 420 })
@@ -101,9 +108,11 @@ export const diskScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-box-disk')
         await page.getByText('ACK E2E_DELIVERY:before-box-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        await page.getByRole('menu').getByText(BOX).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
-        await page.getByText(`moved this task from E2E fixture agent to`).waitFor()
+        await pickInRow(page, BOX, /Claude Code/)
+        await page
+          .getByText(`moved this task from E2E fixture agent to`)
+          .filter({ visible: true })
+          .waitFor()
         const banner = page.getByRole('status').filter({
           hasText: `${BOX}’s disk is almost full (93%). Bots and tasks on it may fail.`,
         })
@@ -137,6 +146,54 @@ export const diskScenarios: Scenario[] = [
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'disk-box-card-confirm.png') })
         await confirm.getByRole('button', { name: 'Cancel' }).click()
+        await page.getByRole('button', { name: 'Back to app', exact: true }).click()
+      } finally {
+        goOffline()
+      }
+    },
+  },
+  {
+    // #4345: a Box whose host saw the kernel's OOM kill count rise says so on its card, through
+    // the tunnel, the backend's presence and the devices list; a reading without it says nothing.
+    name: 'a Box whose host recorded an OOM kill says a process was stopped for memory, and one without says nothing',
+    run: async (page, stack) => {
+      const killedAt = new Date(Date.now() - 12 * 60_000).toISOString()
+      let goOffline = await laptopOnline(stack, {
+        diskPercent: 50,
+        box: BOX,
+        oomKilledAt: killedAt,
+      })
+
+      try {
+        await openComputers(page)
+        const notice = page.getByRole('status').filter({ hasText: MEMORY })
+
+        await notice
+          .getByText('Run fewer Bots, Tasks, builds or browsers at once', { exact: false })
+          .waitFor()
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        // The Box's card sits after the others in a row that scrolls sideways: bring it on screen.
+        await notice.scrollIntoViewIfNeeded()
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'memory-box-card-light.png') })
+        goOffline()
+        // The same Box again, its host reporting no kill: a reconnect alone is not a memory story.
+        goOffline = await laptopOnline(stack, { diskPercent: 50, box: BOX })
+        await until(
+          'the removed card and its notice to go',
+          async () => (await notice.count()) === 0,
+        )
+        await page.getByText(BOX, { exact: true }).filter({ visible: true }).first().waitFor()
+        // Two more readings of the new Box: still nothing about memory.
+        await page.waitForTimeout(10_000)
+        if ((await page.getByText(MEMORY).filter({ visible: true }).count()) > 0)
+          throw new Error('A reading without an OOM kill still shows the memory notice')
+        await page.getByText(BOX, { exact: true }).first().scrollIntoViewIfNeeded()
+        await page.waitForTimeout(500)
+        await page.screenshot({ path: join(artifacts, 'memory-box-card-none-light.png') })
         await page.getByRole('button', { name: 'Back to app', exact: true }).click()
       } finally {
         goOffline()

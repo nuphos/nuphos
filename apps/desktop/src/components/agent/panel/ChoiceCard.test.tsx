@@ -291,3 +291,61 @@ test('a single- and a multi-select question are one option row: multiSelect only
       else Reflect.deleteProperty(globalThis, key)
   }
 })
+
+test('an integration this app has no Connect card for offers no words or option, only Snooze and Dismiss', async () => {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const originals = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const { createRoot } = await import('react-dom/client')
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const ctx: ConnectCardContextValue = {
+    send: () => true,
+    answer: () => true,
+    dismiss: () => Promise.resolve(true),
+    snooze: () => {},
+  }
+
+  try {
+    await act(() =>
+      root.render(
+        createElement(
+          ConnectCardContext.Provider,
+          { value: ctx },
+          createElement(ChoiceCard, {
+            toolCallId: 'q1',
+            category: 'integration',
+            question: 'Connect Slack',
+            options: ['Done'],
+            canAct: true,
+            selectOnly: true,
+          }),
+        ),
+      ),
+    )
+    const labels = [...container.querySelectorAll('button')].map((item) => item.textContent)
+
+    // The server refuses words and options for it (decision_not_answerable).
+    assert.deepEqual(labels, ['Snooze', 'Dismiss'])
+    assert.match(container.textContent ?? '', /credential picker/)
+  } finally {
+    await act(() => root.unmount())
+    for (const [key, descriptor] of originals)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+  }
+})

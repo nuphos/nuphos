@@ -14,6 +14,7 @@ struct HomeView: View {
     @State private var autoPage = false
     @State private var showTeamPicker = false
     @State private var showProfile = false
+    @State private var resumeTwoFactor = false
     @State private var showNewBot = false
     @State private var showNewTask = false
     @State private var submittedTask: AgentPage.OpenChat?
@@ -138,8 +139,9 @@ struct HomeView: View {
                 .environment(store)
                 .presentationDetents([.large])
             }
-            .sheet(isPresented: $showProfile) {
-                ProfileSheet(user: user)
+            .onAppear { if TwoFactorView.takeResume() { resumeTwoFactor = true; showProfile = true } }
+            .sheet(isPresented: $showProfile, onDismiss: { resumeTwoFactor = false }) {
+                ProfileSheet(user: user, openTwoFactor: resumeTwoFactor)
             }
             .sheet(item: workspaceSheet) { destination in
                 NavigationStack {

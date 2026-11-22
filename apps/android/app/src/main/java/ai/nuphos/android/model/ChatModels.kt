@@ -224,6 +224,18 @@ sealed class ChatPart {
                 return SecretRequest(name, input["question"]?.stringValue.orEmpty(), fields, input["site"]?.stringValue.takeIf { fields != null })
             }
 
+        /**
+         * A question Desktop draws as its question card, never as a tool row. The app answers it
+         * from the Inbox and shows the answer as its answered line, so the transcript draws nothing
+         * for the call. A secret keeps its card, an integration its row, and a call that really
+         * failed its row.
+         */
+        val isQuestionCard: Boolean
+            get() = toolName == "request_user_decision" && secretRequest == null &&
+                input?.get("category")?.stringValue != "integration" &&
+                !input?.get("question")?.stringValue.isNullOrBlank() &&
+                !(state == State.OutputError && errorText != Words(R.string.convtext_tool_interrupted))
+
         /** The request id the decision's result names; the call id otherwise. */
         val decisionRequestId: String get() = output?.get("requestId")?.stringValue ?: toolCallId
 

@@ -4,7 +4,7 @@ import { join } from 'node:path'
 
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
 import { artifacts } from './processes.ts'
-import { newTask, pickInSubmenu, send } from './ui.ts'
+import { newTask, pickAgent, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -20,9 +20,7 @@ export const NOT_READY_LINE =
 // keeps the scenarios after these off the laptop, which has gone offline by then.
 export async function backOnFixture(page: Page, marker: string) {
   await newTask(page)
-  await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-  await page.getByRole('menu').getByText('E2E fixture agent').click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^E2E fixture agent.*Claude Code/ }))
+  await pickAgent(page, 'E2E fixture agent')
   await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
   await page.getByText(`ACK E2E_DELIVERY:${marker}`).waitFor()
 }
@@ -44,9 +42,8 @@ export const outdatedTurnScenarios: Scenario[] = [
       try {
         // A new task starts on the laptop, whichever runtime the last one used.
         await newTask(page)
-        await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await pickInRow(page, LAPTOP, /Claude Code/)
         await send(page, 'On the laptop behind the latest release')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-turn-error.png') })
@@ -101,9 +98,8 @@ export const outdatedTurnScenarios: Scenario[] = [
 
       try {
         await newTask(page)
-        await page.getByRole('button', { name: /^(?:Agent )?runtime:/i }).click()
-        await page.getByRole('menu').getByText(LAPTOP).first().click()
-        await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await pickInRow(page, LAPTOP, /Claude Code/)
         await send(page, 'How to get the update')
         await page.getByText(NOT_READY_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'not-ready-turn-error.png') })

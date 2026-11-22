@@ -31,7 +31,8 @@ struct ChannelView: View {
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
-        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+        guard let viewerId = channel.viewerId else { return false }
+        return channel.agents.contains { $0.sessionId == agentId && $0.ownerId == viewerId }
     }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
@@ -159,6 +160,8 @@ struct ChannelView: View {
                 // sets what its content reads comes up empty.
                 botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
                 guard let bot = channel.botId else { return }
+                await botSession?.load()
+                guard !Task.isCancelled, channel.botId == bot else { return }
                 if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
                     canOpenTask = true
                 } else {
@@ -254,8 +257,24 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                alwaysShowControls: channel.botId != nil,
+                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: { EmptyView() }
+                controls: {
+                    if let botSession, botSession.loaded {
+                        ComposerControls(
+                            selection: Binding(
+                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
+                                set: { botSession.setCredentials($0) }
+                            ),
+                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
+                            session: botSession,
+                            switchRuntime: { switchingBot = botSession },
+                            botChat: true,
+                            locked: !botSession.isOwner
+                        )
+                    }
+                }
             )
         }
     }
@@ -481,6 +500,11 @@ private struct ChannelPostRow: View {
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if mine { Spacer(minLength: 48) }
@@ -493,8 +517,8 @@ private struct ChannelPostRow: View {
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -565,7 +589,7 @@ private struct ChannelPostRow: View {
         VStack(alignment: .leading, spacing: 6) {
             if let reply = post.replyTo { quote(reply) }
             if !post.text.isEmpty {
-                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
             }
         }
             .padding(.horizontal, 14)
@@ -614,8 +638,8 @@ private struct ReplyFailedLine: View {
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
     }
 
     @ViewBuilder private var fixes: some View {

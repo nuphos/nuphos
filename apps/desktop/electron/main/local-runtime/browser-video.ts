@@ -30,7 +30,30 @@ export type Video = {
   limits: { maxMs: number; maxBytes: number }
   /** Closes the helper of a recording nobody stopped, say because its tab closed first. */
   expiry: ReturnType<typeof setTimeout>
+  /** The page as it is now, as a JPEG: the frames a page that does not repaint never sends. */
+  snapshot: Snapshot
+  /** Whether any frame was drawn yet, the first one at record_start included. */
+  drawn: boolean
 }
+export type Snapshot = () => Promise<string | undefined>
+
+/** A tab's own screenshot over its debugger, which the CLI host's headless pages always answer. */
+const screenshot =
+  (debug: Debugger): Snapshot =>
+  () =>
+    debug
+      .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
+      .then((shot) => (shot as { data?: string }).data)
+
+/** Desktop captures its tab with capturePage, which a hidden window answers when CDP does not. */
+export const snapshotOf = (tab: RecordedTab): Snapshot =>
+  tab.capturePage
+    ? () =>
+        // Called on the tab itself: WebContents methods need their `this`.
+        tab.capturePage!().then((image) =>
+          image.isEmpty() ? undefined : image.toJPEG(70).toString('base64'),
+        )
+    : screenshot(tab.debugger)
 
 /** By default a video ends after 2 minutes or 100 MB of frames, whichever comes first. */
 const LIMITS = { maxMs: 120_000, maxBytes: 100 * 1024 * 1024 }
@@ -54,6 +77,16 @@ const within = <T>(work: Promise<T>, ms: number, fallback: () => T | Promise<T>)
     }),
   ]).finally(() => clearTimeout(timer))
 }
+
+/** How far the helper got with the frames it was sent, for an error that says why a video failed. */
+const progressOf = async (video: Video) =>
+  String(
+    await within(
+      video.helper.evaluate('JSON.stringify(progress)').catch(() => 'no answer'),
+      2_000,
+      () => 'no answer',
+    ),
+  )
 
 // Each frame is encoded at the time it arrived, given by the host: a helper page that runs late,
 // as a headless one may, still gives the video its real timing. finish encodes the last frame
@@ -127,6 +160,7 @@ export async function startVideo(
   debug: Debugger,
   open: OpenHelper,
   limits = LIMITS,
+  snapshot = screenshot(debug),
 ): Promise<Video> {
   const helper = await open()
   const video: Video = {
@@ -145,23 +179,23 @@ export async function startVideo(
       stopFrames(video)
       helper.close()
     }, limits.maxMs + ABANDONED_MS),
+    snapshot,
+    drawn: false,
   }
 
   video.expiry.unref()
   try {
     await helper.evaluate(SETUP)
     // The video's clock starts at its first frame, and a tab that does not repaint sends none
-    // until it changes, so the first frame is the page as it is now.
-    // A refused screenshot only loses that first frame, not the recording.
-    const { data } = (await within(
-      debug
-        .sendCommand('Page.captureScreenshot', { format: 'jpeg', quality: 70 })
-        .catch(() => ({})),
+    // until it changes, so the first frame is the page as it is now. One that does not come in
+    // a second is taken again at record_stop instead.
+    const data = await within(
+      snapshot().catch(() => undefined),
       SCREENSHOT_MS,
-      () => ({}),
-    )) as { data?: string }
+      () => undefined,
+    )
 
-    if (data) void helper.evaluate(`draw(${JSON.stringify(data)}, 0)`).catch(() => {})
+    if (data) draw(video, data, 0)
     debug.on('message', video.onMessage)
     await debug.sendCommand('Page.startScreencast', {
       format: 'jpeg',
@@ -196,10 +230,7 @@ function onFrame(video: Video, params: Record<string, unknown>): void {
     return
   }
   video.bytes = bytes
-  video.frames++
-  void video.helper
-    .evaluate(`draw(${JSON.stringify(data)}, ${Date.now() - video.started})`)
-    .catch(() => {})
+  draw(video, data, Date.now() - video.started)
 }
 
 function stopFrames(video: Video): void {
@@ -209,20 +240,31 @@ function stopFrames(video: Video): void {
   void video.debugger.sendCommand('Page.stopScreencast').catch(() => {})
 }
 
+function draw(video: Video, jpeg: string, ms: number): void {
+  video.drawn = true
+  video.frames++
+  void video.helper.evaluate(`draw(${JSON.stringify(jpeg)}, ${String(ms)})`).catch(() => {})
+}
+
 /** Ends the video and writes it to `file`; returns what `record_stop` reports of it. */
 export async function stopVideo(video: Video, file: string) {
   clearTimeout(video.expiry)
   stopFrames(video)
   try {
     const ms = Date.now() - video.started
-    const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
-      const progress = await within(
-        video.helper.evaluate('JSON.stringify(progress)'),
-        2_000,
-        () => 'no answer',
+
+    // A still page sent nothing, so it is captured now: it looked this way all along.
+    if (!video.drawn) {
+      const still = await within(
+        video.snapshot().catch(() => undefined),
+        FINISH_MS,
+        () => undefined,
       )
 
-      throw new Error(`The video did not finish in 15 s (${String(progress)}).`)
+      if (still) draw(video, still, 0)
+    }
+    const finished = await within(video.helper.evaluate(`finish(${ms})`), FINISH_MS, async () => {
+      throw new Error(`The video did not finish in 15 s (${await progressOf(video)}).`)
     })
     const chunks = JSON.parse(finished as string) as {
       ms: number
@@ -230,7 +272,10 @@ export async function stopVideo(video: Video, file: string) {
       data: string
     }[]
 
-    if (!chunks.length) throw new Error('No frame of the tab was recorded.')
+    if (!chunks.length)
+      throw new Error(
+        `No frame of the tab was recorded (${String(video.frames)} sent, ${await progressOf(video)}).`,
+      )
     const bytes = webm(
       chunks.map((c) => ({ ...c, data: Buffer.from(c.data, 'base64') })),
       SIZE,

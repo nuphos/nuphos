@@ -145,7 +145,10 @@ export function registerDashboardPanelRoutes(
     // fires from the background completion.
     const snapshot = await executePanel({ teamId, dashboard, panel: doc })
 
-    return c.json(serializePanel(doc, { ...dashboard, ...cadence }, snapshot), 201)
+    return c.json(
+      serializePanel(doc, { ...dashboard, ...cadence }, snapshot, null, c.get('userId')),
+      201,
+    )
   })
 
   nuphosDashboardsRoutes.put(
@@ -213,6 +216,7 @@ export function registerDashboardPanelRoutes(
           scheduled,
           snapshots.get(panelId) ?? null,
           successfulSnapshots.get(panelId) ?? null,
+          c.get('userId'),
         ),
       )
     },

@@ -6,10 +6,6 @@ import type { Plan, PlanLifecycleStatus } from '../../api'
 
 const PLAN_UPDATED_EVENT = 'atlas-plan-updated'
 
-export function emitPlanUpdated(plan: Plan) {
-  window.dispatchEvent(new CustomEvent<{ plan: Plan }>(PLAN_UPDATED_EVENT, { detail: { plan } }))
-}
-
 const ACTIVE_PLAN_STATUSES: ReadonlySet<PlanLifecycleStatus> = new Set([
   'proposed',
   'approved',

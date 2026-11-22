@@ -60,6 +60,7 @@ export function allCredentialAccessFromOptions(
           cloudflareAccountIds: options.cloudflareAccounts.map((entry) => entry.accountId),
           instaboxAccountIds: options.instaboxAccounts.map((entry) => entry.accountId),
           personalCredentialIds: options.personalCredentials.map((entry) => entry.provider),
+          personalConnectionIds: options.personalCredentials.map((entry) => entry.id),
         }
       : {}),
     updatedAt: new Date(),
