@@ -2,7 +2,7 @@
 // pane, and a menu left open. A chat opened before stays in the page, hidden (#4430), and what
 // it put at the page's root must hide and show with it.
 import { kept } from './chat-keep.ts'
-import { until } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 
 import type { Page } from 'playwright-core'
 
@@ -39,7 +39,21 @@ async function openRow(page: Page, chat: Chat) {
 
 /** Marks the details panel on screen as `mark`, to know it again by its element. */
 async function markPanel(page: Page, mark: string) {
-  await until('one details panel on screen', async () => (await visiblePanels(page)) === 1, 10_000)
+  try {
+    await until('one details panel on screen', async () => (await visiblePanels(page)) === 1, 10_000)
+  } catch (error) {
+    await page.screenshot({ path: `${artifacts}/details-${mark}.png` })
+    const seen = await panels(page).evaluateAll((all) =>
+      all.map((panel) => ({
+        visible: panel.checkVisibility(),
+        display: panel.style.display,
+        mark: panel.dataset.e2eMark,
+        root: panel.parentElement === document.body,
+      })),
+    )
+
+    throw new Error(`details panels for ${mark}: ${JSON.stringify(seen)}`, { cause: error })
+  }
   await panels(page)
     .filter({ visible: true })
     .evaluate((panel, value) => {
