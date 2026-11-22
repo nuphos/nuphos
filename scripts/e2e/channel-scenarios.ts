@@ -224,6 +224,7 @@ export const channelScenarios: Scenario[] = [
     },
   },
   ...botAccessScenarios,
+  {
     // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
     name: 'the Bot composer and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
