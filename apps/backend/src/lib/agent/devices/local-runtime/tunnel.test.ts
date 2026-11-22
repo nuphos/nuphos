@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 
+import { stagedUpdateToRestart } from '@/lib/claude-code-preview/host-minimum-version'
+
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus, guardedReconnect } from './bus'
 import { holderChannel, streamChannel } from './protocol'
@@ -14,7 +16,7 @@ import { processSingleton } from './singleton'
 import { openLocalRuntimeSocket } from './socket'
 
 import type { TunnelBus } from './bus'
-import type { RuntimeTunnel } from './holder'
+import type { RuntimeTunnel, TunnelHolderDeps } from './holder'
 import type { LocalRuntimePresenceStore } from './presence'
 import type { BackendFrame } from './protocol'
 
@@ -66,6 +68,8 @@ async function connectDesktop(
     /** Connected but has not sent its first frame yet. */
     silent?: boolean
     recordAgents?: () => Promise<void>
+    stagedUpdateToRestart?: NonNullable<TunnelHolderDeps['stagedUpdateToRestart']>
+    restartIdleMs?: number
   } = {},
 ): Promise<Desktop> {
   const desktop = { frames: [] as BackendFrame[] } as Desktop
@@ -92,6 +96,8 @@ async function connectDesktop(
       heartbeatMs: options.heartbeatMs ?? 60_000,
       ...(options.idleTimeoutMs ? { idleTimeoutMs: options.idleTimeoutMs } : {}),
       ...(options.recordAgents ? { recordAgents: options.recordAgents } : {}),
+      stagedUpdateToRestart: options.stagedUpdateToRestart,
+      restartIdleMs: options.restartIdleMs,
     },
   )
   desktop.send = (frame) => {
@@ -542,6 +548,43 @@ describe('local runtime tunnel', () => {
     expect(await presence.get(owner.userId, owner.deviceId)).not.toBeNull()
     clock += 30_000
     expect(await presence.get(owner.userId, owner.deviceId)).toBeNull()
+  })
+
+  test('a Desktop too old to install its staged update by itself is restarted into it once idle', async () => {
+    const staged = (restartIdleMs: number) =>
+      connectDesktop(createLocalTunnelBus(), createMemoryPresenceStore(), new Set(['t1']), {
+        heartbeatMs: 5,
+        stagedUpdateToRestart,
+        restartIdleMs,
+      })
+    const update = (desktop: Desktop) => {
+      desktop.send({
+        t: 'status',
+        status: {
+          agents: {},
+          app: { version: '0.125.0', update: { version: '0.130.10', ready: true } },
+        },
+      })
+    }
+    const asked = (desktop: Desktop) =>
+      desktop.frames.filter((frame) => frame.t === 'data' && frame.d === '{"method":"update"}')
+
+    const idle = await staged(20)
+
+    update(idle)
+    await eventually(() => asked(idle).length > 0)
+    const [request] = asked(idle) as Extract<BackendFrame, { t: 'data' }>[]
+
+    expect(idle.frames).toContainEqual({ t: 'open', s: String(request?.s), purpose: 'instances' })
+    // Once per update, however many heartbeats follow.
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(asked(idle)).toHaveLength(1)
+
+    const recent = await staged(60_000)
+
+    update(recent)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(asked(recent)).toHaveLength(0)
   })
 
   test('data on a stream marks the computer used; a status read does not', async () => {

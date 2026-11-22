@@ -19,6 +19,7 @@ import { presenceChanged } from '@/lib/agent/devices/presence-alerts'
 import { wakeMissedPosts } from '@/lib/agent/channel-missed-posts'
 import { deliverWaitingAnswersOn, onDevice } from '@/lib/agent/deliver-waiting-answers'
 import { getAgentDevice, isActiveTeamMember } from '@/lib/agent/devices/store'
+import { stagedUpdateToRestart } from '@/lib/claude-code-preview/host-minimum-version'
 import { recordDeviceMetricSample } from '@/lib/claude-code-preview/runtime-metrics-store'
 import { AppError } from '@/lib/errors'
 import { requestOrigin } from '@/lib/request-origin'
@@ -70,6 +71,7 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
         } else void noteBoxEviction(userId, deviceId, getAgentDevice)
       },
       recordMetrics: recordDeviceMetricSample,
+      stagedUpdateToRestart,
     },
     listActivity: listLocalRuntimeActivity,
     conversationTitlesFor,

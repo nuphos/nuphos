@@ -29,6 +29,10 @@ export type TunnelHolderDeps = {
   /** Told when the tunnel opens and when it ends, however it ends; it may not throw. */
   connectionChanged?: (userId: string, deviceId: string, online: boolean) => void
   recordMetrics?: (userId: string, deviceId: string, metrics: BoxMetrics) => void
+  /** The staged update a Desktop too old to install it by itself waits to restart into. */
+  stagedUpdateToRestart?: (status: LocalRuntimeStatus) => string | undefined
+  /** How long the computer goes unused before it is restarted into that update. */
+  restartIdleMs?: number
 }
 
 export type RuntimeTunnel = {

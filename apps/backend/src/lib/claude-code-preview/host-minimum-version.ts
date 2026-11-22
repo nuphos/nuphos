@@ -7,6 +7,7 @@ import {
 
 import type { RuntimeRelease } from './runtime-release'
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 
 /**
  * The oldest Nuphos a computer should run. Below it, its card and chats say it is out of date
@@ -43,6 +44,21 @@ export function hostOutdated(
       stableRuntimeVersion(reported) && !runtimeVersionAtLeast(reported, MINIMUM_HOST_VERSION[host])
     )
   })
+}
+
+/**
+ * The update a Desktop below the floor has staged, which it installs only on a restart. Below
+ * 0.124.0 a Desktop reports no `app` and cannot be asked to restart, so it has none here.
+ */
+export function stagedUpdateToRestart(status: Pick<LocalRuntimeStatus, 'app'>): string | undefined {
+  const app = status.app
+
+  return app?.update?.ready &&
+    stableRuntimeVersion(app.version) &&
+    !runtimeVersionAtLeast(app.version, MINIMUM_HOST_VERSION.desktop) &&
+    newerRuntimeVersion(app.update.version, app.version)
+    ? app.update.version
+    : undefined
 }
 
 /**

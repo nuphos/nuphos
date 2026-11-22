@@ -10,6 +10,7 @@ import {
   updateAvailable,
   DESKTOP_UPDATE_READY_HINT,
   hostUpdateHint,
+  stagedUpdateToRestart,
   withOutdatedHint,
 } from './host-minimum-version'
 import { ownComputer } from './session-desktops'
@@ -56,6 +57,31 @@ describe('the oldest Nuphos a computer may run', () => {
 })
 
 // The floor only says a computer should update: nothing refuses a turn or a runtime start for it.
+describe('a staged update the backend restarts a Desktop into', () => {
+  test('only below the floor, and only once it is staged and newer (#4524)', () => {
+    const app = (version: string, update?: { version: string; ready: boolean }) => ({
+      app: { version, ...(update ? { update } : {}) },
+    })
+
+    expect(stagedUpdateToRestart(app('0.125.0', { version: '0.130.10', ready: true }))).toBe(
+      '0.130.10',
+    )
+    // Still downloading, nothing found, or already installing by itself when idle.
+    expect(
+      stagedUpdateToRestart(app('0.125.0', { version: '0.130.10', ready: false })),
+    ).toBeUndefined()
+    expect(stagedUpdateToRestart(app('0.125.0'))).toBeUndefined()
+    expect(
+      stagedUpdateToRestart(app('0.127.0', { version: '0.130.10', ready: true })),
+    ).toBeUndefined()
+    // Before 0.124.0 a Desktop reports no app at all.
+    expect(stagedUpdateToRestart({})).toBeUndefined()
+    expect(
+      stagedUpdateToRestart(app('0.125.0-dev', { version: '0.130.10', ready: true })),
+    ).toBeUndefined()
+  })
+})
+
 describe('a computer below the floor', () => {
   test('is used only for update notices, never to block runtime operations', () => {
     const src = `${import.meta.dir}/../..`
@@ -67,12 +93,14 @@ describe('a computer below the floor', () => {
     )
 
     // #3562: a failed turn also says so; that only adds a line to its error and summary.
+    // #4524: the tunnel restarts an idle Desktop below it into the update it already staged.
     expect(new Set(readers)).toEqual(
       new Set([
         'lib/claude-code-preview/preview-transcript.ts',
         'lib/claude-code-preview/runtime-refusal.ts',
         'lib/agent/reply-failed.ts',
         'lib/claude-code-preview/session-desktops.ts',
+        'routes/agent/routes-device-runtime.ts',
       ]),
     )
   })
