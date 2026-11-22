@@ -4,7 +4,7 @@ import { AppError } from '@/lib/errors'
 
 import { hostUpdateHint } from './host-minimum-version'
 import { agentHostAway } from './openab-acp-connect'
-import { turnFailureCause } from './openab-acp-errors'
+import { claudeNotice, runtimeUsageExhaustedMessage, turnFailureCause } from './openab-acp-errors'
 
 /**
  * The runtime will not take this message now: admission saw it busy, or another
@@ -16,15 +16,29 @@ export const refusal = (label: string) => new AppError(409, 'runtime_not_accepti
 export const isRuntimeRefusal = (error: unknown) =>
   error instanceof AppError && error.code === 'runtime_not_accepting_message'
 
+/** Anthropic holds the account until its holder verifies it: no wait ends that. */
+const VERIFICATION_HOLD = /^(?:API Error: )?Your account can['’]t receive replies from Claude\b/u
+
+/** Out of usage that the allowance resetting ends, unlike an account held for verification. */
+export const outOfUsageUntilReset = (error: unknown) =>
+  Boolean(runtimeUsageExhaustedMessage(error)) && !VERIFICATION_HOLD.test(claudeNotice(error) ?? '')
+
 /**
  * Whether the queue sends this turn again, so it is not recorded: a refusal for a
- * client that resends, or an agent host away or offline that the conversation queue waits for.
+ * client that resends, an agent host away or offline that the conversation queue waits for,
+ * or an agent out of usage that a queued turn waits for. A direct send says so at once.
  */
 export const resentAfter = (
   error: unknown,
-  turn: { clientResendsRefusal?: boolean; queued?: unknown },
+  turn: {
+    clientResendsRefusal?: boolean
+    waitsOutUsage?: boolean
+    queued?: unknown
+    direct?: boolean
+  },
 ) =>
   ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
+  ((turn.waitsOutUsage || (Boolean(turn.queued) && !turn.direct)) && outOfUsageUntilReset(error)) ||
   (Boolean(turn.clientResendsRefusal) &&
     (agentHostAway(error) || turnFailureCause(error) === 'offline'))
 
