@@ -4,6 +4,7 @@ import { t } from '../../i18n/index.ts'
 export function commonCronSummary(
   expression: string,
   time: (hour: number, minute: number) => string,
+  zone: string,
 ): string | null {
   const fields = expression.split(/\s+/)
 
@@ -16,8 +17,8 @@ export function commonCronSummary(
 
     if ([1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30].includes(step))
       return step === 1
-        ? t('Runs every minute (UTC)')
-        : t('Runs every {n} minutes, from minute 00 (UTC)', { n: step })
+        ? t('Runs every minute ({zone})', { zone })
+        : t('Runs every {n} minutes, from minute 00 ({zone})', { n: step, zone })
   }
   // DOM and DOW together have OR semantics; never describe that as monthly.
   if (month !== '*' || weekday !== '*') return null
@@ -25,6 +26,12 @@ export function commonCronSummary(
   const [m, h, d] = [Number(minute), Number(hour), Number(day)]
 
   if (m > 59 || h > 23 || d < 1 || d > 31) return null
+
+  if (d >= 29)
+    return t('Runs on day {day} of each month at {time}; skips months without that date', {
+      day: d,
+      time: time(h, m),
+    })
 
   return t('Runs on day {day} of each month at {time}', { day: d, time: time(h, m) })
 }

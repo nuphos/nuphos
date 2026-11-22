@@ -76,7 +76,6 @@ test('a Trigger row opens its details, and its switch does not', async () => {
 
   assert.ok(container.textContent?.includes('Runs on day 1 of each month at 01:00 UTC'))
   assert.ok(!container.textContent?.includes('Schedule: 0 1 1 * *'))
-  assert.ok(container.textContent?.includes(Intl.DateTimeFormat().resolvedOptions().timeZone))
   const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
 
   assert.ok(row, 'the row is a disclosure button')

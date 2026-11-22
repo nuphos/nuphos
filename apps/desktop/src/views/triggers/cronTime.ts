@@ -103,8 +103,3 @@ export function utcTimeOfDayInZone(
 
   return { hm: local.hm, dayShift: local.ymd < utc.ymd ? -1 : 1 }
 }
-
-/** An actual run instant, explicitly labelled with the viewer's zone and offset. */
-export function formatLocalRun(instant: Date, timeZone = viewerTimeZone()): string {
-  return `${instant.toLocaleString(locale, { timeZone })} (${zoneLabel(timeZone, instant)})`
-}
