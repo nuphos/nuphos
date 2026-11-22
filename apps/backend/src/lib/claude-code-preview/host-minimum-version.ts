@@ -87,9 +87,9 @@ export const OUTDATED_HOST_HINT =
   'Nuphos on this computer is out of date. Update it there, then try again.'
 
 export const DESKTOP_UPDATE_READY_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+  'Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it.'
 export const DESKTOP_OUTDATED_HINT =
-  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
+  'Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it.'
 
 const HOST_LABEL_MAX = 80
 

@@ -11,10 +11,10 @@ import type { Page } from 'playwright-core'
 
 // What the conversation shows for a failed turn there: its summary, then the out-of-date line.
 export const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it.'
 
 export const NOT_READY_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
+  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it.'
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
 // keeps the scenarios after these off the laptop, which has gone offline by then.
