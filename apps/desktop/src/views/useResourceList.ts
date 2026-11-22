@@ -5,6 +5,7 @@ import { toast } from '../components/ui/toast.ts'
 import { useSilentTick } from '../hooks/useSilentRefresh.ts'
 import { t } from '../i18n/index.ts'
 import { reportFrontendError } from '../lib/frontendErrorReporter.ts'
+import { STALE_MS } from '../lib/query/client.ts'
 import { queryKeys } from '../lib/query/keys.ts'
 import { useRefreshKey } from '../lib/query/tabQuery.ts'
 import { readCachedResourceList } from '../lib/resourceListCache.ts'
@@ -48,18 +49,21 @@ export function useResourceList<T>(
       return cached?.items.length ? cached.items : undefined
     },
     initialDataUpdatedAt: () => readCachedResourceList(cacheKey)?.updatedAt,
-    refetchOnMount: (entry) => (entry.state.data?.length ? true : 'always'),
+    // An empty list is never known to still be empty, so showing it again, on a new tab or on a
+    // tab moved onto it, always reads.
+    staleTime: (entry) => (entry.state.data?.length ? STALE_MS : 0),
   })
   const items: T[] = query.data ?? NO_ITEMS
   // The read the view found cached when it started showing this list. An empty list from then is
   // not known to still be empty, so it loads until a newer read lands, as a cold load does.
   const [shownFrom, setShownFrom] = useState({ listKey, readAt: query.dataUpdatedAt })
 
-  if (shownFrom.listKey !== listKey) setShownFrom({ listKey, readAt: query.dataUpdatedAt })
+  const readAt = shownFrom.listKey === listKey ? shownFrom.readAt : query.dataUpdatedAt
+
+  if (shownFrom.listKey !== listKey) setShownFrom({ listKey, readAt })
   const loading =
     enabled &&
-    (query.isPending ||
-      (items.length === 0 && query.isFetching && query.dataUpdatedAt <= shownFrom.readAt))
+    (query.isPending || (items.length === 0 && query.isFetching && query.dataUpdatedAt <= readAt))
   const failure = query.error
   // A message set by the view holds until the next read lands.
   const stamp = query.dataUpdatedAt + query.errorUpdatedAt
@@ -83,20 +87,26 @@ export function useResourceList<T>(
   useEffect(() => {
     stampRef.current = stamp
   })
-  // A poll that fails stays quiet; only the tab's refresh says it could not refresh.
+  const shownKeyRef = useRef(listKey)
+  // A poll that fails stays quiet; only the tab's refresh says it could not refresh. A refresh that
+  // comes with a new list joins the read the new list started instead of starting it over.
   const refresh = async () => {
     if (!enabled) return
-    const result = await query.refetch()
+    const result = await query.refetch({ cancelRefetch: shownKeyRef.current === listKey })
 
     if (result.isError && result.data?.length)
       toast.apiError(t('Could not refresh — showing cached data'), result.error)
   }
 
   useRefreshKey({ isPending: loading, refetch: refresh }, refreshKey, onLoading)
+  useEffect(() => {
+    shownKeyRef.current = listKey
+  })
   // Polls at the caller's cadence: a view of a rate-limited API passes a slower tick. A poll joins
   // a read still in flight instead of cancelling it, so a list slower than its tick still lands.
+  // A view pauses its polls by passing no tick.
   useSilentTick(() => {
-    if (enabled) void query.refetch({ cancelRefetch: false })
+    if (enabled && options.pollTick !== undefined) void query.refetch({ cancelRefetch: false })
   }, options.pollTick ?? 0)
   useEffect(() => {
     if (!failure) return

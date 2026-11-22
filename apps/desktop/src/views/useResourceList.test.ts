@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client'
 
 const toasts: string[] = []
 let tabRefresh = () => Promise.resolve()
+const silentRefresh = { useSilentTick: (_fn: () => void, _tick: number) => undefined as void }
 
 mock.module('../components/ui/toast.ts', {
   namedExports: { toast: { apiError: (title: string) => toasts.push(title) } },
@@ -15,10 +16,11 @@ mock.module('../components/ui/toast.ts', {
 mock.module('../lib/frontendErrorReporter.ts', { namedExports: { reportFrontendError: () => {} } })
 mock.module('../lib/query/tabQuery.ts', {
   namedExports: {
-    useRefreshKey: (query: { refetch: () => Promise<unknown> }) => {
+    useRefreshKey: (query: { refetch: () => Promise<unknown> }, refreshKey: number) => {
       tabRefresh = async () => {
         await query.refetch()
       }
+      silentRefresh.useSilentTick(() => void query.refetch(), refreshKey)
     },
   },
 })
@@ -32,6 +34,7 @@ for (const [key, value] of Object.entries({
 }))
   Object.defineProperty(globalThis, key, { value, configurable: true })
 
+Object.assign(silentRefresh, await import('../hooks/useSilentRefresh.ts'))
 const { createQueryClient } = await import('../lib/query/client.ts')
 const { withResourceListCache } = await import('../lib/resourceListCache.ts')
 const { useResourceList } = await import('./useResourceList.ts')
@@ -156,6 +159,37 @@ test('a list polls at the tick its view passes, not on a fixed interval', async 
   await act(() => root.unmount())
 })
 
+test('a view that stops passing a tick pauses its polls without reading', async () => {
+  dom.localStorage.clear()
+  let reads = 0
+  const loader = withResourceListCache('test/paused', async () => {
+    reads += 1
+
+    return ['a']
+  })
+  const List = ({ pollTick }: { pollTick?: number }) => {
+    useResourceList(loader, 0, undefined, { pollTick })
+
+    return null
+  }
+  const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
+  const client = createQueryClient()
+  const render = (pollTick?: number) =>
+    act(async () => {
+      root.render(createElement(QueryClientProvider, { client }, createElement(List, { pollTick })))
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+  await render(3)
+  assert.equal(reads, 1)
+  // A detail panel opens over the list.
+  await render(undefined)
+  assert.equal(reads, 1)
+  await render(4)
+  assert.equal(reads, 2)
+  await act(() => root.unmount())
+})
+
 /** Answers the oldest read once it has started, then waits until the list has settled. */
 async function answerRead(
   waiting: ((rows: string[]) => void)[],
@@ -258,4 +292,81 @@ test('a list found empty before loads again when shown, so nothing acts on the o
   await land()
   assert.deepEqual(seen.at(-1), { items: ['b'], loading: false })
   await act(() => second.unmount())
+})
+
+/** One list view whose tab can be moved to another list, with a read of each list kept waiting. */
+function retargetable(keys: string[]) {
+  const reads: Record<string, number> = {}
+  const waiting: ((rows: string[]) => void)[] = []
+  const loaders = Object.fromEntries(
+    keys.map((key) => [
+      key,
+      withResourceListCache(
+        key,
+        () =>
+          new Promise<string[]>((resolve) => {
+            reads[key] = (reads[key] ?? 0) + 1
+            waiting.push(resolve)
+          }),
+      ),
+    ]),
+  )
+  const seen: { items: string[]; loading: boolean }[] = []
+  const List = ({ listKey, refreshKey }: { listKey: string; refreshKey: number }) => {
+    const { items, loading } = useResourceList(loaders[listKey], refreshKey)
+
+    seen.push({ items, loading })
+
+    return null
+  }
+  const root = createRoot(dom.document.createElement('div') as unknown as HTMLElement)
+  const client = createQueryClient()
+  const render = (listKey: string, refreshKey = 0) =>
+    act(async () => {
+      root.render(
+        createElement(QueryClientProvider, { client }, createElement(List, { listKey, refreshKey })),
+      )
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+
+  return { reads, seen, render, land: (rows: string[]) => answerRead(waiting, rows, client), root }
+}
+
+test('a tab moved back onto a list found empty reads it again before showing it', async () => {
+  dom.localStorage.clear()
+  const tab = retargetable(['test/b', 'test/c'])
+
+  await tab.render('test/b')
+  await tab.land([])
+  await tab.render('test/c')
+  await tab.land(['c'])
+  // A bucket was created in the first account since; its empty answer is seconds old.
+  tab.seen.length = 0
+  await tab.render('test/b')
+  assert.equal(tab.reads['test/b'], 2)
+  assert.ok(tab.seen.every((s) => s.loading || s.items.length > 0))
+  await tab.land(['new'])
+  assert.deepEqual(tab.seen.at(-1), { items: ['new'], loading: false })
+  await act(() => tab.root.unmount())
+})
+
+test('a role switch that also refreshes the tab reads the new list once', async () => {
+  dom.localStorage.clear()
+  dom.localStorage.setItem(
+    'atlas.resource-list.test/viewer',
+    JSON.stringify({ version: 1, updatedAt: 0, items: ['old'] }),
+  )
+  const tab = retargetable(['test/admin', 'test/viewer'])
+
+  await tab.render('test/admin', 0)
+  await tab.land(['a'])
+  await tab.render('test/viewer', 1)
+  assert.equal(tab.reads['test/viewer'], 1)
+  await tab.land(['v'])
+  assert.deepEqual(tab.seen.at(-1), { items: ['v'], loading: false })
+  // A later refresh still reads.
+  await tab.render('test/viewer', 2)
+  assert.equal(tab.reads['test/viewer'], 2)
+  await tab.land(['v'])
+  await act(() => tab.root.unmount())
 })
