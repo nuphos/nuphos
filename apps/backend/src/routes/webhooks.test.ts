@@ -1,10 +1,11 @@
-import { beforeEach, describe, expect, spyOn, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { AppError, errorHandler } from '@/lib/errors'
 import { useDb } from '@/lib/test/doubles/db'
 import { useTriggerExecutor } from '@/lib/test/doubles/trigger-executor'
+import { useTriggerScheduler } from '@/lib/test/doubles/trigger-scheduler'
 
 import type { AgentTrigger } from '@/lib/agent/trigger-db'
 
@@ -14,22 +15,49 @@ let stored: AgentTrigger
 
 let lastRunAt: Date | undefined
 let refusal: Error | undefined
+const held: unknown[] = []
+const flushes: { triggerId: string; delayMs: number }[] = []
+let queueUp = true
 
 useDb({
   db: () => ({
     collection: () => ({
       findOne: () => Promise.resolve(stored),
+      updateOne: () => {
+        held.pop()
+
+        return Promise.resolve({})
+      },
       // The cooldown claim, as Mongo runs it: it wins only once its window has passed.
-      findOneAndUpdate: (filter: { $or: [unknown, { lastRunAt: { $lte: Date } }] }) => {
-        const cutoff = filter.$or[1].lastRunAt.$lte
+      findOneAndUpdate: (
+        filter: { $or?: [unknown, { lastRunAt: { $lte: Date } }] },
+        update: { $push?: { heldDeliveries: { $each: unknown[] } } },
+      ) => {
+        // The hold: pushes a delivery and returns the Trigger as it was before.
+        if (update.$push) {
+          const before = [...held]
+
+          held.push(...update.$push.heldDeliveries.$each)
+
+          return Promise.resolve({ heldDeliveries: before })
+        }
+        const cutoff = filter.$or![1].lastRunAt.$lte
 
         if (lastRunAt && lastRunAt > cutoff) return Promise.resolve(null)
         lastRunAt = new Date()
 
-        return Promise.resolve(stored)
+        // Taking the window takes what was held with it.
+        return Promise.resolve({ ...stored, heldDeliveries: held.splice(0) })
       },
     }),
   }),
+})
+useTriggerScheduler({
+  enqueueHeldFlush: (triggerId, delayMs) => {
+    if (queueUp) flushes.push({ triggerId, delayMs })
+
+    return Promise.resolve(queueUp)
+  },
 })
 function fired(trigger: AgentTrigger, payload: unknown, options: Record<string, unknown>) {
   if (refusal) return Promise.reject(refusal)
@@ -85,6 +113,9 @@ beforeEach(() => {
   fires.length = 0
   lastRunAt = undefined
   refusal = undefined
+  held.length = 0
+  flushes.length = 0
+  queueUp = true
 })
 
 describe('POST /webhooks/:triggerId', () => {
@@ -213,43 +244,87 @@ describe('POST /webhooks/:triggerId', () => {
     expect((await post()).status).toBe(409)
   })
 
-  test('Retry-After is what is left of the window', async () => {
+  test('a delivery inside the window is held and fired when the window ends', async () => {
     stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
     lastRunAt = stored.lastRunAt
+
+    const res = await post({ action: 'synchronize' })
+
+    expect(res.status).toBe(202)
+    expect(await res.json()).toEqual({ ok: true, held: true, firesInSeconds: 180 })
+    expect(held).toEqual([{ action: 'synchronize' }])
+    expect(flushes).toEqual([{ triggerId: String(stored._id), delayMs: 180_000 }])
+    expect(fires).toHaveLength(0)
+  })
+
+  test('one flush is pending per batch: a second hold joins it, a hold after a flush starts the next', async () => {
+    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
+    lastRunAt = stored.lastRunAt
+
+    await post({ n: 1 })
+    await post({ n: 2 })
+    expect(flushes).toHaveLength(1)
+    // The flush took the batch: what arrives next is not covered by the job that took it.
+    held.length = 0
+    await post({ n: 3 })
+    expect(flushes).toHaveLength(2)
+  })
+
+  test('the delivery that opens the window fires with everything held before it', async () => {
+    stored = webhook({ minIntervalSeconds: 300 })
+    held.push({ n: 1 }, { n: 2 })
+
+    expect((await post({ n: 3 })).status).toBe(200)
+    expect(fires.map((f) => f.payload)).toEqual([
+      { coalesced: 3, deliveries: [{ n: 1 }, { n: 2 }, { n: 3 }] },
+    ])
+  })
+
+  test('a single delivery fires as it came', async () => {
+    stored = webhook({ minIntervalSeconds: 300 })
+
+    expect((await post({ n: 1 })).status).toBe(200)
+    expect(fires.map((f) => f.payload)).toEqual([{ n: 1 }])
+  })
+
+  test('asks the sender to come back when nothing can fire the held delivery', async () => {
+    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
+    lastRunAt = stored.lastRunAt
+    queueUp = false
 
     const res = await post()
 
     expect(res.status).toBe(429)
     expect(res.headers.get('Retry-After')).toBe('180')
+    expect(held).toHaveLength(0)
+  })
+})
+
+describe('payload filters', () => {
+  const filters = [{ path: 'action', in: ['opened', 'synchronize'] }]
+
+  test('a delivery that fails the rules is answered and starts no turn', async () => {
+    stored = webhook({ payloadFilters: filters })
+
+    const skipped = await post({ action: 'labeled' })
+
+    expect(skipped.status).toBe(200)
+    expect(await skipped.json()).toEqual({ ok: true, skipped: true, reason: 'filtered' })
+    expect(fires).toHaveLength(0)
   })
 
-  test('a delivery refused inside the window is logged, so a sender that never retries leaves a trace', async () => {
-    stored = webhook({ minIntervalSeconds: 300, lastRunAt: new Date(Date.now() - 120_000) })
-    lastRunAt = stored.lastRunAt
-    const warn = spyOn(console, 'warn').mockImplementation(() => null)
+  test('a delivery that passes them fires once', async () => {
+    stored = webhook({ payloadFilters: filters })
 
-    try {
-      expect((await post()).status).toBe(429)
-      expect(warn.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown)).toContainEqual(
-        expect.objectContaining({
-          event: 'webhook.rate_limited',
-          trigger_id: String(stored._id),
-          retry_after: 180,
-        }),
-      )
-    } finally {
-      warn.mockRestore()
-    }
+    expect((await post({ action: 'synchronize' })).status).toBe(200)
+    expect(fires).toHaveLength(1)
   })
 
-  test('a Trigger set to fire at most every N seconds asks for the next one later', async () => {
-    stored = webhook({ minIntervalSeconds: 300 })
+  test('a filtered delivery does not use up the cooldown', async () => {
+    stored = webhook({ payloadFilters: filters, minIntervalSeconds: 300 })
 
-    expect((await post({ status: 'firing' })).status).toBe(200)
-    const again = await post({ status: 'resolved' })
-
-    expect(again.status).toBe(429)
-    expect(again.headers.get('Retry-After')).toBe('300')
+    await post({ action: 'edited' })
+    expect((await post({ action: 'opened' })).status).toBe(200)
     expect(fires).toHaveLength(1)
   })
 })

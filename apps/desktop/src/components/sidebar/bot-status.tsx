@@ -64,11 +64,32 @@ export function botChatRows({
   const typing =
     Boolean(chat.channel) &&
     chatTyping(bot?.runtimeState, chat.key.replace('agent-session:', ''), true)
+  // A question is the Inbox's to show: the preview stays the chat's newest post.
   const status =
-    busy || activity.kind === 'idle' ? undefined : <BotStatusLine activity={activity} />
+    activity.kind === 'onboarding' || activity.kind === 'error' ? (
+      <BotStatusLine activity={activity} />
+    ) : undefined
   const previewNode = status ?? (typing ? <TypingPreview /> : undefined)
+  // A Bot with no chat yet is listed by its own session, which has no chat faces: its own face.
+  const face: ChannelFace[] | undefined =
+    faces ??
+    (bot?.conversation.avatar
+      ? [
+          {
+            id: bot.conversation.sessionId,
+            name: bot.conversation.title,
+            agent: {
+              avatar: bot.conversation.avatar,
+              avatarBackground: bot.conversation.avatarBackground,
+              provider: bot.conversation.agentRuntime,
+            },
+          },
+        ]
+      : undefined)
   const row: Item = {
     ...chat,
+    // Only the face says the Bot works: not the spinner its own session shows when folded.
+    foldedStatus: undefined,
     dot: rowDot(unread),
     // The motion says "working"; the mark keeps only what asks for attention.
     trailing: (
@@ -77,7 +98,11 @@ export function botChatRows({
         dot={rowDot(unread)}
       />
     ),
-    ...(busy && { iconNode: <ChatIcon faces={faces} title={chat.label} sidebar looping /> }),
+    // Bots draws a Bot with no chat by its face, so the loop takes that place too.
+    ...(busy && {
+      iconNode: <ChatIcon faces={face} title={chat.label} sidebar looping />,
+      ...(chat.face && { face: <ChatIcon faces={face} title={chat.label} sidebar looping /> }),
+    }),
     ...(previewNode && { previewNode }),
   }
 

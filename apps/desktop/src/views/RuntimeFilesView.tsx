@@ -65,7 +65,6 @@ export function RuntimeFilesView({
   const docKind = fileName && preview && 'text' in preview ? filePreviewKind(fileName) : null
   const navigationSlot = useToolbarSlot('left', isActive && Boolean(source))
   const runtimeSlot = useToolbarSlot('right', isActive)
-
   const filePathShown = `${path}/${fileName}`
   const entries = directory?.entries ?? []
   const folders = path.split('/').filter(Boolean)
@@ -182,6 +181,7 @@ export function RuntimeFilesView({
         )}
       {error ? (
         <RuntimeFilesError
+          teamId={teamId}
           error={error}
           errorCode={errorCode}
           filePath={filePathShown}

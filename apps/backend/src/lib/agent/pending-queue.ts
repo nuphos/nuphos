@@ -41,17 +41,20 @@ export async function listPendingUserMessages(
   return [...(localQueues.get(key) ?? []), ...stored]
 }
 
-/** The questions queued messages answer, each with the message answering it. */
+/**
+ * The questions queued messages answer or dismiss, each with the message: a
+ * reply typed in the chat, or the notice of a card's answer.
+ */
 export async function queuedAnswers(
   userId: string,
   sessionId: string,
-): Promise<Map<string, string>> {
-  const answers = new Map<string, string>()
+): Promise<Map<string, PendingUserMessage>> {
+  const answers = new Map<string, PendingUserMessage>()
 
   for (const message of await listPendingUserMessages(userId, sessionId)) {
-    const id = message.chat?.decisionReplyTo
+    const id = message.answers?.id ?? message.chat?.decisionReplyTo
 
-    if (id && !answers.has(id)) answers.set(id, message.id)
+    if (id && !answers.has(id)) answers.set(id, message)
   }
 
   return answers
@@ -63,21 +66,12 @@ const isTranscriptMessage = (message: PendingUserMessage) =>
 // An agent or a resource event speaks for no person: it never joins a person's turn.
 const AGENT_SOURCES: readonly string[] = ['agent.thread', 'agent.resource']
 
-/** Who a message is from: a person, or the session or resource that sent it. */
-function senderOf(message: PendingUserMessage, ownerUserId: string): string {
-  const person = message.actorUserId ?? ownerUserId
-
-  return AGENT_SOURCES.includes(message.source)
-    ? `${message.source}:${message.metadata?.sender?.id ?? person}`
-    : person
-}
-
 /**
- * The messages the next turn answers: the oldest transcript message, plus the
- * messages right behind it from the same sender. An app send always runs
- * alone, as its sender's own chat turn. A channel message stays where it is,
- * and so does an older client's steering message from a teammate: only that
- * teammate's own turn may answer it.
+ * The messages the next turn answers: every waiting transcript message up to the
+ * first app send, whoever sent it, so a backlog is answered in one turn. An app
+ * send always runs alone, as its sender's own chat turn. A channel message stays
+ * where it is, and so does an older client's steering message from a teammate:
+ * only that teammate's own turn may answer it.
  */
 export function queueHead(
   queue: readonly PendingUserMessage[],
@@ -88,18 +82,11 @@ export function queueHead(
       isTranscriptMessage(message) &&
       (message.chat !== undefined || (message.actorUserId ?? ownerUserId) === ownerUserId),
   )
-  const first = waiting[0]
+  const chat = waiting.findIndex((message) => message.chat)
 
-  if (!first) return []
-  if (first.chat) return [first]
-  const head = [first]
+  if (chat === 0) return waiting.slice(0, 1)
 
-  for (const next of waiting.slice(1)) {
-    if (next.chat || senderOf(next, ownerUserId) !== senderOf(first, ownerUserId)) break
-    head.push(next)
-  }
-
-  return head
+  return chat === -1 ? waiting : waiting.slice(0, chat)
 }
 
 /** Whether a turn waits to start; a new message must queue behind it, not overtake it. */
@@ -190,7 +177,7 @@ export async function takeTurnQueue(
   const own = queue.filter(
     (message) =>
       !AGENT_SOURCES.includes(message.source) &&
-      senderOf(message, userId) === actorUserId &&
+      (message.actorUserId ?? userId) === actorUserId &&
       !message.chat &&
       (channelTurn || isTranscriptMessage(message)),
   )

@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { findLatestPlanReference } from '../planReference'
 import { usePlan } from '../planUpdates'
 
-import { ACTIVE_LIFECYCLE_STATUSES } from './applyEvent'
 import { locateChatTarget } from './chatTarget'
 import { credentialSelectionSignature } from './credentialAccess'
 import { serverHasConversation, sessionActionGates } from './sessionActions'
-import { useConversationPlanReference } from './useConversationPlanReference'
 
 import type { ActivePlan } from './applyEvent'
 import type { JournalChatTarget } from '../JournalPanel'
@@ -64,17 +61,11 @@ export function usePanelPlanPane(acc: Acc) {
   // Find the latest Plan-producing tool call in the active tab. Both the
   // generic plan_create tool and typed resource proposal tools persist normal
   // Plan docs; their content + live status come straight from the same API.
-  const latestPlanRef = useMemo(() => {
+  const resolvedPlanRef = useMemo(() => {
     if (!activeTab) return null
 
     return findLatestPlanReference(activeTab.messages)
   }, [activeTab])
-  const resolvedPlanRef = useConversationPlanReference(
-    activeTab?.sessionId,
-    activeTab?.streaming ?? false,
-    teamId,
-    latestPlanRef,
-  )
   const { plan: activePlanDoc } = usePlan(resolvedPlanRef?.planId, teamId, {
     keepPolling: activeTab?.streaming ?? false,
   })
@@ -133,21 +124,12 @@ export function usePanelPlanPane(acc: Acc) {
     setJournalPaneOpen(false)
   }
 
-  // Approve is shown only while the plan is still `proposed` and the tab is
-  // not streaming (sendInActive would early-return otherwise). Chat (=
-  // interrupt) is shown whenever the plan is still active. These gate the
-  // latest plan's inline actions.
+  // The latest plan's card keeps polling while its tab streams.
   const activePlanCanAct = useMemo(() => {
     if (!activePlan || !activeTab) return null
 
     return {
       toolCallId: activePlan.toolCallId,
-      canApprove:
-        activePlan.plan.status === 'proposed' &&
-        (runtimeAllows(activeTab.runtimeState, 'send') ||
-          runtimeAllows(activeTab.runtimeState, 'reply')) &&
-        !activeTab.readOnly,
-      canChat: ACTIVE_LIFECYCLE_STATUSES.has(activePlan.plan.status) && !activeTab.readOnly,
       keepPolling: activeTab.streaming,
     }
   }, [activePlan, activeTab])

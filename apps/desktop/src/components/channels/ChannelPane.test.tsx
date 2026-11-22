@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
-import { act, createElement } from 'react'
+import { act, Activity, createElement } from 'react'
 
 import type { AgentConversation } from '../../api'
 import type { UserInfo } from '../../types'
@@ -56,6 +56,8 @@ const pending = new Proxy(
 )
 
 Object.assign(dom, { api: pending })
+// happy-dom lays nothing out: the chat is wide enough for its details beside it.
+Object.defineProperty(dom.HTMLElement.prototype, 'offsetWidth', { get: () => 1200 })
 // The app's modules read browser globals as they load: every one the window has, once.
 const browser: Record<string, unknown> = {
   window: dom,
@@ -287,6 +289,34 @@ test("a teammate's Bot chat shows its model locked and its access read-only", as
   ])
   assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
   assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')
+  // Kept for a quick switch back, the chat is hidden, and its floating details hide and show again with it.
+  const pane = (mode: 'visible' | 'hidden') =>
+    createElement(
+      QueryClientProvider,
+      { client: queryClient },
+      createElement(
+        Activity,
+        { mode },
+        createElement(ChannelPane, {
+          teamId: 'team',
+          channelId: 'chat',
+          user: { id: 'me', name: 'Me' } as UserInfo,
+          dockOpen: false,
+          onOpenSession: () => {},
+        }),
+      ),
+    )
+  const details = () =>
+    dom.document.body
+      .querySelector<HTMLElement>('aside[aria-label="Bot details"]')
+      ?.checkVisibility()
+
+  await act(() => root.render(pane('visible')))
+  assert.ok(details(), 'the floating details are open while the chat shows')
+  await act(() => root.render(pane('hidden')))
+  assert.equal(details(), false, 'the details hide with the chat')
+  await act(() => root.render(pane('visible')))
+  assert.ok(details(), 'the details are back as the chat shows again')
   await act(() => root.unmount())
   queryClient.clear()
 })

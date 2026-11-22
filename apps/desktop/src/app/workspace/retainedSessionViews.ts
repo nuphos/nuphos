@@ -7,8 +7,12 @@ export type SessionViewSelection = {
 export type RetainedSessionViews = {
   teamId?: string
   agent?: { sessionId: string | null; readOnly: boolean }
-  channelId?: string
+  /** Bot chats opened most recently, the open one last. */
+  channelIds?: string[]
 }
+
+/** The open Bot chat and the two before it stay mounted, so switching back among them is instant. */
+const RETAINED_CHANNELS = 3
 
 /** The two kinds of conversation are independent mounted views, not alternatives. */
 export function retainSessionViews(
@@ -19,9 +23,17 @@ export function retainSessionViews(
 
   if (!selection.teamId || selection.channel === undefined) return base
   if (selection.channel) {
-    if (!selection.sessionId || base.channelId === selection.sessionId) return base
+    const channelIds = base.channelIds ?? []
 
-    return { ...base, channelId: selection.sessionId }
+    if (!selection.sessionId || channelIds.at(-1) === selection.sessionId) return base
+
+    return {
+      ...base,
+      channelIds: [
+        ...channelIds.filter((id) => id !== selection.sessionId),
+        selection.sessionId,
+      ].slice(-RETAINED_CHANNELS),
+    }
   }
   if (base.agent?.sessionId === selection.sessionId && base.agent.readOnly === selection.readOnly)
     return base

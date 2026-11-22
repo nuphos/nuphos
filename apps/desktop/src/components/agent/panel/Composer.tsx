@@ -6,11 +6,12 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
+import { ComposerOverlays } from './ComposerOverlays'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
-import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
@@ -60,6 +61,7 @@ export function Composer({
   promptSuggestion,
   recall,
   agentMenu,
+  aboveStatus,
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
@@ -104,7 +106,7 @@ export function Composer({
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
-}) {
+} & Pick<Parameters<typeof ComposerOverlays>[0], 'aboveStatus'>) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
   // Queued and sent later, not refused, unless it never will be (an outdated runtime): say why.
@@ -169,9 +171,7 @@ export function Composer({
       )}
     >
       <div className="relative w-full">
-        {!readOnly && runtimeControl && (
-          <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
-        )}
+        <ComposerOverlays {...{ aboveStatus, readOnly, runtimeControl, hero, switchAgent }} />
         <div
           className={clsx(
             'relative',

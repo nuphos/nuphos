@@ -14,7 +14,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
 /** An authenticator app: each code is for a newer 30-second step, as the backend requires. */
-class Authenticator {
+export class Authenticator {
   private last = 0
 
   constructor(private readonly secret: string) {}
@@ -46,7 +46,7 @@ function totp(secret: string, step: number): string {
 }
 
 /** Moves every sign-in of `email` (and its last code) `minutes` into the past. */
-function signedInAgo(mongoUri: string, email: string, minutes: number): void {
+export function signedInAgo(mongoUri: string, email: string, minutes: number): void {
   const run = `
     import { MongoClient } from 'mongodb'
     const [uri, email, minutes] = process.argv.slice(1)
@@ -92,7 +92,7 @@ function agentRunToken(mongoUri: string, email: string): string {
 }
 
 /** Signs `email` in with a fresh session and an email code. */
-async function signIn(stack: Stack, email: string): Promise<Client> {
+export async function signIn(stack: Stack, email: string): Promise<Client> {
   const anonymous = client(stack.apiUrl, '')
   const before = stack.signInCode(email)
 
@@ -148,7 +148,7 @@ function mustNotAsk(reply: { status: number; body: unknown; text: string }, what
 }
 
 // The refusals these scenarios ask for: a code, or (once past it) the empty body.
-const REFUSALS = /"error_code":"(reauth_required|validation_error)"/
+export const REFUSALS = /"error_code":"(reauth_required|validation_error)"/
 
 /** The MFA account the API scenarios share. */
 let account: { email: string; as: Client; teamId: string; agentToken?: string } | undefined

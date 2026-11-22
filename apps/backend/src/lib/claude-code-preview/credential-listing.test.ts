@@ -97,7 +97,7 @@ function oneOfEach(): AgentCredentialOptions {
     plaudAccounts: [{ bindingId: ID, label }],
     cloudflareAccounts: [{ accountId: ID, accountName: label }],
     instaboxAccounts: [{ accountId: ID, label }],
-    personalCredentials: [{ provider: 'github', login: label }],
+    personalCredentials: [{ id: 'c1', provider: 'github', login: label }],
     devices: [{ deviceId: ID, label, platform: 'darwin', available: true }],
   }
 }
@@ -119,7 +119,7 @@ const VENDED_CLOUDS = [
 
 // teamIdentity picks who GitHub/Linear act as; it is not a credential to list.
 const credentialKeys = Object.keys(agentCredentialSelectionSchema.shape).filter(
-  (key) => key !== 'teamIdentity',
+  (key) => key !== 'teamIdentity' && key !== 'personalConnectionIds',
 )
 const selectableKeys = [...new Set([...credentialKeys, ...Object.keys(CREDENTIAL_LISTERS)])]
 
@@ -172,7 +172,7 @@ describe('usage notes', () => {
       { personalCredentialIds: ['google-calendar'] },
       {
         ...oneOfEach(),
-        personalCredentials: [{ provider: 'google-calendar', login: 'me@example.com' }],
+        personalCredentials: [{ id: 'c1', provider: 'google-calendar', login: 'me@example.com' }],
       },
     ).find((e) => e.provider === 'personal')
 
@@ -190,7 +190,10 @@ describe('usage notes', () => {
   test('an unset Personal Credential selection lists every own credential, like a connector', () => {
     const { selected } = partitionCredentials(
       {},
-      { ...oneOfEach(), personalCredentials: [{ provider: 'gmail', login: 'me@example.com' }] },
+      {
+        ...oneOfEach(),
+        personalCredentials: [{ id: 'c1', provider: 'gmail', login: 'me@example.com' }],
+      },
     )
 
     expect(selected.filter((e) => e.provider === 'personal').map((e) => e.id)).toEqual(['gmail'])
@@ -436,7 +439,7 @@ describe('partitionCredentials', () => {
     (provider) => {
       const options = emptyOptions()
 
-      options.personalCredentials = [{ provider, login: 'octo' }]
+      options.personalCredentials = [{ id: 'c1', provider, login: 'octo' }]
       options.githubInstallations = [
         { installationId: ID, accountLogin: 'org', accountType: 'Organization' },
       ]
@@ -507,7 +510,7 @@ describe('partitionCredentials', () => {
   test('an unselected personal credential is requested as its exact pair, not by a tick', () => {
     const options = emptyOptions()
 
-    options.personalCredentials = [{ provider: 'github', login: 'octo' }]
+    options.personalCredentials = [{ id: 'c1', provider: 'github', login: 'octo' }]
     const { unselected } = partitionCredentials({ personalCredentialIds: [] }, options)
 
     expect(unselected[0]?.hint).toContain('credentials [{"provider": "personal", "id": "github"}]')

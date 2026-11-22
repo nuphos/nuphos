@@ -51,7 +51,7 @@ export const channelAwayScenarios: Scenario[] = [
 
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
-      await page.locator('[data-post-id]').first().waitFor()
+      await page.locator('[data-post-id]:visible').first().waitFor()
       await page.evaluate(() => {
         document.documentElement.classList.remove('dark')
         document.documentElement.classList.add('light')
@@ -61,7 +61,11 @@ export const channelAwayScenarios: Scenario[] = [
       // The scenario before moved the chat's runtime and back. A turn opens the Bot's session on
       // its host again, so the host going away cuts a live session (no session: #3284).
       await post('Before it goes E2E_DELIVERY:awake')
-      await page.getByText('POSTED E2E_DELIVERY:awake', { exact: true }).first().waitFor()
+      await page
+        .getByText('POSTED E2E_DELIVERY:awake', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
 
       await stack.restartAgentHost(async () => {
         await post('While it is away E2E_DELIVERY:away')
@@ -101,7 +105,11 @@ export const channelAwayScenarios: Scenario[] = [
       const failed = page.getByText(/couldn’t reply/)
 
       await post('Before it goes long E2E_DELIVERY:awake-long')
-      await page.getByText('POSTED E2E_DELIVERY:awake-long', { exact: true }).first().waitFor()
+      await page
+        .getByText('POSTED E2E_DELIVERY:awake-long', { exact: true })
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       // A line written after `since`, once its wake has waited out the grace.
       const failsAfter = (since: string, what: string) =>
         until(what, async () => lines().some((at) => at > since), 150_000)
@@ -115,9 +123,14 @@ export const channelAwayScenarios: Scenario[] = [
         // over. Past every reattach attempt (about 108 s) by then, so only the Bot's next
         // connection can wake it.
         const first = lines().at(-1)!
+        // The row is keyed by the failure's time, so the second one mounts a new node in its
+        // place. `failsAfter` returns on the database alone, before that, so wait for this
+        // node to go rather than scroll the one it leaves behind.
+        const stale = (await failed.last().elementHandle())!
 
         await post('Still away E2E_DELIVERY:away-long-2')
         await failsAfter(first, 'the second post’s couldn’t-reply line')
+        await page.waitForFunction((node) => !node.isConnected, stale)
         await failed.last().scrollIntoViewIfNeeded()
         await page.waitForTimeout(1_000)
         await page.screenshot({ path: `${artifacts}/bot-away-two-posts-light.png` })

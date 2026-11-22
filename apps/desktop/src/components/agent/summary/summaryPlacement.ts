@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { CSSProperties, RefObject } from 'react'
 
@@ -14,12 +14,20 @@ const SIDE_OFFSET = 6
 const EDGE = 8
 // The transcript keeps at least this much beside the panel, else the panel floats.
 const BESIDE_MIN = { list: 600, reply: 800 }
+// Long enough for a diagonal move from the toggle to the popover.
+const LEAVE_GRACE_MS = 300
+let lastNarrow: boolean | undefined
 
 type Edge = { left: number } | { right: number }
 type Geometry = { width: number; top: number; edge: Edge; maxHeight: number }
 
 function visible(element: HTMLElement | null | undefined): element is HTMLElement {
   return Boolean(element && element.offsetHeight > 0)
+}
+
+/** The first match on screen: views kept alive for a quick switch back stay in the page, hidden. */
+export function shown(root: ParentNode | null | undefined, selector: string) {
+  return [...(root?.querySelectorAll<HTMLElement>(selector) ?? [])].find(visible)
 }
 
 // A pane can hold more than one composer surface (a kept-alive view, an edit
@@ -52,8 +60,7 @@ export function floatingEdge(
 function measure(frame: HTMLElement): Geometry {
   const pane = frame.closest(PANE)
   const box = frame.getBoundingClientRect()
-  const toggle = pane?.querySelector<HTMLElement>(TOGGLE)
-  const anchor = visible(toggle) ? toggle.getBoundingClientRect() : null
+  const anchor = shown(pane, TOGGLE)?.getBoundingClientRect() ?? null
   const top = anchor ? anchor.bottom + SIDE_OFFSET : box.top + EDGE
   const edge = anchor
     ? floatingEdge(anchor, pane?.getBoundingClientRect(), window.innerWidth)
@@ -117,15 +124,108 @@ export function useSummaryPlacement(
   return { floating, style }
 }
 
-// Portaled menus and dialogs opened from the card count as inside it.
-const OUTSIDE_EXEMPT = `[role="menu"], [role="dialog"], [role="alertdialog"], [role="listbox"]`
+/**
+ * Whether the area `frameRef` fills has no room for the panel beside the transcript, measured
+ * while the panel is closed too; undefined until measured. An open dock takes that room as well.
+ * A chat switched to starts from the last chat's answer: the same pane, so the same room.
+ */
+export function useNoRoomBeside(frameRef: RefObject<HTMLElement | null>, docked: boolean) {
+  const [narrow, setNarrow] = useState(lastNarrow)
 
-/** A floating panel closes on a press outside it, as a popover does. */
-export function useDismissOutside(
+  useLayoutEffect(() => {
+    const frame = frameRef.current
+
+    if (!frame) return
+    const update = () => {
+      lastNarrow = frame.offsetWidth < BESIDE_MIN.list
+      setNarrow(lastNarrow)
+    }
+    const observer = new ResizeObserver(update)
+
+    update()
+    observer.observe(frame)
+
+    return () => observer.disconnect()
+  }, [frameRef])
+
+  return narrow === undefined ? undefined : docked || narrow
+}
+
+/** Whether the text cursor is in a field inside `root`, where leaving with the mouse is not leaving. */
+function typingIn(root: HTMLElement | null): boolean {
+  const focused = document.activeElement
+
+  return Boolean(
+    focused &&
+    root?.contains(focused) &&
+    focused.matches('input, textarea, [contenteditable="true"]'),
+  )
+}
+
+/**
+ * A popover opened for a look closes once the mouse leaves it and its toggle, as a hover
+ * menu does: after a grace delay, so crossing the gap between them keeps it open. It arms
+ * only once the mouse has been on either, so one opened from the keyboard waits for it.
+ */
+function useDismissOnLeave(
   rootRef: RefObject<HTMLElement | null>,
   close: () => void,
   active: boolean,
 ) {
+  // A parent's new close each render must not restart the wait or disarm it.
+  const closeRef = useRef(close)
+
+  useLayoutEffect(() => {
+    closeRef.current = close
+  })
+
+  useEffect(() => {
+    if (!active) return
+    const root = rootRef.current
+    const toggle = shown(root?.ownerDocument, `${TOGGLE}[aria-expanded="true"]`)
+    let armed = Boolean(root?.matches(':hover')) || Boolean(toggle?.matches(':hover'))
+    let timer: number | undefined
+
+    const onOver = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      const inside =
+        target !== null &&
+        (rootRef.current?.contains(target) === true ||
+          target.closest(`${TOGGLE}, ${OUTSIDE_EXEMPT}`) !== null)
+
+      if (inside) {
+        armed = true
+        window.clearTimeout(timer)
+        timer = undefined
+      } else if (armed && timer === undefined) {
+        timer = window.setTimeout(() => {
+          timer = undefined
+          // A picker, menu or dialog it opened sits outside it, and keeps it open until closed.
+          if (!typingIn(rootRef.current) && !shown(document, OUTSIDE_EXEMPT)) closeRef.current()
+        }, LEAVE_GRACE_MS)
+      }
+    }
+
+    document.addEventListener('pointerover', onOver)
+
+    return () => {
+      document.removeEventListener('pointerover', onOver)
+      window.clearTimeout(timer)
+    }
+  }, [rootRef, active])
+}
+
+// Portaled menus and dialogs opened from the card count as inside it.
+const OUTSIDE_EXEMPT = `[role="menu"], [role="dialog"], [role="alertdialog"], [role="listbox"]`
+
+/** A floating panel closes on a press outside it, as a popover does; with `onLeave`, also once the mouse leaves. */
+export function useDismissOutside(
+  rootRef: RefObject<HTMLElement | null>,
+  close: () => void,
+  active: boolean,
+  onLeave = false,
+) {
+  useDismissOnLeave(rootRef, close, active && onLeave)
   useEffect(() => {
     if (!active) return
     const onPointerDown = (event: PointerEvent) => {

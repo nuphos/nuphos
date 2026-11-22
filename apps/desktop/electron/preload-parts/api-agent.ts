@@ -179,35 +179,6 @@ export const agentApi = {
     ipcRenderer.invoke('agent:listPlans', args),
   agentGetPlan: (planId: string, teamId?: string) =>
     ipcRenderer.invoke('agent:getPlan', planId, teamId),
-  agentUpdatePlan: (
-    planId: string,
-    patch: {
-      status?:
-        'proposed' | 'approved' | 'rejected' | 'executing' | 'completed' | 'failed' | 'cancelled'
-      commandStatuses?: {
-        stepIdx: number
-        jobIdx: number
-        cmdIdx: number
-        status: 'pending' | 'running' | 'done' | 'failed'
-      }[]
-      commandResults?: {
-        stepIdx: number
-        jobIdx: number
-        cmdIdx: number
-        status: 'pending' | 'running' | 'done' | 'failed'
-        stdout?: string
-        stderr?: string
-        exitCode?: number
-        executedBy?: 'agent'
-      }[]
-      executionError?: string
-    },
-    teamId?: string,
-  ) => ipcRenderer.invoke('agent:updatePlan', planId, patch, teamId),
-  agentGetPlanApprovalPolicy: (teamId: string) =>
-    ipcRenderer.invoke('agent:getPlanApprovalPolicy', teamId),
-  agentUpdatePlanApprovalPolicy: (teamId: string, minimumOtherApprovals: number) =>
-    ipcRenderer.invoke('agent:updatePlanApprovalPolicy', teamId, minimumOtherApprovals),
   agentListTriggers: (teamId?: string, targetSessionId?: string) =>
     ipcRenderer.invoke('agent:listTriggers', teamId, targetSessionId),
   agentGetTrigger: (triggerId: string, teamId?: string) =>

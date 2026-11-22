@@ -349,7 +349,7 @@ struct ModelSettingsSheet: View {
     }
 }
 
-/// "62% left · resets in 2 hr" for the window closest to its limit,
+/// "62% left · resets in 2h 10m" for the window closest to its limit,
 /// or the reason there's nothing to show.
 private struct QuotaLine: View {
     let quota: RuntimeQuota
@@ -358,7 +358,7 @@ private struct QuotaLine: View {
         if let window = quota.tightest {
             HStack(spacing: 6) {
                 QuotaGauge(window: window).frame(width: 44)
-                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), RuntimeQuota.resetsIn(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(window.labelTint ?? Theme.muted)
@@ -369,16 +369,6 @@ private struct QuotaLine: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.warning)
         }
-    }
-
-    private func reset(_ date: Date?) -> String? {
-        guard let date, date > .now else { return nil }
-        let minutes = Int(date.timeIntervalSinceNow / 60)
-        if minutes < 24 * 60 {
-            return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
-        }
-        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(locale)))")
     }
 }
 

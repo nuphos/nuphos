@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
 import {
+  answeredBySelection,
   decisionRequestId,
   CONNECT_SELECTION_KEY,
   connectBlock,
@@ -66,6 +67,49 @@ test("a request for the member's own credential is a personal Connect card; nami
     }),
     null,
   )
+})
+
+test('every Personal Credential a question may name draws its personal Connect card', () => {
+  for (const id of ['gmail', 'google-drive', 'google-calendar', 'linear'] as const) {
+    assert.deepEqual(
+      parseConnectRequest({
+        category: 'integration',
+        question: 'Connect your Gmail so the support bot can read support@ mail',
+        credentials: [{ provider: 'personal', id }],
+      }),
+      {
+        providers: [id],
+        reason: 'Connect your Gmail so the support bot can read support@ mail',
+        personal: true,
+      },
+      id,
+    )
+  }
+  const gmail = [{ provider: 'gmail' }]
+
+  assert.equal(personalConnectStatus('gmail', selection(), gmail), 'available')
+  assert.equal(
+    personalConnectStatus('gmail', selection({ personalCredentialIds: ['gmail'] }), gmail),
+    'connected',
+  )
+  assert.equal(personalConnectStatus('google-drive', selection(), gmail), 'idle')
+})
+
+test('an integration naming providers or credentials is answered only by selecting them', () => {
+  for (const named of [
+    { providers: ['linear'] },
+    { providers: ['slack'] },
+    { credentials: [{ provider: 'personal', id: 'gmail' }] },
+    { credentials: [{ provider: 'personal', id: 'dropbox' }] },
+    { providers: ['github'], credentials: ownGithub },
+  ]) {
+    assert.equal(answeredBySelection({ category: 'integration', ...named }), true)
+  }
+  // Naming nothing to select, e.g. a service Nuphos cannot connect, it takes words.
+  assert.equal(answeredBySelection({ category: 'integration', options: ['I did'] }), false)
+  assert.equal(answeredBySelection({ category: 'integration', providers: [] }), false)
+  assert.equal(answeredBySelection({ category: 'approval', providers: ['linear'] }), false)
+  assert.equal(answeredBySelection(undefined), false)
 })
 
 test("a personal row is selected only by the member's own credential, never a team binding", () => {

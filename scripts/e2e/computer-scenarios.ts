@@ -7,9 +7,12 @@ import { join, resolve } from 'node:path'
 import { agentLog } from './agent-log.ts'
 import { agentSignInScenarios } from './agent-sign-in-scenarios.ts'
 import { backendLines, backendLog } from './backend-log.ts'
+import { boxBusyScenarios } from './box-busy-scenarios.ts'
 import { boxScenarios } from './box-scenarios.ts'
 import { computerRemoveScenarios } from './computer-remove-scenarios.ts'
 import { browserDownloadScenarios } from './browser-download-scenarios.ts'
+import { browserHandBackScenarios } from './browser-hand-back-scenarios.ts'
+import { browserVideoScenarios } from './browser-video-scenarios.ts'
 import { computersPageScenarios } from './computers-page-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { shareNoticeScenarios } from './share-notice-scenarios.ts'
@@ -252,10 +255,13 @@ export const computerScenarios: Scenario[] = [
   ...transferRefundScenarios,
   ...transferLimitScenarios,
   ...boxScenarios,
+  ...boxBusyScenarios,
   ...computersPageScenarios,
   ...computerRemoveScenarios,
   ...agentSignInScenarios,
   ...browserDownloadScenarios,
+  ...browserHandBackScenarios,
+  ...browserVideoScenarios,
   ...threadRuntimeScenarios,
   ...shareNoticeScenarios,
 ]

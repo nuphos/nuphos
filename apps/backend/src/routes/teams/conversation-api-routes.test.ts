@@ -2,6 +2,21 @@ import { describe, expect, test } from 'bun:test'
 
 import { conversationTeamApiRoute, dashboardPanelTeamApiRoute } from './conversation-api-routes'
 
+test('allows only Slack channel mapping management for ordinary conversation principals', () => {
+  for (const [method, path] of [
+    ['GET', '/slack/mappings'],
+    ['PUT', '/slack/mappings'],
+    ['POST', '/slack/mappings/T1/C1/bots'],
+    ['DELETE', '/slack/mappings/T1/C1/bots/bot-1'],
+    ['DELETE', '/slack/mappings/T1/C1'],
+  ] as const) {
+    expect(conversationTeamApiRoute(method, path)).toBe('canonical')
+    expect(dashboardPanelTeamApiRoute(method, path)).toBeNull()
+  }
+  expect(conversationTeamApiRoute('POST', '/slack/mappings')).toBeNull()
+  expect(conversationTeamApiRoute('GET', '/slack/user-mappings')).toBeNull()
+})
+
 test('Firebase reads use selected-session handlers without allowing binding or resource writes', () => {
   for (const resource of ['project', 'apps']) {
     expect(conversationTeamApiRoute('GET', `/gcp-projects/project-1/firebase/${resource}`)).toBe(

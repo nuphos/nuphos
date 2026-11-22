@@ -8,9 +8,9 @@ export const CLIENT_TOOL_INSTRUCTION =
 /**
  * How long one MCP call may hold the turn open waiting for an answer.
  *
- * MCP traffic goes straight to the backend Service (see `previewMcpBaseUrl`),
- * so the binding limit is our own `idleTimeout` of 120s rather than any proxy.
- * Staying under it lets a wait live and die inside a single request: answered
+ * A call still working sends whitespace (`answerMcp`), so no proxy or idle
+ * timeout in front of the backend ends it, in-cluster or over the public URL.
+ * A wait still lives and dies inside a single request: answered
  * in time, the turn simply continues; unanswered, the tool says so and the
  * model moves on. Nothing polls, and nothing outlives the call that made it.
  */

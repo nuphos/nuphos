@@ -3,7 +3,10 @@ import { Hono } from 'hono'
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
 import { recordPlanApproval } from '@/lib/agent/plans'
 import { databaseChangeDecisionSchema } from '@/lib/api/database-connections'
-import { validDatabaseChangeApprovalCount } from '@/lib/database-change-policy'
+import {
+  submittedDatabaseChangeStatus,
+  validDatabaseChangeApprovalCount,
+} from '@/lib/database-change-policy'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { databaseChangeRequests } from '@/models'
@@ -61,7 +64,7 @@ databaseConnectionChangeReviewRoutes.post(
       { _id: request._id, status: 'draft', requesterUserId: c.get('userId') },
       {
         $set: {
-          status: 'pending_approval',
+          status: submittedDatabaseChangeStatus(policy),
           approvals: [],
           policySnapshot: policy,
           updatedAt: now,

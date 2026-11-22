@@ -147,6 +147,8 @@ export type Tab = {
   foreign?: boolean
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
+  /** The server's `canArchive`: a participant archives a teammate's Task for themselves alone. */
+  canArchive?: boolean
   /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */
   unsaved?: boolean
   /** A message Esc took back while its turn still stops: hidden until the server drops it. */
@@ -195,11 +197,6 @@ export type { Tab as AgentSessionSnapshot }
 export const HOME_TAB_ID = '__home__'
 
 export const AUTO_SCROLL_BOTTOM_THRESHOLD = 48
-// Opening a conversation fetches only this many trailing messages — about a
-// screenful of turns; earlier pages stream in as the user scrolls up (see
-// loadEarlierMessages). A turn can carry megabytes of tool output, so every
-// extra message here is paid for before first paint.
-export const CONVERSATION_TAIL_LIMIT = 30
 export const EARLIER_MESSAGES_PAGE_SIZE = 30
 // Distance from the top of the transcript (px) at which the next earlier page
 // starts loading.

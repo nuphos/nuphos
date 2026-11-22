@@ -1,4 +1,5 @@
 import { ownBody, withQuestionsInBody } from '@/lib/agent/tools-skilled/decision-tools'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { agentConversations } from './shared'
 
@@ -92,6 +93,8 @@ export async function addInputRequest(
     { sessionId, userId },
     { $push: { inputRequests: { $each: [entry] } } },
   )
+  // The turn usually keeps running, so its end may come long after the question.
+  queueWebhookEvents(sessionId, 'session.input_required')
 }
 
 /** The agent corrects a request while it is still open; an answered one stays as answered. */

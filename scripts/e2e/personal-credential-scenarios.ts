@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
+import { askOverMcp, mcp, prompt } from './mcp-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -13,7 +14,7 @@ import type { Scenario } from './ui.ts'
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
 /** Runs `script` against the database; it reads its arguments from process.argv. */
-function inDatabase(stack: Stack, script: string, ...args: string[]): string {
+export function inDatabase(stack: Stack, script: string, ...args: string[]): string {
   const run = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
@@ -156,6 +157,72 @@ export const personalCredentialScenarios: Scenario[] = [
         )
       } finally {
         if (triggerId) await owner('DELETE', `/agent/triggers/${triggerId}?teamId=${stack.teamId}`)
+        inDatabase(
+          stack,
+          `await db.collection('personal_credentials').deleteMany({ login: process.argv[2] })`,
+          login,
+        )
+      }
+    },
+  },
+  {
+    // #4034: older Tasks can have no team-wide key, which the backend reads as every one.
+    // New MCP Tasks now store app defaults (#4259), so recreate the older stored state.
+    name: 'a Task with an unset team-wide credential shows it ticked',
+    run: async (page, stack) => {
+      const owner = client(stack.apiUrl, stack.token)
+      const me = (await owner('GET', '/auth/me')).body as { user?: { id: string }; id?: string }
+      const userId = me.user?.id ?? me.id ?? ''
+      const login = 'e2e-unset@example.com'
+      const marker = 'E2E_DELIVERY:personal-unset'
+
+      inDatabase(
+        stack,
+        `await db.collection('personal_credentials').insertOne({
+          userId: process.argv[2], provider: 'google-calendar', providerUserId: 'e2e-google-unset',
+          login: process.argv[4], teamId: process.argv[3], encryptedRefreshToken: null,
+          accessTokenExpiresAt: null, createdAt: new Date(), updatedAt: new Date(),
+        })`,
+        userId,
+        stack.teamId,
+        login,
+      )
+
+      try {
+        const taskId = await askOverMcp(mcp(owner).tool, stack.teamId, marker)
+        const unset = inDatabase(
+          stack,
+          `const conversations = db.collection('agent_conversations')
+          const result = await conversations.updateOne(
+            { sessionId: process.argv[2] },
+            { $unset: { 'credentialAccess.personalCredentialIds': '' } },
+          )
+          const task = await conversations.findOne({ sessionId: process.argv[2] })
+          console.log(JSON.stringify(result.matchedCount === 1 &&
+            !Object.hasOwn(task?.credentialAccess ?? {}, 'personalCredentialIds')))`,
+          taskId,
+        )
+
+        must(unset === 'true', 'the Task to have no Personal Credential key')
+
+        await page.reload()
+        await page.getByRole('tab', { name: 'Tasks' }).click()
+        await page
+          .getByText(prompt(marker), { exact: true })
+          .filter({ visible: true })
+          .first()
+          .click()
+        await page.getByText(`ACK ${marker}`, { exact: true }).waitFor()
+        await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
+        const row = page.getByRole('menuitemcheckbox', {
+          name: `Google Calendar · You (${login}) · Personal`,
+        })
+
+        await row.waitFor()
+        await page.screenshot({ path: `${artifacts}/personal-unset-row-light.png` })
+        must((await row.getAttribute('aria-checked')) === 'true', 'an unset key to show ticked')
+        await page.keyboard.press('Escape')
+      } finally {
         inDatabase(
           stack,
           `await db.collection('personal_credentials').deleteMany({ login: process.argv[2] })`,
