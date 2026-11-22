@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
@@ -68,20 +69,29 @@ test("in a card of several questions, a field's button keeps its words as that q
       )
     })
 
-  try {
-    for (const press of ['click', 'enter'] as const) {
-      answers.length = 0
-      await act(() =>
-        root.render(
+  // The field reads the team's role (for dictation) through react-query.
+  const client = new QueryClient()
+  const show = (key: string) =>
+    act(() =>
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client },
           createElement(DecisionOptions, {
-            key: press,
+            key,
             questions,
             disabled: false,
             typeable: true,
             onSubmit: (answer: DecisionAnswer) => answers.push(answer),
           }),
         ),
-      )
+      ),
+    )
+
+  try {
+    for (const press of ['click', 'enter'] as const) {
+      answers.length = 0
+      await show(press)
       await click(0, 'Delete')
       await click(1, 'Other…')
       await type(1, 'maybe google drive?')
@@ -114,17 +124,7 @@ test("in a card of several questions, a field's button keeps its words as that q
 
     // With every other question answered, the field's button is Send and answers the card.
     answers.length = 0
-    await act(() =>
-      root.render(
-        createElement(DecisionOptions, {
-          key: 'complete',
-          questions,
-          disabled: false,
-          typeable: true,
-          onSubmit: (answer: DecisionAnswer) => answers.push(answer),
-        }),
-      ),
-    )
+    await show('complete')
     await click(0, 'Keep')
     await click(2, 'Yes')
     await click(1, 'Other…')
