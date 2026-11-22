@@ -45,7 +45,10 @@ export function renderMemberMentionLink(
   if (!userId) return null
 
   return userId.startsWith(AGENT_MENTION) ? (
-    <span className="rounded px-0.5 font-medium text-primary bg-state-selected">{children}</span>
+    // inline-block, as the person's chip lays out: it is a button.
+    <span className="inline-block rounded px-0.5 font-medium text-primary bg-state-selected">
+      {children}
+    </span>
   ) : (
     <MemberMention teamId={teamId} userId={userId}>
       {children}
