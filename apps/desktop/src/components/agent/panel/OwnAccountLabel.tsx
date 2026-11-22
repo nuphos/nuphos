@@ -2,6 +2,8 @@ import { t } from '../../../i18n/index.ts'
 import { isGoogle } from '../../../types'
 import { nameOf } from '../../../views/settings/personalCredentials'
 
+import { ownAccountRow } from './ownAccountRow'
+
 import type { PersonalCredentialProvider } from '../../../types'
 
 /**
@@ -18,22 +20,18 @@ export function OwnAccountLabel({
 }) {
   const prefix = isGoogle(provider) ? `${nameOf(provider)} · ` : ''
   const you = (login: string) => `${prefix}${t('You ({login}) · Personal', { login })}`
-  const logins = accounts.map((account) => account.login)
-  const more = logins.length - 1
+  const row = ownAccountRow(
+    accounts.map((account) => account.login),
+    you,
+    (count) => t('+{count} more', { count }),
+  )
 
   return (
     <>
-      <span
-        className="min-w-0 flex-1 truncate text-[12.5px] text-main"
-        title={you(logins.join(', '))}
-      >
-        {you(logins[0] ?? '')}
+      <span className="min-w-0 flex-1 truncate text-[12.5px] text-main" title={row.title}>
+        {row.text}
       </span>
-      {more > 0 && (
-        <span className="flex-none text-[12px] text-tertiary">
-          {t('+{count} more', { count: more })}
-        </span>
-      )}
+      {row.more && <span className="flex-none text-[12px] text-tertiary">{row.more}</span>}
     </>
   )
 }
