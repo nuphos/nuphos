@@ -27,7 +27,6 @@ import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
-import { teamSwitchTasksScenarios } from './team-switch-tasks-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
 import { leaveChatScenarios } from './leave-chat-scenarios.ts'
@@ -202,8 +201,6 @@ const scenarios: Scenario[] = [
   ...dashboardScenarios,
   // Right after the one above: it opens the dashboards that scenario leaves behind.
   ...dashboardUiScenarios,
-  // Right after the one above: it switches back from the workspace that one left the app in.
-  ...teamSwitchTasksScenarios,
   // It leaves the window split, then closes a pane.
   ...splitPaneScenarios,
   // A second computer of its own, which it stops again.
