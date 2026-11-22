@@ -189,7 +189,9 @@ test('a fire on a Box its plan will not start fails, and counts toward pausing i
     expect(op).toBe('findOneAndUpdate')
     expect(update).toEqual({
       $inc: { failedRunCount: 1 },
-      $set: { lastRunError: { message: expect.stringContaining('50 hours'), at: expect.any(Date) } },
+      $set: {
+        lastRunError: { message: expect.stringContaining('50 hours'), at: expect.any(Date) },
+      },
     })
   }
 })

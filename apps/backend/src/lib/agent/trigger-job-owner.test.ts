@@ -20,16 +20,17 @@ useDb({
         return { teamId: 'team-t', targetSessionId: 'session-t' }
       },
       findOne: async () =>
-        name === 'agent_task_reports' ? { teamId: 'team-r', parentSessionId: 'session-parent' } : null,
+        name === 'agent_task_reports'
+          ? { teamId: 'team-r', parentSessionId: 'session-parent' }
+          : null,
     }),
   }),
 })
 useAgentDb({
-  getConversationBySessionId: async (sessionId: string) =>
-    ({ sessionId, teamId: 'team-c' }) as never,
+  getConversationBySessionId: async (sessionId: string) => ({ sessionId, teamId: 'team-c' }),
 })
 
-const { whoseJob } = await import('./trigger-scheduler')
+const { whoseJob } = await import('./trigger-job-owner')
 
 const job = (name: string, data: unknown, opts: Job['opts'] = {}) =>
   ({ name, data, timestamp: Date.parse('2026-11-22T08:00:00Z'), opts }) as Job
@@ -39,10 +40,14 @@ beforeEach(() => {
 })
 
 test('a cron fire logs the slot it was scheduled for and keeps its error on the Trigger', async () => {
-  const fire = job('run-trigger', { triggerId: TRIGGER_ID }, {
-    prevMillis: Date.parse('2026-11-22T09:00:00Z'),
-    delay: 5,
-  })
+  const fire = job(
+    'run-trigger',
+    { triggerId: TRIGGER_ID },
+    {
+      prevMillis: Date.parse('2026-11-22T09:00:00Z'),
+      delay: 5,
+    },
+  )
 
   expect(await whoseJob(fire, new Error('usage limit'))).toEqual({
     scheduled_at: '2026-11-22T09:00:00.000Z',
@@ -56,7 +61,9 @@ test('a cron fire logs the slot it was scheduled for and keeps its error on the 
 })
 
 test('a task report logs the team and the parent conversation it was delivered to', async () => {
-  expect(await whoseJob(job('task-report', { reportId: 'r1' }, { delay: 60_000 }), new Error('x'))).toEqual({
+  expect(
+    await whoseJob(job('task-report', { reportId: 'r1' }, { delay: 60_000 }), new Error('x')),
+  ).toEqual({
     scheduled_at: '2026-11-22T08:01:00.000Z',
     team_id: 'team-r',
     session_id: 'session-parent',
@@ -64,10 +71,12 @@ test('a task report logs the team and the parent conversation it was delivered t
 })
 
 test('a resource event turn logs its conversation and that conversation’s team', async () => {
-  expect(await whoseJob(job('resource-session-turn', { sessionId: 's1' }), new Error('x'))).toEqual({
-    scheduled_at: '2026-11-22T08:00:00.000Z',
-    team_id: 'team-c',
-    session_id: 's1',
-  })
+  expect(await whoseJob(job('resource-session-turn', { sessionId: 's1' }), new Error('x'))).toEqual(
+    {
+      scheduled_at: '2026-11-22T08:00:00.000Z',
+      team_id: 'team-c',
+      session_id: 's1',
+    },
+  )
   expect(triggerWrites).toEqual([])
 })
