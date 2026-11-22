@@ -444,7 +444,6 @@ fun EmptyState(
     body: String,
     action: String? = null,
     onAction: (() -> Unit)? = null,
-    textAlign: TextAlign? = null,
 ) {
     Column(
         Modifier.fillMaxSize().padding(32.dp),
@@ -453,8 +452,9 @@ fun EmptyState(
     ) {
         Icon(icon, contentDescription = null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
         Spacer(Modifier.height(16.dp))
-        Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = textAlign)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = textAlign, modifier = Modifier.padding(top = 8.dp))
+        // Centred like the icon, so copy that wraps to two lines does not fall back to start alignment.
+        Text(title, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 8.dp))
         if (action != null && onAction != null) {
             Button(onClick = onAction, modifier = Modifier.padding(top = 16.dp)) { Text(action) }
         }
