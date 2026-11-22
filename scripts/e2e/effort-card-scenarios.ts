@@ -45,6 +45,7 @@ export const effortCardScenarios: Scenario[] = [
 
       await page.waitForFunction((selector) => {
         for (const button of document.querySelectorAll<HTMLButtonElement>(selector)) button.click()
+
         return !document.querySelector(selector)
       }, dismiss)
       try {
