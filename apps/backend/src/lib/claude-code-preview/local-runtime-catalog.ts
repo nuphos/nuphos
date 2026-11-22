@@ -263,7 +263,6 @@ export async function localRuntimeModels(
   const catalog = agent?.models?.failed ? undefined : agent?.models
   const missing = agent?.models?.failed ? 'undiscovered' : 'unreported'
 
-  // A signed-out agent lists nothing until someone signs it in on that computer.
   if (!catalog)
     return { models: [], reason: agent?.cli.loggedIn === false ? 'signed-out' : missing }
   const modelId = model && model !== 'default' ? model : catalog.defaultModel
