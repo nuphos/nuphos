@@ -21,6 +21,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -181,6 +182,8 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
+        // Flat, as the row was: the expressive default rounds it and reshapes it on press.
+        shapes = RectangleShape.let { ListItemDefaults.shapes(it, it, it, it, it, it) },
         // As on iOS: the avatar and chevron sit centred on a two-line row, and the time stays on the name's line.
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
