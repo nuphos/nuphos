@@ -67,6 +67,7 @@ import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
+import { sessionRevokedScenario } from './session-revoked-scenario.ts'
 import { startStack } from './stack.ts'
 import { stepUpScenarios } from './step-up-scenarios.ts'
 import { twoFactorResumeScenarios } from './two-factor-resume-scenarios.ts'
@@ -240,6 +241,8 @@ const later: Scenario[] = [
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
   formScenario,
+  // Last of all: it signs the app out.
+  sessionRevokedScenario,
 ]
 const shard = process.env.E2E_SHARD
 const selected =
