@@ -1,9 +1,12 @@
 import { beforeEach, expect, test } from 'bun:test'
 
+import { claimAgentRunForSession } from '@/lib/agent/run-admission'
+import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
 import { useModels } from '@/lib/test/doubles/models'
+import { usePendingQueue } from '@/lib/test/doubles/pending-queue'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
@@ -23,6 +26,7 @@ import type { AgentConversation } from '@/lib/agent/db/shared'
 let memory = portabilityDb()
 let busy = false
 let stopped: string[] = []
+let onStop: (() => void) | null = null
 let target: RuntimeInstance
 let conversation: AgentConversation
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
@@ -48,7 +52,26 @@ useRuntimeModels({
   },
 })
 
-useDb({ db: () => memory })
+// Writes take a round trip, as Mongo's do, where a test asks for it.
+let writeMs = 0
+
+useDb({
+  db: () => ({
+    ...memory,
+    collection: (name: string) => {
+      const collection = memory.collection(name)
+
+      return {
+        ...collection,
+        updateOne: async (...args: Parameters<typeof collection.updateOne>) => {
+          await new Promise((resolve) => setTimeout(resolve, writeMs))
+
+          return collection.updateOne(...args)
+        },
+      }
+    },
+  }),
+})
 useRedis({ redisEnabled: () => true })
 useAgentRunStore({
   getActiveAgentRunForSession: async () => (busy ? { streamId: 'active' } : null),
@@ -59,9 +82,23 @@ useRunCancel({
   stopConversationTurn: async ({ sessionId }) => {
     stopped.push(sessionId)
     busy = false
+    onStop?.()
 
     return 'requested'
   },
+})
+// A queued message, which claims the session the moment a release starts it.
+let queuedClaim: ((outcome: string) => void) | null = null
+
+usePendingQueue({ hasQueuedTranscriptMessage: async () => Boolean(queuedClaim) })
+installQueuedTurnStarter(async (userId, sessionId) => {
+  const release = await claimAgentRunForSession(userId, sessionId).catch(
+    (error: unknown) => (error as { code?: string }).code,
+  )
+
+  if (typeof release === 'function') release()
+  queuedClaim?.(typeof release === 'function' ? 'claimed' : String(release))
+  queuedClaim = null
 })
 useRuntimeCatalog({
   requireRuntimeInstance: async () => target,
@@ -76,6 +113,9 @@ beforeEach(() => {
   memory = portabilityDb()
   busy = false
   stopped = []
+  onStop = null
+  queuedClaim = null
+  writeMs = 0
   destinationModels = allModels
   destinationDefaults = { modelId: 'default' }
   target = {
@@ -177,6 +217,23 @@ test('a move during a turn stops it as Stop does, then moves', async () => {
   expect(stopped).toEqual(['conversation'])
   expect(conversation.runtimeId).toBe('new')
   expect(conversation.runtimeOperation).toBeUndefined()
+})
+test('a message queued behind a turn a failed move stopped runs as soon as the move lets go', async () => {
+  const claimed = new Promise<string>((resolve) => {
+    queuedClaim = resolve
+  })
+
+  writeMs = 20
+  busy = true
+  // The destination goes away once the turn is stopped, so the move fails after it.
+  onStop = () => {
+    target.status = 'disabled'
+  }
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject(
+    { code: 'runtime_unavailable' },
+  )
+  expect(await claimed).toBe('claimed')
+  expect(conversation.runtimeId).toBe('old')
 })
 test('a fallback leaves a running turn alone and the conversation where it is', async () => {
   busy = true
