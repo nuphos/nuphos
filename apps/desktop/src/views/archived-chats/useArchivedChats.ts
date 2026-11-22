@@ -19,12 +19,13 @@ function chatLabel(conversation: AgentConversation): string {
 export function useArchivedChats({
   teamId,
   filter,
-  refreshKey,
+  refreshKey = 0,
   onLoading,
 }: {
   teamId: string
   filter: string
-  refreshKey: number
+  /** The page's own refresh; other reloads go through `reload`. */
+  refreshKey?: number
   onLoading?: (loading: boolean) => void
 }) {
   const search = useDebouncedValue(filter, 250)
@@ -81,6 +82,8 @@ export function useArchivedChats({
     // onLoading is the page shell's setter; its identity is not a reason to refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readPage, refreshKey, attempt])
+
+  const reload = useCallback(() => setAttempt((value) => value + 1), [])
 
   const loadMore = useCallback(async () => {
     if (!cursor || loadingMore) return
@@ -150,7 +153,7 @@ export function useArchivedChats({
     loading,
     /** The last load failed: the view offers Retry instead of a false empty list. */
     failed,
-    retry: () => setAttempt((value) => value + 1),
+    reload,
     loadingMore,
     hasMore: cursor !== null,
     search,
