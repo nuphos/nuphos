@@ -4,8 +4,7 @@ import ai.nuphos.android.R
 import ai.nuphos.android.ui.LocalAgentStore
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.*
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -18,10 +17,14 @@ fun FirstRuntimePrompt() {
     val store = LocalAgentStore.current
     val box = store.startingBox
     if (box == null) {
+        var guide by remember { mutableStateOf(false) }
+        if (guide) ConnectComputerFlow { guide = false }
         EmptyState(
             icon = Icons.Outlined.Memory,
             title = stringResource(R.string.agent_first_runtime_title),
             body = stringResource(R.string.agent_first_runtime_body),
+            action = stringResource(R.string.box_connect),
+            onAction = { guide = true },
         )
         return
     }
