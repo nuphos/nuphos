@@ -39,6 +39,7 @@ var unconverted: Set = [
 ]
 
 for (key, entry) in strings {
+    let comment = entry["comment"] as? String ?? ""
     let text = key + (String(data: try JSONSerialization.data(withJSONObject: entry), encoding: .utf8) ?? "")
     precondition(
         cloudComputer.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) == nil,
@@ -49,7 +50,7 @@ for (key, entry) in strings {
     }
     let present = languages.intersection((entry["localizations"] as? [String: Any] ?? [:]).keys)
     // Legal and consent text ships in English except in the languages a native speaker reviewed (#3031).
-    if (entry["comment"] as? String ?? "").contains("Legal text") {
+    if comment.contains("Legal text") {
         precondition(present == reviewedLegal, "\"\(key)\" is legal text translated in \(present.sorted()), reviewed in \(reviewedLegal.sorted())")
         continue
     }
