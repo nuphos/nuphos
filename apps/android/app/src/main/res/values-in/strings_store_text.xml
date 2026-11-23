@@ -34,7 +34,7 @@
     <string name="storetext_runtime_admin_required">Izin administrator diperlukan. Akun Anda tetap masuk.</string>
     <string name="storetext_runtime_unconfirmed">Kami tidak dapat memastikan hasil runtime. Muat ulang status tersimpan sebelum melanjutkan.</string>
     <string name="storetext_runtimes_refresh_failed">Tidak dapat memuat ulang runtime.</string>
-    <string name="storetext_runtimes_access_lost">Akses runtime tidak lagi tersedia di ruang kerja ini.</string>
+    <string name="storetext_runtimes_access_lost">Akses runtime tidak lagi tersedia di tim ini.</string>
     <string name="storetext_runtimes_usage_unavailable">Penggunaan tidak tersedia. Coba muat ulang.</string>
     <string name="storetext_runtimes_computers_unavailable">Status komputer tidak tersedia. Coba muat ulang.</string>
     <string name="storetext_runtime_unknown">Runtime tidak dikenal</string>
