@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
-import androidx.compose.material.icons.outlined.Memory
 import ai.nuphos.android.model.RuntimeIdentity
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +22,7 @@ import ai.nuphos.android.model.BotAvatars
 import ai.nuphos.android.ui.theme.avatarBackground
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import ai.nuphos.android.NuphosApplication
 import coil3.svg.SvgDecoder
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
@@ -43,7 +43,8 @@ private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.curre
 @Composable
 fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge: Boolean = true) {
     val loader = agentImageLoader()
-    val face = ai.nuphos.android.model.BotFaces.face(sessionId)
+    val app = LocalContext.current.applicationContext as NuphosApplication
+    val face = if (app.botAvatarsEnabled) ai.nuphos.android.model.BotFaces.face(sessionId) else null
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) {
@@ -52,7 +53,7 @@ fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge
             AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
             imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit,
             modifier = Modifier.size(size))
-            if (showBadge) Box(Modifier.align(Alignment.BottomEnd)) {
+            if (showBadge && runtime != null) Box(Modifier.align(Alignment.BottomEnd)) {
                 AgentRuntimeBadge(runtime, if (size <= 24.dp) 9.dp else 12.dp)
             }
         } else RuntimeMark(runtime, 20.dp, loader)
@@ -66,12 +67,16 @@ fun BotFace(file: String, size: Dp, modifier: Modifier = Modifier) {
         contentScale = ContentScale.Fit, modifier = modifier.size(size))
 }
 
-/** Decorative mark; the adjacent runtime text supplies the accessible name once. */
+/**
+ * Decorative mark; the adjacent runtime text supplies the accessible name once.
+ * Until the provider is known it holds the same space empty, never a guess.
+ */
 @Composable
 fun RuntimeMark(runtime: String?, size: Dp = 14.dp, loader: ImageLoader = agentImageLoader()) {
     val logo = RuntimeIdentity.logo(runtime)
-    if (logo == null) Icon(if (runtime == "nuphos") Icons.Outlined.ChatBubbleOutline else Icons.Outlined.Memory, null,
+    if (runtime == "nuphos") Icon(Icons.Outlined.ChatBubbleOutline, null,
         tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(size).testTag("runtime-provider-mark"))
+    else if (logo == null) Box(Modifier.size(size))
     else AsyncImage(model = "file:///android_asset/agent-logos/$logo.svg", imageLoader = loader,
         contentDescription = null,
         colorFilter = if (RuntimeIdentity.originalColor(runtime)) null else ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant),

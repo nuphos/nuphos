@@ -33,7 +33,8 @@ import ai.nuphos.android.session.RuntimeSetupStore
 fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     launchBrowser: ((String) -> Unit)? = null,
     quotas: Map<String, ai.nuphos.android.data.RuntimeQuota> = emptyMap(),
-    initialManaging: Boolean = false, initialRuntimeId: String? = null, initialSignInRuntimeId: String? = null, inventoryMode: Boolean = false, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList()) {
+    initialManaging: Boolean = false, initialRuntimeId: String? = null, initialSignInRuntimeId: String? = null, inventoryMode: Boolean = false, devices: List<ai.nuphos.android.data.RuntimeDevice> = emptyList(),
+    dismissEnabled: Boolean = true, externalError: String? = null, onConnected: (() -> Unit)? = null) {
     var code by remember { mutableStateOf("") }
     var browserError by remember { mutableStateOf(false) }
     var managing by remember(store) { mutableStateOf(initialManaging) }
@@ -48,6 +49,10 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val state = store.state
     val selection = store.selection
+    val latestConnected by rememberUpdatedState(onConnected)
+    LaunchedEffect(state.attempt?.state, state.busy) {
+        if (state.attempt?.state == "connected" && !state.busy) latestConnected?.invoke()
+    }
     LaunchedEffect(state.catalogLoaded, state.catalogRevision, state.busy) {
         if (!state.busy && state.catalogLoaded && state.catalogRevision > initialCatalogRevision && pendingSignIn != null) {
             if (!store.focusSignIn(requireNotNull(pendingSignIn))) browserError = true
@@ -68,11 +73,12 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
         }
     }
     LaunchedEffect(store.signInRuntime?.id, state.attempt?.attemptId, state.attempt?.state, state.attempt?.step, state.attempt?.codeSubmitted, state.attemptMismatch, selection.selectedId, selection.selected?.provider, selection.selected?.status, selection.selected?.kind) { code = ""; browserError = false }
-    ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { code = ""; onDismiss() }, properties = ModalBottomSheetProperties(securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
+    ModalBottomSheet(containerColor = MaterialTheme.colorScheme.background, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), onDismissRequest = { if (dismissEnabled) { code = ""; onDismiss() } }, properties = ModalBottomSheetProperties(shouldDismissOnBackPress = dismissEnabled, securePolicy = androidx.compose.ui.window.SecureFlagPolicy.SecureOn)) {
         Column(Modifier.fillMaxWidth().heightIn(max = 720.dp).fillMaxHeight()) {
-            RuntimePickerHeader(title = stringResource(if (detail != null) R.string.agent_runtime_details else if (initialSignInRuntimeId != null) R.string.agent_sign_in else if (inventoryMode && store.signInRuntime != null) R.string.agent_sign_in else if (managing) R.string.agent_manage_runtimes else R.string.agent_choose_runtime), onClose = { code = ""; onDismiss() })
+            RuntimePickerHeader(title = stringResource(if (detail != null) R.string.agent_runtime_details else if (initialSignInRuntimeId != null) R.string.agent_sign_in else if (inventoryMode && store.signInRuntime != null) R.string.agent_sign_in else if (managing) R.string.agent_manage_runtimes else R.string.agent_choose_runtime), onClose = { if (dismissEnabled) { code = ""; onDismiss() } })
             HorizontalDivider()
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            externalError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (detail != null) {
                 RuntimeDetailPage(detail, quotas[detail.runtimeId], onBack = { if (inventoryMode) onDismiss() else detailId = null }, onSignIn = {
                     if (store.focusSignIn(detail.runtimeId)) { detailId = null; managing = true }
@@ -158,7 +164,7 @@ fun RuntimeSetupSheet(store: RuntimeSetupStore, onDismiss: () -> Unit,
                     } else if (!state.busy && initialSignInRuntimeId != null) Text(stringResource(R.string.agent_sign_in_unavailable))
                     else if (!store.canAdminister) Text(stringResource(R.string.agent_admins_only_create))
                     Text(stringResource(R.string.agent_closing_stops_polling))
-                    TextButton(onClick = { code = ""; onDismiss() }) { Text(stringResource(R.string.agent_close)) }
+                    TextButton(onClick = { code = ""; onDismiss() }, enabled = dismissEnabled) { Text(stringResource(R.string.agent_close)) }
                 }
             }
             Spacer(Modifier.height(16.dp))

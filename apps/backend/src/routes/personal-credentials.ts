@@ -164,14 +164,14 @@ async function ownerClaims(authorization: string, provider: PersonalCredentialPr
     )
   }
 
-  return { ...claims, connectionIds: access?.personalConnectionIds }
+  return claims
 }
 
 const notConnected = (name: string) =>
   new AppError(
     404,
     'personal_credential_not_connected',
-    `This member has not connected ${name}. They can connect it in Settings → Personal Credentials.`,
+    `This member has not connected ${name}. They can connect it in Connectors.`,
   )
 
 const handedOut = (personal: { token: string; expiresAt: Date | null; login: string }) => ({
@@ -186,12 +186,7 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
 
   if (provider === 'github' || provider === 'linear') {
     const claims = await ownerClaims(authorization, provider)
-    const personal = await personalOwnToken(
-      claims.own,
-      provider,
-      c.req.query('connectionId'),
-      claims.connectionIds,
-    )
+    const personal = await personalOwnToken(claims.own, provider, c.req.query('connectionId'))
 
     if (!personal) throw notConnected(NAMES[provider])
     // In the shape each skill's setup script already reads for the team handout.
@@ -225,7 +220,6 @@ personalCredentialTokenRoutes.get('/:provider/token', async (c) => {
     provider,
     teamId,
     c.req.query('connectionId'),
-    claims.connectionIds,
   )
 
   if (credential?.composioAccountId) {
@@ -268,14 +262,7 @@ composioRoutes.post('/execute', zv('json', executeSchema), async (c) => {
     )
   }
   const claims = await ownerClaims(c.req.header('Authorization') ?? '', provider)
-  const credential = await googleCredentialFor(
-    claims.own,
-    provider,
-    claims.tid,
-    connectionId,
-    claims.connectionIds,
-    true,
-  )
+  const credential = await googleCredentialFor(claims.own, provider, claims.tid, connectionId, true)
 
   if (!credential?.composioAccountId) {
     throw notConnected(NAMES[provider])

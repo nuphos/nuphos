@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { clipTranscriptText } from '@/lib/agent/thread-transcript'
-import { SLACK_THREAD_WINDOW, slackAgentThreads } from '@/lib/slack/agent-bot/collections'
+import {
+  LIVE_SLACK_THREAD,
+  SLACK_THREAD_WINDOW,
+  slackAgentThreads,
+} from '@/lib/slack/agent-bot/collections'
 
 import type {
   SlackAgentThread,
@@ -85,13 +89,14 @@ export async function getSlackAgentThread(
     slackWorkspaceId,
     slackChannelId,
     slackThreadTs,
+    ...LIVE_SLACK_THREAD,
   })
 }
 
 export async function getSlackAgentThreadBySessionId(
   sessionId: string,
 ): Promise<SlackAgentThread | null> {
-  return await slackAgentThreads().findOne({ sessionId })
+  return await slackAgentThreads().findOne({ sessionId, ...LIVE_SLACK_THREAD })
 }
 
 /**
@@ -106,7 +111,7 @@ export async function getSlackAgentThreadsBySessionIds(
 
   return await slackAgentThreads()
     .find<SlackAgentThreadSummary>(
-      { sessionId: { $in: [...new Set(sessionIds)] } },
+      { sessionId: { $in: [...new Set(sessionIds)] }, ...LIVE_SLACK_THREAD },
       {
         projection: {
           _id: 0,

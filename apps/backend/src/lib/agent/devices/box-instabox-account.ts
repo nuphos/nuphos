@@ -10,6 +10,7 @@ import { ObjectId } from 'mongodb'
 import { config } from '@/config'
 import { decryptInstaboxSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
+import { logError } from '@/lib/observability'
 import { teamByosBindings } from '@/models/team'
 
 import {
@@ -25,7 +26,7 @@ import type { InstaboxAccountBinding } from '@/models/bindings-integrations'
 /** A size a Box can be started with. */
 export type BoxSize = { vcpus: number; memMiB: number }
 export type BoxAccountRef = Pick<AgentDeviceBox, 'teamId' | 'accountId'>
-export type BoxConnection = ReturnType<typeof connection>
+export type BoxConnection = ReturnType<typeof connection> & { fetch?: typeof fetch }
 
 export async function findInstaboxAccount(
   teamId: string,
@@ -57,16 +58,65 @@ export async function boxConnection(box: BoxAccountRef, timeoutMs: number): Prom
     ...(config.box.instabox?.apiUrl ? { apiUrl: config.box.instabox.apiUrl } : {}),
     requestTimeoutMs: Math.min(timeoutMs, REQUEST_TIMEOUT_MS),
     operationTimeoutMs: timeoutMs,
+    fetch: watchKey(box.teamId, account),
   }
+}
+
+/**
+ * Every call with a team's key records on its binding whether instabox took the key, so the
+ * team's admins see a rejected one in Integrations. Written only when that changes.
+ */
+function watchKey(teamId: string, account: InstaboxAccountBinding): typeof fetch {
+  let rejected = Boolean(account.keyRejectedAt)
+
+  return (async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
+    const response = await fetch(input, init)
+    const now = await keyRejected(response)
+
+    if (now !== undefined && now !== rejected) {
+      rejected = now
+      await teamByosBindings()
+        .updateOne(
+          { _id: new ObjectId(teamId), 'instaboxAccounts.id': account.id },
+          now
+            ? { $set: { 'instaboxAccounts.$.keyRejectedAt': new Date() } }
+            : { $unset: { 'instaboxAccounts.$.keyRejectedAt': '' } },
+        )
+        .catch((error: unknown) => {
+          logError('agent.box.instabox_key_mark_failed', error)
+        })
+    }
+
+    return response
+  }) as typeof fetch
+}
+
+/** Whether a response says instabox refused the key; undefined when it says neither. */
+async function keyRejected(response: Response): Promise<boolean | undefined> {
+  if (response.ok) return false
+  if (response.status === 401) return true
+  if (response.status !== 403) return undefined
+  // A 403 also refuses a size the plan does not allow, which is not about the key.
+  const body = (await response
+    .clone()
+    .json()
+    .catch(() => null)) as { error?: { code?: unknown } } | null
+
+  return body?.error?.code !== 'spec_not_allowed'
 }
 
 /**
  * The account, read again once on a reset connection or a 502–504, as the SDK reads its own.
  * Never after a timeout, which already waited its full budget.
  */
-async function readMe(apiUrl: string, apiKey: string, retried = false): Promise<Response> {
+async function readMe(
+  apiUrl: string,
+  apiKey: string,
+  fetchImpl: typeof fetch,
+  retried = false,
+): Promise<Response> {
   try {
-    const response = await fetch(`${apiUrl}/v1/me`, {
+    const response = await fetchImpl(`${apiUrl}/v1/me`, {
       headers: { 'X-API-Key': apiKey },
       signal: AbortSignal.timeout(QUICK_TIMEOUT_MS),
     })
@@ -77,7 +127,7 @@ async function readMe(apiUrl: string, apiKey: string, retried = false): Promise<
   }
   await sleep(RETRY_AFTER_MS)
 
-  return readMe(apiUrl, apiKey, true)
+  return readMe(apiUrl, apiKey, fetchImpl, true)
 }
 
 /** How long sizes read from an account are used before being read again. */
@@ -92,16 +142,18 @@ const knownSizes = new Map<string, { sizes: BoxSize[]; readAt: number }>()
 export async function accountSizes({
   apiKey,
   apiUrl = DEFAULT_API_URL,
+  fetch: fetchImpl = fetch,
 }: {
   apiKey: string
   apiUrl?: string
+  fetch?: typeof fetch
 }): Promise<BoxSize[]> {
   const key = `${apiUrl}\n${apiKey}`
   const known = knownSizes.get(key)
 
   if (known && Date.now() - known.readAt < SIZES_FRESH_MS) return known.sizes
   try {
-    const sizes = await readSizes(apiUrl, apiKey)
+    const sizes = await readSizes(apiUrl, apiKey, fetchImpl)
 
     knownSizes.set(key, { sizes, readAt: Date.now() })
 
@@ -115,8 +167,12 @@ export async function accountSizes({
   }
 }
 
-async function readSizes(apiUrl: string, apiKey: string): Promise<BoxSize[]> {
-  const response = await readMe(apiUrl, apiKey)
+async function readSizes(
+  apiUrl: string,
+  apiKey: string,
+  fetchImpl: typeof fetch,
+): Promise<BoxSize[]> {
+  const response = await readMe(apiUrl, apiKey, fetchImpl)
 
   if (response.status === 401 || response.status === 403)
     throw new AppError(400, 'invalid_instabox_api_key', 'The instabox API key is not valid')

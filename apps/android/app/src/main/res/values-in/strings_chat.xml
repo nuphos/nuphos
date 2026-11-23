@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d panggilan · Berjalan</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">Bekerja selama %1$d dtk · %2$d langkah</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">Mengerjakan %1$d langkah</item>
-    </plurals>
+    <string name="chat_work_duration">Bekerja selama %1$s</string>
+    <string name="chat_work">Selesai bekerja</string>
     <string name="chat_share_access_invited">Hanya orang yang diundang</string>
     <string name="chat_share_access_view">Tim dapat melihat</string>
     <string name="chat_share_access_reply">Tim dapat melihat dan membalas</string>

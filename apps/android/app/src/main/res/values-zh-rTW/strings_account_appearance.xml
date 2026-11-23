@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_appearance">外觀</string>
+    <string name="account_bot_avatars">Bot 頭像</string>
+    <string name="account_bot_avatars_help">為 Bot 使用角色頭像。關閉後改為顯示執行環境圖示。</string>
+    <string name="account_integrations">整合服務</string>
+    <string name="account_connectors">連接器</string>
+    <string name="account_signed_in_accounts">已登入的帳號</string>
+</resources>

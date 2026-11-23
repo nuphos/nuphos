@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 
-import { extractEmailDomain, isPublicEmailDomain, normalizeEmailDomain } from '@/lib/email-domains'
+import {
+  extractEmailDomain,
+  hasPublicEmailDomain,
+  isPublicEmailDomain,
+  normalizeEmailDomain,
+} from '@/lib/email-domains'
 
 describe('normalizeEmailDomain', () => {
   test('lowercases, trims, and strips a leading @', () => {
@@ -44,5 +49,13 @@ describe('isPublicEmailDomain', () => {
   test('allows company domains', () => {
     expect(isPublicEmailDomain('zeabur.com')).toBe(false)
     expect(isPublicEmailDomain('anthropic.com')).toBe(false)
+  })
+})
+
+describe('hasPublicEmailDomain', () => {
+  test('is true only for an address on a public provider', () => {
+    expect(hasPublicEmailDomain('Bryan@Gmail.com')).toBe(true)
+    expect(hasPublicEmailDomain('pat@zeabur.com')).toBe(false)
+    expect(hasPublicEmailDomain('not-an-email')).toBe(false)
   })
 })

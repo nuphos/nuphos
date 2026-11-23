@@ -91,7 +91,7 @@ const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
 /** Claude: -32603 `Internal error: <notice>`. Codex: bare `Internal error`, notice on a `> ` line. */
 const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
-const DETAIL_NOTICE = /(?:^|\n)Internal error\n> ([^\n]*)/u
+const DETAIL_NOTICE = /(?:^|\n)Internal error\n> (?:Error running remote compact task: )?([^\n]*)/u
 /** The SDK's `USAGE_LIMIT_ERROR_PREFIXES`, Codex's (curly apostrophe), Anthropic's hold, OpenCode's free tier. */
 const CLAUDE_USAGE_LIMIT =
   /^(?:You['’]ve hit your|You['’]ve reached your|You['’]re out of usage credits|Your org is out of usage|(?:API Error: )?Your account can['’]t receive replies from Claude|The model provider refused the request: Free usage limit reached\b)/u

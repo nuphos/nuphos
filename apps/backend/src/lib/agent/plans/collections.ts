@@ -8,20 +8,6 @@ const COLLECTION_NAME = 'plans'
 
 export const plans = (): Collection<Plan> => db().collection<Plan>(COLLECTION_NAME)
 
-type TeamPlanApprovalPolicy = {
-  _id: string
-  requesterApprovalRequired: boolean
-  minimumOtherApprovals: number
-  version: number
-  updatedAt: Date
-  updatedBy: string
-  /** When #2316 moved this minimum onto the team's database connections. */
-  migratedAt?: Date
-}
-
-export const planApprovalPolicies = (): Collection<TeamPlanApprovalPolicy> =>
-  db().collection<TeamPlanApprovalPolicy>('plan_approval_policies')
-
 export async function setupPlanIndexes(): Promise<void> {
   const c = plans()
 

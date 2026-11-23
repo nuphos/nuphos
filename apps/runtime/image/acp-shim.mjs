@@ -11,10 +11,10 @@
 // - The team's skills, the runtime defaults and the MCP credential bridge, exactly as
 //   the patched adapters apply them.
 // - Nuphos's instructions, in whatever form the agent accepts them.
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import { lstatSync, mkdirSync, symlinkSync } from 'node:fs'
+import { basename, dirname, join } from 'node:path'
 import { homedir } from 'node:os'
-import { dirname, join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 
@@ -22,6 +22,7 @@ import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
 import { openCodeEndpoint, openCodeRefusal } from './opencode-session.mjs'
 import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
+import { nuphosProcessDeathMessage } from './process-death.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -51,6 +52,7 @@ const SESSION_ENV = new Set([
 
 export const PROVIDERS = {
   grok: {
+    name: 'Grok Build',
     // --no-leader keeps tools in this process, so they run with this session's env
     // rather than in a leader shared by every conversation.
     command: ['grok', 'agent', '--no-leader', 'stdio'],
@@ -62,6 +64,7 @@ export const PROVIDERS = {
     instruct: (meta, text) => ({ ...meta, rules: text }),
   },
   antigravity: {
+    name: 'Antigravity',
     command: (env) => [
       'agy',
       'acp',
@@ -76,6 +79,7 @@ export const PROVIDERS = {
     serialPrompts: true,
   },
   opencode: {
+    name: 'OpenCode',
     command: ['opencode', 'acp'],
     home: () => ({ OPENCODE_DISABLE_AUTOUPDATE: '1' }),
     // OpenCode keeps its login (auth.json) and its sessions in XDG_DATA_HOME/opencode,
@@ -91,6 +95,7 @@ export const PROVIDERS = {
     refusal: true,
   },
   hermes: {
+    name: 'Hermes Agent',
     command: ['hermes', 'acp'],
     // A profile, and so a background daemon, of the session home's own: see hermes-session.mjs.
     home: (runtimeHome, sessionHome) => ({
@@ -101,6 +106,7 @@ export const PROVIDERS = {
     serialPrompts: true,
   },
   dsh: {
+    name: 'DeepSeek Harness',
     command: ['dsh', '--profile', 'acp'],
     // Its login (.credentials.yaml), profiles and sessions, in the runtime home.
     home: (runtimeHome) => ({ DSH_HOME: join(runtimeHome, '.dsh') }),
@@ -111,6 +117,7 @@ export const PROVIDERS = {
     loadAsResume: true,
   },
   pi: {
+    name: 'Pi',
     // Pi speaks its own RPC, not ACP: pi-acp, installed beside this file, runs the CLI.
     adapter: true,
     command: [
@@ -211,6 +218,31 @@ function toolUpdate(sessionId, toolCallId, status, meta) {
   }
 }
 
+// The agent and every process under it, by name and age only: never their arguments.
+export function processTree(
+  root,
+  list = () => execFileSync('ps', ['-A', '-o', 'pid=,ppid=,etime=,comm='], { encoding: 'utf8' }),
+) {
+  let rows
+  try {
+    rows = list()
+      .split('\n')
+      .map((line) => line.trim().split(/\s+/))
+      .filter((fields) => fields.length >= 4)
+      .map(([pid, ppid, age, ...name]) => ({
+        pid: Number(pid),
+        ppid: Number(ppid),
+        age,
+        name: basename(name.join(' ')),
+      }))
+  } catch {
+    return undefined
+  }
+  const tree = rows.filter((row) => row.pid === root)
+  for (let i = 0; i < tree.length; i++) tree.push(...rows.filter((row) => row.ppid === tree[i].pid))
+  return tree
+}
+
 export function instructionsBlock(text) {
   return { type: 'text', text: `<nuphos-instructions>\n${text}\n</nuphos-instructions>` }
 }
@@ -235,6 +267,11 @@ export function runShim({
   refusalPollMs = 1500,
   refusalQuietMs = 15_000,
   readOpenCodeRefusal = openCodeRefusal,
+  // Where a turn the agent has gone quiet in is described, and after how long (#4521).
+  log = (line) => process.stderr.write(`acp-shim: ${line}\n`),
+  stallLogMs = 300_000,
+  stallCheckMs = 60_000,
+  listProcesses,
 }) {
   const spec = PROVIDERS[provider]
   if (!spec) throw new Error(`Unknown ACP provider: ${String(provider)}`)
@@ -261,6 +298,22 @@ export function runShim({
   const heard = new Map()
   const activityVersion = new Map()
   const sessionDirectories = new Map()
+  // The last frames each way and the open tool calls, structure only, for a turn that stalls.
+  const frames = []
+  const tools = new Map()
+  const stalled = new Set()
+  const trace = (from, message) => {
+    const update = message.params?.update
+    frames.push({
+      at: Date.now(),
+      from,
+      method: message.method ?? 'response',
+      kind: update?.sessionUpdate,
+      toolCallId: update?.toolCallId,
+      status: update?.status,
+    })
+    if (frames.length > 20) frames.shift()
+  }
   let initialize
   let agent
   let agentEnvironment
@@ -302,7 +355,7 @@ export function runShim({
     agentEndpoint = endpoint
     // The agent is the session: when it ends, so does this process.
     let initialized = false
-    child.on('exit', (code) => {
+    child.on('exit', (code, signal) => {
       if (agent !== child) return
       if (endpoint && !initialized) {
         const retry = pendingInitialize
@@ -313,7 +366,13 @@ export function runShim({
         void restarting.catch(() => onExit(code ?? 1))
         return
       }
-      onExit(code ?? 1)
+      if (!signal) return onExit(code ?? 1)
+      // Killed (the memory limit, most often): the turns in flight fail with the reason,
+      // as Claude Code's and Codex's do, before the output closes.
+      const reason = nuphosProcessDeathMessage(spec.name, `process terminated by signal ${signal}`)
+      for (const id of prompts.keys())
+        write({ jsonrpc: '2.0', id, error: { code: -32603, message: `Internal error: ${reason}` } })
+      output.write('', () => onExit(1))
     })
     createInterface({ input: child.stdout }).on('line', (line) => {
       if (agent !== child) return
@@ -359,6 +418,8 @@ export function runShim({
     }
     const kind = message.params?.update?.sessionUpdate
     if (message.method && held.has(sessionId)) return void held.get(sessionId).push(message)
+    trace('agent', message)
+    stalled.delete(sessionId)
     if (message.method === undefined && prompts.has(message.id)) {
       const promptSession = prompts.get(message.id)
       prompts.delete(message.id)
@@ -426,6 +487,16 @@ export function runShim({
         ...message,
         params: { ...message.params, update: { ...message.params.update, status: 'in_progress' } },
       }
+    const status = message.params?.update?.status
+    if (kind === 'tool_call')
+      tools.set(toolCallId, { kind: message.params.update.kind, started: Date.now() })
+    if ((status === 'completed' || status === 'failed') && tools.has(toolCallId)) {
+      const tool = tools.get(toolCallId)
+      tools.delete(toolCallId)
+      log(
+        `tool_call ${String(toolCallId)} kind=${String(tool.kind)} ${status} after ${String(Date.now() - tool.started)}ms`,
+      )
+    }
     if (kind === 'turn_completed' && autonomous.delete(sessionId)) {
       write(message)
       return write(sessionState(sessionId, 'idle'))
@@ -526,18 +597,14 @@ export function runShim({
       }
       return {
         ...reply,
-        result: await nuphosApplyRuntimeDefaults(
-          agentApi,
-          { ...params, sessionId },
-          reply.result,
-          message.method !== 'session/new',
-        ),
+        result: await nuphosApplyRuntimeDefaults(agentApi, { ...params, sessionId }, reply.result),
       }
     })
     send({ ...message, params })
   }
 
   const handle = async (message) => {
+    trace('client', message)
     if (restarting) await restarting
     if (message.method === 'initialize') {
       // OpenAB offers to run terminals itself, in the gateway's environment rather
@@ -585,6 +652,7 @@ export function runShim({
   const sendPrompt = (message) => {
     const sessionId = message.params.sessionId
     prompts.set(message.id, sessionId)
+    heard.set(sessionId, Date.now())
     if (spec.refusal) watchRefusal(message.id, sessionId)
     write(sessionState(sessionId, 'active'))
     const text = pendingInstructions.get(sessionId)
@@ -601,6 +669,26 @@ export function runShim({
         : message,
     )
   }
+
+  // A prompt the agent has said nothing about for `stallLogMs`: what it was last doing.
+  setInterval(() => {
+    const now = Date.now()
+    for (const sessionId of new Set(prompts.values())) {
+      if (stalled.has(sessionId) || now - heard.get(sessionId) < stallLogMs) continue
+      stalled.add(sessionId)
+      const quiet = {
+        quietMs: now - heard.get(sessionId),
+        openToolCalls: [...tools].map(([id, tool]) => ({
+          id,
+          kind: tool.kind,
+          ms: now - tool.started,
+        })),
+        lastFrames: frames.map(({ at, ...frame }) => ({ ...frame, ago: now - at })),
+        processes: agent && processTree(agent.pid, listProcesses),
+      }
+      log(`turn quiet: ${JSON.stringify(quiet)}`)
+    }
+  }, stallCheckMs).unref?.()
 
   // Frames are handled in order: a prompt must not overtake the session it belongs to.
   let queue = start(agentEnv(provider, undefined, runtimeEnv))

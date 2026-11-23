@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">Tidak dapat beralih runtime. Muat ulang lalu coba lagi.</string>
     <string name="composer_switching_runtime">Mengalihkan runtime…</string>
     <string name="composer_runtime_view_only">Anda dapat melihat runtime tugas ini, tetapi tidak dapat memindahkannya.</string>
-    <string name="composer_runtime_wait">Tunggu hingga respons saat ini atau pesan tertunda selesai sebelum beralih runtime.</string>
+    <string name="composer_runtime_wait">Tunggu pesan yang sedang dikirim atau unggahan selesai, lalu ganti runtime.</string>
     <string name="composer_loading_runtimes">Memuat runtime…</string>
     <string name="composer_no_runtimes">Tidak ada runtime yang tersedia.</string>
     <string name="composer_no_runtimes_body">Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri.</string>

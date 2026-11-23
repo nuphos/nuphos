@@ -44,11 +44,21 @@ struct ChannelView: View {
     }
 
     /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    /// An offline Bot says so first: nothing it runs moves until it is back.
     private var state: (text: String, waiting: Bool)? {
-        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+        guard let bot = channel.botId else { return nil }
+        if let presence = channel.agents.first(where: { $0.sessionId == bot })?.presence, presence.state == "offline" {
+            return (presence.tag.word, true)
+        }
+        return store.stateLine(under: bot, team: channel.teamId)
     }
 
-    private func openDetails() { detailsOpen = botSession != nil }
+    @State private var botsOpen = false
+
+    /// A Bot's chat opens its details; a group chat lists its Bots.
+    private func openDetails() {
+        if channel.botId != nil { detailsOpen = botSession != nil } else { botsOpen = !channel.agents.isEmpty }
+    }
 
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
@@ -128,7 +138,7 @@ struct ChannelView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(channel.botId == nil)
+                    .disabled(channel.botId == nil && channel.agents.isEmpty)
                     .accessibilityIdentifier("bot-details-entry")
                 }
                 // One tap to the Bot's own Task, where its runtime and model are switched.
@@ -172,6 +182,9 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
+            .sheet(isPresented: $botsOpen) {
+                ChannelBotsList(agents: channel.agents)
+            }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in
                     guard let bot = switchingBot else { return }
@@ -229,9 +242,17 @@ struct ChannelView: View {
             VStack(alignment: .leading, spacing: 12) {
                 ChatIcon(faces: channel.faces, title: channel.title, size: 44)
                 Text(channel.title).font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
-                    .font(Theme.Text.secondary)
-                    .foregroundStyle(Theme.body)
+                // A Bot's own chat introduces the Bot, in Desktop's words.
+                Group {
+                    if channel.botId != nil {
+                        Text("This is where you and \(channel.title) get things done. Talk about what you want help with, and shape how you work together.")
+                        Text("You can start by telling \(channel.title) what you would like to do.")
+                    } else {
+                        Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
+                    }
+                }
+                .font(Theme.Text.secondary)
+                .foregroundStyle(Theme.body)
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("chat.empty")
@@ -243,6 +264,10 @@ struct ChannelView: View {
 
     private var composer: some View {
         VStack(spacing: 6) {
+            if let away = BotPresence.offlineStrip(channel.agents, botId: channel.botId) {
+                HintRow(text: away, isError: true,
+                        onSwitchRuntime: owns(channel.botId) && botSession != nil ? { switchingBot = botSession } : nil)
+            }
             if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,

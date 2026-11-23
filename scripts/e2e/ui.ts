@@ -1,12 +1,14 @@
 // What a person does in the app that most scenarios repeat.
 import { until } from './processes.ts'
 
+import type { Desktop } from './desktop.ts'
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
 
 export type Scenario = {
   name: string
-  run: (page: Page, stack: Stack) => Promise<void>
+  /** `desktop` is given by the main suite (run.ts) alone. */
+  run: (page: Page, stack: Stack, desktop?: Desktop) => Promise<void>
   /** A backend failure this scenario alone is known to cause. */
   expected?: RegExp
 }
@@ -38,21 +40,26 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
     .and(page.locator('[aria-haspopup="menu"]'))
     .first()
 
-  await trigger.hover()
   const runtime = page
     .locator('[role="menu"][data-nested][data-open]')
     .getByRole('menuitem', { name: item })
     .last()
     .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
-  await runtime.waitFor({ timeout: 60_000 })
-  await runtime.focus()
-  await page.keyboard.press('Enter')
+  // The menu opens upward, so a computer that joins while it is open slides another row under
+  // the pointer and opens that row's submenu instead: hover again until the menu takes the key.
+  await until(`${row}'s runtime to take the key`, async () => {
+    await trigger.hover()
+    await runtime.press('Enter', { timeout: 2_000 })
+    await page.getByRole('menu').first().waitFor({ state: 'hidden', timeout: 2_000 })
+
+    return true
+  })
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
  *  row's hover guard and closes it. Waits for the menu's own word that the item can be taken,
- *  since a runtime is disabled while its conversation still streams. */
+ *  since a runtime is disabled while a move is in flight. */
 export async function pickInSubmenu(page: Page, item: Locator) {
   await until(
     'the menu item to take a key',

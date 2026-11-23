@@ -175,6 +175,7 @@ export function buildSaasConnectorRows({
       account: account.label,
       principal: t('API key'),
       status: t('instabox account'),
+      attention: account.keyRejectedAt ? t('API key rejected') : undefined,
       onAction: () =>
         onOpenConnectorInfo({ provider: 'instabox', connectorId: account.id, name: account.label }),
       onDelete: () => api.unbindInstaboxAccount(teamId, account.id),

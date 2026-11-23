@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">エージェントのファイルを更新できませんでした。</string>
     <string name="convtext_attachment_access_unavailable">添付ファイルにアクセスできません</string>
-    <string name="convtext_move_wait">現在の応答が終わってからランタイムを切り替えてください。</string>
+    <string name="convtext_move_wait">送信中のメッセージまたはアップロードが完了してから、ランタイムを切り替えてください。</string>
     <string name="convtext_move_choose_runtime">利用可能なランタイムを選択してください。</string>
     <string name="convtext_runtime_status_unavailable">ランタイムの状態を取得できません</string>
     <string name="convtext_attachments_after_run">添付ファイルは現在の実行が終わった後に新しいメッセージで送ってください。</string>
