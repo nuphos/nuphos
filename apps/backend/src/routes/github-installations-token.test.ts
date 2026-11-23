@@ -110,15 +110,20 @@ describe('GET /github-installations/:id/token for a member with a Personal Crede
   })
 
   test('fails instead of handing out the team App when GitHub refuses the lookup', async () => {
+    // What GitHub answers once the member's hourly REST quota, shared by every
+    // token of that user, runs out.
     installations = () =>
-      Response.json({ message: 'Resource not accessible by integration' }, { status: 403 })
+      Response.json(
+        { message: 'API rate limit exceeded for user ID 1.' },
+        { status: 403, headers: { 'X-RateLimit-Remaining': '0' } },
+      )
 
     const res = await requestToken()
 
     expect(res.status).toBe(502)
     expect(await res.json()).toMatchObject({
       code: 'github_api_error',
-      message: expect.stringContaining('Resource not accessible by integration'),
+      message: expect.stringContaining('API rate limit exceeded'),
     })
   })
 })
