@@ -8,7 +8,7 @@ import { join } from 'node:path'
 const args = process.argv.slice(2)
 const home = process.env.CODEX_HOME ?? join(homedir(), '.codex')
 
-if (args.includes('--version')) console.log('codex-cli 0.130.0')
+if (args.includes('--version')) console.log('codex-cli 0.167.0')
 else if (args[0] === 'login' && args[1] === 'status') {
   if (existsSync(join(home, 'auth.json'))) console.log('Logged in using ChatGPT')
   else {
