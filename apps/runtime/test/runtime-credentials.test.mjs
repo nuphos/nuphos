@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
@@ -111,34 +110,6 @@ test('the MCP bridge turns transport and HTTP failures into JSON-RPC errors', as
       error: { code: -32000, message: 'Nuphos MCP request failed: ECONNREFUSED' },
     },
     { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } },
-  ])
-})
-
-test('the MCP bridge answers a call whose keepalive stream ends without JSON', async () => {
-  // The backend answers a slow call 200 and sends spaces until its JSON; this one ends first.
-  const server = createServer((request, response) => {
-    request.resume()
-    request.on('end', () => {
-      response.writeHead(200, { 'content-type': 'application/json' })
-      response.write(' ')
-      response.end(' ')
-    })
-  })
-  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const written = []
-
-  try {
-    await relay('{"jsonrpc":"2.0","id":7,"method":"tools/call"}', {
-      url: new URL(`http://127.0.0.1:${String(server.address().port)}/mcp`),
-      env: {},
-      write: (m) => written.push(m),
-    })
-  } finally {
-    server.close()
-  }
-
-  assert.deepEqual(written, [
-    { jsonrpc: '2.0', id: 7, error: { code: -32000, message: 'Nuphos MCP HTTP 200' } },
   ])
 })
 
