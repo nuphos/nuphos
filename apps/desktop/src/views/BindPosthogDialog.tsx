@@ -4,6 +4,9 @@ import { api } from '../api'
 import { Modal } from '../components/Modal'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
+
+import { BindShareField } from './bind-account/share-field'
 import { connectedMessage, findDuplicateConnection } from '../lib/posthogConnections'
 import { defaultPermissions, normalizePermissions } from '../lib/posthogPermissions'
 
@@ -64,6 +67,7 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
   const showMatrix = kind !== 'reconnect'
   const catalog = usePosthogScopeCatalog(teamId)
   const existing = useExistingIntegrations(teamId, !mode)
+  const [shareList, setShareList] = useState<string[] | null>(null)
   const [label, setLabel] = useState('')
   const [region, setRegion] = useState<PosthogRegion>('us')
   const [permissions, setPermissions] = useState<PosthogPermissions | null>(null)
@@ -100,6 +104,7 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
     void oauth.authorize({
       ...(active ? { integrationId: active.integration.id } : { label: label.trim(), region }),
       ...(showMatrix && permissions ? { permissions } : {}),
+      ...(kind === 'connect' && shareList ? { share: shareFromAllowList(shareList) } : {}),
     })
   }
 
@@ -137,6 +142,14 @@ export function BindPosthogDialog({ teamId, mode, onClose, onBound }: Props) {
             catalog={catalog}
             permissions={permissions}
             onPermissionsChange={setPermissions}
+          />
+        )}
+        {kind === 'connect' && phase.kind === 'form' && (
+          <BindShareField
+            teamId={teamId}
+            provider="posthog"
+            value={shareList}
+            onChange={setShareList}
           />
         )}
         {phase.kind === 'waiting' && <WaitingForBrowser keepsGrant={kind !== 'connect'} />}

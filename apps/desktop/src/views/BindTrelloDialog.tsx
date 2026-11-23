@@ -11,6 +11,9 @@ import { Button } from '../components/ui/button'
 import { toast } from '../components/ui/toast'
 import { UiIcon } from '../components/ui/ui-icon'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
+
+import { BindShareField } from './bind-account/share-field'
 
 import { Fill } from './bind-account/shared'
 import { useResetOnKey } from './useResetOnKey'
@@ -25,6 +28,7 @@ type Props = {
 type Phase = 'idle' | 'waiting'
 
 export function BindTrelloDialog({ open, teamId, onClose, onBound }: Props) {
+  const [shareList, setShareList] = useState<string[] | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
   const attemptRef = useRef(0)
 
@@ -38,6 +42,7 @@ export function BindTrelloDialog({ open, teamId, onClose, onBound }: Props) {
   // Reset on open, not on close: the teardown above still has to see the
   // 'waiting' phase it keys off, and the closed dialog is already fading out.
   useResetOnKey(String(open), () => {
+    if (open) setShareList(null)
     if (open) setPhase('idle')
   })
 
@@ -50,7 +55,7 @@ export function BindTrelloDialog({ open, teamId, onClose, onBound }: Props) {
 
     setPhase('waiting')
     try {
-      await api.atlasStartTrelloOAuth(teamId)
+      await api.atlasStartTrelloOAuth(teamId, shareList ? shareFromAllowList(shareList) : undefined)
       if (attempt !== attemptRef.current) return
       // Reset before closing so the close effect doesn't see a 'waiting' phase
       // and cancel the grant we just successfully completed.
@@ -91,6 +96,15 @@ export function BindTrelloDialog({ open, teamId, onClose, onBound }: Props) {
               )}
             </div>
           </div>
+        )}
+
+        {phase !== 'waiting' && (
+          <BindShareField
+            teamId={teamId}
+            provider="trello"
+            value={shareList}
+            onChange={setShareList}
+          />
         )}
 
         {phase === 'waiting' && (

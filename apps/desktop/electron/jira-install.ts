@@ -27,8 +27,11 @@ const pending = new Map<string, Pending>()
 /** Whether a callback's state still belongs to an attempt in progress. */
 export const hasPending = (state: string) => pending.has(state)
 
-export async function startInstall(teamId: string): Promise<JiraBindResult> {
-  const { authorizeUrl, state } = await atlas.startJiraOAuth(teamId)
+export async function startInstall(
+  teamId: string,
+  share?: atlas.BindingShare,
+): Promise<JiraBindResult> {
+  const { authorizeUrl, state } = await atlas.startJiraOAuth(teamId, share)
 
   return new Promise<JiraBindResult>((resolve, reject) => {
     const timeout = setTimeout(() => {

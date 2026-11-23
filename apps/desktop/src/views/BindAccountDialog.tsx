@@ -75,7 +75,11 @@ export function BindAccountDialog({
     try {
       // Resolves when Cloudflare redirects back through the backend and the
       // desktop receives the nuphos://cloudflare-callback deep link.
-      await api.atlasStartCloudflareConnect(teamId, scopes)
+      await api.atlasStartCloudflareConnect(
+        teamId,
+        scopes,
+        shareList ? shareFromAllowList(shareList) : undefined,
+      )
       if (attempt !== cloudflareAttempt.current) return
       reset()
       onBound()
@@ -141,7 +145,9 @@ export function BindAccountDialog({
             onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
           />
         )}
-        {showFooter && SHAREABLE_PROVIDERS.has(provider) && (
+        {(provider === 'cloudflare'
+          ? !cloudflareConnecting
+          : showFooter && SHAREABLE_PROVIDERS.has(provider)) && (
           <BindShareField
             key={teamId}
             teamId={teamId}

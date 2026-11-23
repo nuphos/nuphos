@@ -1,3 +1,4 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
 import * as asanaInstall from '../asana-install'
 import * as atlas from '../atlas'
 import * as cloudflareInstall from '../cloudflare-install'
@@ -56,7 +57,8 @@ export const gitChannels = {
   ) => atlas.grafanaProxy(teamId, instanceId, method, path, body),
   'atlas:listGithubInstallations': (_e: unknown, teamId: string) =>
     atlas.listGithubInstallations(teamId),
-  'atlas:startGithubInstall': (_e: unknown, teamId: string) => githubInstall.startInstall(teamId),
+  'atlas:startGithubInstall': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    githubInstall.startInstall(teamId, share),
   'atlas:unbindGithubInstallation': (_e: unknown, teamId: string, installationId: number) =>
     atlas.unbindGithubInstallation(teamId, installationId),
   'atlas:listGithubRepositories': (_e: unknown, teamId: string, installationId: number) =>
@@ -101,10 +103,15 @@ export const gitChannels = {
     clientId?: string,
     clientSecret?: string,
     scopes?: string[],
-  ) => gitlabInstall.startInstall(teamId, hostUrl, clientId, clientSecret, scopes),
+    share?: BindingShare,
+  ) => gitlabInstall.startInstall(teamId, hostUrl, clientId, clientSecret, scopes, share),
   'atlas:cancelGitlabOAuth': (_e: unknown, teamId: string) => gitlabInstall.cancelPending(teamId),
-  'atlas:startCloudflareConnect': (_e: unknown, teamId: string, scopes?: string[]) =>
-    cloudflareInstall.startInstall(teamId, scopes),
+  'atlas:startCloudflareConnect': (
+    _e: unknown,
+    teamId: string,
+    scopes?: string[],
+    share?: BindingShare,
+  ) => cloudflareInstall.startInstall(teamId, scopes, share),
   'atlas:cancelCloudflareConnect': (_e: unknown, teamId: string) =>
     cloudflareInstall.cancelPending(teamId),
   'atlas:unbindGitlab': (_e: unknown, teamId: string, bindingId: string) =>
@@ -132,7 +139,8 @@ export const gitChannels = {
   ) => atlas.listGitlabPipelines(teamId, bindingId, projectId, page),
   'atlas:listTeamConnectors': (_e: unknown, teamId: string) => atlas.listTeamConnectors(teamId),
   'atlas:listLinearWorkspaces': (_e: unknown, teamId: string) => atlas.listLinearWorkspaces(teamId),
-  'atlas:startLinearOAuth': (_e: unknown, teamId: string) => linearInstall.startInstall(teamId),
+  'atlas:startLinearOAuth': (_e: unknown, teamId: string, share?: BindingShare) =>
+    linearInstall.startInstall(teamId, share),
   'atlas:cancelLinearOAuth': (_e: unknown, teamId: string) => linearInstall.cancelPending(teamId),
   'atlas:unbindLinear': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindLinear(teamId, bindingId),
@@ -148,19 +156,23 @@ export const gitChannels = {
     cursor?: string,
   ) => atlas.listLinearTeamIssues(teamId, bindingId, linearTeamId, cursor),
   'atlas:listJiraSites': (_e: unknown, teamId: string) => atlas.listJiraSites(teamId),
-  'atlas:startJiraOAuth': (_e: unknown, teamId: string) => jiraInstall.startInstall(teamId),
+  'atlas:startJiraOAuth': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    jiraInstall.startInstall(teamId, share),
   'atlas:cancelJiraOAuth': (_e: unknown, teamId: string) => jiraInstall.cancelPending(teamId),
   'atlas:unbindJira': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindJira(teamId, bindingId),
   'atlas:listAsanaAccounts': (_e: unknown, teamId: string) => atlas.listAsanaAccounts(teamId),
-  'atlas:startAsanaOAuth': (_e: unknown, teamId: string) => asanaInstall.startInstall(teamId),
-  'atlas:startTrelloOAuth': (_e: unknown, teamId: string) => trelloInstall.startInstall(teamId),
+  'atlas:startAsanaOAuth': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    asanaInstall.startInstall(teamId, share),
+  'atlas:startTrelloOAuth': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    trelloInstall.startInstall(teamId, share),
   'atlas:cancelAsanaOAuth': (_e: unknown, teamId: string) => asanaInstall.cancelPending(teamId),
   'atlas:cancelTrelloOAuth': (_e: unknown, teamId: string) => trelloInstall.cancelPending(teamId),
   'atlas:unbindAsana': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindAsana(teamId, bindingId),
   'atlas:listSentryAccounts': (_e: unknown, teamId: string) => atlas.listSentryAccounts(teamId),
-  'atlas:startSentryOAuth': (_e: unknown, teamId: string) => sentryInstall.startInstall(teamId),
+  'atlas:startSentryOAuth': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    sentryInstall.startInstall(teamId, share),
   'atlas:cancelSentryOAuth': (_e: unknown, teamId: string) => sentryInstall.cancelPending(teamId),
   'atlas:unbindSentry': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindSentry(teamId, bindingId),

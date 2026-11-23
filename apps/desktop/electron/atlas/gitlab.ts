@@ -1,3 +1,5 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
+import { withShare } from './binding-access'
 import { call } from './client'
 
 export type GitlabBinding = {
@@ -93,11 +95,15 @@ export async function startGitlabOAuth(
   clientId?: string,
   clientSecret?: string,
   scopes?: string[],
+  share?: BindingShare,
 ): Promise<GitlabOAuthStart> {
   return call<GitlabOAuthStart>(
     'POST',
     `/teams/${teamId}/gitlab-bindings/start-oauth`,
-    { hostUrl, clientId, clientSecret, ...(scopes && scopes.length > 0 ? { scopes } : {}) },
+    withShare(
+      { hostUrl, clientId, clientSecret, ...(scopes && scopes.length > 0 ? { scopes } : {}) },
+      share,
+    ),
     { retry: false },
   )
 }
