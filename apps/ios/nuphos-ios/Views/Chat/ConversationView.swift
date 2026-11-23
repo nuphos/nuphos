@@ -249,7 +249,7 @@ struct ConversationView: View {
             if session.loaded && (initialPrompt == nil || !session.isNew) {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: toggleSummary) { LucideIcon("panel-right") }
-                        .accessibilityLabel("Agent summary")
+                        .accessibilityLabel("Task summary")
                         .accessibilityIdentifier("agent-summary-button")
                 }
             }
@@ -271,7 +271,7 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         // Wherever the reader is in the transcript, a refused Stop is answered.
-        .alert("Couldn't stop the agent", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
+        .alert("Could not stop the turn on the server", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
             Button("OK") { session.stopRefusal = nil }
         } message: {
             Text(session.stopRefusal ?? "")

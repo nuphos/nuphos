@@ -66,7 +66,7 @@ struct SecretCard: View {
     /// Why the value can't be sent right now; nil when it can.
     private var blocked: String? {
         if !session.ownsChat { return String(localized: "Only the owner of this task can provide this secret.") }
-        if session.isStreaming { return String(localized: "The agent is working. You can send this when its turn ends.") }
+        if session.isStreaming { return String(localized: "Still working. You can send this when the turn ends.") }
         return nil
     }
 
@@ -74,7 +74,7 @@ struct SecretCard: View {
         if saved {
             line("lock.fill", "\(subject) saved on the task's runtime.")
         } else if reply != nil {
-            line("lock.slash", "\(subject) request closed. Ask the agent to request it again.")
+            line("lock.slash", "\(subject) request closed. Ask here to request it again.")
         } else {
             card
         }

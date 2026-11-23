@@ -433,7 +433,7 @@ enum AgentChatAPI {
             case .transcriptOutOfSync: String(localized: "The task changed elsewhere; resyncing.")
             case .streamNotResumable: String(localized: "The previous reply can no longer be resumed.")
             case .streamConflict: String(localized: "That stream belongs to another task.")
-            case .conversationBusy: String(localized: "This agent is busy with another reply.")
+            case .conversationBusy: String(localized: "This chat is busy with another reply.")
             case .runtimeNotReady: String(localized: "The runtime is not ready for a new message yet. Try again in a moment.")
             case .runtimeLoginRequired: String(localized: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.")
             case .runtimeDisabled: String(localized: "This task's runtime is disabled. Switch to another runtime to continue.")

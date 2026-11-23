@@ -40,7 +40,7 @@ struct ConversationTriggers: View {
                 if let failure { Text(failure).foregroundStyle(.red).accessibilityAddTraits(.updatesFrequently) }
                 if loading { ProgressView() }
                 if !loading && triggers.isEmpty && failure == nil {
-                    Text("Ask the agent to schedule recurring work in this conversation.").foregroundStyle(Theme.body)
+                    Text("Ask here to schedule recurring work.").foregroundStyle(Theme.body)
                 }
                 ForEach(triggers) { trigger in
                     // The row opens what the Trigger sends; the switch beside it stays a separate control.

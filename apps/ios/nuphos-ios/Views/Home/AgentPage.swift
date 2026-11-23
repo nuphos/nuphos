@@ -371,7 +371,7 @@ struct AgentPage: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
+                .accessibilityLabel(folded ? "Show sub-tasks" : "Hide sub-tasks")
             }
         }
         // Insets live here, not on the row, so the tree lines span the whole row.
