@@ -37,7 +37,13 @@ import {
   watchDesktops,
   withDesktopRequests,
 } from './desktop-pool.ts'
-import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
+import {
+  deviceCredentialFor,
+  EXIT_REVOKED,
+  exitRevoked,
+  ownsMachine,
+  tunnelUrlFor,
+} from './device-credential.ts'
 import { LocalExecStream } from './exec-stream.ts'
 import { withHostProvider } from './host-provider.ts'
 import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
@@ -200,7 +206,12 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       status,
       onChange: (connected, superseded, revoked) => {
         onChange(connected, superseded, revoked)
-        if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
+        // For good, or a service restarts it to take the computer back, forever (#4844).
+        if (superseded)
+          stop(
+            `Another Nuphos app or computer with this computer's identity took over the local runtime. If this machine is a copy of another one, give it its own /etc/machine-id, remove device-identity.json and device-credential.json from ${dataDir}, and sign in again.`,
+            EXIT_REVOKED,
+          )
       },
       ...desktops(status, instances),
     })
@@ -262,11 +273,11 @@ function report(): void {
   console.log(`${new Date().toLocaleTimeString()} ${device.label}\n${summary}`)
 }
 
-function stop(message = 'Stopping the local runtimes…'): void {
+function stop(message = 'Stopping the local runtimes…', status = 0): void {
   if (stopping) process.exit(130)
   stopping = true
   console.log(message)
-  void controller.shutdown().then(() => process.exit(0))
+  void controller.shutdown().then(() => process.exit(status))
 }
 
 // With a session the agents follow it (signed out or switched user: stop); a Box stops on revocation.
