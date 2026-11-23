@@ -71,6 +71,21 @@ test('a legacy profile wins over a profile at the app name, and neither is touch
   })
 })
 
+test("a build under another name gets its own directory, not the product's legacy profile", () => {
+  withAppData((appData) => {
+    writeProfile(path.join(appData, LEGACY))
+    const before = snapshot(appData)
+
+    for (const name of ['Nuphos Preview', 'Nuphos Dev']) {
+      const choice = resolveUserData(appData, name)
+
+      assert.equal(choice.dir, path.join(appData, name))
+      assert.equal(choice.leftAlone, null)
+    }
+    assert.deepEqual(snapshot(appData), before)
+  })
+})
+
 test('an empty legacy directory is not a profile', () => {
   withAppData((appData) => {
     // What reading app.getPath('userData') leaves behind before anything writes there.

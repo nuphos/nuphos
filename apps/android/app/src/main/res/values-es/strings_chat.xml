@@ -202,12 +202,12 @@
     <string name="chat_summary_running">En curso</string>
     <string name="chat_summary_open">Resumen del agente</string>
     <string name="chat_summary_output_truncated">Se ha ocultado la salida anterior.</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">Cambios</string>
     <string name="chat_summary_children">Subtareas</string>
     <string name="chat_summary_files">Archivos</string>
     <string name="chat_summary_triggers">Disparadores</string>
     <string name="chat_summary_no_triggers">Pide al agente que programe trabajo periódico en esta tarea.</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_idle">Inactivo</string>
     <string name="chat_bot_details_title">Detalles del bot</string>
     <string name="chat_bot_state_waiting">%1$d necesita tu respuesta</string>
     <string name="chat_bot_state_running">%1$d en ejecución</string>

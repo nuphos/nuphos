@@ -1,11 +1,13 @@
 import { randomBytes } from 'node:crypto'
 
+import { ObjectId } from 'mongodb'
+
 import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
 
 import type { EncryptedSecret } from '@/lib/byos/secrets'
-import type { Collection, ObjectId } from 'mongodb'
+import type { Collection } from 'mongodb'
 
 export const WEBHOOK_EVENTS = [
   'session.turn.completed',
@@ -97,13 +99,15 @@ export function queueWebhookEvents(sessionId: string, hint?: WebhookEvent): void
   void (async () => {
     const conversation = await agentConversations().findOne(
       { sessionId },
-      { projection: { teamId: 1 } },
+      { projection: { teamId: 1, webhookId: 1 } },
     )
     const teamId = conversation?.teamId
 
     if (!teamId) return
+    // A session started for one endpoint (nuphos_ask's webhook_id) reaches only that one.
+    const only = conversation.webhookId ? { _id: new ObjectId(conversation.webhookId) } : {}
     const hooks = await teamWebhooks()
-      .find({ teamId, enabled: true }, { projection: { _id: 1 } })
+      .find({ teamId, enabled: true, ...only }, { projection: { _id: 1 } })
       .toArray()
 
     if (hooks.length === 0) return

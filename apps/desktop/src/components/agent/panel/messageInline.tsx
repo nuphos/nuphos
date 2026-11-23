@@ -1,12 +1,18 @@
 import { Dialog } from '@base-ui/react/dialog'
-import { faImage } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ChevronLeft, ChevronRight, Download, FileSearch, X } from 'lucide-react'
+import {
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  FileSearch,
+  X,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { renderMentionChip } from '../../../lib/atlasLinkMention'
+import { UiIcon } from '../../ui/ui-icon'
 
 import { PdfFrame } from './MediaPreview'
 import { fileNameFromPath } from './textUtils'
@@ -94,7 +100,7 @@ export function ImageAttachmentThumb({
           </button>
         ) : (
           <div className="flex h-full w-full items-center justify-center text-tertiary">
-            <FontAwesomeIcon icon={faImage} className="h-4 w-4" />
+            <UiIcon size={14} icon={ImageIcon} className="h-3.5 w-3.5" />
           </div>
         )}
       </div>

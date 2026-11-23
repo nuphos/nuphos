@@ -67,6 +67,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:bindInstaboxAccount', teamId, label, apiKey),
   unbindInstaboxAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('box:unbindInstaboxAccount', teamId, accountId),
+  replaceInstaboxKey: (teamId: string, accountId: string, apiKey: string) =>
+    ipcRenderer.invoke('box:replaceInstaboxKey', teamId, accountId, apiKey),
   instaboxSizes: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('box:instaboxSizes', teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),

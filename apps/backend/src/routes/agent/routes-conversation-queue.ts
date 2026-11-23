@@ -10,6 +10,7 @@ import { AppError } from '@/lib/errors'
 import { agent } from './router'
 import { readTeamIdCandidate, resolveVerifiedTeamId } from './team-scope'
 
+import type { PendingUserMessage } from '@/lib/agent/pending-message-types'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
@@ -23,20 +24,34 @@ async function readableConversation(c: Context<{ Variables: AuthVariables }>) {
   return { userId, conversation }
 }
 
-export async function queued(conversation: { userId: string; sessionId: string }) {
-  const queue = await listPendingUserMessages(conversation.userId, conversation.sessionId)
+const inTranscript = (message: PendingUserMessage) =>
+  (TRANSCRIPT_SOURCES as readonly string[]).includes(message.source)
 
-  return queue.filter((message) =>
-    (TRANSCRIPT_SOURCES as readonly string[]).includes(message.source),
+export async function queued(conversation: { userId: string; sessionId: string }) {
+  return (await listPendingUserMessages(conversation.userId, conversation.sessionId)).filter(
+    inTranscript,
   )
+}
+
+/** The usage limit holding the queue: its reset only when known, and none once it has passed. */
+export function usageHeld(head: PendingUserMessage | undefined) {
+  const hold = head?.usageHold
+  const until = hold?.until
+
+  if (!hold || (until && Date.parse(until) <= Date.now())) return undefined
+
+  return { reason: 'usage_limit' as const, ...(until ? { until } : {}) }
 }
 
 agent.get('/conversations/:sessionId/queue', async (c) => {
   const { userId, conversation } = await readableConversation(c)
   const owner = conversation.userId
+  const queue = await listPendingUserMessages(conversation.userId, conversation.sessionId)
+  const held = usageHeld(queue[0])
 
   return c.json({
-    messages: (await queued(conversation)).map((message) => ({
+    ...(held ? { held } : {}),
+    messages: queue.filter(inTranscript).map((message) => ({
       id: message.id,
       source: message.source,
       senderUserId: message.actorUserId ?? owner,

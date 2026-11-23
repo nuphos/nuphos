@@ -31,6 +31,8 @@ before(async () => {
   mock.module('electron', {
     namedExports: {
       app: {
+        // What Electron reads from a packaged product's package.json.
+        getName: () => 'k8s-gui',
         setName: (name: string) => {
           set.names.push(name)
         },

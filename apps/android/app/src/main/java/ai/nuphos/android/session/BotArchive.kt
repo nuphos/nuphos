@@ -163,7 +163,7 @@ class BotArchive(
         const val SEARCH_FAILED = "Couldn't check this Bot's chats, so nothing was archived. Try again."
         const val SEARCH_INCOMPLETE = "Couldn't read all of your chats, so nothing was archived. Try again later."
         const val FAILED = "Couldn't archive this Bot. Nothing was changed. Try again."
-        const val STOPPED = "Archiving stopped because your access or workspace changed. Nothing more was sent."
+        const val STOPPED = "Archiving stopped because your access or team changed. Nothing more was sent."
         const val NO_ACCESS = "Nuphos refused the change for this account, so nothing more was sent."
         const val NOT_RESTORED = "Archiving failed, and what was already archived couldn't all be restored."
         const val RESTORED = "Your chats with this Bot are back."

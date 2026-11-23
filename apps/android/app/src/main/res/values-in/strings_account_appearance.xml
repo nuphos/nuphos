@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_appearance">Tampilan</string>
+    <string name="account_bot_avatars">Avatar bot</string>
+    <string name="account_bot_avatars_help">Beri Bot avatar karakter. Matikan untuk menampilkan ikon Runtime.</string>
+    <string name="account_integrations">Integrasi</string>
+    <string name="account_connectors">Konektor</string>
+    <string name="account_signed_in_accounts">Akun yang masuk</string>
+</resources>

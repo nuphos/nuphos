@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">重新登入</string>
     <string name="profile_accounts_active">目前使用的帳號</string>
     <string name="profile_workspace_back">返回帳號</string>
-    <string name="profile_workspace">工作區</string>
-    <string name="profile_workspace_none">沒有可用的工作區</string>
-    <string name="profile_workspace_current">目前的工作區</string>
-    <string name="profile_workspace_setup">設定工作區</string>
+    <string name="profile_workspace">團隊</string>
+    <string name="profile_workspace_none">沒有可用的團隊</string>
+    <string name="profile_workspace_current">目前的團隊</string>
+    <string name="profile_workspace_setup">設定團隊</string>
     <string name="profile_two_factor">兩步驟驗證</string>
     <string name="profile_two_factor_intro">每次登入時都要求輸入驗證器 App 的驗證碼，這樣即使密碼或電子郵件遭竊也無法登入。</string>
     <string name="profile_two_factor_load_failed">無法載入兩步驟驗證。</string>

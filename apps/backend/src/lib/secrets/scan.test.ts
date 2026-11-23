@@ -8,6 +8,7 @@ import {
   redactSecrets,
   redactSecretsSync,
   redactTokenShapes,
+  redactTokenShapesSync,
   shannonEntropy,
 } from './scan'
 
@@ -216,6 +217,43 @@ describe('redactTokenShapes', () => {
       'password=hunter22 author: Ada sha 9f86d081884c7d659a2feaa0c55ad015a3bf4f1b id aB3xY9qZ7mK2pL5nR8tV1wE4uI6oP0sD'
 
     expect(await redactTokenShapes(text)).toBe(text)
+  })
+
+  test('AWS secret keys and session tokens under the names AWS prints them with', async () => {
+    const secret = randomAlnum(40)
+    const session = `IQoJb3JpZ2luX2Vj${randomAlnum(200)}`
+    const inputs = [
+      `aws_secret_access_key = ${secret}`,
+      `export AWS_SESSION_TOKEN=${secret}`,
+      JSON.stringify({ Credentials: { SecretAccessKey: secret, SessionToken: session } }),
+      JSON.stringify(JSON.stringify({ SecretAccessKey: secret })),
+      `printed alone ${session}`,
+    ]
+
+    for (const input of inputs) {
+      const out = await redactTokenShapes(input)
+
+      expect(out).toContain('[REDACTED:aws')
+      expect(out).not.toContain(secret)
+      expect(out).not.toContain(session.slice(0, 40))
+    }
+  })
+
+  test('PostHog personal API keys, not public project keys', async () => {
+    const key = `phx_${randomAlnum(43)}`
+    const project = `phc_${randomAlnum(43)}`
+
+    expect(await redactTokenShapes(`key ${key} project ${project}`)).toBe(
+      `key [REDACTED:posthog-key] project ${project}`,
+    )
+  })
+
+  test('the sync variant, without the secretlint preset, covers the same shapes', () => {
+    const secret = randomAlnum(40)
+
+    expect(
+      redactTokenShapesSync(`x aws_secret_access_key=${secret} ghp_abcdefghijklmnopqrstuvwxyz0123`),
+    ).toBe('x aws_secret_access_key=[REDACTED:aws-secret] [REDACTED:github-token]')
   })
 })
 

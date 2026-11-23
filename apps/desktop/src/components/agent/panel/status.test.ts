@@ -126,6 +126,18 @@ test('a failed turn that explains itself does not also claim the session was int
     assert.equal(computeStatus(current, failed)?.label, label)
   }
 })
+// #4816: the usage limit refused a queued message; the queue strip says why and that it waits.
+test('a refused turn the usage limit holds is left to the queue strip', () => {
+  const current = tab('Request failed', 'idle')
+
+  current.runtimeState = {
+    ...current.runtimeState!,
+    phase: 'failed',
+    actions: { send: true, cancel: false, steer: false },
+  }
+  assert.equal(computeStatus(current, message)?.label, 'Request failed')
+  assert.equal(computeStatus({ ...current, queueHeld: {} }, message), null)
+})
 test('a stop asked for here says so before the runtime does, until the turn ends', () => {
   const current = { ...tab('Running a command…'), phase: 'stopping' } as Tab
 

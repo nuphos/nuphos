@@ -203,6 +203,7 @@ class BotDesktopFixtureDeviceTest {
         denyBotTask = true
         render("chat-plain", taskNavigation = true)
         compose.waitUntil(5_000) { botReads.get() > 0 && store.session("bot-plain", "Release notes")?.loadError != null }
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
@@ -225,7 +226,7 @@ class BotDesktopFixtureDeviceTest {
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         val before = position()
         assertTrue(before > 5)
-        // The Bot's own Task opens from its details, not the header.
+        // The details card's own entry sits in the details, not in the transcript.
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
@@ -251,12 +252,30 @@ class BotDesktopFixtureDeviceTest {
         capture("7-task-return-scroll-and-draft")
     }
 
+    @Test fun titleBarTaskButtonOpensBotTaskAndReturns() {
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("chat-bot-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task")
+            .assert(hasContentDescription(inst.targetContext.getString(R.string.chat_task_fallback_title)) and hasClickAction())
+        capture("11-title-bar-task-button")
+        compose.onNodeWithTag("chat-bot-task").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Release notes draft: Shared Bot Tasks keep the conversation and working context together.").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task").assertExists()
+    }
+
     @Test fun aBotWithoutADesktopHasNoButton() {
         render("chat-plain")
         // Long enough for the Bot's own read to land.
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
         assertTrue(compose.onAllNodes(button).fetchSemanticsNodes().isEmpty())
+        // Nowhere to open a Task: no Task button either.
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         // Nothing dispatched: nothing under the name.
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertDoesNotExist()
         capture("2-no-desktop")

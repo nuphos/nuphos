@@ -9,7 +9,6 @@ import type { ObjectId } from 'mongodb'
 
 export type SlackOutboundArgs = {
   userId: string
-  conversationId: string
   teamId?: string | null
 }
 
@@ -29,9 +28,8 @@ export type SlackOutboundContext = {
   post: (input: {
     destination: SlackOutboundDestination
     text: string
-    bindConversation: boolean
     /** Opens a replyable thread under the new root and gives it a conversation
-     *  of its own. Takes precedence over bindConversation. */
+     *  of its own. Without it, replies under the root reach no conversation. */
     replyThread?: { text: string }
   }) => Promise<
     | {
@@ -101,7 +99,6 @@ export type SlackOutboundDependencies = {
     botToken: string,
   ) => Promise<{ slackUserId: string } | null>
   canViewPrivateChannels: (userId: string, teamId: string) => Promise<boolean>
-  getThreadBySessionId: (sessionId: string) => Promise<{ slackChannelId: string } | null>
   bindThread: (input: {
     slackWorkspaceId: string
     slackChannelId: string

@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">重新登录</string>
     <string name="profile_accounts_active">当前账号</string>
     <string name="profile_workspace_back">返回账号</string>
-    <string name="profile_workspace">工作区</string>
-    <string name="profile_workspace_none">没有可用的工作区</string>
-    <string name="profile_workspace_current">当前工作区</string>
-    <string name="profile_workspace_setup">设置工作区</string>
+    <string name="profile_workspace">团队</string>
+    <string name="profile_workspace_none">没有可用的团队</string>
+    <string name="profile_workspace_current">当前团队</string>
+    <string name="profile_workspace_setup">设置团队</string>
     <string name="profile_two_factor">双重验证</string>
     <string name="profile_two_factor_intro">每次登录时都要求输入验证器 App 的验证码，这样即使密码或邮箱被盗也无法登录。</string>
     <string name="profile_two_factor_load_failed">无法加载双重验证。</string>

@@ -114,8 +114,8 @@ real payload:
 4. If the user wants Slack updates, call `slack_post` once per firing that is
    worth telling people about — a new problem, a material change, or its
    recovery — to the exact approved destination. An unchanged repeat needs no
-   post. Keep `bindConversation` on unless this conversation is already bound
-   to a Slack thread, so replies there continue this conversation.
+   post. Put the investigation detail in `replyThread`, so a follow-up asked in
+   that thread gets an answer.
 5. When it recovers, say so and stop. Nothing needs closing.
 
 Use explicit documented payload fields when available. If the schema is not

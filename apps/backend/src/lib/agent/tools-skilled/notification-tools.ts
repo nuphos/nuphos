@@ -46,7 +46,6 @@ export function createNotificationTools(deps: NotificationToolDeps): {
       description:
         'Send a message to Slack through the first-party Nuphos Slack App, to an explicitly user-approved destination. This capability stays visible when Slack is unconnected and then returns slack_not_connected; never replace it with a Slack Incoming Webhook or a provider-native Slack integration unless the user explicitly asks. ' +
         'For a channel, use only a channelId returned by slack_list_destinations. Never choose a channel yourself. ' +
-        'Set bindConversation=true for trigger/desktop notifications so replies continue this exact Nuphos conversation. ' +
         'For a report or summary nobody is waiting on — a scheduled digest, a cost breakdown — pass replyThread instead: the root stays scannable, the detail goes in the thread, and follow-ups there are answered in a conversation of their own. Without it a reply in that thread reaches nobody. ' +
         'This is an external side effect. If a post fails, report the error and do not retry it unchanged in the same turn.',
       inputSchema: z.object({
@@ -76,10 +75,6 @@ export function createNotificationTools(deps: NotificationToolDeps): {
           .min(1)
           .max(12_000)
           .describe('Concise Slack-ready alert, investigation result, update, or recovery.'),
-        bindConversation: z
-          .boolean()
-          .default(true)
-          .describe('Bind replies on this Slack root to the current Nuphos conversation.'),
         replyThread: z
           .object({
             text: z
@@ -98,12 +93,11 @@ export function createNotificationTools(deps: NotificationToolDeps): {
       }),
       execute: async (input) => {
         if (!slackOutbound) return slackNotConnected()
-        const { label: _label, destination, text, bindConversation, replyThread } = input
+        const { label: _label, destination, text, replyThread } = input
 
         return await slackOutbound.post({
           destination,
           text,
-          bindConversation,
           ...(replyThread ? { replyThread } : {}),
         })
       },

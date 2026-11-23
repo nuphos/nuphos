@@ -40,6 +40,8 @@ export type PendingUserMessage = {
   refusedAt?: string
   /** When a turn first found its computer offline or failed to start; reported once that outlasts the grace. */
   offlineSince?: string
+  /** Its last try was refused for the usage limit, which resets at `until` when known. */
+  usageHold?: { until?: string }
   /** The question this notice answers: open again when the notice never runs. */
   answers?: InputRequest
 }
