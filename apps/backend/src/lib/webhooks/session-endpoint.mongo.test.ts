@@ -52,7 +52,8 @@ const queued = async (sessionId: string) => {
   for (let tries = 0; tries < 100; tries++) {
     const rows = await webhookDeliveries().find({ sessionId }).toArray()
 
-    if (rows.length) return rows.map((row) => row.webhookId.toHexString()).sort()
+    if (rows.length)
+      return rows.map((row) => row.webhookId.toHexString()).sort((x, y) => x.localeCompare(y))
     await new Promise((resolve) => setTimeout(resolve, 10))
   }
 
@@ -96,6 +97,6 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a session started for one webhoo
 
     expect((await agentConversations().findOne({ sessionId: own }))?.webhookId).toBe(a)
     expect(await queued(own)).toEqual([a])
-    expect(await queued(await session())).toEqual([a, b].sort())
+    expect(await queued(await session())).toEqual([a, b].sort((x, y) => x.localeCompare(y)))
   })
 })

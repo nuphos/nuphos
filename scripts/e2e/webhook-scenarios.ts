@@ -142,10 +142,7 @@ const endpoint = (name: string) => [
   { name: 'X-Endpoint', value: name },
 ]
 
-/**
- * An MCP client adds two endpoints. A session it starts for one of them (#4747) reports
- * there alone, while another session still reaches both. Then it removes every endpoint.
- */
+/** Over MCP: a session started for one of two endpoints reports there alone (#4747). */
 async function overMcp(
   tool: ReturnType<typeof mcp>['tool'],
   teamId: string,
