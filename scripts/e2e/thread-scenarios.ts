@@ -94,6 +94,10 @@ export const threadScenarios: Scenario[] = [
           `The thread's session was not created on its parent's model and fast mode: ${JSON.stringify(session)}`,
         )
       }
+      // Fast mode stays this person's pick for new Tasks; later scenarios start with it off.
+      await chip()
+      await page.getByRole('button', { name: 'Turn off fast mode' }).click()
+      await page.keyboard.press('Escape')
     },
   },
   {
