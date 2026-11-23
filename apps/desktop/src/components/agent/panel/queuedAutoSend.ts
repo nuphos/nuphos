@@ -1,4 +1,6 @@
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
+import { formatResetsDuration } from '../../../lib/runtimeQuota.ts'
 
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
@@ -54,7 +56,11 @@ export function sendingDraftIds(): Set<string> {
  * The strip as the server sees it: this person's waiting messages, in order,
  * plus the ones still being sent.
  */
-export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: string }[]): Tab {
+export function syncQueued(
+  tab: Tab,
+  server: { id: string; mine: boolean; text: string }[],
+  held?: { until?: string },
+): Tab {
   const sending = sendingDraftIds()
   const local = new Map((tab.queued ?? []).map((item) => [item.id, item]))
   const waiting = server
@@ -64,10 +70,24 @@ export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: 
 
   return {
     ...tab,
+    queueHeld: held,
     queued: [
       ...waiting,
       ...(tab.queued ?? []).filter((item) => sending.has(item.id) && !known.has(item.id)),
     ],
+  }
+}
+
+/** The strip's status line while the agent's usage limit holds the queue. */
+export function usageHoldNotice(held: { until?: string } | undefined) {
+  if (!held) return null
+  const time = formatResetsDuration(held.until)
+
+  return {
+    status: 'pending' as const,
+    text: time
+      ? t('Out of usage. These run when usage resets in {time}.', { time })
+      : t('Out of usage. These run when usage resets.'),
   }
 }
 

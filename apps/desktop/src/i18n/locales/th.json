@@ -3402,6 +3402,8 @@
   "Other members’ private Tasks": "Task ส่วนตัวของสมาชิกคนอื่น",
   "Other…": "อื่นๆ…",
   "Out of usage": "ใช้งานครบโควตา",
+  "Out of usage. These run when usage resets in {time}.": "ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ตในอีก {time}",
+  "Out of usage. These run when usage resets.": "ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ต",
   "Outbound": "ขาออก",
   "Outbound relay": "รีเลย์ขาออก",
   "Outcome": "ผลลัพธ์",

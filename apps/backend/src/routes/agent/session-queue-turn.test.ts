@@ -31,6 +31,7 @@ import {
 } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
+import type { PendingUserMessage } from '@/lib/agent/pending-message-types'
 import type { UIMessage } from 'ai'
 
 const OWNER = '64b5f1c2e4b0a1d2c3e4f5a6'
@@ -361,6 +362,23 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(200)
   expect(await listPendingUserMessages(OWNER, SESSION)).toEqual([])
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(404)
+})
+
+test('the queue says it is held by the usage limit, with the reset only when known', async () => {
+  const head = buildPendingUserMessage({ renderedText: 'later', source: 'app', actorUserId: OWNER })
+  const held = async (usageHold?: PendingUserMessage['usageHold']) => {
+    await clearPendingUserMessages(OWNER, SESSION)
+    await enqueuePendingUserMessage(OWNER, SESSION, { ...head, usageHold })
+    const listed = await request(`/conversations/${SESSION}/queue`)
+
+    return ((await listed.json()) as { held?: unknown }).held
+  }
+  const until = new Date(Date.now() + 3_600_000).toISOString()
+
+  expect(await held()).toBeUndefined()
+  expect(await held({ until })).toEqual({ reason: 'usage_limit', until })
+  expect(await held({})).toEqual({ reason: 'usage_limit' })
+  expect(await held({ until: new Date(0).toISOString() })).toBeUndefined()
 })
 
 // A phone send that lands while an agent.thread turn holds the session waits in

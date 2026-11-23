@@ -3402,6 +3402,8 @@
   "Other members’ private Tasks": "其他成员的私人 Task",
   "Other…": "其他…",
   "Out of usage": "用量已用完",
+  "Out of usage. These run when usage resets in {time}.": "用量已用完。将在 {time}后用量重置时执行。",
+  "Out of usage. These run when usage resets.": "用量已用完。将在用量重置后执行。",
   "Outbound": "出站",
   "Outbound relay": "出站中继",
   "Outcome": "结果",
