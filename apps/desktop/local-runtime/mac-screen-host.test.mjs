@@ -143,9 +143,9 @@ test(
 
 /**
  * The host's display lookup, as it ships, run against a display that is asleep for `asleep` lookups,
- * each taking `lookupMs`.
+ * each taking `lookupMs`; lookup number `hangAt` never returns, not even when cancelled.
  */
-function findDisplay(asleep, lookupMs = 0) {
+function findDisplay(asleep, lookupMs = 0, hangAt = 0) {
   const dir = mkdtempSync(path.join(tmpdir(), 'mac-screen-host-'))
   const program = path.join(dir, 'main.swift')
 
@@ -156,7 +156,7 @@ function findDisplay(asleep, lookupMs = 0) {
       source.slice(source.indexOf('// MARK: - Display'), source.indexOf('// MARK: - Main')),
       'nonisolated(unsafe) var lookups = 0',
       'nonisolated(unsafe) var wakes = 0',
-      `let found = try await awakeDisplay(wake: { wakes += 1 }, find: { lookups += 1; try await Task.sleep(nanoseconds: ${String(lookupMs)} * 1_000_000); return lookups > ${String(asleep)} ? "display" : nil })`,
+      `let found = try await awakeDisplay(wake: { wakes += 1 }, find: { lookups += 1; if lookups == ${String(hangAt)} { await withUnsafeContinuation { (_: UnsafeContinuation<Void, Never>) in } }; try await Task.sleep(nanoseconds: ${String(lookupMs)} * 1_000_000); return lookups > ${String(asleep)} ? "display" : nil })`,
       'print("\\(found ?? "none") \\(wakes) \\(lookups)")',
     ].join('\n'),
   )
@@ -179,5 +179,18 @@ test(
 
     assert.deepEqual([found, wakes], ['none', '1'])
     assert.ok(Number(lookups) >= 5 && Number(lookups) <= 10, `${lookups} lookups`)
+  },
+)
+
+test(
+  'the screen host gives up on a display lookup that never returns (#4568)',
+  { skip: process.platform !== 'darwin' && 'the host is macOS only', timeout: 120_000 },
+  () => {
+    for (const [hangAt, expected] of [
+      [1, 'none 0 1'],
+      [2, 'none 1 2'],
+    ]) {
+      assert.equal(findDisplay(1000, 0, hangAt), expected)
+    }
   },
 )

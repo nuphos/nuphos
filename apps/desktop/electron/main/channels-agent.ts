@@ -58,6 +58,12 @@ export const agentChannels = {
   ) => agent.notifyAgentStopped({ ...args, parentWindow: BrowserWindow.fromWebContents(e.sender) }),
   'agent:abort': (_e: unknown, streamId: string) => agent.abortChat(streamId),
   'agent:followChanges': (_e: unknown, teamId: string) => agent.followAgentChanges(teamId),
+  'agent:waitForRunEnd': (
+    _e: unknown,
+    args: { sessionId: string; teamId: string; streamId: string },
+  ) => agent.waitForRunEnd(args),
+  'agent:stopWaitingForRunEnd': (_e: unknown, streamId: string) =>
+    agent.stopWaitingForRunEnd(streamId),
   'agent:reportFailure': (_e: unknown, streamId: string, payload: Record<string, unknown>) =>
     agent.reportFailure(streamId, payload),
   'agent:abortClientTools': (_e: unknown, sessionId: string) => agent.abortClientTools(sessionId),

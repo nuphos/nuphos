@@ -296,3 +296,53 @@ test('an install that timed out is not run again: the Box is discarded', async (
   expect(await setUpWithInstallFailing(timedOut)).toBe(1)
   expect(deleted).toHaveLength(1)
 })
+
+test('a host that joined stays, though instabox answered the exec that started it too late (#4620)', async () => {
+  let settled = () => {}
+  const done = new Promise<void>((resolve) => {
+    settled = resolve
+  })
+  const machine = {
+    sandboxId: 'm_1',
+    setAutoSuspend: () => Promise.resolve(),
+    commands: {
+      run: (_command: string, options?: { background?: boolean }) =>
+        options?.background
+          ? Promise.reject(
+              new InstaboxTimeoutError('POST /v1/machines/m_1/exec timed out after 15000 ms', {
+                code: 'request_timeout',
+              }),
+            )
+          : Promise.resolve({}),
+    },
+  } as unknown as Sandbox
+
+  installStore({
+    setAgentDeviceBoxSandbox: () => Promise.resolve(true),
+    deleteAgentDevice: (_userId: string, deviceId: string) => {
+      deleted.push(deviceId)
+      settled()
+
+      return Promise.resolve(true)
+    },
+  })
+  installTokens({
+    issueDeviceJoinToken: () => Promise.resolve({ token: 't' } as never),
+    deleteDeviceJoinTokens: () => Promise.resolve(),
+  })
+  installPresence({
+    waitForPresence: () => {
+      setTimeout(settled, 10)
+
+      return Promise.resolve(true)
+    },
+  })
+  spies.push(spyOn(Sandbox, 'create').mockResolvedValue(machine))
+  spies.push(spyOn(Sandbox, 'connect').mockResolvedValue(machine))
+
+  await createBox('u1', teamId, 'Box', { accountId })
+  await done
+
+  expect(deleted).toEqual([])
+  expect(killed).toEqual([])
+})

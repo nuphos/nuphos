@@ -11,6 +11,7 @@ export type StubMachine = {
   commands?: string[]
   /** Its suspend is still uploading: instabox refuses every other operation on it. */
   pausing?: boolean
+  metadata?: Record<string, string>
 }
 
 const machineView = (machine: StubMachine) => ({
@@ -24,7 +25,7 @@ const machineView = (machine: StubMachine) => ({
   spec: { vcpus: 2, memMiB: 4096, persistentDiskGiB: 20 },
   storage: { sizeGiB: 20, mountPath: '/data', persistent: true, synced: true },
   runtime: { ready: machine.state === 'running' },
-  metadata: {},
+  metadata: machine.metadata ?? {},
   createdAt: '2026-11-17T00:00:00Z',
   updatedAt: '2026-11-17T00:00:00Z',
 })
@@ -32,6 +33,9 @@ const machineView = (machine: StubMachine) => ({
 /** The machines this instabox knows, by id; a scenario adds and changes them. */
 export const instaboxMachines = new Map<string, StubMachine>()
 const machines = instaboxMachines
+
+/** A scenario's part in each exec: it sees the command, and returns how long its answer is held. */
+export const instaboxExec: { onRun?: (cmd: string, envs: Record<string, string>) => number } = {}
 
 /** Starts it on a free port; the backend's environment to reach it. */
 export async function startInstaboxStub(): Promise<Record<string, string>> {
@@ -49,9 +53,12 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
       request.on('data', (chunk: Buffer) => chunks.push(chunk))
       request.on('end', () => {
-        const { name } = JSON.parse(Buffer.concat(chunks).toString()) as { name: string }
+        const { name, metadata } = JSON.parse(Buffer.concat(chunks).toString()) as {
+          name: string
+          metadata?: Record<string, string>
+        }
 
-        machines.set(name, { id: name, state: 'running', operations: [] })
+        machines.set(name, { id: name, state: 'running', operations: [], metadata })
         send(202, { id: `op_${name}`, type: 'create', state: 'succeeded', machineId: name })
       })
 
@@ -66,11 +73,16 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
 
       request.on('data', (chunk: Buffer) => chunks.push(chunk))
       request.on('end', () => {
-        const { cmd } = JSON.parse(Buffer.concat(chunks).toString()) as { cmd: string }
+        const { cmd, envs = {} } = JSON.parse(Buffer.concat(chunks).toString()) as {
+          cmd: string
+          envs?: Record<string, string>
+        }
 
         machine.commands ??= []
         machine.commands.push(cmd)
-        send(200, { stdout: '12345\n', stderr: '', exitCode: 0 })
+        const holdMs = instaboxExec.onRun?.(cmd, envs) ?? 0
+
+        setTimeout(() => send(200, { stdout: '12345\n', stderr: '', exitCode: 0 }), holdMs)
       })
 
       return
@@ -83,8 +95,22 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
     if (path === '/v1/templates') return send(200, { templates: [{ id: 'agent-browser' }] })
     if (path === '/v1/me')
       return send(200, { allowedSpecs: [{ vcpus: 2, memMiB: 4096, persistentDiskGiB: 20 }] })
-    if (path === '/v1/machines')
-      return send(200, { machines: [...machines.values()].map(machineView), nextCursor: null })
+    if (path === '/v1/machines') {
+      // Those with every `key:value` asked for, as instabox filters a team's machines; one a
+      // scenario added without metadata is in every list.
+      const wanted = new URL(request.url ?? '/', 'http://instabox').searchParams.getAll('metadata')
+      const matching = [...machines.values()].filter(
+        (m) =>
+          !m.metadata ||
+          wanted.every((pair) => {
+            const [key, ...value] = pair.split(':')
+
+            return m.metadata?.[key] === value.join(':')
+          }),
+      )
+
+      return send(200, { machines: matching.map(machineView), nextCursor: null })
+    }
     if (machine && !part) return send(200, machineView(machine))
     if (machine && part === 'logs')
       return send(200, {

@@ -26,6 +26,8 @@
     <string name="chats_bots">Bots</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">New Bot</string>
+    <string name="chats_first_bot_title">Start with your first Bot</string>
+    <string name="chats_first_bot_body">A familiar face for ongoing work. Pick a name and bring your team in.</string>
     <string name="chats_archive_bot">Archive Bot</string>
     <string name="chats_more_actions">More actions</string>
     <string name="chats_is_typing">%1$s is typing</string>
@@ -58,7 +60,7 @@
     <string name="chats_question_snooze_tomorrow">Tomorrow, 9:00</string>
     <string name="chats_question_snooze_monday">Next Monday, 9:00</string>
     <string name="chats_question_dismiss_reason">Reason (optional)</string>
-    <string name="chats_empty_bot_body">This is your conversation with %1$s. Talk about what you want help with, and shape how you work together.</string>
+    <string name="chats_empty_bot_body">This is where you and %1$s get things done. Talk about what you want help with, and shape how you work together.</string>
     <string name="chats_empty_bot_start">You can start by telling %1$s what you would like to do.</string>
     <string name="chats_bot_computer_offline">%1$s’s computer is offline.</string>
     <string name="chats_presence_online">Online</string>

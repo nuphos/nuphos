@@ -48,11 +48,7 @@ export function ChatIcon({
     return <Avatar name={title} size={size} className={clsx('rounded-full', className)} />
   if (members.length === 1)
     return (
-      <span
-        aria-hidden="true"
-        data-looping={looping || undefined}
-        className={clsx('inline-flex shrink-0', className)}
-      >
+      <span aria-hidden="true" className={clsx('inline-flex shrink-0', className)}>
         <Face face={members[0]} size={size} sidebar={sidebar} looping={looping} />
       </span>
     )
@@ -61,7 +57,6 @@ export function ChatIcon({
   return (
     <span
       aria-hidden="true"
-      data-looping={looping || undefined}
       className={clsx('relative inline-flex shrink-0', className)}
       style={{ width: size, height: size }}
     >

@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { PRODUCT_NAME } from './env.ts'
+
 /** What a packaged build's data was named before it set its own path: `name` in package.json. */
 export const LEGACY_USER_DATA_NAME = 'k8s-gui'
 
@@ -31,7 +33,8 @@ export function hasProfile(dir: string): boolean {
  * has a profile in the legacy directory keeps using it: its sign-in, its settings and its
  * agent homes are in there, and a live Chromium profile has no safe moment to be moved.
  * A new install, or one whose legacy directory holds no profile, gets `<appData>/<appName>`.
- * A dev build does not come here at all; it keeps its own per-instance directory.
+ * So does any build not named after the product, a dev build or one packaged side by side
+ * under another name: the legacy profile is the installed product's, never theirs (#4660).
  *
  * This picks; it does not move, rename or delete anything. A directory it does not pick is
  * reported so the caller can say so, rather than tidying it away.
@@ -43,7 +46,8 @@ export function resolveUserData(appData: string, appName: string): UserDataChoic
   // The legacy profile wins even when `<appData>/<appName>` holds one too: an install can
   // have both, from releases that wrote to each name in turn, and the legacy directory is
   // the one its data was last in. Nothing is merged, and neither is touched.
-  if (hasProfile(legacy)) return { dir: legacy, leftAlone: hasProfile(named) ? named : null }
+  if (appName === PRODUCT_NAME && hasProfile(legacy))
+    return { dir: legacy, leftAlone: hasProfile(named) ? named : null }
 
   return { dir: named, leftAlone: null }
 }

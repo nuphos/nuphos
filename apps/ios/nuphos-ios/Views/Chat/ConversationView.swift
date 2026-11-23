@@ -61,7 +61,7 @@ struct ConversationView: View {
                     Label("Work tools", image: "lucide-monitor")
                 }
             }
-            if session.loaded && !session.isBot {
+            if session.loaded && session.shareable {
                 Button { showShare = true } label: { Label("Share", image: "lucide-user-plus") }
             }
             if let watching = session.isWatching {
@@ -283,7 +283,7 @@ struct ConversationView: View {
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) {
-            if !session.isBot { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
+            if session.shareable { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in

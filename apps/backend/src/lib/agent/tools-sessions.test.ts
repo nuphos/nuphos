@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { createSessionTools } from './tools-sessions'
@@ -58,6 +59,15 @@ const callerAccess = {
   updatedAt: new Date(),
   updatedBy: 'u',
 }
+
+// The owner's default agent, which a Bot is stored on before its first turn.
+useConversationChatRoute({
+  resolveNewConversationRuntime: async () => ({
+    agentRuntime: 'codex',
+    runtimeId: 'rt_box',
+    runtimeLabel: 'Box',
+  }),
+})
 
 useDb({
   db: () => ({
@@ -368,6 +378,9 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
         avatar: '07-ada',
       },
     },
+    agentRuntime: 'codex',
+    runtimeId: 'rt_box',
+    runtimeLabel: 'Box',
   })
   expect(result).toEqual({
     session_id: result.session_id,

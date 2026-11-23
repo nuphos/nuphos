@@ -70,7 +70,7 @@ describe('resolveExecutionAuthorization', () => {
     member = true
   })
 
-  test('an old Trigger cannot wake an archived Task', async () => {
+  test('an old Trigger cannot wake an archived Task, and is paused', async () => {
     conversations.set('archived', {
       sessionId: 'archived',
       userId: 'principal',
@@ -79,7 +79,10 @@ describe('resolveExecutionAuthorization', () => {
     })
     await expect(
       resolveExecutionAuthorization(trigger({ targetSessionId: 'archived' })),
-    ).rejects.toThrow()
+    ).rejects.toMatchObject({ code: 'trigger_target_session_archived' })
+    expect(paused()?.update).toMatchObject({
+      $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
+    })
   })
 
   test('a Trigger runs in its Task', async () => {

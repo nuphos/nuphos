@@ -20,7 +20,7 @@ async function mcp(server, sessionHeader, method, params) {
     body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
   })
   const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
+  const data = /^data: (.+)$/m.exec(text)?.[1] ?? text
 
   return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
 }

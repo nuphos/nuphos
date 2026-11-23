@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
 
 import { useDb } from '@/lib/test/doubles/db'
 
@@ -10,6 +11,7 @@ import type * as dbActual from '@/lib/db'
 // Archived reads the viewer's own, then the shared Tasks they archived for themselves.
 let queries: Record<string, unknown>[] = []
 let sorts: Record<string, number>[] = []
+let stages: string[][] = []
 let page: Record<string, unknown>[] = []
 let lastUpdate: { filter: unknown; update: unknown } | undefined
 
@@ -25,6 +27,20 @@ const collection = {
         return { limit: () => ({ toArray: () => Promise.resolve(rows) }) }
       },
     }
+  },
+  // The archive reads through an aggregation, to leave a Bot's work with the Bot.
+  aggregate(pipeline: Record<string, Record<string, unknown>>[]) {
+    const [{ $match: query }, { $sort: sort }, ...rest] = pipeline as [
+      { $match: Record<string, unknown> },
+      { $sort: Record<string, number> },
+      ...object[],
+    ]
+
+    queries.push(query)
+    sorts.push(sort)
+    stages.push(rest.flatMap((stage) => Object.keys(stage)))
+
+    return { toArray: () => Promise.resolve(query.userId === VIEWER ? [...page] : []) }
   },
   findOne: () => Promise.resolve(null),
   updateOne(filter: unknown, update: unknown) {
@@ -48,6 +64,7 @@ const READABLE = {
 beforeEach(() => {
   queries = []
   sorts = []
+  stages = []
   lastUpdate = undefined
   page = []
 })
@@ -76,26 +93,51 @@ describe('archived conversation listing', () => {
         [shared]: { $exists: true },
       },
     ])
-    expect(sorts).toEqual([{ archivedAt: -1 }, { [shared]: -1 }])
+    expect(sorts).toEqual([
+      { archivedAt: -1, _id: -1 },
+      { [shared]: -1, _id: -1 },
+    ])
+    // Both halves leave a Bot's work out before the page is cut (archive-bot-work.mongo.test.ts).
+    const botWork = ['$graphLookup', '$match', '$unset', '$limit']
+
+    expect(stages).toEqual([botWork, botWork])
   })
 
-  test('the archive cursor pages on archivedAt', async () => {
+  test('the archive cursor pages on archivedAt, then _id', async () => {
     const newest = new Date('2026-09-20T00:00:00Z')
+    const id = new ObjectId()
 
     page = [
-      { sessionId: 's1', userId: VIEWER, archivedAt: newest },
-      { sessionId: 's2', userId: VIEWER, archivedAt: new Date('2026-09-19T00:00:00Z') },
+      { _id: id, sessionId: 's1', userId: VIEWER, archivedAt: newest },
+      {
+        _id: new ObjectId(),
+        sessionId: 's2',
+        userId: VIEWER,
+        archivedAt: new Date('2026-09-19T00:00:00Z'),
+      },
     ]
     const result = await getConversations(VIEWER, { teamId: TEAM, sort: 'archived', limit: 1 })
 
     expect(result.hasMore).toBe(true)
-    expect(result.nextCursor).toBe(newest.toISOString())
+    expect(result.nextCursor).toBe(`${newest.toISOString()}_${id.toHexString()}`)
 
-    await getConversations(VIEWER, {
-      teamId: TEAM,
-      sort: 'archived',
-      cursor: newest.toISOString(),
+    await getConversations(VIEWER, { teamId: TEAM, sort: 'archived', cursor: result.nextCursor! })
+    const shared = `memberArchivedAt.${VIEWER}`
+
+    expect(queries.at(-2)?.archivedAt).toEqual({ $exists: true, $lte: newest })
+    expect(queries.at(-2)?.$and).toContainEqual({
+      $or: [{ archivedAt: { $lt: newest } }, { _id: { $lt: id } }],
     })
+    expect(queries.at(-1)?.[shared]).toEqual({ $exists: true, $lte: newest })
+    expect(queries.at(-1)?.$and).toContainEqual({
+      $or: [{ [shared]: { $lt: newest } }, { _id: { $lt: id } }],
+    })
+  })
+
+  test('a time-only cursor from an older client pages strictly before it', async () => {
+    const newest = new Date('2026-09-20T00:00:00Z')
+
+    await getConversations(VIEWER, { teamId: TEAM, sort: 'archived', cursor: newest.toISOString() })
     expect(queries.at(-2)?.archivedAt).toEqual({ $exists: true, $lt: newest })
     expect(queries.at(-1)?.[`memberArchivedAt.${VIEWER}`]).toEqual({ $exists: true, $lt: newest })
   })
