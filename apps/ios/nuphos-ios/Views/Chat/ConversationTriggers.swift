@@ -94,7 +94,7 @@ struct ConversationTriggers: View {
             }
             Section {
                 Text(trigger.schedule)
-                Text(nextRunLabel(trigger)).foregroundStyle(Theme.body)
+                Text(nextRunLabel(trigger)).foregroundStyle(Theme.muted)
             }
             Section {
                 if let onEdit {
