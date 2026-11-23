@@ -201,6 +201,18 @@ test('the composer offers Stop through a dropped runtime connection and after th
   )
 })
 
+// #4830: a message the usage limit holds waits for the reset, not behind a turn.
+test('a queue held by the usage limit, with nothing running, offers no Stop', () => {
+  const waiting = [{ id: 'later', text: 'later', filePaths: [] }]
+
+  assert.equal(
+    canStopTurn(tab({ runtimeState: status(true), queued: waiting, queueHeld: {} })),
+    false,
+  )
+  // A turn running ahead of it can still be stopped.
+  assert.equal(canStopTurn(tab({ streaming: true, queued: waiting, queueHeld: {} })), true)
+})
+
 test('an outdated runtime blocks Send with why; one that can take it later does not', () => {
   const outdated = { state: 'idle' as const, observedAt: performance.now() }
 

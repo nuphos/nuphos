@@ -128,6 +128,9 @@ export const usageQueueScenarios: Scenario[] = [
           throw new Error('The transcript keeps a message the usage limit holds in the queue')
         if (await page.getByText('Request failed').isVisible())
           throw new Error('A message the usage limit holds shows as a failed request')
+        // #4830: nothing runs ahead of a held message, so there is nothing to stop.
+        if (await page.locator('button[title="Stop"]').isVisible())
+          throw new Error('The composer offers Stop while only a held message waits')
         // Taken back, it stops waiting for an agent that is out of usage.
         await page.getByRole('button', { name: 'Take back' }).click()
       } finally {
