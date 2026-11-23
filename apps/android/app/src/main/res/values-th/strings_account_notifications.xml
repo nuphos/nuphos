@@ -8,4 +8,5 @@
     <string name="computer_notifications_online">ออนไลน์</string>
     <string name="computer_notifications_offline">ออฟไลน์</string>
     <string name="account_notifications">การแจ้งเตือน</string>
+    <string name="computer_notifications_load_failed">โหลดคอมพิวเตอร์ไม่ได้</string>
 </resources>

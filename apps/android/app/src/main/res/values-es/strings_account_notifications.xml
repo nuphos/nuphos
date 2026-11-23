@@ -8,4 +8,5 @@
     <string name="computer_notifications_online">En línea</string>
     <string name="computer_notifications_offline">Sin conexión</string>
     <string name="account_notifications">Notificaciones</string>
+    <string name="computer_notifications_load_failed">No se pudieron cargar las computadoras.</string>
 </resources>

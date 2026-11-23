@@ -59,8 +59,11 @@ internal fun ComputerNotificationsSheet(token: String, teamId: String, onDismiss
             Text(stringResource(R.string.account_computer_alerts), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.computer_notifications_intro_title), style = MaterialTheme.typography.titleMedium)
             Text(stringResource(R.string.computer_notifications_intro))
-            if (loading) CircularProgressIndicator()
-            if (loaded && computers.isEmpty()) Text(stringResource(R.string.computer_notifications_empty))
+            when {
+                loading -> CircularProgressIndicator()
+                failed && !loaded -> Text(stringResource(R.string.computer_notifications_load_failed))
+                loaded && computers.isEmpty() -> Text(stringResource(R.string.computer_notifications_empty))
+            }
             computers.forEach { computer ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {

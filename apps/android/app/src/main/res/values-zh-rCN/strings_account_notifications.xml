@@ -8,4 +8,5 @@
     <string name="computer_notifications_online">在线</string>
     <string name="computer_notifications_offline">离线</string>
     <string name="account_notifications">通知</string>
+    <string name="computer_notifications_load_failed">无法加载电脑。</string>
 </resources>

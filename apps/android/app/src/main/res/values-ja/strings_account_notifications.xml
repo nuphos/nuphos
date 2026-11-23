@@ -8,4 +8,5 @@
     <string name="computer_notifications_online">オンライン</string>
     <string name="computer_notifications_offline">オフライン</string>
     <string name="account_notifications">通知</string>
+    <string name="computer_notifications_load_failed">コンピュータを読み込めませんでした。</string>
 </resources>
