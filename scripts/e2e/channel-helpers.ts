@@ -138,7 +138,10 @@ export async function shootUsageResets(page: Page, computer: string) {
     .first()
 
   await row.waitFor({ timeout: 30_000 })
-  await row.getByText(/^resets in \d+h \d+m$/u).waitFor({ timeout: 30_000 })
+  await row
+    .getByText(/^resets in \d+h \d+m$/u)
+    .filter({ visible: true })
+    .waitFor({ timeout: 30_000 })
   await row.getByText(/^13% left$/u).waitFor({ timeout: 10_000 })
   await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
