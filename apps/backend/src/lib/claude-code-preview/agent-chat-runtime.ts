@@ -8,22 +8,22 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
+import { pendingTurnDefaults } from './own-session-config'
+import { promptFailure } from './prompt-failure'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
-import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import { noteTurnSignIn } from './runtime-auth-refusal'
 import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
+import { settledTurn } from './session-config-record'
 import {
   previewSessionPrincipalChanged,
   sessionContextStale,
   turnDefaults,
 } from './session-context'
 import { pushSessionCredentials } from './session-credential-push'
-import { settledTurn } from './session-config-record'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
@@ -245,7 +245,6 @@ async function promptTurn(args: {
     ]
       .filter(Boolean)
       .join('\n\n')
-    const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate)
     const target = {
       teamId: session.teamId,
       conversationId: session.conversationId,
@@ -255,6 +254,7 @@ async function promptTurn(args: {
       runtimeUrl: session.endpoint.url,
       openabSessionId: session.openabSessionId,
     }
+    const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate, target)
 
     if (args.renewRuntimeEnv)
       renewal = renewTurnCredentials({

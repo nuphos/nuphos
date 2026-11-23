@@ -19,18 +19,30 @@ export type CallTimer = {
  * `progressWindowMs` is restarted only by frames that show the turn advancing
  * (see `isTurnProgressUpdate`). A heartbeat proves the session is alive, not
  * that this prompt still has an agent working on it. Pass 0 to disable it.
+ * `firstOutputMs`, when set, replaces the progress window until the first
+ * progress frame: an agent whose model provider never answers sends nothing
+ * at all, and that should not take the full progress window to notice.
  */
 export function createCallTimer(
   onTimeout: () => void,
   inactivityMs: number,
   progressWindowMs = 0,
+  firstOutputMs = 0,
 ): CallTimer {
-  let progressDeadline = progressWindowMs > 0 ? Date.now() + progressWindowMs : 0
+  const firstWindowMs =
+    firstOutputMs > 0 && progressWindowMs > 0
+      ? Math.min(firstOutputMs, progressWindowMs)
+      : progressWindowMs
+  let progressed = false
+  let progressDeadline = firstWindowMs > 0 ? Date.now() + firstWindowMs : 0
   const stalled = () => progressDeadline > 0 && Date.now() >= progressDeadline
 
   return {
     arm: (progress = false) => {
-      if (progress && progressWindowMs > 0) progressDeadline = Date.now() + progressWindowMs
+      if (progress) {
+        progressed = true
+        progressDeadline = progressWindowMs > 0 ? Date.now() + progressWindowMs : 0
+      }
 
       return setTimeout(
         onTimeout,
@@ -43,13 +55,16 @@ export function createCallTimer(
     timeoutError: (method, sessionScoped) => {
       const progressExpired = stalled()
       const otherKind = sessionScoped ? 'inactivity' : 'call-deadline'
+      const windowMs = progressed ? progressWindowMs : firstWindowMs
+      const silence =
+        !progressed && firstWindowMs < progressWindowMs ? 'model output' : 'turn progress'
 
       return new OpenAbTimeoutError(
         progressExpired
-          ? `OpenAB ACP ${method} timed out: no turn progress for ${String(Math.round(progressWindowMs / 1000))}s`
+          ? `OpenAB ACP ${method} timed out: no ${silence} for ${String(Math.round(windowMs / 1000))}s`
           : `OpenAB ACP ${method} timed out`,
         progressExpired ? 'progress' : otherKind,
-        progressExpired ? progressWindowMs : inactivityMs,
+        progressExpired ? windowMs : inactivityMs,
       )
     },
   }
@@ -73,7 +88,22 @@ export function isTurnProgressUpdate(params: unknown): boolean {
 
   if (!update || typeof update !== 'object') return false
 
-  return TURN_PROGRESS_UPDATES.has(String((update as { sessionUpdate?: unknown }).sessionUpdate))
+  const { sessionUpdate, content, messageId } = update as {
+    sessionUpdate?: unknown
+    content?: { text?: unknown }
+    messageId?: unknown
+  }
+
+  return (
+    TURN_PROGRESS_UPDATES.has(String(sessionUpdate)) && !isAdapterWarning(content?.text, messageId)
+  )
+}
+
+// Codex's adapter relays its own warnings (such as missing model metadata, on
+// every turn with a custom provider) as message text with no message id. They
+// are not the model's output, so they must not end a stalled turn's window.
+export function isAdapterWarning(text: unknown, messageId: unknown): boolean {
+  return !messageId && typeof text === 'string' && /^(Warning|Config warning): /.test(text)
 }
 
 /** Re-arm every pending call on the session a `session/update` frame names. */

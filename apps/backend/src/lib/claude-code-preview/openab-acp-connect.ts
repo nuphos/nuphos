@@ -14,6 +14,7 @@ export type OpenAbAcpConnection = {
   callTimeoutMs: number
   promptTimeoutMs: number
   promptProgressTimeoutMs: number
+  promptFirstOutputTimeoutMs: number
   retireGraceMs: number
 }
 
@@ -28,6 +29,11 @@ const DEFAULT_PROMPT_TIMEOUT_MS = 180_000
 // prompt_hard_timeout_secs (30 min) without agent activity, plus hung_grace_secs
 // (120s); this sits just above so openab's own cancel acts first when it can.
 const DEFAULT_PROMPT_PROGRESS_TIMEOUT_MS = 32 * 60_000
+// Until the first model output (text, reasoning or a tool call). An agent whose
+// model provider takes the request and never answers sends nothing, and would
+// otherwise hang for the whole progress window (#4859). Conservative for now;
+// tighten from the agent.chat.first_output distribution.
+const DEFAULT_PROMPT_FIRST_OUTPUT_TIMEOUT_MS = 10 * 60_000
 const DEFAULT_RETIRE_GRACE_MS = 30_000
 
 /** The agent host did not take the connection: it is down, restarting or out of reach. */
@@ -96,6 +102,8 @@ export async function connectOpenAbAcpSocket(
     callTimeoutMs: options.callTimeoutMs ?? DEFAULT_CALL_TIMEOUT_MS,
     promptTimeoutMs: options.promptTimeoutMs ?? DEFAULT_PROMPT_TIMEOUT_MS,
     promptProgressTimeoutMs: options.promptProgressTimeoutMs ?? DEFAULT_PROMPT_PROGRESS_TIMEOUT_MS,
+    promptFirstOutputTimeoutMs:
+      options.promptFirstOutputTimeoutMs ?? DEFAULT_PROMPT_FIRST_OUTPUT_TIMEOUT_MS,
     retireGraceMs: options.retireGraceMs ?? DEFAULT_RETIRE_GRACE_MS,
   }
 }

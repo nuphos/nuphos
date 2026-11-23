@@ -20,6 +20,20 @@ describe('isTurnProgressUpdate', () => {
     },
   )
 
+  test("an adapter's own warning is not the model's output", () => {
+    const chunk = (text: string, messageId?: string) => ({
+      sessionId: 's',
+      update: { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text }, messageId },
+    })
+
+    expect(isTurnProgressUpdate(chunk('Warning: Model metadata for `m` not found.\n\n'))).toBe(
+      false,
+    )
+    expect(isTurnProgressUpdate(chunk('Config warning: unknown key\n\n'))).toBe(false)
+    expect(isTurnProgressUpdate(chunk('Warning: the model said this', 'msg-1'))).toBe(true)
+    expect(isTurnProgressUpdate(chunk('Hello'))).toBe(true)
+  })
+
   test('rejects malformed params', () => {
     expect(isTurnProgressUpdate(undefined)).toBe(false)
     expect(isTurnProgressUpdate({ sessionId: 's' })).toBe(false)

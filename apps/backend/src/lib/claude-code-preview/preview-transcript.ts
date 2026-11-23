@@ -85,6 +85,13 @@ function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterrupti
   if (failure) return { reason: 'error', message: failure.message }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
+  if (!aborted && lower.includes('no model output')) {
+    return {
+      reason: 'timeout',
+      message:
+        "The agent's model never started answering, so the turn was stopped. On the computer running this agent, check the agent's sign-in, model provider and network, or switch this task to another agent.",
+    }
+  }
   if (!aborted && lower.includes('no turn progress')) {
     return {
       reason: 'timeout',
