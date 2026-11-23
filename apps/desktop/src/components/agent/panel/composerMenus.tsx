@@ -1,15 +1,7 @@
+import { faFolder, faPaperclip } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import {
-  Paperclip as PaperclipIcon,
-  Folder as FolderIcon,
-  ChevronDown,
-  ChevronRight,
-  FileSearch,
-  Loader2,
-  Lock,
-  Plus,
-  Unlock,
-} from 'lucide-react'
+import { ChevronDown, ChevronRight, FileSearch, Loader2, Lock, Plus, Unlock } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import {
@@ -20,7 +12,6 @@ import {
   MenuSubmenuTrigger,
   MenuTrigger,
 } from '../../ui/menu'
-import { UiIcon } from '../../ui/ui-icon'
 
 import { ClaudeCodeIcon, CodexIcon } from './icons'
 import { relativeTimeFromNow } from './textUtils'
@@ -168,7 +159,7 @@ export function ComposerAttachmentMenu({
       <MenuContent side="top" align="start" className="w-56">
         <MenuSubmenu>
           <MenuSubmenuTrigger
-            icon={<UiIcon size={14} icon={PaperclipIcon} className="w-3.5 h-3.5" />}
+            icon={<FontAwesomeIcon icon={faPaperclip} className="w-3.5 h-3.5" />}
             chevron={<ChevronRight className="w-3.5 h-3.5" strokeWidth={2} />}
             title={t('Attach files or a folder')}
           >
@@ -183,7 +174,7 @@ export function ComposerAttachmentMenu({
               {t('Files')}
             </MenuItem>
             <MenuItem
-              icon={<UiIcon size={14} icon={FolderIcon} className="w-3.5 h-3.5" />}
+              icon={<FontAwesomeIcon icon={faFolder} className="w-3.5 h-3.5" />}
               onClick={() => onSelectFolderAttachment()}
               title={t('Attach a folder (uploaded with its structure)')}
             >
