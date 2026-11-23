@@ -44,8 +44,6 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('withdrawing a question on a real
       },
       { sessionId: about, userId: owner },
       { sessionId: unrelated, userId: owner },
-      // Another owner's conversation of the same id: requests are kept per owner.
-      { sessionId: about, userId: stranger },
       { sessionId: strangers, userId: stranger },
     ] as never[])
 

@@ -150,8 +150,6 @@ export const staleQuestionScenarios: Scenario[] = [
       )?.[1]
 
       must(Boolean(requestId), 'request_user_decision to return a requestId')
-      await page.getByRole('tab', { name: 'Inbox' }).click()
-      await page.locator('[data-inbox-question]', { hasText: PLAN_QUESTION }).waitFor()
       const withdraw = JSON.stringify({ label: 'Withdraw', requestId })
       const correct = JSON.stringify({
         label: 'Correct',
@@ -200,6 +198,8 @@ export const staleQuestionScenarios: Scenario[] = [
       await until('the withdrawn question to leave the Inbox', async () =>
         (await open()).every((request) => request.id !== requestId),
       )
+      // The Inbox tab hides the composer, so it is opened only once the threads are done.
+      await page.getByRole('tab', { name: 'Inbox' }).click()
       await page
         .locator('[data-inbox-question]', { hasText: PLAN_QUESTION })
         .waitFor({ state: 'detached' })
