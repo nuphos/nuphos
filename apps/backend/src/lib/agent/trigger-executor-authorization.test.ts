@@ -30,6 +30,7 @@ let member = true
 useIdentity({ getTeamMembership: () => Promise.resolve(member ? { role: 'EDITOR' } : null) })
 
 const { resolveExecutionAuthorization } = await import('./trigger-executor-authorization')
+const { endJob } = await import('./trigger-scheduler')
 
 function trigger(overrides: Partial<AgentTrigger> = {}): AgentTrigger {
   return {
@@ -83,6 +84,23 @@ describe('resolveExecutionAuthorization', () => {
     expect(paused()?.update).toMatchObject({
       $set: { enabled: false, executionAuthorizationStatus: 'invalid' },
     })
+  })
+
+  // Every job that throws is logged as agent.trigger_scheduler.job_failed at error,
+  // which pages. A pause is the Trigger's state, not a failure of the job (#4841).
+  test('a scheduled fire into an archived Task pauses the Trigger and does not fail its job', async () => {
+    conversations.set('archived', {
+      sessionId: 'archived',
+      userId: 'principal',
+      teamId: 'team-1',
+      archivedAt: new Date(),
+    })
+    const fire = resolveExecutionAuthorization(trigger({ targetSessionId: 'archived' }))
+    const error = await fire.catch((caught: unknown) => caught)
+
+    expect(paused()).toBeDefined()
+    expect(() => endJob(error)).not.toThrow()
+    expect(() => endJob(new Error('Failed to connect'))).toThrow('Failed to connect')
   })
 
   test('a Trigger runs in its Task', async () => {
