@@ -3,7 +3,7 @@
     <string name="account_computer_alerts">컴퓨터 알림</string>
     <string name="computer_notifications_intro_title">필요한 알림 선택</string>
     <string name="computer_notifications_intro">필요한 컴퓨터만 구독하세요. 다른 컴퓨터에서는 알림을 보내지 않습니다.</string>
-    <string name="computer_notifications_empty">이 워크스페이스에는 컴퓨터가 없습니다.</string>
+    <string name="computer_notifications_empty">이 팀에는 컴퓨터가 없습니다.</string>
     <string name="computer_notifications_help">기본적으로 꺼져 있습니다. 선택한 컴퓨터가 2분 동안 오프라인 상태이거나 다시 연결되면 알림을 받습니다. 내 계정에만 적용됩니다.</string>
     <string name="computer_notifications_online">온라인</string>
     <string name="computer_notifications_offline">오프라인</string>
