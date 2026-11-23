@@ -26,6 +26,8 @@ export type AgentTimelineEvent = {
   retrying?: boolean // runtime_moved: the turn that failed before the move runs again on `to`
   /** A fallback that found no agent: each one passed over, and why. */
   skipped?: { label: string; reason: string }[]
+  /** bot_started_fresh: the Bot whose next turn opens a new session, by its name then. */
+  agentName?: string
   /** message_edited / conversation_forked: the destination session. */
   forkSessionId?: string
   /** settings_changed: who changed the settings, a person, a Task acting for one, the agent, or Nuphos. */

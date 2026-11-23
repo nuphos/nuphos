@@ -104,7 +104,7 @@ export type AgentConversation = ConversationTaskState & {
   watcherIds?: string[] // Who gets its push notifications; see watch.ts.
   /** The owner's read marker, in `activitySeq` units. Only ever moves forward. */
   readSeq?: number
-  compactionSummary?: string
+  compactionSummary?: string // What a fresh session reads instead of the messages below compactionMessageCount.
   compactionMessageCount?: number
   parentSessionId?: string // The managing conversation: create_thread's opener or set_thread_parent's choice.
   webhookId?: string // The team webhook that alone receives this session's events: nuphos_ask's webhook_id.

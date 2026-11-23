@@ -99,6 +99,15 @@ export function serializeTimelineEvents(
         actor,
         forkSessionId: event.forkSessionId,
       }
+    if (event.kind === 'bot_started_fresh')
+      return {
+        kind: event.kind,
+        at,
+        text: `${actor.name} started ${event.agentName} fresh`,
+        actor,
+        agentId: event.agentId,
+        agentName: event.agentName,
+      }
     if (event.kind === 'runtime_fallback_stopped') {
       const passed = event.skipped.map((entry) => `${entry.label} (${entry.reason})`).join(', ')
       const text = passed

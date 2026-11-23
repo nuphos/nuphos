@@ -24,7 +24,7 @@ import { markCarried } from '@/lib/agent/retract-marks'
 import { nuphosToolsVersion } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
 import { buildPreviewSystemPrompt, withPageContext } from '@/lib/claude-code-preview/preview-prompt'
-import { previewCompactionSummary } from '@/lib/claude-code-preview/preview-transcript'
+import { previewCompaction } from '@/lib/claude-code-preview/preview-transcript'
 import { runtimeAttachments } from '@/lib/claude-code-preview/runtime-attachments'
 
 import { resolvePreviewTurnMemory } from './chat-preview-memory'
@@ -190,7 +190,7 @@ export async function preparePreviewTurn(
   const userTexts = getUserMessageTexts(args.messages)
 
   await persistPreviewTurnContext(args, requestId)
-  const [memory, systemPrompt, compactionSummary, drained, toolsVersion, conversation, language] =
+  const [memory, systemPrompt, compaction, drained, toolsVersion, conversation, language] =
     await Promise.all([
       resolvePreviewTurnMemory({
         sessionId,
@@ -216,7 +216,11 @@ export async function preparePreviewTurn(
 
         return undefined
       }),
-      previewCompactionSummary(sessionId, userId),
+      previewCompaction(
+        sessionId,
+        userId,
+        args.messages.map((m) => m.id),
+      ),
       takeTurnQueue(userId, sessionId, actorUserId, args.channelTurn).then(markCarried(requestId)),
       nuphosToolsVersion({
         userId: actorUserId,
@@ -265,12 +269,7 @@ export async function preparePreviewTurn(
     text,
     freshSessionMessage: (uncertain?: boolean) =>
       lead(
-        previewHistoryPreamble(
-          messages,
-          compactionSummary,
-          uncertain,
-          args.resume ? 0 : inputs.length,
-        ),
+        previewHistoryPreamble(messages, compaction, uncertain, args.resume ? 0 : inputs.length),
       ),
     carried,
     clearActiveTurn: async () => {

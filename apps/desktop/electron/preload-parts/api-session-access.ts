@@ -33,4 +33,6 @@ export const sessionAccessApi = {
     ipcRenderer.invoke('agent:uploadConversationAvatar', sessionId, image, teamId),
   agentSetBotInstructions: (sessionId: string, instructions: string, teamId?: string) =>
     ipcRenderer.invoke('agent:setBotInstructions', sessionId, instructions, teamId),
+  agentStartBotFresh: (sessionId: string, teamId?: string) =>
+    ipcRenderer.invoke('agent:startBotFresh', sessionId, teamId),
 }

@@ -44,7 +44,9 @@ export {
   recordAgentEvent,
   setupAgentIndexes,
 } from './db/events'
+export { recordBotStartedFresh } from './db/bot-membership'
 export {
+  compactedMessageIds,
   getCompactionSummary,
   updateCompactionSummary,
   updateConversationTitle,

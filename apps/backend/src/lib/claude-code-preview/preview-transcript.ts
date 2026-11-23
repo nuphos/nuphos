@@ -2,7 +2,7 @@
 // that carry their tool steps. The history preamble lives in
 // preview-history-preamble.ts (this file sits at the max-lines limit).
 
-import { getCompactionSummary } from '@/lib/agent/db'
+import { compactedMessageIds, getCompactionSummary } from '@/lib/agent/db'
 
 import { CodexTurnFailedError } from './codex-turn-failure'
 import { outdatedHint } from './host-minimum-version'
@@ -13,6 +13,7 @@ import { RuntimeStateProbeError } from './turn-diagnostics'
 
 import type { TurnFailureCause } from './openab-acp-errors'
 import type { PreviewTextMetadata } from './preview-agent-update'
+import type { PreviewCompaction } from './preview-history-preamble'
 import type { SteeringEntry, SteeringReceipt } from './steering-receipt'
 import type { UIMessage } from 'ai'
 
@@ -266,13 +267,19 @@ export function previewAssistantMessageParts(args: {
   ]
 }
 
-/** Loads the conversation's compaction summary text, if one was stored. */
-export async function previewCompactionSummary(
+/** The conversation's compaction summary, if one was stored, and which of `messageIds` it covers. */
+export async function previewCompaction(
   sessionId: string,
   userId: string,
-): Promise<string | null> {
+  messageIds: string[],
+): Promise<PreviewCompaction | null> {
   try {
-    return (await getCompactionSummary(sessionId, userId))?.summary ?? null
+    const stored = await getCompactionSummary(sessionId, userId)
+
+    if (!stored) return null
+    const covered = await compactedMessageIds(sessionId, userId, messageIds, stored.messageCount)
+
+    return { summary: stored.summary, covered }
   } catch {
     return null
   }

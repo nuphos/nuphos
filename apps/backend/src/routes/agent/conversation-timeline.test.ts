@@ -56,6 +56,27 @@ describe('session timeline events', () => {
     })
   })
 
+  test('a Bot started fresh names who did it and the Bot, for the chat to place it', () => {
+    const fresh: ConversationTimelineEvent = {
+      kind: 'bot_started_fresh',
+      at,
+      actorId: 'alice',
+      agentId: 'bot',
+      agentName: 'Scout',
+    }
+
+    expect(serializeTimelineEvents([fresh], people)).toEqual([
+      {
+        kind: 'bot_started_fresh',
+        at: '2026-10-05T00:00:00.000Z',
+        text: 'Alice started Scout fresh',
+        actor: { id: 'alice', name: 'Alice', avatarURL: '' },
+        agentId: 'bot',
+        agentName: 'Scout',
+      },
+    ])
+  })
+
   test('an agent that could not reply reads as the chat’s own line', () => {
     const failed: ConversationTimelineEvent[] = [
       { kind: 'agent_reply_failed', at, actorId: 'system', agentName: 'Ops', reason: 'No agent.' },

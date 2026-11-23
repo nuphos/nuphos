@@ -1,9 +1,30 @@
 import { AppError } from '@/lib/errors'
 
 import { isBotChat, withdrawQuestionsAbout } from './archive'
+import { pushTimelineEvent } from './participants'
 import { agentConversations } from './shared'
 
 import type { AgentConversation } from './shared'
+
+/** The line a fresh start leaves in the Bot's own session and in every chat it is in. */
+export async function recordBotStartedFresh(
+  bot: Pick<AgentConversation, 'sessionId' | 'title'>,
+  actorId: string,
+  at: Date,
+) {
+  await agentConversations().updateMany(
+    { $or: [{ sessionId: bot.sessionId }, { kind: 'channel', agentSessionIds: bot.sessionId }] },
+    {
+      $push: pushTimelineEvent({
+        kind: 'bot_started_fresh',
+        at,
+        actorId,
+        agentId: bot.sessionId,
+        agentName: bot.title,
+      }),
+    },
+  )
+}
 
 /** A chat holds people and Bots: a Task speaks through the Bot above it. */
 export async function assertBot(agentSessionId: string) {

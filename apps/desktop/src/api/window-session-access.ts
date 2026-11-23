@@ -60,4 +60,5 @@ export type WindowSessionAccessApi = {
     instructions: string,
     teamId?: string,
   ): Promise<{ instructions: string }>
+  agentStartBotFresh(sessionId: string, teamId?: string): Promise<{ at: string }>
 }

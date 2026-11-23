@@ -65,6 +65,8 @@ export const agentReadChannels = {
   ) => agent.setConversationAvatar(sessionId, avatar, teamId, background),
   'agent:setBotInstructions': (_e: unknown, ...args: Parameters<typeof agent.setBotInstructions>) =>
     agent.setBotInstructions(...args),
+  'agent:startBotFresh': (_e: unknown, ...args: Parameters<typeof agent.startBotFresh>) =>
+    agent.startBotFresh(...args),
   'agent:uploadConversationAvatar': (
     _e: unknown,
     sessionId: string,
