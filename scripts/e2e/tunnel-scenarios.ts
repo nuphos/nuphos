@@ -20,6 +20,7 @@ import type { Page } from 'playwright-core'
 const LABEL = 'E2E patchy mini'
 const RESET = 'E2E reset mini'
 const UPDATED = 'E2E office mini'
+const CLONED = 'E2E cloned mini'
 const UPDATE_RELEASE = join(artifacts, 'update-release')
 const RELEASE = join(artifacts, 'tunnel-release')
 
@@ -188,6 +189,40 @@ export const tunnelScenarios: Scenario[] = [
       } finally {
         await computer.stop()
         proxy.close()
+        forgetComputer(stack.mongoUri, computer.deviceId)
+      }
+    },
+  },
+  {
+    // #4844: two `nuphos agent` services with one identity, as on a cloned machine, took the
+    // computer from each other forever, as the one taken over exited 0, which systemd restarts.
+    name: 'a computer taken over by another with its identity stops for good',
+    run: async (_page, stack) => {
+      const computer = await startSecondComputer(stack, CLONED)
+
+      try {
+        const from = backendLines()
+        const tunnel = `${stack.apiUrl.replace(/^http/, 'ws')}/agent/devices/${computer.deviceId}/runtime-tunnel`
+        const other = new WebSocket(tunnel, {
+          headers: { authorization: `Bearer ${stack.token}` },
+        } as unknown as string[])
+
+        await new Promise((opened, failed) => {
+          other.addEventListener('open', opened)
+          other.addEventListener('error', failed)
+        })
+        // It takes the computer once it speaks, as a host does on connecting.
+        other.send(JSON.stringify({ t: 'status', status: { agents: {} } }))
+        await until('the other connection to take the computer', async () =>
+          about(computer.deviceId, from).some((line) => line.includes('"code":4000')),
+        )
+        await until('the computer to stop', async () => computer.exitCode() !== null)
+        other.close()
+        // 78 is the status its systemd unit is not restarted after.
+        if (computer.exitCode() !== 78)
+          throw new Error(`It exited ${String(computer.exitCode())}, which its service restarts`)
+      } finally {
+        await computer.stop()
         forgetComputer(stack.mongoUri, computer.deviceId)
       }
     },
