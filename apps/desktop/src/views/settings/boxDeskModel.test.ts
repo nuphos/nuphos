@@ -20,10 +20,13 @@ test('a Mac that names no model is drawn as a MacBook', () => {
   assert.deepEqual(machine('darwin'), { form: 'laptop', brand: 'apple' })
 })
 
-test('anything not Apple is a laptop: Windows in its own finish, the rest plain', () => {
+test('a Windows machine is a laptop in its own finish', () => {
   assert.deepEqual(machine('win32'), { form: 'laptop', brand: 'windows' })
-  assert.deepEqual(machine('linux'), { form: 'laptop', brand: 'other' })
-  assert.deepEqual(machine('freebsd'), { form: 'laptop', brand: 'other' })
+})
+
+test('a Linux or other machine is a plain box, never a laptop', () => {
+  assert.deepEqual(machine('linux'), { form: 'box', brand: 'other' })
+  assert.deepEqual(machine('freebsd'), { form: 'box', brand: 'other' })
 })
 
 test('a Box is a Nuphos box, whatever it runs', () => {

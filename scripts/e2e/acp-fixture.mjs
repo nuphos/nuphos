@@ -8,19 +8,32 @@ import { createInterface } from 'node:readline'
 import { nuphosApplyRuntimeDefaults } from '../../apps/runtime/image/runtime-defaults.mjs'
 
 import { formSteps } from './acp-fixture-form.mjs'
-import { askSteps } from './fixture-ask.mjs'
+import { askSteps, credentialsSelected } from './fixture-ask.mjs'
 import { answerChannel } from './fixture-channel.mjs'
-import { scriptedUpdates } from './fixture-commands.mjs'
-import { hop, inherit } from './fixture-hop.mjs'
+import { scriptedPlan, scriptedUpdates } from './fixture-commands.mjs'
+import { fileLink } from './fixture-file-link.mjs'
+import { answerPermission, askPermission } from './fixture-permission.mjs'
+import { hop, inherit, startThread } from './fixture-hop.mjs'
 import {
   call,
   callNamed,
+  instruction,
+  confirmWork,
   personalToken,
+  recheck,
+  reportBack,
   reporting,
   setToolsServer,
   subtask,
 } from './fixture-mcp.mjs'
-import { applySetting, botEnv, heldDefaults, longReply, turnFacts } from './fixture-settings.mjs'
+import {
+  applySetting,
+  currentModel,
+  heldDefaults,
+  longReply,
+  turnFacts,
+} from './fixture-settings.mjs'
+import { discoveryFails, initialize, opening } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -36,9 +49,6 @@ const log = (entry) =>
 
 // A prompt containing E2E_HOLD stays in its turn until the client cancels it.
 const held = new Map()
-// Requests this agent made of its client, waiting for their answers. OpenAB reads ids as numbers.
-const asked = new Map()
-let nextRequest = 1_000_000
 // The thread E2E_THREAD started last, for E2E_POKE to message.
 let thread
 
@@ -75,46 +85,7 @@ async function delegate(sessionId, fast) {
   if (fast) log({ sessionId, event: 'refused', detail: detail(await start(CHILD, 'warp')) })
 }
 
-/** Starts a thread that asks for a permission, then tries to move it to Auto Mode on its own. */
-async function startThread(sessionId, marker) {
-  const started = await call(sessionId, 'create_thread', {
-    label: 'Start a thread',
-    title: 'E2E thread',
-    prompt: 'Run a command E2E_PERMISSION E2E_DELIVERY:thread',
-  })
-
-  thread = /threadId[\\"]*:[\\"]*([0-9a-f-]{36})/.exec(JSON.stringify(started))?.[1]
-  const change = await call(sessionId, 'update_thread', {
-    label: 'Move the thread to Auto Mode',
-    threadId: thread,
-    fullAccess: false,
-  })
-
-  log({ sessionId, marker, event: refused(change) ? 'thread-mode-refused' : 'thread-mode-changed' })
-}
-
-/** Asks the client to allow a command, as a runtime does before it runs one. */
-async function permission(sessionId, marker) {
-  const id = nextRequest++
-  const answered = new Promise((resolve) => asked.set(id, resolve))
-
-  log({ sessionId, marker, event: 'permission-asked' })
-  send({
-    id,
-    method: 'session/request_permission',
-    params: {
-      sessionId,
-      toolCall: { toolCallId: randomUUID(), title: 'echo e2e', kind: 'execute', status: 'pending' },
-      options: [
-        { optionId: 'allow', name: 'Allow', kind: 'allow_once' },
-        { optionId: 'reject', name: 'Reject', kind: 'reject_once' },
-      ],
-    },
-  })
-  const outcome = (await answered)?.outcome
-
-  log({ sessionId, marker, event: `permission-${outcome?.optionId ?? outcome?.outcome ?? 'none'}` })
-}
+const permission = (...args) => askPermission({ send, log }, ...args)
 
 // Sessions whose answer the first agent refuses as out of usage (#3055).
 const late = new Set()
@@ -127,13 +98,20 @@ async function prompt({ sessionId, prompt: parts }) {
   const markers = text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? []
   const marker = markers.at(-1) ?? 'E2E_DELIVERY:missing'
 
-  log({ sessionId, marker, markers, event: 'start', ...turnFacts(text) })
+  log({
+    sessionId,
+    marker,
+    markers,
+    event: 'start',
+    ...turnFacts(text),
+    model: currentModel(sessionId),
+  })
   // #3051, #3055: the first agent refuses this prompt, or an E2E_ASK_LATE answer, as out of usage.
   if (text.includes('E2E_ASK_LATE')) late.add(sessionId)
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second', { send, sessionId })
   // Nuphos tells the agent when a person dismisses its question.
   if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
@@ -146,11 +124,17 @@ async function prompt({ sessionId, prompt: parts }) {
   if (text.includes('E2E_RETUNE') && !text.includes(CHILD))
     await retune({ call, step, log, sessionId, child: CHILD })
   if (text.includes('E2E_SUBTASK')) await subtask({ log, sessionId, marker })
-  if (text.includes('E2E_ASK')) await ask(sessionId, text)
+  // The turn that says a question's credentials are selected continues; it never asks again.
+  if (!credentialsSelected(log, sessionId, text) && text.includes('E2E_ASK'))
+    await ask(sessionId, text)
   // A Bot is woken by its chat's posts and answers there, as only channel_post can.
   const channelId = /\(channelId ([^)]+)\)/.exec(text)?.[1]
 
-  if (channelId) await answerChannel({ call, log, sessionId, channelId, text })
+  if (channelId) {
+    const ask = (toolCall) => permission(sessionId, marker, toolCall)
+
+    await answerChannel({ call, log, sessionId, channelId, text, ask })
+  }
   if (process.env.E2E_BOT_ONBOARDING && text.includes('The person just created you'))
     await ask(sessionId, 'preference')
   if (text.includes('E2E_ONBOARDING_COMPLETE')) {
@@ -170,7 +154,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   // The thread's own prompt can carry its parent's words; only the parent starts one.
   if (text.includes('E2E_THREAD') && !text.includes('E2E_PERMISSION')) {
-    await startThread(sessionId, marker)
+    thread = await startThread({ call, log, sessionId, marker })
   }
   if (text.includes('E2E_POKE')) {
     await call(sessionId, 'send_message_to_thread', {
@@ -181,8 +165,13 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_PERMISSION')) await permission(sessionId, marker)
   scriptedUpdates({ send, sessionId, text })
+  fileLink({ send, sessionId, text })
+  scriptedPlan({ send, sessionId, text })
   if (text.includes('E2E_CALL')) await callNamed({ log, sessionId, text })
+  if (text.includes('E2E_ACK_WORK')) await confirmWork({ log, sessionId, marker, text })
   if (text.includes('E2E_PERSONAL_TOKEN')) await personalToken({ log, sessionId, marker, text })
+  if (text.includes('E2E_REPORT_BACK')) await reportBack({ log, sessionId, marker })
+  if (text.includes('E2E_INSTRUCTION')) await instruction({ log, sessionId, marker })
   // Answers only once the scenario writes E2E_RELEASE (else `release` beside the ACP log, in
   // the artifacts), so a turn can span what it does meanwhile.
   if (text.includes('E2E_WAIT_RELEASE')) {
@@ -190,6 +179,7 @@ async function prompt({ sessionId, prompt: parts }) {
 
     while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
+  if (text.includes('E2E_RECHECK')) await recheck({ log, sessionId })
   if (text.includes('E2E_HOLD')) {
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
@@ -217,15 +207,11 @@ async function prompt({ sessionId, prompt: parts }) {
 async function answer(request) {
   switch (request.method) {
     case 'initialize':
-      return {
-        protocolVersion: 1,
-        agentCapabilities: { loadSession: true },
-        agentInfo: { name: 'e2e-fixture', version: '1' },
-        authMethods: [],
-      }
+      return initialize(request.params)
     case 'session/new': {
       const sessionId = randomUUID()
 
+      if (discoveryFails(log)) throw new Error('The fixture cannot list its models yet')
       log({ event: 'opening' })
       // A slow agent start: the session does not open while this file exists.
       while (existsSync(process.env.E2E_HOLD_OPENING)) {
@@ -238,7 +224,7 @@ async function answer(request) {
       )
 
       // The settings the conversation was created with, applied by the runtime's own code,
-      // which refuses to open a session on a value this agent does not offer.
+      // which leaves a value this agent does not offer to the agent's own choice.
       const defaults = request.params._meta?.['ai.nuphos/runtimeDefaults'] ?? {}
       const agent = {
         setSessionConfigOption: async ({ configId, value }) => ({
@@ -246,7 +232,7 @@ async function answer(request) {
         }),
       }
 
-      log({ sessionId, event: 'session', defaults, env: botEnv(request.params) })
+      log({ sessionId, event: 'session', defaults, ...opening(request.params) })
 
       return nuphosApplyRuntimeDefaults(agent, heldDefaults(sessionId, request.params), {
         sessionId,
@@ -261,7 +247,7 @@ async function answer(request) {
         request.params.sessionId,
         request.params.mcpServers?.find(({ name }) => name === 'nuphos-tools'),
       )
-      log({ sessionId: request.params.sessionId, event: 'loaded' })
+      log({ sessionId: request.params.sessionId, event: 'loaded', ...opening(request.params) })
 
       return {}
     case 'session/set_mode':
@@ -283,8 +269,7 @@ for await (const line of createInterface({ input: process.stdin })) {
 
   // An answer to a request of this agent's own.
   if (request.method === undefined) {
-    asked.get(request.id)?.(request.result)
-    asked.delete(request.id)
+    answerPermission(request.id, request.result)
     continue
   }
   if (request.method === 'session/cancel') {

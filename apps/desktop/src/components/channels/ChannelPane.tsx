@@ -85,7 +85,7 @@ export function ChannelPane({
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const lent = { manage: fixes?.onOpenAgentSettings, agents }
-  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, lent)
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -106,7 +106,7 @@ export function ChannelPane({
   if (pending !== sending) setSending(pending)
   const messages = [...stored, ...pending]
   const stickToBottom = useStickToBottom(scrollRef, composer)
-  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession)
+  const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -189,7 +189,7 @@ export function ChannelPane({
             title={title}
             currentUserId={user.id}
             canManage={detail?.isOwner === true || detail?.canManage === true}
-            compact={false}
+            onOpenComputers={fixes?.onOpenAgentSettings}
             channel={
               detail
                 ? {
@@ -207,7 +207,7 @@ export function ChannelPane({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <HeaderEdge
             ref={scrollRef}
-            className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
+            className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-8 selectable"
           >
             {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
@@ -219,6 +219,7 @@ export function ChannelPane({
                   bot={Boolean(bot)}
                   preparingFirstReply={preparingFirstReply}
                   firstReplyFailed={firstReplyFailed}
+                  banner={questions.banner}
                 />
               )}
               {detail && (
@@ -247,8 +248,7 @@ export function ChannelPane({
             </ChatColumn>
           </HeaderEdge>
           <ChatColumn>
-            {/* Inset past the faces on both sides, so the reply bar and the composer
-            line up with the bubbles: a face and its gap (2.375rem) on each side. */}
+            {/* Inset the composer past the faces on both sides. */}
             <div
               ref={setComposer}
               className="relative px-[2.375rem]"
@@ -256,8 +256,8 @@ export function ChannelPane({
                 if (event.key === 'Escape' && replying && !event.defaultPrevented) setReplying(null)
               }}
             >
-              {replying && <ReplyingBanner reply={replying} onCancel={() => setReplying(null)} />}
               <Composer
+                aboveStatus={replying && <ReplyingBanner reply={replying} onCancel={setReplying} />}
                 onSend={send}
                 onStop={() => {}}
                 readOnly={detail?.readOnly === true}
@@ -271,7 +271,6 @@ export function ChannelPane({
                   only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
                 }}
                 placeholder={t('Message {name}', { name: title })}
-                credentialSelector={questions.credentials}
                 {...controls}
               />
             </div>
@@ -290,6 +289,8 @@ export function ChannelPane({
             onEdited={refresh}
             onOpenSession={onOpenSession}
             onOpenLink={onOpenNuphosLink}
+            onEditTrigger={(text) => setRestore({ text, nonce: Date.now() })}
+            credentials={questions.credentials}
           />
         )}
       </div>

@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
@@ -234,7 +231,7 @@ describe('local runtime catalog', () => {
 
     await expect(
       resolveLocalRuntimeEndpoint('t1', codexId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'agent_unreported' } })
   })
 
   test('a team the owner is not in, or has left, is refused at the next request', async () => {
@@ -254,7 +251,50 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t1', 'owner', deps)).toEqual([])
     await expect(
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline' })
+    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'no_presence' } })
+  })
+
+  test('an unusable CLI reports its probe failure on a conversation turn', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has v20.20.2. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          'claude-code': { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
+    ).rejects.toMatchObject({
+      code: 'runtime_not_installed',
+      message,
+    })
+  })
+
+  test('an unusable CLI exposes its existing guidance in the runtime catalog', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          dsh: { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    const known = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [{ provider: 'dsh', signedIn: true }] as RegisteredAgent[],
+    }
+    const catalogDeps = { ...deps, access: { ...deps.access, listDevices: async () => [known] } }
+
+    expect((await listOwnLocalRuntimes('t1', 'owner', catalogDeps))[0]?.local).toMatchObject({
+      probeError: message,
+    })
   })
 
   test('a signed-out CLI refuses turns with its own reason', async () => {
@@ -561,5 +601,28 @@ describe('a computer without a model list says why', () => {
 
   test('a computer that has not reported at all has not reported its list', async () => {
     expect(await reason(null)).toBe('unreported')
+  })
+
+  // #4261: a list the computer tried and failed to read was offered as one still on its
+  // way, so the picker told people to try again in a moment for a list nobody was bringing.
+  test('an agent whose computer could not read its models says so, not "in a moment"', async () => {
+    const report = online(true)
+    const status = report.status!
+    const agent = status.agents['claude-code']!
+
+    expect(
+      await reason({
+        ...report,
+        status: {
+          ...status,
+          agents: {
+            'claude-code': {
+              ...agent,
+              models: { models: [], defaultModel: '', controls: {}, failed: true },
+            },
+          },
+        },
+      }),
+    ).toBe('undiscovered')
   })
 })

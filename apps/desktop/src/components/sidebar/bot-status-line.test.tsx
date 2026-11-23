@@ -11,7 +11,10 @@ import type { Activity } from './bot-activity'
 const render = (activity: Activity) =>
   renderToStaticMarkup(createElement(BotStatusLine, { activity }))
 
-test('questions and errors still keep their actionable descriptions', () => {
-  assert.ok(render({ kind: 'asking', question: 'Choose a project' }).includes('Choose a project'))
-  assert.ok(render({ kind: 'error', label: 'Runtime offline' }).includes('Runtime offline'))
+test("a question adds no preview line: the row keeps the chat's newest post", () => {
+  assert.equal(render({ kind: 'asking' }), '')
+})
+
+test("a failed run adds no preview line: the row keeps the chat's newest post", () => {
+  assert.equal(render({ kind: 'error' }), '')
 })

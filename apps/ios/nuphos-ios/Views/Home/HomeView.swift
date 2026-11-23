@@ -13,7 +13,9 @@ struct HomeView: View {
     /// The next page change is the default tab, not the viewer's pick.
     @State private var autoPage = false
     @State private var showTeamPicker = false
+    @State private var sideTabBar = false
     @State private var showProfile = false
+    @State private var resumeTwoFactor = false
     @State private var showNewBot = false
     @State private var showNewTask = false
     @State private var submittedTask: AgentPage.OpenChat?
@@ -36,6 +38,7 @@ struct HomeView: View {
     }
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.scenePhase) private var scenePhase
     /// Read the open chat and agent conversation. Here, not on their views:
     /// collapsed, SwiftUI ends a view's appearance while it stays on screen (#1440).
@@ -73,36 +76,18 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if let store, !store.teams.isEmpty {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button { showTeamPicker = true } label: {
-                            HStack(spacing: 6) {
-                                if let team = store.selectedTeam { TeamAvatar(team: team) }
-                                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
-                                    .font(.subheadline.weight(.semibold))
-                                    .lineLimit(1)
-                                    .truncationMode(.tail)
-                                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
-                                LucideIcon("chevron-down", size: 14)
-                            }
-                        }
-                        .sheet(isPresented: $showTeamPicker) {
-                            TeamSwitcherPopover(store: store)
-                                .presentationDetents([.medium, .large])
-                                .presentationDragIndicator(.visible)
-                                .presentationBackground(.ultraThinMaterial)
-                        }
-                        .accessibilityLabel("Switch team")
-                    }
+                if !coverHeader, let store, !store.teams.isEmpty {
+                    ToolbarItem(placement: .topBarLeading) { teamButton(store) }
                 }
                 // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
                 // and Account and Computers went with it.
-                if sizeClass != .regular || openChat != nil {
+                if !coverHeader, sizeClass != .regular || openChat != nil {
                     ToolbarItem(placement: .topBarTrailing) {
                         HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
                     }
                 }
             }
+            .toolbar(coverHeader ? .hidden : .automatic, for: .navigationBar)
             #if DEBUG
             .onAppear { if ProcessInfo.processInfo.arguments.contains("-show-app-icons") { showProfile = true } }
             #endif
@@ -138,8 +123,9 @@ struct HomeView: View {
                 .environment(store)
                 .presentationDetents([.large])
             }
-            .sheet(isPresented: $showProfile) {
-                ProfileSheet(user: user)
+            .onAppear { if TwoFactorView.takeResume() { resumeTwoFactor = true; showProfile = true } }
+            .sheet(isPresented: $showProfile, onDismiss: { resumeTwoFactor = false }) {
+                ProfileSheet(user: user, openTwoFactor: resumeTwoFactor)
             }
             .sheet(item: workspaceSheet) { destination in
                 NavigationStack {
@@ -278,9 +264,6 @@ struct HomeView: View {
             if autoPage { autoPage = false } else { pageChosen = true }
             openChat = nil
             inbox?.selected = nil
-            // An answer held for Undo goes once the Inbox is left.
-            let left = inbox
-            Task { await left?.sendHeld() }
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
         }
@@ -288,8 +271,6 @@ struct HomeView: View {
         .task(id: scenePhase == .active ? store?.selectedTeam?.id : nil) {
             guard scenePhase == .active, let store, let team = store.selectedTeam?.id else { return }
             if inbox?.teamId != team {
-                let left = inbox
-                Task { await left?.sendHeld() }
                 inbox = OpenQuestions(token: store.token, teamId: team)
             }
             while !Task.isCancelled {
@@ -297,10 +278,16 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
-        // Nor does a held answer wait for an app that is put away.
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { Task { await inbox?.sendHeld() } }
+        #if DEBUG
+        // DEBUG: `-page inbox` opens a page that does not load the workspace. Only the
+        // Agent page calls `loadTeams()`, and the Inbox lists nothing until a team is
+        // selected, so the shortcut would show an Inbox that stays empty. It used to be
+        // filled by a launch cache another UI test suite had left behind.
+        .task {
+            guard Self.initialPage == .inbox, let store, store.selectedTeam == nil else { return }
+            await store.loadTeams()
         }
+        #endif
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
@@ -332,6 +319,58 @@ struct HomeView: View {
             ToolbarItem(placement: .topBarLeading) {
                 DesignButton("New task", image: "lucide-square-pen") { showNewTask = true }
             }
+        }
+    }
+
+    private func teamButton(_ store: AgentStore) -> some View {
+        Button { showTeamPicker = true } label: {
+            HStack(spacing: 6) {
+                if let team = store.selectedTeam { TeamAvatar(team: team) }
+                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
+                LucideIcon("chevron-down", size: 14)
+            }
+        }
+        .sheet(isPresented: $showTeamPicker) {
+            TeamSwitcherPopover(store: store)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationBackground(.ultraThinMaterial)
+        }
+        .accessibilityLabel("Switch team")
+    }
+
+    /// iOS 27 puts the tab bar beside the content on iPhone Duo's folded cover screen (each
+    /// tab measured an 84 pt trailing safe-area inset there, none on an iPhone in portrait) and
+    /// moves the navigation bar's trailing items into a column next to it, where Account hung
+    /// past the screen's edge (#3433). There the header sits on top of the content instead. An
+    /// iPhone in landscape insets the sides too, but its height is compact.
+    private var coverHeader: Bool { sizeClass != .regular && verticalSizeClass == .regular && sideTabBar }
+
+    /// The header the navigation bar holds everywhere else.
+    @ViewBuilder
+    private func withCoverHeader(_ content: some View) -> some View {
+        let measured = content.onGeometryChange(for: Bool.self) {
+            $0.safeAreaInsets.leading + $0.safeAreaInsets.trailing > 0
+        } action: { sideTabBar = $0 }
+        if coverHeader {
+            measured.safeAreaInset(edge: .top) {
+                HStack {
+                    if let store, !store.teams.isEmpty {
+                        teamButton(store).buttonStyle(.plain).padding(.horizontal, 12).frame(height: 44)
+                            .glass(interactive: true, in: Capsule())
+                    }
+                    Spacer()
+                    HStack(spacing: 0) { homeActions }.buttonStyle(.plain).padding(.horizontal, 4)
+                        .glass(interactive: true, in: Capsule())
+                }
+                .padding([.horizontal, .top], 16)
+            }
+        } else {
+            measured
         }
     }
 
@@ -384,15 +423,15 @@ struct HomeView: View {
     private var pageContent: some View {
         TabView(selection: $page) {
             Tab("Bots", image: "home-tab-bots", value: HomePage.chats) {
-                homeList(.chats)
+                withCoverHeader(homeList(.chats))
             }
             .badge(store?.pageCounts[.chats] ?? 0)
             Tab("Tasks", image: "home-tab-tasks", value: HomePage.agent) {
-                homeList(.agent)
+                withCoverHeader(homeList(.agent))
             }
             .badge(store?.pageCounts[.agent] ?? 0)
             Tab("Inbox", image: "home-tab-inbox", value: HomePage.inbox) {
-                InboxPage(inbox: inbox, wide: sizeClass == .regular)
+                withCoverHeader(InboxPage(inbox: inbox, wide: sizeClass == .regular))
             }
             .badge(inbox?.waiting.count ?? 0)
         }

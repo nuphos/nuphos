@@ -90,8 +90,8 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.322), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.167.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.330), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.171.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                                                |
 | `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                                                       |
@@ -624,8 +624,9 @@ OpenAI, xAI or Google.
 
 ### Automatic Claude SDK updates
 
-`Update Claude SDK` checks npm's stable `latest` daily at 06:23 UTC, with a
-manual **Run workflow** option. A newer SDK in the same major updates the SDK
+`Update Claude SDK` checks npm's stable `latest` when run by hand (**Run
+workflow**). Every runtime release pull request already includes the latest SDK
+and Codex CLI, so it has no schedule. A newer SDK in the same major updates the SDK
 override, lockfile and Dockerfile assertion together. Helpers, patched Claude
 adapter regressions, an image build and native model discovery must pass before
 it opens (or refreshes) the `runtime/update-claude-sdk` pull request with the
@@ -637,7 +638,9 @@ main only takes signed commits through a reviewed pull request, so the workflow
 creates its commit with the GitHub API and never pushes to main. The pull request
 is opened with `GITHUB_TOKEN`, which needs **Allow GitHub Actions to create and
 approve pull requests** enabled; such pull requests do not trigger CI, so the
-workflow's own checks are the gate. If publication fails after tagging, rerun the
+workflow's own checks are the gate. That setting is off in this repository, so
+the step that opens the pull request fails; put the update in the runtime
+release pull request instead. If publication fails after tagging, rerun the
 failed jobs, or run **Build runtime image** with that tag; do not create another
 version merely to retry. Publishing does not update Nuphos's configured runtime
 version or the Desktop's pinned runtime commit; those remain separate deployment
@@ -654,17 +657,16 @@ human edits. Every release, manual or automatic, uses this same path.
 
 ### Automatic Codex CLI updates
 
-`Update Codex CLI` checks npm's stable `latest` daily at 07:23 UTC
-and supports manual dispatch. It updates the pinned CLI and lockfile, runs the
+`Update Codex CLI` checks npm's stable `latest` when run by hand. It updates the pinned CLI and lockfile, runs the
 Codex adapter, active-turn steering and real CLI environment-isolation regressions,
 then builds and smoke-tests a candidate image including prompt-free model discovery.
 Only passing updates open (or refresh) the `runtime/update-codex-cli` pull request
 with a runtime patch bump; merging it releases. No change opens nothing; major CLI
 changes require manual review. If both update pull requests are open, they bump
-the same version: merge one, and the next scheduled run rebases the other.
+the same version: merge one, then run the other again to rebase it.
 
 Both ACP adapters remain pinned: Nuphos patches their bundles, so adapter upgrades
-require a reviewed patch port and compatibility tests. CLI/SDK updates are automatic;
+require a reviewed patch port and compatibility tests. CLI/SDK updates are scripted;
 ACP adapter updates are not. Deployment to existing runtimes remains separate.
 
 The Codex candidate-image probe runs without an account: an explicit native

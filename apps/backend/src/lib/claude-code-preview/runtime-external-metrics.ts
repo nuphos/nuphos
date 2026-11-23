@@ -30,7 +30,7 @@ const quietLoggedAt = new Map<string, number>()
 /** Active registered runtimes with the operator endpoint their status is read through. */
 async function listExternalRuntimeControls(nowMs: number): Promise<ExternalRuntime[]> {
   const docs = await runtimes()
-    .find({ status: 'active', managedBy: { $exists: false } })
+    .find({ status: 'active' })
     .project<{ _id: string; teamId: string; provider?: OpenAbProvider }>({
       teamId: 1,
       provider: 1,

@@ -1,6 +1,6 @@
 ---
 name: fluxcd
-description: Inspect and operate Flux CD resources from the sandbox with the flux CLI. Use for Flux reconciliation, GitRepository/Kustomization/HelmRelease status, suspend/resume, and GitOps drift triage after kubectl has loaded the target kubeconfig.
+description: "Inspect and operate Flux CD with the flux CLI: reconciliation, GitRepository/Kustomization/HelmRelease status, suspend/resume and GitOps drift triage."
 ---
 
 # Flux CD CLI

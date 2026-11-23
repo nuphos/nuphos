@@ -11,7 +11,11 @@ export type WindowChannelsApi = {
     selection: BotImportSelection,
   ): Promise<BotImportPreview>
   agentSaveGrokExportSkill(): Promise<void>
-  agentCreateChannel(teamId: string, group?: boolean): Promise<{ sessionId: string }>
+  agentCreateChannel(
+    teamId: string,
+    group?: boolean,
+    title?: string,
+  ): Promise<{ sessionId: string }>
   agentCreateBot(
     teamId: string,
     bot?: {
@@ -31,6 +35,9 @@ export type WindowChannelsApi = {
     teamId: string,
     channelId: string,
   ): Promise<{ started: boolean }>
+  /** Resolves once that turn ends; read-only, and stopping the wait never stops the turn. */
+  agentWaitForRunEnd(args: { sessionId: string; teamId: string; streamId: string }): Promise<void>
+  agentStopWaitingForRunEnd(streamId: string): Promise<void>
   agentMakeBot(sessionId: string, teamId: string): Promise<{ avatar: string }>
   agentListChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }>
   agentListChannelAgents(channelId: string, teamId: string): Promise<{ agents: ChannelAgent[] }>

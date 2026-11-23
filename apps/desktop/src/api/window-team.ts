@@ -7,6 +7,7 @@ import type {
   LarkInstallation,
   LarkPairCode,
   LarkUserMapping,
+  SlackChannelBot,
   SlackChannelMapping,
   SlackChannelOption,
   SlackConnectionStatus,
@@ -201,7 +202,15 @@ export type WindowTeamApi = {
   ): Promise<{ invitation: TeamInvitation; emailSent: boolean }>
   atlasAcceptInvitation(invitationId: string): Promise<TeamInvitation>
   atlasRejectInvitation(invitationId: string): Promise<TeamInvitation>
-  atlasListSlackChannelMappings(teamId: string): Promise<SlackChannelMapping[]>
+  atlasListSlackChannelMappings(
+    teamId: string,
+  ): Promise<{ mappings: SlackChannelMapping[]; myBots: SlackChannelBot[] }>
+  atlasSetSlackChannelBot(
+    teamId: string,
+    channel: { slackWorkspaceId: string; slackChannelId: string },
+    botSessionId: string,
+    answers: boolean,
+  ): Promise<SlackChannelBot[]>
   atlasGetSlackConnectionStatus(teamId: string): Promise<SlackConnectionStatus>
   atlasGetSlackInstallation(
     teamId: string,
@@ -230,7 +239,6 @@ export type WindowTeamApi = {
     slackWorkspaceId: string,
     slackChannelId: string,
   ): Promise<void>
-  atlasListSlackUserMappings(teamId: string): Promise<SlackUserMapping[]>
   atlasUpsertSlackUserMapping(
     teamId: string,
     input: {

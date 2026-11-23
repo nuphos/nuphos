@@ -17,7 +17,11 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
 
   return (
     <>
-      {note && <PanelStat label={t('Usage')}>{note}</PanelStat>}
+      {note && (
+        <PanelStat label={t('Usage')} className="col-span-2">
+          <span className="whitespace-normal">{note}</span>
+        </PanelStat>
+      )}
       {quota?.available &&
         quota.windows.map((window) => {
           const left = quotaLeftPercent(window)

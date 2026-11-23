@@ -4,7 +4,7 @@ import { agentEvents, agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { nameViewer, openBotChat, shoot } from '../channel-quotes.ts'
 import { until } from '../processes.ts'
-import { send } from '../ui.ts'
+import { send, transcriptPost } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
 import type { Scenario } from '../ui.ts'
@@ -23,7 +23,7 @@ const scenario: Scenario = {
     await nameViewer(stack, 'Alex Rivera')
     await openBotChat(page)
     await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-reply')
-    await page.getByText('POSTED E2E_DELIVERY:inbox-reply', { exact: true }).waitFor()
+    await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-reply').waitFor()
     const wakes = channelWakes(stack)
     const answered = count(stack, `finish ${ANSWER}`)
     // The question it just asked, the Bot's only open one: the scenarios before answered theirs.
@@ -47,14 +47,14 @@ const scenario: Scenario = {
 
     await openBotChat(page)
     // The chat in front: a Bot chat stays mounted, inert, behind other pages.
-    const answers = page.locator('.group\\/post:not([inert] *)', { hasText: ANSWER })
+    const answers = page.locator('.group\\/post:not([inert] *):visible', { hasText: ANSWER })
     const post = answers.last()
     const bubble = post.locator('.user-message-bubble')
 
     // The quote is the bubble's first line: the Bot's name, then its question.
     await bubble.getByRole('button', { name: new RegExp(`^E2E Bot\\s*${QUESTION}`) }).waitFor()
     await post.getByText('Answered in Inbox', { exact: true }).waitFor()
-    const asking = page.locator('.group\\/post:not([inert] *)', {
+    const asking = page.locator('.group\\/post:not([inert] *):visible', {
       hasText: 'POSTED E2E_DELIVERY:inbox-reply',
     })
 
@@ -64,7 +64,7 @@ const scenario: Scenario = {
     for (const earlier of (await answers.all()).slice(0, -1))
       if ((await earlier.getByText('Answered in Inbox').count()) > 0)
         throw new Error('An answer given on its card in the chat says "Answered in Inbox"')
-    if ((await page.locator('[data-decision-record]').count()) > 0)
+    if ((await page.locator('[data-decision-record]:visible').count()) > 0)
       throw new Error('An answer left the old "answered:" line instead of a post')
 
     // The posts were written, not posted: no channel notice woke the Bot for them.

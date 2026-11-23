@@ -1,8 +1,11 @@
 import { getReadableConversation } from '@/lib/agent/db'
-import { recordSecretSite, siteAskedFor } from '@/lib/agent/db/pending-decision'
+import {
+  recordSecretSite,
+  resolveInputRequest,
+  siteAskedFor,
+} from '@/lib/agent/db/pending-decision'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { requeuePendingAtHead } from '@/lib/agent/pending-queue'
-import { answerInputRequest } from '@/lib/agent/plan-decision'
 import { getActiveAgentRunForSession } from '@/lib/agent/run-store'
 import { sessionReleased } from '@/lib/agent/session-released'
 import { SECRET_NAME } from '@/lib/agent/tools-skilled/decision-secrets'
@@ -127,15 +130,7 @@ agent.post('/conversations/:sessionId/steer', async (c) => {
   const answers = claimed?.chat?.decisionReplyTo
 
   // A waiting answer steered in has reached the agent: no turn of its own will resolve it.
-  if (claimed && answers)
-    await answerInputRequest({
-      sessionId,
-      userId: conversation.userId,
-      requestId: answers,
-      answer: text,
-      actorUserId: userId,
-      teamId: conversation.teamId,
-    })
+  if (claimed && answers) await resolveInputRequest(sessionId, conversation.userId, answers)
 
   return c.json({
     ok: true,

@@ -4,7 +4,7 @@ import { agentFixLabel } from './agentRowFix.ts'
 import { selectedAgentName } from './runtimeControlSignOut.ts'
 
 import type { AgentFix } from './agentRowFix.ts'
-import type { ComputerNotice } from './computerNotice.ts'
+import type { ComputerNotice } from './useComputerNotice'
 import type { RuntimeControl } from './RuntimeSelector'
 
 export type BannerCopy = { text: string; action: { label: string; run: () => void } | null }
@@ -28,6 +28,20 @@ export function reachabilityCopy(
   fixes: BannerFixes,
   onSwitchAgent?: () => void,
 ): BannerCopy {
+  const copy = signedOutOrOfflineCopy(reachability, control, fix, fixes, onSwitchAgent)
+  const problem = control.options?.find((instance) => instance.id === control.value?.id)?.local
+    ?.probeError
+
+  return reachability === 'signIn' && problem ? { text: problem, action: null } : copy
+}
+
+function signedOutOrOfflineCopy(
+  reachability: 'signIn' | 'offline',
+  control: Pick<RuntimeControl, 'value' | 'options' | 'onSettings'>,
+  fix: AgentFix | undefined,
+  fixes: BannerFixes,
+  onSwitchAgent?: () => void,
+): BannerCopy {
   const runFix = fixes.run
   const name = selectedAgentName(control)
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
@@ -39,10 +53,8 @@ export function reachabilityCopy(
 
     return {
       text: box ? t('{box} is offline.', { box }) : t('Its computer is offline.'),
-      action:
-        fix?.kind === 'resume'
-          ? fixAction(fix, runFix)
-          : (switchAgent ?? fixAction({ kind: 'retry' }, runFix)),
+      // A paused Box never reads offline (runtimeControlSignOut): it resumes on the send.
+      action: switchAgent ?? fixAction({ kind: 'retry' }, runFix),
     }
   }
   if (switchAgent) return { text: t('{name} is signed out.', { name }), action: switchAgent }
@@ -88,6 +100,15 @@ function fixAction(fix: AgentFix, runFix: (fix: AgentFix) => void) {
 }
 
 /**
+ * A paused Box takes the message and wakes for it, so the banner says that and offers nothing:
+ * the send is the resume. At the team's vCPU limit it comes back refused, with the limit's own
+ * words (stream-errors.ts).
+ */
+export function pausedCopy(box: string): BannerCopy {
+  return { text: t('{box} is paused. It resumes when you send.', { box }), action: null }
+}
+
+/**
  * A computer whose disk is almost full still takes the message; the banner says what is coming,
  * and Free space opens the Box card's own Clear caches in place.
  */
@@ -123,6 +144,7 @@ export function noticeCopy(
   fix: Parameters<typeof outdatedCopy>[1] & { clear?: () => void },
 ): BannerCopy {
   if (!notice) return { text: '', action: null }
+  if (notice.kind === 'paused') return pausedCopy(notice.label)
 
   return notice.kind === 'disk' ? diskFullCopy(notice, fix.clear) : outdatedCopy(notice.label, fix)
 }

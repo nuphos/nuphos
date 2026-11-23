@@ -7,7 +7,6 @@ import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/pre
 import {
   MINIMUM_HOST_VERSION,
   hostOutdated,
-  updateAvailable,
   DESKTOP_UPDATE_READY_HINT,
   hostUpdateHint,
   withOutdatedHint,
@@ -71,7 +70,7 @@ describe('a computer below the floor', () => {
       new Set([
         'lib/claude-code-preview/preview-transcript.ts',
         'lib/claude-code-preview/runtime-refusal.ts',
-        'lib/agent/channel-wake.ts',
+        'lib/agent/reply-failed.ts',
         'lib/claude-code-preview/session-desktops.ts',
       ]),
     )
@@ -93,42 +92,6 @@ describe('a computer below the floor', () => {
   })
 })
 
-describe('whether a newer Nuphos is out for a computer', () => {
-  const cli = (version: string) => () => Promise.resolve({ version, url: '', body: '' })
-  const noFeed = () => Promise.reject(new Error('a Desktop never reads the CLI feed'))
-
-  test('a Desktop is behind when its updater found a newer release', async () => {
-    const app = { version: '0.125.0', update: { version: '0.127.0', ready: true } }
-
-    expect(await updateAvailable({ status: { agents, app } }, noFeed)).toBe(true)
-  })
-
-  test('a Desktop whose updater found nothing newer counts as current', async () => {
-    expect(await updateAvailable({ status: { agents, app: { version: '0.125.0' } } }, noFeed)).toBe(
-      false,
-    )
-    const same = { version: '0.127.0', update: { version: '0.127.0', ready: true } }
-
-    expect(await updateAvailable({ status: { agents, app: same } }, noFeed)).toBe(false)
-  })
-
-  test('a CLI host is behind when a newer CLI is released', async () => {
-    expect(await updateAvailable({ client: 'nuphos-cli/0.22.0' }, cli('0.23.0'))).toBe(true)
-    expect(await updateAvailable({ status: { agents, cliVersion: '0.22.0' } }, cli('0.23.0'))).toBe(
-      true,
-    )
-    expect(await updateAvailable({ client: 'nuphos-cli/0.23.0' }, cli('0.23.0'))).toBe(false)
-  })
-
-  test('an unknown host or an unreadable feed is never called behind', async () => {
-    expect(await updateAvailable(null, cli('0.23.0'))).toBe(false)
-    expect(await updateAvailable({ client: 'nuphos-cli/dev' }, cli('0.23.0'))).toBe(false)
-    expect(
-      await updateAvailable({ client: 'nuphos-cli/0.22.0' }, () => Promise.resolve(null)),
-    ).toBe(false)
-  })
-})
-
 test('a Bot update hint neither repeats a product error nor exposes a raw error', () => {
   const shown = `A runtime could not start. ${DESKTOP_UPDATE_READY_HINT}`
   const error = new Error(`internal path and RPC detail\n\n${DESKTOP_UPDATE_READY_HINT}`)
@@ -142,7 +105,7 @@ test('an update hint names the host and preserves the known sentence without raw
   const hint = await hostUpdateHint({ client: 'nuphos-desktop/0.123.0' }, 'Build Mac')
 
   expect(hint).toBe(
-    'Nuphos Desktop on Build Mac is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.',
+    "Nuphos Desktop on Build Mac is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again.",
   )
   expect(withOutdatedHint(undefined, new Error(`private diagnostic\n\n${hint}`))).toBe(hint)
 })

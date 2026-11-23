@@ -6,7 +6,7 @@ import { conversationChangesBody, onConversationChange } from '@/lib/agent/conve
 import { boxUsageView } from '@/lib/agent/devices/box-instabox-limit'
 import { listBoxUsageHistory } from '@/lib/agent/devices/box-usage-history'
 import { ACTIVITY_RANGES, getTeamActivity, withOwnTitles } from '@/lib/agent/team-activity'
-import { mergeOthersPrivate, usageNames } from '@/lib/agent/usage-names'
+import { usageNames } from '@/lib/agent/usage-names'
 import { USAGE_BUCKETS, USAGE_DIMENSIONS, queryTeamUsage } from '@/lib/agent/usage-query'
 import { getTeamUsageSeries } from '@/lib/agent/usage-summary'
 import { QUOTA_HISTORY_RANGES } from '@/lib/claude-code-preview/runtime-quota-history'
@@ -14,6 +14,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import { requireTeamMember } from '@/middleware/auth'
 import { SSE_HEARTBEAT_INTERVAL_MS } from '@/routes/agent/constants'
+import { agentRemindersRoutes } from '@/routes/agent-reminders'
 import { agentTriggersRoutes } from '@/routes/agent-triggers'
 import { aliyunAccountsRoutes } from '@/routes/aliyun-accounts'
 import { architectureDiagramsRoutes } from '@/routes/architecture-diagrams'
@@ -57,11 +58,13 @@ import { runtimeFallbackRoutes } from '@/routes/runtime-fallback'
 import { secureframeIntegrationsRoutes } from '@/routes/secureframe-integrations'
 import { sentryAccountsRoutes } from '@/routes/sentry-accounts'
 import { sidebarFavoritesRoutes } from '@/routes/sidebar-favorites'
+import { teamSlackMappings } from '@/routes/slack/mappings'
 import { slackInstallationsRoutes } from '@/routes/slack-installations'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
 import { teamConnectorsRoutes } from '@/routes/team-connectors'
 import { teamSkillsRoutes } from '@/routes/team-skills'
+import { teamWebhooksRoutes } from '@/routes/team-webhooks'
 import { registerAgentRuntimeRoutes } from '@/routes/teams/agent-runtimes'
 import {
   registerClaudeCodeRuntimeRoutes,
@@ -203,13 +206,8 @@ teamScoped.get('/usage/query', zv('query', usageQuerySchema), async (c) => {
   )
 
   const viewer = { userId: c.get('userId'), teamRole: c.get('teamRole') }
-  // Other members' private conversations show as one row, never apart.
-  const rows = await mergeOthersPrivate(
-    c.get('teamId'),
-    viewer,
-    groupBy,
-    await queryTeamUsage(c.get('teamId'), { from, to, bucket, timeZone, groupBy, filters }),
-  )
+  const query = { from, to, bucket, timeZone, groupBy, filters, viewerId: viewer.userId }
+  const rows = await queryTeamUsage(c.get('teamId'), query)
 
   return c.json({ rows, names: await usageNames(c.get('teamId'), viewer, groupBy, rows) })
 })
@@ -252,12 +250,14 @@ teamScoped.route('/volcengine-accounts', volcengineAccountsRoutes)
 teamScoped.route('/azure-accounts', azureAccountsRoutes)
 teamScoped.route('/huawei-accounts', huaweiAccountsRoutes)
 teamScoped.route('/grafana-instances', grafanaInstancesRoutes)
+teamScoped.route('/webhooks', teamWebhooksRoutes)
 teamScoped.route('/architecture-diagrams', architectureDiagramsRoutes)
 teamScoped.route('/designs', designsRoutes)
 teamScoped.route('/dashboards', nuphosDashboardsRoutes)
 // Alias for desktop builds that predate the Dashboards rename.
 teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes)
 teamScoped.route('/agent-triggers', agentTriggersRoutes)
+teamScoped.route('/agent-reminders', agentRemindersRoutes)
 teamScoped.route('/knowledge', knowledgeRoutes)
 teamScoped.route('/github-installations', githubInstallationsRoutes)
 teamScoped.route('/gitlab-bindings', gitlabBindingsRoutes)
@@ -272,6 +272,7 @@ teamScoped.route('/jira-sites', jiraSitesRoutes)
 teamScoped.route('/asana-accounts', asanaAccountsRoutes)
 teamScoped.route('/sentry-accounts', sentryAccountsRoutes)
 teamScoped.route('/slack-installations', slackInstallationsRoutes)
+teamScoped.route('/slack', teamSlackMappings)
 teamScoped.route('/discord-installations', discordInstallationsRoutes)
 teamScoped.route('/discord', discordAgentRoutes)
 teamScoped.route('/lark-installations', larkInstallationsRoutes)
@@ -296,5 +297,4 @@ teamScoped.route('/monitoring', monitoringRoutes)
 teamScoped.route('/file-transfers', fileTransfersRoutes)
 teamScoped.route('/skills', teamSkillsRoutes)
 teamScoped.route('/database-connections', databaseConnectionsRoutes)
-
 teamsRoutes.route('/:teamId', teamScoped)

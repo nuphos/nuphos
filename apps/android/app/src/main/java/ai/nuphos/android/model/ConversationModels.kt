@@ -219,6 +219,8 @@ data class AgentConversationDetail(
     val isOwner: Boolean? = null,
     val canManage: Boolean? = null,
     val canArchive: Boolean? = null,
+    /** Whether Share is offered: never on a Bot or a Task an agent opened. Null from an older server. */
+    val shareable: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,
@@ -267,6 +269,8 @@ data class AgentConversationDetail(
         val cause: String? = null,
         /** `agent_reply_failed`: when an agent out of usage gets it back. */
         @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
+        /** `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do. */
+        val verifyUrl: String? = null,
     )
     @Serializable
     data class ActiveRun(
