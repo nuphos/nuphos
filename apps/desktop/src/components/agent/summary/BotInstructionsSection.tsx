@@ -129,7 +129,7 @@ export function BotInstructionsSection({
             <MessageResponse
               teamId={teamId}
               disableRawHtml
-              className="!text-[13px] [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_a]:break-all"
+              className="!text-[13px] [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto"
             >
               {instructions}
             </MessageResponse>
