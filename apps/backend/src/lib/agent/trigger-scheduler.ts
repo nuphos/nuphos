@@ -12,6 +12,7 @@ import { closeThreadQueue } from './thread-queue'
 import { whoseJob } from './trigger-job-owner'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
+import { TRIGGER_PAUSED } from './trigger-executor-authorization'
 import { startMissedRunDetector, stopMissedRunDetector } from './trigger-missed-runs'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 // Straight to the section module, not the trigger-service barrel: the barrel
@@ -105,7 +106,7 @@ export async function initTriggerScheduler(): Promise<boolean> {
           runKind: 'scheduled',
           ...(job.id ? { fireId: job.id } : {}),
         })
-      }).catch(failForGoodIfGone),
+      }).catch(endJob),
     { connection, concurrency: 3 },
   )
 
@@ -253,6 +254,20 @@ export async function enqueueHeldFlush(triggerId: string, delayMs: number): Prom
 export async function unscheduleCronTrigger(triggerId: string): Promise<void> {
   if (!_queue) return
   await _queue.removeJobScheduler(`trigger:${triggerId}`)
+}
+
+/**
+ * A fire that paused its Trigger instead of running it ends its job: the pause
+ * is on the Trigger and in its history, and a failed job is logged at error
+ * (#4841). Any other error fails the job.
+ */
+export function endJob(error: unknown): void {
+  if (error instanceof AppError && TRIGGER_PAUSED.has(error.code)) {
+    logEvent('info', 'agent.trigger_scheduler.trigger_paused', { code: error.code })
+
+    return
+  }
+  failForGoodIfGone(error)
 }
 
 /**
