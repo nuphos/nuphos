@@ -52,13 +52,15 @@ struct HomeView: View {
     @State private var desktopOpen = false
     @State private var portraitWindow = false
     @State private var visibleColumns: NavigationSplitViewVisibility = .all
-    private var usesCompactWorkspaceSwitcher: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
-            && sizeClass == .regular && !portraitWindow && hasVerticalBar && !desktopOpen
+    private var sidebarLayout: HomeSidebarLayout {
+        HomeSidebarLayout(isPhone: UIDevice.current.userInterfaceIdiom == .phone,
+                          isRegularWidth: sizeClass == .regular,
+                          isPortrait: portraitWindow,
+                          hasVerticalBar: hasVerticalBar)
     }
+    private var usesCompactWorkspaceSwitcher: Bool { sidebarLayout == .duoLandscape && !desktopOpen }
     private var usesConversationDrawer: Bool {
-        UIDevice.current.userInterfaceIdiom == .phone
-            && sizeClass == .regular && portraitWindow && openChat != nil && !desktopOpen
+        sidebarLayout.usesDrawer(hasConversation: openChat != nil, desktopOpen: desktopOpen)
     }
     private var canToggleSidebar: Bool {
         usesConversationDrawer || (usesCompactWorkspaceSwitcher && openChat != nil)
@@ -241,12 +243,8 @@ struct HomeView: View {
         } action: { isPortrait in
             portraitWindow = isPortrait
         }
-        .onChange(of: usesConversationDrawer, initial: true) { _, usesDrawer in
-            visibleColumns = .homeDefault(desktopOpen: desktopOpen, usesDrawer: usesDrawer)
-        }
-        .onChange(of: desktopOpen) { _, isOpen in
-            visibleColumns = .homeDefault(desktopOpen: isOpen, usesDrawer: usesConversationDrawer)
-        }
+        .onChange(of: sidebarLayout, initial: true) { _, _ in resetSidebarVisibility() }
+        .onChange(of: desktopOpen) { _, _ in resetSidebarVisibility() }
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
         .environment(store)
@@ -306,8 +304,7 @@ struct HomeView: View {
             Task { openChat = chat }
         }
         .onChange(of: openChat?.id) { _, _ in
-            if usesConversationDrawer { visibleColumns = .detailOnly }
-            if openChat == nil, !desktopOpen { visibleColumns = .all }
+            if usesConversationDrawer || openChat == nil { resetSidebarVisibility() }
             showBotTask = false
             botTask = nil
         }
@@ -342,6 +339,7 @@ struct HomeView: View {
         }
         #endif
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
+            resetSidebarVisibility()
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
         // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
@@ -363,6 +361,10 @@ struct HomeView: View {
             page = .agent
             openChat = nil
         }
+    }
+
+    private func resetSidebarVisibility() {
+        visibleColumns = sidebarLayout.initialVisibility(hasConversation: openChat != nil, desktopOpen: desktopOpen)
     }
 
     /// Create another task without replacing the current conversation first.

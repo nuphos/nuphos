@@ -25,6 +25,21 @@ enum HomeColumnsTests {
         let fixed = NavigationSplitViewVisibility.homeSidebar(stored, allowsToggle: false)
         fixed.wrappedValue = .detailOnly
         precondition(visibility == .all)
+        let folded = HomeSidebarLayout(isPhone: true, isRegularWidth: false, isPortrait: true, hasVerticalBar: false)
+        let regularPhone = HomeSidebarLayout(isPhone: true, isRegularWidth: false, isPortrait: true, hasVerticalBar: false)
+        let iPad = HomeSidebarLayout(isPhone: false, isRegularWidth: true, isPortrait: true, hasVerticalBar: false)
+        let portrait = HomeSidebarLayout(isPhone: true, isRegularWidth: true, isPortrait: true, hasVerticalBar: false)
+        let landscape = HomeSidebarLayout(isPhone: true, isRegularWidth: true, isPortrait: false, hasVerticalBar: true)
+        precondition(folded == .standard && regularPhone == .standard && iPad == .standard)
+        precondition(portrait == .duoPortrait && landscape == .duoLandscape)
+
+        // Rotation re-applies the default for the destination while a chat stays open.
+        precondition(portrait.initialVisibility(hasConversation: true, desktopOpen: false) == .detailOnly)
+        precondition(landscape.initialVisibility(hasConversation: true, desktopOpen: false) == .all)
+        // A workspace switch applies the same reset with or without a selected chat.
+        precondition(portrait.initialVisibility(hasConversation: false, desktopOpen: false) == .all)
+        precondition(portrait.initialVisibility(hasConversation: true, desktopOpen: false) == .detailOnly)
+        precondition(landscape.initialVisibility(hasConversation: true, desktopOpen: true) == .detailOnly)
         print("Home columns passed")
     }
 }

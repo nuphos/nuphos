@@ -22,3 +22,32 @@ extension NavigationSplitViewVisibility {
         })
     }
 }
+
+
+// The cover display and other devices keep their existing navigation.
+enum HomeSidebarLayout: Equatable {
+    case standard
+    case duoLandscape
+    case duoPortrait
+
+    init(isPhone: Bool, isRegularWidth: Bool, isPortrait: Bool, hasVerticalBar: Bool) {
+        guard isPhone, isRegularWidth else {
+            self = .standard
+            return
+        }
+        if isPortrait {
+            self = .duoPortrait
+        } else {
+            self = hasVerticalBar ? .duoLandscape : .standard
+        }
+    }
+
+    func usesDrawer(hasConversation: Bool, desktopOpen: Bool) -> Bool {
+        self == .duoPortrait && hasConversation && !desktopOpen
+    }
+
+    func initialVisibility(hasConversation: Bool, desktopOpen: Bool) -> NavigationSplitViewVisibility {
+        .homeDefault(desktopOpen: desktopOpen,
+                     usesDrawer: usesDrawer(hasConversation: hasConversation, desktopOpen: desktopOpen))
+    }
+}
