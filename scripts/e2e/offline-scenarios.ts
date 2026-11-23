@@ -51,6 +51,39 @@ export const offlineScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:after-offline').waitFor()
     },
   },
+  {
+    name: 'a signed-out runtime reveals its sign-in action and opens the dialog',
+    run: async (page, stack) => {
+      const label = 'E2E signed-out laptop'
+      const disconnect = await laptopOnline(stack, {
+        signedIn: false,
+        owner: { token: stack.token, deviceId: 'e2e-signed-out-laptop', label },
+      })
+
+      try {
+        await newTask(page)
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menuitem', { name: label, exact: true }).hover()
+        const runtime = page.getByRole('menuitem', { name: /Claude Code.*Signed out/ })
+
+        await runtime.hover()
+        await until('the signed-out runtime to reveal Sign in', () =>
+          runtime
+            .locator('.runtime-row-action-hint')
+            .evaluate((hint) => getComputedStyle(hint).opacity === '1'),
+        )
+        await page.screenshot({ path: join(artifacts, 'runtime-signed-out-action.png') })
+        await runtime.click()
+        const dialog = page.getByRole('dialog', { name: /^Sign in with/ })
+
+        await dialog.waitFor()
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'hidden' })
+      } finally {
+        disconnect()
+      }
+    },
+  },
   ...diskScenarios,
   {
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
