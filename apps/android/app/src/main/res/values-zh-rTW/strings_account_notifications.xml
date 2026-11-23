@@ -3,7 +3,7 @@
     <string name="account_computer_alerts">電腦通知</string>
     <string name="computer_notifications_intro_title">選擇需要關注的電腦</string>
     <string name="computer_notifications_intro">只關注你需要的電腦，其他電腦不會傳送通知。</string>
-    <string name="computer_notifications_empty">此工作區中沒有電腦。</string>
+    <string name="computer_notifications_empty">此團隊中沒有電腦。</string>
     <string name="computer_notifications_help">預設關閉。所選電腦離線滿 2 分鐘及重新連線時會通知你。僅影響你的帳號。</string>
     <string name="computer_notifications_online">線上</string>
     <string name="computer_notifications_offline">離線</string>

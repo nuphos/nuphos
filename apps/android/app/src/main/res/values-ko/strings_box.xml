@@ -3,10 +3,10 @@
     <string name="box_title">Nuphos 컴퓨터</string>
     <string name="box_setup">런타임 설정</string>
     <string name="box_connect">컴퓨터 연결</string>
-    <string name="box_guide_body">Bot과 작업에는 런타임이 필요합니다. Nuphos Desktop으로 컴퓨터를 연결하거나 워크스페이스 관리자에게 런타임 공유를 요청하세요.</string>
+    <string name="box_guide_body">Bot과 작업에는 런타임이 필요합니다. Nuphos Desktop으로 컴퓨터를 연결하거나 팀 관리자에게 런타임 공유를 요청하세요.</string>
     <string name="box_description">Nuphos가 대신 운영하는 Linux 컴퓨터로, Claude Code, Codex, OpenCode 등의 에이전트가 포함되어 있습니다. 본인 계정으로 로그인하세요.</string>
     <string name="box_step1">1. 컴퓨터에서 Nuphos를 여세요.</string>
-    <string name="box_step2">2. 로그인하고 이 워크스페이스를 선택하세요.</string>
+    <string name="box_step2">2. 로그인하고 이 팀을 선택하세요.</string>
     <string name="box_step3">3. 컴퓨터를 연결하고 런타임을 추가하세요.</string>
     <string name="box_body">Claude Code, Codex, OpenCode 등의 에이전트가 설치된 Linux 컴퓨터입니다. 실행 중인 컴퓨터는 플랜의 vCPU에 포함되며, 일시 중지된 컴퓨터는 포함되지 않습니다.</string>
     <string name="box_name_help">비워 두면 기본 이름을 사용합니다: %1$s</string>
@@ -28,5 +28,5 @@
     <string name="box_uncertain">요청이 성공했을 수 있습니다. 다른 컴퓨터를 만들기 전에 컴퓨터 및 런타임을 확인하세요.</string>
     <string name="box_visit">Nuphos 방문</string>
     <string name="box_name">이름</string>
-    <string name="box_not_available">이 작업 공간에서는 현재 Nuphos 컴퓨터를 만들 수 없습니다.</string>
+    <string name="box_not_available">이 팀에서는 현재 Nuphos 컴퓨터를 만들 수 없습니다.</string>
 </resources>
