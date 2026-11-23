@@ -271,7 +271,7 @@ export function ChannelPane({
                   only: { agentIds: agents.map((agent) => agent.sessionId), selfId: user.id },
                 }}
                 placeholder={t('Message {name}', { name: title })}
-                {...controls}
+                runtimeControl={controls.runtimeControl}
               />
             </div>
           </ChatColumn>
@@ -291,6 +291,7 @@ export function ChannelPane({
             onOpenLink={onOpenNuphosLink}
             onEditTrigger={(text) => setRestore({ text, nonce: Date.now() })}
             credentials={questions.credentials}
+            runtime={controls.runtime}
           />
         )}
       </div>

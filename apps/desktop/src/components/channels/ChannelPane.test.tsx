@@ -78,11 +78,11 @@ const { createRoot } = await import('react-dom/client')
 
 const buttonNamed = (root: Element, name: string) =>
   [...root.querySelectorAll('button')].find((button) => button.getAttribute('aria-label') === name)
-// Bot details' Access section: each row's text, and whether it opens anything.
-const accessRows = (panel: Element) => {
-  const section = panel.querySelector('section[aria-label="Access"]')
+// A Bot details section: each row's text, and whether it opens anything.
+const sectionRows = (panel: Element, title = 'Access') => {
+  const section = panel.querySelector(`section[aria-label="${title}"]`)
 
-  assert.ok(section, 'Bot details has an Access section')
+  assert.ok(section, `Bot details has a ${title} section`)
 
   return [...section.querySelectorAll('.pt-2 > *')].map((node) => ({
     text: node.textContent,
@@ -177,7 +177,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
     'Bot details have no Changes',
   )
   // #3790: what the Bot may use is set here, each row opening its picker or menu.
-  assert.deepEqual(accessRows(panel), [
+  assert.deepEqual(sectionRows(panel), [
     { text: 'Credentials0', opens: true },
     { text: 'Computers0', opens: true },
     { text: 'Full Access', opens: true },
@@ -192,6 +192,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   for (const frame of frames) {
     assert.equal(frame.placeholder, 'Message Ada')
     assert.equal(frame.runtimeControl?.value?.label, 'Claude Code on a laptop')
+    // #4323 undone: the composer only reports on the Bot's agent; Bot details pick it and its model.
+    assert.equal(frame.runtimeControl?.statusOnly, true)
+    assert.equal(frame.modelSession, undefined)
     // #3790: the Bot's credentials, computers and mode left its chat's composer for Bot details.
     assert.equal(frame.credentialSelector, undefined)
     assert.equal(frame.bypassControl, undefined)
@@ -201,7 +204,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   assert.equal(settingsOpened, 1)
   // #3298: Bot details edit the Bot's own permission mode, the composer its model.
   assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
-  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
+  assert.deepEqual(sectionRows(panel, 'Runtime'), [
+    { text: 'RuntimeClaude Code · Claude Code on a laptop', opens: true },
+  ])
 
   // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.
   const quota: RuntimeQuota = {
@@ -242,7 +247,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   queryClient.clear()
 })
 
-test("a teammate's Bot chat shows its model locked and its access read-only", async () => {
+test("a teammate's Bot chat shows its runtime and access read-only", async () => {
   queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
     row({
       sessionId: 'chat',
@@ -282,13 +287,14 @@ test("a teammate's Bot chat shows its model locked and its access read-only", as
   assert.equal(buttonNamed(panel, 'Edit Bot'), undefined)
   // #3790: anyone else reads what the Bot may use and its mode, with nothing to open.
   assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
-  assert.deepEqual(accessRows(panel), [
+  assert.deepEqual(sectionRows(panel), [
     { text: 'Credentials0', opens: false },
     { text: 'Computers0', opens: false },
     { text: 'Full Access', opens: false },
   ])
-  assert.equal(frames.at(-1)?.modelSession?.sessionId, 'bot')
-  assert.equal(frames.at(-1)?.modelSession?.lockedHint, 'Only the owner can change model settings.')
+  assert.deepEqual(sectionRows(panel, 'Runtime'), [{ text: 'Runtime', opens: false }])
+  assert.equal(frames.at(-1)?.runtimeControl, undefined)
+  assert.equal(frames.at(-1)?.modelSession, undefined)
   await act(() => root.unmount())
   queryClient.clear()
 })

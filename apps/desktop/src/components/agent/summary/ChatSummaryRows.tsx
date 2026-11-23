@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { ArrowUpRight, ExternalLink, Link2, MoreVertical } from 'lucide-react'
+import { ArrowUpRight, ChevronDown, ExternalLink, Link2, MoreVertical } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import { copyLinkWithFeedback } from '../../../lib/copyLink'
@@ -119,6 +119,16 @@ export function SummaryMenuRow({
     >
       <SummaryRowBody {...body} />
     </MenuTrigger>
+  )
+}
+
+/** A menu row's current choice, cut short when long, with the menu's chevron. */
+export function SummaryMenuNote({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex max-w-48 items-center gap-1">
+      <span className="truncate">{children}</span>
+      <ChevronDown className="size-3.5 shrink-0" strokeWidth={1.8} />
+    </span>
   )
 }
 

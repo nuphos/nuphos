@@ -12,6 +12,7 @@ import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
 import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
+import { SummaryMenuNote, SummaryMenuRow } from '../summary/ChatSummaryRows'
 
 import { AgentProviderIcon } from './icons'
 import { selectedAgentReachability } from './runtimeControlSignOut'
@@ -51,6 +52,8 @@ export type RuntimeControl = {
   unavailable?: boolean
   /** A group chat's: no runtime of its own, only a member Bot whose computer is offline (#3308). */
   offlineAgent?: string
+  /** The composer only reports on the agent; it is picked elsewhere, as a Bot's in its details. */
+  statusOnly?: boolean
   loading?: boolean
   error?: string | null
   onSettings?: () => void
@@ -95,6 +98,7 @@ export function RuntimeSelector({
   hero = false,
   emptyLabel,
   onClear,
+  asRow,
 }: RuntimeControl & {
   /** Lets the composer open the list, e.g. from the agent-status banner. */
   menuOpen?: boolean
@@ -105,6 +109,8 @@ export function RuntimeSelector({
   emptyLabel?: string
   /** Offers a first item that clears the choice, labelled with emptyLabel. */
   onClear?: () => void
+  /** A row of a details panel, opening the list under it, instead of a composer chip. */
+  asRow?: boolean
 }) {
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
@@ -160,6 +166,7 @@ export function RuntimeSelector({
       {unavailable && <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>}
     </>
   )
+  const title = value ? `${label} · ${AGENT_PROVIDER[value.provider].label}` : label
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
     'flex min-w-0 max-w-fit grow basis-24 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
@@ -183,16 +190,31 @@ export function RuntimeSelector({
         />
       )}
       <Menu open={open} onOpenChange={setOpen}>
-        <MenuTrigger
-          data-keep=""
-          aria-label={t('Runtime: {label}', { label })}
-          title={value ? `${label} · ${AGENT_PROVIDER[value.provider].label}` : label}
-          className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
-        >
-          {content}
-          <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-        </MenuTrigger>
-        <MenuContent side="top" align="end" className="w-72">
+        {asRow ? (
+          <SummaryMenuRow
+            aria-label={t('Runtime: {label}', { label })}
+            title={title}
+            icon={<AgentProviderIcon provider={value?.provider} className="size-3.5" />}
+            label={t('Runtime')}
+            note={
+              <SummaryMenuNote>
+                {value ? `${AGENT_PROVIDER[value.provider].label} · ${label}` : label}
+                {unavailable && ` · ${t('Unavailable')}`}
+              </SummaryMenuNote>
+            }
+          />
+        ) : (
+          <MenuTrigger
+            data-keep=""
+            aria-label={t('Runtime: {label}', { label })}
+            title={title}
+            className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
+          >
+            {content}
+            <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+          </MenuTrigger>
+        )}
+        <MenuContent side={asRow ? 'bottom' : 'top'} align="end" className="w-72">
           {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
           {!loading && !error && groups.length === 0 && (
             <p className="px-2 py-2 text-xs text-tertiary">

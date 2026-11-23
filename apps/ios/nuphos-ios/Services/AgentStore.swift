@@ -501,14 +501,6 @@ final class AgentStore {
         return "Model"
     }
 
-    /// The model a Bot runs, as its own Task's model settings name it; nil when unknown.
-    func botModel(_ botId: String) async -> String? {
-        guard let team = selectedTeam?.id,
-              let config = try? await AgentChatAPI.sessionConfig(token: token, teamId: team, sessionId: botId),
-              let model = config.model, !model.currentValue.isEmpty else { return nil }
-        return model.currentLabel
-    }
-
     func loadNewModelConfig() async {
         guard let team = selectedTeam, let runtime = newConversationRuntime, canConfigureNewModel else {
             newModelConfig = nil
