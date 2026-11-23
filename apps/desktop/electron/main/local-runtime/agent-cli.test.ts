@@ -311,7 +311,8 @@ test(
 
     assert.deepEqual(await probe('0.120.0'), {
       installed: false,
-      error: 'Codex 0.120.0 is too old to run here. Update Codex to 0.155.0 or newer, then try again.',
+      error:
+        'Codex 0.120.0 is too old to run here. Update Codex to 0.155.0 or newer, then try again.',
     })
     assert.equal((await probe('0.155.0')).installed, true)
     assert.equal((await probe('0.171.0')).installed, true)
