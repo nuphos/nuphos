@@ -3,10 +3,10 @@
     <string name="box_title">Nuphos コンピューター</string>
     <string name="box_setup">ランタイムの設定</string>
     <string name="box_connect">コンピュータを接続</string>
-    <string name="box_guide_body">Bot とタスクにはランタイムが必要です。Nuphos Desktop でコンピュータを接続するか、ワークスペース管理者にランタイムの共有を依頼してください。</string>
+    <string name="box_guide_body">Bot とタスクにはランタイムが必要です。Nuphos Desktop でコンピュータを接続するか、チーム管理者にランタイムの共有を依頼してください。</string>
     <string name="box_description">Nuphos が運用する Linux コンピューターです。Claude Code、Codex、OpenCode などのエージェントを搭載しています。ご自身のアカウントでサインインします。</string>
     <string name="box_step1">1. コンピュータで Nuphos を開きます。</string>
-    <string name="box_step2">2. サインインしてこのワークスペースを選びます。</string>
+    <string name="box_step2">2. サインインしてこのチームを選びます。</string>
     <string name="box_step3">3. コンピュータを接続してランタイムを追加します。</string>
     <string name="box_body">Claude Code、Codex、OpenCode などのエージェントを搭載した Linux コンピューターです。実行中のコンピューターはプランの vCPU に含まれ、一時停止中のものは含まれません。</string>
     <string name="box_name_help">空欄の場合は %1$s という名前になります。</string>
@@ -28,5 +28,5 @@
     <string name="box_uncertain">リクエストが成功した可能性があります。別のコンピューターを作成する前に、コンピューターとランタイムを確認してください。</string>
     <string name="box_visit">Nuphos を開く</string>
     <string name="box_name">名前</string>
-    <string name="box_not_available">このワークスペースでは現在 Nuphos コンピューターを作成できません。</string>
+    <string name="box_not_available">このチームでは現在 Nuphos コンピューターを作成できません。</string>
 </resources>

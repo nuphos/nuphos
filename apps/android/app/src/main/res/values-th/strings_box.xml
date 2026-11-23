@@ -3,10 +3,10 @@
     <string name="box_title">คอมพิวเตอร์ของ Nuphos</string>
     <string name="box_setup">ตั้งค่ารันไทม์</string>
     <string name="box_connect">เชื่อมต่อคอมพิวเตอร์</string>
-    <string name="box_guide_body">Bot และงานต้องใช้รันไทม์ เชื่อมต่อคอมพิวเตอร์ด้วย Nuphos Desktop หรือขอให้ผู้ดูแลเวิร์กสเปซแชร์รันไทม์</string>
+    <string name="box_guide_body">Bot และงานต้องใช้รันไทม์ เชื่อมต่อคอมพิวเตอร์ด้วย Nuphos Desktop หรือขอให้ผู้ดูแลทีมแชร์รันไทม์</string>
     <string name="box_description">คอมพิวเตอร์ Linux ที่ Nuphos ดูแลให้ พร้อม Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ ลงชื่อเข้าใช้ด้วยบัญชีของคุณเอง</string>
     <string name="box_step1">1. เปิด Nuphos บนคอมพิวเตอร์</string>
-    <string name="box_step2">2. ลงชื่อเข้าใช้และเลือกเวิร์กสเปซนี้</string>
+    <string name="box_step2">2. ลงชื่อเข้าใช้และเลือกทีมนี้</string>
     <string name="box_step3">3. เชื่อมต่อคอมพิวเตอร์และเพิ่มรันไทม์</string>
     <string name="box_body">คอมพิวเตอร์ Linux ที่มี Claude Code, Codex, OpenCode และเอเจนต์อื่น ๆ คอมพิวเตอร์ที่กำลังทำงานจะนับรวมใน vCPU ของแพ็กเกจ ส่วนที่หยุดชั่วคราวจะไม่นับ</string>
     <string name="box_name_help">เว้นว่างไว้เพื่อใช้ชื่อ %1$s</string>
@@ -28,5 +28,5 @@
     <string name="box_uncertain">คำขออาจสำเร็จแล้ว ตรวจสอบคอมพิวเตอร์และรันไทม์ก่อนสร้างคอมพิวเตอร์อีกเครื่อง</string>
     <string name="box_visit">ไปที่ Nuphos</string>
     <string name="box_name">ชื่อ</string>
-    <string name="box_not_available">พื้นที่ทำงานนี้ไม่สามารถสร้างคอมพิวเตอร์ Nuphos ได้ในขณะนี้</string>
+    <string name="box_not_available">ทีมนี้ไม่สามารถสร้างคอมพิวเตอร์ Nuphos ได้ในขณะนี้</string>
 </resources>

@@ -3,10 +3,10 @@
     <string name="box_title">Computadora de Nuphos</string>
     <string name="box_setup">Configuración del entorno de ejecución</string>
     <string name="box_connect">Conectar un ordenador</string>
-    <string name="box_guide_body">Tus Bots y tareas necesitan un entorno de ejecución. Conecta tu ordenador con Nuphos Desktop o pide a un administrador del espacio de trabajo que comparta uno.</string>
+    <string name="box_guide_body">Tus Bots y tareas necesitan un entorno de ejecución. Conecta tu ordenador con Nuphos Desktop o pide a un administrador del equipo que comparta uno.</string>
     <string name="box_description">Una computadora Linux que Nuphos ejecuta por ti, con Claude Code, Codex, OpenCode y otros agentes. Inicia sesión con tu propia cuenta.</string>
     <string name="box_step1">1. Abre Nuphos en tu ordenador.</string>
-    <string name="box_step2">2. Inicia sesión y elige este espacio de trabajo.</string>
+    <string name="box_step2">2. Inicia sesión y elige este equipo.</string>
     <string name="box_step3">3. Conecta tu ordenador y añade un entorno de ejecución.</string>
     <string name="box_body">Una computadora Linux con Claude Code, Codex, OpenCode y otros agentes. Las computadoras en ejecución cuentan para las vCPU de tu plan; las que están en pausa, no.</string>
     <string name="box_name_help">Déjalo vacío para llamarlo %1$s.</string>
@@ -28,5 +28,5 @@
     <string name="box_uncertain">La solicitud puede haberse completado. Revisa los ordenadores y entornos antes de crear otro.</string>
     <string name="box_visit">Visitar Nuphos</string>
     <string name="box_name">Nombre</string>
-    <string name="box_not_available">Ya no se puede crear un ordenador Nuphos en este espacio de trabajo.</string>
+    <string name="box_not_available">Ya no se puede crear un ordenador Nuphos en este equipo.</string>
 </resources>

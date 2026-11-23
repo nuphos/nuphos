@@ -3,10 +3,10 @@
     <string name="box_title">Komputer Nuphos</string>
     <string name="box_setup">Penyiapan runtime</string>
     <string name="box_connect">Hubungkan komputer</string>
-    <string name="box_guide_body">Bot dan tugas Anda membutuhkan runtime. Hubungkan komputer dengan Nuphos Desktop, atau minta administrator ruang kerja membagikan runtime.</string>
+    <string name="box_guide_body">Bot dan tugas Anda membutuhkan runtime. Hubungkan komputer dengan Nuphos Desktop, atau minta administrator tim membagikan runtime.</string>
     <string name="box_description">Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code, Codex, OpenCode, dan agen lainnya. Masuk dengan akun Anda sendiri.</string>
     <string name="box_step1">1. Buka Nuphos di komputer Anda.</string>
-    <string name="box_step2">2. Masuk dan pilih ruang kerja ini.</string>
+    <string name="box_step2">2. Masuk dan pilih tim ini.</string>
     <string name="box_step3">3. Hubungkan komputer dan tambahkan runtime.</string>
     <string name="box_body">Komputer Linux dengan Claude Code, Codex, OpenCode, dan agen lainnya. Komputer yang berjalan dihitung dalam vCPU paket Anda; yang dijeda tidak.</string>
     <string name="box_name_help">Biarkan kosong untuk menamainya %1$s.</string>
@@ -28,5 +28,5 @@
     <string name="box_uncertain">Permintaan mungkin berhasil. Periksa komputer dan runtime sebelum membuat komputer lain.</string>
     <string name="box_visit">Kunjungi Nuphos</string>
     <string name="box_name">Nama</string>
-    <string name="box_not_available">Pembuatan komputer Nuphos tidak lagi tersedia untuk ruang kerja ini.</string>
+    <string name="box_not_available">Pembuatan komputer Nuphos tidak lagi tersedia untuk tim ini.</string>
 </resources>
