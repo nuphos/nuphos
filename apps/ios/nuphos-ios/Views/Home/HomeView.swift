@@ -64,9 +64,7 @@ struct HomeView: View {
         usesConversationDrawer || (usesCompactWorkspaceSwitcher && openChat != nil)
     }
     private var columns: Binding<NavigationSplitViewVisibility> {
-        Binding(get: { visibleColumns }, set: { value in
-            if canToggleSidebar, sizeClass == .regular { visibleColumns = value }
-        })
+        NavigationSplitViewVisibility.homeSidebar($visibleColumns, allowsToggle: canToggleSidebar)
     }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
@@ -244,10 +242,10 @@ struct HomeView: View {
             portraitWindow = isPortrait
         }
         .onChange(of: usesConversationDrawer, initial: true) { _, usesDrawer in
-            visibleColumns = usesDrawer || desktopOpen ? .detailOnly : .all
+            visibleColumns = .homeDefault(desktopOpen: desktopOpen, usesDrawer: usesDrawer)
         }
         .onChange(of: desktopOpen) { _, isOpen in
-            visibleColumns = isOpen || usesConversationDrawer ? .detailOnly : .all
+            visibleColumns = .homeDefault(desktopOpen: isOpen, usesDrawer: usesConversationDrawer)
         }
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.

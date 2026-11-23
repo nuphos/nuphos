@@ -9,6 +9,16 @@ extension NavigationSplitViewVisibility {
     /// (iOS lays the app out at the cover display's compact width for its snapshot), and when it
     /// puts an overlaid list away. A stored value kept that once the window was wide again (#1680).
     static func home(desktopOpen: Bool) -> Binding<NavigationSplitViewVisibility> {
-        Binding(get: { desktopOpen ? .detailOnly : .all }, set: { _ in })
+        Binding(get: { homeDefault(desktopOpen: desktopOpen, usesDrawer: false) }, set: { _ in })
+    }
+
+    static func homeDefault(desktopOpen: Bool, usesDrawer: Bool) -> Self {
+        desktopOpen || usesDrawer ? .detailOnly : .all
+    }
+
+    static func homeSidebar(_ visibility: Binding<Self>, allowsToggle: Bool) -> Binding<Self> {
+        Binding(get: { visibility.wrappedValue }, set: { value in
+            if allowsToggle { visibility.wrappedValue = value }
+        })
     }
 }
