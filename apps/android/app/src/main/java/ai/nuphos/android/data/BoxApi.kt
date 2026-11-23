@@ -32,6 +32,11 @@ class BoxApi internal constructor(private val token: String, private val teamId:
         val id = java.net.URLEncoder.encode(deviceId, "UTF-8").replace("+", "%20")
         request("agent/devices/$id/box/resume?teamId=$teamId", "POST", buildJsonObject {}, 200)
     }
+    suspend fun deleteBox(deviceId: String) {
+        require(deviceId.isNotBlank() && deviceId.length <= 200)
+        val id = java.net.URLEncoder.encode(deviceId, "UTF-8").replace("+", "%20")
+        request("agent/devices/$id/box?teamId=$teamId", "DELETE", null, 200)
+    }
     private suspend fun request(path: String, method: String, body: JsonObject?, status: Int): JsonObject = withContext(Dispatchers.IO) {
         val request = Request.Builder().url("${NuphosApi.baseUrl(token)}/$path").header("Authorization", "Bearer $token")
             .header("Accept", "application/json").header("x-atlas-client", Http.clientHeader())

@@ -31,6 +31,12 @@ class RuntimesStore(
     private var job: Job? = null
     private fun current(ticket: Int) = active && generation == ticket && sourceCurrent()
     fun close() { active = false; generation++; job?.cancel(); runtimes = emptyList(); quotas = emptyMap(); devices = emptyList(); loading = false }
+    fun refreshAfterMutation() {
+        generation++
+        job?.cancel()
+        loading = false
+        refresh()
+    }
     fun refresh() {
         if (!active || !sourceCurrent() || loading) return
         loading = true
