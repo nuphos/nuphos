@@ -228,7 +228,7 @@ export const channelScenarios: Scenario[] = [
   },
   ...botAccessScenarios,
   {
-    // #3252: the Bot's runtime row in Bot details (#4766) and the Task composer's runtime
+    // #3252: Bot details' Runtime section (#4766) and the Task composer's runtime
     // line both show the usage bar.
     name: 'Bot details and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {

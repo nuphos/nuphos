@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import { RuntimeUsageBar } from '../../views/settings/RuntimeUsageBar'
 import { AgentProviderIcon } from '../agent/panel/icons'
 import { ModelSelector } from '../agent/panel/ModelSelector'
 import { RuntimeSelector } from '../agent/panel/RuntimeSelector'
@@ -37,7 +38,10 @@ export function BotRuntimeSection({
   if (owned && !runtime) return null
 
   return (
-    <SummarySection title={t('Runtime')}>
+    <SummarySection
+      title={t('Runtime')}
+      action={usage(runtime)}
+    >
       {owned && runtime ? (
         <RuntimeSelector {...runtime} asRow />
       ) : (
@@ -54,5 +58,19 @@ export function BotRuntimeSection({
         asRow
       />
     </SummarySection>
+  )
+}
+
+/** #3252: what is left of the runtime's usage, as the Task composer's runtime chip shows it. */
+function usage(runtime: RuntimeControl | undefined) {
+  const id = runtime?.value?.id
+
+  // Inset back from the overhang a header action button gets.
+  return (
+    id && (
+      <span className="my-1.5 mr-2">
+        <RuntimeUsageBar quota={runtime.quotas?.get(id)} />
+      </span>
+    )
   )
 }
