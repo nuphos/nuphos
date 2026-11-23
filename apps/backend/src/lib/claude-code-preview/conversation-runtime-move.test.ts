@@ -93,7 +93,10 @@ useRunCancel({
 let queuedClaim: ((outcome: string) => void) | null = null
 
 usePendingQueue({ hasQueuedTranscriptMessage: async () => Boolean(queuedClaim) })
+// The starter outlives this file. Unarmed, it must not claim and release a later
+// suite's real queue: each release starts it again, a loop that starves every timer.
 installQueuedTurnStarter(async (userId, sessionId) => {
+  if (!queuedClaim) return
   const release = await claimAgentRunForSession(userId, sessionId).catch(
     (error: unknown) => (error as { code?: string }).code,
   )
