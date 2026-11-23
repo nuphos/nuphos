@@ -56,27 +56,25 @@ const scenario: Scenario = {
     const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
     if (!channelId) throw new Error('The Bot has not answered in its chat yet')
-    const wakes = () =>
-      agentLog(stack).filter((entry) => entry.event === 'channel' && entry.detail === channelId)
-        .length
-    const woken = wakes()
-
     for (let n = 1; n <= 8; n++) {
+      // The newest post carries a marker, which the Bot's answer names once it has read it.
+      const text = `Reply bar ${String(n)}: ${TALL}${n === 8 ? ' E2E_DELIVERY:reply-bar' : ''}`
+
       const response = await fetch(
         `${stack.apiUrl}/agent/conversations/${channelId}/channel-messages`,
         {
           method: 'POST',
           headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, text: `Reply bar ${String(n)}: ${TALL}` }),
+          body: JSON.stringify({ teamId: stack.teamId, text }),
         },
       )
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
     }
-    await page.getByText(/^Reply bar 8:/).waitFor()
-    // The posts wake the Bot, and its answers land below them as they come: wait for its turn to
-    // end, or opening the reply races a post arriving under it.
-    await until('the Bot to read the posts', async () => wakes() > woken)
+    // Each post wakes the Bot, and it may take more than one turn to read them all: a post that
+    // lands after its last read starts another. Once it has answered the newest, nothing is left
+    // to wake it, so wait for that answer rather than the first wake (#4576).
+    await page.getByText('POSTED E2E_DELIVERY:reply-bar', { exact: true }).waitFor()
     // Settled at the bottom: the Bot done, the newest post stays put between two looks.
     let last = -1
 

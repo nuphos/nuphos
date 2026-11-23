@@ -1,6 +1,6 @@
 import { AtlasMentionInline } from './messageInline'
 import { MemberMention } from './messageMentions'
-import { MENTION_HREF } from './messageMentionText'
+import { AGENT_MENTION, MENTION_HREF } from './messageMentionText'
 
 import type { ReactNode } from 'react'
 import { isAppWebUrl } from '../../../lib/webBaseUrl'
@@ -33,7 +33,7 @@ export function renderAtlasMentionLink(
   return <AtlasMentionInline url={href} onOpen={onOpen} />
 }
 
-/** The `renderLink` half: a mention link becomes the person it names. */
+/** The `renderLink` half: a mention link becomes the person, or the chat's agent, it names. */
 export function renderMemberMentionLink(
   href: string,
   children: ReactNode,
@@ -42,9 +42,16 @@ export function renderMemberMentionLink(
   if (!href.startsWith(MENTION_HREF)) return null
   const userId = decodeURIComponent(href.slice(MENTION_HREF.length))
 
-  return userId ? (
+  if (!userId) return null
+
+  return userId.startsWith(AGENT_MENTION) ? (
+    // inline-block, as the person's chip lays out: it is a button.
+    <span className="inline-block rounded px-0.5 font-medium text-primary bg-state-selected">
+      {children}
+    </span>
+  ) : (
     <MemberMention teamId={teamId} userId={userId}>
       {children}
     </MemberMention>
-  ) : null
+  )
 }

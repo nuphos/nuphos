@@ -1,7 +1,5 @@
 import { config } from '@/config'
 
-const API = 'https://discord.com/api/v10'
-
 export function isDiscordConfigured(): boolean {
   return Boolean(
     config.discord.botToken &&
@@ -63,7 +61,7 @@ export async function exchangeDiscordCode(code: string): Promise<DiscordOAuthRes
     code,
     redirect_uri: oauthRedirect,
   })
-  const tokenResponse = await fetch(`${API}/oauth2/token`, {
+  const tokenResponse = await fetch(`${config.discord.apiBaseUrl}/oauth2/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
@@ -74,7 +72,7 @@ export async function exchangeDiscordCode(code: string): Promise<DiscordOAuthRes
     access_token: string
     guild?: { id: string; name: string }
   }
-  const userResponse = await fetch(`${API}/users/@me`, {
+  const userResponse = await fetch(`${config.discord.apiBaseUrl}/users/@me`, {
     headers: { Authorization: `Bearer ${token.access_token}` },
   })
 

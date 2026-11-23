@@ -55,6 +55,8 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     private var applying = false
     private var pending: (() -> Void)?
     private var previousSize = CGSize.zero
+    private var previousContentHeight: CGFloat = 0
+    private var contentHeight: NSKeyValueObservation?
     private let composer = UIHostingController(rootView: AnyView(EmptyView()))
     let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
     private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
@@ -89,6 +91,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         // Plan loads and disclosure toggles change SwiftUI state without a
         // new ChatRow snapshot. Propagate their Auto Layout size changes too.
         collection.selfSizingInvalidation = .enabledIncludingConstraints
+        // Such a row, a file card filling in too, changes only the content:
+        // laying out again keeps a reader who follows at the end.
+        contentHeight = collection.observe(\.contentSize) { [weak self] _, _ in
+            MainActor.assumeIsolated { self?.view.setNeedsLayout() }
+        }
         collection.alwaysBounceVertical = true
         collection.keyboardDismissMode = .interactive
         collection.delegate = self
@@ -282,8 +289,10 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         defer { updateLatestButton() }
         // The visible area: the composer changes it through the inset alone.
         let size = collection.bounds.inset(by: collection.adjustedContentInset).size
-        guard size.width > 0, size.height > 0, size != previousSize else { return }
+        let height = collection.contentSize.height
+        guard size.width > 0, size.height > 0, size != previousSize || height != previousContentHeight else { return }
         previousSize = size
+        previousContentHeight = height
         // Never under a finger or a fling: an interactive keyboard dismissal
         // resizes the transcript mid-gesture, and moving it then fights the
         // reader. The
