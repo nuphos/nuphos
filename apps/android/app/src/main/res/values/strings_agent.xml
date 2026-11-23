@@ -73,6 +73,8 @@
     <!-- First runtime -->
     <string name="agent_first_runtime_title">Connect your first runtime</string>
     <string name="agent_first_runtime_body">Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.</string>
+    <string name="agent_first_runtime_starting_title">%1$s is getting ready</string>
+    <string name="agent_first_runtime_starting_body">It will show up here as soon as it is online. This can take a minute or two.</string>
 
     <!-- Runtime list and inventory -->
     <string name="agent_cloud">Cloud</string>

@@ -7,7 +7,7 @@ export const accountRequired = (docs: PersonalCredential[]) =>
   new AppError(
     409,
     'personal_credential_account_required',
-    'Several accounts are authorized: ask which one to use, then name it with connectionId',
+    'Several accounts are connected: ask which one to use, then name it with connectionId',
     { accounts: docs.map((doc) => ({ id: doc._id.toHexString(), login: doc.login })) },
   )
 

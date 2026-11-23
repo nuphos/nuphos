@@ -28,7 +28,7 @@ export function ChannelEmptyState({
         <div className="max-w-[480px] space-y-3 text-[13px] leading-relaxed text-secondary">
           <p>
             {t(
-              'This is your conversation with {name}. Talk about what you want help with, and shape how you work together.',
+              'This is where you and {name} get things done. Talk about what you want help with, and shape how you work together.',
               { name: title },
             )}
           </p>

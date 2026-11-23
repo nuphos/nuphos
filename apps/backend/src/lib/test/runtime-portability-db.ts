@@ -11,10 +11,10 @@ function matches(doc: Doc, query: Doc): boolean {
   return Object.entries(query).every(([key, expected]) => {
     if (key === '$or') return expected.some((part: Doc) => matches(doc, part))
     if (key === '$nor') return !expected.some((part: Doc) => matches(doc, part))
-    // A path through an array matches when any element does, as in Mongo.
+    // A path through an array matches when any element does, and a number indexes it, as in Mongo.
     const [head = key, ...rest] = key.split('.')
 
-    if (rest.length && Array.isArray(doc[head]))
+    if (rest.length && Array.isArray(doc[head]) && !/^\d+$/.test(rest[0]!))
       return doc[head].some((entry: Doc) => matches(entry, { [rest.join('.')]: expected }))
     const actual = valueAt(doc, key)
 

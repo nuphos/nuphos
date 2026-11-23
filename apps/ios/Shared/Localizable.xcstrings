@@ -30683,6 +30683,52 @@
         }
       }
     },
+    "This is where you and %@ get things done. Talk about what you want help with, and shape how you work together." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aquí tú y %@ sacan adelante el trabajo. Cuéntale qué ayuda necesitas y definan cómo trabajar juntos."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Di sini Anda dan %@ menyelesaikan pekerjaan. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここで %@ と一緒に仕事を進めましょう。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@와 함께 일을 해내는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ที่นี่คุณกับ %@ ทำงานให้สำเร็จไปด้วยกัน บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你可以在这里和 %@ 一起完成工作。聊聊你需要什么协助，一起建立适合你的工作方式。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你可以在這裡和 %@ 一起完成工作。聊聊你需要什麼協助，一起建立適合你的工作方式。"
+          }
+        }
+      }
+    },
     "This passkey will no longer work for this account. Enter a code to confirm." : {
       "localizations" : {
         "es" : {
@@ -35481,6 +35527,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你已核准此指令。"
+          }
+        }
+      }
+    },
+    "You can start by telling %@ what you would like to do." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puedes empezar contándole a %@ qué te gustaría hacer."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda bisa mulai dengan memberi tahu %@ apa yang ingin dilakukan."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "まずは %@ にやりたいことを伝えてみましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 %@에게 하고 싶은 일을 알려 주세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เริ่มด้วยการบอก %@ ว่าคุณอยากทำอะไร"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告诉 %@，你想做些什么。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你也可以先告訴 %@，你想做些什麼。"
           }
         }
       }

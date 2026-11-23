@@ -6,34 +6,9 @@ import { useEffect, useId, useState } from 'react'
 import { t } from '../../../i18n'
 
 import { PRESETS } from './stall'
-import { getAgentLocale } from './textUtils'
+import { getAgentLocale, splitForAnimation } from './textUtils'
 
 import type { ReactNode } from 'react'
-
-function splitForAnimation(text: string, lang: string): string[] {
-  try {
-    const isCJK = /^(zh|ja|ko)/i.test(lang)
-    const SegmenterCtor = (
-      Intl as unknown as {
-        Segmenter?: new (
-          l: string,
-          opts: { granularity: 'grapheme' | 'word' },
-        ) => { segment(s: string): Iterable<{ segment: string }> }
-      }
-    ).Segmenter
-
-    if (!SegmenterCtor) {
-      return isCJK ? Array.from(text) : text.split(/(\s+)/)
-    }
-    const segmenter = new SegmenterCtor(lang, {
-      granularity: isCJK ? 'grapheme' : 'word',
-    })
-
-    return Array.from(segmenter.segment(text), (s) => s.segment)
-  } catch {
-    return text.split(/(\s+)/)
-  }
-}
 
 export function AgentHomeAnimation({ title = t('What should we work on?') }: { title?: string }) {
   const segments = splitForAnimation(title, getAgentLocale() ?? navigator.language ?? 'en')
@@ -77,7 +52,7 @@ export function AgentHomeAnimation({ title = t('What should we work on?') }: { t
               duration: 0.35,
               ease: easeOut,
             }}
-            style={{ display: 'inline-block', whiteSpace: 'pre' }}
+            style={{ display: 'inline-block', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}
             aria-hidden
           >
             {segment}

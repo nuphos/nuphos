@@ -11,10 +11,10 @@ import type { Page } from 'playwright-core'
 
 // What the conversation shows for a failed turn there: its summary, then the out-of-date line.
 export const OUTDATED_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit and reopen Nuphos to install it.'
+  "The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it. If it doesn't close, quit it again."
 
 export const NOT_READY_LINE =
-  'The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit and reopen Nuphos.'
+  "The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again."
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
 // keeps the scenarios after these off the laptop, which has gone offline by then.
@@ -27,15 +27,15 @@ export async function backOnFixture(page: Page, marker: string) {
 
 export const outdatedTurnScenarios: Scenario[] = [
   {
-    // #3560: a Desktop above the floor with an update downloaded failed every turn on a runtime
-    // bug the update fixed, and nothing said an update would help (#3562).
-    name: 'a turn that fails on a computer with a Nuphos update waiting says to update it',
+    // #3562: a Desktop below the floor with an update downloaded says the update is ready. At or
+    // above the floor a failed turn keeps its own error (#4630).
+    name: 'a turn that fails on a computer below the floor with an update waiting says to update it',
     // The turn there fails on purpose.
     expected: new RegExp(RESTORE_FAILED),
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.127.0',
-        app: { version: '0.127.0', update: { version: '0.131.0', ready: true } },
+        client: 'nuphos-desktop/0.123.0',
+        app: { version: '0.123.0', update: { version: '0.131.0', ready: true } },
         restoreFails: true,
       })
 
@@ -76,7 +76,7 @@ export const outdatedTurnScenarios: Scenario[] = [
           .getByText(/couldn’t reply:.*Nuphos Desktop on E2E laptop is out of date/)
           .waitFor()
         await page
-          .getByText(/The downloaded update is ready. Quit and reopen Nuphos/)
+          .getByText(/The downloaded update is ready\. Quit Nuphos fully/)
           .last()
           .waitFor()
         await page.screenshot({ path: join(artifacts, 'behind-bot-error.png') })

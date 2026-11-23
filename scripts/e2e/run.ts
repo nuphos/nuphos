@@ -4,6 +4,7 @@ import { rmSync } from 'node:fs'
 
 import { accessScenarios } from './access-scenarios.ts'
 import { agentEvents } from './agent-log.ts'
+import { archivePopoverScenarios } from './archive-popover-scenarios.ts'
 import { archiveSharedTaskScenarios } from './archive-shared-task-scenarios.ts'
 import { agentWordScenarios } from './agent-word-scenarios.ts'
 import { approvalFeedbackScenarios } from './approval-feedback-scenarios.ts'
@@ -39,7 +40,9 @@ import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
+import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
 import { startDesktop } from './desktop.ts'
+import { emailDomainScenarios } from './email-domain-scenarios.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
@@ -60,6 +63,7 @@ import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
+import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
@@ -114,6 +118,7 @@ const scenarios: Scenario[] = [
   ...teammateBotScenarios,
   ...leaveTaskScenarios,
   ...archiveSharedTaskScenarios,
+  ...archivePopoverScenarios,
   ...leaveChatScenarios,
   ...newGroupChatScenarios,
   ...avatarBackgroundScenarios,
@@ -149,9 +154,12 @@ const scenarios: Scenario[] = [
   ...stepUpScenarios,
   ...twoFactorResumeScenarios,
   ...accessScenarios,
+  // A second app of its own, signed in with a gmail.com address, which it quits again.
+  ...emailDomainScenarios,
   ...runtimeScenarios,
   // After runtimeScenarios: it runs a Task on the second agent, which one of those needs unused.
   ...usageQueueScenarios,
+  ...moveMidTurnScenarios,
   ...customProviderScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
@@ -195,6 +203,8 @@ const later: Scenario[] = [
   threadModeScenario,
   ...botFoldScenarios,
   ...sidebarPageScenarios,
+  // Makes 450 group chats and archives them again.
+  ...sidebarPollScenarios,
   ...fallbackScenarios,
   ...memberStreamScenarios,
   // A computer of its own, which it stops and forgets again.

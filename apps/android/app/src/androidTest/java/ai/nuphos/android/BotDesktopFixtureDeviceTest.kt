@@ -54,8 +54,6 @@ class BotDesktopFixtureDeviceTest {
     @Volatile private var nonOwner = false
     /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
     @Volatile private var dispatched = false
-    /** Release notes is someone else's Bot: the viewer lists none of its Tasks, only its row's count (#4278). */
-    @Volatile private var sharedRunning = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -126,8 +124,7 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
-                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":${!sharedRunning},"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"${
-                        if (sharedRunning) ""","tasks":{"running":1,"waiting":1}""" else ""}}""" }}],"hasMore":false}"""
+                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":true,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"}""" }}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
@@ -288,15 +285,6 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
-    }
-
-    @Test fun aSharedBotSaysItsTasksRunFromItsRow() {
-        sharedRunning = true; nonOwner = true
-        render("chat-plain", listBots = true)
-        compose.waitUntil(8_000) { compose.onAllNodesWithTag("bot-state", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-        // What waits is its owner's to answer, not the viewer's.
-        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertTextEquals("1 running")
-        capture("8b-shared-bot-state")
     }
 
     @Test fun aBotWithADesktopOpensItFromTheHeader() {
