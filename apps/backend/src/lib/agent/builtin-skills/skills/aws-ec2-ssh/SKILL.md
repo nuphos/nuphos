@@ -1,6 +1,6 @@
 ---
 name: aws-ec2-ssh
-description: Run shell commands on a bound AWS EC2 instance from the sandbox. Prefers SSM Run Command / Session Manager (no open port, no key, structured output — the AWS best practice) and falls back to EC2 Instance Connect for real SSH (public IP, or private via an EC2 Instance Connect Endpoint). Covers credential setup, the exact IAM the bound role needs, and troubleshooting.
+description: Run shell commands on a bound AWS EC2 instance, via SSM Run Command (preferred) or EC2 Instance Connect SSH. Covers credential setup, required IAM and troubleshooting.
 ---
 
 # EC2 — run commands on a bound instance

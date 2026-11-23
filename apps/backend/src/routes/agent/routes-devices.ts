@@ -11,14 +11,13 @@ import {
   requireDeviceAccess,
   revokeBoxStreams,
 } from '@/lib/agent/devices/box-access'
+import { deleteBox } from '@/lib/agent/devices/box-delete'
 import {
   boxBackendUrl,
-  boxDesktopUrl,
   boxPausedBy,
   boxState,
   boxesAvailable,
   createBox,
-  destroyBox,
   healBox,
   pauseBox,
   resumeBox,
@@ -145,8 +144,7 @@ const defaultDependencies: AgentDeviceRouteDependencies = {
     create: createBox,
     pause: pauseBox,
     resume: resumeBox,
-    destroy: destroyBox,
-    desktop: boxDesktopUrl,
+    delete: deleteBox,
     heal: healBox,
     available: boxesAvailable,
     state: boxState,

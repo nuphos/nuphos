@@ -2,20 +2,19 @@ import { keepFirstSessionPick } from '@/lib/agent/db/conversations-runtime'
 import { liveAttachment } from '@/lib/agent/db/shared'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
-import { logError, logEvent } from '@/lib/observability'
+import { logEvent, normalizeError } from '@/lib/observability'
 
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { OpenAbAcpClient } from './openab-acp-client'
-import { OpenAbConnectError } from './openab-acp-connect'
-import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbRpcError } from './openab-acp-errors'
 import { runtimeModelCatalog } from './runtime-models'
-import { offeredSessionConfig, namedModel } from './session-config-catalog'
+import { catalogState, namedModel } from './session-config-catalog'
 import { parseSessionConfigOptions, storedPick } from './session-config-options'
-import { storeSessionConfig } from './session-config-record'
+import { clearReplacedPick, storeSessionConfig } from './session-config-record'
 import { sessionConfigRestoreContext } from './session-config-restore'
 
 import type { RuntimeDefaults } from './openab-acp-session'
-import type { RuntimeModelCatalog } from './runtime-models'
+import type { CatalogFor } from './session-config-catalog'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-options'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { AgentConversation } from '@/lib/agent/db'
@@ -130,9 +129,7 @@ export async function conversationSessionConfig(
   return await sessionConfigView(picked, catalogFor)
 }
 
-type CatalogFor = ((model?: string) => Promise<RuntimeModelCatalog>) | undefined
-
-function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
+export function runtimeCatalog(conversation: AgentConversation, viewerUserId?: string): CatalogFor {
   const { teamId, runtimeId } = conversation
 
   return teamId && runtimeId
@@ -152,19 +149,6 @@ export async function sessionConfigView(
   const { status, options, reason } = await catalogState(picked, catalogFor, true)
 
   return { status: status === 'dormant' ? 'ready' : status, options, ...(reason ? { reason } : {}) }
-}
-
-async function catalogState(
-  picked: RuntimeDefaults,
-  catalogFor: CatalogFor,
-  confirmedOnly = false,
-): Promise<SessionConfigState & { kept: RuntimeDefaults }> {
-  if (!catalogFor) return { status: 'dormant', options: [], kept: {} }
-  try {
-    return { status: 'dormant', ...(await offeredSessionConfig(catalogFor, picked, confirmedOnly)) }
-  } catch {
-    return { status: 'offline', options: [], kept: {} }
-  }
 }
 
 // Before attachment, choices come from the catalog. A change saves the effort
@@ -227,13 +211,15 @@ function prewarmSession(
     ),
   )
     .catch((error: unknown) => {
-      // An unavailable runtime is not a failure here: the next prompt reports it.
-      if (error instanceof AppError) return
-      // Nor is a host that did not answer, or hung up mid-call, as while it
-      // restarts: a warning, if it never does.
-      if (error instanceof OpenAbConnectError || error instanceof OpenAbConnectionLostError)
-        logEvent('warn', 'agent.session.prewarm_offline', { session_id: conversation.sessionId })
-      else logError('agent.session.prewarm_failed', error, { session_id: conversation.sessionId })
+      // A prewarm is only a head start: the next prompt restores the session
+      // itself and reports what fails then. An unavailable runtime says nothing
+      // more; any other miss, as while the runtime is busy with a turn or
+      // restarting, is a warning.
+      if (!(error instanceof AppError))
+        logEvent('warn', 'agent.session.prewarm_failed', {
+          ...normalizeError(error),
+          session_id: conversation.sessionId,
+        })
     })
     .finally(() => prewarming.delete(id))
 }
@@ -268,8 +254,16 @@ async function applySessionConfig(
     options,
     by,
   )
+  const current = await clearReplacedPick(
+    conversation.sessionId,
+    conversation.teamId,
+    attachment,
+    options,
+    selection.configId,
+    by,
+  )
 
-  return storedPick({ ...attachment, sessionConfig: options })
+  return storedPick({ ...current, sessionConfig: options })
 }
 
 async function withSessionClient<T>(

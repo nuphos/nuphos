@@ -73,7 +73,7 @@ export const databaseConnectionResponseSchema = z.object({
     })
     .optional(),
   changeApprovalPolicy: z.object({
-    minimumApprovals: z.number().int().min(1),
+    minimumApprovals: z.number().int().min(0),
     version: z.number().int().min(1),
     updatedAt: z.string().datetime(),
     updatedBy: z.string(),

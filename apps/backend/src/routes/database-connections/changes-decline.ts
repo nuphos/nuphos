@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 
 import { journalPlanDecision } from '@/lib/agent/journal-capture'
-import { updatePlan } from '@/lib/agent/plans'
+import { closePlan } from '@/lib/agent/plans'
 import { databaseChangeDecisionSchema } from '@/lib/api/database-connections'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
@@ -48,7 +48,7 @@ databaseConnectionChangeDeclineRoutes.post(
           'This database Plan is not awaiting a decision.',
         )
       }
-      const nextDto = await updatePlan(
+      const nextDto = await closePlan(
         changeId,
         { status: 'rejected', rejectedBy: c.get('userId') },
         { teamId: connection.teamId.toHexString(), userId: c.get('userId') },
@@ -141,7 +141,7 @@ databaseConnectionChangeDeclineRoutes.post(
           'This database Plan can no longer be canceled.',
         )
       }
-      const nextDto = await updatePlan(
+      const nextDto = await closePlan(
         changeId,
         { status: 'cancelled' },
         { teamId: connection.teamId.toHexString(), userId: c.get('userId') },

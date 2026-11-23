@@ -164,6 +164,9 @@ export async function postSenderNotice(
 // in the thread's own replies, which is the only place the notice can exist.
 const UNBOUND_THREAD_MARKER = 'not attached to a Nuphos conversation'
 
+export const NO_BOT_HERE =
+  'No Bot answers in this channel yet. Choose the Bots for it in Nuphos → Settings → Slack.'
+
 export async function explainUnboundNuphosThread(
   runtime: SlackRuntime,
   channel: string,
@@ -190,6 +193,6 @@ export async function explainUnboundNuphosThread(
     runtime,
     channel,
     threadTs,
-    `I posted this, but it is ${UNBOUND_THREAD_MARKER}, so replies here don't reach me. Mention me with your question and I'll pick it up from there.`,
+    `I posted this, but it is ${UNBOUND_THREAD_MARKER}, so replies here don't reach me. ${NO_BOT_HERE}`,
   ).catch(() => {})
 }

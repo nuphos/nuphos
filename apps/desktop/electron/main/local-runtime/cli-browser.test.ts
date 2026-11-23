@@ -62,7 +62,9 @@ function fakeChromium({ failContexts = 0 } = {}) {
                 result: {},
                 exceptionDetails: { text: 'Uncaught', exception: { description: 'Error: boom' } },
               }
-            : { result: { value: 42 } }
+            : String(params.expression).startsWith('finish(')
+              ? { result: { value: JSON.stringify([{ ms: 0, key: true, data: 'VlA4' }]) } }
+              : { result: { value: 42 } }
       else if (method === 'Page.captureScreenshot') result = { data: 'SlBFRw==' }
       emit({ id, result, ...(sessionId ? { sessionId } : {}) })
     }
@@ -241,4 +243,48 @@ test('opens still in flight count toward the tab cap and keep their context aliv
   await other(call('s2', { action: 'close', tab: 1 }))
   await opening
   assert.ok(!chromium.commands.some((c) => c.method === 'Target.disposeBrowserContext'))
+})
+
+test('record_start with video records the tab from a helper window and record_stop returns a WebM', async () => {
+  const chromium = fakeChromium()
+  const run = createCliBrowser(() => chromium.browser, temp)
+
+  await run(call('s1', { action: 'open', url: 'https://example.com/' }))
+  await run(call('s1', { action: 'record_start', tab: 1, video: true }))
+  // Its own window, so the recorded tab stays in front and keeps painting.
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Target.createTarget' && c.params.newWindow === true,
+    ),
+  )
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Page.startScreencast' && c.sessionId === 'session-target-1',
+    ),
+  )
+  const stopped = JSON.parse(textOf(await run(call('s1', { action: 'record_stop', tab: 1 })))) as {
+    video: { file: string }
+  }
+
+  assert.equal(readFileSync(stopped.video.file).subarray(0, 4).toString('hex'), '1a45dfa3')
+})
+
+test('the video helper opens in a browser context of its own, disposed when it closes', async () => {
+  const chromium = fakeChromium()
+  const run = createCliBrowser(() => chromium.browser, temp)
+
+  await run(call('s1', { action: 'open', url: 'https://example.com/' }))
+  await run(call('s1', { action: 'record_start', tab: 1, video: true }))
+  // Some machines never finish a navigation in Chromium's default context (#4347).
+  const helper = chromium.commands.find(
+    (c) => c.method === 'Target.createTarget' && c.params.newWindow === true,
+  )
+
+  assert.equal(helper?.params.browserContextId, 'ctx-2')
+  await run(call('s1', { action: 'record_stop', tab: 1 }))
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Target.disposeBrowserContext' && c.params.browserContextId === 'ctx-2',
+    ),
+  )
 })

@@ -112,6 +112,24 @@ describe('local_browser', () => {
     ])
   })
 
+  test('passes video on record_start to the device, and says so in the audit', async () => {
+    const fake = device({ content: [{ type: 'text' as const, text: 'Recording tab 7.' }] })
+    const audits: string[] = []
+
+    await createLocalBrowserHandler(
+      ctx,
+      deps({
+        connect: fake.connect,
+        audit: async (entry) => {
+          audits.push(entry.command)
+        },
+      }),
+    )({ action: 'record_start', tab: 7, video: true })
+
+    expect(fake.opened[0]?.sent[0]).toMatchObject({ action: 'record_start', tab: 7, video: true })
+    expect(audits[0]).toBe('[browser] record_start tab=7 video')
+  })
+
   test('rejects an incomplete call before touching the device', async () => {
     const fake = device(null)
     const handler = createLocalBrowserHandler(ctx, deps({ connect: fake.connect }))

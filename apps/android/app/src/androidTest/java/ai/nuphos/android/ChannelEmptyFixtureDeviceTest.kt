@@ -147,7 +147,7 @@ class ChannelEmptyFixtureDeviceTest {
     @Test fun aBotsOwnChatIntroducesTheBotInstead() {
         botChat = true
         render()
-        val intro = "This is your conversation with Release ops. Talk about what you want help with, and shape how you work together."
+        val intro = "This is where you and Release ops get things done. Talk about what you want help with, and shape how you work together."
         compose.waitUntil(8_000) { has(intro) }
         compose.onNodeWithText("You can start by telling Release ops what you would like to do.").assertIsDisplayed()
         // The group chat's line is not for a chat with one person and one Bot.

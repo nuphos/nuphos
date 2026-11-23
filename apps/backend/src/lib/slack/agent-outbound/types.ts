@@ -1,9 +1,14 @@
+import type {
+  fetchSlackChannelHistory,
+  fetchSlackChannelMembers,
+  fetchSlackThreadReplies,
+  SlackMember,
+} from '@/lib/slack/api'
 import type { SlackOutboundDestination } from '@/lib/slack/destinations'
 import type { ObjectId } from 'mongodb'
 
 export type SlackOutboundArgs = {
   userId: string
-  conversationId: string
   teamId?: string | null
 }
 
@@ -23,9 +28,8 @@ export type SlackOutboundContext = {
   post: (input: {
     destination: SlackOutboundDestination
     text: string
-    bindConversation: boolean
     /** Opens a replyable thread under the new root and gives it a conversation
-     *  of its own. Takes precedence over bindConversation. */
+     *  of its own. Without it, replies under the root reach no conversation. */
     replyThread?: { text: string }
   }) => Promise<
     | {
@@ -43,6 +47,33 @@ export type SlackOutboundContext = {
          *  report was delivered but the thread is not replyable — reported, not
          *  raised: nothing about it is worth failing a delivered message over. */
         replyThread?: { opened: boolean; sessionId?: string; error?: string }
+      }
+    | { ok: false; error: string }
+  >
+  read: (input: {
+    channelId: string
+    slackWorkspaceId?: string
+    threadTs?: string
+    limit?: number
+    cursor?: string
+    oldest?: string
+    latest?: string
+  }) => Promise<
+    | {
+        ok: true
+        channel: { id: string; name: string }
+        messages: Record<string, unknown>[]
+        hasMore: boolean
+        nextCursor?: string
+      }
+    | { ok: false; error: string }
+  >
+  members: (input: { channelId: string; slackWorkspaceId?: string; query?: string }) => Promise<
+    | {
+        ok: true
+        channel: { id: string; name: string }
+        members: SlackMember[]
+        truncated: boolean
       }
     | { ok: false; error: string }
   >
@@ -68,7 +99,6 @@ export type SlackOutboundDependencies = {
     botToken: string,
   ) => Promise<{ slackUserId: string } | null>
   canViewPrivateChannels: (userId: string, teamId: string) => Promise<boolean>
-  getThreadBySessionId: (sessionId: string) => Promise<{ slackChannelId: string } | null>
   bindThread: (input: {
     slackWorkspaceId: string
     slackChannelId: string
@@ -102,6 +132,9 @@ export type SlackOutboundDependencies = {
     text: string
     threadTs?: string
   }) => Promise<{ channel?: string | { id?: string }; ts?: string }>
+  readHistory: typeof fetchSlackChannelHistory
+  readReplies: typeof fetchSlackThreadReplies
+  listMembers: typeof fetchSlackChannelMembers
 }
 
 export type SlackWorkspaceGrant = {

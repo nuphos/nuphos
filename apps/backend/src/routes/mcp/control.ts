@@ -2,7 +2,8 @@
 // on, Stop, the waiting messages, and the run's events after a cursor. Each
 // tool checks access as the app's route for the same action does.
 
-import { getReadableConversation } from '@/lib/agent/db'
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
+import { archiveConversationAs, getReadableConversation } from '@/lib/agent/db'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { frameEvent } from '@/lib/agent/live-turn'
 import { agentRuns, getLocalActiveAgentRun } from '@/lib/agent/run-admission'
@@ -83,6 +84,24 @@ export async function nuphosStop(
   const status = await stopConversationTurn(conversation)
 
   return toolResult({ session_id: conversation.sessionId, status })
+}
+
+export async function nuphosArchiveSession(
+  args: Record<string, unknown>,
+  ctx: McpCallContext,
+): Promise<ToolResult> {
+  const archived = args.archived ?? true
+
+  if (typeof archived !== 'boolean') return toolError('`archived` must be a boolean.')
+  const conversation = await readable(args, ctx)
+
+  if (isError(conversation)) return conversation
+  const moved = await archiveConversationAs(conversation, ctx.userId, archived)
+
+  if (!moved) return toolError('You can only view this session, so you cannot archive it.')
+  if (archived) await cleanUpArchived(moved.sessionIds)
+
+  return toolResult({ session_id: conversation.sessionId, archived, session_ids: moved.sessionIds })
 }
 
 export async function nuphosListQueue(

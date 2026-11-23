@@ -139,6 +139,9 @@ class AgentStore(
         private set
     var creationRuntimes by mutableStateOf<List<ai.nuphos.android.data.AgentRuntime>?>(null)
         private set
+    /** The label of a Box that is still coming up while the workspace has no runtime. */
+    var startingBox by mutableStateOf<String?>(null)
+        private set
     val hasSelectableRuntimes get() = creationRuntimes?.any { it.selectable }
     private var runtimesGeneration = 0
     private var runtimesListedFor: Long? = null
@@ -155,10 +158,16 @@ class AgentStore(
         storeScope.launch {
             val catalog = try { ai.nuphos.android.data.AgentRuntimeApi(token, team.id).catalog() }
                 catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { null }
+            // An empty workspace may already have a Box on its way, as a new account's free one is.
+            val starting = if (catalog?.isEmpty() != true) null else try {
+                val devices = ai.nuphos.android.data.AgentRuntimeApi(token, team.id).devices(metrics = false)
+                ai.nuphos.android.data.ComputerPresence.starting(devices)?.label
+            } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (_: Exception) { startingBox }
             if (catalog != null && !disposed && hasAiAccess() && AiAccess.revision == consent && selectedTeam?.id == team.id &&
                 workspaceRevision == workspace && generation == runtimesGeneration) {
                 hasRuntimes = catalog.isNotEmpty()
                 creationRuntimes = catalog
+                startingBox = starting
             }
         }
     }
@@ -178,6 +187,35 @@ class AgentStore(
 
     /** The Bots page: every chat, and each Bot without one yet. */
     val botsList: List<AgentConversation> get() = botsList(channels, bots)
+
+    private val botPins = BotPins(
+        scope = {
+            selectedTeam?.id?.takeIf { !disposed && hasAiAccess() }?.let {
+                BotPins.Scope(it, workspaceRevision, AiAccess.revision)
+            }
+        },
+        read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
+        write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
+    )
+    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    val pins: List<AgentConversation> get() {
+        val rows = botsList.associateBy { it.sessionId }
+        return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
+    }
+    val pinActionFailed get() = botPins.failed
+    val savingPins get() = botPins.saving
+    fun clearPinActionError() = botPins.clearError()
+    fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    suspend fun loadFavorites() = botPins.load()
+    suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
+        val team = selectedTeam?.id ?: return
+        if (row.teamId != null && row.teamId != team) return
+        val current = botsList.firstOrNull { it.sessionId == row.sessionId } ?: return
+        val label = if (current.isChannel) current.title.ifBlank {
+            current.faces?.singleOrNull()?.name?.takeIf { it.isNotBlank() } ?: strings.getString(R.string.chats_untitled_chat)
+        } else current.displayTitle
+        botPins.setPinned(team, current.sessionId, label, pinned)
+    }
 
     var openingBotId by mutableStateOf<String?>(null)
         private set
@@ -302,12 +340,9 @@ class AgentStore(
                     async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, channels = true).rows }
                 }
                 // A failed Bots read keeps the Bots shown and still refreshes the chats.
-                // Bots shared with the viewer too, as Desktop lists them (#3852).
                 val botPage = async {
                     try {
-                        listOf(ConversationScope.Mine, ConversationScope.Shared).map { scope ->
-                            async { NuphosApi.conversations(token, team.id, limit = 100, scope = scope, search = query, bots = true).rows }
-                        }.flatMap { it.await() }
+                        NuphosApi.conversations(token, team.id, limit = 100, search = query, bots = true).rows
                     } catch (e: kotlinx.coroutines.CancellationException) {
                         throw e
                     } catch (_: Exception) {
@@ -317,17 +352,14 @@ class AgentStore(
                 chats.flatMap { it.await() } to botPage.await()
             }
             if (!current()) return
-            if (botRows != null) {
-                bots = botRows.filter { (it.teamId ?: team.id) == team.id }.distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }
-                // A shared Bot is in no history here, so its face is learned from the listing.
-                BotFaces.learn(bots)
-            }
+            if (botRows != null) bots = botRows.filter { (it.teamId ?: team.id) == team.id }
             // A listing only ever shows chats; an agent row from an older server is left out.
             channels = rows.filter { it.isChannel && (it.teamId ?: team.id) == team.id }
                 .distinctBy { it.sessionId }.sortedByDescending { it.lastActiveAt }.map(::withLocalRead)
             BotFaces.learn(channels)
             channelsLoaded = true
             rememberHasChats()
+            if (current()) loadFavorites()
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -418,10 +450,12 @@ class AgentStore(
     }
 
     private fun resetHistory() {
+        botPins.reset()
         runtimesGeneration++
         runtimesListedFor = null
         hasRuntimes = null
         creationRuntimes = null
+        startingBox = null
         channelGeneration++
         channels = emptyList()
         bots = emptyList()

@@ -14,8 +14,13 @@ class ComputerPresenceTest {
     @Test fun aPausedBoxOnAnotherDeviceDoesNotCount() {
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(id = "other"))))
     }
+    @Test fun anOfflineBoxThatIsStillStartingIsStarting() {
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.of(offline, listOf(device(state = "creating"))))
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.of(offline, listOf(device(state = "connecting"))))
+    }
     @Test fun anyOtherOfflineComputerIsOffline() {
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = "running"))))
+        assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = "error"))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(state = null))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, listOf(device(box = false))))
         assertEquals(ComputerPresence.Offline, ComputerPresence.of(offline, emptyList()))
@@ -24,5 +29,14 @@ class ComputerPresenceTest {
         assertEquals(ComputerPresence.Online, ComputerPresence.of(offline.copy(online = true), listOf(device())))
         assertEquals(ComputerPresence.Online, ComputerPresence.of(offline.copy(online = null), listOf(device())))
         assertEquals(ComputerPresence.Online, ComputerPresence.of(null, listOf(device())))
+    }
+    @Test fun aWorkspaceWithoutRuntimesFindsItsBoxThatIsStillStarting() {
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(id = "other", state = "running"), device(state = "connecting"))))
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(state = "creating"))))
+    }
+    @Test fun aWorkspaceWithoutAStartingBoxHasNothingToAwait() {
+        assertEquals(null, ComputerPresence.starting(listOf(device(state = "paused"), device(id = "pc", box = false))))
+        assertEquals(null, ComputerPresence.starting(listOf(device(state = "connecting").copy(online = true))))
+        assertEquals(null, ComputerPresence.starting(emptyList()))
     }
 }

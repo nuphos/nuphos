@@ -215,8 +215,8 @@ class BotQuestionsTest {
         failSave = true
         inbox.select(stored, ask)
         assertNotNull(inbox.failures[ask.id])
-        // A new chat never starts as the member.
-        assertTrue(CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"].isNullOrEmpty())
+        // A new chat starts with the member's own credentials, as on the desktop (#4028).
+        assertEquals(setOf("github"), CredentialSelection().selectDefaults(catalog).ids["personalCredentialIds"])
     }
 
     @Test fun aQuestionNamingTheMembersOwnGithubIsAnsweredByThatAlone() = runTest {
@@ -298,10 +298,13 @@ class BotQuestionsTest {
 
     @Test fun everyOpenQuestionIsAnsweredOnItsCard() {
         fun ask(json: String) = BotQuestion("agent-ops", "Release ops", Http.json.decodeFromString<InputRequest>(json))
-        // A sign-in status card: a credential with options and no secret is answered with them.
+        // A sign-in status card: a credential with options and no secret is answered with them, or in words (#4029).
         val signedIn = ask("""{"id":"q","category":"credential","question":"Sign in?","options":["Signed in","Not now"]}""")
         assertEquals(listOf("Signed in", "Not now"), cardReplies(signedIn)?.map { it.first })
-        assertFalse(signedIn.typed)
+        assertTrue(signedIn.typed)
+        // Without options a credential asks for the value itself, which is never typed; nor is a secret.
+        assertFalse(ask("""{"id":"q","category":"credential","question":"Key?"}""").typed)
+        assertFalse(ask("""{"id":"q","category":"credential","question":"Key?","secretName":"API_KEY"}""").typed)
         // An integration naming no provider keeps its options and its words.
         val play = ask("""{"id":"q","category":"integration","question":"Play review?","options":["I check","Wait"]}""")
         assertEquals(listOf("I check", "Wait"), cardReplies(play)?.map { it.first })
@@ -345,7 +348,9 @@ class BotQuestionsTest {
             BotQuestion("s", "Agent", InputRequest("r", category, "Go?", listOf("Approve", "Reject"), planId = planId))
         assertTrue(ask("preference").typed)
         assertFalse(ask("approval", planId = "p1").typed)
-        assertFalse(ask("credential").typed)
+        // A credential question with options is a choice like any other; its secret card takes no words (#4029).
+        assertTrue(ask("credential").typed)
+        assertFalse(BotQuestion("s", "Agent", ask("credential").request.copy(secretName = "API_KEY")).typed)
         // An integration question naming nothing to select, e.g. a service with no connector, takes words.
         assertTrue(ask("integration").typed)
         assertEquals("p1", Http.json.decodeFromString<InputRequest>("""{"id":"r","question":"Approve?","planId":"p1"}""").planId)

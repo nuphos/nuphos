@@ -110,7 +110,7 @@ export class DeviceRuntimeSocket {
 
   send(data: string): void {
     if (this.readyState !== OPEN) throw new Error('Local runtime stream is not open')
-    void this.toHolder({ t: 'data', s: this.streamId, d: data })
+    void this.toHolder({ t: 'data', s: this.streamId, d: data, conn: this.conn })
   }
 
   close(): void {

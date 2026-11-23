@@ -27,7 +27,7 @@ const contributionSchema = z.object({
 
 function context(c: { get(key: 'authToken'): string }) {
   if (!config.agent.ragApiKey) {
-    throw new AppError(503, 'knowledge_unavailable', 'The knowledge service is not configured')
+    throw new AppError(503, 'knowledge_not_configured', 'The knowledge service is not configured')
   }
 
   return createZeaburContext(c.get('authToken'), undefined, config.agent.ragApiKey)

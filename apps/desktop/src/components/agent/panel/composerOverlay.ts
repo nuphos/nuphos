@@ -26,9 +26,20 @@ export function useComposerOverlay(host: HTMLElement | null): number {
         ),
       )
     const sizes = new ResizeObserver(measure)
+    const watched = new Set<HTMLElement>()
+    // Observing a bar again restarts it, and a control below turning inert runs this while the
+    // observers deliver (#4018): that left a ResizeObserver loop. Only a new bar is observed.
     const watch = () => {
-      sizes.disconnect()
-      for (const bar of bars()) sizes.observe(bar)
+      for (const bar of watched)
+        if (!bar.isConnected) {
+          sizes.unobserve(bar)
+          watched.delete(bar)
+        }
+      for (const bar of bars())
+        if (!watched.has(bar)) {
+          watched.add(bar)
+          sizes.observe(bar)
+        }
       measure()
     }
     const changes = new MutationObserver(watch)

@@ -46,6 +46,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -100,6 +101,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -123,6 +126,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
@@ -172,6 +176,9 @@ fun ChatComposer(
     /** A native runtime's turn isn't a stream here, but [onStop] still ends it. */
     stopsRuntimeTurn: Boolean = false,
     showControls: Boolean = false,
+    /** Bot chats show the Bot's own runtime and model even before the composer is focused. */
+    botControls: Boolean = false,
+    lockedHint: String? = null,
     selection: CredentialSelection? = null,
     onSelectionChange: ((CredentialSelection) -> Unit)? = null,
     mode: PermissionMode? = null,
@@ -187,6 +194,7 @@ fun ChatComposer(
     modifier: Modifier = Modifier,
     /** Who the message goes to, e.g. "Message #release-planning" in a chat. */
     placeholder: String? = null,
+    bottomPadding: Dp = 8.dp,
     /** Each change raises the keyboard, as choosing to reply does. */
     focusRequest: Int = 0,
     autoFocus: Boolean = false,
@@ -209,6 +217,7 @@ fun ChatComposer(
     val latestOnSend by rememberUpdatedState(onSend)
     var showComputers by remember(draft, store?.workspaceRevision) { mutableStateOf(false) }
     var showModel by remember(modelSettings) { mutableStateOf(false) }
+    var showLockedHint by remember { mutableStateOf(false) }
     var picking by remember(draft) { mutableStateOf(false) }
     var pickerError by remember(draft) { mutableStateOf<String?>(null) }
     var focused by remember { mutableStateOf(false) }
@@ -604,7 +613,7 @@ fun ChatComposer(
     }
     val suggestedNextLabel = stringResource(R.string.composer_suggested_next)
     val fieldLabel = if (offersQueue) stringResource(R.string.composer_queue_a_message) else placeholder ?: stringResource(R.string.composer_ask_nuphos)
-    Column(modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
+    Column(modifier.fillMaxWidth().imePadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (suggestion != null) {
         Surface(onClick = {
@@ -624,7 +633,7 @@ fun ChatComposer(
         }
     }
     Surface(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth().testTag("chat-composer-surface")
             .graphicsLayer { translationY = handleDrag },
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceContainerHigh,
@@ -713,7 +722,7 @@ fun ChatComposer(
 
             if (showControls) {
                 AnimatedVisibility(
-                    visible = expanded,
+                    visible = botControls || expanded,
                     enter = fadeIn() + expandVertically(),
                     exit = fadeOut() + shrinkVertically(),
                 ) {
@@ -724,13 +733,21 @@ fun ChatComposer(
                             .padding(horizontal = 12.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        if (onChooseAgent != null || agentLabel != null) AgentChip(agent, enabled = agentEnabled,
-                            onClick = onChooseAgent ?: { showAgentUsage = true }, labelOverride = agentLabel)
-                        if (modelSettings != null) FilterChip(
-                            selected = modelSettings.pending.isNotEmpty(),
-                            onClick = { showModel = true },
-                            label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) },
-                        )
+                        if (onChooseAgent != null || agentLabel != null) {
+                            AgentChip(agent, enabled = agentEnabled,
+                                onClick = { if (lockedHint != null) showLockedHint = true else onChooseAgent?.invoke() ?: run { showAgentUsage = true } },
+                                labelOverride = agentLabel,
+                                constrained = botControls,
+                                modifier = if (botControls) Modifier.widthIn(max = 175.dp).alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.runtime") else Modifier)
+                        }
+                        if (modelSettings != null) {
+                            FilterChip(selected = modelSettings.pending.isNotEmpty(),
+                                onClick = { if (lockedHint != null) showLockedHint = true else showModel = true },
+                                modifier = if (botControls) Modifier.alpha(if (lockedHint != null) 0.38f else 1f)
+                                    .testTag("bot-composer.model") else Modifier,
+                                label = { Text(modelSettings.config?.modelTitle ?: stringResource(R.string.composer_model)) })
+                        }
                         if (!followsBot) {
                             FilterChip(
                                 selected = !resolvedSelection.isEmpty,
@@ -906,6 +923,11 @@ fun ChatComposer(
             confirmButton = { TextButton(onClick = { showAgentUsage = false }) { Text(stringResource(R.string.done)) } })
     }
     if (showModel && modelSettings != null) ModelSettingsSheet(modelSettings, onDismiss = { showModel = false })
+    if (showLockedHint && lockedHint != null) AlertDialog(
+        onDismissRequest = { showLockedHint = false },
+        text = { Text(lockedHint) },
+        confirmButton = { TextButton(onClick = { showLockedHint = false }) { Text(stringResource(R.string.composer_ok)) } },
+    )
     if (showComputers && store != null) {
         var pending by remember(draft, store.workspaceRevision, resolvedSelection) { mutableStateOf(resolvedSelection) }
         CredentialPickerSheet(

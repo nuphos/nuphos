@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { MessageResponse } from '../../components/agent/MessageResponse'
 import { AnswerField } from '../../components/agent/panel/AnswerField'
 import {
+  answeredBySelection,
   parseChoiceRequest,
-  parseConnectRequest,
 } from '../../components/agent/panel/connectCardModel'
 import { CredentialSelectorButton } from '../../components/agent/panel/CredentialSelectorButton'
 import {
@@ -51,7 +51,6 @@ export function DecisionCard({
   onSnooze,
   onDismiss,
   onOpenSource,
-  onOpenLink,
 }: {
   teamId: string
   conversation: AgentConversation
@@ -64,13 +63,12 @@ export function DecisionCard({
   onSnooze: (until: Date) => void
   onDismiss: (reason: string) => void
   onOpenSource: (source: AgentConversation) => void
-  /** Opens a link in the question's text, as the conversation does. */
-  onOpenLink: (href: string, beside: boolean) => boolean
 }) {
   const { sessionId } = conversation
   const source = bot ?? conversation
   const canManage = Boolean(conversation.canManage) && !conversation.readOnly
-  const connect = parseConnectRequest(request) !== null
+  // Answered by selecting it in the asking conversation's credentials, with or without a Connect card.
+  const connect = answeredBySelection(request)
   const credentials = useBotCredentials(teamId, connect && canManage ? sessionId : undefined)
   const { part, typed } = botChatQuestion(request)
   const page = pageChoice(part.input, typed)
@@ -119,7 +117,6 @@ export function DecisionCard({
               <MessageResponse
                 className="selectable mt-3 text-[13.5px] text-secondary"
                 streaming={false}
-                onLinkClick={onOpenLink}
               >
                 {page.body}
               </MessageResponse>
@@ -150,7 +147,6 @@ export function DecisionCard({
               teamId={teamId}
               credentials={credentials}
               onAnswer={(answer) => onAnswer(answer)}
-              onLinkClick={onOpenLink}
               fullBody
             />
             {/* The conversation's own picker, as its composer has it: a personal
@@ -215,7 +211,7 @@ export function DecisionCard({
 function pageChoice(input: unknown, typed: boolean) {
   const choice = parseChoiceRequest(input)
 
-  if (!choice) return null
+  if (!choice || answeredBySelection(input)) return null
   const questions = formQuestions(choice)
 
   if (!typed && !questions.some((q) => q.options.length > 0)) return null

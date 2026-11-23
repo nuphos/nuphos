@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -192,6 +193,26 @@ class QuestionOtherFixtureDeviceTest {
         assertEquals(listOf("Check the review status by hand", "Wait for it to go live"), answers)
     }
 
+    @Test fun aCredentialQuestionWithOptionsIsAnsweredWithThemOrWords() {
+        // #4029: a credential question with options and no secret is a choice like any other, Other… included.
+        val signIn = BotQuestion("agent-ops", "Release ops", InputRequest("q-signin", "credential",
+            "Codex on the Mac mini needs signing in again. Sign in now?", listOf("I'll sign in again", "Not now")))
+        val answers = mutableListOf<String>()
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(signIn, onOpen = {}, onAnswer = { answers += it }, onConnect = {})
+            }
+        }
+        compose.onAllNodesWithTag("bot-question-option").assertCountEquals(2)
+        compose.onAllNodesWithTag("bot-question-other").assertCountEquals(1)
+        artifact("credential-card-4029")
+        compose.onNodeWithText("Other…").performClick()
+        compose.onNodeWithTag("bot-question-answer").performTextInput("Use the other Codex for now")
+        artifact("credential-other-4029")
+        compose.onNodeWithTag("bot-question-send").performClick()
+        assertEquals(listOf("Use the other Codex for now"), answers)
+    }
+
     @Test fun aLongQuestionIsOneLineUntilTapped() {
         val long = BotQuestion("agent-ops", "Release ops", InputRequest("q-long", "approval",
             "Delete the staging cluster now? It has been idle for thirty days, costs about forty dollars a day, and nobody has deployed to it since the migration.",
@@ -203,6 +224,9 @@ class QuestionOtherFixtureDeviceTest {
         }
         // One line, cut, with the body under it.
         val title = compose.onNodeWithTag("bot-question-title")
+        val category = compose.onNodeWithTag("bot-question-category")
+        assertTrue(title.fetchSemanticsNode().config.contains(SemanticsProperties.Heading))
+        assertTrue(title.fetchSemanticsNode().boundsInRoot.bottom <= category.fetchSemanticsNode().boundsInRoot.top)
         assertEquals(1, layout(title).lineCount)
         assertTrue(layout(title).hasVisualOverflow)
         compose.onNodeWithText("Idle since the migration.", substring = true).assertExists()

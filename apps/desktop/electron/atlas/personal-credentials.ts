@@ -53,8 +53,13 @@ export async function deleteTeamGoogleClient(teamId: string): Promise<void> {
 export async function deletePersonalCredential(
   provider: PersonalCredentialProvider,
   teamId?: string,
+  connectionId?: string,
 ): Promise<void> {
-  const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : ''
+  const params = new URLSearchParams()
+
+  if (teamId) params.set('teamId', teamId)
+  if (connectionId) params.set('connectionId', connectionId)
+  const query = params.size ? `?${params.toString()}` : ''
 
   await call('DELETE', `/personal-credentials/${provider}${query}`, undefined, { retry: false })
 }

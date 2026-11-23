@@ -26,6 +26,8 @@
     <string name="chats_bots">Bot</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">Bot baru</string>
+    <string name="chats_first_bot_title">Mulai dengan Bot pertama Anda</string>
+    <string name="chats_first_bot_body">Rekan yang akrab untuk pekerjaan berkelanjutan. Beri nama dan ajak tim Anda bergabung.</string>
     <string name="chats_archive_bot">Arsipkan Bot</string>
     <string name="chats_more_actions">Tindakan lainnya</string>
     <string name="chats_is_typing">%1$s sedang mengetik</string>
@@ -45,6 +47,7 @@
     <string name="chats_reply">Balas</string>
     <string name="chats_copy">Salin</string>
     <string name="chats_usage_resets">Kuota penggunaan %1$s.</string>
+    <string name="chats_verify_with_anthropic">Verifikasi dengan Anthropic</string>
     <string name="chats_switch_runtime">Ganti runtime</string>
     <string name="chats_retry">Coba lagi</string>
     <string name="chats_send_failed_title">Tidak dapat mengirim pesan</string>
@@ -57,7 +60,7 @@
     <string name="chats_question_snooze_tomorrow">Besok, 9:00</string>
     <string name="chats_question_snooze_monday">Senin depan, 9:00</string>
     <string name="chats_question_dismiss_reason">Alasan (opsional)</string>
-    <string name="chats_empty_bot_body">Ini percakapan Anda dengan %1$s. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama.</string>
+    <string name="chats_empty_bot_body">Di sini Anda dan %1$s menyelesaikan pekerjaan. Ceritakan bantuan yang Anda perlukan dan tentukan cara bekerja bersama.</string>
     <string name="chats_empty_bot_start">Anda bisa mulai dengan memberi tahu %1$s apa yang ingin dilakukan.</string>
     <string name="chats_bot_computer_offline">Komputer %1$s sedang offline.</string>
     <string name="chats_presence_online">Online</string>

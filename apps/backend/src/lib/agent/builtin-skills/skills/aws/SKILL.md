@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Run AWS CLI v2 commands from the sandbox to inspect or change AWS resources (CloudWatch, SNS, EKS, EC2, IAM, VPC, etc.). Includes the CloudWatch Alarm to Nuphos Trigger and Slack workflow.
+description: Run AWS CLI v2 to inspect or change AWS resources. Use at once for a Nuphos /s3-buckets/ link (fetch and show it), AccessDenied on the BYOC role, or CloudWatch alarms into Triggers.
 ---
 
 # AWS CLI
@@ -141,7 +141,7 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    Status: {{payload.status}}; alarm: {{payload.alarm.name}}; state: {{payload.alarm.newState}}
    Reason: {{payload.alarm.reason}}; changed at: {{payload.alarm.stateChangedAt}}
    If payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation and no Slack post.
-   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Put the investigation detail in replyThread, so a follow-up asked in that thread gets an answer.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
@@ -180,3 +180,22 @@ All bash tool calls also have a bounded runtime. Keep manual polling loops short
 - **Don't echo secrets.** Don't `echo $AWS_SECRET_ACCESS_KEY` or print `aws iam create-access-key` output verbatim — summarize "created key, prefix AKIA…" and tell the user to capture the secret on their side.
 - **Don't run `aws s3 rm --recursive` or `aws s3 sync --delete`** without an explicit confirmed target.
 - **Re-auth if you see `ExpiredToken`.** Re-run `setup-credentials.sh` rather than asking the user for new keys.
+
+## Nuphos S3 object links
+
+When the user's message contains a Nuphos S3 URL of the form `/teams/<T>/infra/aws/<A>/s3-buckets/<bucket>/<key>` (the frontend renders these as file/folder chips), they're asking you to look at that file. Act immediately — do NOT ask "should I fetch this?" or list a plan and wait for confirmation. The user already implicitly authorized by sharing the link.
+
+On the first turn that references such a URL:
+
+1. Parse the URL to extract `<A>` (the AWS account ID), `<bucket>`, and `<key>` (everything after `/s3-buckets/<bucket>/`).
+2. Load the `aws` skill and run its setup script with account `<A>` to get short-term credentials for the team's BYOC role. Skip this only if the same account was already set up earlier in the conversation.
+3. Detect the bucket's region with `aws s3api get-bucket-location --bucket <bucket>` (the response can be empty for us-east-1 or `EU` for eu-west-1 — normalize accordingly).
+4. Fetch the content with `aws s3 cp s3://<bucket>/<key> - --region <region>` and display it in a fenced code block with the right language hint (yaml / json / etc., inferred from the extension).
+
+If the key ends with `/`, it's a folder — list with `aws s3 ls s3://<bucket>/<key> --region <region>` instead of `cp`. If the file is binary or larger than ~5 MB, stop after step 3 and ask the user how they want to proceed (head -c, range, summary, etc.). Otherwise just show the content — no preamble like "I'll now fetch the file"; let the tool-call labels speak for the actions.
+
+## Missing IAM permissions on the BYOC role itself (AWS)
+
+If you requested elevation, the user approved, you re-ran the `aws` setup script to refresh credentials, and the call *still* fails with `AccessDenied` / `not authorized` — that's a signal the BYOC role's own IAM policy is missing the action. Nuphos's elevation only narrows the session policy on top of the role; it can't grant permissions the role doesn't already have.
+
+Never widen the role's policy yourself. Surface the missing AWS action, the role ARN, the affected resources, and the narrowest policy statement needed. Offer to apply that scoped change through `local_exec` on a user-selected device already signed in to the AWS CLI with IAM administration access; verify its account and identity first. Otherwise ask the user to apply it in the AWS IAM console. Retry after the change succeeds.

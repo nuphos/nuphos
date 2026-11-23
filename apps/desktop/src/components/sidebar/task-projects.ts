@@ -26,12 +26,7 @@ export function withProjects(
   const nested = tasks.map((task) =>
     task.parentKey && keys.has(task.parentKey)
       ? task
-      : // Listed like any task, not counted as a finished sub-agent.
-        {
-          ...task,
-          finished: false,
-          parentKey: task.projectPath ? projectKey(task.projectPath) : NO_PROJECT_KEY,
-        },
+      : { ...task, parentKey: task.projectPath ? projectKey(task.projectPath) : NO_PROJECT_KEY },
   )
   const row = (key: string, label: string, path: string | null): Item => ({
     key,

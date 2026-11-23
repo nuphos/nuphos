@@ -49,19 +49,27 @@ export function DecisionOptions({
   children?: ReactNode
 }) {
   const [picked, setPicked] = useState<string[][]>(() => questions.map(() => []))
-  // What was typed is kept while a field is closed; only an open field answers.
+  // What was typed is kept while a field is closed; only an open field answers,
+  // or one closed with Done, which keeps its words as the question's answer.
   const [typed, setTyped] = useState<string[]>(() => questions.map(() => ''))
   const [kept, setOpen] = useState<boolean[]>(() => questions.map(() => false))
+  const [saved, setSaved] = useState<boolean[]>(() => questions.map(() => false))
   // Put away while another field takes the words' place, and back as it was after.
   const open = kept.map((was) => was && !closesWords)
   const instant = clickOptions(questions) !== undefined
-  const words = typed.map((text, index) => (open[index] ? text : ''))
+  const words = typed.map((text, index) => (open[index] || saved[index] ? text : ''))
   const complete = questions.every(
     (_, index) => (picked[index]?.length ?? 0) > 0 || Boolean(words[index]?.trim()),
   )
   const toggleField = (index: number, value: boolean) => {
     setOpen(replaceAt(open, index, value))
     onTyping?.(value)
+  }
+  // A field's Send answers the card once every question is; until then it is
+  // Done: its words become the question's answer and the field closes.
+  const keepWords = (index: number) => {
+    setSaved(replaceAt(saved, index, true))
+    toggleField(index, false)
   }
   const last = questions.length - 1
 
@@ -88,7 +96,7 @@ export function DecisionOptions({
                   title={instant ? keyTitle?.(at) : undefined}
                   onClick={() => {
                     if (instant) onSubmit({ choices: [option] })
-                    else
+                    else {
                       setPicked(
                         replaceAt(
                           picked,
@@ -96,6 +104,9 @@ export function DecisionOptions({
                           togglePick(picked[index] ?? [], option, q.multiSelect),
                         ),
                       )
+                      // One answer: the option takes the place of words kept with Done.
+                      if (!q.multiSelect) setSaved(replaceAt(saved, index, false))
+                    }
                   }}
                 >
                   {on && <Check aria-hidden className="size-3.5 shrink-0" />}
@@ -104,15 +115,12 @@ export function DecisionOptions({
               )
             })}
             {typeable ? (
-              <Button
-                variant="secondary"
-                size="sm"
-                className={clsx(PILL, open[index] && '!bg-state-hover')}
-                aria-expanded={open[index] ?? false}
+              <OtherPill
+                open={open[index] ?? false}
+                kept={saved[index] ? typed[index]?.trim() : undefined}
+                reply={q.options.length === 0}
                 onClick={() => toggleField(index, !open[index])}
-              >
-                {q.options.length > 0 ? t('Other…') : t('Reply…')}
-              </Button>
+              />
             ) : (
               q.options.length === 0 && hint
             )}
@@ -133,7 +141,10 @@ export function DecisionOptions({
               <AnswerField
                 text={typed[index] ?? ''}
                 onText={(text) => setTyped(replaceAt(typed, index, text))}
-                onSend={() => complete && onSubmit(formAnswer(questions, picked, words))}
+                onSend={() =>
+                  complete ? onSubmit(formAnswer(questions, picked, words)) : keepWords(index)
+                }
+                action={complete ? t('Send') : t('Done')}
                 onClose={() => toggleField(index, false)}
                 voiceTeamId={voiceTeamId}
               />
@@ -145,9 +156,46 @@ export function DecisionOptions({
   )
 }
 
-/** Every button of the row the same pill, as Paper's question card draws a choice. */
+/**
+ * Every button of the row the same pill, as Paper's question card draws a choice. A long option
+ * wraps: `!` because Button's `whitespace-nowrap` comes later in the stylesheet and would win.
+ */
 export const PILL =
-  'h-auto min-h-8 gap-1.5 whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
+  'h-auto min-h-8 gap-1.5 !whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
+
+/**
+ * "Other…" ("Reply…" with nothing to click) opens a question's field; once its
+ * words are kept with Done, it shows them, picked as an option is, and a click
+ * opens them to edit.
+ */
+function OtherPill({
+  open,
+  kept,
+  reply,
+  onClick,
+}: {
+  open: boolean
+  kept: string | undefined
+  reply: boolean
+  onClick: () => void
+}) {
+  const label = reply ? t('Reply…') : t('Other…')
+  const shown = !open && kept ? kept : undefined
+
+  return (
+    <Button
+      variant="secondary"
+      size="sm"
+      className={clsx(PILL, open && '!bg-state-hover')}
+      aria-expanded={open}
+      title={kept}
+      onClick={onClick}
+    >
+      {shown ? <Check aria-hidden className="size-3.5 shrink-0" /> : null}
+      {shown ? <span className="max-w-[16rem] truncate">{shown}</span> : label}
+    </Button>
+  )
+}
 
 /** How a question's options are picked when Send answers them. */
 function pickRole(question: DecisionQuestion) {

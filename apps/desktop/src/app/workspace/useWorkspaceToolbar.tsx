@@ -68,6 +68,8 @@ const UNFILTERABLE_PAGE_KEYS = new Set([
   'cloudflare.iam',
   // Connectors owns a catalog search below its title and copy.
   'team.integrations',
+  // The Inbox's search sits in the sidebar, above the list it filters.
+  'team.inbox',
 ])
 
 /**

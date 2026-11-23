@@ -7,6 +7,8 @@ import type { Stack } from './stack.ts'
 
 // Made per run, as only this process signs events for the backend it starts.
 const SIGNING_SECRET = randomBytes(32).toString('hex')
+
+export const E2E_JWT_SECRET = 'local-e2e-jwt-secret-not-a-production-credential'
 /** Hex, so the backend reads it as the 32-byte key it seals Slack tokens with. */
 const SLACK_TOKEN_KEY = '6c6f63616c2d6532652d736c61636b2d6b65792d6e6f742d666f722d70726f64'
 
@@ -45,6 +47,11 @@ function usersInfo(id: string) {
 const METHODS: Record<string, (params: Record<string, string>) => object> = {
   'users.info': (params) => usersInfo(params.user ?? ''),
   'chat.postMessage': postMessage,
+  // The connected channel, as the settings describe it.
+  'conversations.info': (params) => ({
+    ok: true,
+    channel: { id: params.channel, name: 'e2e-deploys', is_member: true, is_private: false },
+  }),
 }
 
 /** Starts it on a free port; the backend's environment to reach it. */
@@ -59,7 +66,8 @@ export async function startSlackStub(): Promise<Record<string, string>> {
       const body = chunks.length > 0 ? (JSON.parse(Buffer.concat(chunks).toString()) as object) : {}
       const params = { ...Object.fromEntries(url.searchParams), ...body } as Record<string, string>
 
-      const answer = (METHODS[method] ?? (() => ({ ok: true })))(params)
+      const answer =
+        CHANNEL_METHODS[method]?.(params) ?? (METHODS[method] ?? (() => ({ ok: true })))(params)
 
       response.writeHead(200, { 'content-type': 'application/json' })
       response.end(JSON.stringify(answer))
@@ -77,6 +85,69 @@ export async function startSlackStub(): Promise<Record<string, string>> {
     SLACK_SIGNING_SECRET: SIGNING_SECRET,
     SLACK_TOKEN_ENCRYPTION_KEY: SLACK_TOKEN_KEY,
   }
+}
+
+type SlackMessage = { ts: string; text: string; user?: string; thread_ts?: string }
+type SlackPerson = { id: string; name: string; real_name: string }
+type SlackChannel = {
+  name: string
+  private?: boolean
+  joined: boolean
+  messages: SlackMessage[]
+  members?: SlackPerson[]
+}
+
+const slackChannels = new Map<string, SlackChannel>()
+
+/** A channel conversations.* knows, with its messages oldest first (a thread reply has thread_ts)
+ *  and its members, whom users.list names. */
+export function addSlackChannel(id: string, channel: SlackChannel) {
+  slackChannels.set(id, channel)
+}
+
+// Answer only for a channel a scenario added; any other falls through to METHODS.
+const CHANNEL_METHODS: Record<string, (params: Record<string, string>) => object | undefined> = {
+  'conversations.info': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+
+    return (
+      channel && {
+        ok: true,
+        channel: {
+          id: params.channel,
+          name: channel.name,
+          is_private: channel.private === true,
+          is_member: channel.joined,
+        },
+      }
+    )
+  },
+  'conversations.history': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+    const roots = channel?.messages.filter(
+      (message) => (message.thread_ts ?? message.ts) === message.ts,
+    )
+
+    return channel && { ok: true, messages: roots?.toReversed(), has_more: false }
+  },
+  'conversations.replies': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+    const thread = channel?.messages.filter(
+      (message) => (message.thread_ts ?? message.ts) === params.ts,
+    )
+
+    return channel && { ok: true, messages: thread, has_more: false }
+  },
+  'conversations.members': (params) => {
+    const channel = slackChannels.get(params.channel ?? '')
+
+    return channel && { ok: true, members: channel.members?.map((person) => person.id) ?? [] }
+  },
+  'users.list': () => {
+    const people = [...slackChannels.values()].flatMap((channel) => channel.members ?? [])
+
+    return people.length > 0 ? { ok: true, members: people } : undefined
+  },
 }
 
 /** A bot token sealed the way the backend stores it, under the stub's key. */

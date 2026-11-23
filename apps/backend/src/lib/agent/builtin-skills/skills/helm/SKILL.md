@@ -1,6 +1,6 @@
 ---
 name: helm
-description: Install applications onto an Nuphos-managed Kubernetes cluster using the helm CLI from inside the sandbox. Use this for chart-based deploys ("install Inngest", "deploy ingress-nginx", "set up cert-manager"). Includes an install script for the helm binary.
+description: Install or upgrade chart-based apps on a Nuphos-managed Kubernetes cluster with helm ("install Inngest", "deploy ingress-nginx"). Includes an install script for helm.
 ---
 
 # helm

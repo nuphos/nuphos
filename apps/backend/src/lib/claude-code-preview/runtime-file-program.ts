@@ -39,7 +39,9 @@ try {
   // session's logins, so they stay out of reach.
   const homes = [];
   if (typeof input.sessionId === 'string') {
-    const id = (await import('node:crypto')).createHash('sha256').update(input.sessionId).digest('hex');
+    if (input.sessionHomeEpoch !== undefined && (!Number.isSafeInteger(input.sessionHomeEpoch) || input.sessionHomeEpoch < 0)) throw Error('invalid_path');
+    const hash = (await import('node:crypto')).createHash('sha256').update(input.sessionId).digest('hex');
+    const id = input.sessionHomeEpoch ? hash + '.g-' + input.sessionHomeEpoch : hash;
     const home = path.join((await import('node:os')).homedir(), '.nuphos', 'session-homes', id);
     // Like the workspace, a home that is a link is refused rather than followed.
     const stat = await fs.lstat(home).catch(() => null);

@@ -11,7 +11,7 @@ import type { Scenario } from './ui.ts'
 const SENTENCE =
   "This computer couldn't reach the model provider's API. Check its network, proxy or VPN, then resend your message."
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 
 export const providerUnreachableScenarios: Scenario[] = [
   {
@@ -21,7 +21,7 @@ export const providerUnreachableScenarios: Scenario[] = [
       await pickAgent(page, 'E2E fixture agent')
       // The fixture fails it as Claude Code does: -32603, Unable to connect to API (EPROTO).
       await send(page, 'Cannot reach the API E2E_API_UNREACHABLE E2E_DELIVERY:api-unreachable')
-      await page.getByText(SENTENCE).first().waitFor()
+      await page.getByText(SENTENCE).filter({ visible: true }).first().waitFor()
       await page.screenshot({ path: `${artifacts}/api-unreachable.png` })
       const raw = await page.getByText(/Unable to connect to API|EPROTO/).count()
 
@@ -37,7 +37,7 @@ export const providerUnreachableScenarios: Scenario[] = [
       await pickAgent(page, 'E2E fixture agent')
       // The fixture fails it as codex-acp does when the computer's npm Codex lost its binary.
       await send(page, 'Start Codex E2E_CODEX_BROKEN E2E_DELIVERY:codex-broken')
-      await page.getByText(REINSTALL).first().waitFor()
+      await page.getByText(REINSTALL).filter({ visible: true }).first().waitFor()
       // The agent's own failure: the row that offers Switch runtime, as a signed-out agent's does.
       await page.getByRole('button', { name: 'Switch runtime' }).last().waitFor()
       await page.screenshot({ path: `${artifacts}/codex-broken.png` })
@@ -57,9 +57,16 @@ export const providerUnreachableScenarios: Scenario[] = [
       await page.getByRole('menuitem', { name: 'New Bot', exact: true }).click()
       await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Broken Codex')
       await page.getByRole('button', { name: 'Create', exact: true }).click()
-      await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+      await page
+        .getByText('POSTED E2E_DELIVERY:missing', { exact: true })
+        .filter({ visible: true })
+        .waitFor()
       await send(page, 'Start Codex E2E_CODEX_BROKEN E2E_DELIVERY:bot-codex-broken')
-      await page.getByText(`couldn’t reply: ${REINSTALL}`).first().waitFor()
+      await page
+        .getByText(`couldn’t reply: ${REINSTALL}`)
+        .filter({ visible: true })
+        .first()
+        .waitFor()
       if (await page.getByRole('button', { name: /^Install (Codex|Claude Code)$/ }).count())
         throw new Error('Another computer must not offer Install here')
       await page.evaluate(() => {
@@ -85,7 +92,11 @@ export const providerUnreachableScenarios: Scenario[] = [
       writeFileSync(broken, '')
       try {
         await page.getByRole('button', { name: 'Create', exact: true }).click()
-        await page.getByText(`couldn’t reply: ${REINSTALL}`).first().waitFor()
+        await page
+          .getByText(`couldn’t reply: ${REINSTALL}`)
+          .filter({ visible: true })
+          .first()
+          .waitFor()
         if (await page.getByRole('button', { name: /^Install (Codex|Claude Code)$/ }).count())
           throw new Error('Another computer must not offer Install here')
         await page.evaluate(() => {

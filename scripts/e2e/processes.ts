@@ -1,12 +1,14 @@
 // Child processes for the end-to-end run: each one logs to a file in the run's
 // artifact directory and is stopped, newest first, when the run ends.
 import { spawn as spawnChild } from 'node:child_process'
+import { randomInt } from 'node:crypto'
 import { createWriteStream, mkdtempSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import type { ChildProcess } from 'node:child_process'
+import type { Server } from 'node:net'
 
 export const artifacts = process.env.E2E_ARTIFACTS ?? mkdtempSync(join(tmpdir(), 'nuphos-e2e-'))
 const children: ChildProcess[] = []
@@ -15,13 +17,21 @@ export function logPath(name: string): string {
   return join(artifacts, `${name}.log`)
 }
 
-/** Distinct free ports. They are held open together, or the system can hand out the same one twice. */
+// Distinct free ports below the ephemeral range (Linux 32768+, macOS 49152+), where an outbound
+// connection could take one as its source port first. Held open together, none is handed out twice.
 export async function freePorts(count: number): Promise<number[]> {
-  const servers = Array.from({ length: count }, () => createServer())
+  const servers: Server[] = []
 
-  await Promise.all(
-    servers.map((server) => new Promise<void>((done) => server.listen(0, '127.0.0.1', done))),
-  )
+  while (servers.length < count) {
+    const server = createServer()
+    const port = randomInt(20_000, 32_000)
+    const listening = await new Promise<boolean>((done) => {
+      server.once('error', () => done(false))
+      server.listen(port, '127.0.0.1', () => done(true))
+    })
+
+    if (listening) servers.push(server)
+  }
   const ports = servers.map((server) => (server.address() as { port: number }).port)
 
   await Promise.all(servers.map((server) => new Promise((done) => server.close(done))))
@@ -111,4 +121,12 @@ export async function stop(child: ChildProcess): Promise<void> {
 // All at once: each may take its full 5 s, and one after another a stack took 37 s to stop.
 export async function stopAll(): Promise<void> {
   await Promise.all(children.map(stop))
+}
+
+// An interrupted run stops what it started, and only that: each child is its own process group, so
+// without this a signalled runner leaves its database and agents running.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    void stopAll().finally(() => process.exit(1))
+  })
 }

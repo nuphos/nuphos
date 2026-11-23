@@ -36,6 +36,45 @@ function rest(stack: Stack, token: string) {
   }
 }
 
+// One conversation read as `reader`; `say` sends one message onto its stored transcript and
+// answers with the turn's whole event stream.
+function conversation(stack: Stack, reader: string) {
+  const sessionId = randomUUID()
+  const read = () =>
+    rest(stack, reader)<Detail>('GET', `/agent/conversations/${sessionId}?teamId=${stack.teamId}`)
+  const settled = async () => {
+    let detail: Detail | undefined
+
+    await until('the turn to end', async () => {
+      detail = await read()
+
+      return !detail.activeRun
+    })
+
+    return detail!
+  }
+  const say = async (token: string, text: string, start?: object) => {
+    const response = await fetch(`${stack.apiUrl}/agent/chat`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        id: sessionId,
+        teamId: stack.teamId,
+        messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] }],
+        streamId: randomUUID(),
+        ...(start ?? { baseIndex: (await settled()).messages.length }),
+      }),
+      signal: AbortSignal.timeout(90_000),
+    })
+
+    if (!response.ok) throw new Error(`The send answered ${response.status}`)
+
+    return response.text()
+  }
+
+  return { sessionId, read, settled, say }
+}
+
 // The owner's computer with a signed-in Claude Code, online until the returned function is called.
 async function laptopOnline(stack: Stack): Promise<() => void> {
   await rest(stack, stack.token)('PUT', '/agent/devices', {
@@ -90,39 +129,7 @@ export const fallbackScenarios: Scenario[] = [
       const [first, second] = [idOf('E2E fixture agent'), idOf('E2E second agent')]
       const fallBackTo = (fallbackRuntimeId: string | null) =>
         owner('PUT', `${team}/runtime-fallbacks/${first}`, { fallbackRuntimeId })
-      const sessionId = randomUUID()
-      const read = () =>
-        as<Detail>('GET', `/agent/conversations/${sessionId}?teamId=${stack.teamId}`)
-      const settled = async () => {
-        let detail: Detail | undefined
-
-        await until('the turn to end', async () => {
-          detail = await read()
-
-          return !detail.activeRun
-        })
-
-        return detail!
-      }
-      // One message onto the stored transcript; the answer is the turn's whole event stream.
-      const say = async (token: string, text: string, start?: object) => {
-        const response = await fetch(`${stack.apiUrl}/agent/chat`, {
-          method: 'POST',
-          headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({
-            id: sessionId,
-            teamId: stack.teamId,
-            messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text }] }],
-            streamId: randomUUID(),
-            ...(start ?? { baseIndex: (await settled()).messages.length }),
-          }),
-          signal: AbortSignal.timeout(90_000),
-        })
-
-        if (!response.ok) throw new Error(`The send answered ${response.status}`)
-
-        return response.text()
-      }
+      const { sessionId, read, settled, say } = conversation(stack, teammate.token)
       const refused = 'E2E_DELIVERY:teammate-fallback-refused'
       const ran = 'E2E_DELIVERY:teammate-fallback-ran'
 
@@ -197,4 +204,57 @@ export const fallbackScenarios: Scenario[] = [
       }
     },
   },
+  movesDown(
+    // #4037. Fails without the fix: a model the endpoint does not serve was not the agent
+    // failing, so the conversation stayed on E2E fixture agent and the wait for the move times out.
+    'a turn on a model its endpoint does not serve moves down the fallback list and goes on',
+    'Retired model E2E_MODEL_NOT_FOUND E2E_DELIVERY:model-not-found',
+    /model: claude-e2e-retired/,
+  ),
+  // A session limit hit after the answer began: Claude Code's adapter used to leave such a turn
+  // open until the 30-minute inactivity timeout, so the wait for the move times out without it.
+  movesDown(
+    'a session limit hit mid-turn ends the turn at once and moves down the fallback list',
+    'Mid-turn limit E2E_SESSION_LIMIT E2E_DELIVERY:session-limit',
+    /hit your session limit/,
+  ),
 ]
+
+function movesDown(name: string, prompt: string, expected?: RegExp): Scenario {
+  return {
+    name,
+    ...(expected && { expected }),
+    run: async (_page, stack) => {
+      const owner = rest(stack, stack.token)
+      const team = `/teams/${stack.teamId}`
+      const { runtimes } = await owner<{ runtimes: Runtime[] }>('GET', `${team}/agent-runtimes`)
+      const [first, second] = ['E2E fixture agent', 'E2E second agent'].map(
+        (label) => runtimes.find((runtime) => runtime.label === label)!.id,
+      )
+      const fallBackTo = (fallbackRuntimeId: string | null) =>
+        owner('PUT', `${team}/runtime-fallbacks/${first}`, { fallbackRuntimeId })
+      const { read, settled, say } = conversation(stack, stack.token)
+      const onSecond = () =>
+        agentLog(stack).filter((e) => e.agent === 'second' && e.event === 'finish').length
+      const before = onSecond()
+
+      await fallBackTo(second)
+      try {
+        await say(stack.token, prompt, { runtimeId: first, agentRuntime: 'claude-code' })
+        await until('the conversation to fall back to E2E second agent', async () => {
+          const detail = await read()
+
+          return detail.runtimeId === second && moved(detail).length
+        })
+        const move = moved(await settled())[0]
+
+        if (move?.reason !== 'failure' || move.to?.label !== 'E2E second agent')
+          throw new Error(`The move does not say a failed turn moved it: ${JSON.stringify(move)}`)
+        // The owner's interrupted turn goes on by itself on the agent it moved to.
+        await until('the turn to go on on E2E second agent', async () => onSecond() > before)
+      } finally {
+        await fallBackTo(null)
+      }
+    },
+  }
+}

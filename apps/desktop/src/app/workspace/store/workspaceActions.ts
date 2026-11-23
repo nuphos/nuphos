@@ -40,7 +40,6 @@ export type WorkspaceAction =
   | { type: 'openTab'; sessionKey: string; tab: WorkspaceTabState; options?: OpenTabOptions }
   | { type: 'activateTab'; sessionKey: string; tabId: string }
   | { type: 'mountTab'; sessionKey: string; tabId: string }
-  | { type: 'openTeamTab'; sessionKey: string; teamId: string }
   | { type: 'selectAdjacentTab'; sessionKey: string; direction: -1 | 1 }
   | { type: 'selectTabAt'; sessionKey: string; position: number | 'last' }
   | { type: 'mapTabs'; sessionKey: string; updater: TabUpdater }

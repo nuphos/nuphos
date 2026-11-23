@@ -1,6 +1,6 @@
 ---
 name: notion
-description: Read and edit Notion — search the workspace, fetch page/database content, create and update pages, append blocks, create/query databases, and read/post comments — through a Notion workspace the user's team has bound to Nuphos. Use whenever the user asks to find a Notion page/doc, read a Notion database, capture notes into Notion, write up a runbook/report/incident doc in Notion, update a page, or comment on one. Nuphos backend hands the agent a Notion integration token; the agent calls api.notion.com/v1 directly with curl.
+description: "Search, read and edit a team-bound Notion workspace: pages, databases, blocks and comments. Use to find a doc, capture notes, or write a runbook or report in Notion."
 ---
 
 # notion

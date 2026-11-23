@@ -13,11 +13,12 @@ import { createTransfer, finalizeTransfer, resolveDownloads } from '@/lib/file-t
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
-import { RUNTIME_FILE_PROGRAM } from './runtime-file-program'
 import { parseRuntimeFile, parseRuntimeDirectory, parseRuntimeStat } from './runtime-file-codec'
+import { RUNTIME_FILE_PROGRAM } from './runtime-file-program'
+import { resolveTeamRuntimeEndpoints } from './runtime-registry'
+
 export { parseRuntimeFile, parseRuntimeDirectory } from './runtime-file-codec'
 export type { RuntimeDirectory } from './runtime-file-codec'
-import { resolveTeamRuntimeEndpoints } from './runtime-registry'
 
 const unavailable = () =>
   new AppError(
@@ -115,7 +116,13 @@ async function runtimeFileOperation(
     !conversation.previousRuntimeUrls?.includes(endpoint.url)
   )
     throw new AppError(403, 'runtime_mismatch', 'This agent does not belong to the conversation.')
-  const params = { path, ...request, workspace: '/workspace', sessionId }
+  const params = {
+    path,
+    ...request,
+    workspace: '/workspace',
+    sessionId,
+    sessionHomeEpoch: conversation.sessionHomeEpoch ?? 0,
+  }
   let output: string
 
   try {

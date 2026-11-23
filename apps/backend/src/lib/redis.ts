@@ -3,6 +3,7 @@ import { randomBytes } from 'node:crypto'
 import Redis from 'ioredis'
 
 import { config } from '@/config'
+import { outsideTokenTeamScope } from '@/lib/identity/token-team-scope'
 import { isShuttingDown } from '@/lib/lifecycle'
 import { logEvent } from '@/lib/observability'
 import { instrumentRedis } from '@/otel/instrumentation/redis'
@@ -89,7 +90,8 @@ function errorFields(err: unknown): { error_name: string; error_message: string 
 }
 
 function newClient(role: 'client' | 'subscriber'): Redis {
-  const client = new Redis(buildOptions())
+  // Made lazily, often inside a request: it must not keep that request's token limit.
+  const client = outsideTokenTeamScope(() => new Redis(buildOptions()))
 
   client.on('error', (err) => {
     logEvent('warn', 'redis.client.error', { role, replica_id: replicaId, ...errorFields(err) })
