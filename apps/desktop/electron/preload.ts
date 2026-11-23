@@ -7,6 +7,7 @@ import { bindingAccessApi } from './preload-parts/api-binding-access'
 import { browserExtensionsApi } from './preload-parts/api-browser-extensions'
 import { channelsApi } from './preload-parts/api-channels'
 import { cloudAccountsApi } from './preload-parts/api-cloud-accounts'
+import { teamOAuthApi } from './preload-parts/api-team-oauth'
 import { cloudOpsApi } from './preload-parts/api-cloud-ops'
 import { cloudflareApi } from './preload-parts/api-cloudflare'
 import { connectApi } from './preload-parts/api-connect'
@@ -41,6 +42,7 @@ const api = {
   ...deviceApi,
   ...awsApi,
   ...cloudOpsApi,
+  ...teamOAuthApi,
   ...githubCliApi,
   ...agentApi,
   ...integrationsApi,

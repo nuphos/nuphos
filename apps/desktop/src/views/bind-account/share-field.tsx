@@ -17,7 +17,7 @@ export function BindShareField({
   value: string[] | null
   onChange: (list: string[]) => void
   /** What the picker shows while untouched; the dialog sends it as the choice. */
-  onDefaultChange: (list: string[]) => void
+  onDefaultChange?: (list: string[]) => void
 }) {
   const members = useTeamMembers(teamId)
   const me = useCurrentUser()?.id
@@ -27,7 +27,7 @@ export function BindShareField({
 
   // An untouched picker always submits the connecting member alone.
   useEffect(
-    () => onDefaultChange(fallbackKey ? fallbackKey.split(',') : []),
+    () => onDefaultChange?.(fallbackKey ? fallbackKey.split(',') : []),
     [fallbackKey, onDefaultChange],
   )
 

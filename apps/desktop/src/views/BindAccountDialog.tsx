@@ -75,7 +75,11 @@ export function BindAccountDialog({
     try {
       // Resolves when Cloudflare redirects back through the backend and the
       // desktop receives the nuphos://cloudflare-callback deep link.
-      await api.atlasStartCloudflareConnect(teamId, scopes)
+      await api.atlasStartCloudflareConnect(
+        teamId,
+        scopes,
+        shareList ? shareFromAllowList(shareList) : undefined,
+      )
       if (attempt !== cloudflareAttempt.current) return
       reset()
       onBound()
@@ -112,6 +116,17 @@ export function BindAccountDialog({
     />
   ) : undefined
 
+  const shareField = (
+    <BindShareField
+      key={teamId}
+      teamId={teamId}
+      provider={provider}
+      value={shareList}
+      onChange={setShareList}
+      onDefaultChange={setDefaultShareList}
+    />
+  )
+
   return (
     <Modal
       open={open}
@@ -138,19 +153,13 @@ export function BindAccountDialog({
           <BindDialogBody
             st={st}
             teamId={teamId}
+            cloudflareShareField={
+              provider === 'cloudflare' && !cloudflareConnecting ? shareField : undefined
+            }
             onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
           />
         )}
-        {showFooter && SHAREABLE_PROVIDERS.has(provider) && (
-          <BindShareField
-            key={teamId}
-            teamId={teamId}
-            provider={provider}
-            value={shareList}
-            onChange={setShareList}
-            onDefaultChange={setDefaultShareList}
-          />
-        )}
+        {showFooter && SHAREABLE_PROVIDERS.has(provider) && shareField}
 
         {error && (
           <div className="mt-3 px-3 py-2 rounded-md bg-error/10 text-error text-[12.5px]">

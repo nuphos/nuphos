@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { TeamConnectorsBundle } from '../types/app-misc.ts'
 import type {
   GithubCliResult,
@@ -38,7 +39,7 @@ import type {
 
 export type WindowGitApi = {
   atlasListGithubInstallations(teamId: string): Promise<GithubInstallation[]>
-  atlasStartGithubInstall(teamId: string): Promise<GithubInstallation>
+  atlasStartGithubInstall(teamId: string, share?: BindingShare): Promise<GithubInstallation>
   atlasUnbindGithubInstallation(teamId: string, installationId: number): Promise<void>
   atlasListGithubRepositories(teamId: string, installationId: number): Promise<GithubRepository[]>
   atlasListGithubPulls(
@@ -78,11 +79,13 @@ export type WindowGitApi = {
     clientId?: string,
     clientSecret?: string,
     scopes?: string[],
+    share?: BindingShare,
   ): Promise<GitlabBindResult>
   atlasCancelGitlabOAuth(teamId: string): Promise<void>
   atlasStartCloudflareConnect(
     teamId: string,
     scopes?: string[],
+    share?: BindingShare,
   ): Promise<{
     bindingId: string
     teamId: string
@@ -111,7 +114,7 @@ export type WindowGitApi = {
   ): Promise<GitlabPipeline[]>
   atlasListTeamConnectors(teamId: string): Promise<TeamConnectorsBundle>
   atlasListLinearWorkspaces(teamId: string): Promise<LinearWorkspace[]>
-  atlasStartLinearOAuth(teamId: string): Promise<LinearBindResult>
+  atlasStartLinearOAuth(teamId: string, share?: BindingShare): Promise<LinearBindResult>
   atlasCancelLinearOAuth(teamId: string): Promise<void>
   atlasUnbindLinear(teamId: string, bindingId: string): Promise<void>
   atlasGetLinearIssue(
@@ -127,17 +130,17 @@ export type WindowGitApi = {
     cursor?: string,
   ): Promise<LinearTeamIssuesPage>
   atlasListJiraSites(teamId: string): Promise<JiraSite[]>
-  atlasStartJiraOAuth(teamId: string): Promise<JiraBindResult>
+  atlasStartJiraOAuth(teamId: string, share?: BindingShare): Promise<JiraBindResult>
   atlasCancelJiraOAuth(teamId: string): Promise<void>
   atlasUnbindJira(teamId: string, bindingId: string): Promise<void>
   atlasListAsanaAccounts(teamId: string): Promise<AsanaAccount[]>
-  atlasStartAsanaOAuth(teamId: string): Promise<AsanaBindResult>
-  atlasStartTrelloOAuth(teamId: string): Promise<TrelloBindResult>
+  atlasStartAsanaOAuth(teamId: string, share?: BindingShare): Promise<AsanaBindResult>
+  atlasStartTrelloOAuth(teamId: string, share?: BindingShare): Promise<TrelloBindResult>
   atlasCancelAsanaOAuth(teamId: string): Promise<void>
   atlasCancelTrelloOAuth(teamId: string): Promise<void>
   atlasUnbindAsana(teamId: string, bindingId: string): Promise<void>
   atlasListSentryAccounts(teamId: string): Promise<SentryAccount[]>
-  atlasStartSentryOAuth(teamId: string): Promise<SentryBindResult>
+  atlasStartSentryOAuth(teamId: string, share?: BindingShare): Promise<SentryBindResult>
   atlasCancelSentryOAuth(teamId: string): Promise<void>
   atlasUnbindSentry(teamId: string, bindingId: string): Promise<void>
 }

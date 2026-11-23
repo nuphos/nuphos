@@ -36,8 +36,9 @@ export const hasPending = (state: string) => pending.has(state)
 export async function startInstall(
   teamId: string,
   scopes?: string[],
+  share?: atlas.BindingShare,
 ): Promise<CloudflareBindResult> {
-  const { authorizeUrl, state } = await atlas.startCloudflareOAuth(teamId, scopes)
+  const { authorizeUrl, state } = await atlas.startCloudflareOAuth(teamId, scopes, share)
 
   return new Promise<CloudflareBindResult>((resolve, reject) => {
     const timeout = setTimeout(() => {

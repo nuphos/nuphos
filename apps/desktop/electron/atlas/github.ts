@@ -1,3 +1,4 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
 import { call } from './client'
 
 export type GithubInstallation = {
@@ -120,10 +121,19 @@ export async function listGithubInstallations(teamId: string): Promise<GithubIns
 
 export async function getGithubInstallUrl(
   teamId: string,
+  share?: BindingShare,
 ): Promise<{ url: string; appSlug: string }> {
+  const query = share
+    ? '?' +
+      new URLSearchParams({
+        shareMode: share.mode,
+        shareMemberIds: share.memberIds.join(','),
+      }).toString()
+    : ''
+
   return call<{ url: string; appSlug: string }>(
     'GET',
-    `/teams/${teamId}/github-installations/install-url`,
+    `/teams/${teamId}/github-installations/install-url${query}`,
   )
 }
 

@@ -27,8 +27,11 @@ const pending = new Map<string, Pending>()
 /** Whether a callback's state still belongs to an attempt in progress. */
 export const hasPending = (state: string) => pending.has(state)
 
-export async function startInstall(teamId: string): Promise<PlaudBindResult> {
-  const { authorizeUrl, state } = await atlas.startPlaudOAuth(teamId)
+export async function startInstall(
+  teamId: string,
+  share?: atlas.BindingShare,
+): Promise<PlaudBindResult> {
+  const { authorizeUrl, state } = await atlas.startPlaudOAuth(teamId, share)
 
   return new Promise<PlaudBindResult>((resolve, reject) => {
     const timeout = setTimeout(() => {

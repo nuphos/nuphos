@@ -1,3 +1,5 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
+import { withShare } from './binding-access'
 import { call } from './client'
 
 import type { BindingAccess } from './teams'
@@ -40,11 +42,14 @@ export async function unbindTrelloIntegration(teamId: string, id: string): Promi
   })
 }
 
-export async function startTrelloOAuth(teamId: string): Promise<TrelloOAuthStart> {
+export async function startTrelloOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<TrelloOAuthStart> {
   return call<TrelloOAuthStart>(
     'POST',
     `/teams/${teamId}/trello-integrations/start-oauth`,
-    {},
+    withShare({}, share),
     { retry: false },
   )
 }

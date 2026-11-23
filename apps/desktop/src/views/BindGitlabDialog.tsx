@@ -8,6 +8,9 @@ import { Button } from '../components/ui/button'
 import { Checkbox } from '../components/ui/checkbox'
 import { toast } from '../components/ui/toast'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
+
+import { BindShareField } from './bind-account/share-field'
 
 import { useResetOnKey } from './useResetOnKey'
 
@@ -25,6 +28,7 @@ type GitlabScopeKey = 'repository' | 'mergeRequests'
 const GITLAB_BASELINE_SCOPES = ['read_api', 'read_user', 'read_repository']
 
 export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
+  const [shareList, setShareList] = useState<string[] | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   const [hostUrl, setHostUrl] = useState('https://gitlab.com')
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -38,6 +42,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
 
   // Keep the host/client values on close; users are likely to retry with the same.
   useResetOnKey(String(open), () => {
+    if (open) setShareList(null)
     if (!open) setPhase({ kind: 'idle' })
   })
 
@@ -88,6 +93,7 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
         showAdvanced && clientId.trim() ? clientId.trim() : undefined,
         showAdvanced && clientSecret.trim() ? clientSecret.trim() : undefined,
         scopes,
+        shareList ? shareFromAllowList(shareList) : undefined,
       )
       if (attempt !== attemptRef.current) return
       onBound()
@@ -243,6 +249,14 @@ export function BindGitlabDialog({ open, teamId, onClose, onBound }: Props) {
           </div>
         )}
 
+        {phase.kind === 'idle' && (
+          <BindShareField
+            teamId={teamId}
+            provider="gitlab"
+            value={shareList}
+            onChange={setShareList}
+          />
+        )}
         {phase.kind === 'waiting' && (
           <div className="flex flex-col items-center gap-4 py-3">
             <Loader2 className="w-6 h-6 text-primary animate-spin" strokeWidth={1.8} />

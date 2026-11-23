@@ -1,3 +1,4 @@
+import type { BindingShare } from '../lib/bindingShare'
 export type PosthogRegion = 'us' | 'eu'
 
 export type PosthogProject = {
@@ -48,6 +49,7 @@ export type PosthogScopeCatalog = {
 }
 
 export type PosthogOAuthInput = {
+  share?: BindingShare
   label?: string
   region?: PosthogRegion
   integrationId?: string

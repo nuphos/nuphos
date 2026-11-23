@@ -3,7 +3,8 @@ import * as plaudInstall from '../plaud-install'
 
 export const plaudChannels = {
   'atlas:listPlaudAccounts': (_e: unknown, teamId: string) => atlas.listPlaudAccounts(teamId),
-  'atlas:startPlaudOAuth': (_e: unknown, teamId: string) => plaudInstall.startInstall(teamId),
+  'atlas:startPlaudOAuth': (_e: unknown, teamId: string, share?: atlas.BindingShare) =>
+    plaudInstall.startInstall(teamId, share),
   'atlas:cancelPlaudOAuth': (_e: unknown, teamId: string) => plaudInstall.cancelPending(teamId),
   'atlas:unbindPlaud': (_e: unknown, teamId: string, bindingId: string) =>
     atlas.unbindPlaud(teamId, bindingId),
