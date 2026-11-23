@@ -26,9 +26,9 @@ export function useQueueSync({
 
     void api
       .agentListQueue(sessionId, teamId)
-      .then(({ messages }) => {
+      .then(({ messages, held }) => {
         if (!current) return
-        setTabs((tabs) => tabs.map((t) => (t.id === tabId ? syncQueued(t, messages) : t)))
+        setTabs((tabs) => tabs.map((t) => (t.id === tabId ? syncQueued(t, messages, held) : t)))
       })
       .catch(() => {})
 

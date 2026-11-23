@@ -10,6 +10,7 @@ import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
 import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
 import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
+import { startBoxUpdateSweep } from '@/lib/agent/devices/box-update-sweep'
 import { closeTunnelsForRestart } from '@/lib/agent/devices/local-runtime/holder'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
@@ -17,7 +18,7 @@ import {
   initMemoryRetentionRollup,
   shutdownMemoryRetentionRollup,
 } from '@/lib/agent/memory-slots/attribution-store'
-import { cancelOpenAgentPlans, migrateTeamPlanApprovalPolicies } from '@/lib/agent/plans'
+import { cancelOpenAgentPlans } from '@/lib/agent/plans'
 import { drainAgentProducers, stopHttpWithDeadline } from '@/lib/agent/producer-drain'
 import { startQueuedTurn } from '@/lib/agent/queued-turn'
 import { flushGuardWrites } from '@/lib/agent/run-store'
@@ -106,8 +107,7 @@ const removedTencent = await migrateLegacyTencentBindings()
 if (removedTencent > 0) {
   logEvent('info', 'backend.migration.tencent_legacy_bindings_removed', { teams: removedTencent })
 }
-// Plans gave way to decisions and connection policies (#2316). Both steps are idempotent.
-await migrateTeamPlanApprovalPolicies()
+// Plans gave way to approval decisions (#2316). Idempotent.
 const cancelledPlans = await cancelOpenAgentPlans()
 
 if (cancelledPlans > 0) {
@@ -141,6 +141,7 @@ initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 const stopBotImportCleanup = startBotImportCleanup()
 const stopFreeBoxSweep = startFreeBoxSweep()
+const stopBoxUpdateSweep = startBoxUpdateSweep()
 const stopWebhookDelivery = startWebhookDelivery()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
@@ -225,6 +226,7 @@ async function shutdown(sig: string) {
   shutdownStuckTurnProbe()
   stopBotImportCleanup()
   stopFreeBoxSweep()
+  stopBoxUpdateSweep()
   stopWebhookDelivery()
   const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
 

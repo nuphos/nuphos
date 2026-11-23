@@ -7,14 +7,8 @@ import * as identity from '@/lib/identity'
 import { useDb } from '@/lib/test/doubles/db'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
-import {
-  JOIN_TIMEOUT_MS,
-  chatInMeeting,
-  handleRecallEvent,
-  joinMeeting,
-  leaveMeetingTask,
-  reportJoinTimeouts,
-} from './meetings'
+import { JOIN_TIMEOUT_MS, reportJoinTimeouts } from './join-outcomes'
+import { chatInMeeting, handleRecallEvent, joinMeeting, leaveMeetingTask } from './meetings'
 import * as recall from './recall'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -42,6 +36,7 @@ beforeEach(() => {
   created.mockResolvedValue('recall-bot')
   left.mockResolvedValue()
   typed.mockResolvedValue()
+  status.mockResolvedValue({ joined: true, last: undefined })
   turn.mockResolvedValue({ status: 'started', run: Promise.resolve(undefined) })
   // The Task create_thread would make: a conversation under the actor.
   thread.mockImplementation((from, _prompt, title) => {
@@ -201,12 +196,14 @@ test('a bot that leaves because its Task asked ends the meeting without waking t
   await expect(chatInMeeting(actor(threadId), 'hi')).rejects.toThrow('not in a meeting')
 })
 
-const { warn } = console
+const { warn, log } = console
 let logged: string[] = []
 
 afterEach(() => {
   // eslint-disable-next-line no-console -- restored even when a test throws
   console.warn = warn
+  // eslint-disable-next-line no-console -- restored even when a test throws
+  console.log = log
 })
 
 /** logEvent writes its record to console.warn; this collects what the test logs. */
@@ -278,9 +275,71 @@ test('a bot Recall says got into its call, or whose meeting ended, is not a join
   const warnings = captureWarnings()
 
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
-  await handleRecallEvent('delivery-1', ended('timeout_exceeded_waiting_room'))
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_everyone_left'))
   status.mockResolvedValue({ joined: false, last: undefined })
   await reportJoinTimeouts(10 * MINUTE, sent + JOIN_TIMEOUT_MS + 5 * MINUTE)
-  expect(status).toHaveBeenCalledTimes(1)
+  expect(status).toHaveBeenCalledTimes(2)
   expect(warnings.lines()).toEqual([])
+})
+
+/** logEvent writes info records to console.log; this collects those. */
+function captureInfo(): { lines: () => Record<string, unknown>[] } {
+  const lines: string[] = []
+
+  // eslint-disable-next-line no-console
+  console.log = (line: unknown) => lines.push(String(line))
+
+  return { lines: () => lines.map((line) => JSON.parse(line) as Record<string, unknown>) }
+}
+
+test('a call that ends before the bot got in logs failed_before_join once, with its platform', async () => {
+  const { threadId } = await joinMeeting(actor('bot'), 'https://meet.google.com/abc-defg-hij')
+
+  // A waiting room nobody opened ends as call_ended, not fatal, and before the join deadline.
+  status.mockResolvedValue({ joined: false, last: { code: 'call_ended', sub_code: null } })
+  const warnings = captureWarnings()
+
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_waiting_room'))
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_waiting_room'))
+  expect(warnings.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.failed',
+      reason: 'failed_before_join',
+      sub_code: 'timeout_exceeded_waiting_room',
+      bot_id: 'recall-bot',
+      session_id: threadId,
+      platform: 'google_meet',
+    }),
+  ])
+  // The link itself is never logged.
+  expect(logged.join('\n')).not.toContain('abc-defg-hij')
+})
+
+test('a bot that got in logs joined, and one its Task called back before it got in logs nothing', async () => {
+  await joinMeeting(actor('bot'), 'https://us02web.zoom.us/j/123')
+  status.mockResolvedValue({ joined: true, last: { code: 'call_ended', sub_code: null } })
+  const info = captureInfo()
+  const warnings = captureWarnings()
+
+  await handleRecallEvent('delivery-1', ended('timeout_exceeded_everyone_left'))
+  expect(info.lines()).toEqual([
+    expect.objectContaining({
+      event: 'meeting_bot.joined',
+      bot_id: 'recall-bot',
+      platform: 'zoom',
+    }),
+  ])
+
+  memory = portabilityDb()
+  memory.rows('agent_conversations').push({
+    _id: 'cancelled',
+    sessionId: 'cancelled',
+    userId: 'owner',
+    teamId: 'team',
+    meeting: { botId: 'recall-bot', botName: 'Ada', url: 'https://meet.google.com/x' },
+  })
+  status.mockResolvedValue({ joined: false, last: { code: 'call_ended', sub_code: null } })
+  await handleRecallEvent('delivery-2', ended('bot_received_leave_call'))
+  expect(warnings.lines()).toEqual([])
+  expect(info.lines()).toHaveLength(1)
 })

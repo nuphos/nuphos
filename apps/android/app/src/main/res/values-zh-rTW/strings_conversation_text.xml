@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">無法重新整理 Agent 檔案。</string>
     <string name="convtext_attachment_access_unavailable">無法存取附件</string>
-    <string name="convtext_move_wait">請等目前的回覆完成後再切換執行環境。</string>
+    <string name="convtext_move_wait">請等正在送出的訊息或上傳完成，再切換執行環境。</string>
     <string name="convtext_move_choose_runtime">請選擇可用的執行環境。</string>
     <string name="convtext_runtime_status_unavailable">無法取得執行環境狀態</string>
     <string name="convtext_attachments_after_run">請保留附件，等目前執行結束後再用新訊息傳送。</string>

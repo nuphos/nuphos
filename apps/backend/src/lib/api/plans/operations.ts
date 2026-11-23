@@ -1,9 +1,8 @@
-import { planApprovalRequirementSchema, planSchema } from './core-schemas'
+import { planSchema } from './core-schemas'
 import {
   listPlansAgentInputSchema,
   listPlansQuerySchema,
   listPlansResponseSchema,
-  planApprovalPolicyQuerySchema,
   planIdPathSchema,
 } from './update-schemas'
 
@@ -46,20 +45,7 @@ export const planGetOperation = {
   },
 } satisfies ApiOperation
 
-export const planApprovalPolicyGetOperation = {
-  operationId: 'plans.getApprovalPolicy',
-  method: 'get',
-  path: '/agent/plan-approval-policy',
-  tags: ['Plans'],
-  summary: 'Get the team plan approval policy',
-  description: 'Return the approval requirement that new plans snapshot for this team.',
-  auth: 'bearer',
-  querySchema: planApprovalPolicyQuerySchema,
-  responseSchema: planApprovalRequirementSchema,
-} satisfies ApiOperation
-
 export const planApiOperations = [
   planListOperation,
   planGetOperation,
-  planApprovalPolicyGetOperation,
 ] as const satisfies readonly ApiOperation[]

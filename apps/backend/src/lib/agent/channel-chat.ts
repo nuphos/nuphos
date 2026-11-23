@@ -129,13 +129,16 @@ export async function postAsAgent(
   agent: Pick<AgentConversation, 'sessionId' | 'title' | 'agentRuntime'>,
   text: string,
   files: object[] = [],
-  /** The index of the one post it answers, which it then quotes. */
+  /** The index of the one post it answers, which it then quotes unless that post is the newest. */
   replyTo?: number,
 ): Promise<void> {
   const channel = await getConversationBySessionId(channelId)
 
   if (!channel || !isChannel(channel) || !channel.agentSessionIds?.includes(agent.sessionId)) return
   const quote = await replyQuote(channel, replyTo)
+  // Under the newest post a quote only repeats it. Slack threads by the quote, so keeps it.
+  const later = { sessionId: channel.sessionId, userId: channel.userId, index: { $gt: replyTo } }
+  const shown = quote && (channel.external === 'slack' || (await agentMessages().findOne(later)))
   // A Slack channel's people are in Slack: the post is a Slack message, or nothing.
   const id =
     channel.external === 'slack'
@@ -158,7 +161,7 @@ export async function postAsAgent(
         source: 'agent.thread',
         sourceSessionId: agent.sessionId,
         sentAt: new Date().toISOString(),
-        ...(quote ? { replyTo: quote } : {}),
+        ...(shown ? { replyTo: quote } : {}),
       },
       files,
     },

@@ -65,7 +65,7 @@ struct AgentSummaryPanel: View {
                   }
                 }
                 if !background.isEmpty {
-                    SummaryCard("Background work") {
+                    SummaryCard("Background tasks") {
                         ForEach(background) { work in
                             DisclosureGroup {
                                 if !work.output.isEmpty {
@@ -87,7 +87,7 @@ struct AgentSummaryPanel: View {
                     }
                 }
                 if !children.isEmpty {
-                    SummaryCard(isBotDetails ? "Sub-tasks" : "Sub-agents") {
+                    SummaryCard("Sub-tasks") {
                         ForEach(children) { child in
                             Button { openSession(child) } label: {
                                 if isBotDetails {
@@ -110,11 +110,7 @@ struct AgentSummaryPanel: View {
                 }
                 SummaryCard("Triggers") {
                     if triggers.isEmpty {
-                        Group {
-                            if isBotDetails { Text("Ask here to schedule recurring work.") }
-                            else { Text("Ask the agent to schedule recurring work in this task.") }
-                        }
-                        .foregroundStyle(Theme.body)
+                        Text("Ask here to schedule recurring work.").foregroundStyle(Theme.body)
                     } else {
                         ForEach(triggers) { trigger in
                             Button { showTriggers = true } label: {
@@ -140,7 +136,7 @@ struct AgentSummaryPanel: View {
                         ContentUnavailableView {
                             Label { Text("Nothing here yet") } icon: { LucideIcon("layers", size: 32) }
                         } description: {
-                            Text("Questions, changes, sub-agents and files from this task appear here as work progresses.")
+                            Text("Questions, changes, sub-tasks and files from this task appear here as work progresses.")
                         }
                     }
                 }
@@ -257,9 +253,9 @@ struct AgentSummaryPanel: View {
 }
 
 private struct SummaryCard<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder var content: Content
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
@@ -298,31 +294,6 @@ private struct SummaryBackgroundWork: Identifiable {
     }
 }
 
-
-extension View {
-    func agentSummary<Panel: View>(isPresented: Binding<Bool>, @ViewBuilder panel: @escaping () -> Panel) -> some View {
-        modifier(AgentSummaryPresentation(isPresented: isPresented, panel: panel))
-    }
-}
-
-private struct AgentSummaryPresentation<Panel: View>: ViewModifier {
-    @Binding var isPresented: Bool
-    let panel: () -> Panel
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    func body(content: Content) -> some View {
-        if sizeClass == .regular {
-            content.inspector(isPresented: $isPresented) {
-                panel().inspectorColumnWidth(min: 300, ideal: 340, max: 420)
-            }
-        } else {
-            content.sheet(isPresented: $isPresented) {
-                panel().presentationDetents([.large]).presentationDragIndicator(.visible)
-            }
-        }
-    }
-}
-
 extension ConversationIndicator {
     var isRunning: Bool { self == .turn || self == .background }
     /// Waiting for you, then running, then the rest.
@@ -342,10 +313,8 @@ extension AgentStore {
     /// "1 needs input · 2 running", or nil when none waits or runs.
     func stateLine(under parent: String, team: String) -> (text: String, waiting: Bool)? {
         let states = tasks(under: parent, team: team).map { indicator(for: $0, team: team) }
-        // Someone else's Bot: its Tasks are not in this viewer's list, only how many there are (#4270).
-        let counts = states.isEmpty ? bots.first(where: { $0.sessionId == parent })?.tasks : nil
-        let waiting = counts?.waiting ?? states.filter { $0 == .waiting }.count
-        let running = counts?.running ?? states.filter(\.isRunning).count
+        let waiting = states.filter { $0 == .waiting }.count
+        let running = states.filter(\.isRunning).count
         var parts: [String] = []
         if waiting > 0 { parts.append(String(localized: "\(waiting) needs input")) }
         if running > 0 { parts.append(String(localized: "\(running) running")) }

@@ -7,6 +7,8 @@
 //
 // Runtime imports stay free of Electron so this loads under plain `node --test`.
 
+import pkg from '../../../package.json' with { type: 'json' }
+
 import { withAutoInstallRequest } from './cli-auto-update.ts'
 
 import type { AutoInstallPreferences } from '../auto-update.ts'
@@ -105,7 +107,8 @@ export function withE2eStagedUpdate<R, S, C, T>(
   version = process.env.NUPHOS_E2E_STAGED_UPDATE,
 ): CreateTunnel<R, S, C, T> {
   if (!version) return create
-  const app: AppUpdateStatus = { version: '0.0.0', update: { version, ready: true } }
+  // This build's own version: one older than 0.133.2 is not offered the restart.
+  const app: AppUpdateStatus = { version: pkg.version, update: { version, ready: true } }
 
   return (runtime, status, onChange, instances) =>
     create(

@@ -15,8 +15,10 @@ import { dirname, join } from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { cleanUpArchived, retryArchivedHomes } from '@/lib/agent/archive-cleanup'
 import { useDb } from '@/lib/test/doubles/db'
 import { useLocalRuntimeCatalog } from '@/lib/test/doubles/local-runtime-catalog'
+import { real, useObservability } from '@/lib/test/doubles/observability'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-state'
@@ -139,17 +141,27 @@ describe.skipIf(!existsSync('/proc/self'))('RECLAIM_SESSION_HOME_PROGRAM', () =>
     }
   })
 
-  test('a delayed old-generation job removes only its generation, not a restored home or legacy home', () => {
+  test('a delayed old-generation job removes its generation and older ones, not a restored home', () => {
     const oldGeneration = `${home('archived')}.g-1`
     const restoredGeneration = `${home('archived')}.g-2`
 
     mkdirSync(oldGeneration)
+    mkdirSync(`${oldGeneration}.${hash('teammate')}`)
     mkdirSync(restoredGeneration)
     writeFileSync(join(restoredGeneration, 'new-data'), 'fixture')
     expect(reclaimAsJob('archived', 1)).toBe('removed')
     expect(existsSync(oldGeneration)).toBe(false)
+    expect(existsSync(`${oldGeneration}.${hash('teammate')}`)).toBe(false)
+    expect(existsSync(home('archived'))).toBe(false)
     expect(existsSync(join(restoredGeneration, 'new-data'))).toBe(true)
-    expect(existsSync(home('archived'))).toBe(true)
+    expect(existsSync(home('other'))).toBe(true)
+  })
+
+  // A computer from before generations ran the restored Task's turn in the first home;
+  // archived again, only the later generation is queued (#4473).
+  test('a generation job removes an older home it was not queued for', () => {
+    expect(reclaimAsJob('archived', 1)).toBe('removed')
+    expect(existsSync(home('archived'))).toBe(false)
     expect(existsSync(home('other'))).toBe(true)
   })
 
@@ -379,6 +391,7 @@ describe('reclaimSessionHomes', () => {
   const { acquire, runtimeJobs } = controlRegistry
   // What the reclaim program reports, the jobs it was sent, and computers offline.
   let report = '{"result":"removed"}'
+  let timedOut = false
   let jobs: { runtimeId: string; job: string; stdin: string }[] = []
   let offline: string[] = []
   let offered = ['panel']
@@ -389,6 +402,15 @@ describe('reclaimSessionHomes', () => {
   let instances: { id: string; provider: string }[] = []
   let endpoints: { runtimeId: string; url: string }[] = []
 
+  // Why each queued home was left for the next sweep.
+  let waits: unknown[] = []
+
+  useObservability({
+    logEvent: (level, event, fields) => {
+      if (event === 'agent.session_home_reclaim.waiting') waits.push(fields)
+      else real.logEvent(level, event, fields)
+    },
+  })
   useDb({ db: () => memory })
   useSessionExecutionState({
     conversationExecutionState: async () => {
@@ -438,11 +460,13 @@ describe('reclaimSessionHomes', () => {
 
   beforeEach(() => {
     memory = portabilityDb()
+    waits = []
     state = 'dormant'
     onProbe = () => {}
     instances = []
     endpoints = []
     report = '{"result":"removed"}'
+    timedOut = false
     jobs = []
     offline = []
     offered = ['panel']
@@ -451,7 +475,7 @@ describe('reclaimSessionHomes', () => {
       runJob: async (request: { job: string; stdin: string }) => {
         jobs.push({ runtimeId: endpoint.runtimeId, job: request.job, stdin: request.stdin })
 
-        return { exitCode: 0, stdout: report }
+        return timedOut ? { exitCode: -1, stdout: '', timedOut } : { exitCode: 0, stdout: report }
       },
     })) as never
   })
@@ -476,6 +500,31 @@ describe('reclaimSessionHomes', () => {
     expect(row.archiveHomePendingEpochs).toEqual([])
   })
 
+  // Two reclaims of one home at once: the second finds it set aside and reports
+  // it absent while the first is still removing it (#4629). The sweep alone owns it.
+  test('archiving leaves the home to the sweep, which keeps a timed-out one queued', async () => {
+    const row = conversation({
+      archiveHomePendingEpochs: [{ epoch: 0, runtimeId: LOCAL, provider: 'claude-code' }],
+    })
+
+    offered = ['session-homes', 'session-homes-v2']
+    await cleanUpArchived(['conversation'])
+    expect(jobs).toEqual([])
+    expect(row.archiveHomePendingEpochs).toHaveLength(1)
+
+    timedOut = true
+    await retryArchivedHomes()
+    expect(row.archiveHomePendingEpochs).toHaveLength(1)
+    expect(row.sessionHomeReclaimedAt).toBeUndefined()
+
+    // The next sweep's job removes the set-aside home the timed-out one left.
+    timedOut = false
+    await retryArchivedHomes()
+    expect(jobs).toHaveLength(2)
+    expect(row.archiveHomePendingEpochs).toEqual([])
+    expect(row.sessionHomeReclaimedAt).toBeInstanceOf(Date)
+  })
+
   test('an offline computer retains its queued generation', async () => {
     offline = [LOCAL]
     instances = [{ id: LOCAL, provider: 'claude-code' }]
@@ -489,6 +538,47 @@ describe('reclaimSessionHomes', () => {
       { epoch: 0, runtimeId: LOCAL, provider: 'claude-code' },
     ])
     expect(jobs).toHaveLength(0)
+  })
+
+  test('a generation whose computer is off does not hold back one on another computer', async () => {
+    const off = 'local_owner_off'
+
+    offline = [off]
+    instances = [{ id: off, provider: 'claude-code' }]
+    offered = ['session-homes', 'session-homes-v2']
+    const row = conversation({
+      archiveHomePendingEpochs: [
+        { epoch: 0, runtimeId: off, provider: 'claude-code' },
+        { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
+      ],
+    })
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
+    expect(jobs.map((job) => [job.runtimeId, JSON.parse(job.stdin).epoch])).toEqual([[LOCAL, 1]])
+    expect(row.archiveHomePendingEpochs).toEqual([
+      { epoch: 0, runtimeId: off, provider: 'claude-code' },
+    ])
+  })
+
+  test('a queued home that waits says why', async () => {
+    const off = 'local_owner_off'
+
+    offline = [off]
+    instances = [{ id: off, provider: 'claude-code' }]
+    offered = ['session-homes', 'session-homes-v2']
+    report = '{"result":"in_use"}'
+    const queued = [
+      { epoch: 0, runtimeId: off, provider: 'claude-code' },
+      { epoch: 1, runtimeId: LOCAL, provider: 'claude-code' },
+    ]
+    const row = conversation({ archiveHomePendingEpochs: queued })
+
+    expect(await reclaimPendingArchiveHome('conversation', now)).toBe(false)
+    expect(row.archiveHomePendingEpochs).toEqual(queued)
+    expect(waits).toEqual([
+      { session_id: 'conversation', runtime_id: off, epoch: 0, reason: 'runtime_unreachable' },
+      { session_id: 'conversation', runtime_id: LOCAL, epoch: 1, reason: 'in_use' },
+    ])
   })
 
   test('after moving, an old generation is reclaimed on its original runtime', async () => {

@@ -26,6 +26,7 @@ export type ConversationShellInput = {
   runtimeId?: string
   runtimeLabel?: string
   parentSessionId?: string
+  webhookId?: string
   delegation?: { requestId: string; promptHash: string }
   originChannelIds?: string[]
   /** A thread's parent, whose readers it copies in place of what its source starts with. */

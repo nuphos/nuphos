@@ -4,8 +4,10 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
+import { usageResetsAtOf } from '@/lib/agent/reply-failed'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
+import { outOfUsageUntilReset } from '@/lib/claude-code-preview/runtime-refusal'
 
 import {
   appendAgentRunDone,
@@ -75,17 +77,27 @@ export type PreviewChatTurnArgs = {
  *
  * A stopped direct send does not go back: it would run once the queue retried.
  * A message that waited in the queue does, as the Stop may have been pressed
- * for the turn ahead of it.
+ * for the turn ahead of it. Refused for usage, it says so until its next try.
  */
 export async function requeueUnsent(
-  turn: Pick<PreviewChatTurnArgs, 'userId' | 'sessionId' | 'queued' | 'direct'>,
+  turn: Pick<
+    PreviewChatTurnArgs,
+    'userId' | 'teamId' | 'sessionId' | 'queued' | 'direct' | 'endpoint'
+  >,
   carried: PendingUserMessage[],
   steered: UIMessage[],
   stopped = false,
+  error?: unknown,
 ): Promise<boolean> {
   const queued = stopped && turn.direct ? undefined : turn.queued
+  const { teamId, userId, endpoint } = turn
+  const usage = outOfUsageUntilReset(error) && {
+    until: await usageResetsAtOf({ teamId, userId, runtimeId: endpoint.runtimeId }).catch(
+      () => undefined,
+    ),
+  }
 
-  await requeueTurnQueue(turn.userId, turn.sessionId, carried, queued)
+  await requeueTurnQueue(turn.userId, turn.sessionId, carried, queued, usage)
   steered.length = 0
 
   return Boolean(queued)

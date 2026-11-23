@@ -1,5 +1,9 @@
 import { clipTranscriptText } from '@/lib/agent/thread-transcript'
-import { slackAgentThreads } from '@/lib/slack/agent-bot/collections'
+import {
+  LEGACY_SELF_BINDING,
+  LIVE_SLACK_THREAD,
+  slackAgentThreads,
+} from '@/lib/slack/agent-bot/collections'
 
 import type { SlackAgentThread } from '@/lib/slack/agent-bot/collections'
 
@@ -45,11 +49,16 @@ export async function bindSlackAgentThread(data: {
     throw new Error('That Slack thread is already bound to another Nuphos conversation')
   }
 
-  const existingSession = await slackAgentThreads().findOne({ sessionId: data.sessionId })
+  const existingSession = await slackAgentThreads().findOne({
+    sessionId: data.sessionId,
+    ...LIVE_SLACK_THREAD,
+  })
 
   if (existingSession) {
     throw new Error('This Nuphos conversation is already bound to a Slack thread')
   }
+  // An ignored legacy row still holds the unique sessionId, so it gives way.
+  await slackAgentThreads().deleteOne({ sessionId: data.sessionId, ...LEGACY_SELF_BINDING })
 
   const now = new Date()
   const thread: SlackAgentThread = {

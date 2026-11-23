@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">런타임을 전환할 수 없습니다. 새로 고친 후 다시 시도하세요.</string>
     <string name="composer_switching_runtime">런타임을 전환하는 중…</string>
     <string name="composer_runtime_view_only">이 작업의 런타임을 볼 수 있지만 이동할 수는 없습니다.</string>
-    <string name="composer_runtime_wait">현재 응답이나 대기 중인 메시지가 끝난 후에 런타임을 전환하세요.</string>
+    <string name="composer_runtime_wait">전송 중인 메시지나 업로드가 끝난 후 런타임을 전환하세요.</string>
     <string name="composer_loading_runtimes">런타임 불러오는 중…</string>
     <string name="composer_no_runtimes">사용 가능한 런타임이 없습니다.</string>
     <string name="composer_no_runtimes_body">컴퓨터에서 Nuphos를 열어 Box를 추가하거나 내 컴퓨터를 연결하세요.</string>

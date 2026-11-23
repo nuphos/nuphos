@@ -23,6 +23,7 @@ import { sessionAccessApi } from './preload-parts/api-session-access'
 import { sidebarGesturesApi } from './preload-parts/api-sidebar-gestures'
 import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
+import { vaultApi } from './preload-parts/api-vault'
 import { voiceApi } from './preload-parts/api-voice'
 import { vpsApi } from './preload-parts/api-vps'
 import { webhooksApi } from './preload-parts/api-webhooks'
@@ -56,6 +57,7 @@ const api = {
   ...instructionsApi,
   ...webhooksApi,
   ...browserExtensionsApi,
+  ...vaultApi,
 }
 
 contextBridge.exposeInMainWorld('api', api)

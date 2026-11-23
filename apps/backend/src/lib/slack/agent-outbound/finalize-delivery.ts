@@ -49,7 +49,6 @@ export async function finalizeSlackPostDelivery(input: {
   dependencies: SlackOutboundDependencies
   userId: string
   teamId: string
-  conversationId: string
   destinationType: SlackOutboundDestination['type']
   label: string
   text: string
@@ -59,30 +58,14 @@ export async function finalizeSlackPostDelivery(input: {
   responseChannel: string
   messageTs: string
   selfMapping: { slackUserId: string } | null
-  bindCurrentConversation: boolean
   forkThread: { text: string } | undefined
 }): Promise<Awaited<ReturnType<SlackOutboundContext['post']>>> {
   const { dependencies, teamId, userId, text, sendWorkspaceId, sendToken, channelId } = input
-  const { messageTs, responseChannel, selfMapping, bindCurrentConversation } = input
-
-  if (bindCurrentConversation) {
-    await dependencies.bindThread({
-      slackWorkspaceId: sendWorkspaceId,
-      slackChannelId: responseChannel,
-      slackThreadTs: messageTs,
-      teamId,
-      agentUserId: userId,
-      sessionId: input.conversationId,
-      createdBySlackUserId: selfMapping?.slackUserId,
-      rootText: text,
-    })
-  }
+  const { messageTs, responseChannel, selfMapping } = input
 
   // Open the thread the root advertises, and give it a conversation of its
   // own rather than resuming this run: whoever replies is asking about the
   // message in front of them, not continuing the batch that produced it.
-  // A fresh session is also why this can bind at all — sessionId is
-  // uniquely indexed, and this run may already own a thread elsewhere.
   let forkResult: { opened: boolean; sessionId?: string; error?: string } | undefined
 
   if (input.forkThread) {
@@ -147,7 +130,7 @@ export async function finalizeSlackPostDelivery(input: {
     delivery: 'root',
     messageTs,
     rootThreadTs: messageTs,
-    threadBound: bindCurrentConversation || forkResult?.opened === true,
+    threadBound: forkResult?.opened === true,
     ...(forkResult ? { replyThread: forkResult } : {}),
   }
 }

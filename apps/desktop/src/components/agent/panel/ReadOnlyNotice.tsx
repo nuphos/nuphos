@@ -1,7 +1,7 @@
 import { faSlack } from '@fortawesome/free-brands-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { ExternalLink, Loader2, X } from 'lucide-react'
+import { CircleAlert, ExternalLink, Loader2, X } from 'lucide-react'
 import { useCallback, useState } from 'react'
 
 import { api } from '../../../api'
@@ -179,6 +179,7 @@ export function AgentStatusBanner({
       action: null,
     }
   const { text, action } = copy
+  const Icon = shown === 'signIn' && selected?.local?.probeError ? CircleAlert : variant?.Icon
   // Only the disk warning is the person's to put away: the rest block the message they are sending.
   const putAway =
     shown === 'disk' && noticed?.kind === 'disk'
@@ -200,7 +201,7 @@ export function AgentStatusBanner({
           active ? 'is-open' : 'pointer-events-none',
         )}
       >
-        {variant && (
+        {variant && Icon && (
           <div
             className={clsx(
               'relative overflow-hidden rounded-t-[10px] border border-b-0 bg-composer',
@@ -210,7 +211,7 @@ export function AgentStatusBanner({
             <span aria-hidden className={clsx('absolute inset-0', variant.tint)} />
             {/* A long reason wraps and the tab grows upward, never under the input. */}
             <div className="relative flex min-h-8 min-w-0 items-center gap-2 px-3 py-1 text-[12.5px] leading-snug text-secondary">
-              <variant.Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
+              <Icon aria-hidden className={clsx('h-3.5 w-3.5 shrink-0', variant.icon)} />
               <span className="min-w-0 flex-1">{text}</span>
               {action && (
                 <Button

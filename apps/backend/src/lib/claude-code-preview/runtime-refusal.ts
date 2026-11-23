@@ -46,14 +46,13 @@ export const resentAfter = (
  * What the client hears about a refused turn that came from, or went back to,
  * the session queue: that the message waits there, not that it was refused.
  */
-export const queuedRefusal = (error: unknown, queued: unknown) =>
-  queued && isRuntimeRefusal(error)
-    ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
-    : error
+export const queuedRefusal = (error: unknown, requeued: boolean) =>
+  requeued ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead') : error
 
 /**
- * A failed turn on a computer below the support floor, or with a newer Nuphos waiting, says so:
- * the error is the one thing every client shows, old ones included. A refusal stays as it is,
+ * A failed turn on a computer below the support floor says so: the error is the one thing every
+ * client shows, old ones included. A newer release alone is no cause: most failures, a timeout
+ * among them, are not fixed by updating. A refusal stays as it is,
  * and so does a sign-in or usage failure, whose fix is not an update.
  */
 export async function noteOutdated(

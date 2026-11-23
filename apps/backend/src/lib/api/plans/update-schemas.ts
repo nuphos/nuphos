@@ -35,8 +35,4 @@ export const planIdPathSchema = z.object({
   planId: z.string().min(1).describe('Public plan id, e.g. "2".'),
 })
 
-export const planApprovalPolicyQuerySchema = z.object({
-  teamId: z.string().min(1),
-})
-
 export type ListPlansAgentInput = z.infer<typeof listPlansAgentInputSchema>

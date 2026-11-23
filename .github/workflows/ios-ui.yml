@@ -35,7 +35,7 @@ jobs:
   scope:
     name: Approved iOS change
     if: github.event_name != 'pull_request_review' || github.event.review.state == 'approved'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
     timeout-minutes: 5
     permissions:
       pull-requests: read
@@ -80,6 +80,21 @@ jobs:
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
+      # A run can wait hours for the runner, and a pull request merged or closed meanwhile
+      # no longer needs it.
+      - name: Skip a pull request that is no longer open
+        id: pr
+        if: github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          state=$(gh pr view "$PR" --json state --jq .state)
+          if [ "$state" != OPEN ]; then
+            echo "Pull request #$PR is $state; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo closed=true >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -87,6 +102,7 @@ jobs:
         with:
           node-version: 24
       - name: Run the UI tests
+        if: steps.pr.outputs.closed != 'true'
         working-directory: apps/ios
         env:
           EVENT: ${{ github.event_name }}
@@ -124,7 +140,7 @@ jobs:
           if [ "$EVENT" = pull_request_review ]; then exit 0; fi
           exit "$status"
       - name: Compare with main's latest nightly run
-        if: github.event_name == 'pull_request_review'
+        if: github.event_name == 'pull_request_review' && steps.pr.outputs.closed != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -154,7 +170,7 @@ jobs:
           gh pr diff "$PR" > "$RUNNER_TEMP/pr.diff"
           PR_DIFF="$RUNNER_TEMP/pr.diff" node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.pr.outputs.closed != 'true' }}
         with:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
@@ -184,7 +200,8 @@ jobs:
     name: Report a failed nightly run
     needs: ui
     if: failure() && github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
+    timeout-minutes: 30
     permissions:
       issues: write
     steps:

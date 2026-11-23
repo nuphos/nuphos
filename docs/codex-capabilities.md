@@ -29,9 +29,11 @@ MCP surface for either agent runtime, without patching another upstream bundle.
    ones the source itself has selected now, as its own `list_credentials`
    shows them. It never removes any; unticking stays with the owner.
 2. Continue chatting in the source conversation while the worker runs.
-3. The worker calls `send_message_to_thread` with the source ID and its result.
-   The existing run claim starts an idle conversation (`status: "started"`) or
-   delivers the message to an active one's turn (`status: "delivered"`).
+3. The worker reports its result once with `report_task`, which wakes its
+   parent, the source. A thread that is not the source's child calls
+   `send_message_to_thread` with the source ID instead. The existing run claim
+   starts an idle conversation (`status: "started"`) or delivers the message to
+   an active one's turn (`status: "delivered"`).
    Agent-generated input is explicitly identified as such.
 
 Both threads must belong to the acting user in the same team. The target runs

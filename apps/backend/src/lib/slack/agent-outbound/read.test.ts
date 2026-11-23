@@ -53,10 +53,7 @@ const person = (id: string, name: string, realName: string) => ({
 let people = [person('U1', 'ada', 'Ada Lovelace'), person('U2', 'grace', 'Grace Hopper')]
 
 async function context() {
-  return (await createSlackOutboundContext(
-    { userId: 'user-1', conversationId: 'conv-1', teamId },
-    dependencies,
-  ))!
+  return (await createSlackOutboundContext({ userId: 'user-1', teamId }, dependencies))!
 }
 
 async function read(input: Parameters<SlackOutboundContext['read']>[0]) {
