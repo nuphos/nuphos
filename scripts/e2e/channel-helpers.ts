@@ -121,10 +121,7 @@ export async function shootChipResets(page: Page) {
   if (await duration.isVisible()) throw new Error('The compact composer shows a reset duration')
   await page.screenshot({ path: `${artifacts}/usage-resets-chip-wide-light.png` })
   await usage.hover()
-  await page
-    .getByRole('tooltip')
-    .filter({ hasText: /13% left · resets in \d+h \d+m/u })
-    .waitFor()
+  await page.getByText(/13% left · resets in \d+h \d+m/u).waitFor()
   await page.screenshot({ path: `${artifacts}/usage-resets-chip-tooltip-light.png` })
   await page.mouse.move(0, 0)
 }
