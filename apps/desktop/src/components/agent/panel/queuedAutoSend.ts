@@ -176,13 +176,16 @@ export function waitingMessages(
  * Stop is offered whenever something is ahead of this person: the runtime's
  * turn, this tab's own stream, or whatever their queued messages wait for. After
  * a dropped runtime connection the runtime can report nothing to cancel while
- * the other two remain, and Stop is then the only way forward.
+ * the other two remain, and Stop is then the only way forward. A queue the
+ * usage limit holds waits for the reset, not for a turn, so it has nothing to stop.
  */
 export function canStopTurn(
   tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages' | 'queueHeld'>,
 ): boolean {
   return (
-    runtimeAllows(tab.runtimeState, 'cancel') || tab.streaming || waitingMessages(tab).length > 0
+    runtimeAllows(tab.runtimeState, 'cancel') ||
+    tab.streaming ||
+    (!tab.queueHeld && waitingMessages(tab).length > 0)
   )
 }
 
