@@ -77,7 +77,7 @@ completion and installed-app restart/reboot remain manual acceptance items.
 ## Review regression checks
 
 - In both create and join onboarding, dismiss the agent setup with its header X:
-  enter the workspace instead of remaining on “Setting up your team…”.
+  enter the team instead of remaining on “Setting up your team…”.
 - Open local Claude sign-in within onboarding and press Escape while waiting:
   cancel sign-in and return to agent setup, without dismissing onboarding.
 - Cause a sign-in failure, close the dialog and reopen it: show Try again without
