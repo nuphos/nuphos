@@ -15,7 +15,7 @@ struct WorkspaceSetupSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Create a workspace for your Bots and runtimes, or join one your organization has made available.")
+                    Text("Create a workspace for your agents and runtimes, or join one your organization has made available.")
                         .font(.callout).foregroundStyle(Theme.body)
                     VStack(alignment: .leading, spacing: 12) {
                         Text("Workspace name").font(.footnote.weight(.medium)).foregroundStyle(Theme.body)
