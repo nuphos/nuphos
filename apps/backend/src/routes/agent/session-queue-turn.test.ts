@@ -502,9 +502,9 @@ test('a message id that could match another message is refused', async () => {
 test('a refused start of a queued message tells the client it waits, not that it was refused', () => {
   const refused = refusal('Responding…')
 
-  expect(queuedRefusal(refused, { id: 'queued' })).toMatchObject({ code: 'message_queued' })
+  expect(queuedRefusal(refused, true)).toMatchObject({ code: 'message_queued' })
   // Nothing was queued: the refusal stands, so the client knows to send again.
-  expect(queuedRefusal(refused, undefined)).toBe(refused)
+  expect(queuedRefusal(refused, false)).toBe(refused)
 })
 
 test('a persisted input from an explicitly refused attempt still reaches the retry handoff', async () => {
