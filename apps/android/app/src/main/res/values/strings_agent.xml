@@ -17,6 +17,7 @@
     <string name="agent_restore">Restore</string>
     <string name="agent_archive">Archive</string>
     <string name="agent_rename_task">Rename task</string>
+    <string name="agent_rename_bot">Rename Bot</string>
     <string name="agent_title">Title</string>
     <string name="agent_save">Save</string>
     <string name="agent_watch_failed">Watch update failed</string>

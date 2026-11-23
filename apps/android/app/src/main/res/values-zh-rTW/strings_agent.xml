@@ -14,6 +14,7 @@
     <string name="agent_restore">還原</string>
     <string name="agent_archive">封存</string>
     <string name="agent_rename_task">重新命名任務</string>
+    <string name="agent_rename_bot">重新命名 Bot</string>
     <string name="agent_title">標題</string>
     <string name="agent_save">儲存</string>
     <string name="agent_watch_failed">無法更新關注狀態</string>
