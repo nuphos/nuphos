@@ -7,7 +7,7 @@ import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
 import { nuphosBridgeMcpServers } from '../image/mcp-bridge-config.mjs'
-import { currentAuthorization, relay } from '../image/mcp-http-bridge.mjs'
+import { currentAuthorization, relay, tracedRelay } from '../image/mcp-http-bridge.mjs'
 
 const guard = fileURLToPath(new URL('../image/runtime-guard.sh', import.meta.url))
 
@@ -111,6 +111,39 @@ test('the MCP bridge turns transport and HTTP failures into JSON-RPC errors', as
     },
     { jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } },
   ])
+})
+
+test('the MCP bridge logs each call it relays by structure only', async () => {
+  const logged = []
+  const options = {
+    url: new URL('http://backend/mcp'),
+    env: {},
+    write: () => {},
+    log: (entry) => logged.push(entry),
+  }
+
+  await tracedRelay('{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"x":"secret"}}', {
+    ...options,
+    post: async () => ({ status: 200, text: '{"jsonrpc":"2.0","id":1,"result":{"x":"secret"}}' }),
+  })
+  await tracedRelay('{"jsonrpc":"2.0","id":2,"method":"tools/call"}', {
+    ...options,
+    post: async () => ({ status: 401, text: '{}' }),
+  })
+  await tracedRelay('{"jsonrpc":"2.0","method":"notifications/initialized"}', {
+    ...options,
+    post: async () => ({ status: 202, text: '' }),
+  })
+
+  assert.deepEqual(
+    logged.map(({ ms: _ms, ...entry }) => entry),
+    [
+      { event: 'start', ids: [1], method: 'tools/call' },
+      { event: 'end', ids: [1], method: 'tools/call', status: 200, bytes: 48, outcome: 'answered' },
+      { event: 'start', ids: [2], method: 'tools/call' },
+      { event: 'end', ids: [2], method: 'tools/call', status: 401, bytes: 2, outcome: 'error' },
+    ],
+  )
 })
 
 test('every bash, nested ones included, reads the current conversation token', () => {
