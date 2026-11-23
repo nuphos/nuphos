@@ -158,8 +158,15 @@ export function adoptSideStream(tab: Tab, streamId: string, draftId: string | un
   }
 }
 
-/** What still waits: a message whose turn started is in the transcript already. */
-export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMessage[] {
+/**
+ * What still waits: a message whose turn started is in the transcript already.
+ * A queue the usage limit holds starts nothing; a message there that the
+ * transcript shows is from a refused try and still waits.
+ */
+export function waitingMessages(
+  tab: Pick<Tab, 'queued' | 'messages' | 'queueHeld'>,
+): QueuedMessage[] {
+  if (tab.queueHeld) return tab.queued ?? []
   const started = new Set(tab.messages.map((message) => message.id))
 
   return (tab.queued ?? []).filter((item) => !started.has(item.id))
@@ -172,7 +179,7 @@ export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMe
  * the other two remain, and Stop is then the only way forward.
  */
 export function canStopTurn(
-  tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages'>,
+  tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages' | 'queueHeld'>,
 ): boolean {
   return (
     runtimeAllows(tab.runtimeState, 'cancel') || tab.streaming || waitingMessages(tab).length > 0

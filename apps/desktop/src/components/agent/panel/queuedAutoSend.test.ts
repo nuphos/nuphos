@@ -69,6 +69,10 @@ test('a turn the server queued leaves the transcript for the strip; the tab foll
   }
 
   assert.deepEqual(waitingMessages(started), [])
+  // Held by the usage limit, nothing starts: the copy in the transcript is a refused try.
+  assert.deepEqual(waitingMessages({ ...started, queueHeld: {} }), [
+    { id: 'msg-1', text: 'and the arrow keys', filePaths: [] },
+  ])
 })
 
 test('a send from a tab showing another turn waits without taking that turn', () => {
