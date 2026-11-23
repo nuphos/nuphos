@@ -89,8 +89,11 @@ export const connectorScenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors' }).click()
       await page.getByLabel('Add Cloudflare').click()
+      await page.getByRole('button', { name: 'All members', exact: true }).click()
+      await page.screenshot({ path: `${artifacts}/cloudflare-connect-sharing.png` })
       await page.getByRole('button', { name: 'Connect with Cloudflare' }).click()
       await page.getByText('Waiting for browser authorization…').waitFor()
+      assert.deepEqual(stack.cloudflareShare(), { mode: 'team', memberIds: [] })
       await page.screenshot({ path: `${artifacts}/cloudflare-waiting.png` })
       // Cloudflare's redirect, answered in place of it. No deep link reaches the app.
       const query = new URLSearchParams({

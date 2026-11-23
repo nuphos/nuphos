@@ -45,8 +45,8 @@ export type Stack = {
   /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
   freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
   backendEnv: Record<string, string> // The backend's environment, for a replica; needs `redis`.
-  /** The `state` of the newest Cloudflare authorization the app started. */
-  cloudflareState: () => string
+  cloudflareState: () => string // State of the newest Cloudflare authorization.
+  cloudflareShare: () => unknown
 }
 
 function findOpenab(): string {
@@ -112,18 +112,18 @@ export function initiateReplicaSet(uri: string): boolean {
   }
 }
 
-function cloudflareState(uri: string): string {
+function cloudflarePending(uri: string): { _id?: string; share?: unknown } {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
     const [pending] = await client.db('nuphos_e2e').collection('cloudflare_oauth_pending')
       .find().sort({ expiresAt: -1 }).limit(1).toArray()
     await client.close()
-    console.log(pending?._id ?? '')`
+    console.log(JSON.stringify(pending ?? {}))`
 
-  return execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 })
-    .toString()
-    .trim()
+  return JSON.parse(
+    execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 }).toString(),
+  ) as { _id?: string; share?: unknown }
 }
 
 export async function startStack(
@@ -294,6 +294,7 @@ export async function startStack(
     rollBackend: async () => rollBackend(backends, startBackend),
     freezeBackend: (whileFrozen) => frozen(backends.at(-1)!, whileFrozen),
     backendEnv: { ...backendEnv(backendPort, apiUrl, mongoUri), ...fakes },
-    cloudflareState: () => cloudflareState(mongoUri),
+    cloudflareState: () => cloudflarePending(mongoUri)._id ?? '',
+    cloudflareShare: () => cloudflarePending(mongoUri).share,
   }
 }
