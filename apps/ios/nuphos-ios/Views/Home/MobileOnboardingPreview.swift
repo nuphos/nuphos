@@ -437,7 +437,7 @@ struct MobileOnboardingPreview: View {
         VStack(alignment: .leading, spacing: 18) {
             intro("Where will your Bot work?", "Choose the computer that will run your Bot’s tasks.")
             if !selfHosted {
-                setupOption("Use Nuphos Cloud", detail: "Run your Bot on a cloud computer with a Nuphos subscription.", icon: "cloud") {
+                setupOption("Use Nuphos Cloud", detail: "Run your Bot on a computer with a Nuphos subscription.", icon: "cloud") {
                     showingCloudPlan = true
                 }
             }
@@ -536,7 +536,7 @@ struct MobileOnboardingPreview: View {
 
     private var cloudPaywall: some View {
         VStack(alignment: .leading, spacing: 24) {
-            intro("Nuphos Cloud", "Run your Bots on a cloud computer.")
+            intro("Nuphos Cloud", "Run your Bots on a computer.")
             VStack(alignment: .leading, spacing: 18) {
                 computerStatus("A computer for your Bots", "Let your Bots work even when your own computer is off.", icon: "cloud")
                 Divider()
