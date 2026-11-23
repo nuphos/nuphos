@@ -294,31 +294,6 @@ private struct SummaryBackgroundWork: Identifiable {
     }
 }
 
-
-extension View {
-    func agentSummary<Panel: View>(isPresented: Binding<Bool>, @ViewBuilder panel: @escaping () -> Panel) -> some View {
-        modifier(AgentSummaryPresentation(isPresented: isPresented, panel: panel))
-    }
-}
-
-private struct AgentSummaryPresentation<Panel: View>: ViewModifier {
-    @Binding var isPresented: Bool
-    let panel: () -> Panel
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    func body(content: Content) -> some View {
-        if sizeClass == .regular {
-            content.inspector(isPresented: $isPresented) {
-                panel().inspectorColumnWidth(min: 300, ideal: 340, max: 420)
-            }
-        } else {
-            content.sheet(isPresented: $isPresented) {
-                panel().presentationDetents([.large]).presentationDragIndicator(.visible)
-            }
-        }
-    }
-}
-
 extension ConversationIndicator {
     var isRunning: Bool { self == .turn || self == .background }
     /// Waiting for you, then running, then the rest.
