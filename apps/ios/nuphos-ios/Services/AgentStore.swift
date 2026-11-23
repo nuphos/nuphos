@@ -778,7 +778,7 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            // Cancelled (a page that went away): the list stays as it was (#3620).
             guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)

@@ -50,7 +50,9 @@ struct AgentPage: View {
                 refreshing = true
                 pulling = true
                 defer { pulling = false }
-                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+                // Its own task: a read that redraws this page (an empty state does) hands SwiftUI
+                // a new refresh action, and SwiftUI cancels the pull it replaces.
+                await Task { if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() } }.value
             }
             // SwiftUI ends the pull only after its task returns, and this runs only when the
             // phase changes, so the first idle after `pulling` ends follows that end at any speed.
