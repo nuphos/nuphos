@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronDown, Plus, Settings2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
@@ -10,7 +10,6 @@ import { AGENT_PROVIDER } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
-import { Tooltip } from '../../ui/tooltip'
 import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { Menu, MenuContent, MenuItem, MenuSeparator, MenuTrigger } from '../../ui/menu'
 
@@ -48,7 +47,6 @@ export type RuntimeControl = {
   onSelect?: (runtimeId: string, access?: AgentDevice['access']) => void
   /** Nothing can be picked right now (a turn is streaming, or a move is in flight). */
   selectDisabled?: boolean
-  triggerDisabledHint?: string
   /** The runtime this conversation is bound to is disabled or gone. */
   unavailable?: boolean
   /** A group chat's: no runtime of its own, only a member Bot whose computer is offline (#3308). */
@@ -87,7 +85,6 @@ export function RuntimeSelector({
   quotas,
   onSelect,
   selectDisabled,
-  triggerDisabledHint,
   unavailable,
   loading,
   error,
@@ -96,7 +93,6 @@ export function RuntimeSelector({
   onAddAgent,
   confirm,
   hero = false,
-  compact = false,
   emptyLabel,
   onClear,
 }: RuntimeControl & {
@@ -105,7 +101,6 @@ export function RuntimeSelector({
   onMenuOpenChange?: (open: boolean) => void
   /** Sized like the hero composer's other controls; compact otherwise. */
   hero?: boolean
-  compact?: boolean
   /** Shown when no agent is chosen, in place of "Choose runtime". */
   emptyLabel?: string
   /** Offers a first item that clears the choice, labelled with emptyLabel. */
@@ -115,20 +110,8 @@ export function RuntimeSelector({
   const owner = useThisComputer()
   const selected = value?.id ? options.find((instance) => instance.id === value.id) : undefined
   const [internalOpen, setInternalOpen] = useState(false)
-  const requestedOpen = menuOpen ?? internalOpen
-  const open = requestedOpen && !triggerDisabledHint
-
-  useEffect(() => {
-    if (!triggerDisabledHint || !requestedOpen) return
-    const timer = window.setTimeout(() => {
-      setInternalOpen(false)
-      onMenuOpenChange?.(false)
-    }, 0)
-
-    return () => window.clearTimeout(timer)
-  }, [onMenuOpenChange, requestedOpen, triggerDisabledHint])
+  const open = menuOpen ?? internalOpen
   const setOpen = (next: boolean) => {
-    if (next && triggerDisabledHint) return
     setInternalOpen(next)
     onMenuOpenChange?.(next)
   }
@@ -138,12 +121,8 @@ export function RuntimeSelector({
     teamId,
   })
   const groups = selectorBoxes(options, devices.list?.devices)
-  const computer =
-    compact && groups.find((group) => group.agents.some(({ id }) => id === value?.id))
   const label = value
-    ? computer
-      ? computer.label
-      : agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
+    ? agentName(selected ?? { ...(value.id ? { id: value.id } : {}), label: value.label }, owner)
     : loading
       ? t('Loading runtimes…')
       : (emptyLabel ?? t('Choose runtime'))
@@ -157,7 +136,7 @@ export function RuntimeSelector({
     sessionId,
   })
   const reachability = selectedAgentReachability({ value, options })
-  const dot = reachability && !compact ? AGENT_DOT[reachability] : null
+  const dot = reachability ? AGENT_DOT[reachability] : null
   const content = (
     <>
       <AgentProviderIcon provider={value?.provider} className="h-3.5 w-3.5 shrink-0" />
@@ -170,11 +149,7 @@ export function RuntimeSelector({
       ) : (
         <span className="min-w-0 max-w-40 truncate">{label}</span>
       )}
-      {value?.id && (
-        <span className={compact ? 'hidden shrink-0 @[520px]:inline-flex' : 'contents'}>
-          <RuntimeUsageBar quota={quotas?.get(value.id)} chip showChipReset={!compact} />
-        </span>
-      )}
+      {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} chip />}
       {dot && (
         <span
           role="img"
@@ -183,15 +158,12 @@ export function RuntimeSelector({
           className={`h-1.5 w-1.5 shrink-0 rounded-full ${dot.color}`}
         />
       )}
-      {unavailable && !compact && (
-        <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>
-      )}
+      {unavailable && <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>}
     </>
   )
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
-    compact ? 'rounded-md' : 'rounded-full',
-    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden text-[12px] text-secondary',
+    'flex min-w-0 max-w-fit grow basis-16 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',
   )
 
   return (
@@ -211,78 +183,59 @@ export function RuntimeSelector({
           onClose={confirm.onCancel}
         />
       )}
-      {triggerDisabledHint ? (
-        <Tooltip
-          content={triggerDisabledHint}
-          trigger={
-            <button
-              type="button"
-              data-keep=""
-              aria-disabled="true"
-              aria-label={t('Runtime: {label}', { label })}
-              className={clsx(classes, 'cursor-not-allowed opacity-60')}
-            />
-          }
+      <Menu open={open} onOpenChange={setOpen}>
+        <MenuTrigger
+          data-keep=""
+          aria-label={t('Runtime: {label}', { label })}
+          title={`${label} · ${providerName}`}
+          className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
         >
           {content}
-          <ChevronDown className="size-3 shrink-0 opacity-60" />
-        </Tooltip>
-      ) : (
-        <Menu open={open} onOpenChange={setOpen}>
-          <MenuTrigger
-            data-keep=""
-            aria-label={t('Runtime: {label}', { label })}
-            title={`${label} · ${providerName}`}
-            className={`${classes} transition-colors hover:bg-state-hover hover:text-main`}
-          >
-            {content}
-            <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
-          </MenuTrigger>
-          <MenuContent side="top" align="end" className={compact ? 'w-80' : 'w-72'}>
-            {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
-            {!loading && !error && groups.length === 0 && (
-              <p className="px-2 py-2 text-xs text-tertiary">
-                {t('Connect a runtime in Settings → Computers to get started.')}
-              </p>
+          <ChevronDown className="h-3 w-3 shrink-0 opacity-60" />
+        </MenuTrigger>
+        <MenuContent side="top" align="end" className="w-72">
+          {error && <p className="px-2 py-2 text-xs text-error">{error}</p>}
+          {!loading && !error && groups.length === 0 && (
+            <p className="px-2 py-2 text-xs text-tertiary">
+              {t('Connect a runtime in Settings → Computers to get started.')}
+            </p>
+          )}
+          <div className="max-h-96 overflow-auto">
+            {onClear && (
+              <MenuItem disabled={selectDisabled} onClick={onClear}>
+                {emptyLabel ?? t('None')}
+              </MenuItem>
             )}
-            <div className="max-h-96 overflow-auto">
-              {onClear && (
-                <MenuItem disabled={selectDisabled} onClick={onClear}>
-                  {emptyLabel ?? t('None')}
+            {groups.map((group) => (
+              <SelectorBoxMenu
+                key={group.id}
+                group={group}
+                selectedId={value?.id}
+                metricsUnavailable={devices.error}
+                quotas={quotas}
+                updates={updates}
+                fixes={fixes}
+                selectDisabled={selectDisabled}
+                onSelect={onSelect}
+              />
+            ))}
+          </div>
+          {(onAddAgent ?? onSettings) && (
+            <>
+              {groups.length > 0 && <MenuSeparator />}
+              {onAddAgent ? (
+                <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
+                  {t('Add new runtime')}
+                </MenuItem>
+              ) : (
+                <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
+                  {t('Manage computers and runtimes')}
                 </MenuItem>
               )}
-              {groups.map((group) => (
-                <SelectorBoxMenu
-                  key={group.id}
-                  group={group}
-                  selectedId={value?.id}
-                  metricsUnavailable={devices.error}
-                  compact={compact}
-                  quotas={quotas}
-                  updates={updates}
-                  fixes={fixes}
-                  selectDisabled={selectDisabled}
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-            {(onAddAgent ?? onSettings) && (
-              <>
-                {groups.length > 0 && <MenuSeparator />}
-                {onAddAgent ? (
-                  <MenuItem icon={<Plus className="h-3.5 w-3.5" />} onClick={onAddAgent}>
-                    {t('Add new runtime')}
-                  </MenuItem>
-                ) : (
-                  <MenuItem icon={<Settings2 className="h-3.5 w-3.5" />} onClick={onSettings}>
-                    {t('Manage computers and runtimes')}
-                  </MenuItem>
-                )}
-              </>
-            )}
-          </MenuContent>
-        </Menu>
-      )}
+            </>
+          )}
+        </MenuContent>
+      </Menu>
     </>
   )
 }

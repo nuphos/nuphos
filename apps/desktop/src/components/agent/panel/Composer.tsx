@@ -6,8 +6,7 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
-import { BypassControlMenu } from './BypassControlMenu'
-import { ComposerAttachmentMenu } from './composerMenus'
+import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
@@ -48,7 +47,6 @@ export function Composer({
   runtimeControl,
   modelSession,
   newConversationModelControl,
-  botCredentials,
   bypassControl,
   pendingSeed,
   onSeedConsumed,
@@ -81,15 +79,17 @@ export function Composer({
   modelSession?: ModelSession
   /** Model settings for a conversation that does not exist yet. */
   newConversationModelControl?: ReactNode
-  /** Explicit Bot access controls, excluded from automatic grants through mentions. */
-  botCredentials?: CredentialSelectorControl
+  /** Authorization-mode picker for this conversation (Auto Mode ↔ Bypass
+   *  Permissions) — absent when the conversation has no session yet. */
   bypassControl?: { active: boolean | undefined; onSelect: (bypass: boolean) => void }
   pendingSeed?: AgentPromptSeed | null
   onSeedConsumed?: () => void
   autoFocus?: boolean
   /** Docked sidebar variant: matches the left content card's larger radius. */
   sidebar?: boolean
-  /** Attaches files dropped anywhere in the active chat panel. */
+  // Panel-level drag-and-drop: the whole chat panel is the drop zone.
+  // The composer publishes an "attach these dropped files" handler here so the
+  // panel can route a drop to whichever composer is currently visible.
   dropRegisterRef?: { current: ((dt: DataTransfer) => void) | null }
   /** Where this composer's unsent text is kept; see composerDraftKey. */
   draftKey?: string
@@ -114,7 +114,6 @@ export function Composer({
     modelSession,
     runtimeState ? !runtimeAllows(runtimeState, 'send') : streaming,
   )
-  const accessControls = botCredentials ?? credentialSelector
   const hero = variant === 'hero'
   const agentSendBlock = runtimeControlSendBlock(runtimeControl)
   const ownAgentMenu = useState(false) // the banner can open it
@@ -163,7 +162,9 @@ export function Composer({
   return (
     <div
       className={clsx(
-        // Match the adjacent card when docked and reserve space above the hero.
+        // Its width and side clearance are the ChatColumn's it sits in. Docked, its bottom gap
+        // matches the content card's own (`pb-2` on the main pane) so the two columns end on the
+        // same line. The hero always keeps room for the agent-status banner above the greeting.
         hero ? 'pt-5' : sidebar ? 'pb-2' : 'pb-3',
       )}
     >
@@ -180,7 +181,11 @@ export function Composer({
               ? 'rounded-[24px] px-5 pt-4 pb-3'
               : clsx(
                   'px-3 pt-2.5 pb-2',
-                  // Match the adjacent card’s round corners when docked.
+                  // Docked, it reads as part of the same surface as the content card beside it, so
+                  // it takes that card's corner exactly: `rounded-lg`, and the plain round shape
+                  // too. `surface-raised` would otherwise curve it as a squircle, which at the same
+                  // radius starts bending further from the corner and reads as the larger of the
+                  // two. Page mode sits between that and the hero.
                   sidebar ? 'rounded-lg [corner-shape:round]' : 'rounded-[14px]',
                 ),
           )}
@@ -243,16 +248,13 @@ export function Composer({
                 onSelectAttachment={actions.selectAttachment}
                 onSelectFolderAttachment={actions.selectFolderAttachment}
               />
-              {accessControls && (
-                <CredentialSelectorButton {...accessControls} hero={hero} personalIdentity />
+              {credentialSelector && (
+                <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
-              {bypassControl && (
-                <BypassControlMenu bypassControl={bypassControl} hero={hero} compact />
-              )}
+              {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
               {runtimeControl && !runtimeControl.offlineAgent && (
                 <RuntimeSelector
                   {...runtimeControl}
-                  compact
                   menuOpen={agentMenuOpen || agentMenuRequested}
                   onMenuOpenChange={(open) => {
                     setAgentMenuOpen(open)
@@ -265,7 +267,6 @@ export function Composer({
             {modelSession ? (
               <ModelSelector
                 control={modelControl}
-                prioritizeModelName
                 disabled={readOnly || Boolean(modelSession.lockedHint)}
                 disabledHint={modelSession.lockedHint}
                 hero={hero}

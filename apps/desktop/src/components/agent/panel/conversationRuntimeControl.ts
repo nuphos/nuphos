@@ -193,11 +193,6 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
         },
       }),
       selectDisabled: tab?.streaming || moving,
-      triggerDisabledHint: tab?.streaming
-        ? t('Wait for the reply to finish before switching runtimes.')
-        : moving
-          ? t('Switching runtime…')
-          : undefined,
       quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',

@@ -94,17 +94,7 @@ test('Bot and Task runtime controls preserve access, confirmation, and move dedu
   globalThis.window = new EventTarget() as never
   expect(render({ activeTab: null })).toBeUndefined()
   expect(render({ activeTab: { ...base.activeTab, readOnly: true } })).toBeUndefined()
-  const replying = render({ activeTab: { ...base.activeTab, streaming: true } })
-
-  expect(replying?.selectDisabled).toBe(true)
-  expect(replying?.triggerDisabledHint).toBe(
-    'Wait for the reply to finish before switching runtimes.',
-  )
-  const moving = render({ activeTab: { ...base.activeTab, movingTo: 'next' } })
-
-  expect(moving?.selectDisabled).toBe(true)
-  expect(moving?.triggerDisabledHint).toBe('Switching runtime…')
-  expect(render()?.triggerDisabledHint).toBeUndefined()
+  expect(render({ activeTab: { ...base.activeTab, streaming: true } })?.selectDisabled).toBe(true)
   // Only the owner can move a conversation, whoever else manages it.
   for (const canManage of [false, true])
     expect(

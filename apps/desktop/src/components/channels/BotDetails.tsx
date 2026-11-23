@@ -9,6 +9,7 @@ import {
   useBotDetailsOpen,
 } from '../../lib/botDetailsPanel'
 import { useChatSummaryDocked } from '../../lib/chatSummaryPanel'
+import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
 import { useNoRoomBeside } from '../agent/summary/summaryPlacement'
@@ -24,7 +25,6 @@ import { ChatHeaderIcon } from './channelParts'
 import type { ChannelAgent, ChannelFace } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
-import type { ComponentProps } from 'react'
 
 /** A Bot chat's face and name: one button for the Bot's details beside the chat, as ⌘I is. */
 function BotDetailsToggle({
@@ -104,7 +104,6 @@ export function BotDetailsPanel({
   onOpenLink,
   onEditTrigger,
   credentials,
-  bypassControl,
 }: {
   teamId: string
   bot: string
@@ -121,10 +120,10 @@ export function BotDetailsPanel({
   onEditTrigger?: (message: string) => void
   /** The Bot's selection, for its Access section; undefined until it loads. */
   credentials: CredentialSelectorControl | undefined
-  bypassControl?: ComponentProps<typeof BotAccessSection>['bypassControl']
 }) {
   const frameRef = useRef<HTMLSpanElement>(null)
   const narrow = useNoRoomBeside(frameRef, useChatSummaryDocked(usePaneId()))
+  const bypassControl = useBypassControl(bot)
   const inputQueue = useSessionInputRequests(bot, teamId)
   // The sidebar's row of the Bot stands in until the chat loads.
   const listed = useAgentSessions(teamId).data?.find((row) => row.sessionId === bot)

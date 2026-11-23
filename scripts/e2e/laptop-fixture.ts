@@ -19,7 +19,6 @@ export async function laptopOnline(
     box,
     restoreFails,
     busy,
-    signedIn = true,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
@@ -28,7 +27,6 @@ export async function laptopOnline(
     box?: string
     /** The runtime reports an active turn when queried by a pre-#4011 backend. */
     busy?: boolean
-    signedIn?: boolean
     /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
     restoreFails?: boolean
     owner?: { token: string; deviceId: string; label: string }
@@ -59,7 +57,7 @@ export async function laptopOnline(
       status: {
         localMetrics: diskPercent !== undefined,
         app,
-        agents: { 'claude-code': { cli: { installed: true, loggedIn: signedIn } } },
+        agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
       },
     }),
   )
