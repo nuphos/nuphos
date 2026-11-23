@@ -3,7 +3,7 @@
     <string name="box_title">Nuphos computer</string>
     <string name="box_setup">Runtime setup</string>
     <string name="box_connect">Connect a computer</string>
-    <string name="box_guide_body">Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.</string>
+    <string name="box_guide_body">Your Bots and Tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.</string>
     <string name="box_description">A Linux computer Nuphos runs for you, with Claude Code, Codex, OpenCode and other agents. Sign in with your own account.</string>
     <string name="box_step1">1. Open Nuphos on your computer.</string>
     <string name="box_step2">2. Sign in and choose this workspace.</string>

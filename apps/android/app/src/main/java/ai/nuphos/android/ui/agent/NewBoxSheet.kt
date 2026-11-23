@@ -122,7 +122,7 @@ internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit, onAdd: (() -
                         Text(stringResource(if (store.busy) R.string.box_creating else R.string.box_create))
                     }
                 }
-                NewBox.Phase.Starting -> { CircularProgressIndicator(); Text(stringResource(R.string.box_starting)) }
+                NewBox.Phase.Starting -> { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(stringResource(R.string.box_starting)) }
                 NewBox.Phase.Ready -> {
                     Text(stringResource(R.string.box_ready))
                     onAdd?.let { TextButton(onClick = it) { Text(stringResource(R.string.new_runtime_title)) } }
@@ -161,7 +161,8 @@ internal fun BoxResumeButton(device: RuntimeDevice, onResumed: () -> Unit) {
     var error by remember(device.id) { mutableStateOf<String?>(null) }
     val current = { auth.token == token && auth.generation == generation && auth.aiAllowed && access() && agents.workspaceRevision == workspace && agents.selectedTeam == team }
     if (NewBox.resumable(device)) {
-        TextButton(enabled = !busy, onClick = {
+        // Pulled back by the button's own padding so its label starts on the row's text column.
+        TextButton(enabled = !busy, modifier = Modifier.offset(x = (-12).dp), onClick = {
             if (!current()) return@TextButton
             busy = true; error = null
             scope.launch {

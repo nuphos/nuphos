@@ -147,7 +147,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                 Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
                     Column {
                         RuntimeInventoryHost(group)
-                        group.device?.let { device -> resume?.invoke(device) }
+                        group.device?.let { device -> resume?.let { Column(Modifier.padding(start = 60.dp, end = 20.dp, bottom = 8.dp)) { it(device) } } }
                         group.runtimes.forEach { runtime ->
                             HorizontalDivider(Modifier.padding(start = 60.dp, end = 20.dp), thickness = (1f / androidx.compose.ui.platform.LocalDensity.current.density).dp, color = MaterialTheme.colorScheme.outlineVariant)
                             Surface(onClick = { onRuntime(runtime.id) }, color = MaterialTheme.colorScheme.surface,
