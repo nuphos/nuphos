@@ -10,6 +10,7 @@ import { readAccountKey } from './agent-account.ts'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
+import { CODEX_MIN_VERSION, olderThan, versionOf } from './agent-cli-version.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 import { homeLogin } from './providers.ts'
@@ -161,30 +162,6 @@ async function claudeLogin(
       : {}),
   }
 }
-
-/** OpenCode 2.x prints "opencode v2.1.4"; the others print the bare version. */
-function versionOf(output: string): string | undefined {
-  return output
-    .split(/\s+/u)
-    .find((token) => /^v?\d+\.\d+\.\d+/u.test(token))
-    ?.replace(/^v/u, '')
-}
-
-/** False when either version is unreadable: only a version known to be older blocks a runtime. */
-function olderThan(version: string, minimum: string): boolean {
-  const have = version.split('.').map(Number)
-
-  for (const [i, part] of minimum.split('.').map(Number).entries())
-    if (have[i] !== part) return Number(have[i]) < part
-
-  return false
-}
-
-/**
- * Older Codex CLIs list models OpenAI no longer serves to ChatGPT sign-ins, so every turn on
- * them fails. 0.155.0 is the first release whose list has none of the models seen rejected.
- */
-const CODEX_MIN_VERSION = '0.155.0'
 
 export async function readJson(file: string): Promise<Record<string, unknown> | null> {
   try {
