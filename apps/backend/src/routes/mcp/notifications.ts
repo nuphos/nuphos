@@ -34,6 +34,7 @@ export async function sessionNotification(sessionId: string, userId: string) {
             id: report.id,
             status: report.status,
             summary: report.summary,
+            ...(report.data ? { data: report.data } : {}),
             at: report.at.toISOString(),
           },
         }

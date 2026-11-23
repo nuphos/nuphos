@@ -20,6 +20,8 @@ export type TaskReport = {
   reportId: string
   status: TaskStatus
   summary: string
+  /** The caller's own structured fields, passed through unread. */
+  data?: Record<string, unknown>
   createdAt: Date
   enqueuedAt?: Date
   deliveryError?: string
@@ -50,7 +52,7 @@ export async function reportTask(
   userId: string,
   teamId: string,
   sessionId: string,
-  report: { reportId: string; status: TaskStatus; summary: string },
+  report: Pick<TaskReport, 'reportId' | 'status' | 'summary' | 'data'>,
 ) {
   const child = await getConversationBySessionId(sessionId)
   const parent = child?.parentSessionId
@@ -90,7 +92,8 @@ export async function reportTask(
     !saved ||
     saved.parentSessionId !== parent.sessionId ||
     saved.status !== report.status ||
-    saved.summary !== report.summary
+    saved.summary !== report.summary ||
+    JSON.stringify(saved.data) !== JSON.stringify(report.data)
   )
     throw new Error('A report id cannot be reused for a different report. Use a new id.')
 
@@ -108,7 +111,13 @@ export async function reportTask(
     },
     {
       $set: {
-        taskReport: { id, status: saved.status, summary: saved.summary, at: saved.createdAt },
+        taskReport: {
+          id,
+          status: saved.status,
+          summary: saved.summary,
+          ...(saved.data ? { data: saved.data } : {}),
+          at: saved.createdAt,
+        },
       },
     },
   )

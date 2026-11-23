@@ -4,6 +4,7 @@
 import { writeFileSync } from 'node:fs'
 
 import { client, must } from './binding-access-scenarios.ts'
+import { REPORT_DATA } from './fixture-mcp.mjs'
 import { mcp } from './mcp-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { replyWith, webhookRequests, webhookUrl } from './webhook-receiver.ts'
@@ -97,6 +98,10 @@ async function delegate(ask: (prompt: string) => Promise<string>) {
   const reported = await received('the Task’s report', (r) => r.body.type === 'task.reported')
 
   must(reported.body.data.session_id !== parent, 'task.reported to name the Task')
+  must(
+    JSON.stringify(reported.body.data.task_report?.data) === JSON.stringify(REPORT_DATA),
+    `task.reported to carry the report's data unchanged (#4751), got ${JSON.stringify(reported.body.data)}`,
+  )
 }
 
 /** A 503 is retried with the same event; 410 switches the endpoint off. */

@@ -184,3 +184,20 @@ test('a failed retry handoff keeps a visible error and can be retried again', as
   queueFails = false
   expect((await update()).delivery).toBe('queued')
 })
+
+// #4751: structured fields the caller defines travel with the report, unread.
+test('a report keeps its data, and a retry cannot change it', async () => {
+  const data = { pr_url: 'https://github.com/o/r/pull/1', ci: 'passed', merged: false }
+  const report = (with_: Record<string, unknown>) =>
+    reportTask('u', 't', 'child', {
+      reportId: 'data-1',
+      status: 'ready',
+      summary: 's',
+      data: with_,
+    })
+
+  await report(data)
+  expect(store.rows.agent_conversations![1]!.taskReport.data).toEqual(data)
+  await report(data)
+  await expect(report({ ...data, merged: true })).rejects.toThrow('cannot be reused')
+})

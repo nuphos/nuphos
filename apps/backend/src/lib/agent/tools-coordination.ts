@@ -27,6 +27,13 @@ export function createCoordinationTools(userId: string, sessionId: string, teamI
       .min(1)
       .max(3000)
       .describe('Result, evidence, next step or blocker. Never include secrets.'),
+    data: z
+      .record(z.string(), z.unknown())
+      .refine((data) => JSON.stringify(data).length <= 8192, 'data must be at most 8 KB as JSON.')
+      .optional()
+      .describe(
+        'Optional JSON object passed unchanged to webhooks as task_report.data, in a shape the instructions that started this Task define. Never include secrets.',
+      ),
   }
 
   return {
@@ -95,10 +102,15 @@ export function createCoordinationTools(userId: string, sessionId: string, teamI
           'For a human question use request_user_decision; this report cannot approve anything or answer a question. ' +
           'Reports and notifications are deduplicated by report_id; retry the same id and payload after a delivery error.',
         inputSchema: z.object(reportShape),
-        execute: async ({ report_id, status, summary }) => {
+        execute: async ({ report_id, status, summary, data }) => {
           const { reportTask } = await import('./task-reports')
 
-          return reportTask(userId, teamId, sessionId, { reportId: report_id, status, summary })
+          return reportTask(userId, teamId, sessionId, {
+            reportId: report_id,
+            status,
+            summary,
+            ...(data ? { data } : {}),
+          })
         },
       }),
       reportShape,
