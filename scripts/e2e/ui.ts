@@ -77,6 +77,14 @@ export async function setBotDetails(page: Page, open: boolean) {
   await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]:visible`).waitFor()
 }
 
+/** The runtime or model control: a Bot chat's is a row of its details, a Task's a composer chip. */
+export async function settingButton(page: Page, name: RegExp) {
+  if (!(await botDetailsToggle(page).isVisible())) return page.getByRole('button', { name })
+  await setBotDetails(page, true)
+
+  return page.getByRole('complementary', { name: 'Bot details' }).getByRole('button', { name })
+}
+
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */
 export async function checkBotDetailsFloating(page: Page) {
   // It scales in from the name; measure where it lands.

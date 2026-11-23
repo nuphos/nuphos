@@ -173,6 +173,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     val tasks = botFace?.let { store.tasks(under = it.id, teamId = session.teamId) }.orEmpty()
     var detailsOpen by remember(session.channelId) { mutableStateOf(false) }
+    // The Bot's own agent list: from its details, or after it could not reply, as on its Task screen.
+    var switching by remember(bot) { mutableStateOf(false) }
     var showMembers by remember(session.channelId) { mutableStateOf(false) }
     if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (detailsOpen && bot != null && auth.token != null) {
@@ -184,15 +186,13 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 BotDetailsCard(session, openTask = if (canOpenTask && onOpenTask != null) {
                     { detailsOpen = false; openTask(bot.sessionId) }
                 } else null)
-                BotRuntimeCard(session, bot, onSwitchAgent = { switching = true })
+                BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
             },
             canManage = bot.canManage)
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
-    // After the Bot could not reply: its own agent list, as on its Task screen.
-    var switching by remember(bot) { mutableStateOf(false) }
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {
         val workspaceRevision = store.workspaceRevision
