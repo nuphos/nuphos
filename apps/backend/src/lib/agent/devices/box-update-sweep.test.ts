@@ -1,10 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { config } from '@/config'
 import { useObservability } from '@/lib/test/doubles/observability'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import { sweepBoxUpdates } from './box-update-sweep'
+import { boxUpdateSweepDeps, startBoxUpdateSweep, sweepBoxUpdates } from './box-update-sweep'
 
 import type { UpdateSweepDeps } from './box-update-sweep'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
@@ -127,8 +127,22 @@ describe('Box update sweep', () => {
     expect(await sweep(hosts)).toEqual([])
   })
 
-  test('does nothing when switched off', async () => {
+  test('does not start when switched off', () => {
+    const schedule = spyOn(globalThis, 'setInterval')
+
     config.box.autoUpdate = false
-    expect(await sweep({ old: { cliVersion: '0.27.4', usedAt: idle } })).toEqual([])
+    startBoxUpdateSweep()()
+    expect(schedule).not.toHaveBeenCalled()
+    config.box.autoUpdate = true
+    startBoxUpdateSweep()()
+    expect(schedule).toHaveBeenCalledTimes(1)
+    schedule.mockRestore()
+  })
+
+  test('without Redis, a replica still tries each version once', async () => {
+    expect(await boxUpdateSweepDeps.claim('d1', '0.27.4')).toBe(true)
+    claimed.clear() // Redis forgot it, or there is none
+    expect(await boxUpdateSweepDeps.claim('d1', '0.27.4')).toBe(false)
+    expect(await boxUpdateSweepDeps.claim('d1', '0.27.5')).toBe(true)
   })
 })

@@ -43,7 +43,10 @@ export type UpdateSweepDeps = {
   update: (box: RunningBox) => Promise<void>
 }
 
-const defaultDeps: UpdateSweepDeps = {
+// Without Redis (one replica) each claim would win again; this replica remembers its own.
+const tried = new Set<string>()
+
+export const boxUpdateSweepDeps: UpdateSweepDeps = {
   running: runningBoxes,
   presence: (userId, deviceId) => runtimePresenceStore().get(userId, deviceId),
   busy: async (teamId, box, status) => {
@@ -52,7 +55,14 @@ const defaultDeps: UpdateSweepDeps = {
 
     return false
   },
-  claim: (deviceId, version) => claimRun(`agent:box-auto-update:${deviceId}:${version}`, ONCE_MS),
+  claim: async (deviceId, version) => {
+    const key = `agent:box-auto-update:${deviceId}:${version}`
+
+    if (tried.has(key)) return false
+    tried.add(key)
+
+    return claimRun(key, ONCE_MS)
+  },
   update: (box) =>
     startBoxUpdate(box, {
       // Not resumeBox: a paused Box stays paused, and the command fails.
@@ -74,8 +84,11 @@ function outdated({ cliVersion, autoInstall }: LocalRuntimeStatus): string | und
     : undefined
 }
 
-export async function sweepBoxUpdates(nowMs = Date.now(), deps = defaultDeps): Promise<void> {
-  if (!config.box.instabox || !config.box.autoUpdate) return
+export async function sweepBoxUpdates(
+  nowMs = Date.now(),
+  deps = boxUpdateSweepDeps,
+): Promise<void> {
+  if (!config.box.instabox) return
   if (!(await claimRun('agent:box-update-sweep', SWEEP_MS - 5_000))) return
   let started = 0
 
@@ -99,7 +112,9 @@ export async function sweepBoxUpdates(nowMs = Date.now(), deps = defaultDeps): P
   }
 }
 
+/** Off with BOX_AUTO_UPDATE=false. */
 export function startBoxUpdateSweep(): () => void {
+  if (!config.box.autoUpdate) return () => {}
   let running = false
   const sweep = async () => {
     if (running) return
