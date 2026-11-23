@@ -197,12 +197,12 @@
     <string name="chat_summary_running">실행 중</string>
     <string name="chat_summary_open">에이전트 요약</string>
     <string name="chat_summary_output_truncated">이전 출력은 숨겨져 있습니다.</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">변경 사항</string>
     <string name="chat_summary_children">하위 작업</string>
     <string name="chat_summary_files">파일</string>
     <string name="chat_summary_triggers">트리거</string>
     <string name="chat_summary_no_triggers">에이전트에게 이 작업의 반복 일정을 요청하세요.</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_idle">유휴</string>
     <string name="chat_bot_details_title">봇 세부 정보</string>
     <string name="chat_bot_state_waiting">%1$d개 입력 필요</string>
     <string name="chat_bot_state_running">%1$d개 실행 중</string>
