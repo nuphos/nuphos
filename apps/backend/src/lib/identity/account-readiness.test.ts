@@ -191,7 +191,6 @@ test('consent defaults off, rejects stale notices, and is scoped to the authenti
   expect((await readAIConsent(String(USER))).accepted).toBe(false)
 })
 
-
 test('deletion requires email proof and persists one deadline across retries', async () => {
   const user = mapUser(docs('users')[0] as NuphosUserDoc)
 
