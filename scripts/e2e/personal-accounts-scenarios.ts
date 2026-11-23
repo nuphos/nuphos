@@ -134,7 +134,7 @@ export const personalAccountScenarios: Scenario[] = [
       }
       const switchTo = async (from: RegExp, name: string) => {
         await page.getByText(from).first().click()
-        await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+        await page.getByRole('menuitem', { name: 'Switch team' }).click()
         await page.getByRole('menuitem', { name: new RegExp(`${name}$`) }).click()
       }
 

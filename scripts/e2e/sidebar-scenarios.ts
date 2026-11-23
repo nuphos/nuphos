@@ -125,7 +125,7 @@ export const botFoldScenarios: Scenario[] = [
           .getByText(/^(?:E2E|Listing Team)$/)
           .first()
           .click()
-        await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+        await page.getByRole('menuitem', { name: 'Switch team' }).click()
         await workspace(name).waitFor()
       }
 

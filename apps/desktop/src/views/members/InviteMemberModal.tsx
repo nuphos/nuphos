@@ -39,7 +39,7 @@ export function InviteMemberModal({
         if (!submitting) onClose()
       }}
       title={t('Invite member')}
-      description={t('Send a workspace invitation by email.')}
+      description={t('Send a team invitation by email.')}
     >
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <label className="block">

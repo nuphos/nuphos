@@ -19,7 +19,7 @@ export function DangerZone({
 
   const canDelete = Boolean(team.isOwner)
 
-  const teamName = team.name || t('this workspace')
+  const teamName = team.name || t('this team')
 
   // Failures surface through the global toast (never inline under the button),
   // so we catch here rather than letting the dialog render the error itself.
@@ -27,16 +27,16 @@ export function DangerZone({
     try {
       if (canDelete) {
         await api.atlasDeleteTeam(team.id)
-        toast.success(t('Workspace deleted'))
+        toast.success(t('Team deleted'))
       } else {
         await api.atlasLeaveTeam(team.id)
-        toast.success(t('Left workspace'))
+        toast.success(t('Left team'))
       }
       onTeamRemoved(team.id)
     } catch (err) {
       setConfirmOpen(false)
       toast.apiError(
-        canDelete ? t('Could not delete workspace') : t('Could not leave workspace'),
+        canDelete ? t('Could not delete team') : t('Could not leave team'),
         err,
       )
     }
@@ -47,7 +47,7 @@ export function DangerZone({
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[13px] font-medium text-main">
-            {canDelete ? t('Delete workspace') : t('Leave workspace')}
+            {canDelete ? t('Delete team') : t('Leave team')}
           </div>
           {/* The 30-day retention/recovery copy states the announced policy;
               the purge job + support recovery/export that back it are not built
@@ -55,7 +55,7 @@ export function DangerZone({
           <div className="mt-0.5 text-[12.5px] leading-relaxed text-tertiary">
             {canDelete
               ? t(
-                  'Deletes this workspace for every member. Data is kept for 30 days, then permanently destroyed.',
+                  'Deletes this team for every member. Data is kept for 30 days, then permanently destroyed.',
                 )
               : t("You'll lose access until someone invites you back.")}
           </div>
@@ -72,19 +72,19 @@ export function DangerZone({
       <AppAlertDialog
         open={confirmOpen}
         destructive
-        title={canDelete ? t('Delete workspace') : t('Leave workspace')}
+        title={canDelete ? t('Delete team') : t('Leave team')}
         description={
           canDelete
             ? t(
-                'Delete {name}? The workspace is removed for every member. Its data is kept for 30 days, then permanently destroyed — within that window you can contact support to recover or export it.',
+                'Delete {name}? The team is removed for every member. Its data is kept for 30 days, then permanently destroyed — within that window you can contact support to recover or export it.',
                 { name: teamName },
               )
             : t(
-                "Leave {name}? You'll lose access to this workspace until someone invites you back. Computers you share here stop being shared, so teammates' chats on them stop working, and the computers you added from Nuphos here go to the team owner.",
+                "Leave {name}? You'll lose access to this team until someone invites you back. Computers you share here stop being shared, so teammates' chats on them stop working, and the computers you added from Nuphos here go to the team owner.",
                 { name: teamName },
               )
         }
-        confirmLabel={canDelete ? t('Delete workspace') : t('Leave workspace')}
+        confirmLabel={canDelete ? t('Delete team') : t('Leave team')}
         onConfirm={confirmAction}
         onClose={() => setConfirmOpen(false)}
       />

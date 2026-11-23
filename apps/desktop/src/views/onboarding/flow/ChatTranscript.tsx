@@ -34,7 +34,7 @@ export function ChatTranscript({
   const markGreetingDone = useCallback(() => setGreetingDone(true), [])
   const name = firstName || t('there')
   const [teamsPre, teamsPost = ''] = t(
-    'Hi {name}! You have {teams} waiting for you — join the ones you want, or create your own workspace.',
+    'Hi {name}! You have {teams} waiting for you — join the ones you want, or create your own team.',
     { name },
   ).split('{teams}')
   const [wsPre, wsPost = ''] = t("Hi {name}! Let's set up your first {workspace}.", { name }).split(
@@ -55,7 +55,7 @@ export function ChatTranscript({
         segments={
           hasJoinOptions
             ? [teamsPre, { text: t('teams'), className: 'text-secondary' }, teamsPost]
-            : [wsPre, { text: t('workspace'), className: 'text-secondary' }, wsPost]
+            : [wsPre, { text: t('team'), className: 'text-secondary' }, wsPost]
         }
       />
 
@@ -67,7 +67,7 @@ export function ChatTranscript({
           reduce={reduce}
           startDelay={200}
           segments={[
-            t('What would you like to call your workspace? You can always rename it later.'),
+            t('What would you like to call your team? You can always rename it later.'),
           ]}
         />
       )}
@@ -77,7 +77,7 @@ export function ChatTranscript({
           <UserMsg>{workspaceName}</UserMsg>
           <div className="flex items-center gap-2 text-[13.5px]">
             <span className="codex-shimmer-text t-text-swap">
-              {t('Setting up your workspace…')}
+              {t('Setting up your team…')}
             </span>
           </div>
         </>

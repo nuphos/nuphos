@@ -104,7 +104,7 @@ export function runtimeRemovalDescription(instance: RuntimeInstance): string {
     )
   if (local.online === false)
     return t(
-      '{device} is offline. The runtime leaves this workspace now, and {device} deletes it and its sign-in the next time it connects.',
+      '{device} is offline. The runtime leaves this team now, and {device} deletes it and its sign-in the next time it connects.',
       { device: local.deviceLabel },
     )
   if (local.instanceId)

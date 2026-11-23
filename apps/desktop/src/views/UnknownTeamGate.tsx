@@ -40,11 +40,11 @@ export function UnknownTeamGate({
           <TriangleAlert className="h-6 w-6 text-error" strokeWidth={1.8} />
           <div className="flex flex-col items-center gap-2 text-center">
             <h1 className="text-[15px] font-medium text-main">
-              {t('This workspace is unavailable')}
+              {t('This team is unavailable')}
             </h1>
             <p className="text-[13px] text-tertiary">
               {t(
-                'A tab is open on a workspace this account can’t access. Pick one below to continue.',
+                'A tab is open on a team this account can’t access. Pick one below to continue.',
               )}
             </p>
           </div>
@@ -72,7 +72,7 @@ export function UnknownTeamGate({
 
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={onReload} disabled={reloading}>
-              {reloading ? t('Reloading…') : t('Reload workspaces')}
+              {reloading ? t('Reloading…') : t('Reload teams')}
             </Button>
             <Button variant="ghost" size="sm" onClick={onSignOut}>
               {t('Log out')}

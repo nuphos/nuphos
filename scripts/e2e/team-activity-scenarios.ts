@@ -157,7 +157,7 @@ export const teamActivityScenarios: Scenario[] = [
 
       // The member's home in that team: the activity card, the teammate's session unnamed.
       await switcher(page).click()
-      await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+      await page.getByRole('menuitem', { name: 'Switch team' }).click()
       await page.getByRole('menuitem', { name: TEAM_NAME }).click()
       try {
         await page.getByRole('button', { name: 'Stats', exact: true }).click()
@@ -185,7 +185,7 @@ export const teamActivityScenarios: Scenario[] = [
         await page.getByRole('button', { name: 'Stats', exact: true }).click()
       } finally {
         await switcher(page).click()
-        await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+        await page.getByRole('menuitem', { name: 'Switch team' }).click()
         await page.getByRole('menuitem', { name: /E2E$/ }).click()
       }
     },

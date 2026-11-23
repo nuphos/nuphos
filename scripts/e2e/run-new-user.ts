@@ -26,8 +26,8 @@ try {
   await page.getByRole('button', { name: 'Continue with email' }).click()
   await page.getByText('Enter the 6-digit code').waitFor()
   await page.locator('input[placeholder="000000"]').fill(stack.signInCode(email) ?? '')
-  await page.getByPlaceholder('Name your workspace…').fill('New user')
-  await page.getByRole('button', { name: 'Create workspace' }).click()
+  await page.getByPlaceholder('Name your team…').fill('New user')
+  await page.getByRole('button', { name: 'Create team' }).click()
   const cloud = page.getByRole('button', { name: /^Rent a computer from Nuphos/ })
 
   // Each place a new user is asked for a runtime offers the cloud computer: onboarding,
@@ -36,7 +36,7 @@ try {
   await page.screenshot({ path: `${artifacts}/new-user-onboarding.png` })
   // No Claude Code or Codex on this computer: setting them up waits.
   await page.getByRole('button', { name: 'Set up later' }).click()
-  await page.getByRole('button', { name: 'Open workspace' }).click()
+  await page.getByRole('button', { name: 'Open team' }).click()
   // their first Bot,
   await page.getByRole('button', { name: 'New Bot', exact: true }).click()
   await page.getByRole('textbox', { name: 'Bot name' }).fill('E2E Bot')

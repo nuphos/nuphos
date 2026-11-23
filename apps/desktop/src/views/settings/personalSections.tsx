@@ -28,7 +28,7 @@ export function MembersSection({
   if (!teamId) {
     return (
       <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-        {t('No workspace selected.')}
+        {t('No team selected.')}
       </div>
     )
   }
@@ -52,7 +52,7 @@ export function AuditSection({
   if (!teamId) {
     return (
       <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-        {t('No workspace selected.')}
+        {t('No team selected.')}
       </div>
     )
   }

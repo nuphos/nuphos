@@ -68,7 +68,7 @@ export function ChannelReplyFix({
       <span className="text-[12px] text-tertiary">
         {route.name
           ? t('Ask {name} to sign this runtime in.', { name: route.name })
-          : t('Ask a workspace administrator to reconnect this runtime.')}
+          : t('Ask a team administrator to reconnect this runtime.')}
       </span>
     )
   if (fix === 'settings')

@@ -161,7 +161,7 @@ export function GoogleOAuthClientCard({ team }: { team: AtlasTeam }) {
                 ? t('Not required. Connect Gmail, Google Drive or Google Calendar in Connectors.')
                 : admin
                   ? t('Not configured. Ask {name} to add one.', { name: admin })
-                  : t('Not configured. Ask a workspace administrator to add one.')}
+                  : t('Not configured. Ask a team administrator to add one.')}
         </div>
       )}
     </div>

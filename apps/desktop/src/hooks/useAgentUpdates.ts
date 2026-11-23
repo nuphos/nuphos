@@ -192,7 +192,7 @@ function teamAgentUpdate(
     return {
       state: 'available',
       version,
-      reason: t('Ask a workspace administrator to update this runtime.'),
+      reason: t('Ask a team administrator to update this runtime.'),
     }
 
   return { state: 'available', version, start: () => void updateTeamAgent(teamId, id) }
