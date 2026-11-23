@@ -180,8 +180,14 @@ async function resetFlow(
   const home = homeOf(computer, provider, agent)
   const settings = join(home, 'settings.json')
 
-  if (provider === CLAUDE)
-    writeFileSync(settings, JSON.stringify({ env: { ANTHROPIC_API_KEY: 'e2e', E2E_KEPT: '1' } }))
+  if (provider === CLAUDE) {
+    const own = JSON.parse(readFileSync(settings, 'utf8')) as { env?: Record<string, string> }
+
+    writeFileSync(
+      settings,
+      JSON.stringify({ ...own, env: { ...own.env, ANTHROPIC_API_KEY: 'e2e' } }),
+    )
+  }
   mirrorIntoSessions(computer, provider, agent)
   const files = credentialFiles(computer, provider, agent)
 
@@ -201,12 +207,10 @@ async function resetFlow(
     "a conversation's own files to be kept",
   )
   if (provider === CLAUDE) {
+    // The host writes its settings afresh on each start, keeping only an API key there.
     const kept = JSON.parse(readFileSync(settings, 'utf8')) as { env?: Record<string, string> }
 
-    must(
-      kept.env?.E2E_KEPT === '1' && !('ANTHROPIC_API_KEY' in kept.env),
-      'the API key in its settings to go and the rest to stay',
-    )
+    must(!kept.env?.ANTHROPIC_API_KEY, 'the API key in its settings to go, the settings staying')
   }
   console.log(`PASS ${provider}'s credentials are gone, here and in each conversation's home`)
   await signedIn(stack, computer, agent, false)

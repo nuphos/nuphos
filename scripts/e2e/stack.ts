@@ -43,8 +43,7 @@ export type Stack = {
   rollBackend: () => Promise<{ apiUrl: string; log: string; exited: Promise<void> }>
   /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
   freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
-  /** The backend's environment, for a script that acts as a replica of it. Needs `redis`. */
-  backendEnv: Record<string, string>
+  backendEnv: Record<string, string> // The backend's environment, for a replica; needs `redis`.
   /** The `state` of the newest Cloudflare authorization the app started. */
   cloudflareState: () => string
 }
