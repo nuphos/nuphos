@@ -17,15 +17,18 @@ import androidx.compose.ui.platform.LocalContext
 
 val LocalChatCanvas = staticCompositionLocalOf { SurfaceLight }
 
+val LocalAvatarForeground = androidx.compose.runtime.staticCompositionLocalOf { Color.White }
+val LocalAvatarGradient = androidx.compose.runtime.staticCompositionLocalOf { AvatarGradientLight }
+
 private val LightScheme = lightColorScheme(
     primary = BrandLight,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE9DDFF),
-    onPrimaryContainer = Color(0xFF25005A),
-    secondary = Color(0xFF625B71),
+    primaryContainer = Color(0xFFEEECE8),
+    onPrimaryContainer = BrandLight,
+    secondary = Color(0xFF5C5852),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE8DEF8),
-    onSecondaryContainer = Color(0xFF1E192B),
+    secondaryContainer = Color(0xFFEEECE8),
+    onSecondaryContainer = BrandLight,
     tertiary = Color(0xFFB45309),
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFFFE0B2),
@@ -56,15 +59,14 @@ private val LightScheme = lightColorScheme(
 
 private val DarkScheme = darkColorScheme(
     primary = BrandDark,
-    // White on the brand violet: Material's tonal #3B0091 falls below 3:1
-    // against #8B4DFF, so selected tabs and the send button lost their icons.
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFF5600C9),
-    onPrimaryContainer = Color(0xFFE9DDFF),
-    secondary = Color(0xFFCBC2DB),
-    onSecondary = Color(0xFF332D41),
-    secondaryContainer = Color(0xFF4A4458),
-    onSecondaryContainer = Color(0xFFE8DEF8),
+    // iOS uses a light ink accent in dark appearance; filled controls need dark labels.
+    onPrimary = Color(0xFF1A1917),
+    primaryContainer = Color(0xFF272624),
+    onPrimaryContainer = BrandDark,
+    secondary = Color(0xFFB8B4AD),
+    onSecondary = Color(0xFF1A1917),
+    secondaryContainer = Color(0xFF272624),
+    onSecondaryContainer = BrandDark,
     tertiary = Color(0xFFFFB74D),
     onTertiary = Color(0xFF4A2800),
     tertiaryContainer = Color(0xFF6B3C00),
@@ -119,6 +121,11 @@ fun NuphosTheme(
         motionScheme = MotionScheme.expressive(),
         typography = NuphosTypography,
         shapes = NuphosShapes,
-        content = { CompositionLocalProvider(LocalChatCanvas provides if (darkTheme) CanvasDark else SurfaceLight, content = content) },
+        content = { CompositionLocalProvider(
+            LocalChatCanvas provides if (darkTheme) CanvasDark else SurfaceLight,
+            LocalAvatarGradient provides if (darkTheme) AvatarGradientDark else AvatarGradientLight,
+            LocalAvatarForeground provides if (darkTheme) Color(0xFF1C1A17) else Color.White,
+            content = content,
+        ) },
     )
 }

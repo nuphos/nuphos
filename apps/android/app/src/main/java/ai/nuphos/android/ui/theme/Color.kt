@@ -2,12 +2,12 @@ package ai.nuphos.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val BrandLight = Color(0xFF7D36EC)
-val BrandDark = Color(0xFF8B4DFF)
-val BrandTextLight = Color(0xFF6D28D9)
-val BrandTextDark = Color(0xFFA469FF)
-val Violet500 = Color(0xFF6300FF)
-val Violet700 = Color(0xFF3E14A2)
+val BrandLight = Color(0xFF1C1A17)
+val BrandDark = Color(0xFFF2F0EC)
+val BrandTextLight = Color(0xFF2F4F7F)
+val BrandTextDark = Color(0xFF7C9CCB)
+val AvatarGradientLight = listOf(Color(0xFF5C5852), BrandLight)
+val AvatarGradientDark = listOf(Color(0xFFB8B4AD), BrandDark)
 val CanvasLight = Color(0xFFF7F7F7)
 val CanvasDark = Color(0xFF141414)
 val SurfaceLight = Color(0xFFFFFFFF)

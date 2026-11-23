@@ -217,7 +217,7 @@ useTurnRunner({
 })
 
 const { handleAppMention, handleThreadMessage } = await import('./slack')
-const { NO_BOT_HERE } = await import('./slack/mention')
+const { NO_BOT_HERE } = await import('./slack/shared')
 
 function mentionEnvelope(text: string) {
   return {
@@ -472,17 +472,20 @@ describe('an unbound thread under a message the bot posted', () => {
     return { ...envelope, event: { ...envelope.event, parent_user_id: BOT_USER } }
   }
 
-  test('explains how to reach the agent instead of dropping the reply', async () => {
+  test('points to choosing a Bot for the channel instead of dropping the reply', async () => {
     state.thread = null
 
     await handleThreadMessage(replyUnderBotRoot('why is 2.5TB over budget?'))
 
+    // A mention here only gets NO_BOT_HERE back, so the notice must not
+    // promise that mentioning the app picks the question up.
     expect(posted).toEqual([
       expect.objectContaining({
         threadTs: '100.1',
-        text: expect.stringContaining('Mention me'),
+        text: expect.stringContaining(NO_BOT_HERE),
       }),
     ])
+    expect(posted[0]?.text).not.toContain('Mention me')
     expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'completed' }])
     expect(agentRuns).toEqual([])
   })

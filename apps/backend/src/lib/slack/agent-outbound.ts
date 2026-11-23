@@ -35,7 +35,6 @@ export type {
 export async function createSlackOutboundContext(
   args: {
     userId: string
-    conversationId: string
     teamId?: string | null
   },
   dependencies: SlackOutboundDependencies = defaultDependencies,

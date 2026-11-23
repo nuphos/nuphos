@@ -65,6 +65,7 @@ export type TriggerRunParams = {
   initialSessionConfig?: RuntimeDefaults
   /** The Bot a new conversation starts under, already checked against the caller: its credentials and mode apply. */
   parentSessionId?: string
+  webhookId?: string // nuphos_ask's webhook_id, already checked.
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
@@ -189,6 +190,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       runtimeId: chatRuntime.runtimeId,
       runtimeLabel: chatRuntime.runtimeLabel,
       ...(params.parentSessionId ? { parentSessionId: params.parentSessionId } : {}),
+      ...(params.webhookId ? { webhookId: params.webhookId } : {}),
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {

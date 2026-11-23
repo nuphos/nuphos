@@ -19,6 +19,8 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { authenticateToken } from '@/lib/identity'
+import { authenticateCliToken, isCliToken } from '@/lib/identity/cli-tokens'
+import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
 import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { mcpResourceUrl } from '@/lib/oauth/metadata'
 import { getClient } from '@/lib/oauth/store'
@@ -41,7 +43,8 @@ export const mcp = new Hono<{ Variables: McpVariables }>()
 // MCP clients (Claude Code, Codex) can discover the authorization server and
 // run the native browser OAuth flow. Accepts either:
 //   1. an MCP OAuth access token (issued by /oauth/token via the browser flow), or
-//   2. a raw Nuphos session token (the manual `--header` path from #285).
+//   2. a raw Nuphos session token (the manual `--header` path from #285), or
+//   3. a CLI token: a Bot's agent token is held to its team, and its messages are the Bot's.
 const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c, next) => {
   const challenge = `Bearer resource_metadata="${config.auth.publicBaseUrl}/.well-known/oauth-protected-resource"`
   const header = c.req.header('Authorization')
@@ -58,13 +61,14 @@ const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c,
     mcpResourceUrl(config.auth.publicBaseUrl),
     config.auth.publicBaseUrl,
   )
-  let userId: string | null = claims?.sub ?? null
+  const result = claims
+    ? null
+    : isCliToken(token)
+      ? await authenticateCliToken(token)
+      : await authenticateToken(token)
+  const userId = claims?.sub ?? result?.user.id
+  const cliToken = result && 'cliToken' in result ? result.cliToken : undefined
 
-  if (!userId) {
-    // Back-compat: accept a raw Nuphos session token so the paste-a-token path
-    // keeps working alongside the OAuth flow.
-    userId = (await authenticateToken(token))?.user.id ?? null
-  }
   if (!userId || !ObjectId.isValid(userId)) {
     c.header('WWW-Authenticate', `${challenge}, error="invalid_token"`)
 
@@ -73,6 +77,11 @@ const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c,
 
   c.set('userId', userId)
   c.set('mcpOauthClientId', claims?.client_id)
+  if (cliToken) {
+    c.set('cliToken', cliToken)
+    c.set('authToken', token)
+  }
+  if (cliToken?.teamId) return runInTokenTeamScope(cliToken.teamId, next)
   await next()
 }
 
@@ -89,9 +98,11 @@ mcp.post('/', async (c) => {
     ...(oauthClientId ? { oauthClientId } : {}),
     ...(userAgent ? { userAgent } : {}),
   }
+  const cliToken = c.get('cliToken')
   const tools = toolsForContext({
     userId: c.get('userId'),
     client: Object.keys(clientMeta).length > 0 ? clientMeta : undefined,
+    ...(cliToken ? { cliToken: { principal: cliToken, token: c.get('authToken') } } : {}),
   })
 
   let payload: unknown

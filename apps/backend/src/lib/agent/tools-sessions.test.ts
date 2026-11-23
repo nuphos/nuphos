@@ -35,6 +35,25 @@ test('report_task has no working status: routine progress would wake the parent 
   expect(report('working').success).toBe(false)
 })
 
+test('report_task takes an optional JSON object as data, up to 8 KB', () => {
+  const tools = createSessionTools('u', 'c', 'team') as Record<
+    string,
+    { inputSchema: { safeParse: (input: unknown) => { success: boolean } } }
+  >
+  const report = (data: unknown) =>
+    tools.report_task!.inputSchema.safeParse({
+      label: 'x',
+      report_id: 'r',
+      status: 'done',
+      summary: 's',
+      data,
+    }).success
+
+  expect(report({ pr_url: 'https://example.com/pull/1', ci: 'passed' })).toBe(true)
+  expect(report(['not', 'an', 'object'])).toBe(false)
+  expect(report({ log: 'x'.repeat(8192) })).toBe(false)
+})
+
 test('offers nothing outside a team scope', () => {
   expect(createSessionTools('u', 'c', null)).toEqual({})
 })

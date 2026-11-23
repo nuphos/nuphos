@@ -609,6 +609,13 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           bun run e2e:session-homes
+      - name: Redact a key a tool prints in the live stream
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-printed-key
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          bun run e2e:printed-key
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -630,6 +637,9 @@ jobs:
             ${{ runner.temp }}/e2e-session-homes
             !${{ runner.temp }}/e2e-session-homes/mongo
             !${{ runner.temp }}/e2e-session-homes/sign-in
+            ${{ runner.temp }}/e2e-printed-key
+            !${{ runner.temp }}/e2e-printed-key/mongo
+            !${{ runner.temp }}/e2e-printed-key/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them

@@ -197,6 +197,28 @@ export async function resolveInputRequest(
 }
 
 /**
+ * The agent withdraws a request it asked, or one `about` its conversation: that
+ * conversation acts on the answer, so it may let the approval lapse, though only
+ * the asker corrects the card. False when neither has it open.
+ */
+export async function withdrawInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+): Promise<boolean> {
+  const result = await agentConversations().updateOne(
+    {
+      userId,
+      'inputRequests.id': id,
+      $or: [{ sessionId }, { inputRequests: { $elemMatch: { id, about: sessionId } } }],
+    },
+    { $pull: { inputRequests: { id } } },
+  )
+
+  return result.matchedCount > 0
+}
+
+/**
  * The owner sets an open request aside until `until`, or brings it back with
  * null. The agent is not told. False when it is not open.
  */

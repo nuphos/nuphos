@@ -40,16 +40,21 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
     .and(page.locator('[aria-haspopup="menu"]'))
     .first()
 
-  await trigger.hover()
   const runtime = page
     .locator('[role="menu"][data-nested][data-open]')
     .getByRole('menuitem', { name: item })
     .last()
     .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
-  await runtime.waitFor({ timeout: 60_000 })
-  await runtime.focus()
-  await page.keyboard.press('Enter')
+  // The menu opens upward, so a computer that joins while it is open slides another row under
+  // the pointer and opens that row's submenu instead: hover again until the menu takes the key.
+  await until(`${row}'s runtime to take the key`, async () => {
+    await trigger.hover()
+    await runtime.press('Enter', { timeout: 2_000 })
+    await page.getByRole('menu').first().waitFor({ state: 'hidden', timeout: 2_000 })
+
+    return true
+  })
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the

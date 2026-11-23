@@ -14,7 +14,7 @@ import {
   strandedToolCalls,
   turnHasText,
 } from '@/lib/agent/stuck-turn-shape'
-import { reportJoinTimeouts } from '@/lib/meetings/meetings'
+import { reportJoinTimeouts } from '@/lib/meetings/join-outcomes'
 import { logError, logEvent } from '@/lib/observability'
 
 export async function scanForStuckTurns(now = Date.now()): Promise<number> {

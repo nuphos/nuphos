@@ -50,6 +50,7 @@ export async function upsertConversationShell(
     ...(data.agentRuntime ? { agentRuntime: data.agentRuntime } : {}),
     ...(data.runtimeId ? { runtimeId: data.runtimeId, runtimeLabel: data.runtimeLabel } : {}),
     ...(data.parentSessionId ? { parentSessionId: data.parentSessionId } : {}),
+    ...(data.webhookId ? { webhookId: data.webhookId } : {}),
     ...(data.delegation ? { delegation: data.delegation } : {}),
     ...(data.originChannelIds?.length ? { originChannelIds: data.originChannelIds } : {}),
     ...(data.kind ? { kind: data.kind } : {}),
@@ -73,9 +74,7 @@ export async function upsertConversationShell(
     },
   }
 
-  if (!data.title) {
-    setOnInsert.title = fallbackTitle(data.firstMessage)
-  }
+  if (!data.title) setOnInsert.title = fallbackTitle(data.firstMessage)
   const result = await agentConversations().updateOne(
     withTeamScope({ sessionId: data.sessionId, userId: data.userId }, data.teamId),
     data.delegation
