@@ -271,7 +271,7 @@ test('the API lists every record oldest first, with moves recorded before the hi
       actor: { type: 'system' },
       via: 'session_start',
       effort: { to: low },
-      text: 'The agent set Low',
+      text: 'The runtime set Low',
     },
   ])
 })

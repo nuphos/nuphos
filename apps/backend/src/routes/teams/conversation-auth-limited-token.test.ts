@@ -62,6 +62,14 @@ describe('a limited token on the /teams mount', () => {
   test('an unlimited token still reaches the canonical routes', async () => {
     expect(await get('/teams/team-1/agent-triggers/t1', false)).toBe('200 reached')
   })
+
+  test('Slack mapping reads require an unlimited token in its own team', async () => {
+    expect(await get('/teams/team-1/slack/mappings', false)).toBe('200 reached')
+    expect(await get('/teams/team-1/slack/mappings')).toContain(
+      'This token is limited to credentials',
+    )
+    expect(await get('/teams/other-team/slack/mappings', false)).toMatch(/^403 /u)
+  })
 })
 
 // One read-only instance list per provider; the remaining four share the shape.

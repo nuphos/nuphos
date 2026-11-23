@@ -204,7 +204,7 @@ export async function launchQueuedChatTurn(
   const actorUserId = item.actorUserId ?? conversation.userId
 
   if (!teamId) throw new Error('A queued message lost its conversation team.')
-  // A refused attempt already persisted its input before calling the runtime.
+  // A refused attempt stored its input before calling the runtime; a copy left behind is not a run.
   // Only unattempted deliveries can use input presence as the duplicate guard:
   // a counted retry explicitly did not run and still needs to reach the agent.
   const retrying = (item.attempts ?? 0) > 0

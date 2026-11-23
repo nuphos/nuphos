@@ -8,12 +8,8 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { localRuntimeStatusSchema } from '@/lib/agent/devices/local-runtime/protocol'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  localRuntimeStatus,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels, localRuntimeStatus } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { LocalAgentProvider } from '@/lib/agent/devices/local-runtime/protocol'
@@ -364,12 +360,21 @@ test('a computer signed in with an API key says so, and only that', async () => 
   const keyed = localRuntimeStatusSchema.parse({
     agents: { codex: { cli: { installed: true, loggedIn: true, apiKey: true } } },
   })
-  const presence = { getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status: keyed }) }
+  const presence = {
+    getPresence: async () => ({ conn: 'c1', seenAt: Date.now(), status: keyed }),
+    ended: async () => false,
+  }
   const id = localRuntimeId({ ...ref, provider: 'codex' })
 
   expect(await localRuntimeStatus(id, presence)).toMatchObject({
     authenticated: true,
     apiKey: true,
   })
-  expect(await localRuntimeStatus(localRuntimeId(ref), deps)).not.toHaveProperty('apiKey')
+  expect(
+    await localRuntimeStatus(localRuntimeId(ref), { ...deps, ended: async () => false }),
+  ).not.toHaveProperty('apiKey')
+  // Its CLI stays logged in once its sign-in ended, so a sign-in request still goes out.
+  expect(await localRuntimeStatus(id, { ...presence, ended: async () => true })).toMatchObject({
+    authenticated: false,
+  })
 })

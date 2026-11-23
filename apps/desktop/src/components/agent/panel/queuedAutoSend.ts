@@ -1,4 +1,6 @@
+import { t } from '../../../i18n/index.ts'
 import { runtimeAllows, runtimeStateLabel } from '../../../lib/runtimeExecution.ts'
+import { formatResetsDuration } from '../../../lib/runtimeQuota.ts'
 
 import type { Message, QueuedMessage, Tab } from './model.ts'
 import type { RuntimeExecution } from '../../../lib/runtimeExecution.ts'
@@ -54,7 +56,11 @@ export function sendingDraftIds(): Set<string> {
  * The strip as the server sees it: this person's waiting messages, in order,
  * plus the ones still being sent.
  */
-export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: string }[]): Tab {
+export function syncQueued(
+  tab: Tab,
+  server: { id: string; mine: boolean; text: string }[],
+  held?: { until?: string },
+): Tab {
   const sending = sendingDraftIds()
   const local = new Map((tab.queued ?? []).map((item) => [item.id, item]))
   const waiting = server
@@ -64,10 +70,24 @@ export function syncQueued(tab: Tab, server: { id: string; mine: boolean; text: 
 
   return {
     ...tab,
+    queueHeld: held,
     queued: [
       ...waiting,
       ...(tab.queued ?? []).filter((item) => sending.has(item.id) && !known.has(item.id)),
     ],
+  }
+}
+
+/** The strip's status line while the agent's usage limit holds the queue. */
+export function usageHoldNotice(held: { until?: string } | undefined) {
+  if (!held) return null
+  const time = formatResetsDuration(held.until)
+
+  return {
+    status: 'pending' as const,
+    text: time
+      ? t('Out of usage. These run when usage resets in {time}.', { time })
+      : t('Out of usage. These run when usage resets.'),
   }
 }
 
@@ -138,8 +158,15 @@ export function adoptSideStream(tab: Tab, streamId: string, draftId: string | un
   }
 }
 
-/** What still waits: a message whose turn started is in the transcript already. */
-export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMessage[] {
+/**
+ * What still waits: a message whose turn started is in the transcript already.
+ * A queue the usage limit holds starts nothing; a message there that the
+ * transcript shows is from a refused try and still waits.
+ */
+export function waitingMessages(
+  tab: Pick<Tab, 'queued' | 'messages' | 'queueHeld'>,
+): QueuedMessage[] {
+  if (tab.queueHeld) return tab.queued ?? []
   const started = new Set(tab.messages.map((message) => message.id))
 
   return (tab.queued ?? []).filter((item) => !started.has(item.id))
@@ -149,13 +176,16 @@ export function waitingMessages(tab: Pick<Tab, 'queued' | 'messages'>): QueuedMe
  * Stop is offered whenever something is ahead of this person: the runtime's
  * turn, this tab's own stream, or whatever their queued messages wait for. After
  * a dropped runtime connection the runtime can report nothing to cancel while
- * the other two remain, and Stop is then the only way forward.
+ * the other two remain, and Stop is then the only way forward. A queue the
+ * usage limit holds waits for the reset, not for a turn, so it has nothing to stop.
  */
 export function canStopTurn(
-  tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages'>,
+  tab: Pick<Tab, 'runtimeState' | 'streaming' | 'queued' | 'messages' | 'queueHeld'>,
 ): boolean {
   return (
-    runtimeAllows(tab.runtimeState, 'cancel') || tab.streaming || waitingMessages(tab).length > 0
+    runtimeAllows(tab.runtimeState, 'cancel') ||
+    tab.streaming ||
+    (!tab.queueHeld && waitingMessages(tab).length > 0)
   )
 }
 

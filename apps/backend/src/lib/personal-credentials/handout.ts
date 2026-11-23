@@ -13,6 +13,7 @@ import {
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
+import { accountRequired, chooseCredential } from './choose'
 import { githubUserInstallationIds, refreshGithubToken } from './github'
 import { isGoogleProvider, refreshGoogleToken, teamGoogleClient } from './google'
 import { open, seal } from './seal'
@@ -120,38 +121,58 @@ async function currentToken(doc: PersonalCredential): Promise<PersonalToken | nu
 const installationAccess = new Map<string, number>()
 const INSTALLATION_ACCESS_TTL_MS = 10 * 60 * 1000
 
-/** The sender's GitHub token, when they connected one that can see this installation. */
+/**
+ * The sender's GitHub token, when they connected an account that can see this installation. The
+ * installation picks the account: several that can see it, and none named, is a 409.
+ */
 export async function personalGithubToken(
   userId: string,
   installationId: number,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider: 'github' })
-  const current = doc && (await currentToken(doc))
+  const docs = await personalCredentials().find({ userId, provider: 'github' }).toArray()
+  const reaching: { doc: PersonalCredential; current: PersonalToken }[] = []
 
-  if (!doc || !current) return null
-  const key = `${doc._id.toHexString()}:${String(installationId)}`
+  for (const doc of docs) {
+    const current = await currentToken(doc)
 
-  if ((installationAccess.get(key) ?? 0) > Date.now()) return current
-  const visible = await githubUserInstallationIds(current.token).catch(
-    (error: unknown): number[] => {
-      logError('personal_credential.installations_failed', error, { provider: 'github' })
+    if (current && (await seesInstallation(doc, current.token, installationId))) {
+      reaching.push({ doc, current })
+    }
+  }
+  if (reaching.length > 1) throw accountRequired(reaching.map(({ doc }) => doc))
 
-      return []
-    },
-  )
-
-  if (!visible.includes(installationId)) return null
-  installationAccess.set(key, Date.now() + INSTALLATION_ACCESS_TTL_MS)
-
-  return current
+  return reaching[0]?.current ?? null
 }
 
-/** The member's own GitHub or Linear token, for a conversation with no team binding to go through. */
+async function seesInstallation(
+  doc: PersonalCredential,
+  token: string,
+  installationId: number,
+): Promise<boolean> {
+  const key = `${doc._id.toHexString()}:${String(installationId)}`
+
+  if ((installationAccess.get(key) ?? 0) > Date.now()) return true
+  // A failed lookup fails the request: answering with the team identity would
+  // silently act as the App instead of the member.
+  const visible = await githubUserInstallationIds(token)
+
+  if (!visible.includes(installationId)) return false
+  installationAccess.set(key, Date.now() + INSTALLATION_ACCESS_TTL_MS)
+
+  return true
+}
+
+/**
+ * The member's own GitHub or Linear token, for a conversation with no team binding to go through.
+ * With several accounts the call names one with `connectionId`.
+ */
 export async function personalOwnToken(
   userId: string,
   provider: 'github' | 'linear',
+  connectionId?: string,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider })
+  const docs = await personalCredentials().find({ userId, provider }).toArray()
+  const doc = chooseCredential(docs, connectionId)
 
   return doc ? currentToken(doc) : null
 }
@@ -167,7 +188,7 @@ export async function ownPersonalCredentialOptions(userId: string, teamId: strin
 
   return docs
     .filter((doc) => !doc.teamId || doc.teamId === teamId)
-    .map((doc) => ({ provider: doc.provider, login: doc.login }))
+    .map((doc) => ({ id: doc._id.toHexString(), provider: doc.provider, login: doc.login }))
 }
 
 /** The sender's Linear token, when they connected the same workspace as this binding. */
@@ -175,32 +196,61 @@ export async function personalLinearToken(
   userId: string,
   workspaceId: string,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider: 'linear', workspaceId })
+  const docs = await personalCredentials().find({ userId, provider: 'linear' }).toArray()
+  const doc = docs.find((candidate) => candidate.workspaceId === workspaceId)
 
   return doc ? currentToken(doc) : null
 }
+
+/**
+ * The member's Google account for one call: the one named by `connectionId`, or the only one
+ * connected through this team. Several and none named is an error that lists them: nothing is
+ * picked for the caller, and only the member's own accounts are ever considered.
+ */
+export async function googleCredentialFor(
+  userId: string,
+  provider: GoogleProvider,
+  teamId: string,
+  connectionId?: string,
+  viaComposio = false,
+): Promise<PersonalCredential | null> {
+  // Composio runs only the accounts connected through it, so a direct account never counts there.
+  const docs = await personalCredentials()
+    .find({
+      userId,
+      provider,
+      teamId,
+      ...(viaComposio && { composioAccountId: { $exists: true } }),
+    })
+    .toArray()
+
+  return chooseCredential(docs, connectionId)
+}
+
+/** The token of an already resolved Google account. */
+export const personalGoogleTokenOf = currentToken
 
 /** The member's own Gmail or Google Drive token, when they connected it through this team. */
 export async function personalGoogleToken(
   userId: string,
   provider: GoogleProvider,
   teamId: string,
+  connectionId?: string,
 ): Promise<PersonalToken | null> {
-  const doc = await personalCredentials().findOne({ userId, provider, teamId })
+  const doc = await googleCredentialFor(userId, provider, teamId, connectionId)
 
   return doc ? currentToken(doc) : null
 }
 
 /**
- * The member whose Personal Credential this handout uses, or null for the team
- * identity: the agent asked for it (`identity=team`), or the conversation's
+ * The member whose Personal Credential this handout uses, or null for the team identity: the agent asked for it (`identity=team`), or the conversation's
  * credential selection has the team act for this provider.
  */
 export async function personalCredentialSubjectFor(
   provider: 'github' | 'linear',
   authorization: string | undefined,
   identity?: string,
-): Promise<string | null> {
+): Promise<{ userId: string } | null> {
   const subject = personalCredentialSubject(authorization, identity)
   const sessionId = subject
     ? verifyPreviewMcpToken(authorization!.slice('Bearer '.length))?.sid
@@ -210,5 +260,7 @@ export async function personalCredentialSubjectFor(
   const found = await getConversationBySessionId(sessionId)
   const conversation = found && (await credentialSource(found))
 
-  return conversation?.credentialAccess?.teamIdentity?.includes(provider) ? null : subject
+  return conversation?.credentialAccess?.teamIdentity?.includes(provider)
+    ? null
+    : { userId: subject }
 }

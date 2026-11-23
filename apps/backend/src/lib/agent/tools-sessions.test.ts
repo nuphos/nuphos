@@ -3,6 +3,7 @@ import { expect, test } from 'bun:test'
 import { agentRuns } from '@/lib/agent/run-admission'
 import { byCodeUnit } from '@/lib/agent/sort-order'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { createSessionTools } from './tools-sessions'
@@ -22,6 +23,37 @@ test('exposes the past-conversation tools in a team', () => {
   ])
 })
 
+test('report_task has no working status: routine progress would wake the parent for nothing', () => {
+  const tools = createSessionTools('u', 'c', 'team') as Record<
+    string,
+    { inputSchema: { safeParse: (input: unknown) => { success: boolean } } }
+  >
+  const report = (status: string) =>
+    tools.report_task!.inputSchema.safeParse({ label: 'x', report_id: 'r', status, summary: 's' })
+
+  expect(report('ready').success).toBe(true)
+  expect(report('working').success).toBe(false)
+})
+
+test('report_task takes an optional JSON object as data, up to 8 KB', () => {
+  const tools = createSessionTools('u', 'c', 'team') as Record<
+    string,
+    { inputSchema: { safeParse: (input: unknown) => { success: boolean } } }
+  >
+  const report = (data: unknown) =>
+    tools.report_task!.inputSchema.safeParse({
+      label: 'x',
+      report_id: 'r',
+      status: 'done',
+      summary: 's',
+      data,
+    }).success
+
+  expect(report({ pr_url: 'https://example.com/pull/1', ci: 'passed' })).toBe(true)
+  expect(report(['not', 'an', 'object'])).toBe(false)
+  expect(report({ log: 'x'.repeat(8192) })).toBe(false)
+})
+
 test('offers nothing outside a team scope', () => {
   expect(createSessionTools('u', 'c', null)).toEqual({})
 })
@@ -39,6 +71,22 @@ const bypass = new Map<string, unknown>()
 // The calling conversation's own permission mode.
 let callerBypass = true
 let instructionsSaved = true
+// What the calling conversation may use.
+const callerAccess = {
+  awsRoleIds: ['caller-role'],
+  deviceIds: [],
+  updatedAt: new Date(),
+  updatedBy: 'u',
+}
+
+// The owner's default agent, which a Bot is stored on before its first turn.
+useConversationChatRoute({
+  resolveNewConversationRuntime: async () => ({
+    agentRuntime: 'codex',
+    runtimeId: 'rt_box',
+    runtimeLabel: 'Box',
+  }),
+})
 
 useDb({
   db: () => ({
@@ -64,6 +112,8 @@ let userRenamed = false
 const named: string[] = []
 
 useAgentDb({
+  credentialSourceOf: async (sessionId) =>
+    sessionId === 'c' ? { sessionId, userId: 'u', credentialAccess: callerAccess } : null,
   getConversations: async (viewer, options) => {
     expect(viewer).toBe('u')
     listOptions = options
@@ -333,6 +383,8 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
     teamId: 'team',
     title: 'Release Helper',
     firstMessage: '',
+    // What its maker may use, never more: not everything its owner may, as "+" gives.
+    credentialAccess: callerAccess,
     bot: {
       avatar: '07-ada',
       // The record says which conversation's agent made it.
@@ -345,6 +397,9 @@ test('create_bot makes a Bot owned by the person the agent works for, as "+ New 
         avatar: '07-ada',
       },
     },
+    agentRuntime: 'codex',
+    runtimeId: 'rt_box',
+    runtimeLabel: 'Box',
   })
   expect(result).toEqual({
     session_id: result.session_id,

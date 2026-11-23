@@ -16,7 +16,7 @@ import { MEMORY_RECORDS_COLLECTION } from '../memory-native/store'
 import { describeMemoryProviderConformance } from './conformance'
 
 import type { ConformanceHarness, ConformanceTenant } from './conformance'
-import type { MemoryObserver, MemorySessionOrigin } from './types'
+import type { MemoryObserver } from './types'
 import type * as dbActual from '@/lib/db'
 import type * as identityActual from '@/lib/identity'
 
@@ -243,13 +243,12 @@ const harness: ConformanceHarness = {
   async seed(
     tenant: ConformanceTenant,
     input: { text: string; title: string },
-    opts?: { origin?: MemorySessionOrigin; observer?: MemoryObserver },
+    opts?: { observer?: MemoryObserver },
   ): Promise<string | null> {
     const tools = nativeMemoryProvider.tools!.create({
       userId: tenant.userId,
       teamId: tenant.teamId,
       conversationId: `conf-conv-${tenant.userId}`,
-      origin: opts?.origin ?? 'user',
       observer: opts?.observer ?? noopObserver,
       getActivePlanId: async () => null,
     }) as unknown as Record<

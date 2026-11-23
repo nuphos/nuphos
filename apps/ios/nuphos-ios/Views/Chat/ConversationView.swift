@@ -61,7 +61,7 @@ struct ConversationView: View {
                     Label("Work tools", image: "lucide-monitor")
                 }
             }
-            if session.loaded && !session.isBot {
+            if session.loaded && session.shareable {
                 Button { showShare = true } label: { Label("Share", image: "lucide-user-plus") }
             }
             if let watching = session.isWatching {
@@ -165,13 +165,12 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .agentSummary(isPresented: $summaryOpen) {
+        .sheet(isPresented: $summaryOpen) {
             AgentSummaryPanel(session: session, close: { summaryOpen = false }, archive: archiveTask) { row in
                 summaryOpen = false
                 summaryTarget = row
             }
             .environment(store)
-            .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -283,7 +282,7 @@ struct ConversationView: View {
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) {
-            if !session.isBot { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
+            if session.shareable { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         }
         .sheet(isPresented: $showRuntimes) {
             RuntimePickerSheet(session: session) { runtime in
@@ -308,7 +307,7 @@ struct ConversationView: View {
                     await store.loadAgentDevices(metrics: false)
                 }
                 try? await Task.sleep(for: .seconds(15))
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         .task {
@@ -454,7 +453,7 @@ struct ConversationView: View {
             ) {
                 if session.canManage { ComposerControls(
                     selection: Binding(
-                        get: { session.credentialAccess ?? CredentialSelection() },
+                        get: { (session.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
                         set: { session.setCredentials($0) }
                     ),
                     mode: Binding(get: { session.permissionMode }, set: { session.setPermissionMode($0) }),
@@ -534,7 +533,8 @@ struct ConversationView: View {
         case .user(_, _, let text, let images, let sender, let transfers):
             UserBubble(text: text, images: images, sender: sender, transfers: transfers, session: session)
         case .assistantText(_, _, let text, let streaming):
-            AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:))
+            AssistantMarkdown(text: text, streaming: streaming, onLink: open(link:),
+                              resolveTransfer: { try await session.transferGroup($0) })
                 .frame(maxWidth: .infinity, alignment: .leading)
         case .reasoning(_, let part):
             ReasoningTile(part: part)

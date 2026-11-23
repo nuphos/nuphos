@@ -87,15 +87,22 @@ async function canPush(installationId: number, repository: string, login: string
   return permission === 'admin' || permission === 'write'
 }
 
-/** Only route PR-related events; ignore edits and intermediate CI churn. */
-export function githubResourceEvents(event: string, payload: unknown) {
+/**
+ * Only route PR-related events; ignore edits and intermediate CI churn.
+ * `commitPulls` are the PRs a status or a fork's check suite names only by commit.
+ */
+export function githubResourceEvents(event: string, payload: unknown, commitPulls: string[] = []) {
   const parsed = payloadSchema.safeParse(payload)
 
   if (!parsed.success) return []
   const body = parsed.data
   const action = body.action ?? ''
+  const commitNumbers = commitPulls.map((key) => Number(key.split('/').pop()))
   let numbers: number[] = []
   let actor: { login: string; repository: string } | undefined
+  const summary = `GitHub ${event}.${action}.`
+  // A CI event only wakes once the head's CI as a whole has settled.
+  let ci = false
 
   if (
     event === 'check_suite' &&
@@ -103,9 +110,13 @@ export function githubResourceEvents(event: string, payload: unknown) {
     body.check_suite?.status === 'completed'
   ) {
     // CI results are reported against our own pushes, so only they skip the self-event filter.
-    numbers = body.check_suite.pull_requests.map((pull) => pull.number)
+    numbers = [...body.check_suite.pull_requests.map((pull) => pull.number), ...commitNumbers]
+    ci = true
   } else if (ownEvent(body)) {
     return []
+  } else if (event === 'status') {
+    numbers = commitNumbers
+    ci = true
   } else if (
     event === 'pull_request' &&
     ['opened', 'reopened', 'closed', 'synchronize', 'ready_for_review'].includes(action)
@@ -132,22 +143,23 @@ export function githubResourceEvents(event: string, payload: unknown) {
     key: `github/${body.installation.id}/${body.repository.id}/${number}`,
     installationId: body.installation.id,
     actor,
-    summary: `GitHub ${event}.${action}.`,
+    summary,
+    ci,
   }))
 }
 
 /**
- * A finished commit status (pending is churn); its PRs are resolved by `statusEvents`.
- * A tag's health also follows our own statuses, so `includeOwn` keeps them.
+ * A finished commit status (pending is churn), ours included since a tag's health
+ * follows it; `githubResourceEvents` keeps ours from waking a session.
  */
-export function githubStatusCommit(event: string, payload: unknown, includeOwn = false) {
+export function githubStatusCommit(event: string, payload: unknown) {
   if (event !== 'status') return null
   const parsed = payloadSchema.safeParse(payload)
 
   if (!parsed.success) return null
   const body = parsed.data
 
-  if (!body.sha || !body.repository.full_name || (!includeOwn && ownEvent(body))) return null
+  if (!body.sha || !body.repository.full_name) return null
   if (!['success', 'failure', 'error'].includes(body.state ?? '')) return null
 
   return {
@@ -155,8 +167,6 @@ export function githubStatusCommit(event: string, payload: unknown, includeOwn =
     repositoryId: body.repository.id,
     repository: body.repository.full_name,
     sha: body.sha,
-    state: body.state,
-    context: body.context ?? '',
   }
 }
 
@@ -203,24 +213,19 @@ export type ResourceTurn = {
 }
 
 /**
- * Refreshes the tags an event may change and returns the open PRs of a status's
- * commit, resolved once so the wakeups can reuse them. A tag that can't refresh
- * keeps its last health.
+ * Refreshes the tags an event may change. Returns the open PRs of a status's or
+ * fork suite's commit, resolved once so the wakeups can reuse them, and the PRs
+ * whose CI has settled. A tag that can't refresh keeps its last health.
  */
-async function refreshHealth(
-  event: string,
-  payload: unknown,
-  statusCommit: ReturnType<typeof githubStatusCommit>,
-) {
+async function refreshHealth(event: string, payload: unknown) {
   // A fork PR's check suite names no PRs; like a status, its commit finds them.
-  const commit = statusCommit ?? githubUnattachedSuiteCommit(event, payload)
+  const commit = githubStatusCommit(event, payload) ?? githubUnattachedSuiteCommit(event, payload)
   const commitPulls = commit ? await commitPullKeys(commit) : []
-
-  await refreshLinkedPullHealth(
+  const settled = await refreshLinkedPullHealth(
     commit ? commitPulls.map((key) => ({ ...commit, key })) : githubHealthTargets(event, payload),
   )
 
-  return commitPulls
+  return { commitPulls, settled }
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
@@ -236,19 +241,8 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       { arrayFilters: [{ 'resource.key': pullState.key }] },
     )
   }
-  const statusCommit = githubStatusCommit(event, payload, true)
-  const commitPulls = await refreshHealth(event, payload, statusCommit)
-  let events = githubResourceEvents(event, payload)
-
-  if (statusCommit)
-    events = githubStatusCommit(event, payload)
-      ? commitPulls.map((key) => ({
-          key,
-          installationId: statusCommit.installationId,
-          actor: undefined,
-          summary: `GitHub status.${statusCommit.state ?? ''} (${statusCommit.context}).`,
-        }))
-      : []
+  const { commitPulls, settled } = await refreshHealth(event, payload)
+  const events = githubResourceEvents(event, payload, commitPulls)
 
   if (!events.length) return
   if (!deliveryId || deliveryId.length > 200)
@@ -256,6 +250,9 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
   let actorAllowed: Promise<boolean> | undefined
 
   for (const routed of events) {
+    const ci = routed.ci ? settled.get(routed.key) : undefined
+
+    if (routed.ci && !ci) continue
     const conversations = agentConversations().find({
       'linkedResources.key': routed.key,
     })
@@ -272,15 +269,16 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
         actorAllowed ??= canPush(routed.installationId, routed.actor.repository, routed.actor.login)
         if (!(await actorAllowed)) return
       }
+      // Every suite that settles the same CI result shares one wake.
       const messageId = createHash('sha256')
-        .update(JSON.stringify([conversation.sessionId, resource.id, deliveryId]))
+        .update(JSON.stringify([conversation.sessionId, resource.id, ci ? ci.id : deliveryId]))
         .digest('hex')
 
       await enqueueResourceTurn({
         sessionId: conversation.sessionId,
         resourceId: resource.id,
         messageId,
-        summary: routed.summary,
+        summary: ci ? ci.summary : routed.summary,
       })
     }
   }

@@ -57,7 +57,7 @@ export function useWorkspaceShortcuts(a: Args) {
   // A cloud computer a new user just made: its card on Computers adds its runtimes.
   useEffect(() => {
     if (!paneActive) return
-    const open = () => openSettingsSection('workspace.agent')
+    const open = () => openSettingsSection('workspace.computers')
 
     window.addEventListener(OPEN_COMPUTERS, open)
 

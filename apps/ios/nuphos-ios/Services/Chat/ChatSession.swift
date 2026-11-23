@@ -72,6 +72,8 @@ final class ChatSession {
     /// The session is a chat, found on loading it from a link.
     private(set) var isChannel = false
     private(set) var isBot = false
+    /// Offered Share: a Task a person opened, as the server decides it.
+    private(set) var shareable = false
     /// Files the agent sent the user here, read from the transfer store.
     private(set) var downloads: [TransferDownloadGroup] = []
     private(set) var isArchived = false
@@ -211,7 +213,7 @@ final class ChatSession {
         var selection = picked
         // An existing conversation's selection is stored even when it has none: only what changed is sent.
         if !isNew, selection.stored == nil { selection.stored = [] }
-        credentialAccess = selection.isBlank ? nil : selection
+        credentialAccess = isNew && selection.isBlank ? nil : selection
         guard !isNew, isOwner else { return }
         let previous = credentialSave
         credentialSave = Task {
@@ -365,13 +367,20 @@ final class ChatSession {
     /// Loads the tail of an existing conversation; if a reply is still
     /// running on the server, attaches to it.
     func load() async {
+        guard !loading else { return }
+        loading = true
+        defer { loading = false }
+        // A reread that lands after this chat sent or changed is stale.
+        let shown = loaded ? signature() : nil
         do {
             let observedAt = ProcessInfo.processInfo.systemUptime
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
+            if let shown, streaming || signature() != shown { return }
             serverTail = ServerTail(detail)
             // A link can name a chat; the app shows it as one, not as an agent.
             isChannel = detail.isChannel
             isBot = detail.avatar != nil && !detail.isChannel
+            shareable = detail.shareable ?? !isBot
             var msgs = detail.messages
             baseIndex = detail.messagesFirstIndex ?? 0
             readOnly = detail.readOnly ?? true
@@ -382,10 +391,8 @@ final class ChatSession {
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
             followsBot = detail.followsBot
-            if let stored = detail.credentialAccess {
-                let selection = CredentialSelection(json: stored)
-                credentialAccess = selection.isBlank ? nil : selection
-            }
+            // Nothing stored is stored too: the server reads every kind left unset as team-wide (#4034).
+            credentialAccess = CredentialSelection(json: detail.credentialAccess ?? .object([:]))
             Task { [weak self] in
                 guard let self, canManage, let bypass = try? await AgentChatAPI.bypass(token: token, sessionId: sessionId) else { return }
                 permissionMode = bypass ? .bypass : .auto
@@ -414,9 +421,24 @@ final class ChatSession {
             Task { await refreshResourcesAndDownloads() }
             if isNativeRuntime, !transportStreaming { Task { await refreshSessionConfig() } }
         } catch {
+            // A failed reread keeps the transcript already shown.
+            guard !loaded else { return }
             loadError = error.localizedDescription
             loaded = true
         }
+    }
+
+    /// One read at a time: a second one would replay the same run again.
+    private var loading = false
+
+    /// A turn this device started is still streaming into this session.
+    var streaming: Bool { streamTask != nil || submitting }
+
+    /// A reopened chat keeps showing what it has while this reads it again,
+    /// unless its own turn is still streaming into it.
+    func revalidate() async {
+        guard !streaming else { return }
+        await load()
     }
 
     // MARK: - Sending
@@ -641,7 +663,8 @@ final class ChatSession {
     // MARK: - Model settings
 
     func refreshSessionConfig() async {
-        guard isOwner, !readOnly, !isNew, isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        // Reading model settings is allowed for conversation participants; writes remain owner-only.
+        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
         let request = UUID()
         sessionConfigRequest = request
         sessionConfigReading = true
@@ -954,9 +977,9 @@ final class ChatSession {
         var autoResumable: Bool { reason == "model-silence" || reason == "tool-execution-timeout" }
     }
 
-    /// The chat left the screen. Each open builds a new session, so a stream
-    /// left following a run here is never read again; the next open replays
-    /// the run. A turn this device started keeps its stream until it ends.
+    /// The chat left the screen. A stream left following a run here is not
+    /// read off screen; the next open reads the conversation again and
+    /// replays the run. A turn this device started keeps its stream until it ends.
     func leave() {
         guard following else { return }
         streamTask?.cancel()
@@ -1252,10 +1275,10 @@ final class ChatSession {
                         let code = frame["errorCode"]?.stringValue
                         if code == "stream_unresumable", sawTurnComplete { continue }
                         lastErrorText = frame["errorText"]?.stringValue ?? "The agent hit an error."
-                        // A signed-out agent runtime is not transient: every fresh
-                        // retry re-hits the same missing credential, so fail with the
-                        // sign-in guidance the backend already wrote.
-                        if code == "runtime_auth_required" {
+                        // A signed-out or out-of-usage agent runtime is not transient:
+                        // every fresh retry re-hits the same refusal, so fail with the
+                        // guidance the backend already wrote.
+                        if code == "runtime_auth_required" || code == "runtime_usage_exhausted" {
                             return .failed(lastErrorText ?? "The agent hit an error.")
                         }
                         // Another turn took the runtime after admission; the server
@@ -1684,7 +1707,6 @@ final class ChatSession {
         case "preparing-tools": "Preparing tools…"
         case "building-prompt": "Building prompt…"
         case "recalling-memory": "Recalling memory…"
-        case "loading-compaction": "Loading history…"
         case "preparing-model": "Preparing model…"
         case "connecting-model": "Connecting…"
         case "thinking": "Thinking…"

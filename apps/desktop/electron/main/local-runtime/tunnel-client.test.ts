@@ -305,13 +305,35 @@ test('waking up redials at once instead of waiting out the backoff', (t) => {
   t.mock.timers.enable({ apis: ['setTimeout'] })
   const { backend, backends, client } = setup()
 
+  // The tunnel is down and waiting out the backoff; the wake skips the rest of the wait.
   backend().emit('open')
+  backend().emit('close', { code: 1006 })
+  assert.equal(backends.length, 1)
   client.reconnectNow()
 
   assert.equal(backends.length, 2)
-  assert.equal(backends[0]?.closed, false)
-  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
-  assert.equal(backends[0]?.closed, true)
+  client.stop()
+})
+
+test('waking up leaves a tunnel that is still answering alone', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
+  const { backends, client } = setup()
+
+  backends[0]?.emit('open')
+  t.mock.timers.tick(4_200)
+  // A computer that wakes and is unlocked sends both hints, one after the other.
+  client.reconnectNow()
+  client.reconnectNow()
+
+  assert.equal(backends.length, 1, 'a computer that has a tunnel is not given another')
+  assert.equal(backends[0]?.closed, false, 'the tunnel that was serving keeps its streams')
+
+  // The wake only restarts the window the tunnel has to answer in, counted from the wake.
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS - 1)
+  assert.equal(backends.length, 1)
+  t.mock.timers.tick(1)
+  t.mock.timers.tick(500)
+  assert.equal(backends.length, 2, 'silence past that window still replaces it')
   client.stop()
 })
 
@@ -382,11 +404,14 @@ test('stopping drops every stream and the socket', () => {
   assert.equal(backend().closed, true)
 })
 
-test('a stop says it stopped, so the backend can tell it from a reconnect', () => {
+test('a stop says it stopped, so the backend can tell it from a reconnect', (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   const { backends, client } = setup()
 
   backends[0]?.emit('open')
-  client.reconnectNow()
+  // Silence replaces it, and the socket it replaced is held open until the redial speaks.
+  t.mock.timers.tick(TUNNEL_IDLE_TIMEOUT_MS)
+  t.mock.timers.tick(500)
   backends[1]?.emit('open')
   client.stop()
 
@@ -590,6 +615,7 @@ test('instance RPC shares the tunnel and returns one result then closes', async 
   const frames = () => backend.sent.map((raw) => JSON.parse(raw))
 
   assert.equal(frames()[0].status.agentInstances, true)
+  assert.equal(frames()[0].status.agentReset, true)
   emit({ t: 'open', s: 'create', purpose: 'instances' })
   emit({ t: 'data', s: 'create', d: JSON.stringify({ method: 'create', instanceId: 'mock' }) })
   await new Promise((resolve) => setImmediate(resolve))
@@ -629,6 +655,8 @@ for (const [purpose, capability] of [
     const status = JSON.parse(backend.sent[0]!)
 
     assert.equal(status.status[capability], true)
+    // Without instance requests the host cannot reset an agent either.
+    assert.equal(status.status.agentReset, false)
     assert.equal(status.status[purpose === 'upload' ? 'localDownload' : 'localUpload'], false)
     backend.emit('message', { data: JSON.stringify({ t: 'open', s: purpose, purpose }) })
     stream.emit('open')

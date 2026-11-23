@@ -1,25 +1,25 @@
 import { Toast } from '@base-ui/react/toast'
-import {
-  faCircleCheck,
-  faCircleExclamation,
-  faCircleInfo,
-  faXmark,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
+import {
+  CircleCheck as CircleCheckIcon,
+  CircleAlert as CircleAlertIcon,
+  Info as InfoIcon,
+  X as XIcon,
+} from 'lucide-react'
 
 import { t } from '../../i18n'
 
 import { Button } from './button'
 import { toastManager } from './toast'
+import { UiIcon } from './ui-icon'
 
 import type { ToastType, ToastData } from './toast'
 import type { ReactNode } from 'react'
 
 const TONES = {
-  error: { icon: faCircleExclamation, className: 'text-error' },
-  success: { icon: faCircleCheck, className: 'text-success' },
-  info: { icon: faCircleInfo, className: 'text-secondary' },
+  error: { icon: CircleAlertIcon, className: 'text-error' },
+  success: { icon: CircleCheckIcon, className: 'text-success' },
+  info: { icon: InfoIcon, className: 'text-secondary' },
 } as const
 
 function ToastList() {
@@ -45,7 +45,8 @@ function ToastList() {
               't-toast is-open',
             )}
           >
-            <FontAwesomeIcon
+            <UiIcon
+              size={14}
               icon={tone.icon}
               className={clsx(
                 'flex-shrink-0 text-[15px]',
@@ -77,7 +78,7 @@ function ToastList() {
               aria-label={t('Dismiss')}
               className="flex-shrink-0 rounded p-0.5 text-[13px] text-tertiary transition-colors hover:text-main"
             >
-              <FontAwesomeIcon icon={faXmark} />
+              <UiIcon size={14} icon={XIcon} />
             </Toast.Close>
           </Toast.Root>
         )

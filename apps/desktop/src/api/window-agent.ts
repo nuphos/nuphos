@@ -28,7 +28,7 @@ import type {
   AgentSlackThread,
 } from './agent-types.ts'
 import type { LocalSessionImportResult, LocalSessionSource } from './app-types.ts'
-import type { Plan, PlanApprovalRequirement, PlanUpdatePatch, PlansPage } from './plan-types.ts'
+import type { Plan, PlansPage } from './plan-types.ts'
 import type { SessionConfigSelection, SessionConfigState } from './session-config-types'
 import type { CloudCliProvider, CloudCliProbe } from '../lib/cloudCli.ts'
 import type { AgentProvider } from '../types/runtime.ts'
@@ -99,7 +99,6 @@ export type WindowAgentApi = AgentDecisionApi & {
       limit?: number
       scope?: 'mine' | 'team' | 'shared'
       ownerId?: string
-      triggerIds?: string[]
       search?: string
       archived?: 'exclude' | 'only'
       sort?: 'activity' | 'created' | 'archived'
@@ -155,7 +154,10 @@ export type WindowAgentApi = AgentDecisionApi & {
   agentListQueue(
     sessionId: string,
     teamId?: string,
-  ): Promise<{ messages: { id: string; mine: boolean; text: string }[] }>
+  ): Promise<{
+    messages: { id: string; mine: boolean; text: string }[]
+    held?: { reason: 'usage_limit'; until?: string }
+  }>
   agentUnqueueMessage(
     sessionId: string,
     messageId: string,
@@ -247,12 +249,6 @@ export type WindowAgentApi = AgentDecisionApi & {
     limit?: number
   }): Promise<PlansPage>
   agentGetPlan(planId: string, teamId?: string): Promise<Plan>
-  agentUpdatePlan(planId: string, patch: PlanUpdatePatch, teamId?: string): Promise<Plan>
-  agentGetPlanApprovalPolicy(teamId: string): Promise<PlanApprovalRequirement>
-  agentUpdatePlanApprovalPolicy(
-    teamId: string,
-    minimumOtherApprovals: number,
-  ): Promise<PlanApprovalRequirement>
   agentListTriggers(teamId?: string, targetSessionId?: string): Promise<AgentTrigger[]>
   agentGetTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger>
   agentUpdateTrigger(

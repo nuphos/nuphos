@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.profile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -28,6 +29,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.Switch
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -51,22 +53,26 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.NuphosUser
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.components.NuphosAvatar
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import ai.nuphos.android.BuildConfig
+import ai.nuphos.android.NuphosApplication
 import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, onDismiss: () -> Unit) {
-    val voiceContext = androidx.compose.ui.platform.LocalContext.current
+fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, showIntegrations: Boolean = false, onDismiss: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
-    val voiceServices = remember(voiceContext, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(voiceContext) }
+    val voiceServices = remember(context, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(context) }
     val auth = LocalAuthSession.current
+    var showingConnectors by remember(auth.generation) { mutableStateOf(false) }
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
     var deletion by remember(user.id) { mutableStateOf(false) }
     var devices by remember(user.id) { mutableStateOf(false) }
-    var twoFactor by remember(user.id) { mutableStateOf(false) }
+    var twoFactor by remember(user.id) { mutableStateOf(TwoFactorResume.take(context)) }
     var withdraw by remember(user.id) { mutableStateOf(false) }
     val uri = LocalUriHandler.current
     val clipboard = LocalClipboardManager.current
@@ -90,11 +96,43 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
             accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
+            integrations = if (showIntegrations && auth.aiAllowed) ({
+                ProfileAction(stringResource(R.string.account_connectors), disclosure = true, icon = R.drawable.account_connectors,
+                    onClick = { showingConnectors = true })
+            }) else null,
+            appearanceSettings = {
+                val app = context.applicationContext as NuphosApplication
+                val avatarsLabel = stringResource(R.string.account_bot_avatars)
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text(avatarsLabel)
+                        Text(stringResource(R.string.account_bot_avatars_help),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                    Switch(checked = app.botAvatarsEnabled, onCheckedChange = app::updateBotAvatars,
+                        modifier = Modifier.testTag("account-bot-avatars").semantics {
+                            contentDescription = avatarsLabel
+                        })
+                }
+            },
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
                 ProfileAction(stringResource(R.string.profile_workspace), subtitle = workspaceName, disclosure = true,
                     onClick = { if (workspacePicker != null) choosingWorkspace = true else onWorkspace?.invoke() })
             }) else null,
         )
+    }
+    if (showingConnectors && showIntegrations && auth.aiAllowed) {
+        ModalBottomSheet(onDismissRequest = { showingConnectors = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.account_connectors),
+                    modifier = Modifier.weight(1f).testTag("account-connectors-title"),
+                    style = MaterialTheme.typography.titleMedium)
+                TextButton(onClick = { showingConnectors = false }) { Text(stringResource(R.string.done)) }
+            }
+            ai.nuphos.android.ui.connectors.ConnectorsPage()
+        }
     }
     if (choosingWorkspace && workspacePicker != null) {
         ModalBottomSheet(onDismissRequest = { choosingWorkspace = false },
@@ -149,6 +187,8 @@ internal fun ProfileContent(
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
     accounts: (@Composable () -> Unit)? = null,
+    appearanceSettings: (@Composable () -> Unit)? = null,
+    integrations: (@Composable () -> Unit)? = null,
 ) {
     val copyUserId = stringResource(R.string.profile_copy_user_id)
     Column(
@@ -177,7 +217,8 @@ internal fun ProfileContent(
                 }
                 Text(user.email, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
             }
-            if (accounts != null) ProfileGroup(stringResource(R.string.profile_group_accounts)) { accounts() }
+            if (accounts != null) ProfileGroup(stringResource(R.string.account_signed_in_accounts)) { accounts() }
+            if (integrations != null) ProfileGroup(stringResource(R.string.account_integrations)) { integrations() }
             ProfileGroup(stringResource(R.string.account)) {
                 ProfileAction(stringResource(R.string.profile_edit_title), onClick = onEdit)
                 ProfileDivider(Modifier.testTag("profile-account-line-edit"))
@@ -203,6 +244,7 @@ internal fun ProfileContent(
                     voiceSettings()
                 }
             }
+            if (appearanceSettings != null) ProfileGroup(stringResource(R.string.account_appearance)) { appearanceSettings() }
             ProfileGroup(stringResource(R.string.profile_group_app_icon)) { AppIconPicker() }
             ProfileGroup(stringResource(R.string.profile_group_privacy)) {
                 ProfileAction(stringResource(R.string.profile_privacy_policy), onClick = onPrivacy)
@@ -220,7 +262,16 @@ internal fun ProfileContent(
             Surface(shape = RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surface) {
                 ProfileAction(stringResource(R.string.sign_out), destructive = true, onClick = onSignOut)
             }
-            Spacer(Modifier.height(8.dp))
+            Column(
+                Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Image(painterResource(R.drawable.nuphos_icon), contentDescription = null, modifier = Modifier.size(36.dp))
+                Text("Nuphos", style = MaterialTheme.typography.titleSmall)
+                Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("account-version"))
+            }
         }
     }
 }
@@ -263,6 +314,7 @@ private fun ProfileAction(
     destructive: Boolean = false,
     disclosure: Boolean = false,
     subtitle: String? = null,
+    icon: Int? = null,
     onClick: () -> Unit,
 ) {
     TextButton(
@@ -273,6 +325,8 @@ private fun ProfileAction(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) Icon(painterResource(icon), contentDescription = null,
+                modifier = Modifier.padding(end = 12.dp).size(18.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(label, style = MaterialTheme.typography.bodyLarge,
                     color = if (destructive) MaterialTheme.colorScheme.error else androidx.compose.ui.graphics.Color.Unspecified)

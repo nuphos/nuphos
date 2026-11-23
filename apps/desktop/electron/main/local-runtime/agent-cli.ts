@@ -10,6 +10,7 @@ import { readAccountKey } from './agent-account.ts'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
+import { CODEX_MIN_VERSION, olderThan, versionOf } from './agent-cli-version.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 import { homeLogin } from './providers.ts'
@@ -19,8 +20,14 @@ import type { LocalAgentProvider } from './providers.ts'
 export { LOCAL_AGENT_PROVIDERS } from './providers.ts'
 export type { LocalAgentProvider } from './providers.ts'
 
+export function probeFailure(cli: AgentCliStatus | null) {
+  return cli && !cli.installed && cli.error
+    ? { cli: { installed: false, loggedIn: false, probeError: cli.error } }
+    : undefined
+}
+
 export type AgentCliStatus =
-  | { installed: false }
+  | { installed: false; error?: string }
   | {
       installed: true
       path: string
@@ -49,7 +56,12 @@ const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
-function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<string> {
+export function run(
+  file: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  strict = false,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     execFile(
       file,
@@ -58,7 +70,7 @@ function run(file: string, args: string[], env: NodeJS.ProcessEnv): Promise<stri
       (error, stdout, stderr) => {
         const output = `${stdout}${stderr}`
 
-        if (error && !output.trim()) reject(new Error(error.message))
+        if (error && (strict || !output.trim())) reject(new Error(error.message))
         else resolve(output)
       },
     )
@@ -116,7 +128,13 @@ async function claudeLogin(
   env: NodeJS.ProcessEnv,
 ): Promise<Partial<AgentCliStatus> & { loggedIn: boolean | null }> {
   const oauth = (await readClaudeCredential(homeOf(env), env))?.claudeAiOauth as
-    { accessToken?: unknown; refreshToken?: unknown; subscriptionType?: unknown } | undefined
+    | {
+        accessToken?: unknown
+        refreshToken?: unknown
+        subscriptionType?: unknown
+        rateLimitTier?: unknown
+      }
+    | undefined
   const config = env.CLAUDE_CONFIG_DIR
     ? await readJson(path.join(env.CLAUDE_CONFIG_DIR, '.claude.json'))
     : null
@@ -132,16 +150,17 @@ async function claudeLogin(
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
     ...(typeof email === 'string' ? { account: email } : {}),
-    ...(typeof oauth?.subscriptionType === 'string' ? { plan: oauth.subscriptionType } : {}),
+    // Claude Code stores "max" for Max 20x (now Ultra) too; only the rate limit tier tells it
+    // from Max 5x. The backend's runtime-quota-probe.ts reads a remote login the same way.
+    ...(typeof oauth?.subscriptionType === 'string'
+      ? {
+          plan:
+            oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x'
+              ? 'ultra'
+              : oauth.subscriptionType,
+        }
+      : {}),
   }
-}
-
-/** OpenCode 2.x prints "opencode v2.1.4"; the others print the bare version. */
-function versionOf(output: string): string | undefined {
-  return output
-    .split(/\s+/u)
-    .find((token) => /^v?\d+\.\d+\.\d+/u.test(token))
-    ?.replace(/^v/u, '')
 }
 
 export async function readJson(file: string): Promise<Record<string, unknown> | null> {
@@ -208,11 +227,54 @@ export async function probeAgentCli(
   const runtimeEnv = agentHome
     ? agentCliEnv({ provider, env, agentHome, cliPath: file })
     : undefined
+  let dshVersion: string | undefined
+  let dshUsable = false
+
+  if (provider === 'dsh') {
+    const probeEnv = runtimeEnv ?? env
+    let failure = 'dsh --version printed nothing'
+
+    try {
+      const output = await run(file, ['--version'], probeEnv, true)
+
+      dshVersion = versionOf(output)
+      dshUsable = Boolean(output.trim())
+    } catch {
+      failure = 'dsh --version failed'
+    }
+    if (!dshUsable) {
+      const node = await run('node', ['--version'], probeEnv, true).then(
+        (output) => {
+          const version = versionOf(output)
+
+          return version ? `v${version}` : 'unavailable'
+        },
+        () => 'unavailable',
+      )
+
+      const outdated = olderThan(node.replace(/^v/u, ''), '24.9')
+
+      return {
+        installed: false,
+        error: outdated
+          ? `DeepSeek Harness couldn't start on this computer. It needs Node.js 24.9 or newer, and this computer has ${node}. Update Node.js, then try again.`
+          : `DeepSeek Harness couldn't start on this computer (${failure}). Reinstall it, then try again.`,
+      }
+    }
+  }
   const [version, auth, accountKey] = await Promise.all([
-    run(file, ['--version'], env).then(versionOf, () => {}),
+    provider === 'dsh'
+      ? Promise.resolve(dshVersion)
+      : run(file, ['--version'], env).then(versionOf, () => {}),
     loginOf(provider, file, runtimeEnv, agentHome),
     runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])
+
+  if (provider === 'codex' && version && olderThan(version, CODEX_MIN_VERSION))
+    return {
+      installed: false,
+      error: `Codex ${version} is too old to run here. Update Codex to ${CODEX_MIN_VERSION} or newer, then try again.`,
+    }
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
   // startup, and a provider that hangs must not hold an agent back.

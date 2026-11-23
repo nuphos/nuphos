@@ -47,11 +47,10 @@ final class InboxUITests: XCTestCase {
         inboxTab.tap()
         openQuestion("Roll out 1.4 to production?")
         XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5), "The question did not open")
-        let tapped = Date()
+        // Sent at once: the answer leaves the question and opens the next, with nothing to undo.
         app.buttons["Ship it"].tap()
+        XCTAssertTrue(app.buttons["Friendly"].waitForExistence(timeout: 5), "The next question did not open")
         let body = try answerBody(session: "agent-ops", request: "q-deploy")
-        // Sent at once: nothing waits for an Undo.
-        XCTAssertLessThan(Date().timeIntervalSince(tapped), 2, "The Inbox's answer was not sent at once")
         XCTAssertEqual(body["choices"] as? [String], ["Ship it"])
         XCTAssertEqual(body["answeredIn"] as? String, "inbox", "The Inbox's answer does not say it was given in the Inbox")
     }
@@ -180,10 +179,10 @@ final class InboxUITests: XCTestCase {
         reason.tap()
         reason.typeText("The drafts are not ready yet")
         shot("snooze-3-dismiss-reason")
-        let tapped = Date()
+        // Sent at once: the card closes on the dismissal rather than holding it back.
         app.buttons["Dismiss question"].tap()
+        XCTAssertTrue(reason.waitForNonExistence(timeout: 5), "The dismissal still asks for a reason")
         let body = try sentBody("POST /agent/conversations/bot-release/decisions/q-notes/resolve")
-        XCTAssertLessThan(Date().timeIntervalSince(tapped), 2, "The dismissal was not sent at once")
         XCTAssertEqual(body["reason"] as? String, "The drafts are not ready yet")
         XCTAssertFalse(app.buttons["Undo"].exists, "The dismissal still offers Undo")
         var blog = notes
@@ -332,6 +331,24 @@ final class InboxUITests: XCTestCase {
 
         app.buttons["Dismiss"].tap()
         XCTAssertTrue(heading.waitForNonExistence(timeout: 5), "Dismiss left the question in the chat")
+    }
+
+    /// A question the agent withdraws leaves its Bot's open chat with the next read, and the
+    /// question still open stays (#4175).
+    func testAWithdrawnQuestionLeavesTheBotChat() throws {
+        try openBotChat(listing: [notes], asking: "Post the 1.4 release notes to the blog too?")
+        let withdrawn = app.staticTexts["Post the 1.4 release notes to the blog too?"]
+        let kept = app.staticTexts["Which tone should the 1.4 release notes take?"]
+        XCTAssertTrue(kept.exists, "The other open question is not in the Bot's chat")
+        shot("20-bot-chat-before-withdraw")
+
+        var row = notes
+        row["inputRequests"] = (row["inputRequests"] as? [[String: Any]] ?? []).filter { $0["id"] as? String != "q-blog" }
+        try listQuestions([row])
+        XCTAssertTrue(withdrawn.waitForNonExistence(timeout: 10), "The withdrawn question is still in the Bot's chat")
+        XCTAssertTrue(kept.exists, "The question still open left the Bot's chat")
+        sleep(1) // past the card's exit animation
+        shot("21-bot-chat-after-withdraw")
     }
 
     /// A secret a Task under the Bot asks for is given in the Bot's chat, with the task's masked
@@ -587,21 +604,23 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(field.waitForExistence(timeout: 5), "A question naming no provider can't be answered in words")
         field.typeText("Check the review status by hand and tell me")
         shot("6-no-provider-typed")
+        // Answered first: the app hides it at once, so a poll can't take the card before the tap (#4295).
+        app.buttons["Send answer"].firstMatch.tap()
         ops["inputRequests"] = [signIn, repo]
         try listQuestions([ops])
-        app.buttons["Send answer"].firstMatch.tap()
         XCTAssertTrue(listed("How should I handle Android releases stuck in Play review?").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
 
         // A sign-in status card: its options, never "Answer it in" the task.
         openQuestion("Sign in to GitHub once on the Mac mini, then pick Signed in")
         XCTAssertTrue(app.buttons["Signed in"].waitForExistence(timeout: 5), "A sign-in status card hides its options")
+        XCTAssertTrue(app.buttons["Other…"].exists, "A credential question with options can't be answered in words (#4029)")
         XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Answer it in")).firstMatch.exists,
                        "A card sends its answer elsewhere")
         shot("7-status-card-options")
+        app.buttons["Signed in"].firstMatch.tap()
         ops["inputRequests"] = [repo]
         try listQuestions([ops])
-        app.buttons["Signed in"].firstMatch.tap()
         XCTAssertTrue(listed("Sign in to GitHub once on the Mac mini, then pick Signed in").waitForNonExistence(timeout: 10),
                       "The answered question is still listed")
 

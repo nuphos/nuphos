@@ -40,7 +40,7 @@ export const sealers = {
     subject: 'GitHub user token',
     keyEnvs: ['GITHUB_TOKEN_ENCRYPTION_KEY'],
     keyId: () => config.byos.github.encryptionKeyId,
-    recovery: 'Reconnect GitHub under Settings → Personal Credentials.',
+    recovery: 'Reconnect GitHub in Connectors.',
   }),
   gitlab: createSealer({
     subject: 'GitLab credentials',
@@ -176,6 +176,13 @@ export const sealers = {
     keyId: () => config.byos.vanta.encryptionKeyId,
     recovery: 'Re-bind the Vanta integration.',
   }),
+  // Webhook headers share the Linode key: like kubeconfigs, customer-issued secrets.
+  webhooks: createSealer({
+    subject: 'webhook headers',
+    keyEnvs: [LINODE, CLOUDFLARE],
+    keyId: () => config.byos.linode.encryptionKeyId,
+    recovery: 'Re-enter the webhook headers.',
+  }),
   zeabur: createSealer({
     subject: 'Zeabur credentials',
     keyEnvs: byok('ZEABUR_PROVIDER_ENCRYPTION_KEY'),
@@ -213,6 +220,7 @@ export const { seal: encryptTailscaleClientSecret, open: decryptTailscaleClientS
 export const { seal: encryptUpstashSecret, open: decryptUpstashSecret } = sealers.upstash
 export const { seal: encryptUptimeKumaSecret, open: decryptUptimeKumaSecret } = sealers.uptimeKuma
 export const { seal: encryptVantaSecret, open: decryptVantaSecret } = sealers.vanta
+export const { seal: encryptWebhookSecret, open: decryptWebhookSecret } = sealers.webhooks
 export const { seal: encryptZeaburToken, open: decryptZeaburToken } = sealers.zeabur
 
 export function grafanaBindingToken(binding: {

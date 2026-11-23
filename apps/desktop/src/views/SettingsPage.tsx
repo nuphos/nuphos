@@ -126,7 +126,6 @@ export function SettingsPage({
                     onTeamRemoved={onTeamRemoved}
                     onSignOut={onSignOut}
                     onOpenConversation={onOpenConversation}
-                    onOpenSection={setSection}
                   />
                 </div>
               </HeaderEdge>

@@ -44,9 +44,13 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
+/** The home an agent runs with for Nuphos, under the user's own directory. */
+export const agentHomeName = (provider: LocalAgentProvider) =>
+  provider === 'claude-code' ? 'claude-home' : `${provider}-home`
+
 /** Grok Build, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
  *  their login is this file, as in the cloud runtime. */
-const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
+export const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
   dsh: '.dsh/.credentials.yaml',
   hermes: '.hermes/auth.json',
@@ -85,7 +89,7 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   antigravity:
     'Install Antigravity CLI 1.5.0 or newer on this computer to run it as a local runtime.',
   opencode: 'Install OpenCode on this computer to run it as a local runtime.',
-  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh` (Node.js 24.9 or newer) to run it as a local runtime.',
+  dsh: 'Install DeepSeek Harness with `npm install -g @deepseek-ai/dsh@latest` (Node.js 24.9 or newer) to run it as a local runtime.',
   hermes:
     'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
   pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (Node.js 22.19 or newer) to run it as a local runtime.',

@@ -32,11 +32,19 @@ let claims: { userId: string; actorUserId?: string }[]
 // Full Access as each new session was given it, in order with the runs started.
 let steps: string[]
 let bots: Record<string, AgentConversation>
+// The caller's most recent standalone Task, as the app's next new chat would start from it.
+let last: AgentConversation | null
+let lastQuery: Record<string, unknown> | undefined
 
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useMessageAttribution({
-  createMessageMetadata: async (userId) =>
-    ({ version: 1, sender: { type: 'user', id: userId, displayName: 'Ada' } }) as never,
+  createMessageMetadata: async (userId, _source, _device, cliToken) =>
+    ({
+      version: 1,
+      sender: cliToken
+        ? { type: 'agent', id: cliToken.id, displayName: cliToken.name }
+        : { type: 'user', id: userId, displayName: 'Ada' },
+    }) as never,
 })
 // The caller's runtimes: r1 is theirs to use, r2 is disabled; any other is gone.
 useRuntimeCatalog({
@@ -96,6 +104,13 @@ useTriggerRunExecute({
   },
 })
 useAgentDb({
+  agentConversations: (() => ({
+    findOne: async (query: Record<string, unknown>) => {
+      lastQuery = query
+
+      return last
+    },
+  })) as never,
   getConversationBySessionId: async (id) => bots[id] ?? stored,
   // Its owner reads it too, as the real lookup lets them.
   getReadableConversation: async (_session, viewer) =>
@@ -130,6 +145,8 @@ beforeEach(() => {
   claims = []
   steps = []
   bots = {}
+  last = null
+  lastQuery = undefined
   finishRun = () => undefined
 })
 
@@ -188,6 +205,21 @@ describe('nuphos_ask on a teammate’s session', () => {
     participant = true
 
     expect((await nuphosAsk(answer, ctx)).isError).toBe(true)
+  })
+})
+
+describe('nuphos_ask with a Bot’s agent token', () => {
+  test('the message is the Bot’s, and the run keeps the agent token', async () => {
+    const principal = { id: 'bot-1', kind: 'agent', userId: ME, teamId: 't1', name: 'Deploy Bot' }
+    const bot = { userId: ME, cliToken: { principal, token: 'nup_bot' } } as never
+    const sent = nuphosAsk({ prompt: 'Go.', team_id: 't1', session_id: 's1', wait: false }, bot)
+
+    expect(body(await sent).status).toBe('running')
+    expect(runs[0]).toMatchObject({ userId: ME, nuphosToken: 'nup_bot' })
+    expect((runs[0]!.messages as { metadata: unknown }[]).at(-1)!.metadata).toMatchObject({
+      sender: { type: 'agent', id: 'bot-1', displayName: 'Deploy Bot' },
+    })
+    finishRun()
   })
 })
 
@@ -343,10 +375,10 @@ describe('nuphos_ask full_access', () => {
     expect(events).toEqual([{ event: 'auth.bypass_enabled', data: { via: 'mcp' } }])
   })
 
-  test('omitted, a new session keeps the default mode', async () => {
-    await startNew({})
+  test('omitted, a new session starts with Full Access, as a new Task in the app does', async () => {
+    const { id } = await startNew({})
 
-    expect(steps.filter((step) => step.startsWith('mode'))).toEqual([])
+    expect(steps).toEqual([`mode ${String(id)} ${ME} true`, `run ${String(id)}`])
   })
 
   test('only a new session takes it, so a caller cannot grant it on one they do not own', async () => {
@@ -420,6 +452,59 @@ describe('nuphos_ask request_id on a tool authorization', () => {
     await nuphosAsk({ ...answer, request_id: 'w1', prompt: 'approve' }, ctx)
 
     expect(runtimeRequests.records.get('s1:w1')?.decision).toBeNull()
+  })
+})
+
+describe('nuphos_ask with no agent, model or effort', () => {
+  const recent = (over: Partial<AgentConversation> = {}) =>
+    ({
+      sessionId: 'recent',
+      userId: ME,
+      teamId: 't1',
+      runtimeId: 'r1',
+      initialSessionConfig: { model: 'gpt-5-mini', effort: 'high' },
+      ...over,
+    }) as AgentConversation
+
+  test("starts on the agent, model and effort of the caller's last standalone Task", async () => {
+    last = recent()
+    await startNew({})
+
+    expect(runs[0]).toMatchObject({
+      runtimeId: 'r1',
+      initialSessionConfig: { model: 'gpt-5-mini', effort: 'high' },
+    })
+    // Only the caller's own standalone Tasks in this team, newest first.
+    expect(lastQuery).toMatchObject({
+      userId: ME,
+      teamId: 't1',
+      parentSessionId: { $exists: false },
+    })
+  })
+
+  test('naming any of them starts from that instead', async () => {
+    last = recent()
+    await startNew({ runtime_id: 'r1', model: 'gpt-5' })
+
+    expect(runs[0]?.initialSessionConfig).toEqual({ model: 'gpt-5' })
+  })
+
+  test('a model no longer offered keeps the agent on its defaults; an agent gone, the default agent', async () => {
+    last = recent({ initialSessionConfig: { model: 'gpt-4' } })
+    await startNew({})
+    expect(runs[0]).toMatchObject({ runtimeId: 'r1' })
+    expect(runs[0]?.initialSessionConfig).toBeUndefined()
+
+    runs = []
+    last = recent({ runtimeId: 'gone' })
+    await startNew({})
+    expect(runs[0]?.runtimeId).toBeUndefined()
+  })
+
+  test('with no Task yet, the default agent', async () => {
+    await startNew({})
+
+    expect(runs[0]?.runtimeId).toBeUndefined()
   })
 })
 

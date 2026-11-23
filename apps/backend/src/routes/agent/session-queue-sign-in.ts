@@ -8,6 +8,22 @@ import type { QueueableChat } from './session-queue-turn'
 /** What the sender is told while the message waits. */
 export type SignInWait = { waiting: 'sign_in'; message: string; askedName: string }
 
+/** A send the queue holds: for an offline computer (null) or a sign-in. */
+export type QueuedSend = SignInWait | null
+
+export function isQueued<T extends object>(runtime: T | QueuedSend): runtime is QueuedSend {
+  return runtime === null || 'waiting' in runtime
+}
+
+export function queuedReply(streamId: string, wait: QueuedSend) {
+  return {
+    status: 'queued' as const,
+    streamId,
+    // The desktop names who the message waits for in its own language.
+    ...(wait ? { message: wait.message, waitingFor: wait.askedName } : {}),
+  }
+}
+
 /**
  * Held in the queue, which starts it once anyone signs the agent in
  * (sign-in-settle). Undefined when nothing was asked, or the send is not one

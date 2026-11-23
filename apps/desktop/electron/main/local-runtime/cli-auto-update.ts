@@ -1,6 +1,8 @@
 // A computer that runs the `nuphos` CLI (a server, or a computer from Nuphos) keeps its Nuphos
 // current itself, the way the Desktop does (auto-update.ts): when a newer CLI is out, on unless
-// whoever manages the computer turned it off, and only once no task has run on it for a while.
+// whoever manages the computer turned it off, at a check that finds no task running. Unlike the
+// Desktop it does not wait for idle minutes: a computer several agents use is free between turns
+// but never for long (#4210).
 // `nuphos update` installs the release and restarts the service the host runs under.
 //
 // Runtime imports stay free of Electron so this loads under plain `node --test`.
@@ -9,13 +11,7 @@ import { spawn } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
-import {
-  AUTO_INSTALL_IDLE_SECONDS,
-  DEFAULT_AUTO_INSTALL,
-  idleThreshold,
-  parseAutoInstall,
-  shouldAutoInstall,
-} from '../auto-update.ts'
+import { DEFAULT_AUTO_INSTALL, parseAutoInstall, shouldAutoInstall } from '../auto-update.ts'
 
 import { RuntimeTaskActivity } from './sleep-prevention.ts'
 
@@ -50,31 +46,13 @@ export function newerRelease(candidate: string, current: string): boolean {
   return value(candidate) > value(current)
 }
 
-/**
- * The time since a task last ran here, from the task activity the tunnel reports to: zero while
- * one runs, counted from when the host started before any has.
- */
-export function idleClock(now = () => Date.now()) {
-  let since = now()
-  const activity = new RuntimeTaskActivity(() => {
-    since = now()
-  })
-
-  return {
-    activity,
-    idleSeconds: () => (activity.busy() ? 0 : Math.floor((now() - since) / 1_000)),
-  }
-}
-
 export type CliAutoUpdateDeps = {
   /** The CLI this host runs (`NUPHOS_CLI_VERSION`). */
   version: string
   home: string
   latest: () => Promise<string | null>
+  /** A task runs here now (RuntimeTaskActivity). */
   busy: () => boolean
-  idleSeconds: () => number
-  /** Seconds without a task before it updates (idleThreshold: NUPHOS_AUTO_UPDATE_IDLE_SECONDS). */
-  idleThreshold?: number
   /** Starts `nuphos update`; false when it could not start. */
   update: () => Promise<boolean>
 }
@@ -93,9 +71,10 @@ export async function checkCliUpdate(deps: CliAutoUpdateDeps): Promise<string | 
       ready: newerRelease(latest, deps.version),
       failedBefore,
       busy: deps.busy(),
-      idleSeconds: deps.idleSeconds(),
+      idleSeconds: 0,
     },
-    deps.idleThreshold ?? AUTO_INSTALL_IDLE_SECONDS,
+    // Between turns is enough: no idle wait.
+    0,
   )
 
   // Noted once it started, so a release whose update could not even start is tried again.
@@ -213,7 +192,7 @@ export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = p
   const version = env.NUPHOS_CLI_VERSION
   // Set only when the host runs as the service, whose restart brings the update up (agent.rs).
   const exe = env.NUPHOS_CLI_EXE
-  const clock = idleClock()
+  const activity = new RuntimeTaskActivity()
 
   if (home && version && exe)
     startCliAutoUpdate(
@@ -221,21 +200,20 @@ export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = p
         version,
         home,
         latest: () => latestCliRelease(apiUrl()),
-        busy: () => clock.activity.busy(),
-        idleSeconds: clock.idleSeconds,
-        idleThreshold: idleThreshold(env),
+        busy: () => activity.busy(),
         update: () => runCliUpdate(exe),
       },
       checkInterval(env),
     )
 
   return {
-    activity: clock.activity,
+    activity,
+    // Only a host that updates itself shows the switch: a foreground one never would (#4792).
     wrap: <S extends object>(
       status: () => S,
       instances?: (request: unknown) => Promise<unknown>,
     ): [() => S & { autoInstall?: boolean }, typeof instances] =>
-      home
+      home && version && exe
         ? [
             () => ({ ...status(), autoInstall: readCliAutoInstall(home).enabled }),
             withAutoInstallRequest(instances, (value) => writeCliAutoInstall(home, value), changed),

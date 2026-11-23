@@ -66,6 +66,9 @@ export const localModelCatalogSchema = z.object({
   controls: z.record(z.string().max(500), modelControlsSchema),
   /** The runtime offered settings but no model list; its controls sit under `default`. */
   controlsOnly: z.literal(true).optional(),
+  /** The computer read this agent's models and the read failed, so this emptiness is
+   *  not a list still on its way and nobody should be told to wait for one. */
+  failed: z.literal(true).optional(),
 })
 
 /** One usage window as Anthropic or ChatGPT reports it. A window that does not
@@ -106,6 +109,7 @@ const localAgentStatusSchema = z.object({
     /** An added agent's CLI being installed by the computer, or why that failed. */
     installing: z.boolean().optional().catch(undefined),
     installError: z.string().max(500).optional().catch(undefined),
+    probeError: z.string().max(500).optional().catch(undefined),
   }),
   version: z.string().max(200).optional(),
   // Never fatal, like usage: a catalog over its bounds costs the model picker,
@@ -122,7 +126,7 @@ const localAgentStatusSchema = z.object({
    *  moment it was asked, so normalizing against anything else drifts. */
   usageAt: z.string().max(40).optional().catch(undefined),
   /** The account whose quota it spends, as a hash only that computer can make. */
-  accountKey: z.optional(z.string().regex(/^[0-9a-f]{16}$/u)).catch(undefined),
+  accountKey: z.optional(z.string().regex(/^[0-9a-f]{20}$/u)).catch(undefined),
 })
 
 export type LocalAgentStatus = z.infer<typeof localAgentStatusSchema>
@@ -140,6 +144,7 @@ export type LocalAgentInstanceStatus = z.infer<typeof localAgentInstanceStatusSc
 
 export const localRuntimeStatusSchema = z.object({
   agentInstances: z.boolean().optional(),
+  agentReset: z.boolean().optional(),
   instances: z
     .array(localAgentInstanceStatusSchema)
     .max(100)

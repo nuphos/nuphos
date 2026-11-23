@@ -15,7 +15,7 @@ class AccountApi internal constructor(private val token: String, private val cli
     constructor(token: String) : this(token, Http.client)
 
     companion object {
-        const val AI_CONSENT_VERSION = "2026-09-28"
+        const val AI_CONSENT_VERSION = "2026-11-23"
         private val MFA_CODE_ERRORS = setOf("invalid_mfa_code", "mfa_challenge_expired")
     }
 
@@ -177,7 +177,9 @@ class AccountApi internal constructor(private val token: String, private val cli
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
             .apply { if (authenticated) header("Authorization", "Bearer $token") }
-            .method(method, upload?.toRequestBody("application/octet-stream".toMediaType()) ?: body?.toString()?.toRequestBody(Http.jsonMedia)).build()
+            // OkHttp refuses a POST without a body, so one without arguments sends `{}`.
+            .method(method, upload?.toRequestBody("application/octet-stream".toMediaType())
+                ?: (body?.toString() ?: "{}".takeIf { method == "POST" })?.toRequestBody(Http.jsonMedia)).build()
         val transport = if (allowRedirects) client else client.newBuilder().followRedirects(false).followSslRedirects(false).retryOnConnectionFailure(false).build()
         transport.newCall(request).execute().use { response ->
             val text = response.body.string()

@@ -369,7 +369,7 @@ pub fn write_prefs(prefs: &Prefs) {
     }
 }
 
-fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
+pub fn write_private(path: &PathBuf, data: &[u8]) -> anyhow::Result<()> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir)?;
     }

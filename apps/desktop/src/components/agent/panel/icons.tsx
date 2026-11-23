@@ -87,12 +87,12 @@ const PROVIDER_ICON: Record<AgentProvider, (props: SVGProps<SVGSVGElement>) => R
   pi: PiIcon,
 }
 
-/** The agent's mark; Claude Code's when the provider is unknown, as for legacy records. */
+/** The agent's mark. Until the provider is known it holds the same space empty, never a guess. */
 export function AgentProviderIcon({
   provider,
   ...props
 }: SVGProps<SVGSVGElement> & { provider: AgentProvider | null | undefined }) {
-  const Icon = PROVIDER_ICON[provider ?? 'claude-code']
+  const Icon = provider ? PROVIDER_ICON[provider] : undefined
 
-  return <Icon {...props} />
+  return Icon ? <Icon {...props} /> : <svg aria-hidden="true" {...props} />
 }

@@ -1,10 +1,11 @@
 // How the fixture agent starts, and what a session's system prompt tells it.
 import { createHash } from 'node:crypto'
+import { existsSync } from 'node:fs'
 
 import { botEnv } from './fixture-settings.mjs'
 
 /** What this agent offers when it starts. */
-export const INITIALIZE = {
+const INITIALIZE = {
   protocolVersion: 1,
   agentCapabilities: { loadSession: true },
   agentInfo: { name: 'e2e-fixture', version: '1' },
@@ -22,10 +23,11 @@ const promptOf = (meta = {}) =>
   meta['ai.nuphos/session']?.systemPrompt ??
   ''
 
-/** A session's Bot env, E2E_RULE and a hash per system prompt section, to tell which one changed. */
+/** A session's Bot env, E2E_RULE, whether it is told to delegate (#4156), and a hash per system prompt section. */
 export const opening = (params) => ({
   env: botEnv(params),
   rule: ruleIn(params),
+  delegates: promptOf(params._meta).includes('Delegate work by default'),
   sections: promptOf(params._meta)
     .split(/\n(?=## )/)
     .map(
@@ -33,3 +35,24 @@ export const opening = (params) => ({
         `${section.slice(0, 24)}#${createHash('sha1').update(section).digest('hex').slice(0, 8)}`,
     ),
 })
+
+/** The model probe names itself in `initialize`, so a fixture can answer turns
+ *  and still fail discovery. */
+let probing = false
+
+export function initialize(params) {
+  probing = params?.clientInfo?.name === 'nuphos-model-discovery'
+
+  return INITIALIZE
+}
+
+/** Whether this session/new is a model probe that fails, as a CLI that cannot list
+ *  its models does (#4261). Every attempt is logged, probe or not. */
+export function discoveryFails(log) {
+  if (!probing) return false
+  const failing = existsSync(process.env.E2E_MODEL_PROBE_FAILS ?? '')
+
+  log({ event: 'discovery', failed: failing })
+
+  return failing
+}

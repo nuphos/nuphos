@@ -9,6 +9,8 @@ import type { DecisionQuestion } from './decisionFormModel'
 import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
+// The answer field's voice input reads the team role, which needs no query client here.
+mock.module('../../../hooks/useTeamRole', () => ({ useTeamRole: () => 'ADMINISTRATOR' }))
 mock.module('../MessageResponse', () => ({
   MessageResponse: ({ children }: { children: ReactNode }) => createElement('div', null, children),
 }))
@@ -205,16 +207,16 @@ test('a single- and a multi-select question are one option row: multiSelect only
     },
     dismiss: () => Promise.resolve(false),
   }
-  const render = (multiSelect: boolean, questions?: DecisionQuestion[]) =>
+  const render = (multiSelect: boolean, questions?: DecisionQuestion[], category = 'preference') =>
     act(() =>
       root.render(
         createElement(
           ConnectCardContext.Provider,
           { value: ctx },
           createElement(ChoiceCard, {
-            key: `${String(multiSelect)}${String(questions?.length)}`,
+            key: `${String(multiSelect)}${String(questions?.length)}${category}`,
             toolCallId: 'q1',
-            category: 'preference',
+            category,
             question: 'Which regions first?',
             options: ['us-east', 'eu-west', 'ap-northeast'],
             multiSelect,
@@ -238,6 +240,10 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.equal(container.querySelector('input'), null)
     await click('eu-west')
     assert.deepEqual(answers, [{ choices: ['eu-west'] }])
+
+    // A credential question with options is the same row, "Other…" too (#4029).
+    await render(false, undefined, 'credential')
+    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss'])
 
     await render(true)
     // The same row of pills, with Send for the picks at its end.
@@ -278,6 +284,64 @@ test('a single- and a multi-select question are one option row: multiSelect only
       )
     })
     assert.equal(answers.length, sent)
+  } finally {
+    await act(() => root.unmount())
+    for (const [key, descriptor] of originals)
+      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
+      else Reflect.deleteProperty(globalThis, key)
+  }
+})
+
+test('an integration this app has no Connect card for offers no words or option, only Snooze and Dismiss', async () => {
+  const dom = new Window()
+  const values = {
+    window: dom,
+    document: dom.document,
+    HTMLElement: dom.HTMLElement,
+    Element: dom.Element,
+    Node: dom.Node,
+    IS_REACT_ACT_ENVIRONMENT: true,
+  }
+  const originals = Object.keys(values).map(
+    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
+  )
+
+  for (const [key, value] of Object.entries(values))
+    Object.defineProperty(globalThis, key, { configurable: true, value })
+  const { createRoot } = await import('react-dom/client')
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const ctx: ConnectCardContextValue = {
+    send: () => true,
+    answer: () => true,
+    dismiss: () => Promise.resolve(true),
+    snooze: () => {},
+  }
+
+  try {
+    await act(() =>
+      root.render(
+        createElement(
+          ConnectCardContext.Provider,
+          { value: ctx },
+          createElement(ChoiceCard, {
+            toolCallId: 'q1',
+            category: 'integration',
+            question: 'Connect Slack',
+            options: ['Done'],
+            canAct: true,
+            selectOnly: true,
+          }),
+        ),
+      ),
+    )
+    const labels = [...container.querySelectorAll('button')].map((item) => item.textContent)
+
+    // The server refuses words and options for it (decision_not_answerable).
+    assert.deepEqual(labels, ['Snooze', 'Dismiss'])
+    assert.match(container.textContent ?? '', /credential picker/)
   } finally {
     await act(() => root.unmount())
     for (const [key, descriptor] of originals)

@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 /// Teams and the conversation list for the Agent page. One per signed-in
-/// session; owns pagination, search and the selected team.
+/// session; owns the listing, search and the selected team.
 @Observable
 final class AgentStore {
     /// What failed, and how to try it again.
@@ -16,7 +16,6 @@ final class AgentStore {
         case idle, loading, loaded, failed(String)
     }
 
-    static let pageSize = 30
     private var lastTeamKey: String { "nuphos.workspace.lastTeamId.\(LaunchCache.accountKey(token))" }
 
     private(set) var teams: [Team] = []
@@ -34,9 +33,6 @@ final class AgentStore {
     private var workspaceScope = 0
     /// Conversations with a Watch or Unwatch on its way.
     private(set) var watchChanges: Set<String> = []
-    private(set) var isLoadingMore = false
-    private(set) var hasMore = false
-    private var nextCursor: String?
 
     // MARK: - Chats (channels)
 
@@ -44,36 +40,30 @@ final class AgentStore {
     private(set) var channels: [AgentConversation] = [] {
         didSet { BotFaces.shared.learn(channels) }
     }
-    /// The viewer's Bots, own and shared, listed by the server rather than found in the
-    /// loaded history. A shared one is in no history here, so its face is learned from this.
-    private(set) var bots: [AgentConversation] = [] {
-        didSet { BotFaces.shared.learn(bots) }
-    }
+    /// The viewer's own Bots, listed by the server rather than found in the loaded history.
+    private(set) var bots: [AgentConversation] = []
     /// Set once the chats have loaded, so the home list can open on the right tab.
     private(set) var channelsLoaded = false
 
     /// Both listings the desktop sidebar reads: chats of one's own, then the ones joined.
-    /// Then the Bots in the same two, for those that have no chat yet: one shared
-    /// with the viewer is theirs to open too (#3852).
+    /// Then one's Bots, for those that have no chat yet.
     func loadChannels() async {
         guard let team = selectedTeam else { return }
         let query = search
         var rows: [AgentConversation] = []
-        var botRows: [AgentConversation] = []
         for scope in ["mine", "shared"] {
             guard let page = try? await NuphosAPI.conversations(
                 token: token, teamId: team.id, limit: 100, search: query, scope: scope, channels: true
-            ), let botPage = try? await NuphosAPI.conversations(
-                token: token, teamId: team.id, limit: 100, search: query, scope: scope, bots: true
             ) else { return }
             let seen = Set(rows.map(\.sessionId))
             rows += page.conversations.filter { !seen.contains($0.sessionId) }
-            let seenBots = Set(botRows.map(\.sessionId))
-            botRows += botPage.conversations.filter { !seenBots.contains($0.sessionId) }
         }
+        guard let botPage = try? await NuphosAPI.conversations(
+            token: token, teamId: team.id, limit: 100, search: query, bots: true
+        ) else { return }
         guard team.id == selectedTeam?.id, query == search, !Task.isCancelled else { return }
         channels = rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
-        bots = botRows.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        bots = botPage.conversations
         if query.isEmpty { HomePage.hasChats = !botsList.isEmpty }
         channelsLoaded = true
     }
@@ -89,6 +79,10 @@ final class AgentStore {
 
     /// The open agent conversation's idle poll, owned here for the same reason.
     private var conversationPoll: (session: ChatSession, task: Task<Void, Never>)?
+
+    /// The chats opened last, newest first. Reopening one shows the
+    /// transcript it already has while it reads the conversation again (#3525).
+    @ObservationIgnored private var recentSessions: [ChatSession] = []
 
     /// The polls hold only their conversation, so they would outlive a signed-out store.
     deinit {
@@ -118,14 +112,23 @@ final class AgentStore {
         if conversationPoll?.session === session { follow(nil) }
     }
 
+    /// Chats opened since sign-in: one opened again shows what it last read at once,
+    /// while its poll reads it again (#3525). One that failed to load starts over, as an agent session does.
+    private var openedChannels: [String: ChannelSession] = [:]
+
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
-        let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+        let channel = openedChannels[sessionId].flatMap { $0.loadError == nil ? $0 : nil } ?? {
+            let fresh = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+            // The list row's icon shows at once; the chat's own load keeps it current.
+            let row = channels.first { $0.sessionId == sessionId }
+            fresh.faces = row?.faces ?? []
+            fresh.botId = row?.botId
+            return fresh
+        }()
+        // Who is signed in may have loaded since the chat was first opened.
         channel.viewerId = userId
         channel.me = me
-        // The list row's icon shows at once; the chat's own load keeps it current.
-        let row = channels.first { $0.sessionId == sessionId }
-        channel.faces = row?.faces ?? []
-        channel.botId = row?.botId
+        openedChannels[sessionId] = channel
         return channel
     }
 
@@ -229,11 +232,9 @@ final class AgentStore {
         }
     }
 
-    /// Drops a chat that was archived. The poller
-    /// keeps rows its first page misses, so it would not drop it; reads
-    /// already in flight are discarded so they cannot bring it back. Before
-    /// the list has loaded, the discarded read is the load itself, so start
-    /// it again.
+    /// Drops a chat that was archived. Reads already in flight are
+    /// discarded so they cannot bring it back. Before the list has loaded,
+    /// the discarded read is the load itself, so start it again.
     func removeFromList(_ sessionId: String) {
         conversations.removeAll { $0.sessionId == sessionId }
         if phase == .loaded { loadGeneration += 1 } else { Task { await reload() } }
@@ -423,8 +424,8 @@ final class AgentStore {
         publishSharingContext()
     }
 
-    func loadRuntimes(force: Bool = false) async {
-        guard let team = selectedTeam, force || !runtimesLoaded else { return }
+    func loadRuntimes() async {
+        guard let team = selectedTeam else { return }
         do {
             let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -500,6 +501,14 @@ final class AgentStore {
         return "Model"
     }
 
+    /// The model a Bot runs, as its own Task's model settings name it; nil when unknown.
+    func botModel(_ botId: String) async -> String? {
+        guard let team = selectedTeam?.id,
+              let config = try? await AgentChatAPI.sessionConfig(token: token, teamId: team, sessionId: botId),
+              let model = config.model, !model.currentValue.isEmpty else { return nil }
+        return model.currentLabel
+    }
+
     func loadNewModelConfig() async {
         guard let team = selectedTeam, let runtime = newConversationRuntime, canConfigureNewModel else {
             newModelConfig = nil
@@ -572,8 +581,6 @@ final class AgentStore {
 
     private var searchTask: Task<Void, Never>?
     private var loadGeneration = 0
-    private var loadedPageCursors: [String] = []
-    private var refreshPageIndex = 0
 
     /// What a conversation is doing, as its row and a Bot's details show it.
     func indicator(for row: AgentConversation, team: String) -> ConversationIndicator {
@@ -675,10 +682,21 @@ final class AgentStore {
 
     // MARK: - Teams
 
+    /// The load in flight: the home shell and a page that asks at the same time share it.
+    private var teamsLoad: Task<Void, Never>?
+
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
-        let shown = teamsPhase
+        if let teamsLoad { return await teamsLoad.value }
+        let load = Task { await loadTeamsNow() }
+        teamsLoad = load
+        await load.value
+        teamsLoad = nil
+    }
+
+    /// Not tied to the caller: a page that leaves mid-load no longer cancels it into an error (#3620).
+    private func loadTeamsNow() async {
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -696,8 +714,6 @@ final class AgentStore {
                 await reload()
             }
         } catch {
-            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
-            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -746,7 +762,7 @@ final class AgentStore {
 
     // MARK: - Conversations
 
-    /// First page, replacing whatever is shown. Keeps the old rows visible
+    /// The whole list, replacing whatever is shown. Keeps the old rows visible
     /// while loading so a refresh does not flash empty.
     /// A failure keeps a list already on screen and reports it instead.
     /// `afterChange`: the read follows a change that was saved.
@@ -762,8 +778,6 @@ final class AgentStore {
             return
         }
         loadGeneration += 1
-        loadedPageCursors = []
-        refreshPageIndex = 0
         let generation = loadGeneration
         let shown = phase
         if conversations.isEmpty { phase = .loading }
@@ -772,21 +786,17 @@ final class AgentStore {
         async let pinsLoad: () = loadFavorites()
 
         do {
-            let page = try await NuphosAPI.conversations(
-                token: token, teamId: team.id, limit: Self.pageSize, search: search
-            )
+            let rows = try await listConversations(teamId: team.id)
             _ = await (runtimesLoad, channelsLoad, pinsLoad)
             guard generation == loadGeneration else { return }
-            conversations = page.rows
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
+            conversations = rows
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: page.rows, accountKey: LaunchCache.accountKey(token)))
+                LaunchCache.write(LaunchCache.Agents(team: team, conversations: rows, accountKey: LaunchCache.accountKey(token)))
             }
         } catch {
             guard generation == loadGeneration else { return }
-            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            // Cancelled (a page that went away): the list stays as it was (#3620).
             guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
@@ -804,37 +814,48 @@ final class AgentStore {
         if case .failed = phase { true } else { false }
     }
 
-    /// Next page, appended. Rows can repeat across pages because the cursor
-    /// is a timestamp, so dedupe by session id.
-    func loadMore() async {
-        guard loadsHistory else { return }
-        guard hasMore, !isLoadingMore, let team = selectedTeam, let cursor = nextCursor else { return }
-        isLoadingMore = true
-        defer { isLoadingMore = false }
-        let generation = loadGeneration
-
-        do {
-            let page = try await NuphosAPI.conversations(
-                token: token, teamId: team.id, cursor: cursor, limit: Self.pageSize, search: search
-            )
-            guard generation == loadGeneration else { return }
-            if !loadedPageCursors.contains(cursor) { loadedPageCursors.append(cursor) }
-            let seen = Set(conversations.map(\.sessionId))
-            conversations.append(contentsOf: page.rows.filter { !seen.contains($0.sessionId) })
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
-        } catch {
-            // Leave what we have; the sentinel row offers a retry.
+    /// Every page of the agents the viewer owns or was invited to, newest
+    /// activity first, as the Desktop sidebar lists them (#4601). A page is a
+    /// transport bound, never a limit on the list: Tasks leaves Bots and their
+    /// work out afterwards, which can leave a page with nothing to show.
+    /// Rows can repeat across pages because the cursor is a timestamp.
+    private func listConversations(teamId: String) async throws -> [AgentConversation] {
+        var rows: [AgentConversation] = []
+        var listed: Set<String> = []
+        for scope in ["mine", "shared"] {
+            var cursor: String?
+            var cursors: Set<String> = []
+            repeat {
+                let page = try await NuphosAPI.conversations(
+                    token: token, teamId: teamId, cursor: cursor, limit: 100, search: search, scope: scope
+                )
+                for row in page.rows where listed.insert(row.sessionId).inserted { rows.append(row) }
+                cursor = page.nextCursor
+                if let cursor, !cursors.insert(cursor).inserted { throw NuphosAPI.Failure.invalidResponse }
+            } while cursor != nil
         }
+        // Ties keep the server's order. A dictionary's changed from one read to the next,
+        // moving a row under a tap so the other one opened (#4732).
+        return rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     /// A live session for an existing conversation, already loading. The
     /// load belongs to the session, not to the view showing it, so a view
-    /// SwiftUI cancels or keeps cannot leave it unloaded.
+    /// SwiftUI cancels or keeps cannot leave it unloaded. A chat opened
+    /// recently comes back as it was and reads the conversation again.
     func session(for conversation: AgentConversation) -> ChatSession {
+        let teamId = conversation.teamId ?? selectedTeam?.id ?? ""
+        if let i = recentSessions.firstIndex(where: { $0.sessionId == conversation.sessionId && $0.teamId == teamId }) {
+            let session = recentSessions.remove(at: i)
+            if session.loadError == nil {
+                recentSessions.insert(session, at: 0)
+                Task { await session.revalidate() }
+                return session
+            }
+        }
         let session = ChatSession(
             token: token,
-            teamId: conversation.teamId ?? selectedTeam?.id ?? "",
+            teamId: teamId,
             sessionId: conversation.sessionId,
             title: conversation.displayTitle,
             agentRuntime: conversation.agentRuntime,
@@ -842,6 +863,11 @@ final class AgentStore {
         )
         session.me = me
         session.userId = userId
+        recentSessions.insert(session, at: 0)
+        // A session still streaming stays, or reopening it would build a second one following the same run.
+        if recentSessions.count > 20, let oldest = recentSessions.lastIndex(where: { !$0.streaming }) {
+            recentSessions.remove(at: oldest)
+        }
         Task { await session.load() }
         return session
     }
@@ -873,7 +899,7 @@ final class AgentStore {
 
     private var poller: Task<Void, Never>?
 
-    /// Keeps the first page fresh for as long as the store lives — also while
+    /// Keeps the list fresh for as long as the store lives — also while
     /// a chat sits on top of the list — so replies running elsewhere (desktop,
     /// Slack, wake-ups) show up and clear, and coming back from a chat never
     /// shows a stale row. A view's `.task` would stop whenever a chat is
@@ -892,34 +918,14 @@ final class AgentStore {
 
     private func pollOnce() async {
         // A failed list keeps polling too, so it comes back on its own.
-        guard phase == .loaded || isFailed, !isLoadingMore else { return }
+        guard phase == .loaded || isFailed, let team = selectedTeam else { return }
         async let chats: () = loadChannels()
-        await refreshFirstPage()
-        await chats
-    }
-
-    /// At most two requests per tick: page one and one rotating loaded page.
-    /// Scrolling increases the rotation interval, never the request burst size.
-    private func refreshFirstPage() async {
-        guard let team = selectedTeam else { return }
         let generation = loadGeneration
-        guard let page = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, limit: Self.pageSize, search: search
-        ), generation == loadGeneration, !Task.isCancelled else { return }
-        conversations = conversations.refreshed(firstPage: page.rows)
-        if isFailed { phase = .loaded }
-        if loadedPageCursors.isEmpty, !isLoadingMore, conversations.count <= page.rows.count {
-            nextCursor = page.nextCursor
-            hasMore = page.hasMore
+        if let rows = try? await listConversations(teamId: team.id), generation == loadGeneration, !Task.isCancelled {
+            conversations = rows
+            if isFailed { phase = .loaded }
         }
-        guard !loadedPageCursors.isEmpty else { return }
-        let cursor = loadedPageCursors[refreshPageIndex % loadedPageCursors.count]
-        refreshPageIndex = (refreshPageIndex + 1) % loadedPageCursors.count
-        guard let background = try? await NuphosAPI.conversations(
-            token: token, teamId: team.id, cursor: cursor, limit: Self.pageSize, search: search
-        ), generation == loadGeneration, !Task.isCancelled else { return }
-        let fresh = Dictionary(background.rows.map { ($0.sessionId, $0) }, uniquingKeysWith: { first, _ in first })
-        conversations = conversations.map { fresh[$0.sessionId] ?? $0 }
+        await chats
     }
 
     /// Search is server-backed; debounce like the desktop (250 ms).

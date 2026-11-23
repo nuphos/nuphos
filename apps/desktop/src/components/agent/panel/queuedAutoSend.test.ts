@@ -14,6 +14,7 @@ import {
   showTurnQueued,
   syncQueued,
   takeSideSend,
+  usageHoldNotice,
   waitingMessages,
 } from './queuedAutoSend.ts'
 
@@ -68,6 +69,10 @@ test('a turn the server queued leaves the transcript for the strip; the tab foll
   }
 
   assert.deepEqual(waitingMessages(started), [])
+  // Held by the usage limit, nothing starts: the copy in the transcript is a refused try.
+  assert.deepEqual(waitingMessages({ ...started, queueHeld: {} }), [
+    { id: 'msg-1', text: 'and the arrow keys', filePaths: [] },
+  ])
 })
 
 test('a send from a tab showing another turn waits without taking that turn', () => {
@@ -140,6 +145,20 @@ test('the strip follows the server queue but keeps what is still being sent', ()
   takeSideSend('side-sync')
 })
 
+// #4573: a queue held by the usage limit said "Runs after the turn ahead",
+// with no turn ahead. The server says why it holds, and the strip says it once.
+test('a queue held by the usage limit says so, with the reset when known', () => {
+  const held = syncQueued(tab({}), [{ id: 'later', mine: true, text: 'later' }], {
+    until: new Date(Date.now() + 90 * 60_000).toISOString(),
+  })
+
+  assert.equal(usageHoldNotice(held.queueHeld)?.status, 'pending')
+  assert.match(usageHoldNotice(held.queueHeld)?.text ?? '', /usage resets in 1h 30m/)
+  assert.equal(usageHoldNotice({})?.text, 'Out of usage. These run when usage resets.')
+  // An ordinary queue, or one whose hold has lifted, keeps its own copy.
+  assert.equal(usageHoldNotice(syncQueued(held, []).queueHeld), null)
+})
+
 // Tim, Desktop on macOS: a runtime connection dropped mid-turn and the composer
 // showed only Send, which queued, with no Stop. The runtime reported nothing to
 // cancel while a message waited behind a turn the backend still held.
@@ -180,6 +199,18 @@ test('the composer offers Stop through a dropped runtime connection and after th
     ),
     false,
   )
+})
+
+// #4830: a message the usage limit holds waits for the reset, not behind a turn.
+test('a queue held by the usage limit, with nothing running, offers no Stop', () => {
+  const waiting = [{ id: 'later', text: 'later', filePaths: [] }]
+
+  assert.equal(
+    canStopTurn(tab({ runtimeState: status(true), queued: waiting, queueHeld: {} })),
+    false,
+  )
+  // A turn running ahead of it can still be stopped.
+  assert.equal(canStopTurn(tab({ streaming: true, queued: waiting, queueHeld: {} })), true)
 })
 
 test('an outdated runtime blocks Send with why; one that can take it later does not', () => {

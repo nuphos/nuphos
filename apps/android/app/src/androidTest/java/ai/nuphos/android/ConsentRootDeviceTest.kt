@@ -47,7 +47,7 @@ class ConsentRootDeviceTest {
             Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                 .code(if (reply == "failure") 503 else 200).message("synthetic")
                 .body((if (reply == "failure") "{}" else
-                    "{\"version\":\"${if (reply == "version") "future-version" else "2026-09-28"}\",\"accepted\":false}")
+                    "{\"version\":\"${if (reply == "version") "future-version" else "2026-11-23"}\",\"accepted\":false}")
                     .toResponseBody(Http.jsonMedia)).build()
         }.build()
         Http::class.java.getDeclaredField("client").also { it.isAccessible = true }.set(null, fixture)
@@ -74,7 +74,7 @@ class ConsentRootDeviceTest {
         assertFalse(auth.aiAllowed)
         reply = "rejected"
         compose.onNodeWithText("Retry loading consent").performClick()
-        compose.waitUntil(10_000) { !auth.consentBusy && auth.consentVersion == "2026-09-28" }
+        compose.waitUntil(10_000) { !auth.consentBusy && auth.consentVersion == "2026-11-23" }
         compose.onNodeWithText("Before you use AI agents").assertIsDisplayed()
         compose.onNodeWithText("Couldn’t verify your AI sharing choice").assertDoesNotExist()
         assertFalse(auth.aiAllowed)

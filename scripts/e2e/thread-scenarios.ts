@@ -1,7 +1,8 @@
 // Scenarios about the threads a Task starts: the cards it shows for them and the model they start on.
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
-import { until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { listedConversations } from './channel-helpers.ts'
+import { artifacts, until } from './processes.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -56,13 +57,29 @@ export const threadScenarios: Scenario[] = [
     // is a top-level Task; a Bot takes the same create_thread path.
     name: "a thread started with no model picked starts on its parent's model",
     run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
-      await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
-      await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
-      await page.keyboard.press('Escape')
-      await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      const chip = () => page.getByRole('button', { name: /^Model settings/ }).click()
+      // The parent picks an effort while its agent offers effort levels; the thread's session
+      // then has none, as a model without effort levels does. The rest still carries over.
+      const stopOffering = stack.offerDefaultStandIn()
+
+      try {
+        await newTask(page)
+        await pickAgent(page, 'E2E fixture agent')
+        await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
+        await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
+        await chip()
+        await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
+        await page.keyboard.press('Escape')
+        await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+        await chip()
+        await page.getByRole('slider').press('End')
+        await page.waitForTimeout(500)
+        await page.getByRole('button', { name: 'Turn on fast mode' }).click()
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(1_000)
+      } finally {
+        stopOffering()
+      }
       await send(page, 'Start a thread E2E_INHERIT E2E_DELIVERY:inherit')
       await until('the thread with no pick to finish', async () =>
         delegatedTurn(stack, 'E2E_DELIVERY:inherit-child'),
@@ -72,11 +89,62 @@ export const threadScenarios: Scenario[] = [
         (entry) => entry.event === 'session' && entry.sessionId === turn?.sessionId,
       )
 
-      if (session?.defaults?.model !== 'fixture-small') {
+      if (session?.defaults?.model !== 'fixture-small' || session.defaults.fast !== 'on') {
         throw new Error(
-          `The thread's session was not created on its parent's model: ${JSON.stringify(session)}`,
+          `The thread's session was not created on its parent's model and fast mode: ${JSON.stringify(session)}`,
         )
       }
+      // Fast mode stays this person's pick for new Tasks; later scenarios start with it off.
+      await chip()
+      await page.getByRole('button', { name: 'Turn off fast mode' }).click()
+      await page.keyboard.press('Escape')
+    },
+  },
+  {
+    // #3503: update_task on itself changes only the next turn; the reply making the pick keeps its model.
+    name: 'a Task picks its own model with update_task, and its next turn runs on it',
+    run: async (page, stack) => {
+      const turn = (marker: string) =>
+        agentLog(stack).find((entry) => entry.event === 'start' && entry.marker === marker)
+
+      // In the Task the scenario before left open: a new Task would take one more of the
+      // agent host's four sessions, and the thread a later scenario starts gets none.
+      await send(page, 'Pick your own model E2E_DELIVERY:self-start')
+      await page.getByText('ACK E2E_DELIVERY:self-start').waitFor()
+      const task = (await listedConversations(stack)).find((row) =>
+        row.title?.includes('Before the pick'),
+      )
+      // Pick whichever model the Task is not on.
+      const before = turn('E2E_DELIVERY:self-start')?.model
+      const pick = before === 'fixture-small' ? 'fixture' : 'fixture-small'
+      const args = JSON.stringify({ label: 'Change model', taskId: task?.sessionId, model: pick })
+
+      await send(page, `Switch E2E_CALL update_task ${args} E2E_DELIVERY:self-pick`)
+      await until('the picking turn to finish', async () =>
+        agentEvents(stack).includes('finish E2E_DELIVERY:self-pick'),
+      )
+      const log = agentLog(stack)
+      const picking = turn('E2E_DELIVERY:self-pick')
+      const called = log.find((entry) => entry.event === 'called' && entry.name === 'update_task')
+      const during = log
+        .slice(log.indexOf(picking!))
+        .filter((entry) => entry.event === 'setting' && entry.sessionId === picking?.sessionId)
+
+      if (!JSON.stringify(called?.result).includes('next_turn'))
+        throw new Error(`update_task did not take the pick: ${JSON.stringify(called)}`)
+      if (picking?.model !== before)
+        throw new Error(
+          `The picking reply did not run on ${String(before)}: ${JSON.stringify(picking)}`,
+        )
+      if (during.length > 0)
+        throw new Error(`The reply making the pick changed model: ${JSON.stringify(during)}`)
+      await send(page, 'And now? E2E_DELIVERY:self-next')
+      await page.getByText('ACK E2E_DELIVERY:self-next').waitFor()
+      const next = turn('E2E_DELIVERY:self-next')
+
+      if (next?.model !== pick)
+        throw new Error(`The next turn did not run on ${pick}: ${JSON.stringify(next)}`)
+      await page.screenshot({ path: `${artifacts}/task-own-model.png` })
     },
   },
 ]
@@ -114,5 +182,35 @@ export const threadModeScenario: Scenario = {
     await page.getByText('E2E thread', { exact: true }).click()
     await page.getByRole('button', { name: /^Deny/ }).click()
     await until('the thread to finish', async () => has('finish E2E_DELIVERY:thread-again'))
+    // #4602: finished, read and no longer open, the thread stays under its Task past the
+    // session list's 4 s poll, and the Task's fold hides it and brings it back.
+    await newTask(page)
+    const tasks = page.getByRole('tabpanel', { name: 'Tasks' })
+    const thread = tasks.locator('[data-sidebar-row]').filter({ hasText: 'E2E thread' }).first()
+    const light = () =>
+      page.evaluate(() => {
+        document.documentElement.classList.remove('dark')
+        document.documentElement.classList.add('light')
+      })
+
+    await page.waitForTimeout(5_000)
+    if (!(await thread.isVisible())) throw new Error('The finished thread left the Tasks list')
+    await light()
+    await thread.scrollIntoViewIfNeeded()
+    await tasks.screenshot({ path: `${artifacts}/task-finished-thread-light.png` })
+    // Its siblings have no children, so the nearest fold control above it is its Task's.
+    await thread
+      .locator('xpath=preceding::*[@aria-label="Hide sub-tasks"][1]')
+      .dispatchEvent('click')
+    await thread.waitFor({ state: 'detached' })
+    const show = tasks.locator('[aria-label="Show sub-tasks"]')
+
+    await light()
+    await show.first().scrollIntoViewIfNeeded()
+    await tasks.screenshot({ path: `${artifacts}/task-finished-thread-folded-light.png` })
+
+    if ((await show.count()) !== 1) throw new Error('Another Task in the list is folded too')
+    await show.dispatchEvent('click')
+    await thread.waitFor()
   },
 }

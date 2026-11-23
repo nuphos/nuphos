@@ -172,3 +172,10 @@ test('a question and background work show no time', () => {
   assert.equal(workSince(botWorkOf(busy, [], 'c'), busy), undefined)
   assert.equal(workSince(null, bot), undefined)
 })
+
+test('an active plan is shown as a step without inventing a tool', () => {
+  assert.deepEqual(stepOf(turn({ phase: 'plan', label: 'Inspect fictional project', tools: [] })), {
+    kind: 'plan',
+    title: 'Inspect fictional project',
+  })
+})

@@ -41,7 +41,7 @@ private struct RuntimePicker: View {
         guard let session, !session.isOwner else { return listed }
         return []
     }
-    private var boxes: [SelectorBox] { SelectorBox.grouped(choices, devices: store.agentDevices) }
+    private var boxes: [SelectorBox] { SelectorBox.picker(choices, devices: store.agentDevices) }
     private var browsing: Bool { !managing && scenePhase == .active }
 
     var body: some View {
@@ -51,7 +51,7 @@ private struct RuntimePicker: View {
                     ContentUnavailableView {
                         Label("Couldn't load runtimes", image: "lucide-wifi-off")
                     } description: { Text(error) } actions: {
-                        Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
+                        Button("Try again") { Task { await store.loadRuntimes() } }.buttonStyle(.bordered)
                     }
                 } else if !store.runtimesLoaded {
                     ProgressView("Loading runtimes…").tint(Theme.muted)
@@ -97,14 +97,15 @@ private struct RuntimePicker: View {
                 ForEach(boxes) { box in
                     Section {
                         Button { withAnimation(.snappy(duration: 0.25)) { expanded = expanded == box.id ? nil : box.id } } label: {
-                            SelectorBoxHeader(box: box, current: box.agents.contains { $0.id == selectedId }, expanded: expanded == box.id, metricsUnavailable: store.agentDevicesError)
+                            SelectorBoxHeader(box: box, current: box.agents.contains { $0.id == selectedId }, expanded: expanded == box.id, metricsUnavailable: store.agentDevicesError, offline: box.offline)
                         }
                         .buttonStyle(.plain)
+                        .disabled(box.offline)
                         .listRowInsets(EdgeInsets(top: 16, leading: 20, bottom: 16, trailing: 20))
                         .id(box.id)
                         .accessibilityIdentifier("box-\(box.id)")
                         .accessibilityValue(expanded == box.id ? "Expanded" : "Collapsed")
-                        if expanded == box.id {
+                        if expanded == box.id && !box.offline {
                             ForEach(box.agents) { runtime in
                                 Button { select(runtime) } label: {
                                     SelectorAgentRow(runtime: runtime, quota: store.quotas[runtime.id], selected: runtime.id == selectedId)
@@ -131,7 +132,7 @@ private struct RuntimePicker: View {
             .onChange(of: expanded) { _, id in if let id { withAnimation(.snappy(duration: 0.25)) { proxy.scrollTo(id, anchor: .top) } } }
             .onAppear { if let expanded { proxy.scrollTo(expanded, anchor: .top) } }
             .refreshable {
-                async let agents: Void = store.loadRuntimes(force: true)
+                async let agents: Void = store.loadRuntimes()
                 async let quotas: Void = store.loadQuotas()
                 async let devices: Void = store.loadAgentDevices()
                 _ = await (agents, quotas, devices)
@@ -159,6 +160,8 @@ struct SelectorBoxHeader: View {
     let expanded: Bool
     let metricsUnavailable: Bool
     var showsChevron = true
+    /// Desktop's offline computer: one row that says so, with nothing to open.
+    var offline = false
     private var metrics: AgentDevice.Metrics? { metricsUnavailable ? nil : box.device?.liveMetrics }
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -169,8 +172,11 @@ struct SelectorBoxHeader: View {
                     Text(box.label).font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.heading).lineLimit(1)
                     if current { Text("Current").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.muted) }
                 }
-                Text("\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")")
-                    .font(.system(size: 12)).foregroundStyle(Theme.muted)
+                Group {
+                    if offline { Text("Offline · open Nuphos on that computer") }
+                    else { Text("\(box.agents.count) \(box.agents.count == 1 ? "runtime" : "runtimes")") }
+                }
+                .font(.system(size: 12)).foregroundStyle(Theme.muted)
                 if let metrics {
                     // A split view's sidebar, such as iPhone Duo's inner display,
                     // is too narrow for three side by side: stack them instead.
@@ -185,7 +191,7 @@ struct SelectorBoxHeader: View {
                 }
             }
             Spacer(minLength: 6)
-            if showsChevron {
+            if showsChevron && !offline {
                 LucideIcon(systemName: expanded ? "chevron.down" : "chevron.right")
                     .font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.muted).padding(.top, 4)
             }
@@ -349,7 +355,7 @@ struct ModelSettingsSheet: View {
     }
 }
 
-/// "62% left · resets in 2 hr" for the window closest to its limit,
+/// "62% left · resets in 2h 10m" for the window closest to its limit,
 /// or the reason there's nothing to show.
 private struct QuotaLine: View {
     let quota: RuntimeQuota
@@ -358,7 +364,7 @@ private struct QuotaLine: View {
         if let window = quota.tightest {
             HStack(spacing: 6) {
                 QuotaGauge(window: window).frame(width: 44)
-                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), reset(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
+                Text([window.leftPercent == 0 ? String(localized: "Limit reached") : String(localized: "\(window.leftPercent)% left"), RuntimeQuota.resetsIn(window.resetsAt)].compactMap(\.self).joined(separator: " · "))
                     .font(.system(size: 12))
                     .monospacedDigit()
                     .foregroundStyle(window.labelTint ?? Theme.muted)
@@ -369,16 +375,6 @@ private struct QuotaLine: View {
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Theme.warning)
         }
-    }
-
-    private func reset(_ date: Date?) -> String? {
-        guard let date, date > .now else { return nil }
-        let minutes = Int(date.timeIntervalSinceNow / 60)
-        if minutes < 24 * 60 {
-            return minutes < 60 ? String(localized: "resets in \(max(1, minutes))m") : String(localized: "resets in \(minutes / 60)h \(minutes % 60)m")
-        }
-        let locale = Locale(identifier: Bundle.main.preferredLocalizations.first ?? "en")
-        return String(localized: "resets \(date.formatted(.dateTime.weekday(.abbreviated).hour().minute().locale(locale)))")
     }
 }
 

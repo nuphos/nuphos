@@ -27,6 +27,7 @@ useDb({
         return Promise.resolve({ matchedCount: 1 })
       },
       findOne: () => Promise.resolve(null),
+      deleteOne: () => Promise.resolve({ deletedCount: 0 }),
       insertOne: (doc: { recentMessages?: SlackThreadMessageRecord[] }) => {
         inserted.push(doc)
 

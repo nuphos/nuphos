@@ -1,9 +1,11 @@
+import { authRefusedRuntimes } from '@/lib/claude-code-preview/runtime-auth-refusal'
 import {
   listRuntimeInstances,
   listRuntimeQuotas,
   withRuntimeReadiness,
 } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
+import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { conversationSessionConfig } from '@/lib/claude-code-preview/session-config'
 import { pickOf, storedPick } from '@/lib/claude-code-preview/session-config-options'
 import { AppError } from '@/lib/errors'
@@ -13,16 +15,27 @@ import { liveAttachment } from './db/shared'
 
 import type { AgentConversation } from './db'
 import type { SettingsChangeBy } from './db/settings-history'
+import type { RuntimeInstance } from '@/lib/claude-code-preview/runtime-instances'
 
 // What a thread runs on: its agent, and the model and effort it uses there.
 
 /**
  * Why a thread cannot run on an agent the owner can see: a teammate's computer
- * shows its owner the work, which only the conversation owner can agree to, in the Desktop.
+ * shows its owner the work, which only the conversation owner can agree to, in the
+ * Desktop; a signed-out agent's turns are refused (resolveLocalRuntimeEndpoint); and
+ * one whose provider refused its sign-in on its last turn would fail the same way.
  */
-function unavailableReason(instance: { local?: { shared?: unknown } }) {
-  return instance.local?.shared
-    ? "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+export function unavailableReason(
+  instance: Pick<RuntimeInstance, 'provider' | 'local'>,
+  authRefused = false,
+) {
+  if (instance.local?.shared)
+    return "A teammate's computer: its owner can see the work, so only you can move a conversation there, from the Desktop."
+  if (instance.local?.signedIn === false)
+    return `Signed out: sign in to ${runtimeLabel(instance.provider)} on that computer first.`
+
+  return authRefused
+    ? `Sign-in refused: ${runtimeLabel(instance.provider)} refused this agent's sign-in on its last turn. Sign it in again first.`
     : undefined
 }
 
@@ -63,30 +76,35 @@ export async function threadRuntimes(
     actor.teamId,
     await listRuntimeInstances(actor.teamId, actor.userId),
   )
-  const [quotas, models] = await Promise.all([
+  const [quotas, models, refused] = await Promise.all([
     listRuntimeQuotas(actor.teamId, instances),
     Promise.all(
       instances.map(async (instance) =>
         instance.notReady ? null : offeredModels(actor, instance.id),
       ),
     ),
+    authRefusedRuntimes(actor.teamId),
   ])
 
   return {
-    runtimes: instances.map((instance, i) => ({
-      runtimeId: instance.id,
-      label: instance.label,
-      provider: instance.provider,
-      kind: instance.kind,
-      status: instance.status,
-      ready: !instance.notReady && !unavailableReason(instance),
-      ...(unavailableReason(instance) ? { unavailable: unavailableReason(instance) } : {}),
-      current: instance.id === currentRuntimeId,
-      quota: quotas[i],
-      // Up front, so an agent sees it before moving to an account that ran out too.
-      ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
-      ...(models[i]?.length ? { models: models[i] } : {}),
-    })),
+    runtimes: instances.map((instance, i) => {
+      const unavailable = unavailableReason(instance, refused.has(instance.id))
+
+      return {
+        runtimeId: instance.id,
+        label: instance.label,
+        provider: instance.provider,
+        kind: instance.kind,
+        status: instance.status,
+        ready: !instance.notReady && !unavailable,
+        ...(unavailable ? { unavailable } : {}),
+        current: instance.id === currentRuntimeId,
+        quota: quotas[i],
+        // Up front, so an agent sees it before moving to an account that ran out too.
+        ...(quotas[i]?.sharesQuotaWith ? { sharesQuotaWith: quotas[i]?.sharesQuotaWith } : {}),
+        ...(models[i]?.length ? { models: models[i] } : {}),
+      }
+    }),
   }
 }
 
@@ -101,6 +119,8 @@ export async function assertThreadRuntime(
   )
 
   if (!runtime) throw new Error('No such agent. Call list_agent_runtimes for the ones you can use.')
+  // A refused sign-in only warns: the agent may be signed in again outside Nuphos,
+  // and a turn there is what finds out and clears it.
   const unavailable = unavailableReason(runtime)
 
   if (unavailable) throw new Error(unavailable)

@@ -2,12 +2,15 @@
 // turn: the agent and only the model and effort it offers, Full Access, and
 // the Bot it starts under.
 
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { ObjectId } from 'mongodb'
+
+import { agentConversations, getConversationBySessionId } from '@/lib/agent/db'
 import { currentPick } from '@/lib/agent/thread-runtime'
 import { requireRuntimeInstance } from '@/lib/claude-code-preview/runtime-catalog'
 import { runtimeModelCatalog } from '@/lib/claude-code-preview/runtime-models'
 import { offeredSessionConfig } from '@/lib/claude-code-preview/session-config-catalog'
 import { AppError } from '@/lib/errors'
+import { teamWebhooks } from '@/lib/webhooks/store'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
@@ -60,6 +63,8 @@ export type StartChoice = {
   fullAccess?: boolean
   /** The caller's Bot the new session starts under, as its Task. */
   bot?: AgentConversation
+  /** The team webhook that alone receives the new session's events. */
+  webhookId?: string
 }
 
 /** One of the caller's own Bots in the team: a Task takes credentials and mode from its owner's Bot only. */
@@ -73,6 +78,31 @@ async function ownBot(
   return bot?.avatar && bot.kind !== 'channel' && bot.userId === userId && bot.teamId === teamId
     ? bot
     : null
+}
+
+/**
+ * The caller's most recent standalone Task in the team: a new chat in the app
+ * starts on the agent, model and effort of the last one a message was sent in.
+ */
+async function lastStandalone(teamId: string, userId: string) {
+  return await agentConversations().findOne(
+    {
+      userId,
+      teamId,
+      parentSessionId: { $exists: false },
+      avatar: { $exists: false },
+      kind: { $ne: 'channel' },
+      runtimeId: { $exists: true },
+    },
+    { sort: { lastActiveAt: -1 } },
+  )
+}
+
+async function enabledWebhook(id: string, teamId: string) {
+  return (
+    ObjectId.isValid(id) &&
+    (await teamWebhooks().countDocuments({ _id: new ObjectId(id), teamId, enabled: true })) > 0
+  )
 }
 
 /** The runtime check and model pick for a new session on `runtimeId`. */
@@ -99,9 +129,12 @@ async function onRuntime(
 
 /**
  * What a new session starts on: the agent (`runtime_id`) and its model and
- * effort, Full Access, or a Bot (`parent_session_id`) whose agent, model and
- * effort it starts on and whose credentials and mode it uses. An existing
- * session keeps its own; change those with nuphos_update_session.
+ * effort, Full Access, the team webhook that alone receives its events, or a
+ * Bot (`parent_session_id`) whose agent, model and
+ * effort it starts on and whose credentials and mode it uses. Otherwise it
+ * starts as a new Task in the app does: with Full Access, on the agent, model
+ * and effort of the caller's last standalone Task. An existing session keeps
+ * its own; change those with nuphos_update_session.
  */
 export async function startChoice(
   args: Record<string, unknown>,
@@ -113,6 +146,7 @@ export async function startChoice(
   const pick = requestedPick(args)
   const fullAccess = typeof args.full_access === 'boolean' ? args.full_access : undefined
   const parentId = text(args.parent_session_id)
+  const webhookId = text(args.webhook_id)
 
   if (existing) {
     if (runtimeId && existing.runtimeId !== runtimeId)
@@ -128,9 +162,14 @@ export async function startChoice(
         refused: 'full_access applies to a new session; change it with nuphos_update_session.',
       }
     if (parentId) return { refused: 'parent_session_id applies to a new session only.' }
+    if (webhookId) return { refused: 'webhook_id applies to a new session only.' }
 
     return {}
   }
+  if (webhookId && !(await enabledWebhook(webhookId, teamId)))
+    return {
+      refused: `webhook_id must be an enabled webhook of this team; ${webhookId} is not. See nuphos_webhooks.`,
+    }
   const bot = parentId ? await ownBot(parentId, teamId, userId) : undefined
 
   if (bot === null)
@@ -142,16 +181,20 @@ export async function startChoice(
       refused:
         "A Task under a Bot runs in its Bot's permission mode. Change Full Access on the Bot.",
     }
-  const base = bot ? { bot } : fullAccess === undefined ? {} : { fullAccess }
+  const base = {
+    ...(bot ? { bot } : { fullAccess: fullAccess ?? true }),
+    ...(webhookId ? { webhookId } : {}),
+  }
+  // Naming none of its own: the Bot's agent, model and effort, else the last Task's.
+  const from = runtimeId || pick ? undefined : (bot ?? (await lastStandalone(teamId, userId)))
 
-  // Under a Bot and naming none of its own: the Bot's agent, model and effort.
-  if (bot?.runtimeId && !runtimeId && !pick) {
-    const inherited = await onRuntime(teamId, bot.runtimeId, userId, currentPick(bot))
+  if (from?.runtimeId) {
+    const inherited = await onRuntime(teamId, from.runtimeId, userId, currentPick(from))
 
     if (!('refused' in inherited)) return { ...inherited, ...base }
-    // A model the Bot's agent no longer offers leaves the Task on that agent's
+    // A model its agent no longer offers leaves the session on that agent's
     // defaults; an agent the caller can no longer use, on their default agent.
-    const plain = await onRuntime(teamId, bot.runtimeId, userId, undefined)
+    const plain = await onRuntime(teamId, from.runtimeId, userId, undefined)
 
     return 'refused' in plain ? base : { ...plain, ...base }
   }

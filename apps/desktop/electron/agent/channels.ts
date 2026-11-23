@@ -1,4 +1,4 @@
-import { callJsonForRenderer, teamQuery } from './http'
+import { callJson, teamQuery } from './http'
 
 import type { ChannelAgent, ChannelMention } from '../../src/api/agent-types'
 import type { FileTransferGroup } from '../../src/types'
@@ -7,13 +7,17 @@ const at = (sessionId: string) => `/agent/conversations/${encodeURIComponent(ses
 
 /**
  * A new channel, private until shared; its people and agents are added after.
- * It has no name: each member sees it called by the others in it.
+ * Without a name, each member sees it called by the others in it.
  */
 export async function createChannel(
   teamId: string,
   group?: boolean,
+  title?: string,
 ): Promise<{ sessionId: string }> {
-  return callJsonForRenderer('POST', `/agent/channels${teamQuery(teamId)}`, group ? { group } : {})
+  return callJson('POST', `/agent/channels${teamQuery(teamId)}`, {
+    ...(group ? { group } : {}),
+    ...(title ? { title } : {}),
+  })
 }
 
 /** Where a new Bot runs: the runtime a new chat would start on. */
@@ -34,19 +38,19 @@ export async function createBot(
   teamId: string,
   bot: NewBot = {},
 ): Promise<{ sessionId: string; title: string; avatar: string; avatarBackground?: string }> {
-  return callJsonForRenderer('POST', `/agent/bots${teamQuery(teamId)}`, bot)
+  return callJson('POST', `/agent/bots${teamQuery(teamId)}`, bot)
 }
 
 /** "Make this a Bot": the Task gets its face and is asked to name itself. */
 export async function makeBot(sessionId: string, teamId: string): Promise<{ avatar: string }> {
-  return callJsonForRenderer('POST', `${at(sessionId)}/bot${teamQuery(teamId)}`, {})
+  return callJson('POST', `${at(sessionId)}/bot${teamQuery(teamId)}`, {})
 }
 
 export async function listChannelAgents(
   channelId: string,
   teamId: string,
 ): Promise<{ agents: ChannelAgent[] }> {
-  return callJsonForRenderer('GET', `${at(channelId)}/agents${teamQuery(teamId)}`)
+  return callJson('GET', `${at(channelId)}/agents${teamQuery(teamId)}`)
 }
 
 /** Only the agent's owner can add it: their word that the channel may talk to it. */
@@ -55,7 +59,7 @@ export async function addChannelAgent(
   teamId: string,
   agentSessionId: string,
 ): Promise<{ agents: ChannelAgent[] }> {
-  return callJsonForRenderer('POST', `${at(channelId)}/agents${teamQuery(teamId)}`, {
+  return callJson('POST', `${at(channelId)}/agents${teamQuery(teamId)}`, {
     sessionId: agentSessionId,
   })
 }
@@ -65,7 +69,7 @@ export async function removeChannelAgent(
   teamId: string,
   agentSessionId: string,
 ): Promise<void> {
-  await callJsonForRenderer(
+  await callJson(
     'DELETE',
     `${at(channelId)}/agents/${encodeURIComponent(agentSessionId)}${teamQuery(teamId)}`,
   )
@@ -77,7 +81,7 @@ export async function wakeChannelAgent(
   teamId: string,
   agentSessionId: string,
 ): Promise<void> {
-  await callJsonForRenderer(
+  await callJson(
     'POST',
     `${at(channelId)}/agents/${encodeURIComponent(agentSessionId)}/wake${teamQuery(teamId)}`,
   )
@@ -97,7 +101,7 @@ export async function postChannelMessage(
   mentions?: string[],
   replyTo?: string,
 ): Promise<{ id: string }> {
-  return callJsonForRenderer('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
+  return callJson('POST', `${at(channelId)}/channel-messages${teamQuery(teamId)}`, {
     text,
     id,
     ...(upload ? { upload } : {}),
@@ -112,7 +116,7 @@ export async function resolveChannelAttachment(
   teamId: string,
   groupId: string,
 ): Promise<FileTransferGroup> {
-  return callJsonForRenderer(
+  return callJson(
     'GET',
     `${at(channelId)}/attachments/${encodeURIComponent(groupId)}${teamQuery(teamId)}`,
   )
@@ -120,7 +124,7 @@ export async function resolveChannelAttachment(
 
 /** The Inbox's channel entries: posts that @mention the viewer. */
 export async function listChannelMentions(teamId: string): Promise<{ mentions: ChannelMention[] }> {
-  return callJsonForRenderer('GET', `/agent/channels/mentions${teamQuery(teamId)}`)
+  return callJson('GET', `/agent/channels/mentions${teamQuery(teamId)}`)
 }
 
 export function startBotOnboarding(
@@ -128,7 +132,7 @@ export function startBotOnboarding(
   teamId: string,
   channelId: string,
 ): Promise<{ started: boolean }> {
-  return callJsonForRenderer('POST', `${at(sessionId)}/bot-onboarding${teamQuery(teamId)}`, {
+  return callJson('POST', `${at(sessionId)}/bot-onboarding${teamQuery(teamId)}`, {
     channelId,
   })
 }

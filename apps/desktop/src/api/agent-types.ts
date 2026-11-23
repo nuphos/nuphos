@@ -65,11 +65,6 @@ export type AgentConversationParticipant = AgentConversationPerson & {
   agent?: AgentFace
 }
 
-export type ConversationAccessState = {
-  generalAccess: GeneralAccess
-  participants: AgentConversationParticipant[]
-}
-
 /** An agent in a channel: its session, which is the agent. */
 export type ChannelAgent = AgentFace & { sessionId: string; title: string; ownerId: string }
 
@@ -114,6 +109,8 @@ export type AgentConversation = {
   readOnly?: boolean
   /** The owner: may change the runtime and credentials. */
   canManage?: boolean
+  /** May archive it: the owner for everyone, a participant in a Task for themselves alone. */
+  canArchive?: boolean
   owner?: AgentConversationPerson
   credentialAccess?: AgentCredentialAccess
   /** A Task under a Bot: the conversation whose credentials and computers it uses. */

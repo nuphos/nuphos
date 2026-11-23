@@ -31,6 +31,19 @@ export async function setConversationAvatar(
   )
 }
 
+/** The owner rewrites a Bot's standing instructions; empty clears them. */
+export async function setBotInstructions(
+  sessionId: string,
+  instructions: string,
+  teamId?: string,
+): Promise<{ instructions: string }> {
+  return callJson(
+    'PATCH',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/instructions${teamQuery(teamId)}`,
+    { instructions },
+  )
+}
+
 /** Uploads an already-cropped photo as a Bot's face (the backend re-encodes it). */
 export async function uploadConversationAvatar(
   sessionId: string,

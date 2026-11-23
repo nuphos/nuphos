@@ -59,13 +59,13 @@ test('a sub-agent at work is the Bot at work, through its run', () => {
 test('a question from the Bot or a sub-agent outranks work', () => {
   const activity = activityOf(run('bot', turn()), [run('kid', idle, asking)])
 
-  assert.deepEqual(activity, { kind: 'asking', question: 'Include Slack?' })
+  assert.deepEqual(activity, { kind: 'asking' })
 })
 
-test('a failed run shows as an error', () => {
-  const activity = activityOf(run('bot', { ...idle, phase: 'failed', label: 'tests failed' }), [])
+test('a failed run shows as an error, without its raw label', () => {
+  const activity = activityOf(run('bot', { ...idle, phase: 'failed', label: 'Request failed' }), [])
 
-  assert.deepEqual(activity, { kind: 'error', label: 'tests failed' })
+  assert.deepEqual(activity, { kind: 'error' })
 })
 
 test('an onboarding question is setup, while a real approval still needs attention', () => {

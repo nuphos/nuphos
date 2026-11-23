@@ -8,6 +8,7 @@ import {
   clearConversationPreviewTurn,
   getConversationBySessionId,
   openConversationPromptSuggestion,
+  resolveInputRequest,
   setConversationPreviewContext,
 } from '@/lib/agent/db'
 import { turnLanguage } from '@/lib/agent/db/ancestor-user-texts'
@@ -19,7 +20,6 @@ import {
 } from '@/lib/agent/message-metadata'
 import { renderInjectedUserMessages } from '@/lib/agent/pending-messages'
 import { takeTurnQueue } from '@/lib/agent/pending-queue'
-import { answerHumanTurn } from '@/lib/agent/plan-decision'
 import { markCarried } from '@/lib/agent/retract-marks'
 import { nuphosToolsVersion } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { previewHistoryPreamble } from '@/lib/claude-code-preview/preview-history-preamble'
@@ -140,7 +140,8 @@ export async function persistPreviewTurnContext(
   args: PreviewChatTurnArgs,
   requestId: string,
 ): Promise<void> {
-  if (args.humanTurn) await answerHumanTurn(args)
+  if (args.humanTurn && args.decisionReplyTo)
+    await resolveInputRequest(args.sessionId, args.userId, args.decisionReplyTo)
   try {
     await setConversationPreviewContext(args.sessionId, args.teamId, {
       activeTurnKey: requestId,
@@ -238,7 +239,6 @@ export async function preparePreviewTurn(
         inputs.flatMap((m) => m.parts),
         { teamId, userId: actorUserId, sessionId },
       )
-
   const { lead, text } = turnPrompt({
     resume: resumeMessage(args.resume),
     inputs,
@@ -258,6 +258,7 @@ export async function preparePreviewTurn(
       humanTurn: args.humanTurn,
       toolsVersion,
       parentSessionId: conversation?.parentSessionId,
+      sessionHomeEpoch: conversation?.sessionHomeEpoch,
       bot: isBot(conversation),
     },
     message: lead(),

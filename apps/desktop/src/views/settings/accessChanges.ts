@@ -9,8 +9,6 @@ export function viaLabel(via: AccessChange['via']): string | null {
   switch (via) {
     case 'conversation_invite':
       return t('when inviting them to a chat')
-    case 'conversation_remove':
-      return t('after removing them from a chat')
     case 'conversation_move':
       return t('when moving a chat here')
     case 'team_leave':

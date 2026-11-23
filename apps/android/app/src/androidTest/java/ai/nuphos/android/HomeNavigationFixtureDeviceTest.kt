@@ -1,6 +1,12 @@
 package ai.nuphos.android
 
+import android.accessibilityservice.AccessibilityServiceInfo
 import android.content.res.Configuration
+import android.os.ParcelFileDescriptor
+import android.view.WindowInsets
+import android.view.WindowManager
+import android.view.inspector.WindowInspector
+import android.view.accessibility.AccessibilityNodeInfo
 import android.util.DisplayMetrics
 import android.content.Context
 import androidx.activity.compose.setContent
@@ -74,6 +80,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var runtimeCatalogFailure = false
     @Volatile private var runtimeRemoved = false
     @Volatile private var runtimeReplaced = false
+    @Volatile private var signedInAgain = false
     private lateinit var plansStore: PlansStore
     private lateinit var app: NuphosApplication
     private lateinit var agent: AgentStore
@@ -120,8 +127,10 @@ class HomeNavigationFixtureDeviceTest {
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
                 val browsing = request.method == "GET" && path in setOf("/teams/${a.id}/monitoring/overview", "/teams/${b.id}/monitoring/overview")
-                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
-                if (!runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
+                val mfa = request.method == "GET" && path == "/auth/mfa"
+                val mfaSetup = request.method == "POST" && path == "/auth/mfa/totp/setup"
+                val endSession = request.method == "DELETE" && path == "/auth/sessions/current"
+                if (!mfa && !mfaSetup && !endSession && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -139,8 +148,8 @@ class HomeNavigationFixtureDeviceTest {
                     }
                     detail -> """{"sessionId":"fixture-chat","title":"Synthetic active conversation","archivedAt":${if (archived) "\"2026-01-02T00:00:00Z\"" else "null"},"canManage":true,"isOwner":true,"messages":[]}"""
                     credentials -> "{}"
-                    consent -> """{"version":"2026-09-28","accepted":true}"""
-                    connectors -> "{}"
+                    consent -> """{"version":"2026-11-23","accepted":true}"""
+                    connectors -> if (accountConnectorFixture) """{"github":[{"id":"fixture-github","accountLogin":"synthetic-org","accountType":"Organization"}]}""" else "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
                         if (request.url.queryParameter("pendingDecision") == "true")
@@ -161,7 +170,11 @@ class HomeNavigationFixtureDeviceTest {
                     browsing -> "{}"
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
-                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
+                    mfa -> """{"enabled":false}"""
+                    // A sign-in older than ten minutes may not start setup (the backend's rule for accounts without 2FA).
+                    mfaSetup -> if (signedInAgain) """{"secret":"JBSWY3DPEHPK3PXP","otpauthUrl":"otpauth://totp/Nuphos:fixture?secret=JBSWY3DPEHPK3PXP"}"""
+                        else { code = 403; """{"error":{"code":"reauth_required","message":"Sign in again","details":{"method":"sign_in"}}}""" }
+                    endSession -> "{}"
                     else -> { code = 500; "{}" }
                 }
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
@@ -182,6 +195,7 @@ class HomeNavigationFixtureDeviceTest {
                 state(AiAccess, "state", false).value = savedAccess
                 app.getSharedPreferences("nuphos.prefs", Context.MODE_PRIVATE).edit().apply {
                     if (savedLastTeam == null) remove("nuphos.workspace.lastTeamId") else putString("nuphos.workspace.lastTeamId", savedLastTeam)
+                    remove("nuphos.resumeTwoFactor") // A failed two-factor test must not open the next test's account sheet.
                 }.commit()
             }
             originals.forEach { (name, client) -> Http::class.java.getDeclaredField(name).also { it.isAccessible = true }.set(null, client) }
@@ -192,6 +206,8 @@ class HomeNavigationFixtureDeviceTest {
     private fun waitText(text: String) {
         compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
+    private var accountConnectorFixture = false
+
     private fun render(newTask: Boolean = false, compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
         memberships = listOf(a, b)
         compose.runOnIdle {
@@ -215,6 +231,11 @@ class HomeNavigationFixtureDeviceTest {
                     LocalAgentStore provides agent, LocalAuthSession provides auth,
                     LocalPlansStore provides plansStore, LocalConnectorsStore provides connectors) {
                     NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
+                        // As in the app, home leaves on sign-out and comes back fresh on the next sign-in.
+                        if (auth.state !is AuthSession.State.SignedIn) return@Box
+                        if (accountConnectorFixture) {
+                            LaunchedEffect(agent.selectedTeam) { connectors.select(agent.selectedTeam) }
+                        }
                         val nav = rememberNavController()
                         if (newTask) NavHost(nav, startDestination = "fixture-home") {
                             composable("fixture-home") {
@@ -244,10 +265,7 @@ class HomeNavigationFixtureDeviceTest {
         else { menu(); compose.onNodeWithTag("home-page-$route").performScrollTo().performClick() }
         compose.waitForIdle()
     }
-    // The Tasks list's reads. The Bots listing reads mine and shared, as the chats do (#3852).
-    private fun assertFixedListSelectors() = assertTrue(requests.filter {
-        it.url.encodedPath == "/agent/conversations" && it.url.queryParameter("bots") != "true"
-    }.all {
+    private fun assertFixedListSelectors() = assertTrue(requests.filter { it.url.encodedPath == "/agent/conversations" }.all {
         it.url.queryParameter("scope") == "mine" && it.url.queryParameter("sort") == "activity" && it.url.queryParameter("archived") == "exclude"
     })
     private fun noWrites() = assertTrue(requests.none { it.method != "GET" })
@@ -258,6 +276,88 @@ class HomeNavigationFixtureDeviceTest {
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
         try { file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
     }
+    @Test fun newTaskComposerMeetsKeyboardAndGreetingFits() {
+        app.incomingShares.identityReset()
+        kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
+        val registry = InstrumentationRegistry.getInstrumentation()
+        val automation = registry.uiAutomation
+        val serviceInfo = automation.serviceInfo
+        val originalFlags = serviceInfo.flags
+        serviceInfo.flags = originalFlags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        automation.serviceInfo = serviceInfo
+
+        fun keyboardTop(): Int? = compose.runOnIdle {
+            val decor = WindowInspector.getGlobalWindowViews().firstOrNull { it.hasWindowFocus() }
+                ?: return@runOnIdle null
+            val insets = decor.rootWindowInsets ?: return@runOnIdle null
+            val ime = insets.getInsets(WindowInsets.Type.ime()).bottom
+            if (ime == 0) return@runOnIdle null
+            decor.context.getSystemService(WindowManager::class.java).currentWindowMetrics.bounds.bottom - ime
+        }
+        fun shell(command: String) =
+            ParcelFileDescriptor.AutoCloseInputStream(automation.executeShellCommand(command)).bufferedReader().use { it.readText().trim() }
+        val previousImeSetting = shell("settings get secure show_ime_with_hard_keyboard")
+
+        try {
+            shell("settings put secure show_ime_with_hard_keyboard 1")
+            render(newTask = true)
+            compose.onNodeWithTag("new-task-open").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.waitUntil(8_000) { compose.onAllNodes(hasSetTextAction()).fetchSemanticsNodes().isNotEmpty() }
+            compose.onNode(hasSetTextAction()).performClick()
+            compose.waitUntil(8_000) { keyboardTop() != null }
+            automation.waitForIdle(300, 5_000)
+            compose.waitForIdle()
+
+            val imeTop = requireNotNull(keyboardTop())
+            val composer = compose.onNodeWithTag("chat-composer-surface").fetchSemanticsNode().boundsInWindow
+            assertEquals("Composer bottom should meet the IME", imeTop.toFloat(), composer.bottom, 2f)
+            compose.onNodeWithContentDescription(app.getString(R.string.send)).assertIsDisplayed()
+
+            val greetingText = app.getString(R.string.new_task_welcome_name, NuphosUser.preview.name.orEmpty().substringBefore(' '))
+            val greeting = compose.onNodeWithText(greetingText)
+            val shortScreen = InstrumentationRegistry.getArguments().getString("newTaskShortScreen") == "true"
+            fun greetingExposed(): Boolean {
+                val roots = automation.windows.mapNotNull { it.root }.filter { it.packageName == app.packageName }
+                assertTrue("Expected a Nuphos accessibility window", roots.isNotEmpty())
+                fun visibleGreeting(node: AccessibilityNodeInfo): Boolean {
+                    return (node.isVisibleToUser && node.text?.toString() == greetingText) ||
+                        (0 until node.childCount).any { node.getChild(it)?.let(::visibleGreeting) == true }
+                }
+                return roots.any(::visibleGreeting)
+            }
+            if (shortScreen) {
+                greeting.assertIsNotDisplayed()
+                assertFalse("Hidden greeting should not be exposed to accessibility", greetingExposed())
+            } else {
+                greeting.assertIsDisplayed()
+                compose.waitUntil(8_000) { greetingExposed() }
+            }
+            shot("3799-keyboard-open")
+
+            compose.onNode(hasSetTextAction()).performTextClearance()
+            compose.onNode(hasSetTextAction()).performTextInput("Synthetic keyboard draft")
+            val draft = compose.onNodeWithText("Synthetic keyboard draft")
+            compose.waitUntil(8_000) { draft.isDisplayed() }
+            pressSystemBack()
+            compose.waitUntil(8_000) { keyboardTop() == null && draft.isDisplayed() && greeting.isDisplayed() }
+            compose.onNodeWithTag("new-task-sheet").assertIsDisplayed()
+            compose.waitUntil(8_000) { greetingExposed() }
+            shot("3799-keyboard-closed")
+            compose.onNodeWithTag("new-task-cancel").performClick()
+            compose.onNodeWithTag("new-task-sheet").assertDoesNotExist()
+            noWrites()
+        } finally {
+            if (previousImeSetting in setOf("0", "1")) {
+                shell("settings put secure show_ime_with_hard_keyboard $previousImeSetting")
+            } else {
+                shell("settings delete secure show_ime_with_hard_keyboard")
+            }
+            serviceInfo.flags = originalFlags
+            automation.serviceInfo = serviceInfo
+        }
+    }
+
     @Test fun newTaskSheetCancelAndReopenPreservesDraft() {
         app.incomingShares.identityReset()
         kotlinx.coroutines.runBlocking { app.incomingShares.bindAccount(NuphosUser.preview.id) }
@@ -372,6 +472,51 @@ class HomeNavigationFixtureDeviceTest {
         assertEquals(a.id, agent.selectedTeam?.id)
         noWrites()
         shot("bottom-tabs-tasks")
+    }
+
+    @Test fun accountShowsIntegrationsAndPersistsAvatarPreference() {
+        accountConnectorFixture = true
+        render()
+        val previous = app.botAvatarsEnabled
+        try {
+            compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
+            compose.onNodeWithText(app.getString(R.string.account_connectors)).performScrollTo().performClick()
+            compose.onNodeWithTag("account-connectors-title").assertIsDisplayed()
+            compose.onNodeWithTag("connector-inventory-list").assertIsDisplayed()
+            waitText("synthetic-org")
+            shot("account-connectors")
+            compose.onNodeWithTag("connector-catalog").performClick()
+            compose.onNodeWithTag("connector-catalog-panel").assertIsDisplayed()
+            compose.onNodeWithTag("connector-search").performTextInput("Linear")
+            compose.onNodeWithTag("connector-add-linear").assertIsDisplayed()
+            shot("account-connector-catalog")
+            compose.onNode(hasText(app.getString(R.string.done)) and
+                hasAnyAncestor(hasTestTag("connector-catalog-panel"))).performClick()
+            compose.onNode(hasText(app.getString(R.string.done)) and
+                hasAnySibling(hasTestTag("account-connectors-title"))).performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("account-connectors-title").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("account-bot-avatars").performScrollTo().performClick()
+            compose.runOnIdle { assertEquals(!previous, app.botAvatarsEnabled) }
+            compose.onNodeWithText(app.getString(R.string.account_bot_avatars_help)).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText(app.getString(R.string.profile_group_app_icon)).performScrollTo()
+            shot("account-appearance")
+            compose.onNodeWithTag("account-version").performScrollTo().assertIsDisplayed()
+            shot("account-version")
+            noWrites()
+        } finally {
+            compose.runOnIdle { app.updateBotAvatars(previous) }
+        }
+    }
+
+    @Test fun emptyBotsTabSaysWhatABotIsAndOffersTheFirstOne() {
+        render()
+        select("chats")
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        waitText(app.getString(R.string.chats_first_bot_title))
+        shot("bots-empty")
+        compose.onNodeWithText(app.getString(R.string.chats_new_bot)).assertIsEnabled().performClick()
+        compose.onNodeWithText(app.getString(R.string.chats_new_bot_name)).assertIsDisplayed()
+        noWrites()
     }
 
     @Test fun toolbarNewTaskOpensAndDismissesWithoutChangingTabs() {
@@ -623,4 +768,107 @@ class HomeNavigationFixtureDeviceTest {
         assertEquals(2, requests.count { it.method == "PATCH" })
     }
 
+    /** Saved where CI collects it (the android-device-tests artifact), unlike [shot]. */
+    private fun evidence(name: String) {
+        compose.waitForIdle()
+        Thread.sleep(250) // Wait for the platform popup window to draw before capturing its pixels.
+        val dir = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir") ?: return
+        val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+        try { File(dir, "two-factor-resume-$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) } } finally { bitmap.recycle() }
+    }
+
+    private fun signIn() = compose.runOnIdle {
+        AiAccess.activate(token); AiAccess.grant(token)
+        AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
+        state(auth, "state").value = AuthSession.State.SignedIn(NuphosUser.preview)
+    }
+
+    @Test fun signingInAgainToTurnOnTwoFactorComesBackToIt() {
+        render()
+        compose.onNodeWithContentDescription("Account").performClick()
+        compose.onNodeWithText("Two-factor authentication").performScrollTo().performClick()
+        waitText("Turn on")
+        compose.onNodeWithText("Turn on").performClick()
+        waitText("Sign in again to turn on two-factor authentication.")
+        evidence("two-factor-sign-in-again")
+        compose.onNodeWithText("Sign out and sign in again").performClick()
+        compose.waitUntil(8_000) { auth.state is AuthSession.State.SignedOut }
+
+        signedInAgain = true
+        signIn()
+        // Captured either way: the screen this sign-in lands on is the change under review.
+        try { waitText("Turn on") } finally { evidence("two-factor-after-sign-in") }
+        compose.onNodeWithText("Turn on").performClick()
+        waitText("JBSW Y3DP EHPK 3PXP")
+
+        // Only that one sign-in comes back; the next one opens home as usual.
+        compose.runOnIdle { auth.signOut() }
+        compose.waitUntil(8_000) { auth.state is AuthSession.State.SignedOut }
+        signIn()
+        compose.waitUntil(8_000) { compose.onAllNodesWithTag("home-page-switcher").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("account-sheet-title").assertDoesNotExist()
+        compose.onNodeWithText("Turn on").assertDoesNotExist()
+    }
+
+    // Ways into the product from home (#4205). One test per path, named after the path,
+    // starting on home and tapping what a person taps. A change that removes one of these
+    // has to change the test that says, by name, what it removes. Where an entry sits is
+    // not asserted, only that it is there and opens what it names.
+
+    /** Waits for what [find] matches, failing with [missing] rather than a bare timeout. */
+    private fun reach(missing: String, find: () -> SemanticsNodeInteractionCollection) =
+        assertTrue(missing, runCatching { compose.waitUntil(8_000) { find().fetchSemanticsNodes().isNotEmpty() } }.isSuccess)
+
+    @Test fun homeReachesTheInboxAndAQuestionInIt() {
+        render()
+        reach("Home has no Inbox") { compose.onAllNodesWithTag("home-tab-inbox") }
+        select("inbox")
+        reach("The Inbox lists no open question to answer") { compose.onAllNodesWithTag("inbox-question", useUnmergedTree = true) }
+        noWrites()
+    }
+
+    @Test fun homeReachesComputersAndRuntimes() {
+        render()
+        reach("Home has no way into Computers & runtimes") { compose.onAllNodesWithTag("home-runtimes") }
+        compose.onNodeWithTag("home-runtimes").assertHasClickAction().performClick()
+        reach("Computers & runtimes did not open") { compose.onAllNodesWithTag("home-runtimes-close") }
+        noWrites()
+    }
+
+    @Test fun homeReachesTheAccount() {
+        render()
+        reach("Home has no way into the Account") { compose.onAllNodesWithContentDescription("Account") }
+        compose.onNodeWithContentDescription("Account").assertHasClickAction().performClick()
+        reach("The Account did not open") { compose.onAllNodesWithTag("account-sheet-title") }
+        noWrites()
+    }
+
+    @Test fun homeReachesConnectors() {
+        render()
+        menu()
+        reach("The page menu has no Connectors") { compose.onAllNodesWithTag("home-page-connectors") }
+        compose.onNodeWithTag("home-page-connectors").performScrollTo().performClick()
+        reach("Connectors did not open") {
+            compose.onAllNodes(hasTestTag("connector-inventory-list") or hasTestTag("connector-catalog"))
+        }
+        noWrites()
+    }
+
+    @Test fun homeReachesNewTaskAndNewBot() {
+        render()
+        compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
+        reach("Home has no Create") { compose.onAllNodesWithTag("home-create") }
+        compose.onNodeWithTag("home-create").assertIsEnabled().performClick()
+        val newTask = app.getString(R.string.home_toolbar_new_task)
+        val newBot = app.getString(R.string.home_toolbar_new_bot)
+        reach("Create offers no New Task") { compose.onAllNodesWithText(newTask) }
+        reach("Create offers no New Bot") { compose.onAllNodesWithText(newBot) }
+        compose.onNodeWithText(newBot).assertIsEnabled().performClick()
+        reach("New Bot did not open") { compose.onAllNodesWithText(app.getString(R.string.chats_new_bot_name)) }
+        pressSystemBack()
+        compose.onNodeWithTag("home-create").performClick()
+        compose.onNodeWithText(newTask).assertIsEnabled().performClick()
+        reach("New Task did not open") { compose.onAllNodesWithTag("new-task-sheet") }
+        noWrites()
+    }
 }

@@ -8,6 +8,7 @@ import { ChoiceCard } from './ChoiceCard'
 import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
+  answeredBySelection,
   connectBlock,
   connectRowStatus,
   decisionRequestId,
@@ -15,13 +16,12 @@ import {
   parseChoiceRequest,
   parseConnectRequest,
   parseSecretRequest,
-  personalConnectStatus,
   withConnectIds,
 } from './connectCardModel'
 import { ConnectHeader, ConnectRow } from './ConnectCardRows'
 import { allCredentialAccess, normalizeCredentialOptions } from './credentialAccess'
+import { PersonalConnectCard } from './PersonalConnectCard'
 import { cardAnswerState } from './replyTarget'
-import { setPersonalOnly } from './personalIdentity'
 import { SecretCard } from './SecretCard'
 import { ToolPartView } from './ToolPartView'
 import { isDecisionFailed } from './toolRuns'
@@ -83,15 +83,12 @@ export function ConnectCard({
   teamId,
   providers,
   reason,
-  personal = false,
   canAct,
 }: {
   toolCallId: string
   teamId?: string
   providers: ConnectProvider[]
   reason: string
-  /** It asks for the member's own credential: only selecting that answers it, never a team binding. */
-  personal?: boolean
   /** The latest reply and no turn running: only then can the card act. */
   canAct: boolean
 }) {
@@ -115,15 +112,9 @@ export function ConnectCard({
   const setPhase = (provider: ConnectProvider, phase: ConnectPhase) =>
     setPhases((prev) => ({ ...prev, [provider]: phase }))
   const statusOf = (provider: ConnectProvider): ConnectRowStatus =>
-    personal && credentials && (provider === 'github' || provider === 'linear')
-      ? personalConnectStatus(
-          provider,
-          credentials.value,
-          credentials.options.personalCredentials ?? [],
-        )
-      : credentials && available
-        ? connectRowStatus(provider, phases[provider] ?? 'idle', credentials.value, available)
-        : 'idle'
+    credentials && available
+      ? connectRowStatus(provider, phases[provider] ?? 'idle', credentials.value, available)
+      : 'idle'
 
   function connect(provider: ConnectProvider) {
     if (!credentials || !available) return
@@ -162,11 +153,6 @@ export function ConnectCard({
   }
 
   function use(provider: ConnectProvider) {
-    if (personal && credentials && (provider === 'github' || provider === 'linear')) {
-      credentials.onChange(setPersonalOnly(credentials.value, provider, true))
-
-      return
-    }
     if (!credentials || !available) return
     const ids = available[CONNECT_SELECTION_KEY[provider]]
 
@@ -186,19 +172,14 @@ export function ConnectCard({
             key={provider}
             provider={provider}
             status={statusOf(provider)}
-            // Connecting your own credential lives in Settings, not a team bind.
-            interactive={interactive && !(personal && statusOf(provider) === 'idle')}
-            blocked={
-              personal || canBindTeam === undefined
-                ? undefined
-                : connectBlock(provider, canBindTeam)
-            }
+            interactive={interactive}
+            blocked={canBindTeam === undefined ? undefined : connectBlock(provider, canBindTeam)}
             onConnect={() => connect(provider)}
             onUse={() => use(provider)}
           />
         ))}
       </ul>
-      {interactive && teamId && !personal && (
+      {interactive && teamId && (
         <TeamHomeBindFlow
           ref={bindFlowRef}
           teamId={teamId}
@@ -239,15 +220,17 @@ export function DecisionToolPart({
     })
 
   if (connect) {
-    return (
-      <ConnectCard
-        toolCallId={part.toolCallId}
-        teamId={teamId}
-        providers={connect.providers}
-        reason={connect.reason}
-        personal={connect.personal}
-        canAct={state({ question: connect.reason }) === 'open'}
-      />
+    const card = {
+      toolCallId: part.toolCallId,
+      teamId,
+      reason: connect.reason,
+      canAct: state({ question: connect.reason }) === 'open',
+    }
+
+    return connect.personal ? (
+      <PersonalConnectCard {...card} providers={connect.providers} />
+    ) : (
+      <ConnectCard {...card} providers={connect.providers} />
     )
   }
   if (secret) {
@@ -261,11 +244,15 @@ export function DecisionToolPart({
     )
   }
   if (choice) {
+    const answer = state({ question: choice.question, options: choice.options })
+
     return (
       <ChoiceCard
         {...choice}
         toolCallId={part.toolCallId}
-        canAct={state({ question: choice.question, options: choice.options }) === 'open'}
+        canAct={answer === 'open'}
+        // An integration naming what this app cannot connect: never words the server refuses.
+        selectOnly={answeredBySelection(part.input) && answer !== 'closed'}
       />
     )
   }

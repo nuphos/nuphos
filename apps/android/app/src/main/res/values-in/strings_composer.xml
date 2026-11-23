@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">Tidak dapat menyimpan draf ini. Kosongkan penyimpanan lalu coba lagi.</string>
-    <string name="composer_voice_unavailable">Pilih workspace dan konfirmasi pilihan berbagi AI untuk menggunakan input suara.</string>
+    <string name="composer_voice_unavailable">Pilih tim dan konfirmasi pilihan berbagi AI untuk menggunakan input suara.</string>
     <string name="composer_voice_start_failed">Tidak dapat memulai input suara. Periksa izin mikrofon lalu coba lagi.</string>
     <string name="composer_voice_failed">Input suara gagal</string>
     <string name="composer_add_to_draft">Tambahkan ke draf</string>
@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">Tidak dapat beralih runtime. Muat ulang lalu coba lagi.</string>
     <string name="composer_switching_runtime">Mengalihkan runtime…</string>
     <string name="composer_runtime_view_only">Anda dapat melihat runtime tugas ini, tetapi tidak dapat memindahkannya.</string>
-    <string name="composer_runtime_wait">Tunggu hingga respons saat ini atau pesan tertunda selesai sebelum beralih runtime.</string>
+    <string name="composer_runtime_wait">Tunggu pesan yang sedang dikirim atau unggahan selesai, lalu ganti runtime.</string>
     <string name="composer_loading_runtimes">Memuat runtime…</string>
     <string name="composer_no_runtimes">Tidak ada runtime yang tersedia.</string>
     <string name="composer_no_runtimes_body">Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri.</string>
@@ -79,7 +79,7 @@
     <string name="composer_runtime_offline">Runtime ini sedang offline. Pengaturan model akan kembali saat runtime terhubung lagi.</string>
     <string name="composer_runtime_no_model">Runtime ini tidak menyediakan pengaturan model.</string>
     <string name="composer_share_open_failed">Tidak dapat membuka draf ini. Konten yang Anda bagikan belum dikirim.</string>
-    <string name="composer_share_no_workspace">Buka workspace di Akun untuk menerima konten bersama ini. Belum ada yang dikirim.</string>
+    <string name="composer_share_no_workspace">Buka tim di Akun untuk menerima konten bersama ini. Belum ada yang dikirim.</string>
     <string name="composer_preparing_draft">Menyiapkan draf</string>
     <string name="composer_open_draft_failed">Tidak dapat membuka draf</string>
     <string name="composer_preparing_share">Menyiapkan konten yang dibagikan…</string>

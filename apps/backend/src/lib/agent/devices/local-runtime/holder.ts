@@ -4,7 +4,8 @@ import { logEvent } from '@/lib/observability'
 
 import { reportedAgentsKey } from '../agent-registry'
 
-import { RUNTIME_PRESENCE_HEARTBEAT_MS } from './presence'
+import { heldTunnels } from './held-tunnels'
+import { RUNTIME_PRESENCE_HEARTBEAT_MS, modelCatalogRecovered } from './presence'
 import { desktopFrameSchema, holderChannel, parseJson } from './protocol'
 import { streamRelay } from './stream-relay'
 
@@ -13,6 +14,7 @@ import type { BoxMetrics } from '../metrics-schema'
 import type { HolderMessage, LocalRuntimeStatus } from './protocol'
 
 export type { RuntimeTunnel, TunnelConnection, TunnelHolderDeps } from './holder-types'
+export { closeTunnelsForRestart, connectedComputerCount } from './held-tunnels'
 
 const DEFAULT_IDLE_TIMEOUT_MS = 15_000
 const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
@@ -20,13 +22,6 @@ const DEFAULT_CHANNEL_TIMEOUT_MS = 60_000
 export const TUNNEL_CLOSE_SUPERSEDED = 4000
 export const TUNNEL_CLOSE_IDLE = 4001
 export const TUNNEL_CLOSE_REVOKED = 4003
-
-let openTunnels = 0
-
-/** Computers whose tunnel this replica holds right now. */
-export function connectedComputerCount(): number {
-  return openTunnels
-}
 
 /**
  * Holds one desktop's reverse tunnel on this replica. Streams opened from any
@@ -45,6 +40,7 @@ export async function attachRuntimeTunnel(
   const conn = randomUUID()
   const streams = new Map<string, { actorId: string; teamId: string; purpose: string }>() // who opened it, in which team, for what
   const channel = holderChannel(userId, deviceId)
+  const ids = { user_id: userId, device_id: deviceId }
   let status: LocalRuntimeStatus | undefined
   let recorded: string | undefined
   let metrics: BoxMetrics | undefined
@@ -100,7 +96,7 @@ export async function attachRuntimeTunnel(
   const end = () => {
     if (ended) return
     ended = true
-    openTunnels--
+    heldTunnels.delete(shut)
     clearInterval(heartbeat)
     heartbeat = undefined
     unsubscribe()
@@ -116,13 +112,7 @@ export async function attachRuntimeTunnel(
   const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
   const own = () => ({ team_ids: cut(), max_buffered_bytes: connection.backlog?.() })
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
-    logEvent('info', 'agent.local_runtime.tunnel_closed', {
-      user_id: userId,
-      device_id: deviceId,
-      code,
-      reason,
-      ...extra,
-    })
+    logEvent('info', 'agent.local_runtime.tunnel_closed', { ...ids, code, reason, ...extra })
   const shut = (code: number, reason: string) => {
     if (ended) return
     logClosed(code, reason, own())
@@ -221,8 +211,8 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
-  openTunnels++
+  logEvent('info', 'agent.local_runtime.tunnel_opened', { ...ids, client })
+  heldTunnels.add(shut)
 
   return {
     receive(raw) {
@@ -232,8 +222,7 @@ export async function attachRuntimeTunnel(
       if (!parsed.success) {
         // Paths only: the frame is the computer's own data.
         logEvent('warn', 'agent.local_runtime.frame_rejected', {
-          user_id: userId,
-          device_id: deviceId,
+          ...ids,
           issues: parsed.error.issues.map((issue) => issue.path.join('.')).join(', '),
         })
 
@@ -253,8 +242,10 @@ export async function attachRuntimeTunnel(
         case 'status': {
           const reported = frame.status
 
+          const recoveredModels = modelCatalogRecovered(status, reported)
+
           status = reported
-          // Only what reportedAgentsKey names is written at once, not every status report.
+          // Publish a recovered catalog before the picker reads it back.
           const agents = reportedAgentsKey(reported)
 
           if (deps.recordAgents && agents !== recorded) {
@@ -267,7 +258,7 @@ export async function attachRuntimeTunnel(
               .catch(() => {
                 recorded = undefined
               })
-          }
+          } else if (recoveredModels) void refreshPresence()
           break
         }
         case 'pong': // Answers the heartbeat; it counts as liveness like every other frame.

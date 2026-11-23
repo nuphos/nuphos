@@ -48,16 +48,16 @@ const settling = new Set<string>()
 const again = new Set<string>()
 
 /**
- * Who the computer deletes the agent for: the remover while they are still in the team,
- * else the computer's owner. Undefined when no one in that team can any longer.
+ * Who the computer runs a pending removal or reset for: whoever asked while they are still
+ * in the team, else the computer's owner. Undefined when no one in that team can any longer.
  */
-async function removalActor(
-  removal: PendingRemoval,
+export async function pendingActor(
+  pending: Pick<PendingRemoval, 'actorId' | 'teamId'>,
   owner: string,
-  deps: PendingRemovalDeps,
+  deps: Pick<PendingRemovalDeps, 'isMember'>,
 ): Promise<string | undefined> {
-  if (await deps.isMember(removal.actorId, removal.teamId)) return removal.actorId
-  if (await deps.isMember(owner, removal.teamId)) return owner
+  if (await deps.isMember(pending.actorId, pending.teamId)) return pending.actorId
+  if (await deps.isMember(owner, pending.teamId)) return owner
 
   return undefined
 }
@@ -94,7 +94,7 @@ export async function settlePendingRemovals(
     for (const removal of removals) {
       try {
         // A Box passed to a new owner keeps its transport user, so the owner is read from it.
-        const actorId = await removalActor(removal, owner, deps)
+        const actorId = await pendingActor(removal, owner, deps)
 
         if (!actorId) {
           // No one left may delete it, so it stops hiding the agent instead of hiding it forever.

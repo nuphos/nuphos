@@ -15,8 +15,8 @@ export const slackPostId = (slackChannelId: string, ts: string) => `slack:${slac
 
 /**
  * A Bot's post in a Slack channel's external chat (#3702) is a message in that
- * channel: its people are in Slack. An answer to one message goes into that
- * message's thread; without one it is top-level. Throws when Slack refuses it,
+ * channel: its people are in Slack. An answer stays at the level of the message
+ * it answers. Throws when Slack refuses it,
  * so the Bot learns its words reached no one. Returns the post's id for the record.
  */
 export async function postToSlack(
@@ -70,6 +70,7 @@ async function threadRoot(
 
   if (!messageId?.startsWith(prefix)) return undefined
   let id: string = messageId
+  let inThread: boolean | undefined
 
   // Bounded like a thread chain any client would draw.
   for (let depth = 0; depth < 10; depth++) {
@@ -77,11 +78,19 @@ async function threadRoot(
       { sessionId: record.sessionId, userId: record.userId, messageId: id },
       { projection: { metadata: 1 } },
     )
-    const above: string | undefined = parseMessageMetadata(original?.metadata)?.replyTo?.id
+    const metadata = parseMessageMetadata(original?.metadata)
+    const above: string | undefined = metadata?.replyTo?.id
+
+    // A Bot's own quote may itself be a top-level answer. The first human
+    // message in the chain tells us whether the conversation is in a thread.
+    if (inThread === undefined && metadata?.sender?.type === 'user' && metadata.slackThreadTs)
+      return metadata.slackThreadTs
+    if (inThread === undefined && metadata?.sender?.type === 'user')
+      inThread = Boolean(above?.startsWith(prefix))
 
     if (!above?.startsWith(prefix)) break
     id = above
   }
 
-  return id.slice(prefix.length)
+  return inThread ? id.slice(prefix.length) : undefined
 }

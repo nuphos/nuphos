@@ -110,7 +110,11 @@ async function userRequest<T>(token: string, path: string): Promise<T> {
     },
   })
 
-  if (!res.ok) throw new GithubApiError(res.status, `GitHub ${path} failed: ${String(res.status)}`)
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+
+    throw new GithubApiError(res.status, `GitHub ${path} failed: ${String(res.status)} ${text}`)
+  }
 
   return (await res.json()) as T
 }

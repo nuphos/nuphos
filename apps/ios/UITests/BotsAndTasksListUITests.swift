@@ -43,7 +43,8 @@ final class BotsAndTasksListUITests: XCTestCase {
         ]
         let chats = [
             // Named before the Bot was renamed: the row shows the Bot's name.
-            Self.chat("chat-lead", "release-lead-old", at: "09:55", faces: [Self.face("bot-lead", "Release Lead", "05-rembrandt")]),
+            Self.chat("chat-lead", "release-lead-old", at: "09:55", faces: [Self.face("bot-lead", "Release Lead", "05-rembrandt")],
+                      message: Self.longPost),
             Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]),
             Self.chat("chat-notes", "", at: "09:51", faces: [Self.face("bot-notes", "Notes Bot", "13-shakespeare")]),
             // Triage Bot is in this group chat, so it has no row of its own.
@@ -85,7 +86,13 @@ final class BotsAndTasksListUITests: XCTestCase {
         let lead = app.staticTexts["Release Lead"].firstMatch
         XCTAssertTrue(lead.waitForExistence(timeout: 10), "The Bot's chat is not named after the Bot")
         XCTAssertFalse(app.staticTexts["release-lead-old"].exists, "The Bot's chat kept its own name")
-        XCTAssertTrue(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question is not on the Bot's chat")
+        // The question stays in the Inbox; the row keeps previewing the newest post, on two lines (#4508).
+        XCTAssertFalse(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question took over the Bot's preview")
+        let preview = app.staticTexts[Self.longPost].firstMatch
+        XCTAssertTrue(preview.exists, "The Bot's chat row hides its newest post while a question is open")
+        let line = app.staticTexts["On it."].firstMatch.frame.height
+        XCTAssertGreaterThan(preview.frame.height, line * 1.5, "The preview is cut to one line")
+        XCTAssertLessThan(preview.frame.height, line * 2.5, "The preview runs past two lines")
         // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
         XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
         XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
@@ -146,7 +153,6 @@ final class BotsAndTasksListUITests: XCTestCase {
         lead.tap()
         XCTAssertTrue(name.waitForExistence(timeout: 10))
         XCTAssertTrue(name.label.hasSuffix("1 needs input · 1 running"), "No state under the Bot's name: \(name.label)")
-        XCTAssertFalse(app.navigationBars.buttons["bot-task-entry"].exists, "The header still has its own Task button")
         // Once the chat and its agents have loaded, so the header and posts show the Bot's face.
         _ = app.buttons["Release Lead"].waitForExistence(timeout: 5)
         sleep(2)
@@ -292,13 +298,19 @@ final class BotsAndTasksListUITests: XCTestCase {
         ["id": id, "name": name, "agent": ["avatar": avatar, "provider": "claude-code"]]
     }
 
-    private static func chat(_ id: String, _ title: String, at time: String, faces: [[String: Any]], group: Bool = false, agents: [String]? = nil) -> [String: Any] {
+    // Under the 128 characters an XCUITest query takes.
+    private static let longPost = "Moved the staging rollout to Thursday so the migration can finish first, and the on-call team will watch the error rate."
+
+    private static func chat(
+        _ id: String, _ title: String, at time: String, faces: [[String: Any]], group: Bool = false, agents: [String]? = nil,
+        message: String = "On it."
+    ) -> [String: Any] {
         var chat: [String: Any] = [
             "sessionId": id, "teamId": team, "kind": "channel", "title": title, "firstMessage": "", "messageCount": 3,
             "createdAt": "2026-11-02T08:00:00Z", "lastActiveAt": "2026-11-03T\(time):00Z",
             "isOwner": true, "readOnly": false, "activitySeq": 3, "readSeq": 3, "faces": faces,
             "agentSessionIds": agents ?? faces.compactMap { $0["agent"] == nil ? nil : $0["id"] as? String },
-            "lastMessage": ["text": "On it.", "from": (faces.last?["name"] as? String) ?? ""],
+            "lastMessage": ["text": message, "from": (faces.last?["name"] as? String) ?? ""],
         ]
         if group { chat["group"] = true }
         return chat

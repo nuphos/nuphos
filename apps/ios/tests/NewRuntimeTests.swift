@@ -7,6 +7,7 @@ import Foundation
 enum NewRuntimeTests {
     static func run() {
         offersTheSameProvidersInTheSameOrder()
+        listsANewBoxsRuntimesInAFixedOrder()
         onlyManagersOfARunningComputerMayAdd()
         signsInASignedOutRuntimeInsteadOfAddingASecond()
         namesANewRuntimePastTheOnesAlreadyThere()
@@ -21,7 +22,7 @@ enum NewRuntimeTests {
         for provider in NewRuntime.providers {
             let name = RuntimeInstance.Provider.name(provider.rawValue)
             precondition(name != "Unknown runtime" && name != "Runtime", "\(provider.rawValue) has no name")
-            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != "logo-runtime", "\(provider.rawValue) has no mark")
+            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != nil, "\(provider.rawValue) has no mark")
         }
         precondition(NewRuntime.previews == [.dsh, .pi])
     }
@@ -79,6 +80,15 @@ enum NewRuntimeTests {
         let onlineJSON = online.map { #""online":\#($0 ? "true" : "false"),"# } ?? ""
         return try! JSONDecoder().decode(AgentDevice.self, from: Data(
             #"{"deviceId":"mac","label":"Mac mini",\#(accessJSON)\#(onlineJSON)"metricsStatus":"offline","metrics":null\#(boxJSON)}"#.utf8))
+    }
+
+    private static func listsANewBoxsRuntimesInAFixedOrder() {
+        let first = [signedOut(.grok, "g"), signedOut(.pi, "p")]
+        let later = first + [signedOut(.opencode, "o"), signedOut(.claudeCode, "c")]
+        precondition(NewRuntime.ordered(first).map(\.id) == ["g", "p"])
+        precondition(NewRuntime.ordered(later).map(\.id) == ["c", "g", "o", "p"],
+                     "Runtimes take Desktop's LOCAL_AGENT_PROVIDERS slots, whatever order they join in")
+        precondition(NewRuntime.ordered(later.reversed()).map(\.id) == ["c", "g", "o", "p"])
     }
 
     private static func box(_ agents: [RuntimeInstance]) -> SelectorBox {

@@ -4,11 +4,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { isGoogle } from '../../types'
 
-import type {
-  PersonalCredential,
-  PersonalCredentialDeepLinkPayload,
-  PersonalCredentialProvider,
-} from '../../types'
+import type { PersonalCredentialDeepLinkPayload, PersonalCredentialProvider } from '../../types'
 
 /** Fired after the main process claims an OAuth grant, so an open section refetches. */
 export const PERSONAL_CREDENTIALS_CHANGED = 'personal-credentials:changed'
@@ -24,8 +20,6 @@ const NAMES: Record<PersonalCredentialProvider, string> = {
 export function nameOf(provider: PersonalCredentialProvider): string {
   return NAMES[provider]
 }
-
-export const PERSONAL_CREDENTIALS_SECTION = 'account.personalCredentials'
 
 /** Starts signing in to the member's own account in the browser; a failure says why. */
 export async function connectPersonalCredential(
@@ -49,17 +43,6 @@ export async function connectPersonalCredential(
       toast.apiError(t('Could not connect {name}', { name: nameOf(provider) }), err)
     }
   }
-}
-
-/** The credential that applies in this team: Google grants are per team. */
-export function credentialFor(
-  credentials: PersonalCredential[] | null,
-  provider: PersonalCredentialProvider,
-  teamId: string | undefined,
-): PersonalCredential | undefined {
-  return credentials?.find(
-    (c) => c.provider === provider && (!isGoogle(provider) || c.teamId === teamId),
-  )
 }
 
 /** The personal entries the Connectors page lists, with the words people search them by. */

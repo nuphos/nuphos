@@ -4,7 +4,7 @@ import { agentEvents, agentLog } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
-import { openBotTask, pickInSubmenu, send, setBotDetails } from './ui.ts'
+import { openBotTask, pickInRow, send, setBotDetails } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -19,7 +19,7 @@ export const botTurnScenarios: Scenario[] = [
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await page.getByText('Message E2E Bot', { exact: true }).waitFor()
       await openBotTask(page)
-      const task = page.locator('.t-bot-task-mode')
+      const task = page.locator('.t-bot-task-mode:visible')
 
       await task.getByRole('button', { name: 'Toggle task summary' }).waitFor()
       // The Task slides in from the right; its header is measured once it has arrived.
@@ -65,11 +65,7 @@ export const botTurnScenarios: Scenario[] = [
       if (open !== 1) throw new Error(`Switch runtime opened ${String(open)} runtime lists`)
       // The refused turn stays with the Bot and would ride along with its next turn, so the
       // Bot moves on from this list and the turn runs once on the second agent. It stays there.
-      await lists.getByText('E2E second agent').click()
-      await pickInSubmenu(
-        page,
-        page.getByRole('menuitem', { name: /^E2E second agent.*Claude Code/ }),
-      )
+      await pickInRow(page, 'E2E second agent', /^E2E second agent.*Claude Code/)
       await until('the refused turn to finish on the second agent', async () =>
         agentLog(stack).some(
           (entry) =>
@@ -85,7 +81,7 @@ export const botTurnScenarios: Scenario[] = [
   {
     // #3481: a Bot chat learned its Bot's turn had ended only from the 4 s session poll, so its
     // header kept saying Thinking for up to 4 s after the turn.
-    name: "a Bot chat's header stops saying Thinking within 2.5 s of the turn",
+    name: "a Bot chat's header stops saying Thinking within 1.5 s of the turn",
     run: async (page, stack) => {
       const marker = 'E2E_DELIVERY:pill-clears'
       const thinking = page.locator('.workspace-agent-titlebar').getByText('Thinking…')
@@ -122,9 +118,7 @@ export const botTurnScenarios: Scenario[] = [
       const lag = Date.now() - finished
 
       await page.screenshot({ path: `${artifacts}/bot-chat-turn-ended.png` })
-      // TODO(#3604): back to 1.5 s once the chat follows the turn's end. Until then the
-      // 1 s poll lands every ~1.3 s, so an end right after a listing takes up to ~1.8 s.
-      must(lag <= 2_500, `the header to stop saying Thinking within 2.5 s, took ${String(lag)} ms`)
+      must(lag <= 1_500, `the header to stop saying Thinking within 1.5 s, took ${String(lag)} ms`)
       // #3970: a Bot's own session compacts at a 200k window and skips next-prompt suggestions.
       const log = agentLog(stack)
       const turn = log.find((entry) => entry.event === 'finish' && entry.marker === marker)
