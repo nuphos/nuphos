@@ -63,15 +63,9 @@ export function personalCredentialDetails(c: {
   provider: PersonalCredentialProvider
   login: string
 }) {
-  const google = c.provider !== 'github' && c.provider !== 'linear'
-
   return {
     label: `${c.login} (your own ${NAMES[c.provider]})`,
     credentialPath: `personal-credentials/${c.provider}/token`,
-    hint:
-      personalSetupHint(c.provider) +
-      (google
-        ? ` This account's connectionId is ${c.id}: pass it when several accounts are connected, and ask which one when the request does not say.`
-        : ''),
+    hint: `${personalSetupHint(c.provider)} This account's connectionId is ${c.id}: pass it when several accounts are connected, and ask which one when the request does not say.`,
   }
 }

@@ -103,3 +103,19 @@ test('a Task and a Bot keep Archive', () => {
   assert.ok(!labels({ isOwner: true }).includes('Leave chat'))
   assert.ok(!labels({ isOwner: true }).includes('Leave task'))
 })
+
+test("a Bot's chat row copies the Bot's id, the one MCP and the API take for the Bot", async () => {
+  const copied: string[] = []
+
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { clipboard: { writeText: async (text: string) => void copied.push(text) } },
+    configurable: true,
+  })
+  // In Bots, a Bot with a chat is listed as that chat: the row is the chat, the Bot is its face.
+  const items = menuFor({ kind: 'channel', faces: [{ id: 'bot-a', name: 'Bot', agent: {} }] })
+  const copyId = items.find((item) => item.label === 'Copy Bot ID')
+
+  copyId?.onSelect()
+  await Promise.resolve()
+  assert.deepEqual(copied, ['bot-a'])
+})

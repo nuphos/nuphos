@@ -4,7 +4,7 @@ import { ConsoleLink, Field, Fill } from './shared'
 
 import type { BindState } from './use-bind-state'
 
-const INPUT =
+export const INPUT =
   'w-full h-9 px-2.5 rounded-md bg-surface-sunken border border-line-control focus:border-line-focus outline-none text-[12.5px] font-mono placeholder:text-tertiary text-main'
 
 /** The team's own instabox account: New computer can then make Boxes that instabox bills to it. */

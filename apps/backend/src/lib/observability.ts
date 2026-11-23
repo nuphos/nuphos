@@ -61,8 +61,9 @@ export function logError(
   event: string,
   error: unknown,
   properties?: ObservabilityProperties & { context?: Context },
+  level: 'warn' | 'error' = 'error',
 ): void {
-  logEvent('error', event, {
+  logEvent(level, event, {
     ...normalizeError(error),
     ...requestContext(properties?.context),
     ...properties,

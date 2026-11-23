@@ -18,6 +18,7 @@ enum ChannelPostTests {
         readsAndQuotesReplies()
         readsInboxAnswersAsTheAnswerersPosts()
         marksTheLastAnswerOfEachInboxCard()
+        readsBotPresence()
         print("Chat posts, runs, sending and timeline passed")
     }
 
@@ -256,5 +257,32 @@ enum ChannelPostTests {
         }
         precondition(detail("").botId == "bot-1", "a chat with only a Bot is its 1:1 chat")
         precondition(detail(#""group":true,"#).botId == nil, "a group chat with one Bot is not")
+    }
+
+    private static func readsBotPresence() {
+        func agent(_ id: String, _ presence: String?) -> ChannelAgent {
+            let field = presence.map { ",\"presence\":\($0)" } ?? ""
+            let data = Data("{\"sessionId\":\"\(id)\",\"title\":\"\(id.capitalized)\",\"ownerId\":\"o\"\(field)}".utf8)
+            return try! JSONDecoder().decode(ChannelAgent.self, from: data)
+        }
+        let cases: [(String, BotPresence.Tone, String)] = [
+            (#"{"state":"online"}"#, .ready, "Online"),
+            (#"{"state":"busy"}"#, .ready, "Busy"),
+            (#"{"state":"offline","reason":"computer_offline"}"#, .down, "Offline"),
+            (#"{"state":"offline","reason":"sign_in_required"}"#, .waiting, "Needs sign-in"),
+            (#"{"state":"offline","reason":"usage_limit","resetsAt":"2026-11-23T00:00:00Z"}"#, .waiting, "Out of usage"),
+            (#"{"state":"offline","reason":"runtime_deleted"}"#, .down, "Unavailable"),
+        ]
+        for (json, tone, word) in cases {
+            let tag = agent("bot", json).presence!.tag
+            precondition(tag.tone == tone && tag.word == word, json)
+        }
+        precondition(agent("bot", nil).presence == nil)
+        precondition(agent("bot", cases[4].0).presence?.resetsAt == "2026-11-23T00:00:00Z")
+
+        let away = agent("scribe", cases[2].0), online = agent("atlas", cases[0].0)
+        precondition(BotPresence.offlineStrip([online, away], botId: nil) == "Scribe’s computer is offline.")
+        precondition(BotPresence.offlineStrip([away], botId: "scribe")?.hasPrefix("The computer running this runtime is offline") == true)
+        precondition(BotPresence.offlineStrip([online, agent("x", cases[3].0)], botId: nil) == nil)
     }
 }

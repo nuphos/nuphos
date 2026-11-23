@@ -87,7 +87,7 @@ export type Client = ReturnType<typeof client>
 export async function joinAsAdmin(
   stack: Flow,
   owner: Client,
-): Promise<{ member: Client; memberId: string }> {
+): Promise<{ member: Client; memberId: string; token: string }> {
   const email = `e2e-member-${String(Date.now())}@example.com`
   const anonymous = client(stack.apiUrl, '')
 
@@ -97,7 +97,8 @@ export async function joinAsAdmin(
     email,
     code: stack.signInCode(email),
   })
-  const member = client(stack.apiUrl, (verified.body as { token: string }).token)
+  const { token } = verified.body as { token: string }
+  const member = client(stack.apiUrl, token)
   const invited = await owner('POST', `/teams/${stack.teamId}/invitations`, { inviteeEmail: email })
   const invitationId = (invited.body as { invitation: { id: string } }).invitation.id
 
@@ -113,7 +114,7 @@ export async function joinAsAdmin(
 
   must(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
 
-  return { member, memberId }
+  return { member, memberId, token }
 }
 
 /** Connects the fixture GitLab account through OAuth, without a share choice. */
