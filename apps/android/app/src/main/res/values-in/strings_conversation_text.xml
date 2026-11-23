@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">Tidak dapat memuat ulang file agen.</string>
     <string name="convtext_attachment_access_unavailable">Akses lampiran tidak tersedia</string>
-    <string name="convtext_move_wait">Tunggu hingga respons saat ini selesai sebelum mengganti runtime.</string>
+    <string name="convtext_move_wait">Tunggu pesan yang sedang dikirim atau unggahan selesai, lalu ganti runtime.</string>
     <string name="convtext_move_choose_runtime">Pilih runtime yang tersedia.</string>
     <string name="convtext_runtime_status_unavailable">Status runtime tidak tersedia</string>
     <string name="convtext_attachments_after_run">Simpan lampiran untuk pesan baru setelah proses saat ini selesai.</string>
