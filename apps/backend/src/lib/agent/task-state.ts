@@ -10,6 +10,7 @@ export type ConversationTaskState = ConversationInputRequests &
       id: string
       status: 'waiting' | 'ready' | 'blocked' | 'failed' | 'done'
       summary: string
+      data?: Record<string, unknown>
       at: Date
     }
   }

@@ -28,6 +28,7 @@ import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
 import { dashboardScenarios } from './dashboard-scenarios.ts'
 import { dashboardUiScenarios } from './dashboard-ui-scenarios.ts'
+import { reloadScenarios } from './reload-scenarios.ts'
 import { teamSwitchTasksScenarios } from './team-switch-tasks-scenarios.ts'
 import { desktopScreenScenarios } from './desktop-screen-scenarios.ts'
 import { installScenarios } from './install-scenarios.ts'
@@ -38,6 +39,7 @@ import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
+import { mcpAgentTokenScenarios } from './mcp-agent-token-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
@@ -95,6 +97,7 @@ import type { Scenario } from './ui.ts'
 const scenarios: Scenario[] = [
   ...signInScenarios,
   ...sidebarScenarios,
+  ...reloadScenarios,
   {
     // The flow #3012 was reported in: the sidebar is on Bots, the page a new team opens on.
     // The connector's CLI (`aws`) has to be on the PATH for the dialog to offer the agent.
@@ -196,6 +199,8 @@ const later: Scenario[] = [
   ...offlineScenarios,
   ...mcpNotificationScenarios,
   ...webhookScenarios,
+  // Before the laptop's turns: a new Task over MCP starts where the last Task ran.
+  ...mcpAgentTokenScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,

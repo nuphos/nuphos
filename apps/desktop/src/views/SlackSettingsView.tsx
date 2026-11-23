@@ -124,7 +124,7 @@ export function SlackSettingsView({
             <h1 className="text-[20px] font-semibold text-main">Slack</h1>
             <p className="mt-1 text-[13px] text-tertiary">
               {t(
-                'Install Nuphos in Slack, pick channels from the bot DM, then @mention Nuphos in those channels.',
+                'Install Nuphos in Slack, connect channels here, and choose the Bot that answers in each one.',
               )}
             </p>
           </div>

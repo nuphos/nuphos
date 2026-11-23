@@ -154,8 +154,8 @@ export function threadToolModule(
           'Use when its work is done or the user asks; the current conversation counts too. ' +
           'Archiving hides it but does not stop a running turn. ' +
           'Its sub-agent threads, recursively, are archived and restored with it. ' +
-          'Any new turn restores it: a human message, send_message_to_thread, or a bound ' +
-          'resource or Trigger event. ' +
+          'A human message, send_message_to_thread or a bound resource event restores it. ' +
+          'Archiving deletes its Triggers, and a Trigger fire never restores it. ' +
           'Use threadId from create_thread or session_id from ' +
           'list_recent_conversations.',
         inputSchema: toolInputJsonSchema(archive),
@@ -175,7 +175,7 @@ export function threadToolModule(
         description:
           "List the agents (runtimes) your threads can run on: the team's, and those on your Boxes and computers, with each one's readiness, " +
           'usage quota and the models it offers. Use it to pick a runtimeId or model for create_thread ' +
-          "or update_thread, for example when a thread has hit its agent's usage limit. " +
+          "or update_task, for example when a thread has hit its agent's usage limit. " +
           'Agents listed in sharesQuotaWith are signed in to the same account and run out ' +
           'together: moving to one of them does not get past a limit. One a thread cannot use says why in unavailable.',
         inputSchema: toolInputJsonSchema(list),

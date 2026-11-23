@@ -96,9 +96,9 @@ export function CreateChangeDialog({
     <Modal
       open
       onClose={() => !busy && onClose()}
-      title={t('New MongoDB change Plan')}
+      title={t('New MongoDB change request')}
       description={t(
-        'Propose a team-scoped Plan. Approval and authorized execution remain separate actions.',
+        "Propose a change request. It follows this connection's approval policy, and running it stays a separate step.",
       )}
       width={760}
       footer={
@@ -111,7 +111,7 @@ export function CreateChangeDialog({
             {t('Cancel')}
           </button>
           <Button size="sm" disabled={busy} onClick={() => void create()}>
-            {busy ? t('Proposing…') : t('Propose Plan')}
+            {busy ? t('Proposing…') : t('Propose change request')}
           </Button>
         </div>
       }

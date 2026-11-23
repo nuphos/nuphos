@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">無法切換執行環境。請重新整理後再試一次。</string>
     <string name="composer_switching_runtime">正在切換執行環境…</string>
     <string name="composer_runtime_view_only">你可以檢視此任務的執行環境，但無法移動它。</string>
-    <string name="composer_runtime_wait">請等目前的回應或待處理訊息完成後再切換執行環境。</string>
+    <string name="composer_runtime_wait">請等正在送出的訊息或上傳完成，再切換執行環境。</string>
     <string name="composer_loading_runtimes">正在載入執行環境…</string>
     <string name="composer_no_runtimes">沒有可用的執行環境。</string>
     <string name="composer_no_runtimes_body">在你的電腦上開啟 Nuphos，即可新增 Box 或連接你自己的電腦。</string>

@@ -146,7 +146,12 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
 }
 
 /** Runs a command on a Box that is running. A paused machine stays paused: the command fails. */
-export async function runOnBox(userId: string, deviceId: string, command: string): Promise<void> {
+export async function runOnBox(
+  userId: string,
+  deviceId: string,
+  command: string,
+  envs: Record<string, string> = {},
+): Promise<void> {
   const device = requireBox(await getAgentDevice(userId, deviceId), deviceId)
   const sandboxId = requireMachine(device)
 
@@ -156,7 +161,7 @@ export async function runOnBox(userId: string, deviceId: string, command: string
       resume: false,
     })
 
-    await sandbox.commands.run(command, { background: true })
+    await sandbox.commands.run(command, { envs, background: true })
   } catch (error) {
     throw unavailable('Could not run the command on the computer', error)
   }

@@ -209,6 +209,16 @@ describe('local_browser', () => {
       'open that login or sign-up page here yourself, sub-agents included',
     )
   })
+
+  test('describes a computer running only nuphos agent as well as Desktop (#4055)', () => {
+    const description = String(
+      (localBrowserToolModule.definitions[0] as { description?: string }).description,
+    )
+
+    expect(description).toContain('a headless Chromium')
+    expect(description).toContain('each conversation starts signed out')
+    expect(description).toContain('show and fill are refused there')
+  })
 })
 
 test('an authorized teammate can use the selected conversation browser', async () => {

@@ -152,11 +152,9 @@ async function seesInstallation(
   const key = `${doc._id.toHexString()}:${String(installationId)}`
 
   if ((installationAccess.get(key) ?? 0) > Date.now()) return true
-  const visible = await githubUserInstallationIds(token).catch((error: unknown): number[] => {
-    logError('personal_credential.installations_failed', error, { provider: 'github' })
-
-    return []
-  })
+  // A failed lookup fails the request: answering with the team identity would
+  // silently act as the App instead of the member.
+  const visible = await githubUserInstallationIds(token)
 
   if (!visible.includes(installationId)) return false
   installationAccess.set(key, Date.now() + INSTALLATION_ACCESS_TTL_MS)

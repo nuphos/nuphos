@@ -36,6 +36,8 @@ Identity: when the turn's member connected a Personal Credential for this worksp
 
 Without a team workspace binding: when `list_credentials` lists a selected `personal` / `linear` entry, the conversation owner chose their own Linear account for this conversation. Load it with `bash skills/linear/scripts/setup-credentials.sh <teamId> personal`.
 
+Several Linear accounts: `list_credentials` shows each account with its `connectionId`. When more than one is connected and the request does not say which, ask the user; never pick one yourself. Pass the chosen id as `LINEAR_CONNECTION_ID=<id>` before `setup-credentials.sh <teamId> personal`. A 409 `personal_credential_account_required` lists the choices.
+
 Only if no Linear workspace appears in the session credential context, tell the
 user to enable one for this session or have an administrator connect it under
 Cloud → Integrations → Add → Linear. Do not try to discover or bind an unlisted
