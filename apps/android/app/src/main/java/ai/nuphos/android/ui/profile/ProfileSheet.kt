@@ -56,15 +56,11 @@ import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, teamId: String? = null, onDismiss: () -> Unit) {
+fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(context) }
     val auth = LocalAuthSession.current
-    var computerNotifications by remember(auth.generation, teamId) { mutableStateOf(false) }
-    val subscriptionToken = auth.token
-    val canSubscribe = teamId != null && subscriptionToken != null && auth.aiAllowed &&
-        ai.nuphos.android.data.BackendOrigin.supportsCloudPush()
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
     var edit by remember(user.id) { mutableStateOf(false) }
@@ -94,7 +90,6 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
             accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
-            onComputerNotifications = if (canSubscribe) ({ computerNotifications = true }) else null,
             workspaceSettings = if (onWorkspace != null || workspacePicker != null) ({
                 ProfileAction(stringResource(R.string.profile_workspace), subtitle = workspaceName, disclosure = true,
                     onClick = { if (workspacePicker != null) choosingWorkspace = true else onWorkspace?.invoke() })
@@ -107,9 +102,6 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             containerColor = MaterialTheme.colorScheme.background) {
             workspacePicker { choosingWorkspace = false }
         }
-    }
-    if (computerNotifications && canSubscribe) {
-        ComputerNotificationsSheet(subscriptionToken, teamId) { computerNotifications = false }
     }
     if (edit) EditProfileSheet(user = auth.user ?: user, onDismiss = { edit = false })
     if (devices) SignedInDevicesSheet(onDismiss = { devices = false })
@@ -156,7 +148,6 @@ internal fun ProfileContent(
     onCopyUserId: () -> Unit = {},
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
-    onComputerNotifications: (() -> Unit)? = null,
     accounts: (@Composable () -> Unit)? = null,
 ) {
     val copyUserId = stringResource(R.string.profile_copy_user_id)
@@ -210,12 +201,6 @@ internal fun ProfileContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     voiceSettings()
-                }
-            }
-            if (onComputerNotifications != null) {
-                ProfileGroup(stringResource(R.string.account_notifications)) {
-                    ProfileAction(stringResource(R.string.account_computer_alerts), disclosure = true,
-                        onClick = onComputerNotifications)
                 }
             }
             ProfileGroup(stringResource(R.string.profile_group_app_icon)) { AppIconPicker() }
