@@ -23,7 +23,7 @@
     <string name="profile_username">Username</string>
     <string name="profile_email">Email</string>
     <string name="profile_deletion_title">Delete account</string>
-    <string name="profile_deletion_body" tools:ignore="MissingTranslation">We will permanently delete your account and associated personal data within 30 days. Our team will coordinate ownership of your teams and shared data. Records required by law and data jointly held by your team may be retained.</string>
+    <string name="profile_deletion_body" tools:ignore="MissingTranslation">We will permanently delete your account and associated personal data within 30 days. Our team will coordinate workspace ownership and shared data. Records required by law and data jointly held by your team may be retained.</string>
     <string name="profile_deletion_request_note" tools:ignore="MissingTranslation">This submits a request. It does not instantly erase your account. You can continue using your account while it is processed. Signing in again does not cancel the request.</string>
     <string name="profile_privacy_policy">Privacy policy</string>
     <string name="profile_deletion_received">Request received</string>
