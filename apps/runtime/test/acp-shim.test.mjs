@@ -9,7 +9,7 @@ import { syncBuiltinESMExports } from 'node:module'
 import { createInterface } from 'node:readline'
 import { mock, test } from 'node:test'
 
-import { SESSION_META, runShim } from '../image/acp-shim.mjs'
+import { SESSION_META, processTree, runShim } from '../image/acp-shim.mjs'
 
 // A native ACP agent stand-in: answers every request with what it was asked and
 // the env it runs under, so the test can see exactly what reached the agent.
@@ -29,7 +29,7 @@ rl.on('line', (line) => {
 })
 `
 
-async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRefusal) {
+async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRefusal, options) {
   const home = await mkdtemp(join(tmpdir(), 'nuphos-shim-test-'))
   const input = new PassThrough()
   const output = new PassThrough()
@@ -62,6 +62,8 @@ async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRef
     refusalPollMs: 50,
     refusalQuietMs: 200,
     ...(readOpenCodeRefusal ? { readOpenCodeRefusal } : {}),
+    log: () => {},
+    ...options,
   })
   let id = 0
   const call = (method, params) =>
@@ -478,6 +480,92 @@ test('a grok background command stays a running terminal until it ends', async (
       })
     },
     GROK_BACKGROUND,
+  )
+})
+
+// Runs one tool to the end, starts a second and then says nothing more.
+const QUIET_AGENT = `
+const rl = require('node:readline').createInterface({ input: process.stdin })
+const send = (m) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', ...m }) + '\\n')
+const update = (u) => send({ method: 'session/update', params: { sessionId: 's1', update: u } })
+rl.on('line', (line) => {
+  const m = JSON.parse(line)
+  if (m.method !== 'session/prompt') return send({ id: m.id, result: { sessionId: 's1' } })
+  update({ sessionUpdate: 'tool_call', toolCallId: 'call-1', kind: 'read', status: 'pending', title: 'secret.txt' })
+  update({ sessionUpdate: 'tool_call_update', toolCallId: 'call-1', status: 'completed' })
+  update({ sessionUpdate: 'tool_call', toolCallId: 'call-2', kind: 'execute', status: 'in_progress', title: 'sleep' })
+})
+`
+
+test('a turn the agent goes quiet in is described once, by structure only', async () => {
+  const logged = []
+  await withShim(
+    'antigravity',
+    async ({ call }) => {
+      await call('initialize', { protocolVersion: 1 })
+      await call('session/new', session('Be Nuphos.'))
+      void call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+      await new Promise((resolve) => setTimeout(resolve, 300))
+    },
+    QUIET_AGENT,
+    undefined,
+    {
+      log: (line) => logged.push(line),
+      stallLogMs: 100,
+      stallCheckMs: 20,
+      listProcesses: () => '',
+    },
+  )
+
+  assert.equal(logged.length, 2)
+  assert.match(logged[0], /^tool_call call-1 kind=read completed after \d+ms$/)
+  const quiet = JSON.parse(logged[1].replace(/^turn quiet: /, ''))
+  assert.ok(quiet.quietMs >= 100)
+  assert.deepEqual(
+    quiet.openToolCalls.map(({ id, kind }) => ({ id, kind })),
+    [{ id: 'call-2', kind: 'execute' }],
+  )
+  assert.deepEqual(
+    quiet.lastFrames
+      .slice(-4)
+      .map(({ from, method, kind, toolCallId, status }) => [
+        from,
+        method,
+        kind,
+        toolCallId,
+        status,
+      ]),
+    [
+      ['client', 'session/prompt', undefined, undefined, undefined],
+      ['agent', 'session/update', 'tool_call', 'call-1', 'pending'],
+      ['agent', 'session/update', 'tool_call_update', 'call-1', 'completed'],
+      ['agent', 'session/update', 'tool_call', 'call-2', 'in_progress'],
+    ],
+  )
+  assert.deepEqual(quiet.processes, [])
+  assert.doesNotMatch(logged.join('\n'), /secret|sleep|hi"/)
+})
+
+test('the process tree names the agent and its descendants only', () => {
+  const ps = [
+    '  10     1    01:00 /usr/bin/node',
+    '  20    10    00:30 /opt/agy/agy',
+    '  30    20    00:29 bash',
+    '  40     1    02:00 other',
+  ].join('\n')
+
+  assert.deepEqual(
+    processTree(20, () => ps),
+    [
+      { pid: 20, ppid: 10, age: '00:30', name: 'agy' },
+      { pid: 30, ppid: 20, age: '00:29', name: 'bash' },
+    ],
+  )
+  assert.equal(
+    processTree(20, () => {
+      throw new Error('no ps')
+    }),
+    undefined,
   )
 })
 
