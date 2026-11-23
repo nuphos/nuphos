@@ -22,6 +22,8 @@ Usage: setup-credentials.sh <teamId> <installationId|personal> [--for-commit] [-
 Environment:
   GH_CONFIG_DIR     Optional. Defaults to \$XDG_CONFIG_HOME/gh or \$HOME/.config/gh.
   GIT_CONFIG_GLOBAL Optional. Respected by git when supplied.
+  GITHUB_CONNECTION_ID Optional, with \`personal\`. The connectionId of the account
+                    to use when the member connected several GitHub accounts.
   NUPHOS_TOKEN       Required. Already exported in the Nuphos agent sandbox.
   NUPHOS_BACKEND_URL Required. Base URL of the Nuphos backend API; defaults to https://api.nuphos.ai.
 
@@ -55,6 +57,8 @@ fi
 
 if [ "$installation_id" = personal ]; then
   token_path="personal-credentials/github/token"
+  # With several connected accounts, GITHUB_CONNECTION_ID names the one for this call.
+  [ -z "${GITHUB_CONNECTION_ID:-}" ] || token_path="${token_path}?connectionId=${GITHUB_CONNECTION_ID}"
 elif [[ "$installation_id" =~ ^[1-9][0-9]*$ ]]; then
   token_path="github-installations/$installation_id/token$identity_query"
 else
@@ -81,18 +85,27 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 1
 fi
 
+# Extra arguments replace the default failure handling (fail fast, retry on any error).
 team_get() {
-  curl -fsSL \
+  local path="$1"
+  shift
+  [ "$#" -gt 0 ] || set -- --fail --retry-all-errors
+  curl -sSL \
     --connect-timeout 10 \
     --max-time 30 \
     --retry 2 \
     --retry-delay 1 \
-    --retry-all-errors \
+    "$@" \
     -H @<(printf 'Authorization: Bearer %s\n' "$NUPHOS_TOKEN") \
-    "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/$1"
+    "${NUPHOS_BACKEND_URL:-https://api.nuphos.ai}/teams/$team_id/$path"
 }
 
-token_response="$(team_get "$token_path")"
+# Print the body on failure: a 409 personal_credential_account_required lists the accounts.
+if ! token_response="$(team_get "$token_path" --fail-with-body --retry-connrefused)"; then
+  echo "Credential fetch failed:" >&2
+  printf '%s\n' "$token_response" >&2
+  exit 1
+fi
 
 token="$(printf '%s' "$token_response" | python3 -c '
 import json, sys

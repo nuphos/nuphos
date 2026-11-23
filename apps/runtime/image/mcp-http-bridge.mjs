@@ -88,9 +88,7 @@ export async function relay(line, { url, env, post = postJson, write }) {
     write(body)
     return
   }
-  if (response.status >= 300 || text) {
-    fail(`Nuphos MCP HTTP ${String(response.status)}${text ? `: ${text.slice(0, 500)}` : ''}`)
-  }
+  fail(`Nuphos MCP HTTP ${String(response.status)}${text ? `: ${text.slice(0, 500)}` : ''}`)
 }
 
 // Each request's lifecycle on stderr, structure only (#4521): a call that starts and never

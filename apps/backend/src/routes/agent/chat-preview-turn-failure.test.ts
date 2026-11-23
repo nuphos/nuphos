@@ -324,10 +324,10 @@ test("a person's queued message whose agent is out of usage goes back to the que
 
   await expect(
     runClaudeCodePreviewChatTurn({ ...turnArgs(run), queued: waiting('user-message', 'fix it') }),
-  ).rejects.toThrow('session limit')
+  ).rejects.toMatchObject({ code: 'message_queued' })
   expect(persisted).toHaveLength(before)
   expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
-    expect.objectContaining({ id: 'user-message', attempts: 1 }),
+    expect.objectContaining({ id: 'user-message', attempts: 1, usageHold: expect.any(Object) }),
   ])
 })
 

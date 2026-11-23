@@ -65,6 +65,8 @@ Permissions: acting as a member and the member's own `personal` / `github` crede
 
 Without a team installation: when `list_credentials` lists a selected `personal` / `github` entry, the conversation owner chose their own GitHub account for this conversation. Load it with `bash skills/github/scripts/setup-credentials.sh <teamId> personal`; it reaches what that member can reach.
 
+Several GitHub accounts: `list_credentials` shows each account with its `connectionId`. When more than one is connected and the request does not say which, ask the user; never pick one yourself. Pass the chosen id as `GITHUB_CONNECTION_ID=<id>` before `setup-credentials.sh <teamId> personal`. A 409 `personal_credential_account_required` lists the choices.
+
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
 
 After `setup-credentials.sh` runs, `gh` is logged in (auth lives in the session’s `$GH_CONFIG_DIR/hosts.yml`, with mode restricted to the current OS user and without using the shared system keychain, so every later `bash` tool call picks it up — no env-var dance). The token is good for ~1 hour; if any call returns 401, just re-run the setup script. For raw curl, get the current token with `gh auth token`.

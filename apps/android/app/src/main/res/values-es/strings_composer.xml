@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">No se pudo cambiar de entorno de ejecución. Actualiza e inténtalo de nuevo.</string>
     <string name="composer_switching_runtime">Cambiando de entorno de ejecución…</string>
     <string name="composer_runtime_view_only">Puedes ver el entorno de ejecución de esta tarea, pero no moverlo.</string>
-    <string name="composer_runtime_wait">Espera a que termine la respuesta actual o el mensaje pendiente antes de cambiar de entorno de ejecución.</string>
+    <string name="composer_runtime_wait">Espera a que termine el mensaje que se está enviando o la subida y luego cambia de entorno de ejecución.</string>
     <string name="composer_loading_runtimes">Cargando entornos de ejecución…</string>
     <string name="composer_no_runtimes">No hay entornos de ejecución disponibles.</string>
     <string name="composer_no_runtimes_body">Abre Nuphos en tu computadora para añadir un Box o conectar tu propia computadora.</string>

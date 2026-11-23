@@ -8081,48 +8081,48 @@
         }
       }
     },
-    "Connect it in Settings → Personal Credentials first." : {
+    "Connect it in Connectors on Nuphos Desktop first." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Conéctala primero en Ajustes → Credenciales personales."
+            "value" : "Conéctala primero en Conectores en Nuphos Desktop."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hubungkan terlebih dahulu di Pengaturan → Kredensial Pribadi."
+            "value" : "Hubungkan terlebih dahulu di Konektor pada Nuphos Desktop."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "先に「設定 → 個人の認証情報」で接続してください。"
+            "value" : "先に Nuphos Desktop の「コネクタ」で接続してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "먼저 설정 → 개인 자격 증명에서 연결하세요."
+            "value" : "먼저 Nuphos Desktop의 커넥터에서 연결하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เชื่อมต่อในการตั้งค่า → ข้อมูลรับรองส่วนตัวก่อน"
+            "value" : "เชื่อมต่อในตัวเชื่อมต่อบน Nuphos Desktop ก่อน"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请先在“设置 → 个人凭据”中连接。"
+            "value" : "请先在 Nuphos Desktop 的“连接器”中连接。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請先在「設定 → 個人憑證」中連接。"
+            "value" : "請先在 Nuphos Desktop 的「連接器」中連接。"
           }
         }
       }
