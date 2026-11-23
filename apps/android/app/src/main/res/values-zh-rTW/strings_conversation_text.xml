@@ -56,7 +56,7 @@
     <string name="convtext_conflict_busy">此任務正忙於另一個回覆。</string>
     <string name="convtext_runtime_signed_out">此執行環境已登出。請在執行它的電腦上從 Nuphos 登入，或切換到其他執行環境。</string>
     <string name="convtext_runtime_disabled">此任務的執行環境已停用。請切換到其他執行環境以繼續。</string>
-    <string name="convtext_runtime_not_found">此執行環境已無法在這個工作區使用。請切換到其他執行環境以繼續。</string>
+    <string name="convtext_runtime_not_found">此執行環境已無法在這個團隊使用。請切換到其他執行環境以繼續。</string>
     <string name="convtext_runtime_offline">執行此執行環境的電腦已離線。請在該電腦上開啟 Nuphos，或切換到其他執行環境。</string>
     <string name="convtext_runtime_paused">%1$s 已暫停，傳送訊息後會自動恢復。</string>
     <string name="convtext_runtime_starting">%1$s 正在啟動，幾秒後即可使用。</string>

@@ -63,7 +63,7 @@
     <string name="agent_working">處理中…</string>
     <string name="agent_ok">確定</string>
     <string name="agent_first_runtime_title">連接你的第一個執行環境</string>
-    <string name="agent_first_runtime_body">在電腦上開啟 Nuphos 來新增 Box 或連接你自己的電腦，或請工作區管理員連接一個。</string>
+    <string name="agent_first_runtime_body">在電腦上開啟 Nuphos 來新增 Box 或連接你自己的電腦，或請團隊管理員連接一個。</string>
     <string name="agent_first_runtime_starting_title">%1$s 正在準備中</string>
     <string name="agent_first_runtime_starting_body">上線後會立刻顯示在這裡，可能需要一兩分鐘。</string>
     <string name="agent_cloud">雲端</string>
@@ -104,11 +104,11 @@
     <string name="agent_ask_owner_sign_in">請擁有者登入</string>
     <string name="agent_sign_in_on">在 %1$s 上登入</string>
     <string name="agent_ask_admin_sign_in">請管理員登入</string>
-    <string name="agent_runtime_gone_body">此執行環境已不在目前的工作區中。請先重新整理執行環境再繼續。</string>
+    <string name="agent_runtime_gone_body">此執行環境已不在目前的團隊中。請先重新整理執行環境再繼續。</string>
     <string name="agent_runtime_disabled_body">此執行環境已停用或正在移除。請管理員檢查它已儲存的狀態。</string>
     <string name="agent_teammate_sign_in_body">%1$s 屬於一位隊友，只有對方能登入。請對方在該電腦上開啟 Nuphos，並在「執行環境」頁面選擇「登入」。</string>
     <string name="agent_host_sign_in_body">在 %1$s 上開啟 Nuphos，前往「執行環境」頁面，並為此執行環境選擇「登入」。</string>
-    <string name="agent_admin_sign_in_body">工作區管理員可以在自己電腦上的 Nuphos「執行環境」頁面登入。</string>
+    <string name="agent_admin_sign_in_body">團隊管理員可以在自己電腦上的 Nuphos「執行環境」頁面登入。</string>
     <string name="agent_back_to_runtimes">返回執行環境</string>
     <string name="agent_runtime">執行環境</string>
     <string name="agent_runtime_removed">此執行環境已移除。</string>
@@ -124,7 +124,7 @@
     <string name="agent_removal_in_progress">正在移除。請重新整理以查看已儲存的狀態。</string>
     <string name="agent_manage_on_host">請在託管此執行環境的電腦上管理它及其登入。</string>
     <string name="agent_manage_in_development">請在本機開發設定中管理此執行環境。</string>
-    <string name="agent_admins_only_manage">只有工作區管理員可以重新命名、啟用或移除此執行環境，以及管理其登入。</string>
+    <string name="agent_admins_only_manage">只有團隊管理員可以重新命名、啟用或移除此執行環境，以及管理其登入。</string>
     <string name="agent_unreconciled">請求可能已送達伺服器。進行其他變更前，請先重新整理已儲存的狀態。</string>
     <string name="agent_refresh_runtime">重新整理執行環境</string>
     <string name="agent_remove_named">要移除 %1$s 嗎？</string>
@@ -157,7 +157,7 @@
     <string name="agent_review_new_sign_in">檢查並允許新的登入</string>
     <string name="agent_self_hosted_unavailable">無法在此設定自行託管執行環境的供應商。</string>
     <string name="agent_sign_in_unavailable">無法登入。請重新整理執行環境清單，並檢查你的電腦存取權。</string>
-    <string name="agent_admins_only_create">只有目前的工作區管理員可以建立執行環境。</string>
+    <string name="agent_admins_only_create">只有目前的團隊管理員可以建立執行環境。</string>
     <string name="agent_closing_stops_polling">關閉此面板會停止本機輪詢，但不會取消伺服器上的登入。</string>
     <string name="agent_close">關閉</string>
 </resources>

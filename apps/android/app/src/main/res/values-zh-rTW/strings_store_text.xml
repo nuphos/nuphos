@@ -34,7 +34,7 @@
     <string name="storetext_runtime_admin_required">需要管理員權限。你的帳號仍保持登入。</string>
     <string name="storetext_runtime_unconfirmed">無法確認執行環境的結果。繼續之前，請先重新整理已儲存的狀態。</string>
     <string name="storetext_runtimes_refresh_failed">無法重新整理執行環境。</string>
-    <string name="storetext_runtimes_access_lost">你已無法再存取此工作區的執行環境。</string>
+    <string name="storetext_runtimes_access_lost">你已無法再存取此團隊的執行環境。</string>
     <string name="storetext_runtimes_usage_unavailable">無法取得用量。請嘗試重新整理。</string>
     <string name="storetext_runtimes_computers_unavailable">無法取得電腦狀態。請嘗試重新整理。</string>
     <string name="storetext_runtime_unknown">未知的執行環境</string>
