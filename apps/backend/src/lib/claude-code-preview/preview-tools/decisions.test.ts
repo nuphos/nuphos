@@ -535,6 +535,7 @@ describe('decision tool module', () => {
 
   test('update_user_decision corrects only a request this conversation asked, never one about it', async () => {
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+
     await tools.update_user_decision!({
       label: 'Correct',
       requestId: 'nuphos-1',
