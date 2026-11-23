@@ -682,10 +682,21 @@ final class AgentStore {
 
     // MARK: - Teams
 
+    /// The load in flight: the home shell and a page that asks at the same time share it.
+    private var teamsLoad: Task<Void, Never>?
+
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
-        let shown = teamsPhase
+        if let teamsLoad { return await teamsLoad.value }
+        let load = Task { await loadTeamsNow() }
+        teamsLoad = load
+        await load.value
+        teamsLoad = nil
+    }
+
+    /// Not tied to the caller: a page that leaves mid-load no longer cancels it into an error (#3620).
+    private func loadTeamsNow() async {
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -703,8 +714,6 @@ final class AgentStore {
                 await reload()
             }
         } catch {
-            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
-            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
