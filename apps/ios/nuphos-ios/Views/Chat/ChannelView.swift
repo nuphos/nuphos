@@ -63,8 +63,7 @@ struct ChannelView: View {
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
         let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
-        let lead = VStack(spacing: 16) { card; BotInstructionsCard(botId: bot.sessionId) }
-        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(lead)) { task in
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
             open(task.sessionId, title: task.displayTitle)
         }
         .environment(store)
