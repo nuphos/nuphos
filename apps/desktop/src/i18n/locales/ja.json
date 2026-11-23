@@ -144,7 +144,7 @@
   "A reviewer requested changes.": "レビュアーが変更を要求しました。",
   "A runtime loads at most {files} files and {mb} MB of personal skills, so the smallest skills go first and the rest stay on this computer. Edit synced skills in their folder: the next sync overwrites changes made in Nuphos.": "ランタイムが読み込める個人スキルは最大 {files} ファイル、{mb} MB のため、小さいスキルから順に取り込まれ、残りはこのコンピュータに残ります。同期したスキルは元のフォルダで編集してください。Nuphos で行った変更は次回の同期で上書きされます。",
   "A shared place for your team’s Bots and work.": "チームのボットと作業を共有する場所です。",
-  "A shared space for your Bots.": "Bot が集まる共有スペース。",
+  "A shared space for your Bots.": "ボットが集まる共有スペース。",
   "A short label, e.g. prod or staging": "短いラベル（例：prod、staging）",
   "A short name such as security or staging": "短い名前（例：security、staging）",
   "A tab is open on a team this account can’t access. Pick one below to continue.": "このアカウントでアクセスできないチームのタブが開いています。続行するには、下から選択してください。",
