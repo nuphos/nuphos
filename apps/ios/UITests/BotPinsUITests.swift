@@ -226,7 +226,7 @@ final class BotPinsUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
         let name = app.buttons["bot-details-entry"]
         XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
-        let model = app.staticTexts.matching(NSPredicate(format: "label CONTAINS ' · Sonnet'")).firstMatch
+        let model = app.buttons.matching(NSPredicate(format: "identifier == 'bot-details-model' AND label CONTAINS 'Sonnet'")).firstMatch
         XCTAssertTrue(model.waitForExistence(timeout: 10), "Bot details does not name the Bot's model")
         shot("bot-details-model")
         let entry = app.buttons["bot-task-entry"]
