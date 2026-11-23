@@ -1,7 +1,7 @@
 import XCTest
 
 /// Offline UI coverage; the real-backend runtime/model flow is verified separately.
-final class BotComposerControlsUITests: XCTestCase {
+final class BotDetailsRuntimeUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
     private func launch(owner: Bool) throws -> XCUIApplication {
@@ -32,7 +32,7 @@ final class BotComposerControlsUITests: XCTestCase {
             "options": [["id": "model", "name": "Model", "kind": "model", "currentValue": "sonnet",
                          "options": [["value": "sonnet", "name": "Sonnet"], ["value": "opus", "name": "Opus"]]]],
         ]]
-        let live = URL.temporaryDirectory.appending(path: "bot-composer-\(UUID()).json")
+        let live = URL.temporaryDirectory.appending(path: "bot-details-runtime-\(UUID()).json")
         try JSONSerialization.data(withJSONObject: responses).write(to: live)
         addTeardownBlock { try? FileManager.default.removeItem(at: live) }
         let app = XCUIApplication()
@@ -44,29 +44,42 @@ final class BotComposerControlsUITests: XCTestCase {
         return app
     }
 
-    func testOwnerCanOpenBotModelSheet() throws {
-        let app = try launch(owner: true)
-        let runtime = app.buttons["bot-composer.runtime"]
-        let model = app.buttons["bot-composer.model"]
-        XCTAssertTrue(runtime.waitForExistence(timeout: 15))
-        XCTAssertTrue(model.waitForExistence(timeout: 15))
-        XCTAssertLessThan(runtime.frame.minX, model.frame.minX)
-        shot("bot-composer-ios-owner")
-        model.tap()
-        XCTAssertTrue(app.navigationBars["Model"].waitForExistence(timeout: 10))
-        shot("bot-composer-ios-model")
-        XCTAssertTrue(app.buttons["Opus"].waitForExistence(timeout: 10), "The Bot's model choices did not load")
+    /// The Bot's runtime and model are picked in its details, not its chat's composer.
+    private func openDetails(_ app: XCUIApplication) {
+        let entry = app.buttons["bot-details-entry"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 15)); entry.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["bot-details-runtime"].waitForExistence(timeout: 15))
     }
 
-    func testNonOwnerSeesLockedControlsAndHint() throws {
-        let app = try launch(owner: false)
-        let runtime = app.buttons["bot-composer.runtime"]
-        let model = app.buttons["bot-composer.model"]
-        XCTAssertTrue(runtime.waitForExistence(timeout: 15))
-        XCTAssertTrue(model.waitForExistence(timeout: 15))
+    func testOwnerPicksModelInBotDetails() throws {
+        let app = try launch(owner: true)
+        XCTAssertTrue(app.buttons["bot-details-entry"].waitForExistence(timeout: 15))
+        shot("bot-details-ios-chat")
+        openDetails(app)
+        let runtime = app.buttons["bot-details-runtime"]
+        let model = app.buttons["bot-details-model"]
+        XCTAssertTrue(runtime.exists)
+        XCTAssertTrue(model.waitForExistence(timeout: 10))
+        XCTAssertLessThan(runtime.frame.minY, model.frame.minY)
+        shot("bot-details-ios-owner")
         model.tap()
-        XCTAssertTrue(app.alerts["Only the owner can change model settings."].waitForExistence(timeout: 5))
-        shot("bot-composer-ios-locked")
+        XCTAssertTrue(app.buttons["Opus"].waitForExistence(timeout: 10), "The Bot's model choices did not load")
+        XCTAssertTrue(app.buttons["Opus"].isEnabled)
+        shot("bot-details-ios-model")
+    }
+
+    func testNonOwnerSeesRuntimeAndModelReadOnly() throws {
+        let app = try launch(owner: false)
+        openDetails(app)
+        XCTAssertFalse(app.buttons["bot-details-runtime"].exists, "Only the owner can move the Bot")
+        let model = app.buttons["bot-details-model"]
+        XCTAssertTrue(model.waitForExistence(timeout: 10))
+        shot("bot-details-ios-member")
+        model.tap()
+        XCTAssertTrue(app.staticTexts["Only the owner can change model settings."].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["Opus"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Opus"].isEnabled)
+        shot("bot-details-ios-member-model")
     }
 
     private func shot(_ name: String) {

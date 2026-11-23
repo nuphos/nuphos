@@ -38,6 +38,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -174,6 +176,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     val tasks = botFace?.let { store.tasks(under = it.id, teamId = session.teamId) }.orEmpty()
     var detailsOpen by remember(session.channelId) { mutableStateOf(false) }
+    // The Bot's own agent list: from its details, or after it could not reply, as on its Task screen.
+    var switching by remember(bot) { mutableStateOf(false) }
     var showMembers by remember(session.channelId) { mutableStateOf(false) }
     if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (detailsOpen && bot != null && auth.token != null) {
@@ -181,14 +185,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { id -> detailsOpen = false; openTask(id) },
             onDismiss = { detailsOpen = false },
-            lead = { BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } }) },
+            lead = {
+                BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
+                BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
+            },
             canManage = bot.canManage)
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
-    // After the Bot could not reply: its own agent list, as on its Task screen.
-    var switching by remember(bot) { mutableStateOf(false) }
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {
         val workspaceRevision = store.workspaceRevision
@@ -261,7 +266,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
             }
             session.replying?.let { ReplyChip(it) { session.replying = null } }
-            ChannelComposer(session, bot, onSwitchAgent = { switching = true })
+            ChannelComposer(session)
         }
         }
     }
@@ -283,21 +288,64 @@ private fun BotStateLine(tasks: List<AgentConversation>) {
         color = if (waiting > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The card that leads a Bot's details, as on Desktop: its face, name and runtime, and the way into the Bot's own Task. */
+/** The card that leads a Bot's details, as on Desktop: its face, name, and the way into the Bot's own Task. */
 @Composable
 private fun BotDetailsCard(session: ChannelSession, openTask: (() -> Unit)?) {
-    val store = LocalAgentStore.current
-    val runtime = store.bots.firstOrNull { it.sessionId == session.botId }
-        ?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeLabel) }
     ai.nuphos.android.ui.chat.SummaryCard(horizontalAlignment = Alignment.CenterHorizontally) {
         ChatIcon(session.faces, session.title, 64.dp)
         Text(session.title, maxLines = 2, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        runtime?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (openTask != null) OutlinedButton(onClick = openTask, modifier = Modifier.testTag("bot-task-entry")) {
             Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), null, Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.chat_task_fallback_title))
         }
+    }
+}
+
+/** A Bot's runtime and model, where they are picked: its owner opens either picker; anyone else sees what it runs. */
+@Composable
+private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession, onSwitchAgent: () -> Unit) {
+    val store = LocalAgentStore.current
+    val auth = LocalAuthSession.current
+    DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
+        val workspace = store.workspaceRevision
+        val generation = auth.generation
+        val consent = AiAccess.revision
+        bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
+            auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
+                store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
+        }
+        onDispose { bot.activateModelSettings(false) }
+    }
+    val models = bot.modelSettings
+    LaunchedEffect(models) { models?.refresh() }
+    var showModel by remember(models) { mutableStateOf(false) }
+    if (showModel && models != null) ai.nuphos.android.ui.chat.ModelSettingsSheet(models) { showModel = false }
+    val owns = bot.loaded && bot.isOwner && auth.aiAllowed
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Text(stringResource(R.string.agent_runtime), style = MaterialTheme.typography.titleSmall)
+        BotRuntimeRow({ ai.nuphos.android.ui.components.RuntimeMark(bot.agentRuntime, 18.dp) }, stringResource(R.string.agent_runtime),
+            if (bot.loaded) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
+            onClick = if (owns) onSwitchAgent else null, tag = "bot-details-runtime")
+        BotRuntimeRow({ Icon(Icons.Outlined.Memory, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }, stringResource(R.string.composer_model),
+            models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
+        if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun BotRuntimeRow(icon: @Composable () -> Unit, label: String, value: String, onClick: (() -> Unit)?, tag: String) {
+    Row(
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 6.dp).testTag(tag),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon()
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        // The value takes the rest of the row and wraps, so a long runtime name is read in full.
+        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        if (onClick != null) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -633,27 +681,11 @@ internal fun TypingDots(modifier: Modifier = Modifier) {
 
 /** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
 @Composable
-private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession?, onSwitchAgent: () -> Unit) {
+private fun ChannelComposer(session: ChannelSession) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
     val account = auth.user?.id
-    val ownsBot = bot?.loaded == true && bot.isOwner
-    if (bot != null) {
-        DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
-            val workspace = store.workspaceRevision
-            val generation = auth.generation
-            val consent = AiAccess.revision
-            bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
-                auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
-                    store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
-            }
-            onDispose { bot.activateModelSettings(false) }
-        }
-        LaunchedEffect(bot.modelSettings, bot.isStreaming, bot.runtimeObservation?.phase) {
-            bot.modelSettings?.refresh()
-        }
-    }
     // Drafts persist per chat, like a conversation's.
     val draft = remember(account, session.teamId, session.channelId, auth.generation, AiAccess.revision) {
         account?.let { auth.composerDrafts.bind(it, session.teamId, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(session.channelId),
@@ -665,13 +697,6 @@ private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.sess
     }
     ai.nuphos.android.ui.chat.ChatComposer(
         isStreaming = false,
-        showControls = bot?.loaded == true,
-        botControls = bot?.loaded == true,
-        followsBot = true,
-        agentLabel = bot?.takeIf { it.loaded }?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeDeviceLabel) },
-        onChooseAgent = if (bot?.loaded == true) onSwitchAgent else null,
-        modelSettings = bot?.modelSettings,
-        lockedHint = if (bot != null && !ownsBot) stringResource(R.string.chat_bot_settings_owner_only) else null,
         onSend = { submission ->
             val user = auth.user
             // Captured now: a post whose upload outlives this account, workspace or consent is never sent.

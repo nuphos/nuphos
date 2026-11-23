@@ -16,10 +16,12 @@ struct RuntimePickerSheet: View {
     }
 }
 
-private struct RuntimePicker: View {
+struct RuntimePicker: View {
     var session: ChatSession?
     var onMove: (RuntimeInstance) -> Void
     @Binding var detent: PresentationDetent
+    /// A page of another sheet's stack, as Bot details push it, not a sheet of its own.
+    var pushed = false
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
@@ -45,7 +47,6 @@ private struct RuntimePicker: View {
     private var browsing: Bool { !managing && scenePhase == .active }
 
     var body: some View {
-        NavigationStack {
             Group {
                 if !store.runtimesLoaded, let error = store.runtimesError {
                     ContentUnavailableView {
@@ -64,8 +65,10 @@ private struct RuntimePicker: View {
             .navigationTitle("Choose runtime")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    DesignButton("Close", image: "lucide-x") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
+                if !pushed {
+                    ToolbarItem(placement: .cancellationAction) {
+                        DesignButton("Close", image: "lucide-x") { dismiss() }.labelStyle(.iconOnly).foregroundStyle(Theme.muted)
+                    }
                 }
             }
             .navigationDestination(isPresented: $managing) { RuntimesPage().navigationTitle("Runtimes") }
@@ -86,7 +89,7 @@ private struct RuntimePicker: View {
                 await store.pollAgentDevices()
             }
             .onChange(of: store.runtimes) { _, _ in openCurrentBox() }
-        }
+            .inNavigationStack(!pushed)
         .tint(Theme.heading)
         .onChange(of: managing) { _, open in if open { detent = .large } }
     }
@@ -268,6 +271,8 @@ struct SelectorAgentRow: View {
 /// Model, effort and fast-mode controls for one conversation.
 struct ModelSettingsSheet: View {
     var session: ChatSession?
+    /// A page of another sheet's stack, as Bot details push it, not a sheet of its own.
+    var pushed = false
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
@@ -286,10 +291,12 @@ struct ModelSettingsSheet: View {
     }
 
     var body: some View {
-        NavigationStack {
             Group {
                 if let config, !config.options.isEmpty {
                     List {
+                        if session?.loaded == true, session?.ownsChat == false {
+                            Text("Only the owner can change model settings.").font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
+                        }
                         if let hint = session?.pendingModelSettings.isEmpty == false ? String(localized: "Changes apply after this reply.") : config.hint {
                             Text(hint).font(.system(size: 13)).foregroundStyle(Theme.muted).listRowBackground(Color.clear)
                         }
@@ -346,11 +353,11 @@ struct ModelSettingsSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                if !pushed { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             }
             .task { await refresh() }
             .refreshable { await refresh() }
-        }
+            .inNavigationStack(!pushed)
         .tint(Theme.heading)
     }
 }
@@ -395,5 +402,12 @@ extension RuntimeQuota.Window {
     /// carries it too, since an empty bar has no fill left to colour.
     var labelTint: Color? {
         usedPercent >= 100 ? .red : usedPercent >= 80 ? Theme.warning : nil
+    }
+}
+
+extension View {
+    /// Its own navigation stack as a sheet; none when pushed onto another's.
+    @ViewBuilder func inNavigationStack(_ own: Bool) -> some View {
+        if own { NavigationStack { self } } else { self }
     }
 }

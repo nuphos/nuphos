@@ -1,27 +1,16 @@
 import SwiftUI
 
 /// The card that leads a Bot's details, as Desktop's Bot details panel has it
-/// (#2983): its face, name, runtime and model, and the way into the Bot's own Task.
+/// (#2983): its face, name, and the way into the Bot's own Task.
 struct BotDetailsCard: View {
     let channel: ChannelSession
     /// Nil when the viewer cannot open the Bot's own Task.
     let openTask: (() -> Void)?
-    @Environment(AgentStore.self) private var store
-    @State private var model: String?
-
-    /// Runtime, model and computer, e.g. "Claude Code · Sonnet · Preview Box".
-    private var runtime: String? {
-        guard let bot = store.bots.first(where: { $0.sessionId == channel.botId }) else { return nil }
-        let provider = RuntimeInstance.Provider.name(bot.agentRuntime)
-        let instance = bot.runtimeLabel.flatMap { $0.isEmpty || $0 == provider ? nil : $0 }
-        return [provider, model, instance].compactMap { $0 }.joined(separator: " · ")
-    }
 
     var body: some View {
         VStack(spacing: 8) {
             ChatIcon(faces: channel.faces, title: channel.title, size: 64)
             Text(channel.title).font(.system(.headline, weight: .semibold)).foregroundStyle(Theme.heading).lineLimit(2)
-            if let runtime { Text(runtime).font(.caption).foregroundStyle(Theme.muted) }
             if let openTask {
                 Button(action: openTask) {
                     Label { Text("Task") } icon: { LucideIcon("clipboard-list", size: 14) }
@@ -32,9 +21,56 @@ struct BotDetailsCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(Theme.Space.large)
-        .task(id: channel.botId) { if let id = channel.botId { model = await store.botModel(id) } }
         .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.hairline, lineWidth: 1))
+    }
+}
+
+/// A Bot's runtime and model, where they are picked: its owner pushes either
+/// picker onto the details' stack; anyone else sees what it runs.
+struct BotRuntimeCard: View {
+    let bot: ChatSession
+    var onMove: (RuntimeInstance) -> Void
+    @Environment(AgentStore.self) private var store
+
+    var body: some View {
+        SummaryCard("Runtime") {
+            if bot.ownsChat {
+                NavigationLink {
+                    RuntimePicker(session: bot, onMove: onMove, detent: .constant(.large), pushed: true)
+                } label: { row("Runtime", bot.runtimeName(in: store), opens: true) { runtimeMark } }
+                .accessibilityIdentifier("bot-details-runtime")
+            } else {
+                row("Runtime", bot.runtimeName(in: store), opens: false) { runtimeMark }
+                    .accessibilityIdentifier("bot-details-runtime")
+            }
+            NavigationLink {
+                ModelSettingsSheet(session: bot, pushed: true)
+            } label: { row("Model", bot.modelTitle, opens: true) { LucideIcon("cpu", size: 14).foregroundStyle(Theme.body) } }
+            .accessibilityIdentifier("bot-details-model")
+        }
+        .buttonStyle(.plain)
+        .task(id: bot.sessionId) {
+            await store.loadRuntimes()
+            await bot.refreshSessionConfig()
+        }
+    }
+
+    /// The runtime's own mark, as Desktop and the Task list point to a runtime.
+    private var runtimeMark: some View {
+        RuntimeMark(runtime: (bot.runtime ?? store.runtimes.first { $0.id == bot.runtimeId })?.provider.rawValue ?? bot.agentRuntime, size: 14).frame(width: 14, height: 14)
+    }
+
+    private func row(_ title: LocalizedStringKey, _ value: String, opens: Bool, @ViewBuilder icon: () -> some View) -> some View {
+        HStack(spacing: 12) {
+            icon()
+            Text(title).font(.system(.subheadline, weight: .medium)).foregroundStyle(Theme.heading)
+            Spacer(minLength: 8)
+            Text(value).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)
+            if opens { LucideIcon("chevron-right", size: 14).foregroundStyle(Theme.muted) }
+        }
+        .padding(.vertical, 3)
+        .contentShape(Rectangle())
     }
 }
 
