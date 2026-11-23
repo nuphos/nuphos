@@ -9,6 +9,7 @@ struct ConversationTrigger: Decodable, Identifiable {
     let cronExpression: String?
     let nextRunAt: String?
     let canManage: Bool?
+    let messageTemplate: String?
 
     var schedule: String { scheduleDescription ?? (triggerType == "cron" ? String(localized: "Schedule: \(cronExpression ?? "") (UTC)") : String(localized: "When a webhook arrives")) }
     var nextRun: Date? {
@@ -23,6 +24,9 @@ struct ConversationTriggers: View {
     let teamId: String
     let sessionId: String
     let token: String
+    /// Starts a message asking the agent to change a Trigger; without one, the details say to ask in the conversation.
+    var onEdit: ((String) -> Void)? = nil
+    @State private var opened: String?
     @State private var triggers: [ConversationTrigger] = []
     @State private var loading = true
     @State private var pending: Set<String> = []
@@ -39,23 +43,30 @@ struct ConversationTriggers: View {
                     Text("Ask the agent to schedule recurring work in this conversation.").foregroundStyle(Theme.body)
                 }
                 ForEach(triggers) { trigger in
-                    Toggle(isOn: Binding(get: { trigger.enabled }, set: { enabled in
-                        Task { await toggle(trigger, enabled: enabled) }
-                    })) {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(trigger.name)
-                            Text(trigger.schedule).font(.caption).foregroundStyle(Theme.body)
-                            if !trigger.enabled { Text("Paused").font(.caption).foregroundStyle(Theme.body) }
-                            else if let date = trigger.nextRun {
-                                Text("Next: \(date.formatted(date: .abbreviated, time: .shortened))").font(.caption).foregroundStyle(Theme.body)
-                            } else {
-                                Text(trigger.triggerType == "webhook" ? "Waiting for webhook" : "No upcoming runs").font(.caption).foregroundStyle(Theme.body)
+                    // The row opens what the Trigger sends; the switch beside it stays a separate control.
+                    HStack(alignment: .top) {
+                        Button { opened = trigger.id } label: {
+                            VStack(alignment: .leading, spacing: 5) {
+                                Text(trigger.name).foregroundStyle(Theme.heading)
+                                Text(trigger.schedule).font(.caption).foregroundStyle(Theme.body)
+                                Text(nextRunLabel(trigger)).font(.caption).foregroundStyle(Theme.body)
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityIdentifier("trigger-row-\(trigger.id)")
+                        Toggle(isOn: Binding(get: { trigger.enabled }, set: { enabled in
+                            Task { await toggle(trigger, enabled: enabled) }
+                        })) { EmptyView() }
+                        .labelsHidden()
+                        .disabled(trigger.canManage != true || pending.contains(trigger.id))
+                        .accessibilityLabel("Enable \(trigger.name)")
                     }
-                    .disabled(trigger.canManage != true || pending.contains(trigger.id))
-                    .accessibilityLabel("Enable \(trigger.name)")
                 }
+            }
+            .navigationDestination(item: $opened) { id in
+                if let trigger = triggers.first(where: { $0.id == id }) { details(trigger) }
             }
             .navigationTitle("Triggers")
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
@@ -67,6 +78,38 @@ struct ConversationTriggers: View {
                 }
             }
         }
+    }
+
+    private func nextRunLabel(_ trigger: ConversationTrigger) -> String {
+        if !trigger.enabled { return String(localized: "Paused") }
+        if let date = trigger.nextRun { return String(localized: "Next: \(date.formatted(date: .abbreviated, time: .shortened))") }
+        return String(localized: trigger.triggerType == "webhook" ? "Waiting for webhook" : "No upcoming runs")
+    }
+
+    private func details(_ trigger: ConversationTrigger) -> some View {
+        List {
+            Section {
+                Text(trigger.messageTemplate ?? "").foregroundStyle(Theme.body).textSelection(.enabled)
+                    .accessibilityIdentifier("trigger-instruction")
+            }
+            Section {
+                Text(trigger.schedule)
+                Text(nextRunLabel(trigger)).foregroundStyle(Theme.body)
+            }
+            Section {
+                if let onEdit {
+                    Button("Edit") {
+                        onEdit(String(localized: "Edit your trigger “\(trigger.name)”: "))
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("trigger-edit")
+                } else {
+                    Text("Ask here to change this trigger.").foregroundStyle(Theme.body)
+                }
+            }
+        }
+        .navigationTitle(trigger.name)
+        .navigationBarTitleDisplayMode(.inline)
     }
 
     private func reload() async {
