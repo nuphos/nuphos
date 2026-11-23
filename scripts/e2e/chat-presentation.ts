@@ -4,7 +4,7 @@ import { artifacts } from './processes.ts'
 import type { Page } from 'playwright-core'
 
 export async function checkDecisionOutline(page: Page): Promise<void> {
-  const card = page.locator('[data-decision-card]').last()
+  const card = page.locator('[data-decision-card]:visible').last()
   const borders = await card.evaluate((node) => {
     const style = getComputedStyle(node)
 
@@ -21,7 +21,7 @@ export async function checkDecisionOutline(page: Page): Promise<void> {
 }
 
 export async function checkOutgoingChip(page: Page): Promise<void> {
-  const chip = page.locator('.user-message-bubble .chat-resource-chip').last()
+  const chip = page.locator('.user-message-bubble:visible .chat-resource-chip').last()
 
   await chip.waitFor()
   for (const theme of ['light', 'dark']) {

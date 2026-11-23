@@ -1,6 +1,6 @@
 import type { ConversationMoveCheck } from '../../src/api/agent-types'
 import type { AgentProvider } from '../../src/types/runtime'
-import { AtlasHttpError, callJson, callJsonForRenderer, teamQuery } from './http'
+import { AtlasHttpError, callJson, teamQuery } from './http'
 import { importInChunks } from './transcript-import'
 import { storedMessageCountFromDetails } from './transcript-window'
 
@@ -56,7 +56,7 @@ export async function saveConversationSecret(
   value: string,
   teamId?: string,
 ): Promise<{ ok: boolean; path: string }> {
-  return callJsonForRenderer<{ ok: boolean; path: string }>(
+  return callJson<{ ok: boolean; path: string }>(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/secrets${teamQuery(teamId)}`,
     { name, value },
@@ -101,7 +101,7 @@ export async function getConversation(
   const q = params.toString() ? `?${String(params)}` : ''
 
   // Not found and forbidden reach the renderer as such, so it can tell a gone chat from an outage.
-  return callJsonForRenderer<ConversationDetail>(
+  return callJson<ConversationDetail>(
     'GET',
     `/agent/conversations/${encodeURIComponent(sessionId)}${q}`,
   )
@@ -224,7 +224,7 @@ export async function moveConversationRuntime(
   runtimeLabel: string
   agentRuntime: AgentProvider
 }> {
-  return callJsonForRenderer(
+  return callJson(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/runtime${teamQuery(teamId)}`,
     // Older backends require `mode`. Only the conversation history moves.
@@ -240,7 +240,7 @@ export async function checkConversationMove(
 ): Promise<ConversationMoveCheck> {
   const query = new URLSearchParams({ teamId, runtimeId })
 
-  return callJsonForRenderer(
+  return callJson(
     'GET',
     `/agent/conversations/${encodeURIComponent(sessionId)}/runtime-move?${query.toString()}`,
   )

@@ -10,7 +10,7 @@ mock.module('./use-inbox-badge', () => ({
   useInboxBadge: (_team: string, sections: unknown) => sections,
 }))
 
-test('a Bot row shows no done count, and its finished sub-agents are not listed', async () => {
+test('a Bot row shows no done count, and its finished sub-agents stay listed', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -54,7 +54,7 @@ test('a Bot row shows no done count, and its finished sub-agents are not listed'
               items: [
                 row('bot'),
                 row('running-sub-agent', { parentKey: 'agent-session:bot' }),
-                row('finished-sub-agent', { parentKey: 'agent-session:bot', finished: true }),
+                row('finished-sub-agent', { parentKey: 'agent-session:bot' }),
               ],
             },
           ],
@@ -77,7 +77,7 @@ test('a Bot row shows no done count, and its finished sub-agents are not listed'
 
     assert.ok(text.includes('bot'))
     assert.ok(text.includes('running-sub-agent'))
-    assert.ok(!text.includes('finished-sub-agent'))
+    assert.ok(text.includes('finished-sub-agent'))
     assert.ok(!/\bdone\b/.test(text))
     await act(() => root.unmount())
   } finally {

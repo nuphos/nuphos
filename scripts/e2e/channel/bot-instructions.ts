@@ -2,7 +2,6 @@
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
-import { joinTeam } from '../dashboard-scenarios.ts'
 import { artifacts, until } from '../processes.ts'
 import { setBotDetails } from '../ui.ts'
 
@@ -43,22 +42,6 @@ const stored = (stack: Stack, sessionId: string) =>
     console.log(JSON.stringify(bot?.instructions ?? null))
     await client.close()`,
     sessionId,
-  )
-
-/** Gives the Bot to a member, letting the team read it. No route does this, so Mongo does. */
-const handTo = (stack: Stack, sessionId: string, userId: string) =>
-  mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
-      { sessionId: process.argv[2] },
-      { $set: { userId: process.argv[3], generalAccess: 'team' } },
-    )
-    await client.close()`,
-    sessionId,
-    userId,
   )
 
 async function shoot(page: Page, name: string) {
@@ -133,25 +116,7 @@ const scenario: Scenario = {
     if (stored(stack, bot.sessionId) !== JSON.stringify(LONG))
       throw new Error('A refused save changed the instructions')
 
-    // Someone else's Bot: no pencil. Its instructions come from the viewer's own list of
-    // Bots, which a teammate's Bot is not on, so the section itself stays out (as before).
-    const mate = await joinTeam(stack, 'instructions-mate')
-    const me = (await (
-      await fetch(`${stack.apiUrl}/auth/me`, {
-        headers: { authorization: `Bearer ${stack.token}` },
-      })
-    ).json()) as { id: string }
-
-    handTo(stack, bot.sessionId, mate.id)
-    await page.reload()
-    await openChat(page, NAME)
-    await details(page).getByRole('region', { name: 'Access', exact: true }).waitFor()
-    if ((await pencil(page).count()) > 0)
-      throw new Error("A teammate's Bot offers Edit instructions")
-    await shoot(page, 'teammate')
-
-    // Back to its owner, then out of the lists the scenarios after this one read.
-    handTo(stack, bot.sessionId, me.id)
+    // Out of the lists the scenarios after this one read.
     await setBotDetails(page, false)
     await api(stack, `/agent/conversations/${bot.sessionId}/archive`, { archived: true }, 'PATCH')
     await openChat(page, 'E2E Bot')

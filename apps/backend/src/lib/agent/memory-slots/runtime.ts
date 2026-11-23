@@ -15,17 +15,14 @@ import type {
   MemoryObserver,
   MemoryProvider,
   MemoryRef,
-  MemorySessionOrigin,
 } from './types'
-import type { AgentSessionOrigin } from '@/lib/agent/message-origin'
 
-// ── Compile-time parity locks ────────────────────────────────────────────────
-// The SPI deliberately duplicates two runtime unions (types.ts imports nothing
-// app-local). These locks fail the build the moment either side drifts.
+// ── Compile-time parity lock ─────────────────────────────────────────────────
+// The SPI deliberately duplicates a runtime union (types.ts imports nothing
+// app-local). This lock fails the build the moment either side drifts.
 
 type MutuallyAssignable<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 
-true satisfies MutuallyAssignable<MemorySessionOrigin, AgentSessionOrigin>
 true satisfies MutuallyAssignable<SpiAttributionTier, RuntimeAttributionTier>
 
 // ── Resolution ───────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import { agentConversations, agentMessages } from '@/lib/agent/db'
+import { ACCESS_PROJECTION } from '@/lib/agent/db/access'
 
 import type { AgentConversation } from '@/lib/agent/db'
 
@@ -51,6 +52,8 @@ export type TurnSession = Pick<
   | 'createdAt'
   | 'generalAccess'
   | 'participantIds'
+  | 'kind'
+  | 'avatar'
   | 'linkedResources'
 >
 
@@ -76,15 +79,12 @@ export async function readTeamTurns(
       { teamId, ...(userId ? { userId } : {}), lastActiveAt: { $gte: new Date(since) } },
       {
         projection: {
+          ...ACCESS_PROJECTION,
           sessionId: 1,
-          userId: 1,
-          teamId: 1,
           title: 1,
           agentRuntime: 1,
           parentSessionId: 1,
           createdAt: 1,
-          generalAccess: 1,
-          participantIds: 1,
           'linkedResources.key': 1,
           'linkedResources.provider': 1,
           'linkedResources.linkedAt': 1,

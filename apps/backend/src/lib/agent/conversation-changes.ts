@@ -3,7 +3,7 @@
 // client that reconnects revalidates what it shows.
 import { errorMessage, logEvent } from '@/lib/observability'
 
-import { generalAccessOf, isParticipant } from './db/access'
+import { ACCESS_PROJECTION, generalAccessOf, isBot, isParticipant } from './db/access'
 import { agentConversations } from './db/shared'
 
 import type { AgentConversation } from './db/shared'
@@ -12,7 +12,7 @@ import type { ChangeStream, ChangeStreamDocument } from 'mongodb'
 /** What decides who hears of a change, read from the conversation as it is now. */
 export type ChangedConversation = Pick<
   AgentConversation,
-  'sessionId' | 'teamId' | 'userId' | 'generalAccess' | 'kind' | 'participantIds'
+  'sessionId' | 'teamId' | 'userId' | 'generalAccess' | 'kind' | 'participantIds' | 'avatar'
 > & { transcriptUpdatedAt?: Date }
 
 /** What a viewer hears: which conversation changed, never what it says. */
@@ -28,10 +28,11 @@ export const MEMBERSHIP_RECHECK_MS = 30_000
 export function seesChange(conversation: ChangedConversation, teamId: string, viewerId: string) {
   if (conversation.teamId !== teamId) return false
 
+  if (conversation.userId === viewerId) return true
+
   return (
-    conversation.userId === viewerId ||
-    isParticipant(conversation, viewerId) ||
-    generalAccessOf(conversation) !== 'none'
+    !isBot(conversation) &&
+    (isParticipant(conversation, viewerId) || generalAccessOf(conversation) !== 'none')
   )
 }
 
@@ -70,15 +71,10 @@ function watch() {
       },
       {
         $project: Object.fromEntries(
-          [
-            'sessionId',
-            'teamId',
-            'userId',
-            'generalAccess',
-            'kind',
-            'participantIds',
-            'transcriptUpdatedAt',
-          ].map((field) => [`fullDocument.${field}`, 1]),
+          ['sessionId', 'transcriptUpdatedAt', ...Object.keys(ACCESS_PROJECTION)].map((field) => [
+            `fullDocument.${field}`,
+            1,
+          ]),
         ),
       },
     ],

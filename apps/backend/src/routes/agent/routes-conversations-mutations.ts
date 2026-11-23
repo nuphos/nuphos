@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
 
 import {
@@ -154,6 +155,7 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   const moved = conversation && (await archiveConversationAs(conversation, userId, body.archived))
 
   if (!moved) throw new AppError(404, 'not_found', 'Conversation not found')
+  if (body.archived) await cleanUpArchived(moved.sessionIds)
 
   return c.json({ ok: true, archived: body.archived, ...moved })
 })

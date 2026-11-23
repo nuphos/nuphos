@@ -1521,9 +1521,6 @@ impl App {
     }
 
     fn choose_runtime(&mut self, runtime: Value) {
-        if self.stream.is_some() {
-            return self.notice = Some("Wait for the reply to finish before switching runtimes.".into());
-        }
         let team = self.team_id();
         if self.is_new {
             if let Some(id) = runtime["id"].as_str() {

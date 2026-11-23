@@ -1,6 +1,7 @@
 import { sealers } from '@/lib/byos/secrets'
 import { users } from '@/lib/identity/shared'
 import { sealerOf } from '@/lib/personal-credentials/seal'
+import { teamWebhooks } from '@/lib/webhooks/store'
 import { personalCredentials, teamByosBindings } from '@/models'
 
 import type { EncryptedSecret, SealerName } from '@/lib/byos/secrets'
@@ -157,6 +158,11 @@ export async function rewrapByokSecrets(options: {
     users: await rewrapCollection(
       users() as unknown as Collection,
       () => (field) => (field === 'mfa' || field === 'mfaPending' ? 'mfa' : undefined),
+      options.dryRun,
+    ),
+    team_webhooks: await rewrapCollection(
+      teamWebhooks() as unknown as Collection,
+      () => (field) => (field === 'headers' ? 'webhooks' : undefined),
       options.dryRun,
     ),
   }

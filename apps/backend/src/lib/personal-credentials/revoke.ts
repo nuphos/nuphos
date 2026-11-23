@@ -1,3 +1,6 @@
+import { ObjectId } from 'mongodb'
+
+import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
@@ -31,27 +34,46 @@ export function revokeQuietly(doc: PersonalCredential): Promise<void> {
   })
 }
 
-/** Gmail / Google Drive grants are per team, so removing one names the team. */
+/**
+ * Removes one of a member's connections. A member may hold several accounts of a provider, so
+ * removing one names the connection when there is more than one. Google accounts are per team.
+ */
 export async function deletePersonalCredential(
   userId: string,
   provider: PersonalCredentialProvider,
   teamId?: string,
+  connectionId?: string,
 ): Promise<void> {
-  const doc = await personalCredentials().findOneAndDelete({
+  if (connectionId && !ObjectId.isValid(connectionId)) {
+    throw new AppError(404, 'personal_credential_account_not_found', 'No such connected account')
+  }
+  const filter = {
     userId,
     provider,
     ...(isGoogleProvider(provider) ? { teamId } : {}),
-  })
+    ...(connectionId ? { _id: ObjectId.createFromHexString(connectionId) } : {}),
+  }
+
+  if (!connectionId && (await personalCredentials().countDocuments(filter)) > 1) {
+    throw new AppError(
+      409,
+      'personal_credential_account_required',
+      'Several accounts are connected: name the one to disconnect with connectionId',
+    )
+  }
+  const doc = await personalCredentials().findOneAndDelete(filter)
 
   if (!doc) return
-  // One Google revoke ends both grants from that team's client, so keep it while another
-  // remains. Each Composio connection is its own and always goes.
+  // One Google revoke ends both grants of that Google account from the team's client, so keep
+  // it while another provider of the same account remains. Each Composio connection is its own
+  // and always goes.
   if (
     !doc.composioAccountId &&
     isGoogleProvider(provider) &&
     (await personalCredentials().countDocuments({
       userId,
       teamId: doc.teamId,
+      providerUserId: doc.providerUserId,
       provider: { $in: [...GOOGLE_PROVIDERS] },
     }))
   ) {
@@ -66,5 +88,7 @@ export async function deleteAllPersonalCredentials(userId: string): Promise<void
     .toArray()
 
   // In turn, so the last Google grant of each team still sees it is the last and revokes.
-  for (const doc of docs) await deletePersonalCredential(userId, doc.provider, doc.teamId)
+  for (const doc of docs) {
+    await deletePersonalCredential(userId, doc.provider, doc.teamId, doc._id.toHexString())
+  }
 }

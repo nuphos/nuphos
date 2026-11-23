@@ -11,27 +11,20 @@ export type Run = { conversation: AgentConversation; runtimeState: RuntimeExecut
 export type Activity =
   | { kind: 'idle' }
   | { kind: 'onboarding' }
-  | { kind: 'asking'; question: string }
+  | { kind: 'asking' }
   | { kind: 'working'; run: Run }
   | { kind: 'background'; run: Run | undefined }
   | { kind: 'error' }
 
 export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const runs = [...(bot ? [bot] : []), ...kids]
-  const asking = runs.find((run) => attentionInputRequests(run.conversation).length > 0)
 
-  if (asking)
-    return {
-      kind: 'asking',
-      question: attentionInputRequests(asking.conversation)[0]?.question ?? '',
-    }
+  if (runs.some((run) => attentionInputRequests(run.conversation).length > 0))
+    return { kind: 'asking' }
   if (bot && runtimeTurnActive(bot.runtimeState)) return { kind: 'working', run: bot }
   const busy = kids.find((kid) => runtimeTurnActive(kid.runtimeState))
 
   if (busy) return { kind: 'working', run: busy }
-  // Someone else's Bot: its Tasks are not in this viewer's list, only how many run (#4270).
-  if (bot && kids.length === 0 && (bot.conversation.tasks?.running ?? 0) > 0)
-    return { kind: 'working', run: bot }
   // A Bot still in setup says so only while nothing runs: a working Bot shows it works.
   if (
     bot &&

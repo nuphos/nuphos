@@ -279,8 +279,9 @@ class ChatSession(
         canManage && isOwner
     }
 
-    val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
-        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
+    /** A running turn does not block a move: the server stops it as Stop does (#4619). */
+    val canMoveAgent get() = canManage && serverMetadataObserved &&
+        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
@@ -494,6 +495,9 @@ class ChatSession(
     var isChannel by mutableStateOf(false)
         private set
     var isBot by mutableStateOf(false)
+        private set
+    /** Offered Share: a Task a person opened, as the server decides it. */
+    var shareable by mutableStateOf(false)
         private set
     private fun markChannel() {
         isChannel = true
@@ -943,6 +947,7 @@ class ChatSession(
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
         isBot = detail.avatar != null && !detail.isChannel
+        shareable = detail.shareable ?: !isBot
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }
@@ -1726,7 +1731,6 @@ class ChatSession(
             "preparing-tools" -> Words(R.string.convtext_phase_preparing_tools)
             "building-prompt" -> Words(R.string.convtext_phase_building_prompt)
             "recalling-memory" -> Words(R.string.convtext_phase_recalling_memory)
-            "loading-compaction" -> Words(R.string.convtext_phase_loading_history)
             "preparing-model" -> Words(R.string.convtext_phase_preparing_model)
             "connecting-model" -> Words(R.string.convtext_phase_connecting)
             "thinking" -> Words(R.string.convtext_phase_thinking)

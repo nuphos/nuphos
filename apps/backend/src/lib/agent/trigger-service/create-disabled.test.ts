@@ -1,5 +1,4 @@
 import { beforeEach, expect, test } from 'bun:test'
-
 import { ObjectId } from 'mongodb'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
@@ -33,6 +32,8 @@ useDb({
         return { insertedId: new ObjectId() }
       },
       countDocuments: async () => 0,
+      findOne: async () => (name === 'agent_conversations' ? { userId, teamId } : null),
+      updateOne: async () => ({ matchedCount: 1 }),
     }),
   }),
 })

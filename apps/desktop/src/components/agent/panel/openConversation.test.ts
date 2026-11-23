@@ -5,24 +5,24 @@ import type { AgentConversationDetail } from '../../../api.ts'
 import type { OpenConversationCtx } from './openConversation.ts'
 import type { Tab } from './model.ts'
 
-// The query cache, as the two calls the open path makes on it.
-const store = new Map<string, unknown>()
-const keyOf = (key: readonly unknown[]) => JSON.stringify(key)
-const queryClient = {
-  getQueryData: (key: readonly unknown[]) => store.get(keyOf(key)),
-  setQueryData: (key: readonly unknown[], value: unknown) => store.set(keyOf(key), value),
-}
+// The app's own client and defaults: a copy read under 30 s ago is fresh to a plain query.
+const { createQueryClient } = await import('../../../lib/query/client.ts')
+const queryClient = createQueryClient()
 const reads: string[] = []
 let served: AgentConversationDetail
+// Each read answers when the test lets it, as one still on the way.
+let answered = () => {}
+let answer = Promise.resolve()
 const identity = <T>(value: T) => value
 
 mock.module('../../../api.ts', {
   namedExports: {
     api: {
-      agentGetConversation: (sessionId: string) => {
+      agentGetConversation: async (sessionId: string) => {
         reads.push(sessionId)
+        await answer
 
-        return Promise.resolve(served)
+        return served
       },
     },
   },
@@ -43,7 +43,7 @@ mock.module('../../ui/toast.ts', { namedExports: { toast: { apiError: () => {} }
 mock.module('./clientTools.ts', { namedExports: { finalizeIncompleteTools: identity } })
 mock.module('./conversationUnavailable.ts', { namedExports: { openingAfterFailure: () => null } })
 mock.module('./conversationCredentialAccess.ts', {
-  namedExports: { storedConversationCredentialAccess: () => ({}) },
+  namedExports: { storedConversationCredentialAccess: (stored: unknown) => stored ?? {} },
 })
 mock.module('./credentialAccess.ts', {
   namedExports: { credentialOptionsLoaded: () => true, credentialSelectionSignature: () => '' },
@@ -59,7 +59,7 @@ mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en' } })
 mock.module('./toUiMessages.ts', { namedExports: { toUiMessages: identity } })
 
 const { queryKeys } = await import('../../../lib/query/keys.ts')
-const { cachedTask } = await import('./taskTranscript.ts')
+const { cachedTask, keepTaskSelection, prefetchTask } = await import('./taskTranscript.ts')
 const { runOpenConversation } = await import('./openConversation.ts')
 
 const TEAM = 'team'
@@ -113,12 +113,13 @@ function panel() {
     uploadingTabsRef: { current: new Set() },
   } as unknown as OpenConversationCtx
 
-  return { ctx, spinners, text: () => JSON.stringify(tabs[0]?.messages) }
+  return { ctx, spinners, text: () => JSON.stringify(tabs[0]?.messages), tab: () => tabs[0] }
 }
 
 beforeEach(() => {
-  store.clear()
+  queryClient.clear()
   reads.length = 0
+  answer = Promise.resolve()
 })
 
 test('a Task read before, still current in the list, opens from that copy without a read or spinner', async () => {
@@ -144,7 +145,7 @@ test('a Task that changed since its copy was read opens from a fresh read, which
   assert.deepEqual(reads, ['s1'])
   assert.equal(spinners.length, 1)
   assert.match(text(), /fresh/)
-  assert.equal(queryClient.getQueryData(queryKeys.task(TEAM, 's1')), served)
+  assert.deepEqual(queryClient.getQueryData(queryKeys.task(TEAM, 's1')), served)
 })
 
 test('a Task never read opens from a read and keeps it for the next open', async () => {
@@ -170,4 +171,39 @@ test('a copy with a reply in progress, or one the list does not show, is not use
   queryClient.setQueryData(queryKeys.agentSessions(TEAM), [])
   assert.equal(cachedTask(queryClient as never, TEAM, 's1'), undefined)
   assert.equal(cachedTask(queryClient as never, undefined, 's1'), undefined)
+})
+
+// #4022: read ahead, then "Use in task" in the Inbox; the Task opened from the copy unselected.
+test('a Task read before its selection was saved elsewhere opens with that selection', async () => {
+  queryClient.setQueryData(queryKeys.task(TEAM, 's1'), detail('cached', 'r1'))
+  listed('r1')
+  const gmail = { personalCredentialIds: ['gmail'] } as never
+
+  keepTaskSelection(queryClient as never, TEAM, 's1', gmail)
+  const { ctx, tab } = panel()
+
+  await runOpenConversation(ctx, 's1')
+
+  assert.deepEqual(reads, [])
+  assert.deepEqual(tab()?.credentialAccess, gmail)
+})
+
+// #3523: pointing at the row starts the read; the click came before it answered and read again,
+// and the second queued behind the first: two round trips before the Task showed.
+test('a Task opened while its prefetch is on the way joins that read instead of a second', async () => {
+  listed('r1')
+  served = detail('fresh', 'r1')
+  answer = new Promise<void>((resolve) => {
+    answered = resolve
+  })
+  const { ctx, text } = panel()
+
+  prefetchTask(queryClient as never, TEAM, 's1')
+  const opening = runOpenConversation(ctx, 's1')
+
+  answered()
+  await opening
+
+  assert.deepEqual(reads, ['s1'])
+  assert.match(text(), /fresh/)
 })

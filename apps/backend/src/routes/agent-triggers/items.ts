@@ -70,6 +70,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         ...(typeof body.minIntervalSeconds === 'number'
           ? { minIntervalSeconds: body.minIntervalSeconds }
           : {}),
+        ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
       },
       {
         ...actor,
@@ -95,7 +96,7 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
     )
   })
 
-  // Update trigger (name, enabled, messageTemplate, cronExpression)
+  // Update trigger (name, enabled, messageTemplate, cronExpression, expiresAt)
   agentTriggersRoutes.patch('/:triggerId', async (c) => {
     const { triggerId } = c.req.param()
     const body = await jsonObjectBody(c)
@@ -109,6 +110,11 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
         'A Trigger stays in the Task it was created in; create a new one in the other Task',
       )
     }
+    const { expiresAt } = body
+
+    if (expiresAt !== undefined && expiresAt !== null && typeof expiresAt !== 'string') {
+      throw new AppError(400, 'invalid_request', 'expiresAt must be an ISO timestamp or null')
+    }
     const updated = await updateTrigger(triggerId, actor, {
       ...(typeof body.name === 'string' ? { name: body.name } : {}),
       ...(typeof body.messageTemplate === 'string'
@@ -120,6 +126,10 @@ export function registerTriggerItemRoutes(agentTriggersRoutes: Hono<{ Variables:
       ...(typeof body.minIntervalSeconds === 'number'
         ? { minIntervalSeconds: body.minIntervalSeconds }
         : {}),
+      // null removes the expiry.
+      ...(expiresAt === null ? { expiresAt } : {}),
+      ...(typeof expiresAt === 'string' ? { expiresAt: new Date(expiresAt) } : {}),
+      ...(body.payloadFilters !== undefined ? { payloadFilters: body.payloadFilters } : {}),
     })
 
     return c.json(updated)

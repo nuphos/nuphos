@@ -108,7 +108,7 @@ export function WorkspaceAgentPane({
     [workspaceActions],
   )
   const handleOpenAgentSettings = useCallback(
-    () => openSettingsSection('workspace.agent'),
+    () => openSettingsSection('workspace.computers'),
     [openSettingsSection],
   )
   const handleImportConsumed = useCallback(
@@ -200,6 +200,7 @@ export function WorkspaceAgentPane({
               currentUserId={user.id}
               canManage={mayRename}
               compact={compact}
+              onOpenComputers={() => openSettingsSection('workspace.computers')}
             />
           )}
           {savedSessionId && (

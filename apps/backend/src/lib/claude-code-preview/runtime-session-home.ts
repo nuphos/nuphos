@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
 import { controlRegistry } from './agent-chat-registry'
 import { resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
 import { developmentRuntimeEndpoint, requireRuntimeInstance } from './runtime-catalog'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
-import { RECLAIM_SESSION_HOME_PROGRAM } from './runtime-session-home-program'
+import { RECLAIM_SESSION_HOME_PROGRAM, reclaimed } from './runtime-session-home-program'
 import { conversationExecutionState } from './session-execution-state'
 
 import type { AgentConversation } from '@/lib/agent/db/shared'
@@ -61,6 +62,7 @@ type ReclaimCandidate = Pick<
   | 'claudeCodePreview'
   | 'runtimeMigration'
   | 'archivedAt'
+  | 'archiveHomePendingEpochs'
   | 'lastActiveAt'
 > & { sessionHomeReclaimedAt?: Date } // Set once the home is gone since it became reclaimable.
 
@@ -104,6 +106,70 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
 
   return runReclaimJob(teamId, endpoint, sessionId)
 }
+
+/** Reclaim each archived generation on its own; the latest one's home marks the Task reclaimed. */
+export async function reclaimPendingArchiveHome(
+  sessionId: string,
+  now = new Date(),
+): Promise<boolean> {
+  const conversations = agentConversations()
+  const conversation = await conversations.findOne({ sessionId })
+
+  if (!conversation?.archiveHomePendingEpochs?.length) return true
+  let waiting = false
+
+  for (const home of conversation.archiveHomePendingEpochs) {
+    const done = await reclaimArchivedGeneration(conversation.teamId, home, sessionId)
+
+    waiting ||= !done
+    if (!done) continue
+    await conversations.updateOne({ sessionId }, { $pull: { archiveHomePendingEpochs: home } })
+    if (done === true)
+      await conversations.updateOne(
+        { sessionId, sessionHomeEpoch: { $not: { $gt: home.epoch } } },
+        { $set: { sessionHomeReclaimedAt: now } },
+      )
+  }
+
+  return !waiting
+}
+
+/** One archived generation: true once gone or unreachable for good, 'single' for the sweep. */
+async function reclaimArchivedGeneration(
+  teamId: string | undefined,
+  home: NonNullable<AgentConversation['archiveHomePendingEpochs']>[number],
+  sessionId: string,
+): Promise<boolean | 'single'> {
+  if (!teamId || !home.runtimeId) return true
+  const endpoint = await controlEndpoint(teamId, home.runtimeId, home.provider)
+
+  // The home stays queued for the next sweep, and says why.
+  const waits = (reason: string) => {
+    logEvent('info', 'agent.session_home_reclaim.waiting', {
+      session_id: sessionId,
+      runtime_id: home.runtimeId,
+      epoch: home.epoch,
+      reason,
+    })
+
+    return false
+  }
+
+  // Offline waits; a removed runtime takes its homes with it.
+  if (!endpoint)
+    return (await runtimeRemoved(teamId, home.runtimeId)) || waits('runtime_unreachable')
+
+  await controlRegistry.acquire(teamId, endpoint)
+  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes('session-homes-v2')) return 'single'
+
+  return (await runReclaimJob(teamId, endpoint, sessionId, home.epoch)) || waits('in_use')
+}
+
+const runtimeRemoved = (teamId: string, runtimeId: string) =>
+  requireRuntimeInstance(teamId, runtimeId, parseLocalRuntimeId(runtimeId)?.userId).then(
+    () => false,
+    (error: unknown) => error instanceof AppError && error.code === 'runtime_not_found',
+  )
 
 /**
  * A moved conversation's home on the agent it left. Every agent on one computer,
@@ -163,27 +229,23 @@ async function runReclaimJob(
   teamId: string,
   endpoint: NonNullable<Awaited<ReturnType<typeof controlEndpoint>>>,
   sessionId: string,
+  epoch?: number,
 ): Promise<boolean> {
   const client = await controlRegistry.acquire(teamId, endpoint)
   const jobs = controlRegistry.runtimeJobs(teamId, endpoint)
-  // A computer's own fixed job takes only the session id; `panel`, which runs the
-  // text it is sent, is for the runtime image and older computers that have it.
-  const request = jobs.includes('session-homes')
-    ? { job: 'session-homes', stdin: JSON.stringify({ sessionId }) }
-    : jobs.includes('panel')
-      ? {
-          job: 'panel',
-          stdin: JSON.stringify({
-            runner: RECLAIM_SESSION_HOME_PROGRAM,
-            script: '',
-            params: { sessionId },
-          }),
-        }
-      : null
+  const params = epoch === undefined ? { sessionId } : { sessionId, epoch }
+  // A computer's own fixed jobs take the params alone; the runtime image and older
+  // computers run the program they are sent, as `panel` or their `session-homes-v2`.
+  const fixed = jobs.includes('session-homes')
+  let job = fixed ? 'session-homes' : 'panel'
 
-  if (!request) return false
+  if (epoch !== undefined) job = 'session-homes-v2'
+  if (!jobs.includes(job)) return false
+  const stdin = JSON.stringify(
+    fixed ? params : { runner: RECLAIM_SESSION_HOME_PROGRAM, script: '', params },
+  )
   const result = await client.runJob(
-    { jobId: randomUUID(), env: {}, timeoutMs: 60_000, maxStdoutBytes: 1024, ...request },
+    { jobId: randomUUID(), env: {}, timeoutMs: 60_000, maxStdoutBytes: 1024, job, stdin },
     65_000,
   )
 
@@ -191,21 +253,6 @@ async function runReclaimJob(
     throw new Error(`Reclaiming the session home failed: ${JSON.stringify(result)}`)
 
   return reclaimed(result.stdout, sessionId)
-}
-
-/** Reads the program's report: false keeps the home for a later sweep. */
-function reclaimed(stdout: string, sessionId: string): boolean {
-  const outcome = JSON.parse(stdout) as { result?: string; unreadable?: string }
-
-  // Kept because a process could not be inspected; a host where this repeats
-  // never reclaims anything.
-  if (outcome.unreadable)
-    logEvent('warn', 'agent.session_home_reclaim.unreadable_process', {
-      session_id: sessionId,
-      process: outcome.unreadable,
-    })
-
-  return outcome.result !== 'in_use'
 }
 
 /**
@@ -218,6 +265,7 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
       projection: {
         sessionId: 1,
         archivedAt: 1,
+        archiveHomePendingEpochs: 1,
         lastActiveAt: 1,
         runtimeMigration: 1,
         sessionHomeReclaimedAt: 1,
@@ -227,6 +275,7 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
   let reclaimed = 0
 
   for (const conversation of candidates) {
+    if (conversation.archiveHomePendingEpochs?.length) continue
     // An unarchived trigger run counts from its last turn, a moved conversation from
     // its move; a later turn or move reclaims again.
     const reason = reclaimReason(conversation)

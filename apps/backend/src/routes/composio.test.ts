@@ -48,6 +48,9 @@ function collection(rows: Doc[]) {
   return {
     insertOne: (doc: Doc) => Promise.resolve(rows.push(doc)),
     findOne: (filter: Doc) => Promise.resolve(rows.find((doc) => matches(doc, filter)) ?? null),
+    find: (filter: Doc) => ({
+      toArray: () => Promise.resolve(rows.filter((doc) => matches(doc, filter))),
+    }),
     countDocuments: (filter: Doc) =>
       Promise.resolve(rows.filter((doc) => matches(doc, filter)).length),
     findOneAndDelete: (filter: Doc) => {
@@ -448,6 +451,17 @@ describe('agents running tools through Composio', () => {
         },
       },
     ])
+  })
+
+  test('a direct OAuth account of the same member never takes part in execute', async () => {
+    const { composioAccountId: _, ...direct } = connection('owner', 'gmail', 'direct')
+
+    saved.push(direct)
+
+    const res = await execute(await turn('owner', true), { tool: 'GMAIL_FETCH_EMAILS' })
+
+    expect(res.status).toBe(200)
+    expect(requests[0]?.body).toMatchObject({ connected_account_id: 'ca_owner' })
   })
 
   test('runs a Google Calendar tool through the Calendar connection', async () => {

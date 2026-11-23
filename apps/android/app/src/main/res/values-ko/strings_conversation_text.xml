@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">도구 준비 중…</string>
     <string name="convtext_phase_building_prompt">프롬프트 구성 중…</string>
     <string name="convtext_phase_recalling_memory">메모리 불러오는 중…</string>
-    <string name="convtext_phase_loading_history">기록 불러오는 중…</string>
     <string name="convtext_phase_preparing_model">모델 준비 중…</string>
     <string name="convtext_phase_connecting">연결 중…</string>
     <string name="convtext_phase_thinking">생각 중…</string>

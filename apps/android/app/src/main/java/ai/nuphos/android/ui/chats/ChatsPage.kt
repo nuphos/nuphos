@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -21,6 +22,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -57,7 +59,8 @@ internal fun AgentConversation.hasUnreadPosts(): Boolean = with(Unread) { unread
 /** Chats where people and agents talk, and each Bot without a chat yet, as on iOS and Desktop. */
 @Composable
 internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null, searching: Boolean = false,
-    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true) {
+    onSearchingChange: (Boolean) -> Unit = {}, active: Boolean = true, showCreateButton: Boolean = true,
+    onNewBot: (() -> Unit)? = null) {
     val store = LocalAgentStore.current
     val team = store.selectedTeam?.id
     val scope = rememberCoroutineScope()
@@ -124,8 +127,12 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     // Like iOS, no "+" either: a Bot would have nothing to run on.
     else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
-    // Bots always lists, so its "+" can make the first one.
-    } else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
+    // Without the list's "+", an empty workspace says what a Bot is and offers the first one, as Desktop does.
+    } else if (!showCreateButton && rows.isEmpty() && store.search.isEmpty() && store.pins.isEmpty()) ai.nuphos.android.ui.agent.EmptyState(
+        Icons.Outlined.SmartToy, stringResource(R.string.chats_first_bot_title), stringResource(R.string.chats_first_bot_body),
+        stringResource(R.string.chats_new_bot), onNewBot)
+    // With the "+", Bots always lists, so it can make the first one.
+    else LazyColumn(Modifier.fillMaxSize().testTag("chats-list")) {
         if (store.search.isEmpty() && store.pins.isNotEmpty()) item(key = "pinned-bots-shelf") {
             PinShelf(store.pins, status = { pinStatus(it, store.bots + store.conversations) }, enabled = !store.savingPins,
                 onOpen = { row ->
@@ -181,24 +188,31 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
         colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
+        // Flat, as the row was: the expressive default rounds it and reshapes it on press.
+        shapes = RectangleShape.let { ListItemDefaults.shapes(it, it, it, it, it, it) },
+        // As on iOS: the avatar and chevron sit centred on a two-line row, and the time stays on the name's line.
+        verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
             if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
             else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
         },
-        headlineContent = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        // As iMessage does: the dots stand in for the newest post until the reply lands.
+        // As iMessage does: the dots stand in for the newest post until the reply lands. The post gets two lines (#4508).
         supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
-            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) } },
+            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                 if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
                 if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, tint = MaterialTheme.colorScheme.outline)
+                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.testTag("chat-chevron"), tint = MaterialTheme.colorScheme.outline)
             }
         },
-    )
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
     }
 }
 

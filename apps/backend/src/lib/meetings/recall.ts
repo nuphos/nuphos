@@ -35,10 +35,11 @@ function recallCode(body: string): string | undefined {
 
 /**
  * One log line for every meeting bot that did not make it: Recall refused a request, gave up
- * on the bot, or the bot never joined. Any reason counts; Recall's codes are only there to read.
+ * on the bot, its call ended before it got in, or it never got in. Any reason counts; Recall's
+ * codes are only there to read.
  */
 export function logMeetingBotFailure(
-  reason: 'request_failed' | 'fatal' | 'join_timeout',
+  reason: 'request_failed' | 'fatal' | 'failed_before_join' | 'join_timeout',
   details: {
     path?: string
     status?: number
@@ -46,6 +47,7 @@ export function logMeetingBotFailure(
     sub_code?: string | null
     bot_id?: string
     session_id?: string
+    platform?: string
   },
 ): void {
   logEvent('warn', 'meeting_bot.failed', {
@@ -62,6 +64,8 @@ async function recallFetch(path: string, body?: object, done?: string): Promise<
     method: body ? 'POST' : 'GET',
     headers: { Authorization: recall.apiKey, 'Content-Type': 'application/json' },
     body: body && JSON.stringify(body),
+    // The webhook handler waits on a status read, so a hung Recall must not hold it.
+    signal: AbortSignal.timeout(15_000),
   })
 
   if (!response.ok) {

@@ -18,7 +18,7 @@ const scenario: Scenario = {
       bots.body as { conversations: { sessionId: string; title?: string }[] }
     ).conversations.find((row) => row.title === 'E2E Bot')
 
-    // The chat the Bot answered in before, as "a Bot's answer to one post quotes it" posts to.
+    // The chat the Bot answered in before, as "a Bot's answer to the newest post does not quote it" posts to.
     const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
     if (!bot || !channelId) throw new Error('No E2E Bot that has answered in its chat')
@@ -63,7 +63,7 @@ const scenario: Scenario = {
         throw new Error(`The answer to its own chat was not allowed: ${JSON.stringify(ownPost)}`)
       if (elsewhere?.event !== 'permission-cancelled' || (elsewhere.ms ?? Infinity) > 10_000)
         throw new Error(`A post elsewhere did not fail at once: ${JSON.stringify(elsewhere)}`)
-      await page.getByText(`POSTED ${MARKER}`).first().waitFor()
+      await page.getByText(`POSTED ${MARKER}`).filter({ visible: true }).first().waitFor()
       if ((await page.getByRole('button', { name: /^Allow/ }).count()) > 0)
         throw new Error('An approval was shown for a turn nobody was asked about')
     } finally {

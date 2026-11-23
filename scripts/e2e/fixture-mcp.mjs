@@ -20,7 +20,7 @@ async function mcp(server, sessionHeader, method, params) {
     body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
   })
   const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
+  const data = /^data: (.+)$/m.exec(text)?.[1] ?? text
 
   return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
 }
@@ -128,6 +128,73 @@ export async function personalToken({ log, sessionId, marker, text }) {
     event: 'personal-token',
     name: provider,
     result: { status: response.status, code: body.error?.code },
+  })
+}
+
+const TASK_PROMPT = 'Report E2E_REPORT_BACK E2E_DELIVERY:webhook-task'
+
+/** #4361: hands off a Task that reports back; a nested E2E_CALL's JSON did not parse in the Task. */
+export async function reportBack({ log, sessionId, marker }) {
+  const [name, args] = marker.endsWith('-task')
+    ? ['report_task', { label: 'Report', report_id: 'e2e', status: 'done', summary: 'Done' }]
+    : ['create_thread', { label: 'Hand off', title: 'E2E webhook task', prompt: TASK_PROMPT }]
+  const message = await call(sessionId, name, args)
+
+  log({ sessionId, marker, event: 'called', name, result: message.result ?? message.error })
+}
+
+/** E2E_INSTRUCTION (#4427): writes a personal Instruction with the session's token, in the turn and after it. */
+export async function instruction({ log, sessionId, marker }) {
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const write = async (name) => {
+    const response = await fetch(`${team}/instructions`, {
+      method: 'POST',
+      headers: {
+        ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ scope: 'personal', title: name, content: 'Answer briefly.' }),
+    })
+    const body = await response.json().catch(() => ({}))
+
+    log({
+      sessionId,
+      marker,
+      event: 'instruction',
+      name,
+      result: { status: response.status, id: body.id, code: body.error?.code },
+    })
+  }
+
+  await write('live')
+  // Not awaited: the turn ends meanwhile.
+  setTimeout(() => void write('idle'), 5_000)
+}
+
+/** E2E_ACK_WORK:<done|failed> confirms the scheduled work (E2E_ACK_ID:<id> names another) over REST with this session's token. */
+export async function confirmWork({ log, sessionId, marker, text }) {
+  const id =
+    /E2E_ACK_ID:([0-9a-f]{24})/.exec(text)?.[1] ?? /Scheduled work ([0-9a-f]{24})/.exec(text)?.[1]
+  const outcome = /E2E_ACK_WORK:(done|failed)/.exec(text)?.[1]
+  const server = tools.get(sessionId)
+  const team = server.url.replace(/\/agent-sessions\/[^/]+(\/teams\/[^/]+)\/mcp-tools.*$/, '$1')
+  const response = await fetch(`${team}/agent-reminders/${id}/ack`, {
+    method: 'POST',
+    headers: {
+      ...Object.fromEntries(server.headers.map(({ name, value }) => [name, value])),
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ outcome, reason: 'e2e says so' }),
+  })
+  const body = await response.json().catch(() => ({}))
+
+  log({
+    sessionId,
+    marker,
+    event: 'work-ack',
+    name: id,
+    result: { status: response.status, state: body.status, code: body.error?.code ?? body.code },
   })
 }
 
