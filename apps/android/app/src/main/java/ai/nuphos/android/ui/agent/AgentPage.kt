@@ -152,7 +152,7 @@ fun AgentPage(
         var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
-            title = { Text(stringResource(R.string.agent_rename_task)) },
+            title = { Text(stringResource(if (target.isBot) R.string.agent_rename_bot else R.string.agent_rename_task)) },
             text = { Column {
                 OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
                     enabled = !busy, label = { Text(stringResource(R.string.agent_title)) }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)

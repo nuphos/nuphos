@@ -14,6 +14,7 @@
     <string name="agent_restore">恢复</string>
     <string name="agent_archive">归档</string>
     <string name="agent_rename_task">重命名任务</string>
+    <string name="agent_rename_bot">重命名 Bot</string>
     <string name="agent_title">标题</string>
     <string name="agent_save">保存</string>
     <string name="agent_watch_failed">无法更新关注状态</string>

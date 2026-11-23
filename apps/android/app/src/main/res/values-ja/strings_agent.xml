@@ -14,6 +14,7 @@
     <string name="agent_restore">復元</string>
     <string name="agent_archive">アーカイブ</string>
     <string name="agent_rename_task">タスク名を変更</string>
+    <string name="agent_rename_bot">ボット名を変更</string>
     <string name="agent_title">タイトル</string>
     <string name="agent_save">保存</string>
     <string name="agent_watch_failed">ウォッチを更新できませんでした</string>

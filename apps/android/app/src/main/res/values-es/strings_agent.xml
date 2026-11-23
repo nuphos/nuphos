@@ -14,6 +14,7 @@
     <string name="agent_restore">Restaurar</string>
     <string name="agent_archive">Archivar</string>
     <string name="agent_rename_task">Renombrar tarea</string>
+    <string name="agent_rename_bot">Renombrar bot</string>
     <string name="agent_title">Título</string>
     <string name="agent_save">Guardar</string>
     <string name="agent_watch_failed">No se pudo actualizar el seguimiento</string>

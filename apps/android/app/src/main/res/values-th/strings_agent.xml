@@ -14,6 +14,7 @@
     <string name="agent_restore">กู้คืน</string>
     <string name="agent_archive">เก็บถาวร</string>
     <string name="agent_rename_task">เปลี่ยนชื่องาน</string>
+    <string name="agent_rename_bot">เปลี่ยนชื่อบอท</string>
     <string name="agent_title">ชื่อ</string>
     <string name="agent_save">บันทึก</string>
     <string name="agent_watch_failed">อัปเดตการติดตามไม่สำเร็จ</string>

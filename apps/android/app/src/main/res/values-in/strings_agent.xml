@@ -14,6 +14,7 @@
     <string name="agent_restore">Pulihkan</string>
     <string name="agent_archive">Arsipkan</string>
     <string name="agent_rename_task">Ganti nama tugas</string>
+    <string name="agent_rename_bot">Ganti nama Bot</string>
     <string name="agent_title">Judul</string>
     <string name="agent_save">Simpan</string>
     <string name="agent_watch_failed">Gagal memperbarui pantauan</string>

@@ -14,6 +14,7 @@
     <string name="agent_restore">복원</string>
     <string name="agent_archive">보관</string>
     <string name="agent_rename_task">작업 이름 변경</string>
+    <string name="agent_rename_bot">봇 이름 변경</string>
     <string name="agent_title">제목</string>
     <string name="agent_save">저장</string>
     <string name="agent_watch_failed">구독을 업데이트하지 못했습니다</string>
