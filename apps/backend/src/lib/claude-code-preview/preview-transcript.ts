@@ -85,6 +85,16 @@ function interruptionOf(error: unknown, aborted: boolean): PreviewTurnInterrupti
   if (failure) return { reason: 'error', message: failure.message }
   const lower = (error instanceof Error ? error.message : String(error)).toLowerCase()
 
+  const noOutput = aborted ? null : /no model output for (\d+)s/u.exec(lower)
+
+  if (noOutput) {
+    const minutes = Math.max(1, Math.round(Number(noOutput[1]) / 60))
+
+    return {
+      reason: 'timeout',
+      message: `The model didn't start answering within ${String(minutes)} minute${minutes === 1 ? '' : 's'}. On the computer running this agent, check its sign-in, model provider and network, or switch to another agent.`,
+    }
+  }
   if (!aborted && lower.includes('no turn progress')) {
     return {
       reason: 'timeout',

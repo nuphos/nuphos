@@ -1,4 +1,4 @@
-import { expect, test } from 'bun:test'
+import { expect, spyOn, test } from 'bun:test'
 
 import { mintPreviewMcpToken } from './mcp-token'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
@@ -68,4 +68,38 @@ test('prompt redaction forwards native metadata while preserving legacy callback
     ['Answer.', { messageId: 'f', phase: 'final_answer' }],
     ['Legacy.'],
   ])
+})
+
+test('a prompt logs once how long the model took to start answering', () => {
+  const log = spyOn(console, 'log').mockImplementation(() => {})
+
+  try {
+    const target = { conversationId: 'c-1', provider: 'codex', runtimeId: 'r-1' }
+    const text = redactedPromptUpdates(
+      () => {},
+      () => {},
+      target,
+    )
+
+    text.onAgentUpdate({ kind: 'steering', id: 's', text: 'not model output' })
+    text.onTextDelta('Warning: Model metadata for `m` not found.\n\n')
+    text.onAgentUpdate({ kind: 'thought', text: 'Thinking.' })
+    text.onTextDelta('Answer.')
+    text.flush()
+
+    expect(
+      log.mock.calls
+        .map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+        .filter((entry) => entry.event === 'agent.chat.first_output'),
+    ).toEqual([
+      expect.objectContaining({
+        session_id: 'c-1',
+        provider: 'codex',
+        runtime_id: 'r-1',
+        first_output_ms: expect.any(Number),
+      }),
+    ])
+  } finally {
+    log.mockRestore()
+  }
 })

@@ -60,10 +60,10 @@ export type OpenAbAcpClientOptions = {
   socketFactory?: SocketFactory
   connectTimeoutMs?: number
   callTimeoutMs?: number
-  /** Inactivity window for one prompt; re-armed by session/update traffic. */
+  /** A prompt's windows of inactivity, of no turn progress and of no first model output. */
   promptTimeoutMs?: number
-  /** Longest a prompt may go without turn progress; heartbeats do not count. */
   promptProgressTimeoutMs?: number
+  promptFirstOutputTimeoutMs?: number
   retireGraceMs?: number
 }
 
