@@ -54,6 +54,8 @@ export type LocalRuntimeSummary = {
   signInEnded?: true
   /** Why the runtime CLI failed its existing startup probe. */
   probeError?: string
+  /** Who signed it in through Nuphos, and when, while it is signed in. */
+  signedInBy?: { userId: string; at: string }
   /** Seen signed in at least once; a host's default agent no one used, or a failed sign-in, has none. */
   everSignedIn?: true
   /** Provider usage that computer reported; the backend normalizes it. */

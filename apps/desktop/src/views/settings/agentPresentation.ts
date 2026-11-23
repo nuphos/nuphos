@@ -188,3 +188,8 @@ export function newAgentAction(
   // Native keyring sign-in is shared; another home does not create another account.
   return provider === 'antigravity' ? null : { create: true }
 }
+
+/** Whose account a computer's agent runs as: whoever signed it in through Nuphos. */
+export function signedInAs(name: string, signerId: string, viewerId: string | undefined): string {
+  return signerId === viewerId ? t('Signed in as you') : t('Signed in as {name}', { name })
+}

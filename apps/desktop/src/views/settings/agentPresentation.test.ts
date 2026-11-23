@@ -11,6 +11,7 @@ import {
   managesRuntime,
   newAgentAction,
   ownSignedInCli,
+  signedInAs,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -354,4 +355,10 @@ test('AGY only offers its existing shared sign-in, never a second account', () =
     ),
     { signIn: 'agy' },
   )
+})
+
+test('an agent card names who signed its agent in, or says it was the viewer', () => {
+  assert.equal(signedInAs('Alice', 'u1', 'u2'), 'Signed in as Alice')
+  assert.equal(signedInAs('Alice', 'u1', 'u1'), 'Signed in as you')
+  assert.equal(signedInAs('Alice', 'u1', undefined), 'Signed in as Alice')
 })
