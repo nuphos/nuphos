@@ -52,7 +52,7 @@ export function TeamInvitationsTakeover({
       setJoinedTeams((prev) =>
         prev.some((team) => team.id === teamId)
           ? prev
-          : [...prev, { id: teamId, name: invitation?.team?.name ?? t('Your workspace') }],
+          : [...prev, { id: teamId, name: invitation?.team?.name ?? t('Your team') }],
       )
     } catch (e) {
       toast.apiError(t('Could not accept invitation'), e)
@@ -84,7 +84,7 @@ export function TeamInvitationsTakeover({
       open
       onClose={onClose}
       title={t('Team invitations')}
-      description={t("You've been invited to join a workspace.")}
+      description={t("You've been invited to join a team.")}
       footer={
         <div className="flex items-center justify-end gap-2 px-5 py-4">
           <button
@@ -126,7 +126,7 @@ export function TeamInvitationsTakeover({
         )}
         {allHandled && invitations.length > 0 && (
           <div className="pt-1 text-center text-[12px] text-tertiary">
-            {t('All set — open a workspace below.')}
+            {t('All set — open a team below.')}
           </div>
         )}
       </div>

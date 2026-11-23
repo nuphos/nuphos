@@ -12,7 +12,7 @@ const team = async (page: Page) => String(await switcher(page).textContent()).tr
 /** Switches back to E2E, whose Tasks tab reopens its last Task, which must keep the app in E2E. */
 async function backToTasks(page: Page, shot: string) {
   await switcher(page).click()
-  await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+  await page.getByRole('menuitem', { name: 'Switch team' }).click()
   await page.getByRole('menuitem', { name: /^\S*\s*E2E$/ }).click()
   await until('the app to show E2E', async () => !(await team(page)).includes('No agent'))
   await page.getByRole('tab', { name: 'Tasks' }).click()

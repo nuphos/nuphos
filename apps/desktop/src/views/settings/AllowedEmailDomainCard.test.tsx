@@ -94,6 +94,6 @@ test('discovery already on for a company domain can still be turned off', async 
 
   assert.equal(toggle?.disabled, false)
   assert.equal(toggle?.getAttribute('aria-checked'), 'true')
-  assert.match(container.textContent, /Teammates on this domain can join this workspace\./)
+  assert.match(container.textContent, /Teammates on this domain can join this team\./)
   await unmount()
 })

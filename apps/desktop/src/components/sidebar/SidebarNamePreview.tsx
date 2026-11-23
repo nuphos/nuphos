@@ -29,7 +29,7 @@ const noop = () => {}
  * commit to it. It runs off the right of its column like the app peeking in.
  */
 export function SidebarNamePreview({ name, user }: { name: string; user: UserInfo }) {
-  const label = name.trim() || t('Workspace')
+  const label = name.trim() || t('Team')
 
   return (
     <div

@@ -107,7 +107,7 @@ export function D1SchemaExplorer({
                   </td>
                   <td className="px-3 py-2.5">Cloudflare D1</td>
                   <td className="px-3 py-2.5 text-tertiary">
-                    {t('Detailed SQLite schema inspection is not enabled in this workspace yet.')}
+                    {t('Detailed SQLite schema inspection is not enabled in this team yet.')}
                   </td>
                 </tr>
               ))}

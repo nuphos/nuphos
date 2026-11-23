@@ -86,9 +86,9 @@ export function GeneralSection({
       const updated = await api.atlasUpdateTeam(team.id, { name: trimmedName })
 
       onTeamUpdated(updated)
-      toast.success(t('Workspace updated'))
+      toast.success(t('Team updated'))
     } catch (err) {
-      toast.apiError(t('Could not update workspace'), err)
+      toast.apiError(t('Could not update team'), err)
     } finally {
       setSubmitting(false)
     }
@@ -96,10 +96,7 @@ export function GeneralSection({
 
   return (
     <div>
-      <SectionHeader
-        title={t('General')}
-        description={t("Manage your workspace's name and icon.")}
-      />
+      <SectionHeader title={t('General')} description={t("Manage your team's name and icon.")} />
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
@@ -107,7 +104,7 @@ export function GeneralSection({
               <AvatarPicker
                 key={team.id}
                 src={team.avatarUrl}
-                name={name || team.name || t('Workspace')}
+                name={name || team.name || t('Team')}
                 kind="icon"
                 onUpload={async (image) =>
                   onTeamUpdated(await api.atlasSetTeamAvatar(team.id, image))
@@ -117,7 +114,7 @@ export function GeneralSection({
             ) : (
               <Avatar
                 src={team.avatarUrl}
-                name={team.name || t('Workspace')}
+                name={team.name || t('Team')}
                 size={64}
                 className="rounded-lg !shadow-none"
               />
@@ -169,7 +166,7 @@ export function GeneralSection({
           <DangerZone team={team} onTeamRemoved={onTeamRemoved} />
         </>
       ) : (
-        <div className="text-[13px] text-tertiary">{t('No workspace selected.')}</div>
+        <div className="text-[13px] text-tertiary">{t('No team selected.')}</div>
       )}
     </div>
   )

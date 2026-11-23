@@ -6,7 +6,7 @@ import type { AgentDevice } from '../../api/device-types.ts'
 function updateHint(device: AgentDevice, thisComputer: boolean): string {
   if (device.box)
     return device.access === 'use'
-      ? t('Ask a workspace administrator to update it.')
+      ? t('Ask a team administrator to update it.')
       : t('Update it from its ⋯ menu.')
   if (thisComputer) return t('Restart Nuphos from the Help menu to update it.')
   // Nuphos on a person's computer is theirs to update, whoever else manages the computer.

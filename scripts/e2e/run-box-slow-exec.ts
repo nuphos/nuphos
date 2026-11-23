@@ -37,8 +37,8 @@ try {
   await page.getByRole('button', { name: 'Continue with email' }).click()
   await page.getByText('Enter the 6-digit code').waitFor()
   await page.locator('input[placeholder="000000"]').fill(stack.signInCode(email) ?? '')
-  await page.getByPlaceholder('Name your workspace…').fill('New user')
-  await page.getByRole('button', { name: 'Create workspace' }).click()
+  await page.getByPlaceholder('Name your team…').fill('New user')
+  await page.getByRole('button', { name: 'Create team' }).click()
   // This instabox never answers the idle-pause change, which the SDK gives up on after about
   // a minute; then the host joins, its exec answers at 20 s and the SDK gives up at 15 s.
   const started = Date.now()

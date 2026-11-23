@@ -32,7 +32,7 @@ test('the way to update is the one this viewer has for this computer', () => {
   assert.equal(hint({ box, outdated: 'cli', access: 'manage' }), 'Update it from its ⋯ menu.')
   assert.equal(
     hint({ box, outdated: 'cli', access: 'use' }),
-    'Ask a workspace administrator to update it.',
+    'Ask a team administrator to update it.',
   )
   // The app the viewer is looking at.
   assert.equal(hint({}, true), 'Restart Nuphos from the Help menu to update it.')
