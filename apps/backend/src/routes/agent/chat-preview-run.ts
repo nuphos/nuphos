@@ -4,6 +4,7 @@
 // on a new streamId once it has decided).
 import { randomUUID } from 'node:crypto'
 
+import { unstoreRequeuedMessages } from '@/lib/agent/db'
 import { usageResetsAtOf } from '@/lib/agent/reply-failed'
 import { requeueTurnQueue } from '@/lib/agent/session-released'
 import { bindPreviewRunFrameBridge } from '@/lib/claude-code-preview/run-frame-bridge'
@@ -99,6 +100,13 @@ export async function requeueUnsent(
 
   await requeueTurnQueue(turn.userId, turn.sessionId, carried, queued, usage)
   steered.length = 0
+  // A copy left behind still runs on the retry (turn-history), so a failed removal only shows it.
+  await unstoreRequeuedMessages({
+    sessionId: turn.sessionId,
+    ownerUserId: turn.userId,
+    teamId,
+    messageIds: [...(queued ? [queued.id] : []), ...carried.map((entry) => entry.id)],
+  }).catch(() => undefined)
 
   return Boolean(queued)
 }

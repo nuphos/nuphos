@@ -117,6 +117,17 @@ export const usageQueueScenarios: Scenario[] = [
         await page.screenshot({ path: `${artifacts}/usage-held-queue.png` })
         if (await page.getByText('Runs after the turn ahead').isVisible())
           throw new Error('A queue held by the usage limit says it runs after the turn ahead')
+        // #4816: the refused try is not a sent message with a failed answer; it only waits.
+        const sessionId = await taskWith(stack, 'E2E_DELIVERY:usage-ahead')
+        const { messages } = await client(stack)<{ messages: unknown[] }>(
+          'GET',
+          `/agent/conversations/${sessionId}?teamId=${stack.teamId}`,
+        )
+
+        if (JSON.stringify(messages).includes('E2E_DELIVERY:usage-held'))
+          throw new Error('The transcript keeps a message the usage limit holds in the queue')
+        if (await page.getByText('Request failed').isVisible())
+          throw new Error('A message the usage limit holds shows as a failed request')
         // Taken back, it stops waiting for an agent that is out of usage.
         await page.getByRole('button', { name: 'Take back' }).click()
       } finally {
