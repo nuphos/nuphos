@@ -66,20 +66,15 @@ export async function teamBoxStreamFlow(stack: Stack) {
     )
     // The Box is listed once its status is recorded, so the member retries until it is.
     let viewer: WebSocket | undefined
-    let viewerClosed: Promise<number> | undefined
 
     await until('the member to open the Box’s desktop', async () => {
       const socket = new WebSocket(
         `${ws}/teams/${stack.teamId}/runtime-desktop/runtime/${runtimeId}/0`,
         { headers: { authorization: `Bearer ${token}` } } as unknown as string[],
       )
-      const closing = new Promise<number>((done) =>
-        socket.addEventListener('close', (event) => done(event.code)),
-      )
 
       if (!(await opened(socket).then(() => true, () => false))) return false
       viewer = socket
-      viewerClosed = closing
 
       return true
     })
@@ -99,7 +94,11 @@ export async function teamBoxStreamFlow(stack: Stack) {
 
     must(removed.status === 204, `the member to be removed, got ${String(removed.status)}`)
     await until('the removed member’s stream to close on the Box', async () => closed(), 10_000)
-    await viewerClosed
+    await until(
+      'the removed member’s viewer to close',
+      async () => viewer?.readyState === WebSocket.CLOSED,
+      10_000,
+    )
   } finally {
     host.close()
     boxRow(stack.mongoUri, { remove: deviceId })
