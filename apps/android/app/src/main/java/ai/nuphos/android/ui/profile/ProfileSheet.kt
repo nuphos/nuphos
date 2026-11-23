@@ -1,5 +1,6 @@
 package ai.nuphos.android.ui.profile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
@@ -266,7 +267,7 @@ internal fun ProfileContent(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(painterResource(R.drawable.ic_nuphos_mark), contentDescription = null, modifier = Modifier.size(36.dp))
+                Image(painterResource(R.drawable.nuphos_icon), contentDescription = null, modifier = Modifier.size(36.dp))
                 Text("Nuphos", style = MaterialTheme.typography.titleSmall)
                 Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
                     style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("account-version"))
