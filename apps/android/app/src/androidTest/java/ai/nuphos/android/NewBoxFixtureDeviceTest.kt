@@ -29,9 +29,10 @@ class NewBoxFixtureDeviceTest {
     private fun shot(name: String) {
         compose.waitForIdle()
         val i = InstrumentationRegistry.getInstrumentation()
-        File(i.targetContext.getExternalFilesDir(null), name).outputStream().use {
-            i.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
-        }
+        val shot = i.uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(i.targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, name).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun administratorCreatesWaitsThenChoosesRuntime() {
         lateinit var store: NewBoxStore
