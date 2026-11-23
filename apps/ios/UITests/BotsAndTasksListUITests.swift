@@ -296,6 +296,24 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("8-bot-instructions-refused")
     }
 
+    /// A teammate's Bot shows no instructions card, so nothing offers an edit the server would refuse.
+    func testATeammatesBotShowsNoInstructions() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        for key in ["GET /agent/conversations", "GET /agent/conversations?bots=true"] {
+            var page = try XCTUnwrap(responses[key] as? [String: Any])
+            var body = try XCTUnwrap(page["body"] as? [String: Any])
+            let rows = try XCTUnwrap(body["conversations"] as? [[String: Any]])
+            body["conversations"] = rows.map { $0["sessionId"] as? String == "bot-lead" ? Self.teammates($0, canArchive: false) : $0 }
+            page["body"] = body
+            responses[key] = page
+        }
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        openLeadDetails()
+        XCTAssertTrue(app.descendants(matching: .any)["agent-summary-list"].waitForExistence(timeout: 10), "Bot details did not open")
+        XCTAssertFalse(app.staticTexts["bot-instructions-text"].exists, "A teammate's Bot shows its instructions")
+        XCTAssertFalse(app.buttons["bot-instructions-edit"].exists, "A teammate's Bot offers to edit its instructions")
+    }
+
     private func openLeadDetails() {
         launch(page: "chats")
         let lead = app.staticTexts["Release Lead"].firstMatch
