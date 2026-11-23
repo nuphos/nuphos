@@ -1,12 +1,13 @@
 import clsx from 'clsx'
 import { X } from 'lucide-react'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { t } from '../i18n'
 import { cssDurationMs } from '../lib/motion'
 
 import { useModalFocus } from './modalFocus'
+import { ModalScrollFade, useModalScroll } from './modalScroll'
 
 import type { ReactNode } from 'react'
 
@@ -79,19 +80,6 @@ export function Modal({
   titleHidden = false,
   scrollResetKey,
 }: Props) {
-  const [bodyScrolled, setBodyScrolled] = useState(false)
-  const [scrollOpen, setScrollOpen] = useState(open)
-  const [scrollView, setScrollView] = useState(scrollResetKey)
-
-  if (scrollView !== scrollResetKey) {
-    setScrollView(scrollResetKey)
-    setBodyScrolled(false)
-  }
-
-  if (scrollOpen !== open) {
-    setScrollOpen(open)
-    setBodyScrolled(false)
-  }
   const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
 
@@ -109,9 +97,7 @@ export function Modal({
 
   const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl)
 
-  useLayoutEffect(() => {
-    if (scrollResetKey !== undefined && bodyRef.current) bodyRef.current.scrollTop = 0
-  }, [scrollResetKey, bodyRef, open])
+  const { bodyScrolled, onScrollCapture } = useModalScroll(open, scrollResetKey, bodyRef)
 
   useEffect(() => {
     if (open) {
@@ -224,15 +210,7 @@ export function Modal({
               ],
           )}
         >
-          {headerDivider === 'scroll' && bodyScrolled && (
-            <div
-              aria-hidden="true"
-              className={clsx(
-                'pointer-events-none absolute inset-x-0 top-full h-5 bg-gradient-to-b to-transparent',
-                isLight ? 'from-white' : 'from-surface-sheet',
-              )}
-            />
-          )}
+          {headerDivider === 'scroll' && bodyScrolled && <ModalScrollFade isLight={isLight} />}
           {headerLeading}
           <div className="min-w-0">
             <div
@@ -296,7 +274,7 @@ export function Modal({
             and squeezing the header above. */}
         <div
           ref={bodyRef}
-          onScrollCapture={(event) => setBodyScrolled((event.target as HTMLElement).scrollTop > 0)}
+          onScrollCapture={onScrollCapture}
           className="titlebar-no-drag relative z-0 min-h-0 flex-1 overflow-auto scrollbar-thin"
         >
           {children}
