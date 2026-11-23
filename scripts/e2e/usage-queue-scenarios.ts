@@ -105,10 +105,8 @@ export const usageQueueScenarios: Scenario[] = [
       await until('the queued message to be refused for usage', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:usage-held'),
       )
-      // Long enough for the queue to settle after the refusal.
-      await new Promise((resolve) => setTimeout(resolve, 3000))
-      await page.screenshot({ path: `${artifacts}/usage-held-queue.png` })
       await page.getByText(/^Out of usage\. These run when usage resets/).waitFor()
+      await page.screenshot({ path: `${artifacts}/usage-held-queue.png` })
       if (await page.getByText('Runs after the turn ahead').isVisible())
         throw new Error('A queue held by the usage limit says it runs after the turn ahead')
       // Taken back, it stops retrying an agent that is out of usage.
