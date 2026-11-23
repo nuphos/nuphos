@@ -115,7 +115,7 @@ export async function requeueTurnQueue(
 
   // A waiting head is the backstop's to start, or a release's.
   if (!retryAfter) retryQueuedTurn(userId, sessionId)
-  // Counted, each one runs on the retry although the refused turn stored it (turn-history).
+  // Counted, each one runs on the retry even if the refused turn's copy is still stored (turn-history).
   await requeuePendingAtHead(userId, sessionId, [
     {
       ...queued,
