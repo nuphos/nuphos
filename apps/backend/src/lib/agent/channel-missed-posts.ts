@@ -45,11 +45,20 @@ export async function wakeMissedPosts(filter: Record<string, unknown>): Promise<
         if (!channel.agentSessionIds?.includes(sessionId)) continue
         // Never woken here yet, so nothing it was sent went missing.
         if (!channel.teamId || channel.agentReadIndex?.[sessionId] === undefined) continue
-        const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
+        // One agent that cannot be woken now (being moved, say) keeps its place for
+        // the next wake and does not hold back the others (#4831).
+        try {
+          const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
 
-        // Agents' posts past the turn budget wait for a person, as they do online.
-        if (messages.some((message) => message.sender?.type === 'user'))
-          await notifyAgent({ ...channel, teamId: channel.teamId }, sessionId, false)
+          // Agents' posts past the turn budget wait for a person, as they do online.
+          if (messages.some((message) => message.sender?.type === 'user'))
+            await notifyAgent({ ...channel, teamId: channel.teamId }, sessionId, false)
+        } catch (error) {
+          logError('agent.channel.missed_wake_failed', error, {
+            channel_id: channel.sessionId,
+            session_id: sessionId,
+          })
+        }
       }
     }
   } catch (error) {
