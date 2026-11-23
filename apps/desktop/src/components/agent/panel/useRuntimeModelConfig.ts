@@ -4,6 +4,7 @@ import { api } from '../../../api'
 import { t } from '../../../i18n/index.ts'
 
 import { refreshLocalModels } from './refreshLocalModels'
+import { withEffortPicks } from './sessionConfigSync'
 
 import type { ModelControl } from './ModelSelector'
 import type { SessionConfigPick, SessionConfigState } from '../../../api/session-config-types'
@@ -53,8 +54,9 @@ export function useRuntimeModelConfig(
   const pending = shown?.key !== key
 
   return {
-    // The last list stays visible while a refresh or a pick is in flight.
-    data: shown?.data,
+    // The last list stays visible while a refresh or a pick is in flight, with a picked
+    // effort level already shown.
+    data: shown?.data && pending ? withEffortPicks(shown.data, pick) : shown?.data,
     loading: !shown,
     slow: false,
     saving: Boolean(shown) && pending,

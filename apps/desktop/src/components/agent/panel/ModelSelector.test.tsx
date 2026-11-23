@@ -2,9 +2,24 @@ import assert from 'node:assert/strict'
 
 import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
-import { act, createContext, createElement, forwardRef, useContext, useEffect } from 'react'
+import {
+  act,
+  createContext,
+  createElement,
+  forwardRef,
+  useContext,
+  useEffect,
+  useState,
+} from 'react'
 
-import type { SessionConfigSelection, SessionConfigState } from '../../../api/session-config-types'
+import { decideErrorToast } from '../../../api/errors'
+
+import type { ModelControl } from './ModelSelector'
+import type {
+  SessionConfigPick,
+  SessionConfigSelection,
+  SessionConfigState,
+} from '../../../api/session-config-types'
 import type { ReactNode } from 'react'
 
 // Base UI's menu does not render in happy-dom; these keep the props the selector passes,
@@ -91,6 +106,31 @@ mock.module('../../ui/menu', () => ({
     ),
 }))
 
+// The runtime a new chat reads its settings from, and the session an open chat writes to.
+let runtimeRead = async (_pick: SessionConfigPick): Promise<SessionConfigState> => ({
+  status: 'dormant',
+  options: [],
+})
+let sessionRead = async (): Promise<SessionConfigState> => ({ status: 'ready', options: [] })
+let sessionWrite = (_selection: SessionConfigSelection): Promise<SessionConfigState> =>
+  sessionRead()
+
+mock.module('../../../api', () => ({
+  decideErrorToast,
+  api: {
+    atlasGetRuntimeModelConfig: (_teamId: string, _runtimeId: string, pick: SessionConfigPick) =>
+      runtimeRead(pick),
+    agentGetSessionConfig: () => sessionRead(),
+    agentSetSessionConfig: (
+      _sessionId: string,
+      _teamId: string,
+      selection: SessionConfigSelection,
+    ) => sessionWrite(selection),
+    // No computer to ask, so nothing is read again later.
+    localRuntimeRefreshModels: () => Promise.reject(new Error('no local runtime')),
+  },
+}))
+
 const dom = new Window()
 const browser: Record<string, unknown> = {
   window: dom,
@@ -104,6 +144,8 @@ for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
 const { ModelSelector } = await import('./ModelSelector')
+const { useRuntimeModelConfig } = await import('./useRuntimeModelConfig')
+const { useSessionConfig } = await import('./useSessionConfig')
 const { createRoot } = await import('react-dom/client')
 
 const opencode: SessionConfigState = {
@@ -366,4 +408,112 @@ test('closing the menu leaves focus where the person already moved it', async ()
   await act(() => picker.root.unmount())
   message.remove()
   runtime.remove()
+})
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((yes) => {
+    resolve = yes
+  })
+
+  return { promise, resolve }
+}
+const settle = () =>
+  act(async () => {
+    for (let i = 0; i < 12; i++) await Promise.resolve()
+  })
+/** gpt-5.5 at an effort, listed by a new chat's runtime or an open chat's session. */
+const atEffort = (
+  status: SessionConfigState['status'],
+  configId: string,
+  value: string,
+): SessionConfigState => ({
+  status,
+  options: [
+    { ...withEffort.options[0], currentValue: 'gpt-5.5' },
+    { ...withEffort.options[1], id: configId, currentValue: value },
+  ],
+})
+
+function mountControl(useControl: () => ModelControl) {
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  let control!: ModelControl
+
+  function Harness() {
+    control = useControl()
+
+    return createElement(ModelSelector, { control, disabled: false })
+  }
+
+  const chip = () => dom.document.querySelector('[data-model-chip]') as unknown as HTMLButtonElement
+  const slider = () =>
+    dom.document.querySelector('input[type="range"]') as unknown as HTMLInputElement | null
+
+  return {
+    root,
+    render: () => act(() => root.render(createElement(Harness))),
+    select: (selection: SessionConfigSelection) => act(() => control.select(selection)),
+    chip,
+    slider,
+    spinning: () => Boolean(chip().querySelector('.animate-spin')),
+  }
+}
+
+// An effort pick kept the old level on the chip until the runtime answered, though the
+// level was already offered.
+test('a new chat names an offered effort pick at once, before the runtime reads it back', async () => {
+  const reading = deferred<SessionConfigState>()
+
+  runtimeRead = (pick) =>
+    pick.effort === 'high'
+      ? reading.promise
+      : Promise.resolve(atEffort('dormant', 'effort', pick.effort ?? 'low'))
+  const picker = mountControl(() => {
+    const [pick, setPick] = useState<SessionConfigPick>({})
+
+    return useRuntimeModelConfig('team', 'runtime', pick, setPick)
+  })
+
+  await picker.render()
+  await settle()
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 Low')
+  await act(() => picker.chip().click())
+  await settle()
+  await picker.select({ configId: 'effort', value: 'high' })
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 High')
+  assert.equal(picker.spinning(), true, 'still being read back')
+  reading.resolve(atEffort('dormant', 'effort', 'high'))
+  await settle()
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 High')
+  await act(() => picker.root.unmount())
+})
+
+test('an open chat names an effort pick at once, before the session acknowledges it', async () => {
+  const writing = deferred<SessionConfigState>()
+  let confirmed = atEffort('ready', 'reasoning_effort', 'low')
+
+  sessionRead = async () => confirmed
+  sessionWrite = () => writing.promise
+  const picker = mountControl(() =>
+    useSessionConfig({ sessionId: 'session', teamId: 'team' }, false),
+  )
+
+  await picker.render()
+  await settle()
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 Low')
+  await act(() => picker.chip().click())
+  await settle()
+  await picker.select({ configId: 'reasoning_effort', value: 'high' })
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 High')
+  assert.equal(picker.spinning(), true, 'still being saved')
+  // One write at a time, so no newer pick can wait behind this one or be lost if it fails.
+  assert.equal(picker.slider()?.disabled, true)
+  confirmed = atEffort('ready', 'reasoning_effort', 'high')
+  writing.resolve(confirmed)
+  await settle()
+  assert.equal(picker.chip().getAttribute('aria-label'), 'Model settings: gpt-5.5 High')
+  await act(() => picker.root.unmount())
 })
