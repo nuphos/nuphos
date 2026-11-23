@@ -40,7 +40,7 @@ export const sealers = {
     subject: 'GitHub user token',
     keyEnvs: ['GITHUB_TOKEN_ENCRYPTION_KEY'],
     keyId: () => config.byos.github.encryptionKeyId,
-    recovery: 'Reconnect GitHub under Settings → Personal Credentials.',
+    recovery: 'Reconnect GitHub in Connectors.',
   }),
   gitlab: createSealer({
     subject: 'GitLab credentials',
