@@ -6,7 +6,6 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { errorHandler } from '@/lib/errors'
-import { useAuthMiddleware } from '@/lib/test/doubles/auth-middleware'
 import { useByosSecrets } from '@/lib/test/doubles/byos-secrets'
 import { useModels } from '@/lib/test/doubles/models'
 
@@ -40,15 +39,6 @@ useModels({
   })) as never,
 })
 useByosSecrets({ encryptInstaboxSecret: (key: string) => `sealed:${key}` })
-useAuthMiddleware({
-  requireTeamRole: (...teamRoles) =>
-    Object.assign(
-      async (_c: unknown, next: () => Promise<void>) => {
-        await next()
-      },
-      { teamRoles },
-    ),
-})
 
 const { instaboxAccountsRoutes } = await import('@/routes/instabox-accounts')
 
@@ -58,6 +48,7 @@ function app() {
   outer.onError(errorHandler)
   outer.use('*', async (c, next) => {
     c.set('teamId', TEAM_ID.toHexString())
+    c.set('teamRole', 'ADMINISTRATOR')
     await next()
   })
   outer.route('/', instaboxAccountsRoutes)
