@@ -27,6 +27,7 @@ const LOCAL_RUNTIME = join(BACKEND_DIR, 'src', 'lib', 'agent', 'devices', 'local
 
 type Added = { instanceId: string; runtimeId: string }
 type Cli = { installed: boolean; loggedIn: boolean | null } | null
+type Status = { agentInstances?: boolean; instances?: { instanceId: string; cli?: Cli }[] } | null
 type Computer = { ownerId: string; deviceId: string; agentHome: string }
 
 /** The credential files each agent's home holds once signed in, as agent-credentials.ts names them. */
@@ -48,8 +49,7 @@ const REPLICA = `
   try {
     if (action === 'status') {
       const presence = await runtimePresenceStore().get(userId, deviceId)
-      const found = presence?.status?.instances?.find((entry) => entry.instanceId === instanceId)
-      console.log(JSON.stringify(found?.cli ?? null))
+      console.log(JSON.stringify(presence?.status ?? null))
     } else if (action === 'reset') await resetLocalAgentInstance(target, { instanceId })
     else await commitLocalAgentInstance(target, { instanceId })
   } catch (error) {
@@ -63,7 +63,7 @@ async function asBackend(
   stack: Stack,
   computer: Computer,
   action: 'reset' | 'commit' | 'status',
-  { instanceId }: Added,
+  instanceId = '',
 ): Promise<string> {
   const { stdout } = await promisify(execFile)(
     'bun',
@@ -74,9 +74,15 @@ async function asBackend(
   return stdout.trim()
 }
 
-/** What the computer last reported of the agent's CLI, as the backend holds it. */
+/** What the computer last reported, as the backend holds it. */
+const statusOf = async (stack: Stack, computer: Computer): Promise<Status> =>
+  JSON.parse((await asBackend(stack, computer, 'status')) || 'null') as Status
+
+/** What the computer last reported of the agent's CLI. */
 const cliOf = async (stack: Stack, computer: Computer, agent: Added): Promise<Cli> =>
-  JSON.parse((await asBackend(stack, computer, 'status', agent)) || 'null') as Cli
+  (await statusOf(stack, computer))?.instances?.find(
+    (entry) => entry.instanceId === agent.instanceId,
+  )?.cli ?? null
 
 const homeOf = (computer: Computer, provider: Provider, { instanceId }: Added) =>
   join(
@@ -118,7 +124,7 @@ async function signInCodex(stack: Stack, computer: Computer, agent: Added) {
   writeFileSync(join(home, 'auth.json'), JSON.stringify({ tokens: { access_token: 'e2e' } }))
   writeFileSync(join(home, '.nuphos-auth-revision'), '1')
   // As the app's sign-in ends: the host checks the login and keeps the agent.
-  await asBackend(stack, computer, 'commit', agent)
+  await asBackend(stack, computer, 'commit', agent.instanceId)
 }
 
 const signedIn = (stack: Stack, computer: Computer, agent: Added, loggedIn: boolean) =>
@@ -197,7 +203,7 @@ async function resetFlow(
   )
 
   // The reset, as the backend asks for it: the host answers once it is done.
-  await asBackend(stack, computer, 'reset', agent)
+  await asBackend(stack, computer, 'reset', agent.instanceId)
   console.log(`PASS the computer reports the ${provider} reset done`)
   const left = files.filter((file) => existsSync(file))
 
@@ -247,6 +253,11 @@ try {
   })
   const target = { ownerId, deviceId: computer.deviceId, agentHome }
 
+  // Its tunnel opens before its first status report, which says it can add agents.
+  await until(
+    'the computer to report it can add agents',
+    async () => (await statusOf(stack, target))?.agentInstances === true,
+  )
   await resetFlow(stack, owner, target, CLAUDE)
   await resetFlow(stack, owner, target, 'codex')
   const failures = backendFailures(0)
