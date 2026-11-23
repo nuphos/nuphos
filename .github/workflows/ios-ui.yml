@@ -39,17 +39,28 @@ jobs:
     timeout-minutes: 5
     permissions:
       pull-requests: read
+      # To find a run that already passed this head.
+      actions: read
     outputs:
       run: ${{ steps.files.outputs.run }}
     steps:
       # Where #3343, #2708 and #3004 changed navigation, lists, selection and the toolbar.
+      # A head that already passed the full suite is skipped here, off the macOS runner (#4743).
+      # Only a full run uploads ios-ui-results, so a partial or skipped run does not count.
       - id: files
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -z "$PR" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          for run in $(gh run list --workflow ios-ui.yml --commit "$SHA" --status success --json databaseId --jq '.[].databaseId'); do
+            if gh api "repos/$GH_REPO/actions/runs/$run/artifacts" --jq '.artifacts[].name' | grep -qx ios-ui-results; then
+              echo "Run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run already passed the full suite on $SHA; skipping." >> "$GITHUB_STEP_SUMMARY"
+              echo run=false >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          done
           paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|apps/ios/tests/fixtures/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
           if gh api --paginate "repos/$GH_REPO/pulls/$PR/files" --jq '.[].filename' | grep -qE "$paths"; then
             echo run=true >> "$GITHUB_OUTPUT"
