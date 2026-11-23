@@ -24,7 +24,10 @@ export const defaultStandInScenarios: Scenario[] = [
           firstAgentHolds(stack, 'E2E_DELIVERY:stand-in-picked', 'fixture'),
         )
         await pickAgent(page, 'E2E second agent')
-        await page.getByText('moved this task from E2E fixture agent to E2E second agent').waitFor()
+        await page
+          .getByText('moved this task from E2E fixture agent to E2E second agent')
+          .filter({ visible: true })
+          .waitFor()
         await send(page, 'After the move E2E_DELIVERY:stand-in-moved')
         await page.getByText('ACK E2E_DELIVERY:stand-in-moved').waitFor()
       } finally {

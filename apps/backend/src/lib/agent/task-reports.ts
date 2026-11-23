@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto'
 
 import { db } from '@/lib/db'
 import { getTeamMembership } from '@/lib/identity'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
 import { enqueueTaskReport } from './thread-queue'
 
-export const TASK_STATUSES = ['working', 'waiting', 'ready', 'blocked', 'failed', 'done'] as const
+// No 'working': each report wakes the parent for a turn, and "still working" gives it nothing to do.
+export const TASK_STATUSES = ['waiting', 'ready', 'blocked', 'failed', 'done'] as const
 export type TaskStatus = (typeof TASK_STATUSES)[number]
 export type TaskReport = {
   _id: string
@@ -18,6 +20,8 @@ export type TaskReport = {
   reportId: string
   status: TaskStatus
   summary: string
+  /** The caller's own structured fields, passed through unread. */
+  data?: Record<string, unknown>
   createdAt: Date
   enqueuedAt?: Date
   deliveryError?: string
@@ -48,7 +52,7 @@ export async function reportTask(
   userId: string,
   teamId: string,
   sessionId: string,
-  report: { reportId: string; status: TaskStatus; summary: string },
+  report: Pick<TaskReport, 'reportId' | 'status' | 'summary' | 'data'>,
 ) {
   const child = await getConversationBySessionId(sessionId)
   const parent = child?.parentSessionId
@@ -57,20 +61,36 @@ export async function reportTask(
 
   if (
     !child ||
-    !parent ||
+    (child.parentSessionId && !parent) ||
     child.userId !== userId ||
-    parent.userId !== userId ||
+    (parent && parent.userId !== userId) ||
     child.teamId !== teamId ||
-    parent.teamId !== teamId ||
+    (parent && parent.teamId !== teamId) ||
     child.kind === 'channel' ||
-    parent.kind === 'channel' ||
+    parent?.kind === 'channel' ||
     child.archivedAt ||
-    parent.archivedAt ||
+    parent?.archivedAt ||
     !(await getTeamMembership(userId, teamId))
   )
-    throw new Error('Report only from an active Task to its parent owned by you in this team.')
+    throw new Error('Report only from an active session owned by you in this team.')
 
   const id = taskReportKey(userId, teamId, sessionId, report.reportId)
+
+  // No parent to wake: the report reaches task.reported webhooks only, once per report id.
+  if (!parent) {
+    const recorded = await agentConversations().updateOne(
+      { sessionId, userId, teamId, 'taskReport.id': { $ne: id } },
+      {
+        $set: {
+          taskReport: { id, status: report.status, summary: report.summary, at: new Date() },
+        },
+      },
+    )
+
+    if (recorded.matchedCount) queueWebhookEvents(sessionId, 'task.reported')
+
+    return { report_id: report.reportId, status: report.status, delivery: 'recorded' }
+  }
   const entry: TaskReport = {
     _id: id,
     userId,
@@ -88,7 +108,8 @@ export async function reportTask(
     !saved ||
     saved.parentSessionId !== parent.sessionId ||
     saved.status !== report.status ||
-    saved.summary !== report.summary
+    saved.summary !== report.summary ||
+    JSON.stringify(saved.data) !== JSON.stringify(report.data)
   )
     throw new Error('A report id cannot be reused for a different report. Use a new id.')
 
@@ -106,10 +127,17 @@ export async function reportTask(
     },
     {
       $set: {
-        taskReport: { id, status: saved.status, summary: saved.summary, at: saved.createdAt },
+        taskReport: {
+          id,
+          status: saved.status,
+          summary: saved.summary,
+          ...(saved.data ? { data: saved.data } : {}),
+          at: saved.createdAt,
+        },
       },
     },
   )
+  queueWebhookEvents(sessionId, 'task.reported')
   if (!saved.deliveredAt && !saved.droppedAt) {
     await taskReports().updateOne({ _id: id }, { $unset: { deliveryError: '' } })
     try {

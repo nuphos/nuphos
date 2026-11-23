@@ -75,6 +75,38 @@ test('ordinary text streams through without being held', () => {
   expect(emitted()).toBe('the key is here')
 })
 
+test('a key printed by a tool is redacted in the streamed tool update', () => {
+  const { seen, live } = collect()
+  const secret = 'Zx9'.repeat(14)
+  const tool = {
+    kind: 'tool' as const,
+    toolCallId: 'call-1',
+    title: 'Bash',
+    status: 'completed',
+    rawInput: { command: 'cat ~/.aws/credentials' },
+    rawOutput: { stdout: `aws_secret_access_key = ${secret}\n` },
+    contentText: `aws_secret_access_key = ${secret}`,
+  }
+
+  live.deliver({ kind: 'agent', update: tool })
+
+  expect(JSON.stringify(seen)).not.toContain(secret)
+  expect(seen[0]).toMatchObject({
+    update: {
+      rawInput: tool.rawInput,
+      contentText: 'aws_secret_access_key = [REDACTED:aws-secret]',
+    },
+  })
+})
+
+test('an update without a key is passed through as the same object', () => {
+  const { seen, live } = collect()
+  const update: OpenAbSessionUpdate = { kind: 'status', status: 'active' }
+
+  live.deliver(update)
+  expect(seen[0]).toBe(update)
+})
+
 test('a runtime thread going idle releases held text first', () => {
   const { live, emitted } = collect()
 

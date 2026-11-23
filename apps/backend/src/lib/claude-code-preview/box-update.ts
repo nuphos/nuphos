@@ -150,15 +150,23 @@ export async function requestBoxUpdate(
       'runtime_release_unavailable',
       'Could not check the latest release. Try again shortly.',
     )
-  await deps.update(found.ref)
-  // After the command started: an update that could not start leaves the Box as it was. One
-  // that started is reported as started even when the note fails; its card then reads offline.
-  await deps.markUpdating(found.ref).catch((error: unknown) => {
-    logError('agent.box.update_mark_failed', error, {
-      user_id: found.ref.userId,
-      device_id: found.ref.deviceId,
-    })
-  })
+  await startBoxUpdate(found.ref, deps)
 
   return { version: release.version }
+}
+
+/** Runs the update and notes it, from Update or the sweep (box-update-sweep.ts). */
+export async function startBoxUpdate(
+  ref: LocalRuntimeRef,
+  deps: Pick<BoxUpdateDeps, 'update' | 'markUpdating'>,
+): Promise<void> {
+  await deps.update(ref)
+  // After the command started: an update that could not start leaves the Box as it was. One
+  // that started is reported as started even when the note fails; its card then reads offline.
+  await deps.markUpdating(ref).catch((error: unknown) => {
+    logError('agent.box.update_mark_failed', error, {
+      user_id: ref.userId,
+      device_id: ref.deviceId,
+    })
+  })
 }

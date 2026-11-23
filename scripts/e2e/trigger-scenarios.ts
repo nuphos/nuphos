@@ -9,9 +9,9 @@ import { newTask, send } from './ui.ts'
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 
-type Trigger = { id: string; enabled: boolean; executionAuthorizationError?: string }
+export type Trigger = { id: string; enabled: boolean; executionAuthorizationError?: string }
 
-function client(stack: Stack) {
+export function client(stack: Stack) {
   return async <T>(method: string, path: string, body?: unknown): Promise<T> => {
     const response = await fetch(stack.apiUrl + path, {
       method,
@@ -26,7 +26,7 @@ function client(stack: Stack) {
 }
 
 /** The Task whose first message carries `marker`. */
-async function taskWith(stack: Stack, marker: string): Promise<string> {
+export async function taskWith(stack: Stack, marker: string): Promise<string> {
   const api = client(stack)
   const search = encodeURIComponent(marker)
   const { conversations } = await api<{ conversations: { sessionId: string }[] }>(
@@ -56,7 +56,12 @@ async function fireFailing(stack: Stack, trigger: Trigger, marker: string, times
   return api<Trigger>('GET', `/agent/triggers/${trigger.id}?teamId=${stack.teamId}`)
 }
 
-async function createTrigger(stack: Stack, sessionId: string, name: string, message: string) {
+export async function createTrigger(
+  stack: Stack,
+  sessionId: string,
+  name: string,
+  message: string,
+) {
   return client(stack)<Trigger>('POST', '/agent/triggers', {
     teamId: stack.teamId,
     targetSessionId: sessionId,
@@ -67,9 +72,9 @@ async function createTrigger(stack: Stack, sessionId: string, name: string, mess
   })
 }
 
-type Hook = Trigger & { webhookSecret: string }
+export type Hook = Trigger & { webhookSecret: string }
 
-async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
+export async function createWebhook(stack: Stack, sessionId: string, name: string, extra = {}) {
   return client(stack)<Hook>('POST', '/agent/triggers', {
     teamId: stack.teamId,
     targetSessionId: sessionId,
@@ -81,7 +86,7 @@ async function createWebhook(stack: Stack, sessionId: string, name: string, extr
 }
 
 /** One delivery as a sender makes it, signed with the Trigger's secret. */
-async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
+export async function deliver(stack: Stack, hook: Hook, payload: Record<string, string>) {
   const response = await fetch(`${stack.apiUrl}/webhooks/${hook.id}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'X-Webhook-Secret': hook.webhookSecret },
@@ -104,19 +109,6 @@ export const triggerScenarios: Scenario[] = [
       await send(page, 'Home of the Triggers E2E_DELIVERY:trigger-home')
       await page.getByText('ACK E2E_DELIVERY:trigger-home').waitFor()
       const sessionId = await taskWith(stack, 'E2E_DELIVERY:trigger-home')
-
-      // Out of usage passes with time: however often it fails, the Trigger keeps its schedule.
-      const usage = await createTrigger(
-        stack,
-        sessionId,
-        'Usage report',
-        'Report E2E_USAGE_LIMIT E2E_DELIVERY:trigger-usage',
-      )
-      const stillOn = await fireFailing(stack, usage, 'E2E_DELIVERY:trigger-usage', 4)
-
-      console.log(`Out of usage 4 times: ${JSON.stringify(stillOn)}`)
-      if (!stillOn.enabled || stillOn.executionAuthorizationError)
-        throw new Error(`Out of usage paused the Trigger: ${JSON.stringify(stillOn)}`)
 
       // Too long for the model cannot pass: the third failure in a row pauses it.
       const tooLong = await createTrigger(
@@ -149,6 +141,15 @@ export const triggerScenarios: Scenario[] = [
       await page.waitForTimeout(1_000)
       await page.screenshot({ path: join(artifacts, 'trigger-paused.png') })
       await toggle.click()
+
+      // #4293: the Trigger's card in the chat says why as well, not only that it is paused.
+      await send(page, `Show it E2E_TRIGGER_CARD:${tooLong.id} E2E_DELIVERY:trigger-card`)
+      await page.getByText('ACK E2E_DELIVERY:trigger-card').waitFor()
+      const card = page.getByRole('region', { name: 'Trigger Hourly report' })
+
+      await card.getByText(notice).waitFor()
+      await card.scrollIntoViewIfNeeded()
+      await page.screenshot({ path: join(artifacts, 'trigger-card-paused.png') })
     },
   },
   {
@@ -183,7 +184,7 @@ export const triggerScenarios: Scenario[] = [
           throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
       // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
       // E2E_HOLD: that turn keeps running too, so its start is what shows it.
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
       )
@@ -201,7 +202,7 @@ export const triggerScenarios: Scenario[] = [
           after[0]!.indexOf('E2E_DELIVERY:hook-again')
       )
         throw new Error(`The later alerts did not run together, in order: ${JSON.stringify(turns)}`)
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to stop', async () =>
         agentEvents(stack).includes('cancelled E2E_DELIVERY:hook-again'),
       )
@@ -219,7 +220,7 @@ export const triggerScenarios: Scenario[] = [
       await until('the accepted one to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-limited'),
       )
-      await page.locator('button[title="Stop"]').click()
+      await page.locator('button[title="Stop"]:visible').click()
     },
   },
   {

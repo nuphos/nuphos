@@ -5,8 +5,8 @@ import { agentConversations, agentMessages, getConversationBySessionId } from '@
 import { conversationParticipantIds } from '@/lib/agent/db/participants'
 import {
   listOpenInputRequests,
-  resolveInputRequest,
   updateInputRequest,
+  withdrawInputRequest,
 } from '@/lib/agent/db/pending-decision'
 import { botFace } from '@/lib/agent/mentions'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
@@ -72,7 +72,7 @@ const requestFollowUps = {
   },
   withdraw_user_decision: async (ctx: PreviewToolContext, { requestId }: RequestFollowUp) =>
     (await closedNotice(ctx, requestId)) ??
-    ((await resolveInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
+    ((await withdrawInputRequest(ctx.sessionId, requestOwner(ctx), requestId))
       ? toolResult({ ok: true, requestId, status: 'withdrawn' })
       : toolError(NOT_OPEN)),
   list_user_decisions: async (ctx: PreviewToolContext) => {

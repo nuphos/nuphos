@@ -43,7 +43,6 @@ export function HomeGrid({
   highlight,
   label,
   revealAt,
-  replayKey,
 }: {
   /** Keyed elements; the key is the card's grid id. */
   cards: ReactElement[]
@@ -56,7 +55,6 @@ export function HomeGrid({
   /** A card's name, from its grid id, for its grip and for announcements. */
   label: (key: string) => string
   revealAt: number
-  replayKey: number
 }) {
   const { width, containerRef, mounted } = useContainerWidth()
   const [announcement, setAnnouncement] = useState('')
@@ -155,7 +153,6 @@ export function HomeGrid({
                 }}
               >
                 <DelayedPanelReveal
-                  replayKey={replayKey}
                   delayMs={revealAt + 150 * i}
                   className={clsx(
                     'group/section relative h-full rounded-lg transition-shadow duration-700 motion-reduce:transition-none',

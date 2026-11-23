@@ -41,6 +41,9 @@ class RuntimesFixtureDeviceTest {
     private var empty = false
     /** `box.state` of the synthetic Box while it is not online; null keeps it online. */
     private var startingState: String? = null
+    /** The member owns the running Box, so it offers Add runtime. */
+    private var owner = false
+    private var added: String? = null
     private lateinit var store: RuntimesStore
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
@@ -50,12 +53,12 @@ class RuntimesFixtureDeviceTest {
             val scope = rememberCoroutineScope()
             store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
                 { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
-                { listOf(if (startingState != null) RuntimeDevice("host", "Synthetic Box", false, RuntimeDevice.Box(startingState), "offline", null, null, null) else RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
+                { if (empty) emptyList() else listOf(if (startingState != null) RuntimeDevice("host", "Synthetic Box", false, RuntimeDevice.Box(startingState), "offline", null, null, null) else RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(if (owner) "running" else null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824), if (owner) "owner" else null), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
                 RuntimeFixtureTheme { Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) { Box(Modifier.fillMaxSize()) { Box(if(rtl) Modifier.width(320.dp) else Modifier.fillMaxSize()) {
-                    RuntimeInventory(store, { details = it; detailClicks++ })
+                    RuntimeInventory(store, { details = it; detailClicks++ }, { added = it.device?.id })
                 } } } }
             }
         }
@@ -88,6 +91,15 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
+    }
+    /** #3781: the owner of a running Box can add a runtime to it from the list. */
+    @Test fun anOwnerCanAddARuntimeToTheirBox() {
+        owner = true
+        render()
+        compose.onNodeWithTag("new-runtime-host").performScrollTo().assertIsDisplayed()
+        shot("runtimes-add-runtime-owner.png")
+        compose.onNodeWithTag("new-runtime-host").performClick()
+        assertEquals("host", added)
     }
     /** #4192: a Box coming up says Starting… then Connecting…, like Desktop and iOS, and nothing once online. */
     @Test fun aStartingBoxSaysStartingThenConnectingNotOffline() {

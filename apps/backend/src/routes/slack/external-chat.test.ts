@@ -25,6 +25,7 @@ let wakes: unknown[] = []
 let marked: string[] = []
 let externalChatId: string | undefined = 'chat'
 let notificationThread = false
+let slackPosts: Record<string, unknown>[] = []
 // Slack users as users.info reports them: their home workspace and email.
 const slackUsers: Record<string, { team_id: string; email: string; name: string }> = {
   UOWNER: { team_id: 'T1', email: 'Owner@Example.com', name: 'Owner in Slack' },
@@ -100,7 +101,11 @@ useSlackAgentBot({
 })
 useSlackApi({
   // The Bot's answers, as Slack takes them.
-  slackApi: async () => ({ ok: true, ts: '30.1' }) as never,
+  slackApi: async (_token: string, _method: string, body: Record<string, unknown>) => {
+    slackPosts.push(body)
+
+    return { ok: true, ts: '30.1' } as never
+  },
   slackApiGet: async (_token: string, method: string, params: Record<string, unknown>) => {
     const user = slackUsers[String(params.user)]
 
@@ -259,6 +264,18 @@ describe('a Slack channel that is an external chat', () => {
     ).toMatchObject({ id: 'slack:C1:10.1', text: 'Is the deploy done?' })
   })
 
+  test('a thread reply keeps its Slack root even when that root is not in the record', async () => {
+    await routeSlackToExternalChat(
+      envelope({ user: 'UNEW', ts: '10.2', thread_ts: '9.9', text: 'A reply.' }),
+    )
+
+    expect((await agentMessages().findOne({ messageId: 'slack:C1:10.2' }))?.metadata).toMatchObject(
+      {
+        slackThreadTs: '9.9',
+      },
+    )
+  })
+
   test("the app's own posts and other bots never enter the chat", async () => {
     await routeSlackToExternalChat(envelope({ user: 'UBOT' }))
     await routeSlackToExternalChat(envelope({ user: 'UNEW', bot_id: 'B1' }))
@@ -270,10 +287,25 @@ describe('a Slack channel that is an external chat', () => {
 
   test('a post on the record, even naming a teammate, notifies no one in Nuphos', async () => {
     await routeSlackToExternalChat(envelope({ user: 'UNEW', text: 'Ping @Mei' }))
-    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Ask @Mei.')
+    await postAsAgent(
+      (await chat()).sessionId,
+      { sessionId: 'bot', title: 'Bot' },
+      'Ask @Mei.',
+      [],
+      0,
+    )
 
     expect(await agentMessages().countDocuments({ sessionId: 'chat' })).toBe(2)
     expect((await chat()).mentions ?? {}).toEqual({})
+  })
+
+  test('a Bot answering the newest post in a Slack thread answers in that thread', async () => {
+    slackPosts = []
+    await routeSlackToExternalChat(envelope({ user: 'UOWNER' }))
+    await routeSlackToExternalChat(envelope({ user: 'UNEW', ts: '10.2', thread_ts: '10.1' }))
+    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Done.', [], 1)
+
+    expect(slackPosts).toContainEqual(expect.objectContaining({ thread_ts: '10.1' }))
   })
 
   test('a mapping that names an ordinary Nuphos chat posts nothing there', async () => {

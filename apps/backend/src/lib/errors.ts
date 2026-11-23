@@ -147,11 +147,14 @@ function captureHttpError(err: unknown, c: Context, status: number, code: string
   if (status < 500) return
   const userId = c.get('userId')
 
-  logError('http.request.error', err, {
-    context: c,
-    status,
-    error_code: code,
-  })
+  // A feature this deployment never set up is not a server fault, so it stays
+  // out of error-level alerting and Error Tracking.
+  if (code.endsWith('_not_configured')) {
+    logError('http.request.error', err, { context: c, status, error_code: code }, 'warn')
+
+    return
+  }
+  logError('http.request.error', err, { context: c, status, error_code: code })
   captureException(err, {
     source: 'http.request',
     distinctId: typeof userId === 'string' ? userId : undefined,

@@ -58,11 +58,13 @@ async function sessionFor(stack: Stack, marker: string) {
 }
 
 // textContent: innerText leaves out off-screen messages never painted (content-visibility: auto).
+// The chat on screen: one opened before stays in the page, hidden.
 const transcript = (page: Page) =>
   page.evaluate(
     () =>
-      document.querySelector('.user-message-bubble')?.closest('.flex.flex-col.gap-4')
-        ?.textContent ?? '',
+      [...document.querySelectorAll('.user-message-bubble')]
+        .find((bubble) => bubble.checkVisibility())
+        ?.closest('.flex.flex-col.gap-4')?.textContent ?? '',
   )
 
 export const longTranscriptScenarios: Scenario[] = [
@@ -88,7 +90,7 @@ export const longTranscriptScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:long-1').waitFor()
       await page.screenshot({ path: `${artifacts}/long-transcript-after-turn.png` })
       // Page back until the conversation's start is shown: the pager leaves only then.
-      const pager = page.locator('[data-earlier-messages]')
+      const pager = page.locator('[data-earlier-messages]:visible')
       const more = page.getByRole('button', { name: 'Load earlier messages' })
 
       await until('every earlier page to load', async () => {

@@ -61,7 +61,11 @@ const scenario: Scenario = {
       'Send the standard DPA today and flag any edits to legal.',
     )
     await newTask(page)
-    await page.getByText('Quote host E2E_DELIVERY:quote-host', { exact: true }).first().click()
+    await page
+      .getByText('Quote host E2E_DELIVERY:quote-host', { exact: true })
+      .filter({ visible: true })
+      .first()
+      .click()
     await page
       .getByText(/^Send the standard DPA today/)
       .first()

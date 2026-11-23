@@ -1,7 +1,6 @@
 import { Hono } from 'hono'
 
-import { initialBindingAccess } from '@/lib/byos/initial-access'
-import { claimConnectorOAuth } from '@/lib/connector-oauth'
+import { claimConnectorOAuth, stagedGrantAccess } from '@/lib/connector-oauth'
 import { AppError } from '@/lib/errors'
 import { parseObjectId } from '@/lib/objectid'
 import { persistAsanaBinding } from '@/routes/asana-app'
@@ -60,9 +59,7 @@ connectorOAuthRoutes.post('/:state/complete', async (c) => {
 
   if (!persist) throw new AppError(404, 'oauth_not_ready', 'Unknown connector provider')
 
-  // Grants staged before the access was kept fall back to the team default.
-  const access =
-    ready.access ?? initialBindingAccess({ userId: ready.requesterUserId, team: c.get('team') })
+  const access = stagedGrantAccess(ready, c.get('team'))
 
   return c.json(await persist(teamId, ready.binding as never, access))
 })

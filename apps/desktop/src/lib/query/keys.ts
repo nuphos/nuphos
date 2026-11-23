@@ -43,6 +43,7 @@ export const queryKeys = {
   /** Under `memoryScope`, so a change marks both the live and the removed list. */
   memories: (teamId: string, scope: string, state = 'live') =>
     [...queryKeys.memoryScope(teamId, scope), state] as const,
+  webhooks: (teamId: string) => [...queryKeys.team(teamId), 'webhooks'] as const,
   grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>
@@ -50,4 +51,9 @@ export const queryKeys = {
   /** A Cloudflare account's resources, e.g. `cloudflare(teamId, accountId, 'pages', name)`. */
   cloudflare: (teamId: string, accountId: string, ...resource: string[]) =>
     [...queryKeys.team(teamId), 'cloudflare', accountId, ...resource] as const,
+  /** The signed-in user's vault: its devices, and its item names. */
+  vault: (userId: string) => ['user', userId, 'vault'] as const,
+  vaultItems: (userId: string) => [...queryKeys.vault(userId), 'items'] as const,
+  /** A cloud resource list, by its `withResourceListCache` key. */
+  resourceList: (cacheKey: string) => ['resource-list', cacheKey] as const,
 }

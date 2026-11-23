@@ -265,24 +265,3 @@ export type TeamSkillObjectDetail = {
   text: string | null
   textTruncated: boolean
 }
-
-export type PlanUpdatePatch = {
-  status?: PlanLifecycleStatus
-  commandStatuses?: {
-    stepIdx: number
-    jobIdx: number
-    cmdIdx: number
-    status: PlanCommandStatus
-  }[]
-  commandResults?: {
-    stepIdx: number
-    jobIdx: number
-    cmdIdx: number
-    status: PlanCommandStatus
-    stdout?: string
-    stderr?: string
-    exitCode?: number
-    executedBy?: 'agent'
-  }[]
-  executionError?: string
-}

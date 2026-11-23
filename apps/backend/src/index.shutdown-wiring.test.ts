@@ -99,7 +99,7 @@ describe('shutdown() stage wiring in index.ts', () => {
     expect({
       lbGrace: budgetFieldFeeding(/setTimeout\(r,([^()]*)\)/g, 'LB grace sleep'),
       agentDrain: drainField,
-      httpDrain: budgetFieldFeeding(/\},\s*(shutdownBudget\.[A-Za-z]+)\)/g, 'HTTP drain timer'),
+      httpDrain: budgetFieldFeeding(/stopHttpWithDeadline\([^,]*,[^,]*,([^,]*),/g, 'HTTP drain'),
       guardFlush: budgetFieldFeeding(/flushGuardWrites\(([^()]*)\)/g, 'guard flush'),
     }).toEqual({
       lbGrace: 'lbGraceMs',
@@ -143,7 +143,7 @@ describe('shutdown() stage wiring in index.ts', () => {
 
 test('worker consumers stop before draining but producer queues survive HTTP requests', () => {
   const consumers = SHUTDOWN_BODY.indexOf('quiesceAgentWorkers()')
-  const drain = SHUTDOWN_BODY.indexOf('await drainHttpAndAgentProducers(')
+  const drain = SHUTDOWN_BODY.indexOf('await stopHttpWithDeadline(')
   const queues = SHUTDOWN_BODY.indexOf('await closeAgentWorkerQueues()')
   const redis = SHUTDOWN_BODY.indexOf('closeRedis()')
 
@@ -164,7 +164,7 @@ test('loops stop before the drain and storage closes right before exit', () => {
 
     return index
   }
-  const drain = at('await drainHttpAndAgentProducers(')
+  const drain = at('await stopHttpWithDeadline(')
 
   for (const stop of [
     'dashboardRefreshScheduler.shutdown()',
@@ -175,11 +175,18 @@ test('loops stop before the drain and storage closes right before exit', () => {
     'shutdownStuckTurnProbe()',
     'stopBotImportCleanup()',
     'stopFreeBoxSweep()',
+    'stopWebhookDelivery()',
     'shutdownJournalSealer()',
     'quiesceAgentWorkers()',
   ]) {
     expect(at(stop), stop).toBeLessThan(drain)
   }
+  // A force-paused turn keeps running, and its output comes to this replica until
+  // its connection closes: hand it on right after the pause, not after the HTTP drain.
+  const handOff = at('await publishRuntimeHandoffs()')
+
+  expect(handOff).toBeGreaterThan(at('drainInFlightAgentRuns('))
+  expect(handOff).toBeLessThan(at('closeTunnelsForRestart()'))
   // Device tunnels never end on their own, so the HTTP drain waits for them to close.
   expect(at('closeTunnelsForRestart()')).toBeGreaterThan(at('drainInFlightAgentRuns('))
   expect(at('closeTunnelsForRestart()')).toBeLessThan(drain)

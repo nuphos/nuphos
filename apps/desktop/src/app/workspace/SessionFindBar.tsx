@@ -20,6 +20,10 @@ const MATCH_LIMIT = 1000
 
 type Step = 'new' | 'refresh' | 1 | -1
 
+// The pane also keeps chats opened before, hidden: only the one on screen counts.
+const onScreen = (root: HTMLElement | null, selector: string) =>
+  [...(root?.querySelectorAll(selector) ?? [])].some((element) => element.checkVisibility())
+
 function findRanges(root: HTMLElement, query: string): Range[] {
   const nodes: Text[] = []
   const starts: number[] = []
@@ -113,8 +117,8 @@ function FindBar({
     setResult({
       index,
       count: ranges.length,
-      partial: Boolean(root?.querySelector('[data-earlier-messages]')),
-      folded: Boolean(root?.querySelector('[data-collapsed-activity]')),
+      partial: onScreen(root, '[data-earlier-messages]'),
+      folded: onScreen(root, '[data-collapsed-activity]'),
     })
   })
 

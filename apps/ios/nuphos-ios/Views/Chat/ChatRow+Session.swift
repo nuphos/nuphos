@@ -3,7 +3,7 @@ import Foundation
 extension ChatRow {
     /// Closes a turn the user stopped, as the desktop does.
     static func stoppedText(_ message: ChatMessage) -> String {
-        let calls = message.parts.filter { if case .tool(let t) = $0 { return !ToolRuns.hiddenTools.contains(t.toolName) }; return false }.count
+        let calls = message.parts.filter { if case .tool(let t) = $0 { return t.toolName != "skill" }; return false }.count
         return calls == 0 ? String(localized: "Stopped by you") : calls == 1 ? String(localized: "Stopped by you · 1 call") : String(localized: "Stopped by you · \(calls) calls")
     }
 

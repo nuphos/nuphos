@@ -31,7 +31,8 @@ struct ChannelView: View {
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
-        channel.agents.contains { $0.sessionId == agentId && $0.ownerId == channel.viewerId }
+        guard let viewerId = channel.viewerId else { return false }
+        return channel.agents.contains { $0.sessionId == agentId && $0.ownerId == viewerId }
     }
 
     /// The Bot this is the 1:1 chat of, when its owner can open its desktop now.
@@ -43,11 +44,21 @@ struct ChannelView: View {
     }
 
     /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    /// An offline Bot says so first: nothing it runs moves until it is back.
     private var state: (text: String, waiting: Bool)? {
-        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+        guard let bot = channel.botId else { return nil }
+        if let presence = channel.agents.first(where: { $0.sessionId == bot })?.presence, presence.state == "offline" {
+            return (presence.tag.word, true)
+        }
+        return store.stateLine(under: bot, team: channel.teamId)
     }
 
-    private func openDetails() { detailsOpen = botSession != nil }
+    @State private var botsOpen = false
+
+    /// A Bot's chat opens its details; a group chat lists its Bots.
+    private func openDetails() {
+        if channel.botId != nil { detailsOpen = botSession != nil } else { botsOpen = !channel.agents.isEmpty }
+    }
 
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
@@ -127,7 +138,7 @@ struct ChannelView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .disabled(channel.botId == nil)
+                    .disabled(channel.botId == nil && channel.agents.isEmpty)
                     .accessibilityIdentifier("bot-details-entry")
                 }
                 // One tap to the Bot's own Task, where its runtime and model are switched.
@@ -159,6 +170,8 @@ struct ChannelView: View {
                 // sets what its content reads comes up empty.
                 botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
                 guard let bot = channel.botId else { return }
+                await botSession?.load()
+                guard !Task.isCancelled, channel.botId == bot else { return }
                 if channel.agents.contains(where: { $0.sessionId == bot && $0.ownerId == channel.viewerId }) {
                     canOpenTask = true
                 } else {
@@ -169,6 +182,9 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
+            .sheet(isPresented: $botsOpen) {
+                ChannelBotsList(agents: channel.agents)
+            }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in
                     guard let bot = switchingBot else { return }
@@ -226,9 +242,17 @@ struct ChannelView: View {
             VStack(alignment: .leading, spacing: 12) {
                 ChatIcon(faces: channel.faces, title: channel.title, size: 44)
                 Text(channel.title).font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
-                    .font(Theme.Text.secondary)
-                    .foregroundStyle(Theme.body)
+                // A Bot's own chat introduces the Bot, in Desktop's words.
+                Group {
+                    if channel.botId != nil {
+                        Text("This is where you and \(channel.title) get things done. Talk about what you want help with, and shape how you work together.")
+                        Text("You can start by telling \(channel.title) what you would like to do.")
+                    } else {
+                        Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
+                    }
+                }
+                .font(Theme.Text.secondary)
+                .foregroundStyle(Theme.body)
             }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("chat.empty")
@@ -240,6 +264,10 @@ struct ChannelView: View {
 
     private var composer: some View {
         VStack(spacing: 6) {
+            if let away = BotPresence.offlineStrip(channel.agents, botId: channel.botId) {
+                HintRow(text: away, isError: true,
+                        onSwitchRuntime: owns(channel.botId) && botSession != nil ? { switchingBot = botSession } : nil)
+            }
             if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,
@@ -254,8 +282,24 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
+                alwaysShowControls: channel.botId != nil,
+                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: { EmptyView() }
+                controls: {
+                    if let botSession, botSession.loaded {
+                        ComposerControls(
+                            selection: Binding(
+                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
+                                set: { botSession.setCredentials($0) }
+                            ),
+                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
+                            session: botSession,
+                            switchRuntime: { switchingBot = botSession },
+                            botChat: true,
+                            locked: !botSession.isOwner
+                        )
+                    }
+                }
             )
         }
     }
@@ -481,6 +525,11 @@ private struct ChannelPostRow: View {
         return groups.count == groupIds.count ? groups.flatMap { $0 } : nil
     }
 
+    /// Files the post's text cites show where it cites them, not again below it.
+    private var downloads: [String] {
+        post.downloads.filter { !MarkdownImages.cites(post.text, groupId: $0) }
+    }
+
     var body: some View {
         HStack(spacing: 0) {
             if mine { Spacer(minLength: 48) }
@@ -493,8 +542,8 @@ private struct ChannelPostRow: View {
                 }
                 if !attachments.isEmpty { localAttachments }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
-                if !post.downloads.isEmpty {
-                    TransferCard(groupIds: post.downloads, fromUser: false, files: read(post.downloads), resolve: channel.transferGroup)
+                if !downloads.isEmpty {
+                    TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
             }
             .contentShape(.contextMenuPreview, RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -565,7 +614,7 @@ private struct ChannelPostRow: View {
         VStack(alignment: .leading, spacing: 6) {
             if let reply = post.replyTo { quote(reply) }
             if !post.text.isEmpty {
-                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink)
+                AssistantMarkdown(text: SessionMention.named(post.text) { store.title(ofSession: $0) }, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, selectionRequest: selectionRequest, onLink: onLink, resolveTransfer: channel.transferGroup)
             }
         }
             .padding(.horizontal, 14)
@@ -614,8 +663,8 @@ private struct ReplyFailedLine: View {
     var onRetry: (() -> Void)?
 
     private var resets: String? {
-        guard event.cause == "usage_limit", let date = event.resetsAt, date > .now else { return nil }
-        return "Usage returns " + date.formatted(.dateTime.weekday(.abbreviated).hour().minute()) + "."
+        guard event.cause == "usage_limit", let resets = RuntimeQuota.resetsIn(event.resetsAt) else { return nil }
+        return String(localized: "Usage \(resets).")
     }
 
     @ViewBuilder private var fixes: some View {

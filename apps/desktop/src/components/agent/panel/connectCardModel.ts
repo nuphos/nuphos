@@ -1,4 +1,5 @@
 import { t } from '../../../i18n/index.ts'
+import { PERSONAL_CREDENTIAL_PROVIDERS } from '../../../types/personal-credentials.ts'
 
 import { parseDecisionQuestions } from './decisionFormModel.ts'
 import { parseSecretFields, SECRET_NAME } from './secretCardModel.ts'
@@ -48,6 +49,15 @@ export const CONNECT_SELECTION_KEY = {
 
 export type ConnectProvider = keyof typeof CONNECT_SELECTION_KEY
 
+/** A Connect card's rows: any access of a kind, or only the member's own credential (`personal`). */
+export type ConnectRequest = { reason: string } & (
+  | { providers: ConnectProvider[]; personal: false }
+  | { providers: PersonalCredentialProvider[]; personal: true }
+)
+
+const isPersonalProvider = (id: unknown): id is PersonalCredentialProvider =>
+  (PERSONAL_CREDENTIAL_PROVIDERS as readonly unknown[]).includes(id)
+
 // Card-local progress; `connected`, `available` and `choose` come from the live
 // selection. `available`: exactly one bound credential, so one click selects it.
 // `choose`: several, so the user picks the one they mean in the credential picker.
@@ -59,9 +69,7 @@ export type ConnectRowStatus = 'connected' | 'available' | 'choose' | ConnectPha
  * for any access of a kind, `credentials` for the member's own credential only
  * (`personal`). One that names both is no card: what answers it is unclear.
  */
-export function parseConnectRequest(
-  value: unknown,
-): { providers: ConnectProvider[]; reason: string; personal: boolean } | null {
+export function parseConnectRequest(value: unknown): ConnectRequest | null {
   if (!value || typeof value !== 'object') return null
   const { category, providers, credentials, question } = value as {
     category?: unknown
@@ -78,9 +86,7 @@ export function parseConnectRequest(
     const own = [
       ...new Set(
         credentials.flatMap((ref: { provider?: unknown; id?: unknown }) =>
-          ref?.provider === 'personal' && (ref.id === 'github' || ref.id === 'linear')
-            ? [ref.id as ConnectProvider]
-            : [],
+          ref?.provider === 'personal' && isPersonalProvider(ref.id) ? [ref.id] : [],
         ),
       ),
     ]
@@ -97,6 +103,23 @@ export function parseConnectRequest(
   ]
 
   return known.length > 0 ? { providers: known, reason, personal: false } : null
+}
+
+const named = (list: unknown) => Array.isArray(list) && list.length > 0
+
+/**
+ * An integration question that names `providers` or `credentials`: the server
+ * takes no words or option for it, only selecting what it names answers it.
+ */
+export function answeredBySelection(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  const { category, providers, credentials } = value as {
+    category?: unknown
+    providers?: unknown
+    credentials?: unknown
+  }
+
+  return category === 'integration' && (named(providers) || named(credentials))
 }
 
 /**

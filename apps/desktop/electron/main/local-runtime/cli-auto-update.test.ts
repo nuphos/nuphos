@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import {
   autoInstallFiles,
   checkCliUpdate,
+  cliAutoUpdate,
   newerRelease,
   readCliAutoInstall,
   runCliUpdate,
@@ -105,6 +106,26 @@ test('the switch is on until the card turns it off, and other requests pass thro
   // A broken file reads as the default, on.
   writeFileSync(autoInstallFiles(home).preferences, '{')
   assert.equal(readCliAutoInstall(home).enabled, true)
+})
+
+test('only a host that updates itself reports the switch, not one in the foreground (#4792)', () => {
+  const home = mkdtempSync(path.join(tmpdir(), 'cli-auto-update-'))
+  const status = (env: NodeJS.ProcessEnv) =>
+    cliAutoUpdate(
+      () => 'http://127.0.0.1:1',
+      () => {},
+      env,
+    ).wrap(() => ({}))[0]()
+
+  assert.deepEqual(status({ NUPHOS_AGENT_HOME: home, NUPHOS_CLI_VERSION: '0.22.0' }), {})
+  assert.deepEqual(
+    status({
+      NUPHOS_AGENT_HOME: home,
+      NUPHOS_CLI_VERSION: '0.22.0',
+      NUPHOS_CLI_EXE: '/bin/nuphos',
+    }),
+    { autoInstall: true },
+  )
 })
 
 test('releases compare by number', () => {

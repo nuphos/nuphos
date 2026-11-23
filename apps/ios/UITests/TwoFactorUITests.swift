@@ -67,6 +67,29 @@ final class TwoFactorUITests: XCTestCase {
         capture("Recovery codes")
     }
 
+    func testSigningInAgainToTurnItOnComesBackToIt() {
+        let app = launch(["-preview-home"], fixture: "mfa-sign-in-again-responses.json")
+        openTwoFactor(app)
+        app.buttons["Turn on"].tap()
+        let again = app.buttons["Sign out and sign in again"]
+        XCTAssertTrue(again.waitForExistence(timeout: 5))
+        capture("Sign in again")
+        again.tap()
+        let email = app.textFields["login.email"]
+        XCTAssertTrue(email.waitForExistence(timeout: 10))
+        email.tap()
+        email.typeText("alex@example.com")
+        app.buttons["login.submit"].tap()
+        let code = app.textFields["login.code"]
+        XCTAssertTrue(code.waitForExistence(timeout: 5))
+        code.tap()
+        code.typeText("123456")
+        // Back on two-factor authentication, not on the home screen.
+        XCTAssertTrue(app.buttons["Turn on"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Two-factor authentication"].exists)
+        capture("Back on two-factor after signing in")
+    }
+
     func testAnActionThatNeedsACodeAsksBeforeRetrying() {
         let app = launch(["-preview-home"], fixture: "mfa-on-responses.json")
         openTwoFactor(app)

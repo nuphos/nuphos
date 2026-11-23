@@ -72,6 +72,7 @@ const SHIM_SOURCES = [
   'hermes-session.mjs',
   'opencode-session.mjs',
   'pi-session.mjs',
+  'process-death.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'runtime-defaults.mjs',

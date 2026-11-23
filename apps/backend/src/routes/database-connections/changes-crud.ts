@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { ObjectId } from 'mongodb'
 
 import { listMongoDatabasePlanDocuments } from '@/lib/agent/plans'
 import {
@@ -12,11 +13,12 @@ import {
   mongoChangeStatementDigest,
   mongoChangeStatementPreview,
 } from '@/lib/database-change'
-import { mongoDatabasePlanAction, proposeMongoDatabasePlan } from '@/lib/database-change-plan'
+import { mongoDatabasePlanAction } from '@/lib/database-change-plan'
 import { encryptDatabaseCredential } from '@/lib/database-credentials'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import { databaseChangeRequests } from '@/models'
+import { changeApprovalPolicy } from '@/routes/database-connections/shared'
 import {
   changeRequestView,
   expireDatabaseChanges,
@@ -29,6 +31,7 @@ import {
 } from '@/routes/database-connections/changes-shared'
 
 import type { MongoDatabaseChangeStatement } from '@/lib/database-change'
+import type { DatabaseChangeRequest } from '@/models'
 import type { ConnectionVariables } from '@/routes/database-connections/shared'
 
 export const databaseConnectionChangeCrudRoutes = new Hono<{ Variables: ConnectionVariables }>()
@@ -99,27 +102,62 @@ databaseConnectionChangeCrudRoutes.post(
     )
     const input = c.req.valid('json')
     const statement = input.statement as MongoDatabaseChangeStatement
-    const planDto = await proposeMongoDatabasePlan({
-      connection,
-      requesterUserId: c.get('userId'),
-      requesterTeamRole: c.get('teamRole'),
+
+    try {
+      assertMongoChangeStatement(statement)
+    } catch (error) {
+      throw new AppError(
+        422,
+        'database_change_statement_rejected',
+        error instanceof Error ? error.message : 'Invalid MongoDB change statement.',
+      )
+    }
+    const requesterUserId = c.get('userId')
+    const preview = mongoChangeStatementPreview(statement)
+    const now = new Date()
+    const request: DatabaseChangeRequest = {
+      _id: new ObjectId(),
+      teamId: connection.teamId,
+      connectionId: connection._id,
+      engine: 'mongodb',
+      kind: mongoChangeKind(statement.operation),
+      operation: statement.operation,
+      database: statement.database,
+      collection: statement.collection,
       title: input.title,
       description: input.description,
       risk: input.risk,
       rollbackPlan: input.rollbackPlan,
-      statement,
-      authorizedExecutorUserIds: input.authorizedExecutorUserIds,
+      encryptedStatement: encryptDatabaseCredential(JSON.stringify(statement)),
+      statementDigest: mongoChangeStatementDigest(statement),
+      statementPreview: preview.statement,
+      statementPreviewTruncated: preview.truncated,
+      statementRedactedFields: preview.redactedFields,
+      requesterUserId,
+      authorizedExecutorUserIds: await requireAuthorizedExecutors(
+        connection,
+        requesterUserId,
+        input.authorizedExecutorUserIds,
+      ),
+      approvals: [],
+      policySnapshot: changeApprovalPolicy(connection),
+      status: 'draft',
       expiresAt: input.expiresAt ? new Date(input.expiresAt) : null,
-      proposalSource: 'human',
-    })
-    const { plan, action } = await findMongoPlanChange(connection, planDto.id)
+      executionId: null,
+      executionStartedAt: null,
+      executionCompletedAt: null,
+      executionResult: null,
+      executionErrorCategory: null,
+      executionErrorMessage: null,
+      events: [{ type: 'created', actorUserId: requesterUserId, at: now, comment: null }],
+      createdAt: now,
+      updatedAt: now,
+    }
 
+    await databaseChangeRequests().insertOne(request)
     c.header('Cache-Control', 'no-store')
 
-    return c.json(
-      mongoPlanViewForRequest(plan, action, connection, c.get('userId'), c.get('teamRole')),
-      201,
-    )
+    return c.json(changeRequestView(request, connection, requesterUserId, c.get('teamRole')), 201)
   },
 )
 

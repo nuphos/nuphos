@@ -7,6 +7,7 @@ import { test } from 'node:test'
 
 import {
   MAX_DOWNLOAD_BYTES,
+  noticeText,
   saveAgentDownload,
   saveDownload,
   saveDownloadsOf,
@@ -42,15 +43,68 @@ test('a download is saved in the folder under its own name, without a dialog', (
   const lines: string[] = []
   const item = download('report.pdf')
 
-  saveDownload(item, folder, (line) => lines.push(line))
+  saveDownload(
+    item,
+    folder,
+    (line) => lines.push(line),
+    () => {},
+  )
   assert.equal(item.savePath, join(folder, 'report.pdf'))
   item.received = 7
   item.emit('done', {}, 'completed')
   assert.deepEqual(lines, [`Downloaded: ${join(folder, 'report.pdf')} (completed, 7 bytes)`])
 })
 
+test('the person is told when a download starts and where it went', () => {
+  const folder = dir()
+  const notices: string[] = []
+  const done = download('key.pem')
+  const failed = download('big.iso')
+
+  saveDownload(
+    done,
+    folder,
+    () => {},
+    (file, state) => notices.push(`${state} ${file}`),
+  )
+  assert.deepEqual(notices, [`progressing ${join(folder, 'key.pem')}`])
+  done.emit('done', {}, 'completed')
+  saveDownload(
+    failed,
+    folder,
+    () => {},
+    (file, state) => notices.push(`${state} ${file}`),
+  )
+  failed.emit('done', {}, 'interrupted')
+  assert.deepEqual(notices, [
+    `progressing ${join(folder, 'key.pem')}`,
+    `completed ${join(folder, 'key.pem')}`,
+    `progressing ${join(folder, 'big.iso')}`,
+    `failed ${join(folder, 'big.iso')}`,
+  ])
+})
+
+test('a notice names the file and the folder as the person knows it', () => {
+  const home = join('/Users', 'me')
+  const file = join(home, 'Downloads', 'key.pem')
+
+  assert.deepEqual(noticeText(file, 'progressing', home), {
+    title: 'Downloading key.pem…',
+    detail: `Saving to ${join('~', 'Downloads')}`,
+  })
+  assert.deepEqual(noticeText(file, 'completed', home), {
+    title: 'Downloaded key.pem',
+    detail: `Saved to ${join('~', 'Downloads')}`,
+  })
+  assert.equal(
+    noticeText(join('/Volumes', 'key.pem'), 'completed', home).detail,
+    'Saved to /Volumes',
+  )
+  assert.equal(noticeText(file, 'failed', home).title, 'key.pem was not downloaded')
+})
+
 test('a name never leaves the folder or carries control characters', () => {
-  const folder = join('/Users', 'me', 'Downloads', 'Nuphos')
+  const folder = join('/Users', 'me', 'Downloads')
   const free = () => false
 
   assert.equal(
@@ -70,9 +124,19 @@ test('a clash is numbered instead of replacing the file there', () => {
   const first = download('song.mp3')
   const second = download('song.mp3')
 
-  saveDownload(first, folder, () => {})
+  saveDownload(
+    first,
+    folder,
+    () => {},
+    () => {},
+  )
   // The first is still downloading, so its name is taken too.
-  saveDownload(second, folder, () => {})
+  saveDownload(
+    second,
+    folder,
+    () => {},
+    () => {},
+  )
   assert.equal(first.savePath, join(folder, 'song (1).mp3'))
   assert.equal(second.savePath, join(folder, 'song (2).mp3'))
 })
@@ -81,12 +145,22 @@ test('a download over 2 GB is cancelled and reported', () => {
   const lines: string[] = []
   const known = download('big.iso', MAX_DOWNLOAD_BYTES + 1)
 
-  saveDownload(known, dir(), (line) => lines.push(line))
+  saveDownload(
+    known,
+    dir(),
+    (line) => lines.push(line),
+    () => {},
+  )
   assert.equal(known.cancelled, true)
 
   const unknown = download('stream.bin', 0)
 
-  saveDownload(unknown, dir(), (line) => lines.push(line))
+  saveDownload(
+    unknown,
+    dir(),
+    (line) => lines.push(line),
+    () => {},
+  )
   unknown.received = MAX_DOWNLOAD_BYTES
   unknown.emit('updated', {}, 'progressing')
   assert.equal(unknown.cancelled, false)
@@ -101,7 +175,12 @@ test('an interrupted download says so', () => {
   const lines: string[] = []
   const item = download('notes.txt')
 
-  saveDownload(item, dir(), (line) => lines.push(line))
+  saveDownload(
+    item,
+    dir(),
+    (line) => lines.push(line),
+    () => {},
+  )
   item.received = 3
   item.emit('done', {}, 'interrupted')
   assert.match(lines[0] ?? '', /^Download interrupted: .+notes\.txt \(3 bytes\)$/)
@@ -113,7 +192,12 @@ test("only an agent tab's downloads are saved, and its conversation is told once
   const item = download('a.txt')
   const taken = item as unknown as Parameters<typeof saveAgentDownload>[0]
 
-  saveDownloadsOf(agentTab, 'c1', () => folder)
+  saveDownloadsOf(
+    agentTab,
+    'c1',
+    () => folder,
+    () => {},
+  )
   assert.equal(saveAgentDownload(taken, {}), false)
   assert.equal(saveAgentDownload(taken, undefined), false)
   assert.equal(saveAgentDownload(taken, agentTab), true)

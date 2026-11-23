@@ -51,8 +51,8 @@ export type WindowDeviceApi = {
   localRuntimeGetState(): Promise<LocalRuntimeState>
   onLocalRuntimeState(cb: (state: LocalRuntimeState) => void): () => void
   localRuntimeRefresh(): Promise<LocalRuntimeState>
-  /** Reads this computer's running agents' models again; true when a list changed. */
-  localRuntimeRefreshModels(): Promise<boolean>
+  /** Reads this computer's running agents' models again. */
+  localRuntimeRefreshModels(pickerOpened?: boolean): Promise<void>
   localRuntimeUpdateAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
@@ -69,6 +69,7 @@ export type WindowDeviceApi = {
   instaboxAccounts(teamId: string): Promise<InstaboxAccount[]>
   bindInstaboxAccount(teamId: string, label: string, apiKey: string): Promise<InstaboxAccount>
   unbindInstaboxAccount(teamId: string, accountId: string): Promise<void>
+  replaceInstaboxKey(teamId: string, accountId: string, apiKey: string): Promise<void>
   instaboxSizes(teamId: string, accountId: string): Promise<BoxSize[]>
   boxPause(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>
   boxResume(deviceId: string, teamId: string): Promise<{ box: BoxStatus }>

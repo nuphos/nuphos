@@ -17,6 +17,7 @@ enum ChatRowTests {
         foldsFinishedWorkUnderOneHeader()
         liftsThreadBadgesOutOfTheFold()
         keepsSecretRequestsOutOfTheFold()
+        drawsNoToolRowForAQuestion()
         rendersReasoningMarkdown()
         keepsNarrationBetweenToolCalls()
         followsTheNewestRun()
@@ -454,6 +455,28 @@ enum ChatRowTests {
         ], "\(shape(rows))")
     }
 
+    /// A question is answered from the Inbox and shown as its answered line, as Desktop draws it
+    /// as its card: never a "Question" tool row of its own. A failed call keeps its row.
+    private static func drawsNoToolRowForAQuestion() {
+        func drawsRow(_ input: [String: JSONValue], state: ChatPart.ToolPart.State = .outputAvailable, error: String? = nil) -> Bool {
+            var call = ChatPart.ToolPart(toolCallId: "ask", toolName: "request_user_decision", isDynamic: true, state: state,
+                                         input: .object(input.merging(["label": .string("Ask which symptom")]) { a, _ in a }))
+            call.errorText = error
+            let message = ChatMessage(id: "m", role: .assistant, parts: [.text(.init(text: "One question first.", state: .done)), .tool(call)])
+            return ChatRow.assistantRows(message, live: false, lastApprovalCallId: nil).contains { if case .tool = $0 { return true }; return false }
+        }
+        let choice: [String: JSONValue] = ["category": .string("preference"), "question": .string("Which symptom?"),
+                                           "options": .array([.string("Blank screen"), .string("Late content")])]
+        precondition(!drawsRow(choice))
+        precondition(!drawsRow(choice, state: .inputAvailable))
+        precondition(!drawsRow(choice, state: .outputError, error: "Interrupted before the tool finished."))
+        precondition(drawsRow(choice, state: .outputError, error: "Request failed"))
+        precondition(drawsRow(["category": .string("integration"), "question": .string("Connect GitHub?"),
+                               "providers": .array([.string("github")])]))
+        precondition(drawsRow(["category": .string("credential"), "secretName": .string("OPENAI_API_KEY"),
+                               "question": .string("Paste your key")]))
+    }
+
     /// A secret request is its secure input card, never a folded tool row,
     /// even when the runtime names the call by its display title.
     private static func keepsSecretRequestsOutOfTheFold() {
@@ -625,5 +648,12 @@ enum ChatRowTests {
         precondition(anchored["a2"]?.map(\.groupId) == ["late"])
         precondition(anchored["a1"]?.first?.readyFiles.first?.isImage == true)
         precondition(TransferDownloadGroup.anchor([group("x", "2026-10-06T10:00:00.000Z")], in: [ChatMessage.user("only")]).isEmpty)
+
+        // A group the reply cites shows where it is cited, not again as a card below the reply.
+        let cited = "0123456789abcdef01234567"
+        let citing = ChatMessage(id: "a3", role: .assistant,
+                                 parts: [.text(.init(text: "![shot](https://nuphos.ai/_reply-images/\(cited))", state: .done))],
+                                 createdAt: nil)
+        precondition(TransferDownloadGroup.anchor([group(cited, "2026-10-06T10:00:00.000Z")], in: [citing]).isEmpty)
     }
 }

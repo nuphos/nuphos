@@ -140,7 +140,7 @@ struct ChatMessage: Identifiable, Equatable, Sendable {
         let runtime = metadata?["sender"]?["agentRuntime"]?.stringValue.flatMap(RuntimeInstance.Provider.init(rawValue:))
         let id = metadata?["sender"]?["id"]?.stringValue?.lowercased() ?? ""
         let logo = source == "agent.thread"
-            ? runtime.map { RuntimeInstance.Provider.logo($0.rawValue) }
+            ? runtime.flatMap { RuntimeInstance.Provider.logo($0.rawValue) }
             : ["github", "linear"].contains(id) ? "logo-\(id)" : nil
         let senderId = metadata?["sender"]?["id"]?.stringValue ?? ""
         let channelId = source == "agent.resource" && senderId.hasPrefix(Self.channelSenderPrefix)
@@ -385,6 +385,16 @@ enum ChatPart: Equatable, Sendable {
         var isProviderIntegrationRequest: Bool {
             input?["category"]?.stringValue == "integration" && input?["question"]?.stringValue != nil
                 && input?["credentials"] == nil
+        }
+
+        /// A question Desktop draws as its question card, never as a tool row. The app answers
+        /// it from the Inbox and the summary panel and shows the answer as its answered line, so
+        /// the transcript draws nothing for the call. A secret keeps its card, an integration its
+        /// connect actions, and a call that really failed its row.
+        var isQuestionCard: Bool {
+            toolName == "request_user_decision" && secretRequest == nil && input?["category"]?.stringValue != "integration"
+                && !(input?["question"]?.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                && !(state == .outputError && errorText != String(localized: "Interrupted before the tool finished."))
         }
 
         /// The providers an integration question asks for.

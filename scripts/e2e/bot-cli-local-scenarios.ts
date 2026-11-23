@@ -11,7 +11,7 @@ import { send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 
 const REINSTALL =
-  "This runtime couldn't start on its computer. Install it there again, then resend your message."
+  "This runtime couldn't start on its computer. Switch this Bot to another runtime, or reinstall it there from its official installer, then resend your message."
 
 export const botCliLocalScenarios: Scenario[] = [
   {
@@ -87,7 +87,11 @@ else {
           .filter({ hasText: 'Local Codex repair' })
           .first()
           .click()
-        await page.getByText(`couldn’t reply: ${REINSTALL}`).first().waitFor()
+        await page
+          .getByText(`couldn’t reply: ${REINSTALL}`)
+          .filter({ visible: true })
+          .first()
+          .waitFor()
         await page.getByRole('button', { name: 'Install Codex', exact: true }).first().waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
@@ -109,7 +113,11 @@ else {
         await until('the later reply to fail too', async () => failedAt() > sent)
         await until(
           'one line for the Bot',
-          async () => (await page.getByText(`couldn’t reply: ${REINSTALL}`).count()) === 1,
+          async () =>
+            (await page
+              .getByText(`couldn’t reply: ${REINSTALL}`)
+              .filter({ visible: true })
+              .count()) === 1,
         )
         await page.getByRole('button', { name: 'Install Codex', exact: true }).last().waitFor()
         await page.screenshot({ path: join(artifacts, 'bot-local-codex-reply-light.png') })

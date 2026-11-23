@@ -102,7 +102,7 @@ useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ endpoint }) as never,
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async () => conversation,
   getConversationWithMessages: async () => ({ conversation, messages: [] }),
   getConversationPreviewAttachment: async () => attachment,

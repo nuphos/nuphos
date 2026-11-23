@@ -6,11 +6,8 @@ import { ownAgents } from '../channels/channelShared'
 
 import { announceTimelineChange } from './panel/timelineEvents'
 
-import type {
-  AgentConversationParticipant,
-  ChannelAgent,
-  ConversationAccessState,
-} from '../../api/agent-types'
+import type { AgentConversationParticipant, ChannelAgent } from '../../api/agent-types'
+import type { ConversationAccessState } from '../../api/window-session-access'
 import type { Pickable } from './PersonFace'
 
 /** A channel's agents as the Share card's people; the viewer may take out their own, or any if they own the channel. */

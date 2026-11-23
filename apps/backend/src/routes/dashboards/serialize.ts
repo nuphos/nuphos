@@ -103,6 +103,7 @@ export function serializePanel(
   dashboard: Pick<NuphosDashboard, 'cadence'>,
   currentSnapshot: DashboardPanelSnapshot | null,
   lastSuccessfulSnapshot: DashboardPanelSnapshot | null = null,
+  viewerId?: string,
 ) {
   const head = doc.versions.find((v) => v.version === doc.scriptVersion) ?? doc.versions.at(-1)
 

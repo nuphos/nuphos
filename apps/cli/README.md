@@ -84,6 +84,10 @@ nuphos bots NAME --create --agent RUNTIME    # ... on a chosen runtime
 nuphos model                                 # list the runtime's models
 nuphos model [VALUE] [--effort E] --session ID
 nuphos stop --session ID
+nuphos vault enroll [--name N]               # add this device to your end-to-end encrypted vault
+nuphos vault devices | approve ID | remove-device ID
+echo -n "..." | nuphos vault set NAME        # save an item; the value comes from stdin
+nuphos vault get NAME | list | rm NAME
 nuphos login | logout
 nuphos login --device                        # sign in with a code approved on another device
 nuphos login --token -                       # an agent token from nuphos.ai/settings/tokens, on stdin

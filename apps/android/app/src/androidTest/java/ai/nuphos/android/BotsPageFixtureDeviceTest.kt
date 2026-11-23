@@ -226,6 +226,34 @@ class BotsPageFixtureDeviceTest {
         compose.onNodeWithText("Diana: Shipping today").assertExists()
     }
 
+    @Test fun aLongPreviewWrapsOntoTwoLinesBeforeItIsCut() {
+        val long = "Moved the staging rollout to Thursday so the database migration can finish first, and asked the on-call " +
+            "team to watch the error rate after it ships. The checklist is pinned in the release chat for everyone."
+        chats = "${oneOnOne.replace("Ready when you are", long)},$group"
+        render()
+        waitText(long)
+        // For review (#4508), taken before the check so a failing run still shows the rows.
+        compose.waitForIdle()
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        instrumentation.waitForIdleSync()
+        Thread.sleep(300)
+        val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No synthetic screenshot")
+        val uploaded = java.io.File(instrumentation.targetContext.externalMediaDirs.first(), "additional_test_output").apply { mkdirs() }
+        java.io.File(uploaded, "review-4508-bot-preview.png").outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+        image.recycle()
+
+        val layouts = mutableListOf<androidx.compose.ui.text.TextLayoutResult>()
+        // The row merges its texts, so read the preview's own node rather than the row's first text, its title.
+        compose.onNodeWithText(long, useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals("The preview takes two lines", 2, layouts.single().lineCount)
+        assertTrue("and is cut after them", layouts.single().hasVisualOverflow)
+        // As on iOS, the chevron sits in the middle of the two-line row, not at its top.
+        val bounds = row("chat-bot").fetchSemanticsNode().boundsInRoot
+        val chevron = compose.onNode(hasTestTag("chat-chevron") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertEquals("The chevron is centred on the row", bounds.center.y, chevron.center.y, 2f)
+    }
+
     @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
         fun ada(state: String) = """{"sessionId":"bot-chatted","title":"Ada","avatar":"07-ada","lastActiveAt":"2026-11-03T13:30:00Z",""" +
             """"runtimeState":{"state":"$state","channelIds":["chat-bot"]}}"""

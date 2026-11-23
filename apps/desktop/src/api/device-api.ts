@@ -33,7 +33,8 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
-  localRuntimeRefreshModels: () => window.api.localRuntimeRefreshModels(),
+  localRuntimeRefreshModels: (pickerOpened?: boolean) =>
+    window.api.localRuntimeRefreshModels(pickerOpened),
   localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>
     window.api.localRuntimeUpdateAgent(provider),
   localRuntimeInstallAgent: (provider: LocalAgentProvider) =>
@@ -54,6 +55,8 @@ export const deviceApi = {
     window.api.bindInstaboxAccount(teamId, label, apiKey),
   unbindInstaboxAccount: (teamId: string, accountId: string) =>
     window.api.unbindInstaboxAccount(teamId, accountId),
+  replaceInstaboxKey: (teamId: string, accountId: string, apiKey: string) =>
+    window.api.replaceInstaboxKey(teamId, accountId, apiKey),
   instaboxSizes: (teamId: string, accountId: string) => window.api.instaboxSizes(teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),

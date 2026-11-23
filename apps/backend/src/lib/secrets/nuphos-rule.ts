@@ -45,6 +45,19 @@ const TOKEN_SHAPES: Shape[] = [
       /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----(?:[^-]|-(?!----BEGIN )){0,16384}?-----END [A-Z0-9 ]*PRIVATE KEY-----/dg,
   },
   { kind: 'aws-access-key-id', pattern: /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/dg },
+  // The secret key and session token have no shape of their own, so they are
+  // caught by the names AWS's CLI, SDKs and STS JSON print them under. A
+  // backslash may precede a quote: callers also scan JSON-encoded text.
+  {
+    kind: 'aws-secret',
+    pattern:
+      /\b(?:aws_secret_access_key|secretaccesskey|aws_session_token|sessiontoken)\\?["']?\s*[=:]\s*\\?["']?([a-z0-9/+=]{40,})/dgi,
+    group: 1,
+  },
+  // A session token printed on its own: STS tokens begin with a fixed prefix.
+  { kind: 'aws-secret', pattern: /\b(?:IQoJb3JpZ2lu|F[Qw]oGZXIvYXdz)[A-Za-z0-9/+=]{40,}/dg },
+  // PostHog personal API keys and feature flag secure keys (phc_ is public).
+  { kind: 'posthog-key', pattern: /\bph[sx]_[A-Za-z0-9]{30,}\b/dg },
   // An unbounded header starts only at the head of a token run: from every
   // `eyJ` inside one (as in `eyJ-eyJ-...`) the scan would re-read the run,
   // which is quadratic. After a hyphen (`session-<jwt>`) the header is capped

@@ -39,6 +39,20 @@ describe('conversationAccess', () => {
     }
   })
 
+  test('a Bot is its owner’s alone, invited, team-wide or on a shared computer', () => {
+    const bot = {
+      ...base,
+      avatar: '07-ada',
+      generalAccess: 'view' as const,
+      participantIds: ['teammate'],
+    }
+
+    expect(conversationAccess(bot, 'owner')).toBe('owner')
+    expect(conversationAccess(bot, 'teammate', true)).toBeNull()
+    expect(conversationAccess(bot, 'teammate')).toBeNull()
+    expect(conversationAccess(bot, 'other')).toBeNull()
+  })
+
   test('an invitee without the computer reads only', () => {
     const invited = { ...base, generalAccess: 'none' as const, participantIds: ['teammate'] }
 
@@ -132,7 +146,13 @@ function mongoMatches(doc: Record<string, unknown>, filter: Record<string, unkno
     if (key === '$or') {
       return (expected as Record<string, unknown>[]).some((clause) => mongoMatches(doc, clause))
     }
+    if (key === '$nor') {
+      return !(expected as Record<string, unknown>[]).some((clause) => mongoMatches(doc, clause))
+    }
     const actual = doc[key]
+
+    if (expected && typeof expected === 'object' && '$exists' in expected)
+      return (actual !== undefined) === expected.$exists
 
     if (expected && typeof expected === 'object' && '$ne' in expected) {
       // $ne also matches a missing field, like Mongo.
@@ -150,18 +170,24 @@ test('readableByFilter admits exactly the viewers readsConversation admits', () 
   const memberships = [{}, { participantIds: ['viewer'] }, { participantIds: ['someone-else'] }]
   let checked = 0
 
+  const kinds = [{}, { avatar: '07-ada' }, { kind: 'channel' }, { kind: 'channel', avatar: 'x' }]
+
   for (const owner of ['owner', 'viewer'])
     for (const generalAccess of generals)
-      for (const membership of memberships) {
-        const doc = {
-          userId: owner,
-          teamId: 'team',
-          ...(generalAccess ? { generalAccess } : {}),
-          ...membership,
-        }
+      for (const membership of memberships)
+        for (const kind of kinds) {
+          const doc = {
+            userId: owner,
+            teamId: 'team',
+            ...(generalAccess ? { generalAccess } : {}),
+            ...membership,
+            ...kind,
+          }
 
-        expect(mongoMatches(doc, readableByFilter('viewer'))).toBe(readsConversation(doc, 'viewer'))
-        checked++
-      }
-  expect(checked).toBe(24)
+          expect(mongoMatches(doc, readableByFilter('viewer'))).toBe(
+            readsConversation(doc, 'viewer'),
+          )
+          checked++
+        }
+  expect(checked).toBe(96)
 })

@@ -4,20 +4,17 @@ import { useMemo, useState } from 'react'
 import { api } from '../../../api'
 import { useCurrentUser } from '../../../hooks/useCurrentUser'
 import { useStableCallback } from '../../../hooks/useStableCallback'
-import { t } from '../../../i18n'
-import { track } from '../../../lib/analytics'
 import { runtimeIsExecuting, runtimeAllows } from '../../../lib/runtimeExecution'
 import { cardAsides } from '../../../views/inbox/dismissQuestion'
 import { cardAnswers } from '../../../views/inbox/useInbox'
-import { toast } from '../../ui/toast'
 import { PermissionResumeContext } from '../permissionResumeContext'
 
 import { ChatColumn } from './ChatColumn'
 import { Composer } from './Composer'
 import { composerDraftKey } from './composerDrafts'
-import { hidingRetracted, sentHistory } from './composerRecall'
+import { sentHistory } from './composerRecall'
 import { ConnectCardContext } from './connectCardContext'
-import { Conversation } from './Conversation'
+import { RetainedConversations } from './Conversation'
 import { ConversationPlaceholder } from './ConversationPlaceholder'
 import { useConversationRuntimeControl } from './conversationRuntimeControl'
 import { DelayedPanelReveal } from './homeAnimation'
@@ -52,7 +49,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     forkConversation,
     onDockToSidebar,
     handleMessageFeedback,
-    handleRejectPlan,
     isSidebarMode,
     isTeamAdmin,
     loadEarlierMessages,
@@ -91,28 +87,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     () => sentHistory(activeMessages ?? [], currentUserId, foreignChat),
     [activeMessages, currentUserId, foreignChat],
   )
-  const shownTab = useMemo(() => activeTab && hidingRetracted(activeTab), [activeTab])
   const turnRetry = useFailedTurnRetry(activeTab, currentUserId, foreignChat, sendInActive)
   // Every message in the transcript receives these handlers. Stable identities
   // keep the messages memoized when this page renders again — opening the dock,
   // a background refresh — instead of rendering the whole transcript each time.
   const fork = useStableCallback(forkConversation)
-  // The backend wakes the agent once the approval completes the plan's gate.
-  const approvePlan = useStableCallback((planId: string) => {
-    if (activeTab?.readOnly) return
-    track('agent_plan_approved', { plan_id: planId, surface: 'inline_card' })
-    void api.agentUpdatePlan(planId, { status: 'approved' }, teamId).catch((err: unknown) => {
-      console.warn('[plan] failed to mark approved', err)
-      toast.apiError(t('Could not approve plan'), err, {
-        fallback: t('The plan was not approved. Please try again.'),
-      })
-    })
-  })
-  const rejectPlan = useStableCallback(
-    (planId: string, reason: string, mode: 'revise' | 'delete') => {
-      void handleRejectPlan(planId, reason, mode, 'the plan')
-    },
-  )
   const editMessage = useMemo(
     () =>
       editableSessionId
@@ -141,15 +120,23 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       ? { active: bypassBySession[activeTab.sessionId], onSelect: selectBypassMode }
       : undefined
 
-  return activeTab && !switchingConversation ? (
-    // Keyed: nothing one chat's views hold carries into the next.
-    <div key={activeTab.sessionId} className="flex min-h-0 flex-1">
+  const shown = activeTab && !switchingConversation ? activeTab : null
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      {!shown && (
+        <ConversationPlaceholder
+          unavailable={c.openingConversation?.unavailable === true}
+          onNewChat={c.startNewChat}
+        />
+      )}
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
             className={clsx(
               'relative grid min-h-0 flex-1 grid-cols-1',
               c.hideTranscript ? 'grid-rows-[0_auto]' : 'grid-rows-[1fr_auto]',
+              !shown && 'hidden',
             )}
           >
             {/* Keep the transcript above the composer as its height changes. */}
@@ -161,7 +148,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
             >
               <ConnectCardContext.Provider
                 value={{
-                  credentials: activeTab.readOnly
+                  credentials: activeTab?.readOnly
                     ? undefined
                     : visibleConversationCredentialSelector,
                   send: (text, card) =>
@@ -170,10 +157,10 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                     ? cardAnswers(teamId, activeTab.sessionId, questions)
                     : undefined,
                   // Offered only on a card that can be answered, so `answer` already gates it.
-                  ...cardAsides(teamId, activeTab, questions),
+                  ...(activeTab ? cardAsides(teamId, activeTab, questions) : {}),
                   // Only the owner provides a secret; it lands on their runtime.
                   saveSecret:
-                    activeTab.readOnly || activeTab.foreign
+                    !activeTab || activeTab.readOnly || activeTab.foreign
                       ? undefined
                       : async (name, value) =>
                           (await api.agentSaveSecret(activeTab.sessionId, name, value, teamId))
@@ -183,23 +170,21 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               >
                 <TurnSwitchAgentContext.Provider value={turnSwitch}>
                   <TurnRetryContext.Provider value={turnRetry}>
-                    <Conversation
-                      tab={shownTab ?? activeTab}
+                    <RetainedConversations
+                      tabs={c.tabs}
+                      shown={shown}
                       visible={c.visible && c.showingConversationPage}
                       teamId={teamId}
                       isTeamAdmin={isTeamAdmin}
                       currentUrl={url}
                       sidebar={isSidebarMode}
                       composer={composer}
-                      onLoadEarlier={() => void loadEarlierMessages(activeTab.id)}
+                      onLoadEarlier={(tabId) => void loadEarlierMessages(tabId)}
                       onMessageFeedback={handleMessageFeedback}
                       // Only show docking where a sidebar host exists.
                       onDockToSidebar={
                         variant === 'page' && onDockToSidebar ? dockCurrentSession : undefined
                       }
-                      onStop={stopActive}
-                      onApprovePlan={approvePlan}
-                      onRejectPlan={rejectPlan}
                       activePlanCanAct={activePlanCanAct}
                       onOpenNuphosLink={onOpenNuphosLink}
                       onOpenAgentSettings={onOpenAgentSettings}
@@ -210,63 +195,63 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
               </ConnectCardContext.Provider>
             </div>
             <div ref={setComposer} className="col-start-1 row-start-2 z-10">
-              <ChatColumn sidebar={isSidebarMode}>
-                {waitingMessages(activeTab).length > 0 && (
-                  <QueuedStrip
-                    items={waitingMessages(activeTab)}
-                    approval={queuedApproval}
-                    canSteer={runtimeAllows(activeTab.runtimeState, 'steer')}
-                    onRemove={(queuedId) => void removeQueued(activeTab.id, queuedId)}
-                    onSteer={(queuedId) => void steerQueued(activeTab.id, queuedId)}
-                  />
-                )}
-                {activeTab.messages.length === 0 ? (
-                  <DelayedPanelReveal>
-                    <Composer
-                      onSend={(text, filePaths, mentions, { mode } = {}) =>
-                        sendInActive(text, filePaths, undefined, undefined, mentions, mode)
-                      }
-                      onStop={stopActive}
-                      autoFocus={focusComposerOnOpen}
-                      runtimeState={activeTab.runtimeState}
-                      executing={runtimeIsExecuting(activeTab.runtimeState)}
-                      readOnly={activeTab.readOnly}
-                      readOnlyNotice={readOnlyNotice}
-                      activitySource={activeTab.activitySource}
-                      slackThread={activeTab.slackThread}
-                      credentialSelector={visibleConversationCredentialSelector}
-                      runtimeControl={runtimeControl}
-                      agentMenu={agentMenu}
-                      modelSession={modelSession}
-                      bypassControl={bypassControl}
-                      pendingSeed={pendingPromptReady}
-                      onSeedConsumed={onPromptConsumed}
-                      sidebar={isSidebarMode}
-                      dropRegisterRef={conversationDropRef}
-                      draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
-                      recall={{ retract: retractLatest, history: [] }}
-                      mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+              {shown && (
+                <ChatColumn key={shown.sessionId} sidebar={isSidebarMode}>
+                  {waitingMessages(shown).length > 0 && (
+                    <QueuedStrip
+                      items={waitingMessages(shown)}
+                      approval={queuedApproval}
+                      canSteer={runtimeAllows(shown.runtimeState, 'steer')}
+                      onRemove={(queuedId) => void removeQueued(shown.id, queuedId)}
+                      onSteer={(queuedId) => void steerQueued(shown.id, queuedId)}
                     />
-                  </DelayedPanelReveal>
-                ) : (
-                  <>
+                  )}
+                  {shown.messages.length === 0 ? (
+                    <DelayedPanelReveal>
+                      <Composer
+                        onSend={(text, filePaths, mentions, { mode } = {}) =>
+                          sendInActive(text, filePaths, undefined, undefined, mentions, mode)
+                        }
+                        onStop={stopActive}
+                        autoFocus={focusComposerOnOpen}
+                        runtimeState={shown.runtimeState}
+                        executing={runtimeIsExecuting(shown.runtimeState)}
+                        readOnly={shown.readOnly}
+                        readOnlyNotice={readOnlyNotice}
+                        activitySource={shown.activitySource}
+                        slackThread={shown.slackThread}
+                        credentialSelector={visibleConversationCredentialSelector}
+                        runtimeControl={runtimeControl}
+                        agentMenu={agentMenu}
+                        modelSession={modelSession}
+                        bypassControl={bypassControl}
+                        pendingSeed={pendingPromptReady}
+                        onSeedConsumed={onPromptConsumed}
+                        sidebar={isSidebarMode}
+                        dropRegisterRef={conversationDropRef}
+                        draftKey={composerDraftKey(teamId, c.composerDraftId ?? shown.sessionId)}
+                        recall={{ retract: retractLatest, history: [] }}
+                        mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
+                      />
+                    </DelayedPanelReveal>
+                  ) : (
                     <Composer
                       onSend={(text, filePaths, mentions, { mode } = {}) =>
                         sendInActive(text, filePaths, undefined, undefined, mentions, mode)
                       }
                       onStop={stopActive}
                       promptSuggestion={
-                        activeTab.streaming || runtimeIsExecuting(activeTab.runtimeState)
+                        shown.streaming || runtimeIsExecuting(shown.runtimeState)
                           ? null
-                          : activeTab.promptSuggestion
+                          : shown.promptSuggestion
                       }
                       autoFocus={focusComposerOnOpen}
-                      runtimeState={activeTab.runtimeState}
-                      canStop={canStopTurn(activeTab)}
-                      readOnly={activeTab.readOnly}
+                      runtimeState={shown.runtimeState}
+                      canStop={canStopTurn(shown)}
+                      readOnly={shown.readOnly}
                       readOnlyNotice={readOnlyNotice}
-                      activitySource={activeTab.activitySource}
-                      slackThread={activeTab.slackThread}
+                      activitySource={shown.activitySource}
+                      slackThread={shown.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
                       runtimeControl={runtimeControl}
                       agentMenu={agentMenu}
@@ -276,22 +261,17 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       onSeedConsumed={onPromptConsumed}
                       sidebar={isSidebarMode}
                       dropRegisterRef={conversationDropRef}
-                      draftKey={composerDraftKey(teamId, c.composerDraftId ?? activeTab.sessionId)}
+                      draftKey={composerDraftKey(teamId, c.composerDraftId ?? shown.sessionId)}
                       recall={{ retract: retractLatest, history }}
                       mentionScope={teamId ? { teamId, sessionId: inviteSessionId } : undefined}
                     />
-                  </>
-                )}
-              </ChatColumn>
+                  )}
+                </ChatColumn>
+              )}
             </div>
           </div>
         </AuthorizationActionContext.Provider>
       </PermissionResumeContext.Provider>
     </div>
-  ) : (
-    <ConversationPlaceholder
-      unavailable={c.openingConversation?.unavailable === true}
-      onNewChat={c.startNewChat}
-    />
   )
 }

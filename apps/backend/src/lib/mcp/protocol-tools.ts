@@ -3,6 +3,7 @@ import { CONTROL_TOOL_DEFINITIONS } from './protocol-tools-control'
 import { CREDENTIAL_TOOLS } from './protocol-tools-credentials'
 import { FILE_TOOLS } from './protocol-tools-files'
 import { RESOURCE_TOOLS } from './protocol-tools-resources'
+import { WEBHOOK_TOOLS } from './protocol-tools-webhooks'
 
 export const TOOL_DEFINITIONS = [
   ...FILE_TOOLS,
@@ -18,7 +19,7 @@ export const TOOL_DEFINITIONS = [
       'A prompt sent while that session is running is handed to the turn in flight, ' +
       'which is how you add an instruction or change direction mid-run. ' +
       'Set wait to false to return as soon as the turn is accepted and poll ' +
-      'nuphos_check instead, or subscribe with GET /mcp?session_id=<id> using the same bearer token for SSE status and Task report notifications. ' +
+      'nuphos_check instead, or subscribe with GET /mcp?session_id=<id> using the same bearer token for SSE status and Task report notifications (up to three active subscriptions per user; retry 429 or 503 after Retry-After). ' +
       'ALWAYS call nuphos_list_teams first: team_id is required, and every ' +
       'conversation runs inside one of your Nuphos teams.',
     inputSchema: {
@@ -87,6 +88,13 @@ export const TOOL_DEFINITIONS = [
             "nuphos_list_sessions). It uses the Bot's credentials and Full Access mode, " +
             "and starts on the Bot's agent, model and effort unless runtime_id, model " +
             'or effort say otherwise.',
+        },
+        webhook_id: {
+          type: 'string',
+          description:
+            "Send a NEW session's events only to this enabled team webhook (an id from " +
+            'nuphos_webhooks), instead of to every endpoint of the team. Its Tasks keep ' +
+            'the usual delivery; their events name it as parent_session_id.',
         },
         request_id: {
           type: 'string',
@@ -212,6 +220,7 @@ export const TOOL_DEFINITIONS = [
     },
   },
   ...CREDENTIAL_TOOLS,
+  ...WEBHOOK_TOOLS,
   {
     name: 'nuphos_capabilities',
     description:
