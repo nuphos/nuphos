@@ -243,7 +243,8 @@ export const channelScenarios: Scenario[] = [
           .getByRole('complementary', { name: 'Bot details' })
           .getByRole('progressbar', { name: 'Usage remaining' })
           .waitFor({ timeout: 30_000 })
-          .then(() => true, () => false)
+          .then(() => true)
+          .catch(() => false)
 
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         await newTask(page)

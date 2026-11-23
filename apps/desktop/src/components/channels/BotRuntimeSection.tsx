@@ -38,10 +38,7 @@ export function BotRuntimeSection({
   if (owned && !runtime) return null
 
   return (
-    <SummarySection
-      title={t('Runtime')}
-      action={usage(runtime)}
-    >
+    <SummarySection title={t('Runtime')} action={usage(runtime)}>
       {owned && runtime ? (
         <RuntimeSelector {...runtime} asRow />
       ) : (
