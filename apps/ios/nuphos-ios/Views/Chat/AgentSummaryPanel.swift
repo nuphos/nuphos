@@ -77,7 +77,8 @@ struct AgentSummaryPanel: View {
                         }
                     }
                 }
-                if !changes.isEmpty {
+                // Bot details leaves out Changes, as on Desktop (#4080): they belong to the Bot's tasks.
+                if !isBotDetails && !changes.isEmpty {
                     SummaryCard("Changes") {
                         ForEach(changes) { resource in
                             Link(destination: resource.url) {
