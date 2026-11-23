@@ -4,6 +4,7 @@ import { config } from '@/config'
 
 import { githubPullState, githubResourceEvents, githubStatusCommit } from './resource-webhook'
 import { githubHealthTargets } from './resource-webhook-health'
+import { githubIssueState } from './resource-webhook-issue'
 
 const base = { installation: { id: 12 }, repository: { id: 34, full_name: 'acme/app' } }
 
@@ -259,6 +260,33 @@ test('own merges update the linked tag state even though they never wake a sessi
   ).toBe('open')
   expect(githubPullState('pull_request', { ...merged, action: 'synchronize' })).toBeNull()
   config.byos.github.appSlug = previous
+})
+
+test('own issue closes update the linked tag without waking; other issue actions do neither', () => {
+  const previous = config.byos.github.appSlug
+
+  config.byos.github.appSlug = 'nuphos'
+  try {
+    const closed = {
+      ...base,
+      action: 'closed',
+      sender: { type: 'Bot', login: 'nuphos[bot]' },
+      issue: { number: 56, state: 'closed' },
+    }
+    const labeled = { ...closed, action: 'labeled', sender: { type: 'User', login: 'maintainer' } }
+
+    expect(githubResourceEvents('issues', closed)).toEqual([])
+    expect(githubIssueState('issues', closed)).toEqual({
+      key: 'github/12/34/56',
+      state: 'closed',
+      draft: false,
+    })
+    expect(githubResourceEvents('issues', labeled)).toEqual([])
+    expect(githubIssueState('issues', labeled)).toBeNull()
+    expect(githubIssueState('issues', { ...labeled, action: 'assigned' })).toBeNull()
+  } finally {
+    config.byos.github.appSlug = previous
+  }
 })
 
 test('pushes, finished CI and reviews refresh a linked PR tag, our own included', () => {
