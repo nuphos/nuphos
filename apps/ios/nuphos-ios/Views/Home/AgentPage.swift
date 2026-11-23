@@ -9,6 +9,7 @@ struct AgentPage: View {
     /// The chat shown beside (or, when compact, on top of) the list.
     @Binding var openChat: OpenChat?
     @Binding var showNewBot: Bool
+    var insetSelection = false
 
     /// Whether the keyboard on screen is this page's composer's.
     @State private var ownsKeyboard = false
@@ -301,7 +302,20 @@ struct AgentPage: View {
                 }
                 // A custom row background hides the system selection
                 // highlight, so the open chat's row draws its own.
-                .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
+                .listRowBackground(Group {
+                    if openChat?.id == conversation.sessionId {
+                        if insetSelection {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Theme.muted.opacity(0.12))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 2)
+                        } else {
+                            Theme.muted.opacity(0.12)
+                        }
+                    } else {
+                        Color.clear
+                    }
+                })
                 .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
