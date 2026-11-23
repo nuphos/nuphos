@@ -158,7 +158,12 @@ async function failures(
   return hook!.id
 }
 
-/** An MCP client adds an endpoint that gets the next reply, then removes both endpoints. */
+const endpoint = (name: string) => [
+  { name: 'Authorization', value: KEY },
+  { name: 'X-Endpoint', value: name },
+]
+
+/** Over MCP: a session started for one of two endpoints reports there alone (#4747). */
 async function overMcp(
   tool: ReturnType<typeof mcp>['tool'],
   teamId: string,
@@ -172,27 +177,38 @@ async function overMcp(
     })
 
     must(!reply.isError, `nuphos_webhooks to ${String(args.action)}, got ${JSON.stringify(reply)}`)
+    must(!JSON.stringify(reply).includes(KEY), 'nuphos_webhooks to omit header values')
 
-    return reply
+    return reply.structuredContent!.webhook?.id ?? ''
   }
-  const created = await manage({
-    action: 'create',
-    name: 'E2E MCP endpoint',
-    url: webhookUrl(),
-    events: ['session.turn.completed'],
-    headers: [{ name: 'Authorization', value: KEY }],
+  const add = (name: string, tag: string) =>
+    manage({
+      action: 'create',
+      name,
+      url: webhookUrl(),
+      events: ['session.turn.completed'],
+      headers: endpoint(tag),
+    })
+  const team = await add('E2E MCP endpoint', 'team')
+  const own = await add('E2E session endpoint', 'own')
+  const started = await tool<{ session_id: string }>('nuphos_ask', {
+    team_id: teamId,
+    prompt: 'Reply E2E_DELIVERY:webhook-own',
+    wait: false,
+    webhook_id: own,
   })
+  const session = started.structuredContent!.session_id
+  const at = (tag: string, id: string) => (r: WebhookRequest) =>
+    r.body.data.session_id === id && r.headers['x-endpoint'] === tag
 
-  must(!JSON.stringify(created).includes(KEY), 'nuphos_webhooks to omit header values')
+  await received('the reply, at the endpoint that started it', at('own', session))
+  // The endpoint added in Settings is switched off, so these two send it.
   const replied = await ask('Reply E2E_DELIVERY:webhook-mcp')
 
-  // The endpoint added in Settings is switched off, so only this one sends it.
-  await received(
-    'the reply, at the endpoint added over MCP',
-    (r) => r.body.data.session_id === replied,
-  )
-  await manage({ action: 'delete', webhook_id: created.structuredContent!.webhook!.id })
-  await manage({ action: 'delete', webhook_id: switchedOff })
+  await received('another session’s reply, at the first endpoint', at('team', replied))
+  await received('another session’s reply, at the second endpoint', at('own', replied))
+  must(!webhookRequests().some(at('team', session)), 'the started session to skip other endpoints')
+  for (const webhook_id of [team, own, switchedOff]) await manage({ action: 'delete', webhook_id })
 }
 
 export const webhookScenarios: Scenario[] = [
@@ -221,6 +237,7 @@ export const webhookScenarios: Scenario[] = [
         'webhook-id': headers['webhook-id'],
         authorization: headers.authorization === KEY ? 'the saved value' : headers.authorization,
         type: body.type,
+        endpoint: headers['x-endpoint'],
         session_id: body.data.session_id,
       }))
 

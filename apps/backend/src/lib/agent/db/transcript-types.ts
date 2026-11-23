@@ -30,4 +30,5 @@ export type ConversationTranscriptSync = {
   runtimeLabel?: string
   /** A new conversation's parent: the Bot a Task opened over MCP starts under. */
   parentSessionId?: string
+  webhookId?: string
 }

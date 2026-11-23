@@ -252,6 +252,7 @@ export async function nuphosAsk(
         ...(start.runtimeId ? { runtimeId: start.runtimeId } : {}),
         ...(start.pick ? { initialSessionConfig: start.pick } : {}),
         ...(start.bot ? { parentSessionId: start.bot.sessionId } : {}),
+        ...(start.webhookId ? { webhookId: start.webhookId } : {}),
       })
     } finally {
       release()
