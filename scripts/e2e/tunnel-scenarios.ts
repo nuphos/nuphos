@@ -11,7 +11,7 @@ import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { DESKTOP_DIR, startSecondComputer } from './second-computer.ts'
 import { proxyTo } from './tcp-proxy.ts'
-import { newTask, openComputers, pickInSubmenu, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -24,7 +24,7 @@ const UPDATE_RELEASE = join(artifacts, 'update-release')
 const RELEASE = join(artifacts, 'tunnel-release')
 
 /** The app's local-runtime bundle with the fixture agent as Claude Code; E2E_WAIT_RELEASE waits for `release`. */
-function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
+export function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE): string {
   const real = join(DESKTOP_DIR, 'build', 'local-runtime', 'linux-x64')
   const root = join(artifacts, `${name}-bundle`)
   const neverFile = join(artifacts, `${name}-never`)
@@ -85,8 +85,7 @@ async function newTaskOn(page: Page, label: string) {
   await newTask(page)
   // The computer's row opens its runtimes, named by agent alone.
   await page.getByRole('button', { name: /^Runtime:/ }).click()
-  await page.getByRole('menu').getByText(label).click()
-  await pickInSubmenu(page, page.getByRole('menuitem', { name: /^Claude Code/ }))
+  await pickInRow(page, label, /^Claude Code/)
 }
 
 /** Lines the backend logged about this computer since `from`. */
@@ -224,12 +223,18 @@ export const tunnelScenarios: Scenario[] = [
         // It used to answer "An agent is working on this computer" and leave the turn running.
         await until('the computer to restart into its update', async () => computer.restarts() > 0)
         await page.getByText(`${UPDATED} is back`).waitFor({ timeout: 120_000 })
+        // Back as soon as it reported in again, though it restarted between two readings.
+        await page.evaluate(() => {
+          document.documentElement.classList.remove('dark')
+          document.documentElement.classList.add('light')
+        })
+        await card.screenshot({ path: join(artifacts, 'computer-update-back-light.png') })
         await page.getByText('Back to app', { exact: true }).click()
 
         // The turn the restart ended stops running and says it was cut off; the Task carries on.
         await until(
           'the Task to stop running',
-          async () => (await page.locator('button[title="Stop"]').count()) === 0,
+          async () => (await page.locator('button[title="Stop"]:visible').count()) === 0,
           120_000,
         )
         await page.getByText(/This message was cut off/).waitFor({ timeout: 60_000 })

@@ -6,9 +6,9 @@ import type { ReactNode } from 'react'
 const NEST_INDENT = 16
 const TASK_ICON_CENTER_X = 19
 
-/** A Bot chat row (60px, a 36px face at px-2): the face's centre and just under it. */
+/** A Bot chat row (70px, a 36px face at px-2): the face's centre and just under it. */
 const BOT_FACE_CENTER_X = 26
-const BOT_FACE_BOTTOM_Y = 50
+const BOT_FACE_BOTTOM_Y = 55
 const LINE = 'pointer-events-none absolute border-line-control/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.
 const DOWN = `${LINE} -bottom-0.5 border-l`

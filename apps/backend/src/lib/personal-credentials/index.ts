@@ -30,6 +30,8 @@ const LINEAR_SCOPE = 'read,write'
 export const PERSONAL_CREDENTIAL_PROVIDERS = ['github', 'linear', ...GOOGLE_PROVIDERS] as const
 
 export type PersonalCredentialSummary = {
+  /** The connection's own id: what a tool call names when a member has several accounts. */
+  id: string
   provider: PersonalCredentialProvider
   login: string
   workspaceName: string | null
@@ -49,6 +51,7 @@ export async function listPersonalCredentials(
     .toArray()
 
   return docs.map((doc) => ({
+    id: doc._id.toHexString(),
     provider: doc.provider,
     login: doc.login,
     workspaceName: doc.workspaceName ?? null,
@@ -202,12 +205,23 @@ export async function claimPersonalCredential(
   const other: Record<string, ''> = ready.staged.composioAccountId
     ? { encryptedAccessToken: '' }
     : { composioAccountId: '' }
+  // Reconnecting replaces only the same account: its provider id, or for Composio (whose
+  // connected-account id is new each time) its login. Another account of the member is kept.
+  const same = ready.staged.composioAccountId
+    ? { login: ready.staged.login, composioAccountId: { $exists: true } }
+    : { providerUserId: ready.staged.providerUserId }
+  const newId = new ObjectId()
   const previous = await personalCredentials().findOneAndUpdate(
-    { userId, provider, ...(ready.staged.teamId ? { teamId: ready.staged.teamId } : {}) },
+    {
+      userId,
+      provider,
+      ...(ready.staged.teamId ? { teamId: ready.staged.teamId } : {}),
+      ...same,
+    },
     {
       $set: { ...ready.staged, updatedAt: now },
       $unset: other,
-      $setOnInsert: { _id: new ObjectId(), createdAt: now },
+      $setOnInsert: { _id: newId, createdAt: now },
     },
     { upsert: true, returnDocument: 'before' },
   )
@@ -221,6 +235,7 @@ export async function claimPersonalCredential(
   if (previous && (!isGoogleProvider(provider) || replacedConnection)) void revokeQuietly(previous)
 
   return {
+    id: (previous?._id ?? newId).toHexString(),
     provider,
     login: ready.staged.login,
     workspaceName: ready.staged.workspaceName ?? null,
@@ -239,7 +254,9 @@ export {
   personalCredentialSubjectFor,
   personalGithubToken,
   personalOwnToken,
+  googleCredentialFor,
   personalGoogleToken,
+  personalGoogleTokenOf,
   personalLinearToken,
 } from './handout'
 export type { PersonalToken } from './handout'

@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">ツールを準備中…</string>
     <string name="convtext_phase_building_prompt">プロンプトを作成中…</string>
     <string name="convtext_phase_recalling_memory">メモリを呼び出し中…</string>
-    <string name="convtext_phase_loading_history">履歴を読み込み中…</string>
     <string name="convtext_phase_preparing_model">モデルを準備中…</string>
     <string name="convtext_phase_connecting">接続中…</string>
     <string name="convtext_phase_thinking">考え中…</string>
@@ -60,6 +59,7 @@
     <string name="convtext_runtime_not_found">このランタイムはこのワークスペースで利用できなくなりました。続けるには別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_offline">このランタイムを実行しているコンピューターはオフラインです。そのコンピューターで Nuphos を開くか、別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_paused">%1$s は一時停止中です。送信すると再開します。</string>
+    <string name="convtext_runtime_starting">%1$s を起動しています。数秒で使えるようになります。</string>
     <string name="convtext_ask_owner">所有者に依頼</string>
     <string name="convtext_ask_admin">管理者に依頼</string>
     <string name="convtext_server_status">Nuphos からステータス %1$d が返されました。</string>

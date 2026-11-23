@@ -1,0 +1,25 @@
+{
+  "GET /avatars/aaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp": {
+    "status": 200,
+    "headers": {
+      "Content-Type": "image/webp"
+    },
+    "bodyBase64": "UklGRh4AAABXRUJQVlA4TBEAAAAvH8AHAAdQnnIXpf+BiOh/AAA="
+  },
+  "GET /avatars/aaaaaaaaaaaaaaaaaaaaaaaa/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.webp": {
+    "status": 404,
+    "body": {
+      "error": "Missing synthetic photo"
+    }
+  },
+  "photos": [
+    {
+      "title": "Photo Bot",
+      "avatar": "https://api.preview.invalid/avatars/aaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.webp"
+    },
+    {
+      "title": "Failed Photo Bot",
+      "avatar": "https://api.preview.invalid/avatars/aaaaaaaaaaaaaaaaaaaaaaaa/cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.webp"
+    }
+  ]
+}

@@ -339,24 +339,7 @@
   background: linear-gradient(#acadb1, #8e8f93);
 }
 
-/* Any other laptop, maker unknown, in matte graphite. */
-.desk-laptop.is-other .desk-outer {
-  background: linear-gradient(180deg, #38393d, #2b2c2f 55%, #232427);
-}
-
-.desk-laptop.is-other .desk-deck {
-  background: linear-gradient(180deg, #333437, #28292c);
-}
-
-.desk-laptop.is-other .desk-key {
-  background: #2a2b2e;
-}
-
-.desk-laptop.is-other .desk-inner {
-  background: #2a2b2e;
-}
-
-/* ---------- Box: a Mac mini, or a Box ---------- */
+/* ---------- Box: a Mac mini, a Linux machine, or a Box ---------- */
 
 /* Centred in a laptop's 300px from above; turning to show its front, it slides left to make room
    for its readings card. Not to the cell's edge: in perspective its front is a little wider than
@@ -407,10 +390,8 @@
 }
 
 .desk-mini .desk-mark.is-nuphos {
-  width: 46px;
-  height: 40px;
-  fill: rgba(255, 255, 255, 0.95);
-  shape-rendering: geometricPrecision;
+  width: 64px;
+  height: 64px;
 }
 
 /* The face: its round corners turn away from the light at both ends; ports on the left, the power
@@ -493,6 +474,33 @@
 .desk-art.is-off .desk-mini-front::after {
   background: #6b6b70;
   box-shadow: none;
+}
+
+/* Any other machine, maker unknown: the same footprint in matte graphite, so it never reads as a
+   Mac mini. */
+.desk-box.is-other .desk-mini {
+  background: linear-gradient(165deg, #38393d, #2b2c2f 55%, #232427);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+}
+
+.desk-box.is-other .desk-mini-front {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.3),
+      transparent 10%,
+      transparent 90%,
+      rgba(0, 0, 0, 0.3)
+    ),
+    linear-gradient(#333437, #28292c 80%, #2a2b2e);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.desk-box.is-other .desk-mini-port,
+.desk-box.is-other .desk-mini-jack {
+  background: #161618;
 }
 
 /* A Box: the same footprint in black, Nuphos's mark on top. */

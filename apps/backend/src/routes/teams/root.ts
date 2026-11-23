@@ -1,6 +1,8 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { startFirstTeamBox } from '@/lib/agent/devices/box-first-team'
+import { hasPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
 import {
   createTeamForUser,
@@ -21,9 +23,10 @@ export function registerTeamsRootRoutes(teamsRoutes: Hono<{ Variables: AuthVaria
   teamsRoutes.get('/', async (c) => {
     const userId = c.get('userId')
     const teams = await getMyTeams(userId)
+    const viewerEmailDomainPublic = hasPublicEmailDomain(c.get('userEmail'))
 
     return c.json({
-      teams: teams.map((t) => ({ ...t, isOwner: t.ownerID === userId })),
+      teams: teams.map((t) => ({ ...t, isOwner: t.ownerID === userId, viewerEmailDomainPublic })),
     })
   })
 
@@ -32,11 +35,23 @@ export function registerTeamsRootRoutes(teamsRoutes: Hono<{ Variables: AuthVaria
     const { name } = c.req.valid('json')
     const team = await createTeamForUser(userId, name)
 
+    // Not awaited: the team is made whether or not its free Box starts (#4186).
+    void startFirstTeamBox(userId, team.id)
+
     // `createTeamForUser` reports the creator's seeded role, so this response
     // carries the same fields GET / does. Clients adopt it as the active team
     // without refetching — a role-less team here reads as "not an admin" and
     // locks the creator out of every admin-only surface.
-    return c.json({ team: { ...team, isOwner: true } }, 201)
+    return c.json(
+      {
+        team: {
+          ...team,
+          isOwner: true,
+          viewerEmailDomainPublic: hasPublicEmailDomain(c.get('userEmail')),
+        },
+      },
+      201,
+    )
   })
 
   // Workspace discovery by email domain: teams that list the signed-in user's

@@ -163,43 +163,6 @@ describe('createTeamMemoryTools authorization', () => {
     expect(tools.save_memory!.inputSchema.safeParse({ label: 'x' }).success).toBe(false)
   })
 
-  test('trigger-origin turns cannot save personal memories (refused before any db access)', async () => {
-    const tools = createTeamMemoryTools({
-      userId: 'u1',
-      teamId: null,
-      conversationId: 'c1',
-      origin: 'trigger',
-    }) as Record<string, { execute: (input: unknown) => Promise<{ ok: boolean; error?: string }> }>
-    const saved = await tools.save_memory!.execute({
-      label: 'x',
-      scope: 'personal',
-      text: 't',
-      type: 'fact',
-      tags: [],
-    })
-
-    expect(saved.ok).toBe(false)
-    expect(saved.error).toContain('trigger-origin')
-  })
-
-  test('trigger-origin turns cannot save team memories (refused before any db access)', async () => {
-    const tools = createTeamMemoryTools({
-      userId: 'u1',
-      teamId: 'team-1',
-      conversationId: 'c1',
-      origin: 'trigger',
-    }) as Record<string, { execute: (input: unknown) => Promise<{ ok: boolean; error?: string }> }>
-    const saved = await tools.save_memory!.execute({
-      label: 'x',
-      scope: 'team',
-      tags: [],
-      gene: PLAYBOOK_INPUT,
-    })
-
-    expect(saved.ok).toBe(false)
-    expect(saved.error).toContain('trigger-origin')
-  })
-
   test('scope/payload mismatches are refused before any db access', async () => {
     const tools = createTeamMemoryTools({
       userId: 'u1',

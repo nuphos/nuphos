@@ -5,12 +5,24 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { hostedAvatarOwner } from '@/lib/identity/avatar-url'
+import { options } from '@/lib/test/credential-options-fixture'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
+import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
+
+let optionsLoad = () => Promise.resolve(options)
+
+useCredentialOptions({ getAgentCredentialOptions: () => optionsLoad() })
+
+// A Bot made without a runtime goes on its owner's default one.
+useConversationChatRoute({
+  resolveNewConversationRuntime: async () => ({ agentRuntime: 'claude-code' }),
+})
 
 const turns: { text: string; avatar?: string }[] = []
 
@@ -271,6 +283,12 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       teamId,
       title: 'New Bot',
       firstMessage: '',
+      // It may use everything its owner may, as a new chat does; sending mail stays opt-in.
+      credentialAccess: expect.objectContaining({
+        awsRoleIds: ['role-1'],
+        deviceIds: ['mac'],
+        resendIntegrationIds: [],
+      }),
       bot: {
         avatar: body.avatar,
         change: {
@@ -281,8 +299,23 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
           avatar: body.avatar,
         },
       },
+      // On its owner's default agent, so every list shows its runtime from the start.
+      agentRuntime: 'claude-code',
     },
   ])
+})
+
+test('"+" on Bots still makes the Bot when its owner\'s options cannot be read', async () => {
+  optionsLoad = () => Promise.reject(new Error('down'))
+  try {
+    const response = await createBot()
+
+    expect(response.status).toBe(201)
+    // Nothing stored: the Bot asks its owner to choose.
+    expect(shells[0]).not.toHaveProperty('credentialAccess')
+  } finally {
+    optionsLoad = () => Promise.resolve(options)
+  }
 })
 
 test('"+" on Bots may start a Bot on a picked background', async () => {

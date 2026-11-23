@@ -1,0 +1,80 @@
+name: Desktop update
+
+# The previous Linux release updates itself to the build under test (#2929). It runs on pull
+# requests that touch the updater, the quit path the install runs on, or the packaging, which
+# includes every release pull request's version bump.
+on:
+  pull_request:
+    paths:
+      - 'apps/desktop/electron/main/updater*.ts'
+      - 'apps/desktop/electron/main/auto-update-electron.ts'
+      - 'apps/desktop/electron/main/quit-teardown.ts'
+      - 'apps/desktop/package.json'
+      - 'apps/desktop/pnpm-lock.yaml'
+      - 'scripts/e2e/run-desktop-update.ts'
+      - '.github/workflows/desktop-update.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Desktop updates from the previous release (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          (cd apps/desktop && pnpm install --frozen-lockfile)
+      - name: Download the previous release
+        run: |
+          set -euo pipefail
+          base=https://nuphos-releases.s3.amazonaws.com/desktop
+          previous=$(curl -fsSL "$base/latest-linux.yml" | sed -n 's/^version: //p')
+          curl -fsSL -o "$RUNNER_TEMP/previous.AppImage" "$base/Nuphos-$previous-x86_64.AppImage"
+          # Any version above the release, so the old app takes the build as its update.
+          echo "E2E_NEW_VERSION=${previous%.*}.$(( ${previous##*.} + 1 ))" >> "$GITHUB_ENV"
+      - name: Package the build under test
+        working-directory: apps/desktop
+        run: |
+          set -euo pipefail
+          # The app reaches sign-in without its local agents.
+          mkdir -p build/local-runtime/linux-x64
+          pnpm exec vite build
+          pnpm exec electron-builder --linux --x64 --publish never \
+            --config.extraMetadata.version="$E2E_NEW_VERSION"
+          echo "E2E_NEW_APPIMAGE=$PWD/release/Nuphos-$E2E_NEW_VERSION-x86_64.AppImage" >> "$GITHUB_ENV"
+      - name: Update the previous release to the build under test
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/desktop-update
+          E2E_OLD_APPIMAGE: ${{ runner.temp }}/previous.AppImage
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          # Only loopback in this network namespace, so nothing the apps call reaches Nuphos Cloud.
+          sudo --preserve-env env PATH="$PATH" unshare -n sh -c \
+            'ip link set lo up && exec setpriv --reuid="$1" --regid="$2" --init-groups xvfb-run --auto-servernum bun scripts/e2e/run-desktop-update.ts' \
+            sh "$(id -u)" "$(id -g)"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: always()
+        with:
+          name: desktop-update
+          path: |
+            ${{ runner.temp }}/desktop-update/*.log
+            ${{ runner.temp }}/desktop-update/*.png
+          if-no-files-found: ignore

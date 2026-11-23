@@ -19,7 +19,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
-import { podOwnerAgentHome } from './agent-home.ts'
+import { prepareAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { cliAutoUpdate } from './cli-auto-update.ts'
@@ -136,7 +136,6 @@ if (!bundle()) {
   process.exit(1)
 }
 
-const prepareAgentHome = podOwnerAgentHome(owner, dataDir)
 const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   bundle,
   ownsMachine: ownsMachine(deviceCredential),
@@ -221,10 +220,7 @@ const macScreen = enableMacScreen(
   () => tunnel?.sendStatus(),
   e2eMacScreenHost ? 'darwin' : process.platform,
 )
-const macScreenHost = {
-  ...cliMacScreenHost(bundleRoot, () => owner),
-  ...(e2eMacScreenHost && { binary: () => e2eMacScreenHost }),
-}
+const macScreenHost = cliMacScreenHost(bundleRoot, () => owner)
 // Keeps this computer's Nuphos current when idle, as the Desktop does (cli-auto-update.ts).
 const autoUpdate = cliAutoUpdate(apiUrl, () => tunnel?.sendStatus())
 

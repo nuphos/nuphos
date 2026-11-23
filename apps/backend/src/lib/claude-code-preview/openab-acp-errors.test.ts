@@ -11,8 +11,10 @@ import {
   OpenAbRpcError,
   isSessionOutputSinkUnavailable,
   retrySessionPromptWhenBusy,
+  runtimeUsageExhaustedMessage,
   SESSION_OUTPUT_SINK_UNAVAILABLE,
 } from './openab-acp-errors'
+import { outOfUsageUntilReset } from './runtime-refusal'
 
 describe('retrySessionPromptWhenBusy', () => {
   test('retries a prompt rejected before dispatch until the active sink drains', async () => {
@@ -47,6 +49,24 @@ describe('retrySessionPromptWhenBusy', () => {
     expect(isSessionOutputSinkUnavailable(new Error('permission denied'))).toBe(false)
     await expect(result).rejects.toThrow('permission denied')
     expect(calls).toBe(1)
+  })
+})
+
+describe('outOfUsageUntilReset', () => {
+  const wrapped = (notice: string) =>
+    new OpenAbRpcError(`**Internal Error** (code: -32603)\nInternal error: ${notice}`, -32603)
+
+  test('a usage limit passes with its reset; an account held for verification does not', () => {
+    expect(outOfUsageUntilReset(wrapped("You've hit your weekly limit · resets 4pm (UTC)"))).toBe(
+      true,
+    )
+    expect(
+      outOfUsageUntilReset(
+        wrapped(
+          "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify",
+        ),
+      ),
+    ).toBe(false)
   })
 })
 
@@ -86,6 +106,57 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(relayed)).toBe('usage_limit')
     expect(turnFailureCause(wrappedOnly)).toBe('usage_limit')
     expect(turnFailureCause(new Error('internal detail'))).toBe('other')
+  })
+
+  test('a Codex usage limit hit while compacting is the agent out of usage', () => {
+    // As production logged it from codex-acp 1.1.4.
+    const compacting = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> Error running remote compact task: You’ve hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at Nov 27th, 2026 3:22 AM.',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    )
+
+    expect(turnFailureCause(compacting)).toBe('usage_limit')
+    expect(claudeNotice(compacting)).toStartWith('You’ve hit your usage limit.')
+  })
+
+  test('a provider’s 401 for the API key behind Codex is a sign-in to repair', () => {
+    // As production logged it (#3926), with a stand-in key.
+    const rejected = new OpenAbRpcError(
+      '**Internal Error** (code: -32603)\nInternal error\n> unexpected status 401 Unauthorized: Incorrect API key provided: sk-e2e****0000. You can find your API key at https://platform.openai.com/account/api-keys., url: https://api.openai.com/v1/responses, auth error: 401, auth error code: invalid_api_key',
+      -32603,
+      { code: -32603, message: 'Internal error' },
+    )
+
+    expect(turnFailureCause(rejected)).toBe('auth')
+    expect(isRuntimeAuthRequired(rejected)).toBe(true)
+  })
+
+  test('an account Anthropic holds for verification is refused like one out of usage', () => {
+    // The refusal production logged (#3926), with a stand-in org id.
+    const notice =
+      "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"verification_required"}`,
+      -32603,
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    expect(isRuntimeAuthRequired(refused)).toBe(false)
+  })
+
+  test('OpenCode’s free usage limit, as the runtime relays it, is the agent out of usage', () => {
+    const notice =
+      'The model provider refused the request: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
+    const refused = wrapped(notice)
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    // Any other refusal the runtime relays stays unclassified.
+    expect(turnFailureCause(wrapped('The model provider refused the request: overloaded'))).toBe(
+      'other',
+    )
   })
 })
 

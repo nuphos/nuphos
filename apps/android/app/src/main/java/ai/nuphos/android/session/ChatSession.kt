@@ -249,6 +249,7 @@ class ChatSession(
     private val hasAiAccess get() = !consentDisposed && aiAllowed()
     private val permissions get() = SessionPermissions(loaded, loadError, readOnly || !hasAiAccess, isOwner, canCancelRun, canRespondToRun)
     private var manages by mutableStateOf(false)
+    private var archives by mutableStateOf(false)
     private var hasActiveRun by mutableStateOf(false)
     var movingAgent by mutableStateOf(false)
         private set
@@ -269,6 +270,8 @@ class ChatSession(
         if (hasAiAccess && revision == watchRevision) watching = detail.watching
     }
     val canManage get() = permissions.writable && (if (serverMetadataObserved) manages else isOwner)
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive get() = permissions.writable && (if (serverMetadataObserved) archives else isOwner)
     val canOpenDesktop get() = canManage && isOwner && runtimeObservation?.snapshot?.let { snapshot ->
         snapshot["canOpenDesktop"]?.boolValue == true || snapshot["tools"]?.arrayValue?.any { it["kind"]?.stringValue == "desktop" } == true
     } == true
@@ -276,8 +279,9 @@ class ChatSession(
         canManage && isOwner
     }
 
-    val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
-        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
+    /** A running turn does not block a move: the server stops it as Stop does (#4619). */
+    val canMoveAgent get() = canManage && serverMetadataObserved &&
+        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
@@ -491,6 +495,9 @@ class ChatSession(
     var isChannel by mutableStateOf(false)
         private set
     var isBot by mutableStateOf(false)
+        private set
+    /** Offered Share: a Task a person opened, as the server decides it. */
+    var shareable by mutableStateOf(false)
         private set
     private fun markChannel() {
         isChannel = true
@@ -940,6 +947,7 @@ class ChatSession(
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
         isBot = detail.avatar != null && !detail.isChannel
+        shareable = detail.shareable ?: !isBot
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }
@@ -951,6 +959,7 @@ class ChatSession(
         isOwner = detail.isOwner ?: false
         if (!isOwner) { downloads = emptyList(); downloadsError = null }
         manages = detail.canManage ?: isOwner
+        archives = detail.canArchive ?: manages
         hasActiveRun = detail.activeRun != null
         canCancelRun = detail.canCancelRun ?: false
         canRespondToRun = detail.canRespondToRun ?: false
@@ -1265,6 +1274,8 @@ class ChatSession(
                 initialSessionConfig = if (firstPost && !shouldResume) options.initialSessionConfig else null,
             )
             var needsFreshRetry = false
+            // A signed-out or out-of-usage runtime fails every retry the same way.
+            var runtimeCannotRun = false
             var terminal = false
             var queuedByServer = false
             var streamError: Throwable? = null
@@ -1288,6 +1299,7 @@ class ChatSession(
                             // Another turn took the runtime mid-start; the server put the message back at the head of the queue.
                             if (code == "message_queued") { queuedByServer = true; throw Terminal() }
                             lastErrorText = frame["errorText"]?.stringValue ?: Words(R.string.convtext_agent_error)
+                            runtimeCannotRun = code == "runtime_auth_required" || code == "runtime_usage_exhausted"
                             needsFreshRetry = true
                             return@collect
                         }
@@ -1399,7 +1411,7 @@ class ChatSession(
             }
             if (!coroutineContext.isActive) return TurnResult.Aborted
             if (needsFreshRetry) {
-                if (isNative || options.explicitResume || toolExecutionMayHaveStarted) {
+                if (isNative || options.explicitResume || toolExecutionMayHaveStarted || runtimeCannotRun) {
                     return TurnResult.Failed(lastErrorText ?: Words(R.string.convtext_agent_error))
                 }
                 freshRetries += 1
@@ -1719,7 +1731,6 @@ class ChatSession(
             "preparing-tools" -> Words(R.string.convtext_phase_preparing_tools)
             "building-prompt" -> Words(R.string.convtext_phase_building_prompt)
             "recalling-memory" -> Words(R.string.convtext_phase_recalling_memory)
-            "loading-compaction" -> Words(R.string.convtext_phase_loading_history)
             "preparing-model" -> Words(R.string.convtext_phase_preparing_model)
             "connecting-model" -> Words(R.string.convtext_phase_connecting)
             "thinking" -> Words(R.string.convtext_phase_thinking)

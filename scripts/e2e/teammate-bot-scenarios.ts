@@ -46,6 +46,9 @@ export const teammateBotScenarios: Scenario[] = [
       await call(teammate.token, `/agent/conversations/${chat.sessionId}/channel-messages`, {
         text: 'Minutes, please E2E_DELIVERY:teammate-bot',
       })
+      await call(stack.token, `/agent/conversations/${chat.sessionId}/channel-messages`, {
+        text: 'My own message E2E_BUBBLE:own',
+      })
       await page.getByRole('tab', { name: 'Bots' }).click()
       const row = page.locator('aside [data-sidebar-row]', { hasText: 'Scribe room' }).first()
 
@@ -58,11 +61,29 @@ export const teammateBotScenarios: Scenario[] = [
       await page.waitForTimeout(400)
       await row.screenshot({ path: `${artifacts}/group-row-hover.png` })
       await row.click()
-      const post = page.locator('.group\\/post', {
+      const post = page.locator('.group\\/post:visible', {
         has: page.getByText('POSTED E2E_DELIVERY:teammate-bot', { exact: true }),
       })
 
       await post.waitFor({ timeout: 60_000 })
+      // #4189: compare the viewer, the human teammate, and the Bot in the real Desktop.
+      const teammatePost = page.locator('.group\\/post:visible', {
+        has: page.getByText('Minutes, please E2E_DELIVERY:teammate-bot', { exact: true }),
+      })
+      const ownPost = page.locator('.group\\/post:visible', {
+        has: page.getByText('My own message E2E_BUBBLE:own', { exact: true }),
+      })
+
+      await teammatePost.waitFor()
+      await ownPost.waitFor()
+      const botFill = await post.locator('.bg-state-selected').count()
+      const teammateFill = await teammatePost.locator('.bg-state-selected').count()
+      const ownFill = await ownPost.locator('.bg-state-selected').count()
+
+      await page.screenshot({ path: `${artifacts}/group-chat-bubbles-4189.png` })
+
+      if (botFill !== 1 || teammateFill !== 1 || ownFill !== 0)
+        throw new Error(`Bubble fills: bot=${botFill}, teammate=${teammateFill}, own=${ownFill}`)
       // The face, not only the runtime mark.
       await post.locator('img[src*="bot-avatars/07-ada"]').first().waitFor({ timeout: 10_000 })
       // #3428: its sidebar row wears the design system's cluster of three: the Bot, then both teammates.

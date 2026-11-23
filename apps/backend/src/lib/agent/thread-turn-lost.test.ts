@@ -46,7 +46,7 @@ useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
 useAgentDb({
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async (id) => ({ ...conversation, sessionId: id }),
   getConversationWithMessages: async (id) => ({
     conversation: { ...conversation, sessionId: id },

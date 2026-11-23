@@ -1,4 +1,4 @@
-import { runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
+import { newerRuntimeVersion, runtimeVersionAtLeast, stableRuntimeVersion } from './runtime-release'
 
 import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/presence'
 
@@ -37,4 +37,60 @@ export function hostOutdated(
       stableRuntimeVersion(reported) && !runtimeVersionAtLeast(reported, MINIMUM_HOST_VERSION[host])
     )
   })
+}
+
+/** What a failed turn adds when the computer that ran it is out of date. */
+export const OUTDATED_HOST_HINT =
+  'Nuphos on this computer is out of date. Update it there, then try again.'
+
+export const DESKTOP_UPDATE_READY_HINT =
+  "Nuphos Desktop on the computer running this agent is out of date. The downloaded update is ready. Quit Nuphos fully (⌘Q on a Mac) and reopen it to install it. If it doesn't close, quit it again."
+export const DESKTOP_OUTDATED_HINT =
+  "Nuphos Desktop on the computer running this agent is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again."
+
+const HOST_LABEL_MAX = 80
+
+/** Only claim a download is ready when the Desktop has reported it staged. */
+export function hostUpdateHint(
+  presence: Pick<LocalRuntimePresence, 'client' | 'status'> | null,
+  label?: string,
+): string | undefined {
+  if (!hostOutdated(presence)) return
+  const app = presence?.status?.app
+
+  if (!app && !presence?.client?.startsWith('nuphos-desktop/')) return OUTDATED_HOST_HINT
+
+  const hint =
+    app?.update?.ready && newerRuntimeVersion(app.update.version, app.version)
+      ? DESKTOP_UPDATE_READY_HINT
+      : DESKTOP_OUTDATED_HINT
+
+  // The label is user-set and travels into a Bot's reason: one short line, inserted literally.
+  const host = label?.replace(/\s+/gu, ' ').trim().slice(0, HOST_LABEL_MAX)
+
+  return host ? hint.replace('the computer running this agent', () => host) : hint
+}
+
+/** Preserve only the known product sentence, never the underlying runtime error. */
+export function outdatedHint(error: unknown): string | undefined {
+  if (!(error instanceof Error)) return
+
+  if (error.message.endsWith(OUTDATED_HOST_HINT)) return OUTDATED_HOST_HINT
+  const hint = error.message.match(
+    /Nuphos Desktop on [^\n]{1,120} is out of date\. [^\n]{1,200}$/u,
+  )?.[0]
+
+  return hint &&
+    [DESKTOP_UPDATE_READY_HINT, DESKTOP_OUTDATED_HINT].some((known) =>
+      hint.endsWith(known.slice(known.indexOf(' is out of date.'))),
+    )
+    ? hint
+    : undefined
+}
+
+/** A Bot's plain reason may already include the hint when it came from an AppError. */
+export function withOutdatedHint(message: string | undefined, error: unknown): string | undefined {
+  const hint = outdatedHint(error)
+
+  return hint && !message?.endsWith(hint) ? [message, hint].filter(Boolean).join(' ') : message
 }

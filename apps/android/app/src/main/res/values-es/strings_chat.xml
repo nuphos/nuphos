@@ -184,14 +184,8 @@
         <item quantity="one">· %1$d llamada · En curso</item>
         <item quantity="other">· %1$d llamadas · En curso</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="one">Trabajó durante %1$d s · %2$d paso</item>
-        <item quantity="other">Trabajó durante %1$d s · %2$d pasos</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="one">Trabajó en %1$d paso</item>
-        <item quantity="other">Trabajó en %1$d pasos</item>
-    </plurals>
+    <string name="chat_work_duration">Trabajó durante %1$s</string>
+    <string name="chat_work">Trabajó</string>
     <string name="chat_share_access_invited">Solo las personas invitadas</string>
     <string name="chat_share_access_view">El equipo puede ver</string>
     <string name="chat_share_access_reply">El equipo puede ver y responder</string>
@@ -214,5 +208,10 @@
     <string name="chat_summary_triggers">Disparadores</string>
     <string name="chat_summary_no_triggers">Pide al agente que programe trabajo periódico en esta tarea.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Detalles del bot</string>
+    <string name="chat_bot_state_waiting">%1$d necesita tu respuesta</string>
+    <string name="chat_bot_state_running">%1$d en ejecución</string>
+    <string name="chat_summary_idle_since">Inactivo · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Pide aquí que se programen trabajos recurrentes.</string>
     <string name="chat_summary_paused">En pausa</string>
 </resources>

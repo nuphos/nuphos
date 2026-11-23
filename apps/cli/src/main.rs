@@ -15,6 +15,7 @@ mod shared;
 mod transcript;
 mod triggers;
 mod update;
+mod vault;
 
 use std::io::{IsTerminal, Read};
 
@@ -69,6 +70,11 @@ enum Command {
         session: Option<String>,
         #[command(subcommand)]
         command: Option<TriggersCommand>,
+    },
+    /// Your end-to-end encrypted vault: enroll this device, approve others, and keep secrets.
+    Vault {
+        #[command(subcommand)]
+        command: VaultCommand,
     },
     /// List teams, make TEAM the default, or create it with --create.
     Team {
@@ -170,6 +176,35 @@ enum Command {
 enum TriggersCommand {
     /// What a Trigger spent over the last 7 days (its id or name).
     Usage { trigger: String },
+}
+
+#[derive(Subcommand)]
+enum VaultCommand {
+    /// Add this device to your vault. The first device joins at once; later ones wait for approval.
+    Enroll {
+        /// The name the device list shows (default: the hostname).
+        #[arg(long)]
+        name: Option<String>,
+    },
+    /// List your devices with their fingerprints; `*` marks this one.
+    Devices,
+    /// Let a pending device read your vault, after checking its fingerprint.
+    Approve {
+        device: String,
+        /// Skip the fingerprint confirmation.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Remove a device. Items are not re-keyed.
+    RemoveDevice { device: String },
+    /// Save an item; the value is read from stdin.
+    Set { name: String },
+    /// Print an item's value.
+    Get { name: String },
+    /// List item names.
+    List,
+    /// Delete an item.
+    Rm { name: String },
 }
 
 #[derive(Subcommand)]
@@ -314,6 +349,17 @@ async fn run(args: Args) -> Result<i32> {
             triggers::usage(&ctx, &trigger).await.map(|_| 0)
         }
         Some(Command::Triggers { session, .. }) => triggers::list(&ctx, session.as_deref()).await.map(|_| 0),
+        Some(Command::Vault { command }) => match command {
+            VaultCommand::Enroll { name } => vault::enroll(&ctx, name).await,
+            VaultCommand::Devices => vault::devices(&ctx).await,
+            VaultCommand::Approve { device, yes } => vault::approve(&ctx, &device, yes).await,
+            VaultCommand::RemoveDevice { device } => vault::remove_device(&ctx, &device).await,
+            VaultCommand::Set { name } => vault::set(&ctx, &name).await,
+            VaultCommand::Get { name } => vault::get(&ctx, &name).await,
+            VaultCommand::List => vault::list(&ctx).await,
+            VaultCommand::Rm { name } => vault::remove(&ctx, &name).await,
+        }
+        .map(|_| 0),
         Some(Command::Team { name, .. }) => cli::team(&mut ctx, name).await.map(|_| 0),
         Some(Command::Runtime { name: Some(name), login: true, .. }) => {
             cli::login_runtime(&ctx, &name).await.map(|_| 0)
@@ -694,5 +740,27 @@ mod triggers_args {
             args.command,
             Some(Command::Triggers { session: None, command: Some(TriggersCommand::Usage { trigger }) }) if trigger == "Nightly"
         ));
+    }
+}
+
+#[cfg(test)]
+mod vault_args {
+    use clap::Parser;
+
+    use super::{Args, Command, VaultCommand};
+
+    #[test]
+    fn vault_subcommands_parse() {
+        let args = Args::try_parse_from(["nuphos", "vault", "approve", "dev-1", "--yes"]).unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::Vault { command: VaultCommand::Approve { device, yes: true } }) if device == "dev-1"
+        ));
+        let args = Args::try_parse_from(["nuphos", "vault", "remove-device", "dev-1"]).unwrap();
+        assert!(matches!(args.command, Some(Command::Vault { command: VaultCommand::RemoveDevice { .. } })));
+        let args = Args::try_parse_from(["nuphos", "vault", "set", "token"]).unwrap();
+        assert!(
+            matches!(args.command, Some(Command::Vault { command: VaultCommand::Set { name } }) if name == "token")
+        );
     }
 }

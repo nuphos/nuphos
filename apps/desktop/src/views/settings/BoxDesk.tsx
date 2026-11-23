@@ -45,17 +45,11 @@ function Keyboard() {
   )
 }
 
-/** A Box carries Nuphos's mark on its top, as in public/logo-dark-bg.svg, inline so it stays sharp.
- * Other machines carry no maker's mark: the desk draws their shape, not someone else's logo. */
+/** Only a Nuphos Box carries a maker's mark, the app icon; the desk draws other machines' shape, not someone else's logo. */
 function Mark({ brand }: { brand: DeskModel['brand'] }) {
   if (brand !== 'nuphos') return null
 
-  return (
-    <svg className="desk-mark is-nuphos" viewBox="21 27 86 74" aria-hidden>
-      <path d="M37.1323 73.6672L55.8435 91.9522L49.3132 98.6348L31.1647 80.8997C20.5429 70.5198 20.381 56.4724 31.1046 45.4989C41.4844 34.8771 55.5319 34.7152 66.1537 45.0951L84.3022 62.8302L77.7031 69.5831L58.9918 51.2981C52.4499 44.9052 43.6893 45.1452 37.0902 51.8982C30.6973 58.4401 30.6607 67.343 37.1323 73.6672Z" />
-      <path d="M69.2383 77.3454C75.7098 83.6695 84.6096 83.4279 91.0024 76.886C97.6016 70.1331 97.6397 61.3692 91.0978 54.9763L72.3866 36.6913L78.9857 29.9384L97.1342 47.6734C107.756 58.0533 107.918 72.1007 97.5379 82.7225C86.8144 93.6961 72.7669 93.8579 62.1451 83.478L43.9966 65.7429L50.527 59.0604L69.2383 77.3454Z" />
-    </svg>
-  )
+  return <img className="desk-mark is-nuphos" src="/nuphos-icon.png" alt="" aria-hidden />
 }
 
 /** Folded shut under the viewer; the lid swings up as the view turns to face it. */
@@ -83,7 +77,7 @@ function Laptop({ brand, screen }: { brand: DeskModel['brand']; screen: ReactNod
   )
 }
 
-/** A Mac mini or a Box: its top from above, then its front as the view turns. */
+/** A Mac mini, a Linux machine or a Box: its top from above, then its front as the view turns. */
 function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
   return (
     <>

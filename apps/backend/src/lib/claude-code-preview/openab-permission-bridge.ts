@@ -8,6 +8,7 @@ import {
   registerPreviewWait,
   supersedePendingAgentPermissions,
 } from './decision-waiter'
+import { allowedUnattended, unattendedDeniedText, unattendedTurn } from './unattended-permission'
 
 import type { PreviewDecision, PreviewWait } from './decision-waiter'
 import type {
@@ -16,6 +17,7 @@ import type {
   OpenAbPermissionRequest,
 } from './openab-acp-session'
 import type { PreviewAgentUpdate } from './preview-agent-update'
+import type { UnattendedRun } from './unattended-permission'
 
 // OpenAB's ACP gateway currently gives a prompt roughly three minutes to
 // finish. Keep the human decision inside that envelope so a missed approval
@@ -24,6 +26,8 @@ import type { PreviewAgentUpdate } from './preview-agent-update'
 export const OPENAB_PERMISSION_DECISION_TIMEOUT_MS = 2 * 60_000
 export const PERMISSION_TIMED_OUT_TEXT = 'Permission request timed out'
 const PERMISSION_CANCELLED_TEXT = 'Permission request was cancelled'
+const PERMISSION_SUPERSEDED_TEXT =
+  'Not run: a new message cancelled the pending approval. Ask again if you still want it.'
 
 type PermissionBridgeDeps = {
   getSessionBypass: (conversationId: string, userId: string) => Promise<boolean>
@@ -86,10 +90,13 @@ export async function handleOpenAbPermissionRequest(
     signal?: AbortSignal
     /** Called with the decision before the agent is answered, so the continuation lands on the decider's stream. */
     onDecision?: (decision: PreviewDecision) => void
+    /** The turn's run: a headless one has nobody in the app to approve its requests. */
+    run?: UnattendedRun
   },
   deps: PermissionBridgeDeps = defaultDeps,
 ): Promise<OpenAbPermissionOutcome> {
   const { request } = args
+  const unattended = unattendedTurn(args.run)
   const toolCallId = request.toolCall.toolCallId
 
   if (!toolCallId || request.options.length === 0) {
@@ -118,7 +125,7 @@ export async function handleOpenAbPermissionRequest(
     ...(request.toolCall.rawInput === undefined ? {} : { rawInput: request.toolCall.rawInput }),
   })
 
-  if (bypass) {
+  const allow = (layer: string, reason: string): OpenAbPermissionOutcome => {
     const allowed = allowOnce(request.options)
 
     // Logged so a lost answer can be told apart from a request that never arrived.
@@ -126,20 +133,45 @@ export async function handleOpenAbPermissionRequest(
       conversation_id: args.conversationId,
       tool_call_id: toolCallId,
       allowed: Boolean(allowed),
+      layer,
     })
 
     args.emit({
       type: 'authorization-decision',
       toolCallId,
       decision: allowed ? 'allow' : 'deny',
-      layer: 'bypass',
-      reason: allowed
-        ? 'Full Access is enabled for this conversation.'
-        : 'The agent did not offer an allow option.',
+      layer,
+      reason: allowed ? reason : 'The agent did not offer an allow option.',
     })
 
     return allowed ? { outcome: { outcome: 'selected', optionId: allowed.optionId } } : cancelled()
   }
+
+  if (bypass) return allow('bypass', 'Full Access is enabled for this conversation.')
+  if (unattended.headless && allowedUnattended(request.toolCall, unattended.wokenChannelIds))
+    return allow('unattended', 'An automatic turn may read, and reply where it was called.')
+
+  const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
+    args.handleTool({
+      kind: 'tool',
+      toolCallId,
+      title: request.toolCall.title,
+      status: 'failed',
+      contentText: errorText,
+      revealed: true,
+    })
+    logEvent('info', 'agent.openab_permission.denied', {
+      conversation_id: args.conversationId,
+      tool_call_id: toolCallId,
+      reason: errorText,
+    })
+
+    return cancelled()
+  }
+
+  // Nobody is there to answer, so asking would only time out. A sub-Task's request
+  // still asks: a person answers it from the sidebar.
+  if (unattended.failFast) return settleDenied(unattendedDeniedText(request.toolCall.title))
 
   const wait = await deps.registerWait({
     userId: args.userId,
@@ -179,7 +211,7 @@ export async function handleOpenAbPermissionRequest(
       properties,
     })
 
-    return cancelled()
+    return settleDenied(PERMISSION_SUPERSEDED_TEXT)
   }
 
   args.emit({
@@ -203,23 +235,6 @@ export async function handleOpenAbPermissionRequest(
     timeoutMs: OPENAB_PERMISSION_DECISION_TIMEOUT_MS,
     ...(args.signal ? { signal: args.signal } : {}),
   })
-  const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
-    args.handleTool({
-      kind: 'tool',
-      toolCallId,
-      title: request.toolCall.title,
-      status: 'failed',
-      contentText: errorText,
-      revealed: true,
-    })
-    logEvent('info', 'agent.openab_permission.denied', {
-      conversation_id: args.conversationId,
-      tool_call_id: toolCallId,
-      reason: errorText,
-    })
-
-    return cancelled()
-  }
 
   if (resolved.timedOut || args.signal?.aborted) {
     return settleDenied(
@@ -232,6 +247,9 @@ export async function handleOpenAbPermissionRequest(
   const { payload } = resolved.decision
 
   if (payload.decision !== 'approved') {
+    if (payload.reason === 'superseded_by_user_message')
+      return settleDenied(PERMISSION_SUPERSEDED_TEXT)
+
     // A person's deny carries no reason; abandoned waits (runtime Stop, supersede,
     // OpenAB's own cancel) always do.
     return settleDenied(

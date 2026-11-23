@@ -179,12 +179,8 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d 次呼叫 · 執行中</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="other">處理了 %1$d 秒 · %2$d 個步驟</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="other">處理了 %1$d 個步驟</item>
-    </plurals>
+    <string name="chat_work_duration">處理了 %1$s</string>
+    <string name="chat_work">已處理</string>
     <string name="chat_share_access_invited">僅限受邀者</string>
     <string name="chat_share_access_view">團隊可檢視</string>
     <string name="chat_share_access_reply">團隊可檢視及回覆</string>
@@ -207,5 +203,10 @@
     <string name="chat_summary_triggers">觸發條件</string>
     <string name="chat_summary_no_triggers">請代理程式為這個任務安排定期工作。</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot 詳細資料</string>
+    <string name="chat_bot_state_waiting">%1$d 個需要你的回覆</string>
+    <string name="chat_bot_state_running">%1$d 個執行中</string>
+    <string name="chat_summary_idle_since">閒置 · %1$s</string>
+    <string name="chat_bot_details_no_triggers">請在這裡要求安排定期執行的工作。</string>
     <string name="chat_summary_paused">已暫停</string>
 </resources>

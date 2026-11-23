@@ -59,14 +59,17 @@ export function ChatLink({
   const menuActions = useContext(ChatLinkMenuContext)
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
 
+  // A surface that passes no handler opens links as the rest of the app does.
+  const open = onLinkClick ?? menuActions?.open
+
   const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!link || !onLinkClick) return
+    if (!link || !open) return
     // ⌘-click (Ctrl elsewhere) asks to open the link beside this pane; a
     // handler that declines leaves the browser default.
     const mode = linkClickMode(event, isMac)
 
     if (!mode) return
-    if (onLinkClick(link, mode === 'beside')) {
+    if (open(link, mode === 'beside')) {
       event.preventDefault()
       event.stopPropagation()
     }

@@ -4,6 +4,7 @@ import { RunHandoff } from '@/lib/lifecycle'
 import { logError, logEvent } from '@/lib/observability'
 import { notifyAgentRunEnded, notifyApprovalRequested } from '@/lib/push/notify'
 import { drainRunsUntilForcePause } from '@/lib/shutdown-budget'
+import { queueWebhookEvents } from '@/lib/webhooks/store'
 
 import {
   AGENT_STREAM_DONE_EVENT,
@@ -17,8 +18,7 @@ import { traceAgentChatEvent, traceAgentChatRefusal } from './trace'
 import type { AgentRun } from './types'
 
 export function appendAgentRunFrame(run: AgentRun, frame: string) {
-  // Once a run is done, drop late frames (e.g. buffered chunks after an abort)
-  // so nothing lands after the terminal paused/done frame in frames + Redis.
+  // Drop late frames (buffered chunks after an abort) once the run is done.
   if (run.done) {
     traceAgentChatEvent('warn', 'agent.chat.run.late_frame_dropped', run.trace, {
       frame_type: agentRunFrameType(frame),
@@ -41,20 +41,6 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   run.frames.push(kept)
   mirrorAgentRunFrame(run.userId, run.streamId, kept)
 
-  if (
-    frameType === 'error' ||
-    frameType === AGENT_STREAM_DONE_EVENT ||
-    frameType === AGENT_TURN_COMPLETE_EVENT ||
-    frameType === AGENT_TURN_PAUSED_EVENT
-  ) {
-    traceAgentChatEvent('info', 'agent.chat.run.terminal_frame_appended', run.trace, {
-      frame_type: frameType,
-      frame_count: run.frames.length,
-      frame_bytes: frame.length,
-      last_finish_reason: run.lastFinishReason,
-      run_age_ms: Date.now() - run.createdAt,
-    })
-  }
   // A turn a channel woke answers in the channel; its own conversation has nothing
   // new for its owner. A pause can still need the owner, so it counts.
   if (
@@ -65,6 +51,7 @@ export function appendAgentRunFrame(run: AgentRun, frame: string) {
   }
   if (frameType === 'tool-approval-request') {
     notifyApprovalRequested(run)
+    queueWebhookEvents(run.sessionId)
   }
   for (const subscriber of run.subscribers) subscriber.poke()
 }
@@ -144,8 +131,6 @@ function hasTerminalFrame(run: AgentRun): boolean {
  * but strands every other reader, because a replica tailing the Redis mirror
  * has only `atlas-stream-done` to detect the end — so it keeps replaying
  * heartbeats against a buffer that never closes, for the full 2h key TTL.
- * Observed 2026-09-11: a stopped run released its owner lease while its Redis
- * buffer still ended on a `text-delta`.
  */
 export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ended-without-result') {
   if (!run.done && !hasTerminalFrame(run)) {
@@ -183,6 +168,7 @@ export function finishAgentRun(run: AgentRun, terminalPauseReason = 'stream-ende
   })
   for (const subscriber of run.subscribers) subscriber.poke()
   notifyAgentRunEnded(run)
+  queueWebhookEvents(run.sessionId)
   scheduleAgentRunCleanup(run)
 }
 

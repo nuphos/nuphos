@@ -42,7 +42,15 @@ export async function runtimeTerminalTarget(teamId: string, userId: string, sess
   if (runtime.status !== 'active' || !endpoint)
     throw new AppError(503, 'runtime_unavailable', 'The conversation runtime is offline')
 
-  return { endpoint, runtimeId: runtime.id, label: runtime.label, sessionId, userId }
+  return {
+    endpoint,
+    runtimeId: runtime.id,
+    label: runtime.label,
+    sessionId,
+    userId,
+    // A restored Task works in a new home generation; the shell opens the same one.
+    homeEpoch: conversation.sessionHomeEpoch ?? 0,
+  }
 }
 
 function dimension(value: string | undefined, fallback: number) {
@@ -117,6 +125,7 @@ export function runtimeTerminalEvents(
       await client.terminalRequest('start', {
         terminalId,
         sessionId: target.sessionId,
+        homeEpoch: target.homeEpoch,
         cols: dimension(size.cols, 80),
         rows: dimension(size.rows, 24),
       })

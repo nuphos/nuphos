@@ -32,6 +32,7 @@ export function instanceControllerDeps(
 
       if (
         cli.installed ||
+        cli.error ||
         !install ||
         install.tried ||
         !installCli ||

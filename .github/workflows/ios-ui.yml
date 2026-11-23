@@ -50,7 +50,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
         run: |
           if [ -z "$PR" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
-          paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
+          paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|apps/ios/tests/fixtures/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
           if gh api --paginate "repos/$GH_REPO/pulls/$PR/files" --jq '.[].filename' | grep -qE "$paths"; then
             echo run=true >> "$GITHUB_OUTPUT"
           else
@@ -62,6 +62,12 @@ jobs:
     name: iOS UI tests (simulator)
     needs: scope
     if: needs.scope.outputs.run == 'true'
+    # One run at a time across all pull requests and manual runs, so they hold at most
+    # one of the org's macOS runners and leave the rest to merge groups and releases.
+    # The others wait their turn in order. The nightly run keeps a group of its own.
+    concurrency:
+      group: ios-ui-${{ github.event_name == 'schedule' && 'nightly' || 'shared' }}
+      queue: max
     # Same Xcode as the iOS build in ci.yml.
     runs-on: xcode-27
     timeout-minutes: 150
@@ -69,9 +75,26 @@ jobs:
       contents: read
       # To download main's latest nightly results on a pull request.
       actions: read
+      # To read which tests the pull request's own diff adds.
+      pull-requests: read
     env:
       DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
+      # A run can wait hours for the runner, and a pull request merged or closed meanwhile
+      # no longer needs it.
+      - name: Skip a pull request that is no longer open
+        id: pr
+        if: github.event_name == 'pull_request_review'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          state=$(gh pr view "$PR" --json state --jq .state)
+          if [ "$state" != OPEN ]; then
+            echo "Pull request #$PR is $state; skipping." >> "$GITHUB_STEP_SUMMARY"
+            echo closed=true >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -79,6 +102,7 @@ jobs:
         with:
           node-version: 24
       - name: Run the UI tests
+        if: steps.pr.outputs.closed != 'true'
         working-directory: apps/ios
         env:
           EVENT: ${{ github.event_name }}
@@ -116,10 +140,11 @@ jobs:
           if [ "$EVENT" = pull_request_review ]; then exit 0; fi
           exit "$status"
       - name: Compare with main's latest nightly run
-        if: github.event_name == 'pull_request_review'
+        if: github.event_name == 'pull_request_review' && steps.pr.outputs.closed != 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
         run: |
           # Only the latest nightly counts, and only while it is recent: an old or missing one
           # says nothing about main today, so it must fail rather than pass.
@@ -141,12 +166,27 @@ jobs:
             exit 1
           fi
           echo "Compared with main's nightly run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run (${age} hours old)" >> "$GITHUB_STEP_SUMMARY"
-          node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
+          # The pull request's own diff names the tests it adds. On its own line, so a failure fails here.
+          gh pr diff "$PR" > "$RUNNER_TEMP/pr.diff"
+          PR_DIFF="$RUNNER_TEMP/pr.diff" node scripts/compare-ios-ui-results.mjs "$RUNNER_TEMP/tests.json" "$RUNNER_TEMP/main/tests.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.pr.outputs.closed != 'true' }}
         with:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
+          retention-days: 7
+      # The Bot composer fixture captures fictional light-theme screens for visual review.
+      - name: Export Bot composer screenshots
+        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/bot-composer-attachments"
+          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ui.xcresult" --output-path "$RUNNER_TEMP/bot-composer-attachments"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
+        with:
+          name: bot-composer-ios-screenshots
+          path: ${{ runner.temp }}/bot-composer-attachments/**/*.png
+          if-no-files-found: warn
           retention-days: 7
       # The full result bundle, with screen recordings, only when something failed.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

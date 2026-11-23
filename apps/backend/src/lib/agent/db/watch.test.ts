@@ -93,6 +93,7 @@ function open(sessionId: string, extra: { source?: string; parentSessionId?: str
     teamId: 't',
     title: 'x',
     firstMessage: 'x',
+    agentRuntime: 'claude-code',
     ...extra,
   })
 }

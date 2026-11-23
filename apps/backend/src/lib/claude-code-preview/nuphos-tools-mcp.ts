@@ -11,19 +11,17 @@ import type { McpSurface, ToolHandler } from '@/lib/mcp/protocol'
 
 export { toolModuleFromAiSdkTools } from './preview-tools/ai-sdk-adapter'
 
-export const NUPHOS_TOOLS_INSTRUCTIONS =
-  "Nuphos's native tools for this conversation: memory (save_memory / " +
-  'memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ' +
-  'connector setup (create_connector), computers from Nuphos on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_thread / list_agent_runtimes / set_thread_parent / archive_thread / stop_thread), Nuphos channels (channel_read / channel_post / channel_create), meetings (meeting_join / meeting_chat / meeting_leave, when set up), and channel delivery. ' +
+const SUB_AGENTS =
   'When the user asks for a sub-agent (in any language), use create_thread, not your ' +
-  "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. " +
-  'List yours with list_recent_conversations children:true. ' +
+  "runtime's built-in subagent tool, unless they explicitly ask for the built-in one. "
+
+const DECISIONS =
   'When progress needs an answer only the user can provide, use request_user_decision ' +
   'with the question as one short line, its context in `body`, and optional choices; its answer ' +
   'arrives as a new message. ' +
-  'This registers the question in Needs your input; a question written only in chat does not. ' +
-  'When the user asks for an artifact, a document, or to see HTML, an SVG or a full file ' +
-  'rendered, show it with render_artifact; it opens beside the chat. ' +
+  'This registers the question in Needs your input; a question written only in chat does not. '
+
+const CALLS =
   'Domain resources use native skills backed by the ' +
   'canonical Nuphos REST API. Every call renders its own card in the Nuphos chat UI — ' +
   'do not re-describe the output in prose beyond what the user needs. Every ' +
@@ -33,10 +31,35 @@ export const NUPHOS_TOOLS_INSTRUCTIONS =
   'operational decisions, and reusable findings; use `personal` only for ' +
   'user-specific preferences or context.'
 
-export function nuphosToolsSurface(modules: readonly PreviewToolModule[]): McpSurface {
+export const NUPHOS_TOOLS_INSTRUCTIONS =
+  `Nuphos's native tools for this conversation: memory (save_memory / ` +
+  `memory_get), charts, artifacts, team-skill authoring, decisions, local Desktop actions, ` +
+  `connector setup (create_connector), computers from Nuphos on team instabox accounts (list_boxes / create_box / update_box), Nuphos sub-agents (create_thread / send_message_to_thread / update_task / list_agent_runtimes / set_thread_parent / archive_thread / stop_thread), Nuphos channels (channel_read / channel_post / channel_create), meetings (meeting_join / meeting_chat / meeting_leave, when set up), and channel delivery. ${
+    SUB_AGENTS
+  }List yours with list_recent_conversations children:true. ${
+    DECISIONS
+  }When the user asks for an artifact, a document, or to see HTML, an SVG or a full file ` +
+  `rendered, show it with render_artifact; it opens beside the chat. ${CALLS}`
+
+/** The same guidance limited to the tools Antigravity keeps (ANTIGRAVITY_TOOLS). */
+export const ANTIGRAVITY_TOOLS_INSTRUCTIONS =
+  `Nuphos's native tools for this conversation, limited to what fits Antigravity's tool ` +
+  `budget: memory (save_memory / memory_get), sub-agents (create_thread / ` +
+  `send_message_to_thread), Task reporting (report_task / update_self), decisions, commands ` +
+  `on the user's devices (local_exec) and channel posts (channel_post). Charts, artifacts, ` +
+  `listing conversations, reading channels, Kubernetes access and Desktop browser or ` +
+  `terminal tools are not available here; say so rather than looking for them. ${SUB_AGENTS}${
+    DECISIONS
+  }${CALLS}`
+
+export function nuphosToolsSurface(
+  modules: readonly PreviewToolModule[],
+  agentRuntime?: string,
+): McpSurface {
   return {
     serverName: 'nuphos-tools',
-    instructions: NUPHOS_TOOLS_INSTRUCTIONS,
+    instructions:
+      agentRuntime === 'antigravity' ? ANTIGRAVITY_TOOLS_INSTRUCTIONS : NUPHOS_TOOLS_INSTRUCTIONS,
     toolDefinitions: modules.flatMap((module) => [...module.definitions]),
   }
 }
@@ -63,7 +86,10 @@ export async function nuphosToolsMcp(
 ): Promise<{ surface: McpSurface; tools: Record<string, ToolHandler> }> {
   const modules = await previewToolModules(ctx)
 
-  return { surface: nuphosToolsSurface(modules), tools: mergeToolHandlers(modules, ctx) }
+  return {
+    surface: nuphosToolsSurface(modules, ctx.agentRuntime),
+    tools: mergeToolHandlers(modules, ctx),
+  }
 }
 
 /**

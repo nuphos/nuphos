@@ -26,6 +26,8 @@
     <string name="chats_bots">Bot</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">新 Bot</string>
+    <string name="chats_first_bot_title">從第一個 Bot 開始</string>
+    <string name="chats_first_bot_body">一個熟悉的面孔，陪你處理長期的工作。取個名字，邀請團隊一起加入。</string>
     <string name="chats_archive_bot">封存 Bot</string>
     <string name="chats_more_actions">更多動作</string>
     <string name="chats_is_typing">%1$s 正在輸入</string>
@@ -45,6 +47,7 @@
     <string name="chats_reply">回覆</string>
     <string name="chats_copy">複製</string>
     <string name="chats_usage_resets">用量%1$s。</string>
+    <string name="chats_verify_with_anthropic">前往 Anthropic 驗證</string>
     <string name="chats_switch_runtime">切換執行環境</string>
     <string name="chats_retry">重試</string>
     <string name="chats_send_failed_title">無法傳送訊息</string>
@@ -57,6 +60,13 @@
     <string name="chats_question_snooze_tomorrow">明天 9:00</string>
     <string name="chats_question_snooze_monday">下週一 9:00</string>
     <string name="chats_question_dismiss_reason">理由（選填）</string>
-    <string name="chats_empty_bot_body">這裡是你和 %1$s 的對話。聊聊你需要什麼協助，一起建立適合你的工作方式。</string>
+    <string name="chats_empty_bot_body">你可以在這裡和 %1$s 一起完成工作。聊聊你需要什麼協助，一起建立適合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告訴 %1$s，你想做些什麼。</string>
+    <string name="chats_bot_computer_offline">%1$s 的電腦離線。</string>
+    <string name="chats_presence_online">線上</string>
+    <string name="chats_presence_busy">忙碌中</string>
+    <string name="chats_presence_offline">離線</string>
+    <string name="chats_presence_sign_in">需要登入</string>
+    <string name="chats_presence_usage">用量已用完</string>
+    <string name="chats_presence_unavailable">無法使用</string>
 </resources>

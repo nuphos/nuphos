@@ -1,48 +1,41 @@
 import { randomUUID } from 'node:crypto'
 
-import { claudeNotice, turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
-import {
-  AGENT_CLI_UNSTARTABLE_MESSAGE,
-  userSetupFailure,
-} from '@/lib/claude-code-preview/plain-failure'
-import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
-import { AppError } from '@/lib/errors'
 import { logError } from '@/lib/observability'
 
-import { getConversationBySessionId } from './db'
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
-import { CHANNEL_SENDER_PREFIX, readChannelMessages } from './db/channels'
-import { pushTimelineEvent } from './db/participants'
+import {
+  CHANNEL_SENDER_PREFIX,
+  channelNotice,
+  noticeChannelId,
+  SLACK_CHANNEL_SENDER_PREFIX,
+} from './db/channel-notes'
+import { readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
 import {
   listPendingUserMessages,
   requeuePendingAtHead,
   takePendingUserMessages,
 } from './pending-queue'
-import { sessionReleased } from './session-released'
 
 import type { AgentConversation } from './db'
 import { systemSender } from './message-metadata'
 
 import type { MessageMetadata } from './message-metadata'
-import type { ReplyFailedCause } from './db/timeline-events'
-
-/** A channel's wake notice as queued: fixed per channel, so the queue keeps one. */
-export const channelNotice = (channelId: string) =>
-  `New messages in a Nuphos channel (channelId ${channelId}).`
 
 /** Who a channel's wake notice is from: the channel, never a person. */
 export const channelNoticeSender = (
   teamId: string,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   displayName: string,
 ): MessageMetadata =>
-  systemSender(
-    `${CHANNEL_SENDER_PREFIX}${channelId}`,
-    displayName,
-    `/teams/${teamId}/agent/${channelId}`,
-  )
+  channel.external === 'slack'
+    ? systemSender(`${SLACK_CHANNEL_SENDER_PREFIX}${channel.sessionId}`, displayName)
+    : systemSender(
+        `${CHANNEL_SENDER_PREFIX}${channel.sessionId}`,
+        displayName,
+        `/teams/${teamId}/agent/${channel.sessionId}`,
+      )
 
 /**
  * Steers the agent's running turn with the notice and the posts it has not
@@ -52,7 +45,7 @@ export const channelNoticeSender = (
  */
 export async function steerRunningTurn(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
 ) {
   // Lazy so importing this does not pull in the runtime graph.
@@ -64,7 +57,7 @@ export async function steerRunningTurn(
   const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
 
   if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) return false
-  const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channelId) }
+  const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channel) }
   const { messages, markRead } = await withChannelPosts(agent.sessionId, agent.userId, [notice])
 
   // Already read, during the very turn it would steer.
@@ -79,7 +72,7 @@ export async function steerRunningTurn(
     return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
-  await addRunChannels(agent.userId, active.streamId, [channelId])
+  await addRunChannels(agent.userId, active.streamId, [channel.sessionId])
   await markRead()
 
   return true
@@ -93,18 +86,20 @@ export const QUEUED_NOTICE_STEER = { attempts: 15, delayMs: 2_000 }
  * steer yet (it was still starting) must not wait for that whole turn to end.
  * Like a waiting message the composer steers, the notice leaves the queue,
  * steers, and goes back to the front if the turn still refuses it. Once no turn
- * runs, the queue starts it as its own turn.
+ * runs, the queue starts it as its own turn: on that turn's release, or on the
+ * backstop sweep if the turn ended while the notice was off the queue. A give-up
+ * here is no release, so a queue waiting out a refusal keeps waiting (#4164).
  */
 export function steerQueuedNotice(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
   noticeId: string,
 ) {
   // The notice stays queued, so a failure here only leaves it to the turn's end.
-  retrySteer(agent, channelId, metadata, noticeId).catch((error: unknown) => {
+  retrySteer(agent, channel, metadata, noticeId).catch((error: unknown) => {
     logError('agent.channel.steer_failed', error, {
-      channel_id: channelId,
+      channel_id: channel.sessionId,
       session_id: agent.sessionId,
     })
   })
@@ -112,7 +107,7 @@ export function steerQueuedNotice(
 
 async function retrySteer(
   agent: AgentConversation,
-  channelId: string,
+  channel: Pick<AgentConversation, 'sessionId' | 'external'>,
   metadata: MessageMetadata,
   noticeId: string,
 ) {
@@ -127,21 +122,14 @@ async function retrySteer(
     const [notice] = waiting ? await takePendingUserMessages(userId, sessionId, [waiting]) : []
 
     if (!notice) return
-    if (await steerRunningTurn(agent, channelId, metadata)) return
+    if (await steerRunningTurn(agent, channel, metadata)) return
     await requeuePendingAtHead(userId, sessionId, [notice])
-    // The turn may have ended while the notice was off the queue.
-    sessionReleased(userId, sessionId)
   }
 }
 
 /** The channel a message is the wake notice of, if it is one. */
-export function channelIdOf(message: { source?: string; metadata?: MessageMetadata }) {
-  const id = message.metadata?.sender?.id
-
-  return message.source === 'agent.resource' && id?.startsWith(CHANNEL_SENDER_PREFIX)
-    ? id.slice(CHANNEL_SENDER_PREFIX.length)
-    : undefined
-}
+export const channelIdOf = (message: { source?: string; metadata?: MessageMetadata }) =>
+  message.source === 'agent.resource' ? noticeChannelId(message.metadata?.sender?.id) : undefined
 
 /**
  * Puts what a channel notice is about into it: the posts the agent has not read,
@@ -183,7 +171,7 @@ export async function withChannelPosts<
       // What people see of it: the newest post, as the agent got it.
       ...(channelPost ? { metadata: { ...message.metadata!, channelPost } } : {}),
       // From the bare notice, so a requeued one does not carry its posts twice.
-      renderedText: `${channelNotice(channelId)}\n\n${channelPage(page)}`,
+      renderedText: `${channelNotice(channel)}\n\n${channelPage(page)}`,
     })
   }
 
@@ -220,78 +208,4 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
     null,
     2,
   )
-}
-
-/** How a Pi turn the model provider refused reads after `Internal error: ` (acp-shim.mjs). */
-const PROVIDER_REFUSED = 'The model provider refused the request:'
-
-/**
- * Why an agent could not reply, in words fit for the chat; undefined for an internal error,
- * except a model provider's refusal.
- */
-function replyFailedReason(
-  agent: AgentConversation | null,
-  cause: ReplyFailedCause,
-  error: unknown,
-  resetsAt: string | undefined,
-): string | undefined {
-  const label = agent?.agentRuntime ? `${runtimeLabel(agent.agentRuntime)} ` : ''
-  // Claude Code's own notice names the window and its reset in UTC: kept when no reading says when.
-  const notice = resetsAt ? undefined : claudeNotice(error)
-
-  if (cause === 'usage_limit')
-    return notice
-      ? `its ${label}account hit its usage limit (${notice}).`
-      : `its ${label}account hit its usage limit.`
-  if (cause === 'auth') return `its ${label}sign-in is no longer valid.`
-  if (cause === 'cli') return AGENT_CLI_UNSTARTABLE_MESSAGE
-  // A disabled agent's own message says where to move the conversation.
-  if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
-  if (cause === 'offline') return `its ${label}runtime could not be reached.`
-
-  if (error instanceof AppError) return error.message
-
-  // A provider's refusal is written for people (and its keys redacted); an adapter's other
-  // internal errors may name hosts or files, so they stay out of the chat.
-  return notice?.startsWith(PROVIDER_REFUSED) ? notice.slice(0, 300) : undefined
-}
-
-async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {
-  if (!agent.teamId || !agent.runtimeId) return undefined
-  // Lazy so importing this does not pull in the runtime graph.
-  const { usageResetsAt } = await import('@/lib/claude-code-preview/runtime-catalog')
-
-  return usageResetsAt(agent.teamId, agent.userId, agent.runtimeId)
-}
-
-/** An agent a post woke could not reply: the channel says what happened and why, not just the log. */
-export async function noteReplyFailed(channelId: string, agentId: string, error: unknown) {
-  const agent = await getConversationBySessionId(agentId).catch(() => null)
-  // A CLI that cannot start is the agent's own cause too: this computer's line offers Install.
-  const cause: ReplyFailedCause =
-    userSetupFailure(error) === 'agent_cli_unstartable' ? 'cli' : turnFailureCause(error)
-  const resetsAt =
-    cause === 'usage_limit' && agent
-      ? await usageResetsAtOf(agent).catch(() => undefined)
-      : undefined
-  const reason = replyFailedReason(agent, cause, error, resetsAt)
-
-  await agentConversations()
-    .updateOne(
-      { sessionId: channelId },
-      {
-        $push: pushTimelineEvent({
-          kind: 'agent_reply_failed',
-          at: new Date(),
-          actorId: 'system',
-          agentId,
-          agentName: agent?.title || 'Nuphos agent',
-          cause,
-          ...(reason ? { reason } : {}),
-          ...(resetsAt ? { resetsAt } : {}),
-        }),
-      },
-    )
-    // The failure itself is already logged; a lost notice must not fail the post.
-    .catch(() => undefined)
 }

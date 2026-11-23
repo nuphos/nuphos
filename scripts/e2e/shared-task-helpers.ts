@@ -106,13 +106,15 @@ export async function say(
   return response.status
 }
 
-/** The teammate's Task, written as the app syncs a transcript. */
+/** The teammate's Task, on its runtime, as the app imports a local session. */
 export async function sharedTask(stack: Stack, ownerToken: string, title: string) {
   const sessionId = randomUUID()
 
   await rest(stack, ownerToken)('PUT', `/agent/conversations/${sessionId}/transcript`, {
     teamId: stack.teamId,
     title,
+    agentRuntime: 'claude-code',
+    import: true,
     messages: [{ id: randomUUID(), role: 'user', parts: [{ type: 'text', text: title }] }],
   })
 

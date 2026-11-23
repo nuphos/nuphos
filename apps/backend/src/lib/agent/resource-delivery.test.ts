@@ -261,6 +261,20 @@ test('a finished commit status wakes the linked PR that holds the commit', async
   expect(queued).toHaveLength(1)
   expect(queued[0]?.summary).toContain('status.failure (openab/council)')
 })
+test("a fork PR's finished check suite, which lists no PRs, wakes it from its head commit", async () => {
+  await routeResourceWebhook(
+    'check_suite',
+    {
+      installation: { id: 12 },
+      repository: { id: 34, full_name: 'acme/app' },
+      action: 'completed',
+      check_suite: { pull_requests: [], status: 'completed', conclusion: 'failure', head_sha: sha },
+    },
+    'delivery',
+  )
+  expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
+  expect(queued.map((turn) => turn.summary)).toEqual(['GitHub check_suite.completed.'])
+})
 test('statuses ask GitHub nothing unless the repository has a linked PR', async () => {
   repoLinked = false
   await routeResourceWebhook('status', status, 'delivery')

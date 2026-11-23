@@ -1,6 +1,6 @@
 ---
 name: linear
-description: Operate on Linear issues — read, create, comment, and close — through a Linear workspace the user's team has bound to Nuphos via OAuth. Use whenever the user asks to open/track/close a Linear issue, file a ticket for an incident, comment on an issue, or check issue status. Nuphos backend hands the agent a workspace access token; the included stateless helpers call api.linear.app/graphql directly.
+description: Read, create, comment on and close Linear issues in a team-bound workspace. Use for opening, tracking or closing an issue, filing an incident ticket or checking status.
 ---
 
 # linear
