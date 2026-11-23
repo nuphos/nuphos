@@ -191,12 +191,6 @@ test('consent defaults off, rejects stale notices, and is scoped to the authenti
   expect((await readAIConsent(String(USER))).accepted).toBe(false)
 })
 
-// The 2026-11-23 notice added OpenCode, xAI and DeepSeek, so earlier consent is asked for again.
-test('consent to the 2026-09-28 notice is asked for again', async () => {
-  Object.assign(docs('users')[0]!, { aiConsent: { version: '2026-09-28', accepted: true } })
-  expect(await readAIConsent(String(USER))).toEqual({ version: '2026-11-23', accepted: false })
-})
-
 test('deletion requires email proof and persists one deadline across retries', async () => {
   const user = mapUser(docs('users')[0] as NuphosUserDoc)
 
@@ -324,6 +318,22 @@ test('iOS AI requests require current saved consent, including after withdrawal'
       })
     ).status,
   ).toBe(401)
+})
+
+// Shipped iOS 0.50.0 and Android 1.21.0 send 2026-09-28; any other value locks them out.
+test('the consent version shipped clients send passes auth and can be saved', async () => {
+  const app = new Hono().onError(errorHandler)
+
+  app.use('*', requireAuth)
+  app.post('/agent/chat', (c) => c.json({ ran: true }))
+  const headers = {
+    Authorization: 'Bearer valid-session',
+    'x-nuphos-ai-consent-version': '2026-09-28',
+  }
+
+  await saveAIConsent(String(USER), { version: '2026-09-28', accepted: true })
+  expect(await readAIConsent(String(USER))).toEqual({ version: '2026-09-28', accepted: true })
+  expect((await app.request('/agent/chat', { method: 'POST', headers })).status).toBe(200)
 })
 
 test('password reset revokes earlier sessions and run tokens', async () => {
