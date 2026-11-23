@@ -77,7 +77,7 @@ test('chosen members: they and the member who connects it', async () => {
   })
 })
 
-test('no choice: the team default', async () => {
-  expect(await connect(undefined, 'team')).toMatchObject({ memberAllowList: ['*'] })
+test('no choice: private despite legacy team defaults', async () => {
+  expect(await connect(undefined, 'team')).toMatchObject({ memberAllowList: ['u1'] })
   expect(await connect(undefined, 'private')).toMatchObject({ memberAllowList: ['u1'] })
 })

@@ -20,6 +20,7 @@ import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
+import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
 import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
@@ -153,6 +154,10 @@ const scenarios: Scenario[] = [
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
+  {
+    name: 'connector sharing enforces ownership and role boundaries',
+    run: async (_page, stack) => connectorSharingFlow(stack),
+  },
   // Turns two-factor authentication on for this account, and off again.
   ...stepUpScenarios,
   ...twoFactorResumeScenarios,

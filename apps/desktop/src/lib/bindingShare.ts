@@ -9,8 +9,8 @@ export function bindingOwner(
 }
 
 /**
- * Mirrors the backend: its owner may always change who a binding is shared
- * with, an admin only while it is shared.
+ * Mirrors the backend: owners manage private bindings; only admins manage
+ * shared bindings.
  */
 export function canEditBindingAccess(
   memberAllowList: string[],
@@ -20,7 +20,8 @@ export function canEditBindingAccess(
 ): boolean {
   const owner = bindingOwner(memberAllowList, ownerUserId)
 
-  if (userId && owner === userId) return true
+  if (userId && owner === userId && bindingShareStatus(memberAllowList, ownerUserId) === 'private')
+    return true
   if (!isAdmin) return false
   // A list emptied before owners were kept is nobody's to protect.
   if (!owner && memberAllowList.length === 0) return true
