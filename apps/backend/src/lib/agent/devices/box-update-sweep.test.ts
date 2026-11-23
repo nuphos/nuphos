@@ -101,13 +101,13 @@ describe('Box update sweep', () => {
     ).toEqual([])
   })
 
-  test('respects autoInstall off, except below the version floor', async () => {
+  test('leaves a host that turned autoInstall off', async () => {
     expect(
       await sweep({
         off: { cliVersion: '0.27.4', autoInstall: false, usedAt: idle },
-        floor: { cliVersion: '0.19.9', autoInstall: false, usedAt: idle },
+        old: { cliVersion: '0.19.9', autoInstall: false, usedAt: idle },
       }),
-    ).toEqual(['floor'])
+    ).toEqual([])
   })
 
   test('updates at most three Boxes a sweep', async () => {

@@ -2,15 +2,12 @@
 // new release between turns; an older one waits for someone to click Update. Each minute one
 // replica updates up to MAX_PER_SWEEP running Boxes nobody used for IDLE_MS whose agents are
 // not mid-turn, each once per version: one whose update fails waits for its owner. A paused
-// Box stays paused. A host that turned autoInstall off is left alone, unless it is older than
-// the floor, which no longer connects without an update.
+// Box stays paused. A host that turned autoInstall off is left alone.
 
 import { config } from '@/config'
 import { boxAgentBusy, hostAgents, startBoxUpdate } from '@/lib/claude-code-preview/box-update'
-import { MINIMUM_HOST_VERSION } from '@/lib/claude-code-preview/host-minimum-version'
 import {
   newerRuntimeVersion,
-  runtimeVersionAtLeast,
   stableRuntimeVersion,
 } from '@/lib/claude-code-preview/runtime-release'
 import { logError, logEvent } from '@/lib/observability'
@@ -79,7 +76,7 @@ export const boxUpdateSweepDeps: UpdateSweepDeps = {
 function outdated({ cliVersion, autoInstall }: LocalRuntimeStatus): string | undefined {
   return stableRuntimeVersion(cliVersion) &&
     newerRuntimeVersion(SELF_UPDATING_CLI, cliVersion) &&
-    (autoInstall !== false || !runtimeVersionAtLeast(cliVersion, MINIMUM_HOST_VERSION.cli))
+    autoInstall !== false
     ? cliVersion
     : undefined
 }
