@@ -54,6 +54,8 @@ class BotDesktopFixtureDeviceTest {
     @Volatile private var nonOwner = false
     /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
     @Volatile private var dispatched = false
+    /** A pull request linked to the Bot's own session, which Bot details leaves out (#4790). */
+    @Volatile private var linkedPr = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -129,6 +131,8 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
                     """{"sessionId":"$id","title":"$title","isOwner":true,"agentRuntime":"claude-code","parentSessionId":"bot-plain",$rest}""" }}],"hasMore":false}"""
+                linkedPr && path.endsWith("/agent/conversations/bot-plain/resources") ->
+                    """{"resources":[{"id":"pr1","provider":"github","title":"Release notes for 0.26","url":"https://github.com/example/project/pull/42","state":"open","number":42}]}"""
                 path.endsWith("/resources") -> """{"resources":[]}"""
                 path.endsWith("/read") -> """{"activitySeq":2,"readSeq":2,"unread":false}"""
                 else -> "{}"
@@ -304,6 +308,21 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
+    }
+
+    /** As on Desktop (#4080): a pull request linked to the Bot's own session stays off Bot details. A Task's summary keeps it. */
+    @Test fun botDetailsLeavesOutChanges() {
+        linkedPr = true
+        render("chat-plain")
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
+        // The linked pull request has loaded, so its absence is the sheet's choice.
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.linkedResources?.resources?.isNotEmpty() == true }
+        compose.waitForIdle()
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_summary_changes)).assertDoesNotExist()
+        compose.onNodeWithText("Release notes for 0.26").assertDoesNotExist()
+        capture("11-bot-details-no-changes")
     }
 
     @Test fun aBotWithADesktopOpensItFromTheHeader() {

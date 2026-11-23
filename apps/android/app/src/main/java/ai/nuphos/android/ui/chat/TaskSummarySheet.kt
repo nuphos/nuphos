@@ -221,8 +221,9 @@ internal fun TaskSummarySheet(
                         }
                     }
                 }
+                // Bot details leaves out Changes, as on Desktop (#4080): they belong to the Bot's tasks.
                 val changes = session.linkedResources.resources.filter { it.supported }
-                if (changes.isNotEmpty()) SummarySection(boxed) {
+                if (lead == null && changes.isNotEmpty()) SummarySection(boxed) {
                     Text(stringResource(R.string.chat_summary_changes), style = MaterialTheme.typography.titleMedium)
                     changes.forEach { change ->
                         val url = change.safeUrl

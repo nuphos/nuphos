@@ -196,6 +196,44 @@ final class BotPinsUITests: XCTestCase {
         }
     }
 
+    /// As on Desktop (#4080): a pull request linked to the Bot's own session stays off Bot details.
+    /// A Task's summary keeps it (AgentSummaryUITests).
+    func testBotDetailsLeavesOutChanges() throws {
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "tests/fixtures/bot-desktop-responses.json")
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-bot-plain"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["botId"] = "bot-plain"
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-bot-plain"] = detail
+        let listing = responses["GET /agent/conversations"] as! [String: Any]
+        var task = ((listing["body"] as! [String: Any])["conversations"] as! [[String: Any]])[1]
+        task["messages"] = body["messages"]; task["messagesFirstIndex"] = 0; task["readOnly"] = false
+        responses["GET /agent/conversations/bot-plain"] = ["status": 200, "body": task]
+        responses["GET /agent/conversations/bot-plain/resources"] = ["status": 200, "body": ["resources": [[
+            "id": "pr1", "provider": "github", "title": "Release notes for 0.26",
+            "url": "https://github.com/example/project/pull/42", "state": "open", "number": 42,
+        ]]]]
+        let live = URL.temporaryDirectory.appending(path: "bot-details-changes-\(UUID()).json")
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+        defer { try? FileManager.default.removeItem(at: live) }
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let row = app.staticTexts["Release notes"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
+        XCTAssertTrue(app.staticTexts["Bot details"].firstMatch.waitForExistence(timeout: 10))
+        // Long enough for the Bot's linked pull request to load, so its absence is the panel's choice.
+        XCTAssertFalse(app.staticTexts["Release notes for 0.26"].waitForExistence(timeout: 5))
+        for _ in 0..<3 where app.scrollViews["agent-summary-list"].exists { app.scrollViews["agent-summary-list"].swipeUp() }
+        XCTAssertFalse(app.staticTexts["Changes"].exists)
+        XCTAssertFalse(app.staticTexts["Release notes for 0.26"].exists)
+        shot("bot-details-no-changes")
+    }
+
     /// On a phone, a Bot's runtime and model are in view without scrolling the composer's
     /// controls row, and Bot details names the model (#4204).
     func testBotRuntimeAndModelAreInViewOnAPhone() throws {
