@@ -64,6 +64,8 @@ async function recallFetch(path: string, body?: object, done?: string): Promise<
     method: body ? 'POST' : 'GET',
     headers: { Authorization: recall.apiKey, 'Content-Type': 'application/json' },
     body: body && JSON.stringify(body),
+    // The webhook handler waits on a status read, so a hung Recall must not hold it.
+    signal: AbortSignal.timeout(15_000),
   })
 
   if (!response.ok) {
