@@ -125,7 +125,7 @@ export function SummaryMenuRow({
 /** A menu row's current choice, cut short when long, with the menu's chevron. */
 export function SummaryMenuNote({ children }: { children: ReactNode }) {
   return (
-    <span className="flex max-w-48 items-center gap-1">
+    <span className="flex max-w-36 items-center gap-1">
       <span className="truncate">{children}</span>
       <ChevronDown className="size-3.5 shrink-0" strokeWidth={1.8} />
     </span>

@@ -205,7 +205,7 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
   // #3298: Bot details edit the Bot's own permission mode, the composer its model.
   assert.deepEqual(bypassQueries, ['bot'], "reads the Bot's permission mode, not its chat's")
   assert.deepEqual(sectionRows(panel, 'Runtime'), [
-    { text: 'RuntimeClaude Code · Claude Code on a laptop', opens: true },
+    { text: 'RuntimeClaude Code on a laptop', opens: true },
   ])
 
   // The Bot's runtime line is the Task's: a runtime with quota data shows its usage in both.

@@ -1,8 +1,8 @@
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
 import { AgentProviderIcon } from '../agent/panel/icons'
 import { ModelSelector } from '../agent/panel/ModelSelector'
 import { RuntimeSelector } from '../agent/panel/RuntimeSelector'
+import { threadRuntimeName } from '../agent/panel/threadBadges'
 import { useSessionConfig } from '../agent/panel/useSessionConfig'
 import { SummaryRow, SummarySection } from '../agent/summary/ChatSummaryRows'
 
@@ -44,9 +44,7 @@ export function BotRuntimeSection({
         <SummaryRow
           icon={<AgentProviderIcon provider={provider} className="size-3.5" />}
           label={t('Runtime')}
-          note={[provider && AGENT_PROVIDER[provider].label, listed?.runtimeLabel]
-            .filter(Boolean)
-            .join(' · ')}
+          note={threadRuntimeName(provider, listed?.runtimeLabel)}
         />
       )}
       <ModelSelector

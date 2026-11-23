@@ -18,6 +18,7 @@ import { AgentProviderIcon } from './icons'
 import { selectedAgentReachability } from './runtimeControlSignOut'
 import { selectorBoxes } from './selectorBoxes'
 import { SelectorBoxMenu } from './SelectorBoxMenu'
+import { threadRuntimeName } from './threadBadges'
 import { usePickerFixes } from './usePickerFixes'
 
 import type { AgentDevice } from '../../../api/device-types'
@@ -198,7 +199,7 @@ export function RuntimeSelector({
             label={t('Runtime')}
             note={
               <SummaryMenuNote>
-                {value ? `${AGENT_PROVIDER[value.provider].label} · ${label}` : label}
+                {(value && threadRuntimeName(value.provider, label)) ?? label}
                 {unavailable && ` · ${t('Unavailable')}`}
               </SummaryMenuNote>
             }
