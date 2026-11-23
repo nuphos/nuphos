@@ -28,6 +28,9 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -66,7 +69,16 @@ fun RuntimesPage() {
         }
         if (current()) {
         RuntimeInventory(observations,
-            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it }, onConnect = { guide = true }, resume = { BoxResumeButton(it, observations::refresh) })
+            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it }, onConnect = { guide = true }, resume = { BoxResumeButton(it, observations::refresh) },
+            deleteBox = { device ->
+                if (!current()) throw CancellationException()
+                try {
+                    BoxApi(token, team.id).deleteBox(device.id)
+                } catch (_: NuphosApi.Failure.Unauthorized) {
+                    expired()
+                    throw CancellationException()
+                }
+            })
         if (guide) ConnectComputerFlow { guide = false; observations.refresh() }
         adding?.let { target ->
             val device = observations.devices.firstOrNull { it.id == target.device?.id }
@@ -110,7 +122,53 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}, onConnect: (() -> Unit)? = null, resume: (@Composable (RuntimeDevice) -> Unit)? = null) {
+fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}, onConnect: (() -> Unit)? = null, resume: (@Composable (RuntimeDevice) -> Unit)? = null,
+    deleteBox: (suspend (RuntimeDevice) -> Unit)? = null,
+) {
+    val deleteScope = rememberCoroutineScope()
+    var confirmingBox by remember { mutableStateOf<RuntimeDevice?>(null) }
+    var deletingBox by remember { mutableStateOf(false) }
+    var deleteFailure by remember { mutableStateOf<String?>(null) }
+    confirmingBox?.let { device ->
+        AlertDialog(
+            onDismissRequest = { confirmingBox = null },
+            title = { Text(stringResource(R.string.box_delete_named, device.label)) },
+            text = { Text(stringResource(R.string.box_delete_body)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !deletingBox && !store.loading,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    onClick = {
+                        confirmingBox = null
+                        if (deleteBox != null && store.devices.any { it.id == device.id && it.box != null && it.access == "owner" }) {
+                            deletingBox = true
+                            deleteScope.launch {
+                                try {
+                                    deleteBox(device)
+                                    store.refreshAfterMutation()
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Exception) {
+                                    deleteFailure = (error as? RuntimeHttpFailure)?.serverMessage ?: ""
+                                } finally {
+                                    deletingBox = false
+                                }
+                            }
+                        }
+                    },
+                ) { Text(stringResource(R.string.box_delete)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingBox = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    deleteFailure?.let { message ->
+        AlertDialog(
+            onDismissRequest = { deleteFailure = null },
+            title = { Text(stringResource(R.string.box_delete_failed)) },
+            text = if (message.isNotBlank()) ({ Text(message) }) else null,
+            confirmButton = { TextButton(onClick = { deleteFailure = null }) { Text(stringResource(android.R.string.ok)) } },
+        )
+    }
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -181,6 +239,19 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                             if (group.device?.access == "use") stringResource(R.string.new_runtime_ask_owner)
                             else stringResource(R.string.new_runtime_install, group.title),
                             modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val device = group.device
+                        if (deleteBox != null && device?.box != null && device.access == "owner") {
+                            TextButton(
+                                onClick = { confirmingBox = device },
+                                enabled = !deletingBox && !store.loading,
+                                modifier = Modifier.padding(start = 48.dp).testTag("delete-box-${device.id}"),
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            ) {
+                                Icon(painterResource(R.drawable.box_delete_trash), null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.box_delete))
+                            }
+                        }
                     }
                 }
             }
