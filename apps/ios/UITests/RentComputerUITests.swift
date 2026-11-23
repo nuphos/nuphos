@@ -42,6 +42,51 @@ final class RentComputerUITests: XCTestCase {
         shot("2-form")
     }
 
+    /// #3663: runtimes join a new Box one by one and the server lists them in any order,
+    /// yet the Ready list keeps Desktop's order, so rows already shown never move.
+    func testANewBoxsRuntimesKeepTheirPlaceAsMoreJoin() throws {
+        let runtimes = "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes"
+        func serve(_ joined: [(String, String)]) throws {
+            var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+            responses[runtimes] = ["status": 200, "body": ["runtimes": joined.map { provider, name in
+                ["id": "box-\(provider)", "provider": provider, "label": name, "status": "active", "kind": "local",
+                 "local": ["ownerUserId": "preview", "deviceId": "box-1", "deviceLabel": "Computer 1",
+                           "agentLabel": name, "online": true, "signedIn": false]]
+            }]]
+            responses["POST /agent/devices/boxes"] = ["status": 200, "body": ["deviceId": "box-1"]]
+            try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        }
+        try serve([])
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "runtimes"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let add = app.buttons["Add computer"].firstMatch
+        XCTAssertTrue(add.waitForExistence(timeout: 10), "Computers & runtimes did not open")
+        add.tap()
+        app.staticTexts["Rent a computer from Nuphos"].firstMatch.tap()
+        app.buttons["Create computer"].firstMatch.tap()
+
+        // The server lists the first two in reverse of Desktop's order.
+        try serve([("pi", "Box Pi"), ("grok", "Box Grok")])
+        XCTAssertTrue(app.staticTexts["Box Pi"].waitForExistence(timeout: 15), "The first runtimes did not show")
+        XCTAssertEqual(order(app, ["Box Grok", "Box Pi"]), ["Box Grok", "Box Pi"])
+        shot("3-first-runtimes")
+
+        // Two more join, again listed out of order: they take their places around the first two.
+        try serve([("opencode", "Box OpenCode"), ("pi", "Box Pi"), ("claude-code", "Box Claude Code"), ("grok", "Box Grok")])
+        XCTAssertTrue(app.staticTexts["Box Claude Code"].waitForExistence(timeout: 15), "The later runtimes did not show")
+        XCTAssertTrue(app.staticTexts["Box OpenCode"].waitForExistence(timeout: 5))
+        let all = ["Box Claude Code", "Box Grok", "Box OpenCode", "Box Pi"]
+        XCTAssertEqual(order(app, all), all, "The Ready list is not in Desktop's runtime order")
+        shot("4-all-runtimes")
+    }
+
+    /// The names, top to bottom as shown.
+    private func order(_ app: XCUIApplication, _ names: [String]) -> [String] {
+        names.sorted { app.staticTexts[$0].firstMatch.frame.minY < app.staticTexts[$1].firstMatch.frame.minY }
+    }
+
     private func shot(_ name: String) {
         let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         shot.name = name
