@@ -660,6 +660,40 @@ test('Antigravity forwards advertised capabilities, errors and process exit', as
   )
 })
 
+test('an agent killed mid-turn fails the turn with why it died (#4345)', async () => {
+  const stderr = mock.method(process.stderr, 'write', () => true)
+
+  try {
+    await withShim(
+      'opencode',
+      async ({ call, exits }) => {
+        await call('initialize', { protocolVersion: 1 })
+        await call('session/new', session('Be Nuphos.'))
+        const reply = await call('session/prompt', {
+          sessionId: 's1',
+          prompt: [{ type: 'text', text: 'hi' }],
+        })
+        const reason =
+          'OpenCode stopped unexpectedly (process terminated by signal SIGKILL). Send a message to continue.'
+
+        assert.deepEqual(reply.error, { code: -32603, message: `Internal error: ${reason}` })
+        assert.deepEqual(exits, [1])
+        assert.ok(
+          stderr.mock.calls.some(
+            ({ arguments: [line] }) => line === `nuphos-process-death: ${reason}\n`,
+          ),
+        )
+      },
+      FAKE_AGENT.replace(
+        'if (m.id === undefined) return',
+        "if (m.id === undefined) return\n  if (m.method === 'session/prompt') process.kill(process.pid, 'SIGKILL')",
+      ),
+    )
+  } finally {
+    stderr.mock.restore()
+  }
+})
+
 test('pi runs through the pi-acp adapter and gets the session MCP servers as its mcp.json', async () => {
   await withShim('pi', async ({ call, children, home }) => {
     await call('initialize', { protocolVersion: 1 })
