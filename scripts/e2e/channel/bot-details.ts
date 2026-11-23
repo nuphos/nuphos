@@ -204,8 +204,10 @@ const scenario: Scenario = {
     await openChat(page, SECOND)
     await expectOpen(page, true, `In ${SECOND}'s chat`)
     await details(page).getByRole('region', { name: SECOND }).waitFor()
-    // Made without a computer, it says only which agent it is.
-    await details(page).getByText('Claude Code', { exact: true }).waitFor()
+    // Made without a computer, it says only which agent it is (and, here, that it is unavailable).
+    await details(page)
+      .getByText(/^Claude Code(?: · Unavailable)?$/)
+      .waitFor()
     // Renaming in Edit Bot renames the Bot, its chat and the name button.
     await details(page).getByRole('button', { name: 'Edit Bot' }).click()
     await page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' }).fill(RENAMED)
