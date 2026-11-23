@@ -216,7 +216,11 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
+  logEvent('info', 'agent.local_runtime.tunnel_opened', {
+    user_id: userId,
+    device_id: deviceId,
+    ...(client ? { client } : {}),
+  })
   heldTunnels.add(shut)
 
   return {
