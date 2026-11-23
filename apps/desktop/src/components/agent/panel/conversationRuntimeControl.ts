@@ -195,6 +195,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
         },
       }),
       selectDisabled: moving,
+      triggerDisabledHint: moving ? t('Switching runtime…') : undefined,
       quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',

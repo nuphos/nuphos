@@ -20,7 +20,15 @@ import type { RuntimeQuota } from '../../types/runtime'
  *  reset is the bare duration, and it is the first thing to go when the
  *  composer narrows, before the model chip drops its effort. Outside a
  *  container, as in the fallback pickers, it always shows. */
-export function RuntimeUsageBar({ quota, chip = false }: { quota?: RuntimeQuota; chip?: boolean }) {
+export function RuntimeUsageBar({
+  quota,
+  chip = false,
+  showChipReset = true,
+}: {
+  quota?: RuntimeQuota
+  chip?: boolean
+  showChipReset?: boolean
+}) {
   const window = mostConstrainedWindow(quota)
 
   if (!window) return null
@@ -56,6 +64,7 @@ export function RuntimeUsageBar({ quota, chip = false }: { quota?: RuntimeQuota;
           />
         </span>
         {chip ? (
+          showChipReset &&
           duration && (
             <span
               aria-hidden

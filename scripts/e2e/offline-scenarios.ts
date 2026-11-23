@@ -34,10 +34,54 @@ export const offlineScenarios: Scenario[] = [
       await banner.waitFor()
       await page.screenshot({ path: join(artifacts, 'offline-banner.png') })
       await banner.getByRole('button', { name: 'Switch runtime' }).click()
+      const offlineRow = page.getByRole('menuitem', { name: new RegExp(`${LAPTOP}.*Offline`) })
+
+      await offlineRow.hover()
+      const retry = offlineRow.locator('.runtime-row-action-hint')
+
+      await until('the offline row to reveal Retry', () =>
+        retry.evaluate((hint) => getComputedStyle(hint).opacity === '1'),
+      )
+      await page.screenshot({ path: join(artifacts, 'runtime-offline-retry.png') })
+      await offlineRow.click()
+      await page.getByRole('menu').getByText('Checking…', { exact: false }).waitFor()
       await pickInRow(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
       await until('the banner to leave', async () => (await banner.count()) === 0)
       await send(page, 'After the laptop E2E_DELIVERY:after-offline')
       await page.getByText('ACK E2E_DELIVERY:after-offline').waitFor()
+    },
+  },
+  {
+    name: 'a signed-out runtime reveals its sign-in action and opens the dialog',
+    run: async (page, stack) => {
+      const label = 'E2E signed-out laptop'
+      const disconnect = await laptopOnline(stack, {
+        signedIn: false,
+        owner: { token: stack.token, deviceId: 'e2e-signed-out-laptop', label },
+      })
+
+      try {
+        await newTask(page)
+        await page.getByRole('button', { name: /^Runtime:/ }).click()
+        await page.getByRole('menuitem', { name: label, exact: true }).hover()
+        const runtime = page.getByRole('menuitem', { name: /Claude Code.*Signed out/ })
+
+        await runtime.hover()
+        await until('the signed-out runtime to reveal Sign in', () =>
+          runtime
+            .locator('.runtime-row-action-hint')
+            .evaluate((hint) => getComputedStyle(hint).opacity === '1'),
+        )
+        await page.screenshot({ path: join(artifacts, 'runtime-signed-out-action.png') })
+        await runtime.click()
+        const dialog = page.getByRole('dialog', { name: /^Sign in with/ })
+
+        await dialog.waitFor()
+        await page.keyboard.press('Escape')
+        await dialog.waitFor({ state: 'hidden' })
+      } finally {
+        disconnect()
+      }
     },
   },
   ...diskScenarios,
@@ -124,7 +168,11 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the fixture E2E_DELIVERY:before-shared-disk')
         await page.getByText('ACK E2E_DELIVERY:before-shared-disk').waitFor()
         await page.getByRole('button', { name: /^Runtime:/ }).click()
-        const disk = page.getByRole('menu').getByRole('meter', { name: 'DISK usage' })
+        const computer = page.getByRole('menuitem', { name: new RegExp(`^${MATE_LAPTOP}`) })
+        const disk = computer.getByText('Disk almost full · 93%', { exact: true })
+
+        await computer.hover()
+        await disk.waitFor()
         // The teammate joined after this app loaded its members, so it may name them, or fall
         // back to "the computer's owner" as the picker's "Shared by a teammate" line does.
         const whoCanFree = new RegExp(
@@ -132,19 +180,10 @@ export const offlineScenarios: Scenario[] = [
           'u',
         )
 
-        await until('the disk meter to say who can free space', async () => {
-          const seen = await Promise.all(
-            (await disk.all()).map(
-              async (meter) => (await meter.getAttribute('title')) ?? '(no title)',
-            ),
-          )
-
-          if (!seen.some((title) => whoCanFree.test(title)))
-            throw new Error(`The disk meters' titles were ${JSON.stringify(seen)}`)
-
-          return true
-        })
-        await page.screenshot({ path: join(artifacts, 'disk-shared-meter.png') })
+        await until('the disk warning to say who can free space', async () =>
+          whoCanFree.test((await disk.getAttribute('title')) ?? ''),
+        )
+        await page.screenshot({ path: join(artifacts, 'disk-shared-warning.png') })
         await pickInRow(page, MATE_LAPTOP, /Claude Code/)
         // A teammate's computer asks first: its owner can see the work.
         await page.getByRole('button', { name: 'Move', exact: true }).click()

@@ -19,7 +19,7 @@ export function ComposerVoiceButton({ hero, onStart }: { hero: boolean; onStart:
       onMouseDown={keepCaret}
       onClick={onStart}
       className={clsx(
-        hero ? 'w-8 h-8 rounded-full' : 'w-7 h-7 rounded-md',
+        hero ? 'w-8 h-8 rounded-md' : 'w-7 h-7 rounded-md',
         'flex items-center justify-center text-secondary hover:bg-state-hover hover:text-main transition-colors',
       )}
       title={`${t('Voice input')} (${SHORTCUT})`}
