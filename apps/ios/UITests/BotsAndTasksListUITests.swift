@@ -107,7 +107,7 @@ final class BotsAndTasksListUITests: XCTestCase {
     func testBotRowsHaveNoExpandControl() throws {
         launch(page: "chats")
         XCTAssertTrue(app.staticTexts["Release Lead"].firstMatch.waitForExistence(timeout: 10), "Bots did not load")
-        let expand = app.buttons.matching(NSPredicate(format: "label ENDSWITH 'sub-agents'"))
+        let expand = app.buttons.matching(NSPredicate(format: "label ENDSWITH 'sub-tasks'"))
         XCTAssertEqual(expand.count, 0, "A Bot row has a control that expands its Tasks")
         for thread in ["Check the CI flake", "Rerun the iOS job", "Fix broken links", "Collect crash logs"] {
             XCTAssertFalse(app.staticTexts[thread].exists, "\(thread) is listed under Bots")

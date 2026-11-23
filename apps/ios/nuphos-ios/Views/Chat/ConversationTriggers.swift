@@ -36,7 +36,7 @@ struct ConversationTriggers: View {
                 if let failure { Text(failure).foregroundStyle(.red).accessibilityAddTraits(.updatesFrequently) }
                 if loading { ProgressView() }
                 if !loading && triggers.isEmpty && failure == nil {
-                    Text("Ask the agent to schedule recurring work in this conversation.").foregroundStyle(Theme.body)
+                    Text("Ask here to schedule recurring work.").foregroundStyle(Theme.body)
                 }
                 ForEach(triggers) { trigger in
                     Toggle(isOn: Binding(get: { trigger.enabled }, set: { enabled in

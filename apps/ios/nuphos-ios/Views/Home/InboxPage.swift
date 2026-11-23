@@ -36,7 +36,7 @@ struct InboxPage: View {
                         .accessibilityHidden(true)
                     Text("You're all caught up")
                         .font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                    Text("When an agent needs you to decide something, it shows up here. Answer it and it leaves the Inbox.")
+                    Text("When a Bot or task needs you to decide something, it shows up here. Answer it and it leaves the Inbox.")
                         .font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
                 }
                 .padding(24).frame(maxWidth: 400)
