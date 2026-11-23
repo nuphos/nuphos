@@ -4384,52 +4384,6 @@
         }
       }
     },
-    "Ask the agent to schedule recurring work in this task." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pide al agente que programe trabajo periódico en esta tarea."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Minta agen menjadwalkan pekerjaan berulang dalam tugas ini."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "このタスクの定期的な作業をエージェントに依頼できます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "에이전트에게 이 작업의 반복 일정을 요청하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ขอให้เอเจนต์ตั้งเวลาทำงานซ้ำในงานนี้"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请代理为此任务安排定期工作。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請代理程式為這個任務安排定期工作。"
-          }
-        }
-      }
-    },
     "Asked %@ · Answered %@ from the Inbox" : {
       "comment" : "Answered question: when it was asked and answered",
       "localizations" : {
@@ -5077,6 +5031,52 @@
         }
       }
     },
+    "Background tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tareas en segundo plano"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tugas latar belakang"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "バックグラウンドタスク"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "백그라운드 작업"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "งานเบื้องหลัง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "后台任务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景工作"
+          }
+        }
+      }
+    },
     "Before you use AI agents" : {
       "comment" : "Legal text",
       "shouldTranslate" : false
@@ -5680,6 +5680,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "變更相片"
+          }
+        }
+      }
+    },
+    "Changes" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cambios"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Perubahan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 사항"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การเปลี่ยนแปลง"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "变更"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更"
           }
         }
       }
@@ -13704,48 +13750,48 @@
         }
       }
     },
-    "Give Agents a character avatar. Turn off to show Runtime icons." : {
+    "Give Bots a character avatar. Turn off to show Runtime icons." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Muestra un avatar de personaje para los agentes. Desactívalo para mostrar los iconos del entorno de ejecución."
+            "value" : "Muestra un avatar de personaje para los Bots. Desactívalo para mostrar los iconos del entorno de ejecución."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Beri Agen avatar karakter. Matikan untuk menampilkan ikon Runtime."
+            "value" : "Beri Bot avatar karakter. Matikan untuk menampilkan ikon Runtime."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントにキャラクターのアバターを表示します。オフにするとランタイムのアイコンを表示します。"
+            "value" : "Bot にキャラクターのアバターを表示します。オフにするとランタイムのアイコンを表示します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "에이전트에 캐릭터 아바타를 표시합니다. 끄면 런타임 아이콘을 표시합니다."
+            "value" : "Bot에 캐릭터 아바타를 표시합니다. 끄면 런타임 아이콘을 표시합니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ให้เอเจนต์มีรูปโปรไฟล์ตัวละคร ปิดเพื่อแสดงไอคอนรันไทม์"
+            "value" : "ให้บอตมีรูปโปรไฟล์ตัวละคร ปิดเพื่อแสดงไอคอนรันไทม์"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为 Agent 显示角色头像。关闭后改为显示运行环境图标。"
+            "value" : "为 Bot 使用角色头像。关闭后改为显示运行环境图标。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "為 Agent 顯示角色頭像。關閉後改為顯示執行環境圖示。"
+            "value" : "為 Bot 使用角色頭像。關閉後改為顯示執行環境圖示。"
           }
         }
       }
@@ -21226,48 +21272,48 @@
         }
       }
     },
-    "Questions, changes, sub-agents and files from this task appear here as work progresses." : {
+    "Questions, changes, sub-tasks and files from this task appear here as work progresses." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Las preguntas, cambios, subagentes y archivos de esta tarea aparecerán aquí a medida que avance el trabajo."
+            "value" : "Las preguntas, cambios, subtareas y archivos de esta tarea aparecerán aquí a medida que avance el trabajo."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Pertanyaan, perubahan, subagen, dan berkas dari tugas ini muncul di sini seiring kemajuan pekerjaan."
+            "value" : "Pertanyaan, perubahan, subtugas, dan berkas dari tugas ini muncul di sini seiring kemajuan pekerjaan."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "作業の進行に合わせて、このタスクの質問、変更、サブエージェント、ファイルがここに表示されます。"
+            "value" : "作業の進行に合わせて、このタスクの質問、変更、サブタスク、ファイルがここに表示されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "작업이 진행되면 이 작업의 질문, 변경 사항, 하위 에이전트와 파일이 여기에 표시됩니다."
+            "value" : "작업이 진행되면 이 작업의 질문, 변경 사항, 하위 작업과 파일이 여기에 표시됩니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "คำถาม การเปลี่ยนแปลง เอเจนต์ย่อย และไฟล์ของงานนี้จะแสดงที่นี่เมื่อมีความคืบหน้า"
+            "value" : "คำถาม การเปลี่ยนแปลง งานย่อย และไฟล์ของงานนี้จะแสดงที่นี่เมื่อมีความคืบหน้า"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此任务的问题、变更、子代理和文件会随工作进度显示在这里。"
+            "value" : "此任务的问题、变更、子任务和文件会随工作进度显示在这里。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這個任務的問題、變更、子代理程式與檔案會隨工作進度顯示在這裡。"
+            "value" : "這個任務的問題、變更、子任務與檔案會隨工作進度顯示在這裡。"
           }
         }
       }
@@ -28004,6 +28050,52 @@
         }
       }
     },
+    "Sub-tasks" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subtareas"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Subtugas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サブタスク"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "하위 작업"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "งานย่อย"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "子任务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "子任務"
+          }
+        }
+      }
+    },
     "Subtask" : {
       "localizations" : {
         "es" : {
@@ -28461,6 +28553,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "任務"
+          }
+        }
+      }
+    },
+    "Task actions" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Acciones de la tarea"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tindakan tugas"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスク操作"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업 동작"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "การดำเนินการกับงาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任务操作"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任務操作"
           }
         }
       }
