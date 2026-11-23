@@ -14,10 +14,10 @@ export function connectedComputerCount(): number {
  * replica instead of being cut when the server is force-stopped. Spread over
  * `spreadMs` so the computers do not all redial at once; resolves once the last is closed.
  */
-export function closeTunnelsForRestart(spreadMs = 2_000): Promise<void> {
+export async function closeTunnelsForRestart(spreadMs = 2_000): Promise<void> {
   const shuts = [...heldTunnels]
 
-  return Promise.all(
+  await Promise.all(
     shuts.map(
       (shut, i) =>
         new Promise<void>((resolve) => {
@@ -30,5 +30,5 @@ export function closeTunnelsForRestart(spreadMs = 2_000): Promise<void> {
           )
         }),
     ),
-  ).then(() => undefined)
+  )
 }

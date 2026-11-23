@@ -255,6 +255,7 @@ async function shutdown(sig: string) {
   // 4. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
   // The force stop waits for them too: one it cuts ends its sessions after storage is closed.
   const tunnelsClosed = closeTunnelsForRestart()
+
   await stopHttpWithDeadline(
     server,
     devHttpServer,
