@@ -57,9 +57,9 @@ test('an OAuth-connected binding starts private to the member who connected it',
   expect(await accessFor({})).toMatchObject({ memberAllowList: ['u1'], ownerUserId: 'u1' })
 })
 
-test('it stays private unless sharing is chosen when starting the flow', async () => {
+test('it follows the team default and the choice made when starting the flow', async () => {
   teamDefault = 'team'
-  expect((await accessFor({}))?.memberAllowList).toEqual(['u1'])
+  expect((await accessFor({}))?.memberAllowList).toEqual(['*'])
   expect((await accessFor({ highPrivilege: true }))?.memberAllowList).toEqual(['u1'])
   teamDefault = 'private'
   expect((await accessFor({ share: { mode: 'team', memberIds: [] } }))?.memberAllowList).toEqual([

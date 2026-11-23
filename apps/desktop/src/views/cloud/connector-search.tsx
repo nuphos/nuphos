@@ -49,7 +49,7 @@ export function ConnectorSearch({
   /** The member's own accounts matching the search; listed after the team's while typing. */
   personal: PersonalConnector[]
   onPick: (item: CatalogItem) => void
-  onPickPersonal: (provider: PersonalConnector['provider']) => void
+  onPickPersonal: () => void
 }) {
   const [open, setOpen] = useState(false)
   const items = useMemo<Suggestion[]>(
@@ -87,7 +87,7 @@ export function ConnectorSearch({
       onValueChange={(suggestion) => {
         if (!suggestion) return
         setOpen(false)
-        if (suggestion.kind === 'personal') onPickPersonal(suggestion.item.provider)
+        if (suggestion.kind === 'personal') onPickPersonal()
         else onPick(suggestion.item)
       }}
       itemToStringLabel={(item) => item.name}

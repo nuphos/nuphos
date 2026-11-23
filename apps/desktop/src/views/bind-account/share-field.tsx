@@ -1,13 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
+import { api } from '../../api'
 import { AllowListSelect } from '../../components/binding-access-allow-list'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
 import { useTeamMembers } from '../../lib/bindingAccess'
 
-/** New connections start private; sharing must be explicitly selected. */
+import { HIGH_PRIVILEGE_PROVIDERS } from './share'
+
+import type { TeamShareDefault } from '../../lib/bindingShare'
+
+/** Who may use the connection being added; untouched, it shows the team default. */
 export function BindShareField({
   teamId,
+  provider,
   value,
   onChange,
   onDefaultChange,
@@ -21,11 +27,34 @@ export function BindShareField({
 }) {
   const members = useTeamMembers(teamId)
   const me = useCurrentUser()?.id
+  const [teamShares, setTeamShares] = useState(false)
+
+  useEffect(() => {
+    let live = true
+
+    api
+      .atlasListTeams()
+      .then((teams) => {
+        const team: (TeamShareDefault & { id: string }) | undefined = teams.find(
+          (x) => x.id === teamId,
+        )
+
+        if (live) setTeamShares(team?.bindingShareDefault === 'team')
+      })
+      .catch(() => {})
+
+    return () => {
+      live = false
+    }
+  }, [teamId])
+
+  const shared = teamShares && !HIGH_PRIVILEGE_PROVIDERS.has(provider)
   const onlyMe = me ? [me] : []
-  const fallback = onlyMe
+  const fallback = shared ? ['*'] : onlyMe
   const fallbackKey = fallback.join(',')
 
-  // An untouched picker always submits the connecting member alone.
+  // Until the team default loads this is only the member, so a failed read
+  // connects privately rather than with whatever the default is.
   useEffect(
     () => onDefaultChange(fallbackKey ? fallbackKey.split(',') : []),
     [fallbackKey, onDefaultChange],
@@ -35,9 +64,7 @@ export function BindShareField({
     <div className="mt-4 border-y border-line-control/60">
       <AllowListSelect
         title={t('Who can use it')}
-        subtitle={t(
-          'New connections are private. Once shared, only administrators can manage them.',
-        )}
+        subtitle={t('You can always use a connection you add. Change this later from its page.')}
         allowList={value ?? fallback}
         members={members}
         onChange={onChange}

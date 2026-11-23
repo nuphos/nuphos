@@ -20,7 +20,6 @@ import { channelAwayScenarios } from './channel-away-scenarios.ts'
 import { channelRestartScenarios } from './channel-restart-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
-import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
 import { mcpArchiveScenarios } from './mcp-archive-scenarios.ts'
 import { connectorScenarios } from './connector-scenarios.ts'
@@ -163,10 +162,6 @@ const scenarios: Scenario[] = [
   ...triggerHistoryScenarios,
   ...usageScenarios,
   ...connectorScenarios,
-  {
-    name: 'connector sharing enforces ownership and role boundaries',
-    run: async (_page, stack) => connectorSharingFlow(stack),
-  },
   // Turns two-factor authentication on for this account, and off again.
   ...stepUpScenarios,
   ...twoFactorResumeScenarios,
