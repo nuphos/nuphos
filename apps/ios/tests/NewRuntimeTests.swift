@@ -11,6 +11,7 @@ enum NewRuntimeTests {
         onlyManagersOfARunningComputerMayAdd()
         signsInASignedOutRuntimeInsteadOfAddingASecond()
         namesANewRuntimePastTheOnesAlreadyThere()
+        aBoxStillComingUpIsStarting()
         print("New runtime passed")
     }
 
@@ -70,6 +71,20 @@ enum NewRuntimeTests {
         precondition(box([signedIn(.codex, "j")]).defaultRuntimeName(.opencode) == "OpenCode")
         let taken = box([named(.opencode, "k", "Spare")])
         precondition(taken.nameTaken("spare") && taken.nameTaken("  Spare  ") && !taken.nameTaken("Spare 2"))
+    }
+
+    /// Android's `ComputerPresence.Starting`: Home says a new account's free Box is getting
+    /// ready rather than asking for a computer while it comes up.
+    private static func aBoxStillComingUpIsStarting() {
+        for state in ["creating", "connecting"] {
+            precondition(device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is starting")
+            precondition(device(access: "owner", online: nil, box: state).isStarting)
+            precondition(!device(access: "owner", online: true, box: state).isStarting, "An online Box is not starting")
+        }
+        for state in ["running", "paused", "stopped", "error"] {
+            precondition(!device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is not starting")
+        }
+        precondition(!device(access: "owner", online: false).isStarting, "A computer is never starting")
     }
 
     // MARK: - Fixtures
