@@ -9,7 +9,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -23,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
-import ai.nuphos.android.data.*
+import ai.nuphos.android.data.AgentRuntimeApi
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.LocalAgentStore
@@ -54,8 +53,6 @@ fun RuntimesPage() {
         val observations = remember { RuntimesStore(scope, current, api::catalog, api::quotas, api::devices, expired) }
         val selection = remember { auth.runtimeSelections.bind(account, team.id) }
         val setup = remember { RuntimeSetupStore(api, scope, current, { current() && agents.selectedTeam?.isAdministrator == true }, selection, expired, loginAllowed = { runtime -> current() && inventoryDestination(runtime, agents.selectedTeam?.isAdministrator == true, observations.devices) in setOf(InventoryDestination.CloudDetails, InventoryDestination.ProviderSignIn) }, useSelectedRuntime = false) }
-        var guide by remember { mutableStateOf(false) }
-        var adding by remember { mutableStateOf<RuntimeGroup?>(null) }
         var managing by remember { mutableStateOf(false) }
         var runtimeId by remember { mutableStateOf<String?>(null) }
         DisposableEffect(observations, setup) { onDispose { observations.close(); setup.close() } }
@@ -66,32 +63,7 @@ fun RuntimesPage() {
         }
         if (current()) {
         RuntimeInventory(observations,
-            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it }, onConnect = { guide = true }, resume = { BoxResumeButton(it, observations::refresh) })
-        if (guide) ConnectComputerFlow { guide = false; observations.refresh() }
-        adding?.let { target ->
-            val device = observations.devices.firstOrNull { it.id == target.device?.id }
-            if (device?.canAddRuntime == true) key(device.id) {
-                val creation = remember { NewRuntimeStore(api, scope, device,
-                    { observations.runtimes.filter { it.local?.deviceId == device.id } },
-                    { current() && observations.devices.any { it.id == device.id && it.canAddRuntime } }, expired,
-                    { adding = null; observations.refresh() }) }
-                val newSelection = remember { RuntimeSelections.Selection(account, team.id).also {
-                    it.saveCatalog(observations.runtimes.filter { row -> row.local?.deviceId == device.id })
-                } }
-                val transport = remember { object : RuntimeTransport by api {
-                    override suspend fun catalog(): List<AgentRuntime> {
-                        val rows = api.catalog()
-                        val pending = creation.runtime
-                        return if (pending != null && rows.none { it.id == pending.id }) rows + pending else rows
-                    }
-                } }
-                val newSetup = remember { RuntimeSetupStore(transport, scope, current, { false }, newSelection, expired,
-                    loginAllowed = { runtime -> current() && runtime.local?.deviceId == device.id &&
-                        observations.devices.any { it.id == device.id && it.canAddRuntime } }, useSelectedRuntime = false) }
-                DisposableEffect(creation) { onDispose { creation.close(); newSetup.close(); newSelection.invalidate() } }
-                NewRuntimeSheet(creation, newSetup)
-            }
-        }
+            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true })
         if (managing && setup.isSourceCurrent()) {
             val runtime = runtimeId?.let { id -> observations.runtimes.firstOrNull { it.id == id } }
             val destination = runtime?.let { inventoryDestination(it, team.isAdministrator, observations.devices) }
@@ -110,7 +82,7 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}, onConnect: (() -> Unit)? = null, resume: (@Composable (RuntimeDevice) -> Unit)? = null) {
+fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit) {
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -128,14 +100,13 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
             }
         } else LazyColumn(Modifier.fillMaxSize().testTag("runtime-inventory"), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            if (onConnect != null) item { TextButton(onClick = onConnect, modifier = Modifier.testTag("connect-computer")) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.box_connect)) } }
             if (store.errors.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     store.errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
                     TextButton(onClick = store::refresh, enabled = !store.loading) { Text(stringResource(R.string.try_again)) }
                 }
             }
-            if (store.runtimes.isEmpty() && store.devices.isEmpty()) item {
+            if (store.runtimes.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(vertical = 32.dp), horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Icon(Icons.Outlined.Cloud, null)
@@ -143,11 +114,10 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                     Text(stringResource(R.string.agent_no_runtimes_body), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            items(runtimeGroups(store.runtimes, store.devices, includeEmptyDevices = true), key = { it.key }) { group ->
+            items(runtimeGroups(store.runtimes, store.devices), key = { it.key }) { group ->
                 Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
                     Column {
                         RuntimeInventoryHost(group)
-                        group.device?.let { device -> resume?.invoke(device) }
                         group.runtimes.forEach { runtime ->
                             HorizontalDivider(Modifier.padding(start = 60.dp, end = 20.dp), thickness = (1f / androidx.compose.ui.platform.LocalDensity.current.density).dp, color = MaterialTheme.colorScheme.outlineVariant)
                             Surface(onClick = { onRuntime(runtime.id) }, color = MaterialTheme.colorScheme.surface,
@@ -174,13 +144,6 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                                 }
                             }
                         }
-                        if (group.device?.canAddRuntime == true) TextButton(onClick = { onAdd(group) },
-                            modifier = Modifier.padding(horizontal = 16.dp).testTag("new-runtime-${group.device.id}")) {
-                            Text(stringResource(R.string.new_runtime_title))
-                        } else if (group.runtimes.isEmpty() && group.device?.box == null) Text(
-                            if (group.device?.access == "use") stringResource(R.string.new_runtime_ask_owner)
-                            else stringResource(R.string.new_runtime_install, group.title),
-                            modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
@@ -204,11 +167,6 @@ private fun RuntimeInventoryHost(group: RuntimeGroup) {
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(group.title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
-            val boxState = when (group.device?.box?.state) {
-                "creating" -> R.string.box_state_starting; "connecting" -> R.string.box_state_connecting
-                "paused" -> R.string.box_state_paused; "error" -> R.string.box_state_error; else -> null
-            }
-            boxState?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
             Text(pluralStringResource(R.plurals.agent_runtime_count, group.runtimes.size, group.runtimes.size),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             group.device?.takeIf { it.online && it.metricsStatus == "live" && it.cpuPercent != null && it.memory != null && it.disk != null }?.let { device ->

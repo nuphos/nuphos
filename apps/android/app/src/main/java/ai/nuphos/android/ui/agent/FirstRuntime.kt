@@ -4,18 +4,14 @@ import ai.nuphos.android.R
 import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 
 /** Guidance shown while the workspace has no runtime. */
 @Composable
 fun FirstRuntimePrompt() {
-    var guide by remember { mutableStateOf(false) }
-    if (guide) ConnectComputerFlow { guide = false }
     EmptyState(
         icon = Icons.Outlined.Memory,
         title = stringResource(R.string.agent_first_runtime_title),
         body = stringResource(R.string.agent_first_runtime_body),
-        action = stringResource(R.string.box_connect),
-        onAction = { guide = true },
     )
 }
