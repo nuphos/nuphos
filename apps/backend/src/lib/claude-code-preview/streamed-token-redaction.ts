@@ -1,3 +1,5 @@
+import { redactTokenShapesSync } from '@/lib/secrets/scan'
+
 import { redactSignedTokens } from './mcp-token'
 import { previewTextMetadata } from './preview-text-metadata'
 
@@ -99,6 +101,22 @@ function heldBack(emit: (text: string, metadata?: PreviewTextMetadata) => void) 
   }
 }
 
+function mapStrings(value: unknown): unknown {
+  if (typeof value === 'string') return redactTokenShapesSync(value)
+  if (Array.isArray(value)) return value.map(mapStrings)
+  if (!value || typeof value !== 'object') return value
+
+  return Object.fromEntries(Object.entries(value).map(([key, inner]) => [key, mapStrings(inner)]))
+}
+
+// Tool calls and runtime snapshots carry command lines and terminal output,
+// where an agent may print a key by mistake. Each update arrives whole.
+function withoutKeyShapes(update: OpenAbSessionUpdate): OpenAbSessionUpdate {
+  const json = JSON.stringify(update)
+
+  return redactTokenShapesSync(json) === json ? update : (mapStrings(update) as OpenAbSessionUpdate)
+}
+
 // A completion, an interruption, or the runtime thread leaving `active`.
 const turnEnds = (update: OpenAbSessionUpdate) =>
   update.kind === 'complete' ||
@@ -130,7 +148,7 @@ export function redactStreamedUpdates(handler: (update: OpenAbSessionUpdate) => 
         thought.push(update.update.text)
       else {
         if (turnEnds(update)) flush()
-        handler(update)
+        handler(withoutKeyShapes(update))
       }
     },
     flush,
