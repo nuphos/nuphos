@@ -73,10 +73,14 @@ export async function teamBoxStreamFlow(stack: Stack) {
         { headers: { authorization: `Bearer ${token}` } } as unknown as string[],
       )
 
-      if (!(await opened(socket).then(() => true, () => false))) return false
-      viewer = socket
+      const open = await opened(socket).then(
+        () => true,
+        () => false,
+      )
 
-      return true
+      if (open) viewer = socket
+
+      return open
     })
     await until('the member’s stream to reach the Box', async () =>
       frames.some((frame) => frame.t === 'open' && frame.purpose === 'vnc'),
