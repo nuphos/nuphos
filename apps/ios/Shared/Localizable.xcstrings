@@ -5033,7 +5033,20 @@
     },
     "Before you use AI agents" : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 AI Agent 之前"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 AI Agent 之前"
+          }
+        }
+      }
     },
     "Bot" : {
       "localizations" : {
@@ -5221,7 +5234,20 @@
     },
     "By continuing, you agree to our [Terms of Service](https://nuphos.ai/terms) and [Privacy Policy](https://nuphos.ai/privacy)." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "继续即表示你同意我们的[服务条款](https://nuphos.ai/terms)和[隐私政策](https://nuphos.ai/privacy)。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繼續即表示你同意我們的[服務條款](https://nuphos.ai/terms)與[隱私權政策](https://nuphos.ai/privacy)。"
+          }
+        }
+      }
     },
     "Can reply" : {
       "localizations" : {
@@ -11491,7 +11517,20 @@
     },
     "Depending on your runtime and model, this includes Anthropic (Claude), OpenAI (Codex), xAI (Grok), Google (Antigravity), DeepSeek (DeepSeek Harness), the model provider an OpenCode runtime uses (OpenCode Zen when it is not signed in to one), or Amazon Web Services. When tracing is enabled, Nuphos stores AI execution traces, which can include conversation and tool content, for diagnostics and service improvement." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视你使用的运行环境和模型而定，这包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 运行环境所使用的模型提供商（未登录任何提供商时为 OpenCode Zen），或 Amazon Web Services。启用追踪时，Nuphos 会存储 AI 执行追踪记录，其中可能包含对话和工具内容，用于诊断和改进服务。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "視你使用的執行環境與模型而定，這包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 執行環境所使用的模型供應商（未登入任何供應商時為 OpenCode Zen），或 Amazon Web Services。啟用追蹤時，Nuphos 會儲存 AI 執行追蹤紀錄，其中可能包含對話與工具內容，用於診斷與改善服務。"
+          }
+        }
+      }
     },
     "Desktop" : {
       "localizations" : {
@@ -18691,7 +18730,20 @@
     },
     "Only share information you are authorized to share. You can decline and still manage your account or request its deletion. You can withdraw permission in Account → AI data sharing. Withdrawal stops new AI use from this app; it does not undo completed transfers or stop work already running, including work started on other devices or by scheduled agents." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请只分享你有权分享的信息。你可以拒绝，仍然可以管理账号或申请删除账号。你可以在“账号 → AI 数据分享”中撤回同意。撤回后，此 App 将不再发起新的 AI 使用；已完成的传输不会被撤销，正在运行的工作也不会停止，包括在其他设备上或由定时 Agent 启动的工作。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請只分享你有權分享的資訊。你可以拒絕，仍然能管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料分享」撤回同意。撤回後，這個 App 將不再發起新的 AI 使用；已完成的傳輸不會被撤銷，已在執行的工作也不會停止，包括在其他裝置上或由排程 Agent 啟動的工作。"
+          }
+        }
+      }
     },
     "Only the owner can change model settings." : {
       "localizations" : {
@@ -29439,7 +29491,20 @@
     },
     "The prompt sets the writing style and spells names Whisper doesn't know, such as products and services. Voice input is included with a Nuphos subscription; recordings are transcribed by OpenAI Whisper." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示词会设定书写风格，并提供 Whisper 不认识的名称拼写，例如产品和服务名称。语音输入包含在 Nuphos 订阅中；录音由 OpenAI Whisper 转写。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提示詞會設定書寫風格，並提供 Whisper 不認得的名稱拼法，例如產品與服務名稱。語音輸入包含在 Nuphos 訂閱中；錄音由 OpenAI Whisper 轉寫。"
+          }
+        }
+      }
     },
     "The provider came back with a mismatched request. Please try again." : {
       "localizations" : {
@@ -31099,7 +31164,20 @@
     },
     "This submits a deletion request; it does not instantly erase your account. You can continue using your account while the request is processed. Signing in again does not cancel the request." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这会提交删除申请，不会立即清除你的账号。申请处理期间，你仍可继续使用账号。重新登录不会取消申请。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這會送出刪除申請，不會立即清除你的帳號。申請處理期間，你仍可繼續使用帳號。重新登入不會取消申請。"
+          }
+        }
+      }
     },
     "This task is no longer running." : {
       "localizations" : {
@@ -33588,7 +33666,20 @@
     },
     "Using an agent sends your prompts, conversation history, uploaded images and files, and relevant results from connected tools to the providers needed to carry out your request." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Agent 时，你的提示词、对话记录、上传的图片和文件，以及已连接工具的相关结果，会发送给执行你的请求所需的提供商。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Agent 時，你的提示詞、對話紀錄、上傳的圖片與檔案，以及已連接工具的相關結果，會傳送給執行你的請求所需的供應商。"
+          }
+        }
+      }
     },
     "Verification Code" : {
       "localizations" : {
@@ -34604,7 +34695,20 @@
     },
     "We will permanently delete your account and associated personal data within 30 days. Our team will coordinate any workspace ownership and shared-data handling. Records required by law and data jointly held by your team may be retained where necessary." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我们会在 30 天内永久删除你的账号及相关个人数据。我们的团队会协调工作区所有权和共享数据的处理。法律要求保存的记录，以及由你的团队共同持有的数据，可能会在必要时保留。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我們會在 30 天內永久刪除你的帳號及相關個人資料。我們的團隊會協調工作區擁有權與共享資料的處理。依法須保存的紀錄，以及由你的團隊共同持有的資料，可能會在必要時保留。"
+          }
+        }
+      }
     },
     "Web sign-in (nuphos.ai)" : {
       "localizations" : {
@@ -34976,7 +35080,20 @@
     },
     "Who receives this data" : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "谁会收到这些数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "誰會收到這些資料"
+          }
+        }
+      }
     },
     "Withdraw AI data sharing permission" : {
       "localizations" : {
@@ -35947,7 +36064,20 @@
     },
     "Your choice" : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由你选择"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由你選擇"
+          }
+        }
+      }
     },
     "Your computer is running. Choose a runtime to sign in." : {
       "localizations" : {
@@ -36089,7 +36219,20 @@
     },
     "Your request has been saved. You do not need to contact support to start deletion." : {
       "comment" : "Legal text",
-      "shouldTranslate" : false
+      "localizations" : {
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的申请已保存。无需联系客服即可开始删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的申請已儲存。不需要聯絡客服即可開始刪除。"
+          }
+        }
+      }
     },
     "Your session has expired. Please sign in again." : {
       "localizations" : {
