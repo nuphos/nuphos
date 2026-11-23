@@ -22,8 +22,8 @@ const modeControl = (page: Page, chat: boolean) =>
 /** The permission mode and the composer's model, as their controls read. */
 async function composerSettings(page: Page, chat: boolean) {
   const modeChip = modeControl(page, chat)
-  // What it shows: the other mode's label stays in the chip, unseen, to keep its width.
-  const mode = await modeChip.innerText()
+  // The details row shows its label; the compact composer chip exposes it as its description.
+  const mode = chat ? await modeChip.innerText() : await modeChip.getAttribute('aria-description')
   const chip = composer(page).getByRole('button', { name: /^Model settings/ })
   const model = await chip.getAttribute('aria-label')
 
