@@ -1157,7 +1157,7 @@ private struct InstaBoxInfo: View {
                     .background(.black, in: RoundedRectangle(cornerRadius: 9))
                 Text("InstaBox").font(.title3.bold())
             }
-            Text("InstaBox runs computers for AI agents. Your Nuphos computer is one of them, so your Bots keep their files and tools in one place and keep working when your phone is locked.")
+            Text("InstaBox runs computers. Your Nuphos computer is one of them, so your Bots keep their files and tools in one place and keep working when your phone is locked.")
                 .font(.subheadline).foregroundStyle(Theme.body)
                 .fixedSize(horizontal: false, vertical: true)
             Button {

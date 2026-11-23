@@ -15935,48 +15935,48 @@
     "InstaBox" : {
       "shouldTranslate" : false
     },
-    "InstaBox runs computers for AI agents. Your Nuphos computer is one of them, so your Bots keep their files and tools in one place and keep working when your phone is locked." : {
+    "InstaBox runs computers. Your Nuphos computer is one of them, so your Bots keep their files and tools in one place and keep working when your phone is locked." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox pone en marcha ordenadores para agentes de IA. Tu ordenador de Nuphos es uno de ellos, así que tus Bots guardan archivos y herramientas en un solo lugar y siguen trabajando cuando el teléfono está bloqueado."
+            "value" : "InstaBox pone en marcha ordenadores. Tu ordenador de Nuphos es uno de ellos, así que tus Bots guardan archivos y herramientas en un solo lugar y siguen trabajando cuando el teléfono está bloqueado."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox menjalankan komputer untuk agen AI. Komputer Nuphos Anda adalah salah satunya, jadi Bot menyimpan file dan alat di satu tempat dan tetap bekerja saat ponsel terkunci."
+            "value" : "InstaBox menjalankan komputer. Komputer Nuphos Anda adalah salah satunya, jadi Bot menyimpan file dan alat di satu tempat dan tetap bekerja saat ponsel terkunci."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox は AI エージェントのためのコンピュータを動かします。Nuphos のコンピュータもその一つなので、ボットはファイルとツールを一か所に置き、電話がロックされても作業を続けます。"
+            "value" : "InstaBox はコンピュータを動かします。Nuphos のコンピュータもその一つなので、ボットはファイルとツールを一か所に置き、電話がロックされても作業を続けます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox는 AI 에이전트를 위한 컴퓨터를 운영합니다. Nuphos 컴퓨터도 그 중 하나라서, 봇은 파일과 도구를 한곳에 두고 휴대폰이 잠겨도 계속 일합니다."
+            "value" : "InstaBox는 컴퓨터를 운영합니다. Nuphos 컴퓨터도 그 중 하나라서, 봇은 파일과 도구를 한곳에 두고 휴대폰이 잠겨도 계속 일합니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox เปิดคอมพิวเตอร์ให้เอเจนต์ AI คอมพิวเตอร์ Nuphos ของคุณก็เป็นหนึ่งในนั้น บอทจึงเก็บไฟล์และเครื่องมือไว้ที่เดียว และทำงานต่อแม้โทรศัพท์จะล็อก"
+            "value" : "InstaBox เปิดคอมพิวเตอร์ให้ใช้งาน คอมพิวเตอร์ Nuphos ของคุณก็เป็นหนึ่งในนั้น บอทจึงเก็บไฟล์และเครื่องมือไว้ที่เดียว และทำงานต่อแม้โทรศัพท์จะล็อก"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox 为 AI 代理运行电脑。你的 Nuphos 电脑就是其中一台，所以 Bot 把文件和工具放在同一个地方，手机锁屏后也会继续工作。"
+            "value" : "InstaBox 负责运行这些电脑。你的 Nuphos 电脑就是其中一台，所以 Bot 把文件和工具放在同一个地方，手机锁屏后也会继续工作。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "InstaBox 為 AI 代理運行電腦。你的 Nuphos 電腦就是其中一台，所以 Bot 把檔案和工具放在同一個地方，手機上鎖後也會繼續工作。"
+            "value" : "InstaBox 負責運行這些電腦。你的 Nuphos 電腦就是其中一台，所以 Bot 把檔案和工具放在同一個地方，手機上鎖後也會繼續工作。"
           }
         }
       }
