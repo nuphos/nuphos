@@ -45,7 +45,7 @@ test('a turn the server starts from the queue is read again once it ends', async
   const setTabs = (update: (tabs: Tab[]) => Tab[]) => {
     tabs = update(tabs)
   }
-  const sync = (runtimeState: RuntimeExecution) =>
+  const useSync = (runtimeState: RuntimeExecution) =>
     useQueueSync({
       activeTab: { ...tabs[0], runtimeState },
       setTabs: setTabs as never,
@@ -53,10 +53,10 @@ test('a turn the server starts from the queue is read again once it ends', async
     })
 
   // The tab's own turn has ended, but the server already runs the queued message.
-  sync(runtime('active'))
+  useSync(runtime('active'))
   assert.deepEqual(reads, [])
   // Refused for usage, it goes back to the queue held.
-  sync(runtime('idle'))
+  useSync(runtime('idle'))
   await new Promise((resolve) => setImmediate(resolve))
   assert.deepEqual(reads, ['s'])
   assert.deepEqual(tabs[0].queueHeld, {})
