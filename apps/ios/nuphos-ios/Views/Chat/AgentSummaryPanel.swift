@@ -65,7 +65,7 @@ struct AgentSummaryPanel: View {
                   }
                 }
                 if !background.isEmpty {
-                    SummaryCard("Background work") {
+                    SummaryCard("Background tasks") {
                         ForEach(background) { work in
                             DisclosureGroup {
                                 if !work.output.isEmpty {
@@ -87,7 +87,7 @@ struct AgentSummaryPanel: View {
                     }
                 }
                 if !children.isEmpty {
-                    SummaryCard(isBotDetails ? "Sub-tasks" : "Sub-agents") {
+                    SummaryCard("Sub-tasks") {
                         ForEach(children) { child in
                             Button { openSession(child) } label: {
                                 if isBotDetails {
@@ -110,11 +110,7 @@ struct AgentSummaryPanel: View {
                 }
                 SummaryCard("Triggers") {
                     if triggers.isEmpty {
-                        Group {
-                            if isBotDetails { Text("Ask here to schedule recurring work.") }
-                            else { Text("Ask the agent to schedule recurring work in this task.") }
-                        }
-                        .foregroundStyle(Theme.body)
+                        Text("Ask here to schedule recurring work.").foregroundStyle(Theme.body)
                     } else {
                         ForEach(triggers) { trigger in
                             Button { showTriggers = true } label: {
@@ -140,7 +136,7 @@ struct AgentSummaryPanel: View {
                         ContentUnavailableView {
                             Label { Text("Nothing here yet") } icon: { LucideIcon("layers", size: 32) }
                         } description: {
-                            Text("Questions, changes, sub-agents and files from this task appear here as work progresses.")
+                            Text("Questions, changes, sub-tasks and files from this task appear here as work progresses.")
                         }
                     }
                 }
@@ -257,9 +253,9 @@ struct AgentSummaryPanel: View {
 }
 
 private struct SummaryCard<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     @ViewBuilder var content: Content
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }

@@ -209,6 +209,8 @@ export type InstaboxAccountBinding = {
   label: string
   encryptedApiKey: EncryptedEnvelope
   createdAt: Date
+  /** When instabox last refused the key; cleared by the next call it accepts. */
+  keyRejectedAt?: Date
 }
 
 export type PosthogRegion = 'us' | 'eu'

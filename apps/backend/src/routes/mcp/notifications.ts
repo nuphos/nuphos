@@ -23,6 +23,7 @@ export async function sessionNotification(sessionId: string, userId: string) {
   const report = conversation.taskReport
   const params = {
     session_id: sessionId,
+    ...(conversation.parentSessionId ? { parent_session_id: conversation.parentSessionId } : {}),
     status: state.status,
     message_count: conversation.messageCount,
     ...(state.answer !== undefined ? { answer: state.answer } : {}),
@@ -34,6 +35,7 @@ export async function sessionNotification(sessionId: string, userId: string) {
             id: report.id,
             status: report.status,
             summary: report.summary,
+            ...(report.data ? { data: report.data } : {}),
             at: report.at.toISOString(),
           },
         }
