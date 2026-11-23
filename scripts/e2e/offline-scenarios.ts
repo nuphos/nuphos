@@ -43,9 +43,8 @@ export const offlineScenarios: Scenario[] = [
   ...diskScenarios,
   {
     // #3182: a computer on a Nuphos too old to run a conversation failed without saying why.
-    // #4672: an outdated Desktop is older than 0.133.2, whose restart can leave the update
-    // uninstalled, so the banner says to quit it by hand and offers no Update.
-    name: 'a conversation on a computer whose Nuphos is out of date says so, and how to update it',
+    // Its Update opens the computer card's own confirmation where the user is, not the page.
+    name: 'a conversation on a computer whose Nuphos is out of date says so, and updates it in place',
     // The turn there fails on purpose.
     expected: new RegExp(RESTORE_FAILED),
     run: async (page, stack) => {
@@ -75,11 +74,21 @@ export const offlineScenarios: Scenario[] = [
         await send(page, 'On the old laptop')
         await page.getByText(OUTDATED_LINE).waitFor()
         await page.screenshot({ path: join(artifacts, 'outdated-turn-error.png') })
-        await banner
-          .getByText('Quit Nuphos fully on it (⌘Q on a Mac) and reopen it.', { exact: false })
+        await banner.getByRole('button', { name: 'Update' }).click()
+        const confirm = page.getByRole('alertdialog', { name: `Update ${LAPTOP}?` })
+
+        await confirm
+          .getByText(`This restarts Nuphos on ${LAPTOP} now to install v0.131.0.`)
           .waitFor()
-        if (await banner.getByRole('button', { name: 'Update' }).count())
-          throw new Error('The banner offered an Update that restarts a Desktop older than 0.133.2')
+        await confirm.getByText('A Task running on it stops where it is').waitFor()
+        await confirm.getByRole('button', { name: 'Update and restart' }).waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-confirm.png') })
+        await confirm.getByRole('button', { name: 'Cancel' }).click()
+        // Still in the conversation: nothing navigated away to the computer's page.
+        await confirm.waitFor({ state: 'hidden' })
+        await page.getByText('ACK E2E_DELIVERY:before-outdated').waitFor()
+        if (await page.getByText('Nuphos on this computer is out of date').isVisible())
+          throw new Error('The banner Update left the conversation for the computer page')
         await backOnFixture(page, 'after-outdated')
       } finally {
         goOffline()

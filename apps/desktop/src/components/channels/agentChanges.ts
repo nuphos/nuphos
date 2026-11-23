@@ -41,12 +41,6 @@ export function applyChange(client: QueryClient, { teamId, sessionId, connected:
     else connected.delete(teamId)
     for (const changed of watchers) changed()
   }
-  // That chat is known to be behind, so it reads it all without asking first (loadChannel).
-  if (sessionId)
-    client.setQueryData<{ revision: string }>(
-      queryKeys.channel(teamId, sessionId),
-      (last) => last && { ...last, revision: '' },
-    )
   void client.invalidateQueries({
     queryKey: [...queryKeys.team(teamId), 'channel'],
     predicate: ({ queryKey, state }) =>

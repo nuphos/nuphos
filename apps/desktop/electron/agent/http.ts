@@ -31,19 +31,40 @@ export function agentAccount(): Promise<SignedIn> {
 }
 
 /**
- * A backend refusal of an agent route. IPC hands the renderer only an error's
- * message, so the message carries the backend's {code, details} the way
- * `buildAtlasError` writes them, for `parseAtlasError` to recover. Without the
- * code the renderer cannot tell a dead session (`unauthorized`) from any other
- * failure, and keeps polling instead of signing out.
+ * The renderer can only see an error's message: IPC strips custom properties.
+ * `electron/atlas/client.ts` solves that by encoding {code, details} into the
+ * message under a sentinel, which `parseAtlasError` recovers — but AtlasHttpError
+ * keeps them as properties, so an agent-route failure reached the renderer with
+ * no code and was classified as an unexpected error. Re-encode it at the IPC
+ * boundary so the backend's own message and code survive the crossing.
  */
+export function agentIpcError(cause: unknown): unknown {
+  if (!(cause instanceof AtlasHttpError)) return cause
+
+  return buildAtlasError(cause.message, cause.code, cause.details)
+}
+
+/** `callJson` for a route whose failure the renderer has to explain to the user. */
+export async function callJsonForRenderer<T>(
+  method: string,
+  route: string,
+  body?: unknown,
+  timeoutMs?: number,
+): Promise<T> {
+  try {
+    return await callJson<T>(method, route, body, timeoutMs)
+  } catch (cause) {
+    throw agentIpcError(cause)
+  }
+}
+
 export class AtlasHttpError extends Error {
   readonly status: number
   readonly code?: string
   readonly details?: unknown
 
   constructor(message: string, status: number, code?: string, details?: unknown) {
-    super(buildAtlasError(message, code, details).message)
+    super(message)
     this.name = 'AtlasHttpError'
     this.status = status
     this.code = code

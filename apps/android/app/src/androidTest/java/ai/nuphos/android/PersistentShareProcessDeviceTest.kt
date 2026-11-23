@@ -137,6 +137,7 @@ class PersistentShareProcessDeviceTest {
                 path.endsWith("/members") -> """{"members":[]}"""
                 path.endsWith("/connectors") -> "{}"
                 path == "/agent/plans" -> """{"plans":[],"hasMore":false}"""
+                path == "/agent/plan-approval-policy" -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                 path == "/agent/auto-mode/bypass" -> """{"bypass":false}"""
                 else -> {
                     unexpected += "${request.method} $path"

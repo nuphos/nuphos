@@ -1,4 +1,4 @@
-import { callJson, teamQuery } from './http'
+import { callJsonForRenderer, teamQuery } from './http'
 
 /** Stop the turn of the caller's just-sent message and drop the message. */
 export function retractMessage(
@@ -6,7 +6,7 @@ export function retractMessage(
   messageId: string,
   teamId?: string,
 ): Promise<{ ok: boolean }> {
-  return callJson(
+  return callJsonForRenderer(
     'POST',
     `/agent/conversations/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/retract${teamQuery(teamId)}`,
     {},

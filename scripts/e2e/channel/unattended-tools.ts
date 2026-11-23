@@ -18,7 +18,7 @@ const scenario: Scenario = {
       bots.body as { conversations: { sessionId: string; title?: string }[] }
     ).conversations.find((row) => row.title === 'E2E Bot')
 
-    // The chat the Bot answered in before, as "a Bot's answer to the newest post does not quote it" posts to.
+    // The chat the Bot answered in before, as "a Bot's answer to one post quotes it" posts to.
     const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
     if (!bot || !channelId) throw new Error('No E2E Bot that has answered in its chat')

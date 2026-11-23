@@ -3,11 +3,7 @@ import { describe, expect, test } from 'bun:test'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useRedis } from '@/lib/test/doubles/redis'
 
-import {
-  idleConversationFilter,
-  nextSweepDelay,
-  sweepOnOneReplica,
-} from './conversation-auto-archive'
+import { idleConversationFilter, sweepOnOneReplica } from './conversation-auto-archive'
 
 let archives = 0
 
@@ -68,15 +64,5 @@ describe('sweepOnOneReplica', () => {
     claims.clear()
     await sweepOnOneReplica()
     expect(archives).toBe(2)
-  })
-
-  // A deploy starts replicas while the claim of one that is gone still holds; ticking again
-  // only an hour later left 1 h 50 min between two sweeps.
-  test('a replica refused the hour asks again a minute later, not an hour later', async () => {
-    claims.clear()
-    expect(await sweepOnOneReplica()).toBe(true)
-    expect(await sweepOnOneReplica()).toBe(false)
-    expect(nextSweepDelay(false)).toBe(60_000)
-    expect(nextSweepDelay(true)).toBe(60 * 60_000)
   })
 })

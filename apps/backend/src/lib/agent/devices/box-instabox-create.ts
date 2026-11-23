@@ -179,23 +179,12 @@ async function setUp(
 
       return install()
     })
-    // Setup is done when the machine is actually here, not when its commands returned:
-    // instabox can answer a started command after the request cap, when the host has
-    // already joined (#4620). A host that never started fails the wait below instead.
-    const unanswered = (error: unknown) =>
-      logEvent('warn', 'agent.box.start_unanswered', {
-        user_id: userId,
-        device_id: deviceId,
-        error_message: error instanceof Error ? error.message : String(error),
-      })
-
-    void sandbox.commands
-      .run(AGENT_COMMAND, {
-        envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
-        background: true,
-      })
-      .catch(unanswered)
-    void sandbox.commands.run(BOX_MOUNTS_COMMAND, { background: true }).catch(unanswered)
+    await sandbox.commands.run(AGENT_COMMAND, {
+      envs: { ...downloadEnv(), NUPHOS_JOIN_TOKEN: token, NUPHOS_API_URL: url },
+      background: true,
+    })
+    await sandbox.commands.run(BOX_MOUNTS_COMMAND, { background: true })
+    // Setup is done when the machine is actually here, not when its commands returned.
     if (!(await waitForPresence(userId, deviceId, JOIN_TIMEOUT_MS)))
       throw new Error('The machine did not join within the time allowed')
     logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })

@@ -22,10 +22,6 @@ sealed interface ComputerPresence {
                 else -> Offline
             }
         }
-
-        /** The workspace's Box that is still coming up, while it has no runtime yet. */
-        fun starting(devices: List<RuntimeDevice>): Starting? =
-            devices.firstNotNullOfOrNull { of(RuntimeHost(it.id, it.label, it.online), devices) as? Starting }
     }
 }
 
@@ -33,7 +29,6 @@ data class RuntimeHost(val deviceId: String?, val deviceLabel: String?, val onli
 /** `box`: present only for a Box. */
 data class RuntimeDevice(val id: String, val label: String, val online: Boolean, val box: Box?,
     val metricsStatus: String, val cpuPercent: Double?, val memory: Capacity?, val disk: Capacity?, val access: String? = null) {
-    val canAddRuntime get() = online && access in setOf("owner", "manage") && (box == null || box.state == "running")
     /** `state`: what instabox says of its machine, such as `paused`. */
     data class Box(val state: String?)
     data class Capacity(val used: Double, val total: Double) {

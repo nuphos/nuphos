@@ -1,6 +1,7 @@
 export { assertPlanAccess } from './plans/access'
 export {
   getPlanApprovalProgress,
+  getTeamPlanApprovalRequirement,
   normalizePlanApprovalRequirement,
   normalizePlanApprovals,
 } from './plans/approval-policy'
@@ -16,7 +17,7 @@ export {
   listPlans,
 } from './plans/queries'
 export { closePlan } from './plans/close'
-export { cancelOpenAgentPlans } from './plans/retire'
+export { cancelOpenAgentPlans, migrateTeamPlanApprovalPolicies } from './plans/retire'
 export type { PlanScope } from './plans/scope'
 export { serializePlan } from './plans/serialize'
 export type { PlanDTO } from './plans/serialize'

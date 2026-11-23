@@ -1,3 +1,4 @@
+import { planApprovalPolicies } from './collections'
 import { LEGACY_PLAN_APPROVAL_REQUIREMENT } from './types'
 
 import type { Plan, PlanApproval, PlanApprovalProgress, PlanApprovalRequirement } from './types'
@@ -93,5 +94,20 @@ export function getPlanApprovalProgress(
     satisfied:
       (!requirement.requesterApprovalRequired || requesterApproved) &&
       otherApprovals >= requirement.minimumOtherApprovals,
+  }
+}
+
+export async function getTeamPlanApprovalRequirement(
+  teamId: string,
+): Promise<PlanApprovalRequirement> {
+  const policy = await planApprovalPolicies().findOne({ _id: teamId })
+
+  if (!policy) return { ...LEGACY_PLAN_APPROVAL_REQUIREMENT }
+
+  return {
+    requesterApprovalRequired: policy.requesterApprovalRequired,
+    minimumOtherApprovals: clampOtherApprovalCount(policy.minimumOtherApprovals),
+    policySource: 'team-policy',
+    policyVersion: policy.version,
   }
 }

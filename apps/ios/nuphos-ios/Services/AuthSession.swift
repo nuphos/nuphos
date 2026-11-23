@@ -40,10 +40,8 @@ final class AuthSession {
     private(set) var mfaChallenge: (token: String, origin: String)?
 
     let savedAccounts: SavedAccounts = {
-        #if DEBUG
-        // Fixture logins and restored previews must never read or overwrite real accounts.
-        // The same check `PreviewIsolation.installIfPreview` makes, which runs after this.
-        if PreviewIsolation.isPreview(arguments: CommandLine.arguments, fixture: PreviewIsolation.launchFixture()) {
+        #if DEBUG && targetEnvironment(simulator)
+        if CommandLine.arguments.contains("-preview-saved-account") {
             return SavedAccounts(read: { nil }, write: { _ in })
         }
         #endif
@@ -143,7 +141,7 @@ final class AuthSession {
             let user = try await NuphosAPI.currentUser(token: saved)
             guard generation == expected, token == saved else { return }
             try savedAccounts.save(user: user, token: saved, origin: identityOrigin)
-            clearLegacyToken()
+            Keychain.delete(Self.tokenKey)
             await loadAIConsent()
             // Home may already be open from the cache, so the user can sign
             // out, or in again, before this answers. That session wins.
@@ -214,7 +212,7 @@ final class AuthSession {
             await pushCleanup?.value
             guard generation == expected, NuphosAPI.baseURL.absoluteString == origin else { return }
             try savedAccounts.save(user: user, token: token, origin: origin)
-            clearLegacyToken()
+            Keychain.delete(Self.tokenKey)
             self.token = token
             identityOrigin = origin
             addingAccount = false
@@ -481,12 +479,8 @@ final class AuthSession {
         resetIdentity()
         addingAccount = false
         returnAccountID = nil
-        clearLegacyToken()
-        #if DEBUG
-        if !PreviewIsolation.isActive { Keychain.delete("openai-api-key") }
-        #else
+        Keychain.delete(Self.tokenKey)
         Keychain.delete("openai-api-key")
-        #endif
         let cleanup = pushCleanup
         Task {
             await cleanup?.value
@@ -495,17 +489,10 @@ final class AuthSession {
         state = .signedOut(error: error)
     }
 
-    private func clearLegacyToken() {
-        #if DEBUG
-        guard !PreviewIsolation.isActive else { return }
-        #endif
-        Keychain.delete(Self.tokenKey)
-    }
-
     private func clearToken() {
         sharingLoginID = nil
         SharedShareSession.revoke()
-        clearLegacyToken()
+        Keychain.delete(Self.tokenKey)
         LaunchCache.clear()
         TransferFiles.clear()
         token = nil

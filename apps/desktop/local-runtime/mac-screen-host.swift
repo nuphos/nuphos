@@ -722,28 +722,16 @@ nonisolated final class Viewer: NSObject, SCStreamOutput, @unchecked Sendable {
 // MARK: - Display
 
 /// A sleeping display is not there to capture, so a screen opened then showed nothing (#4518).
-/// `wake` wakes it, and `find` is asked again while it comes back. The answer is nil after five
-/// seconds whatever a lookup does: one that never returns is left behind, not waited for (#4568).
-func awakeDisplay<Display>(wake: @escaping () -> Void, find: @escaping () async throws -> Display?) async throws -> Display? {
-    let (answer, give) = AsyncThrowingStream.makeStream(of: Display?.self)
-    let search = Task {
-        do {
-            if let display = try await find() { give.yield(display); return }
-            wake()
-            while true {
-                try await Task.sleep(nanoseconds: 250_000_000)
-                if let display = try await find() { give.yield(display); return }
-            }
-        } catch {
-            give.finish(throwing: error)
-        }
+/// `wake` wakes it, and `find` is asked again while it comes back.
+func awakeDisplay<Display>(wake: () -> Void, find: () async throws -> Display?) async throws -> Display? {
+    if let display = try await find() { return display }
+    wake()
+    // By the clock, not by the count: a lookup takes its own time.
+    let deadline = Date().addingTimeInterval(5)
+    while Date() < deadline {
+        try await Task.sleep(nanoseconds: 250_000_000)
+        if let display = try await find() { return display }
     }
-    let timer = Task {
-        try await Task.sleep(nanoseconds: 5_000_000_000)
-        give.yield(nil)
-    }
-    defer { search.cancel(); timer.cancel() }
-    for try await display in answer { return display }
     return nil
 }
 

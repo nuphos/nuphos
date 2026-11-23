@@ -483,6 +483,16 @@ struct AgentPage: View {
             } else {
                 Section {
                     ForEach(store.nestedConversations) { item in agentRow(item) }
+
+                    if store.hasMore {
+                        HStack {
+                            Spacer()
+                            ProgressView().tint(Theme.muted)
+                            Spacer()
+                        }
+                        .listRowBackground(Color.clear)
+                        .task { await store.loadMore() }
+                    }
                 }
             }
         }

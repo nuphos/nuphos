@@ -87,8 +87,7 @@ export const deviceChannels = {
   },
   'localRuntime:refresh': () => refreshLocalRuntime(),
   // An opened model picker: true when a running agent's list changed.
-  'localRuntime:refreshModels': (_event: unknown, pickerOpened?: boolean) =>
-    refreshRunningModels(pickerOpened === true),
+  'localRuntime:refreshModels': () => refreshRunningModels(),
   // Running agents keep their version; the next one started picks up the update.
   'localRuntime:updateAgent': async (_e: unknown, provider: LocalAgentProvider) => {
     await updateAgentCli(provider, await userEnv())

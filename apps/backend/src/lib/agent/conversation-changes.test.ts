@@ -90,21 +90,6 @@ describe('conversation changes, as one member hears them', () => {
     await stream.close()
   })
 
-  test("another member's Bot is never heard of, even shared with the team or the member", async () => {
-    const stream = open()
-
-    stream.change({
-      sessionId: 'bot',
-      avatar: '07-ada',
-      generalAccess: 'view',
-      participantIds: [VIEWER],
-    })
-    stream.change({ sessionId: 'mine', userId: VIEWER, avatar: '07-ada', generalAccess: 'none' })
-    await stream.settle()
-    expect(stream.heard()).toEqual(['mine'])
-    await stream.close()
-  })
-
   test('a chat made private after it was shared is no longer heard of', async () => {
     const stream = open()
 

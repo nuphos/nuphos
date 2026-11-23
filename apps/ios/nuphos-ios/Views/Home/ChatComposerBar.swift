@@ -720,21 +720,16 @@ struct ComposerChip: View {
 
 /// A brand mark from the asset catalog, sized like an inline symbol.
 /// Monochrome marks are template images and take the foreground colour.
-/// An asset-catalog mark; without one it holds the same space empty, never a guess.
 struct BrandLogo: View {
-    let name: String?
+    let name: String
     var size: CGFloat = 16
 
     var body: some View {
-        Group {
-            if let name {
-                Image(name).resizable().scaledToFit()
-            } else {
-                Color.clear
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityHidden(true)
+        Image(name)
+            .resizable()
+            .scaledToFit()
+            .frame(width: size, height: size)
+            .accessibilityHidden(true)
     }
 }
 

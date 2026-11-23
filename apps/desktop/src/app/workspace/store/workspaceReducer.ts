@@ -170,7 +170,11 @@ function isTabAction(action: WorkspaceAction): action is TabAction {
   return !(WORKSPACE_LEVEL_ACTIONS as readonly string[]).includes(action.type)
 }
 
-function applyTabAction(state: WorkspaceState, action: TabAction): WorkspaceState {
+function applyTabAction(
+  state: WorkspaceState,
+  action: TabAction,
+  deps: WorkspaceStoreDeps,
+): WorkspaceState {
   switch (action.type) {
     case 'setDockOpen':
       return writeBucket(state, action.sessionKey, (bucket) =>
@@ -190,6 +194,14 @@ function applyTabAction(state: WorkspaceState, action: TabAction): WorkspaceStat
       return writeBucket(state, action.sessionKey, (bucket) => activateTabIn(bucket, action.tabId))
     case 'mountTab':
       return writeBucket(state, action.sessionKey, (bucket) => mountTabIn(bucket, action.tabId))
+    case 'openTeamTab':
+      return writeBucket(state, action.sessionKey, (bucket) => {
+        const existing = bucket.tabs.find((tab) => tab.scope.teamId === action.teamId)
+
+        return existing
+          ? activateTabIn(bucket, existing.id)
+          : openTabIn(bucket, deps.createTab(action.teamId))
+      })
     case 'selectAdjacentTab':
       return writeBucket(state, action.sessionKey, (bucket) =>
         selectAdjacentIn(bucket, action.direction),
@@ -220,7 +232,7 @@ function applyAction(
   action: WorkspaceAction,
   deps: WorkspaceStoreDeps,
 ): WorkspaceState {
-  if (isTabAction(action)) return applyTabAction(state, action)
+  if (isTabAction(action)) return applyTabAction(state, action, deps)
   switch (action.type) {
     case 'selectSession':
       return selectSession(state, action)

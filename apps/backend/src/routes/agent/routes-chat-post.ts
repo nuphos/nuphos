@@ -21,8 +21,8 @@ import { agent } from './router'
 import { agentRunKey, agentRuns, claimAgentRunForSession, createAgentRun } from './run-registry'
 import { streamAgentRunResponse } from './run-stream'
 import { admitRuntimeChat } from './runtime-chat-admission'
-import { queueForOfflineComputer } from './session-queue-offline'
-import { isQueued, queuedReply, queueForSignIn } from './session-queue-sign-in'
+import { isQueued, queuedReply, queueForWaitingRuntime } from './session-queue-share-approval'
+import { queueForSignIn } from './session-queue-sign-in'
 import { admitQueueableChat, queuedChatContext, queuedChatReply } from './session-queue-turn'
 import { readTeamIdCandidate, resolveVerifiedTeamId, sanitizeKubeContextHeader } from './team-scope'
 import { getFirstUserMessage } from './transcript'
@@ -50,7 +50,8 @@ agent.post('/chat', async (c) => {
     await initializeSessionBypass(id, userId, body.permissionMode === 'bypass')
   }
   const readOnlyResume = body.resume === true && runOwnerUserId !== userId
-  const clientView = await acceptClientTail(
+  // Resolve Slack binding alongside attribution.
+  const clientViewPromise = acceptClientTail(
     body,
     id,
     runOwnerUserId,
@@ -64,6 +65,7 @@ agent.post('/chat', async (c) => {
     !body.resume && conversationForResume
       ? await findSlackBoundThread(id, conversationForResume.metadata?.source)
       : null
+  const clientView = await clientViewPromise
 
   const kubeContext = sanitizeKubeContextHeader(c.req.header('X-Atlas-Kube-Context'))
   const requestedCredentialAccess =
@@ -108,7 +110,7 @@ agent.post('/chat', async (c) => {
       sessionId: id,
       ...(body.agentRuntime ? { runtime: body.agentRuntime } : {}),
       ...(body.runtimeId ? { runtimeId: body.runtimeId } : {}),
-    }).catch((error: unknown) => queueForOfflineComputer(error, resumeParams)))
+    }).catch((error: unknown) => queueForWaitingRuntime(error, resumeParams)))
 
   if (isQueued(chatRuntime)) return queuedChatReply(body, queuedReply(streamId, chatRuntime))
   const runtimeProvider = chatRuntime.runtime

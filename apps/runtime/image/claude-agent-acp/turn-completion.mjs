@@ -8,21 +8,8 @@
 // same single idle. Settle a steered turn whose answer is in before paying debt,
 // as upstream 0.89.1 does, or the debt swallows the only idle and the prompt
 // never completes. An answer only counts once it follows the steer's echo.
-//
-// A prompt sent while Claude Code runs a turn of its own (a background task
-// finished) is folded into that turn. Its result keeps the task-notification
-// origin but names the prompt, so it is the prompt's answer, as upstream
-// 0.109 treats it; skipping it leaves the prompt open until a timeout.
 export function patchClaudeTurnCompletion(source) {
   const patches = [
-    [
-      'const isAutonomousResult = message.origin != null && AUTONOMOUS_RESULT_ORIGINS.has(message.origin.kind);',
-      `const isAutonomousResult = message.origin != null && AUTONOMOUS_RESULT_ORIGINS.has(message.origin.kind) &&
-                            ![message.user_message_uuid, ...(message.user_message_uuids ?? [])].some((uuid) => {
-                                const turn = typeof uuid === "string" ? findUnsettledTurn(uuid) : undefined;
-                                return turn !== undefined && !isHeldOpen(turn);
-                            });`,
-    ],
     [
       '(turnInFlight.steeredEchoes ??= new Set()).add(steeredUuid);',
       '(turnInFlight.steeredEchoes ??= new Set()).add(steeredUuid);\n        turnInFlight.nuphosLatestSteerUuid = steeredUuid;',

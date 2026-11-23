@@ -151,12 +151,12 @@ function fakeServer(drains: boolean) {
   }
 }
 
-test('workers that outlive the deadline force-stop both servers and log the snapshot', async () => {
+test('a drain that outlives the deadline force-stops both servers and logs the snapshot', async () => {
   const log = spyOn(observability, 'logEvent').mockImplementation(() => {})
   const server = fakeServer(false)
   const dev = fakeServer(false)
 
-  await stopHttpWithDeadline(server, dev, 20, new Promise(() => {}))
+  await stopHttpWithDeadline(server, dev, 20, Promise.resolve())
   expect(server.stops).toEqual([false, true])
   expect(dev.stops).toEqual([false, true])
   expect(log).toHaveBeenCalledWith(
@@ -167,22 +167,13 @@ test('workers that outlive the deadline force-stop both servers and log the snap
   log.mockRestore()
 })
 
-// #4318: a stream such as /agent-changes ends only when its client leaves, so waiting for it
-// always ran into the deadline.
-test('a stream that never ends is closed once producers have drained, not at the deadline', async () => {
+test('a drain that finishes first never force-stops', async () => {
   const log = spyOn(observability, 'logEvent').mockImplementation(() => {})
-  const server = fakeServer(false)
-  const stopped = stopHttpWithDeadline(server, undefined, 10_000, Promise.resolve()).then(
-    () => 'stopped',
-  )
+  const server = fakeServer(true)
 
-  expect(await Promise.race([stopped, Bun.sleep(200).then(() => 'waiting')])).toBe('stopped')
-  expect(server.stops).toEqual([false, true])
-  expect(log).toHaveBeenCalledWith(
-    'info',
-    'backend.shutdown.http_closing',
-    expect.objectContaining({ http_pending_requests: 1 }),
-  )
+  await stopHttpWithDeadline(server, undefined, 20, Promise.resolve())
+  await new Promise((resolve) => setTimeout(resolve, 40))
+  expect(server.stops).toEqual([false])
   expect(log).not.toHaveBeenCalledWith(
     'warn',
     'backend.shutdown.drain_deadline_exceeded',

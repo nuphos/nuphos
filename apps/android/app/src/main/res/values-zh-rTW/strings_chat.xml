@@ -179,8 +179,12 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d 次呼叫 · 執行中</item>
     </plurals>
-    <string name="chat_work_duration">處理了 %1$s</string>
-    <string name="chat_work">已處理</string>
+    <plurals name="chat_work_duration_steps">
+        <item quantity="other">處理了 %1$d 秒 · %2$d 個步驟</item>
+    </plurals>
+    <plurals name="chat_work_steps">
+        <item quantity="other">處理了 %1$d 個步驟</item>
+    </plurals>
     <string name="chat_share_access_invited">僅限受邀者</string>
     <string name="chat_share_access_view">團隊可檢視</string>
     <string name="chat_share_access_reply">團隊可檢視及回覆</string>

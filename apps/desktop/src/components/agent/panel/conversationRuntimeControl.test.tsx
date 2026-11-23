@@ -94,8 +94,7 @@ test('Bot and Task runtime controls preserve access, confirmation, and move dedu
   globalThis.window = new EventTarget() as never
   expect(render({ activeTab: null })).toBeUndefined()
   expect(render({ activeTab: { ...base.activeTab, readOnly: true } })).toBeUndefined()
-  // A running turn does not block a move: the server stops it as Stop does (#4619).
-  expect(render({ activeTab: { ...base.activeTab, streaming: true } })?.selectDisabled).toBe(false)
+  expect(render({ activeTab: { ...base.activeTab, streaming: true } })?.selectDisabled).toBe(true)
   // Only the owner can move a conversation, whoever else manages it.
   for (const canManage of [false, true])
     expect(

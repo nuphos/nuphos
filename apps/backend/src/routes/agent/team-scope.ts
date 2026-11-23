@@ -244,6 +244,10 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
     instaboxAccountIds: normalizeOptionalObjectIdList(raw.instaboxAccountIds, 'instaboxAccountIds'),
     teamIdentity: normalizeProviders(raw, 'teamIdentity', ['github', 'linear'] as const),
     personalCredentialIds: normalizeProviders(raw, 'personalCredentialIds', PERSONAL_PROVIDERS),
+    personalConnectionIds: normalizeOptionalObjectIdList(
+      raw.personalConnectionIds,
+      'personalConnectionIds',
+    ),
   }
 }
 

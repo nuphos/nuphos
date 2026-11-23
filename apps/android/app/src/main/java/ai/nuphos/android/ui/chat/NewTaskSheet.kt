@@ -13,10 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.composed
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import ai.nuphos.android.R
@@ -47,29 +44,20 @@ fun NewTaskLauncher(nav: NavHostController) {
     if (openLocal && request == null) NewTaskSheet(nav) { openLocal = false }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun NewTaskSheet(nav: NavHostController, onDismiss: () -> Unit) {
     val auth = LocalAuthSession.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        modifier = Modifier.composed {
-            imePadding().fillMaxHeight(if (WindowInsets.isImeVisible) 1f else 0.92f)
-        }.testTag("new-task-sheet"),
+        modifier = Modifier.fillMaxHeight(0.92f).testTag("new-task-sheet"),
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.new_task_title), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
             TextButton(onClick = onDismiss, modifier = Modifier.testTag("new-task-cancel")) { Text(stringResource(R.string.new_task_cancel)) }
         }
-        Column(Modifier.fillMaxWidth().weight(1f).layout { measurable, constraints ->
-            val greeting = measurable.measure(constraints.copy(minHeight = 0, maxHeight = Constraints.Infinity))
-            layout(constraints.maxWidth, constraints.maxHeight) {
-                if (greeting.height <= constraints.maxHeight) {
-                    greeting.placeRelative(0, (constraints.maxHeight - greeting.height) / 2)
-                }
-            }
-        }.padding(24.dp)) {
+        Column(Modifier.fillMaxWidth().weight(1f).padding(24.dp), verticalArrangement = Arrangement.Center) {
             val firstName = auth.user?.name.orEmpty().trim().split(' ', '\t', '\n').firstOrNull().orEmpty()
             Canvas(Modifier.size(36.dp)) {
                 val x = size.width / 24f
@@ -91,6 +79,6 @@ internal fun NewTaskSheet(nav: NavHostController, onDismiss: () -> Unit) {
             Text(if (firstName.isEmpty()) stringResource(R.string.new_task_welcome)
                 else stringResource(R.string.new_task_welcome_name, firstName), style = MaterialTheme.typography.headlineSmall)
         }
-        NewTaskComposer(nav, bottomPadding = if (WindowInsets.isImeVisible) 0.dp else 8.dp, onSubmitted = onDismiss)
+        NewTaskComposer(nav, onSubmitted = onDismiss)
     }
 }

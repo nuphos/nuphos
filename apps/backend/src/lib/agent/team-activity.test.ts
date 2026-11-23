@@ -12,7 +12,6 @@ let conversations: {
   title: string
   agentRuntime?: string
   generalAccess?: string
-  avatar?: string
 }[] = []
 let messages: { sessionId: string; role: string; createdAt: Date }[] = []
 
@@ -131,16 +130,13 @@ test('a private session shows that someone worked, never what on', async () => {
   conversations = [
     { sessionId: 's1', userId: 'u-alice', title: 'Rotate prod keys', generalAccess: 'none' },
     { sessionId: 's2', userId: 'u-bob', title: 'Shared fix', generalAccess: 'view' },
-    // A Bot is its owner's alone, even one left team-wide from before.
-    { sessionId: 's3', userId: 'u-bob', title: 'Ada', generalAccess: 'view', avatar: '07-ada' },
   ]
-  messages = [msg('s1', 'user', 560), msg('s2', 'user', 561), msg('s3', 'user', 562)]
+  messages = [msg('s1', 'user', 560), msg('s2', 'user', 561)]
   const activity = await getTeamActivity('team-private', '1d', now)
 
   expect(activity.sessions.map((session) => session.title)).toEqual([
     'Private session',
     'Shared fix',
-    'Private session',
   ])
 })
 

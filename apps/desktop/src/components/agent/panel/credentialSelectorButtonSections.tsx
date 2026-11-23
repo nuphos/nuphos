@@ -1,10 +1,11 @@
+import { t } from '../../../i18n/index.ts'
 import { CloudLogo } from '../../CloudLogo'
 import { MenuCheckboxItem } from '../../ui/menu'
 
 import { CredentialSectionGroup } from './CredentialSectionGroup'
-import { GOOGLE_PROVIDERS } from '../../../types'
+import { GOOGLE_PROVIDERS, isGoogle } from '../../../types'
+import { nameOf } from '../../../views/settings/personalCredentials'
 
-import { OwnAccountLabel } from './OwnAccountLabel'
 import { personalIdentityRow, setPersonalIdentity, setPersonalOnly } from './personalIdentity'
 
 import type { CredentialSection, CredentialSelectorControl } from './credentialSections'
@@ -30,9 +31,11 @@ export function CredentialSelectorSectionList({
 }) {
   // The member's own credential is what the agent may use as itself, binding or not.
   const ownRow = (provider: PersonalCredentialProvider) => {
-    const own = personal ? ownCredentials.filter((c) => c.provider === provider) : []
+    const own = personal && ownCredentials.find((credential) => credential.provider === provider)
 
-    if (own.length === 0) return null
+    if (!own) return null
+    const you = t('You ({login}) · Personal', { login: own.login })
+    const label = isGoogle(provider) ? `${nameOf(provider)} · ${you}` : you
 
     return (
       <MenuCheckboxItem
@@ -42,7 +45,9 @@ export function CredentialSelectorSectionList({
       >
         <span className="flex min-w-0 items-center gap-2">
           <CloudLogo provider={provider} size={14} />
-          <OwnAccountLabel provider={provider} accounts={own} />
+          <span className="min-w-0 flex-1 truncate text-[12.5px] text-main" title={label}>
+            {label}
+          </span>
         </span>
       </MenuCheckboxItem>
     )

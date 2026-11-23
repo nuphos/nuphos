@@ -38,6 +38,7 @@ type RuntimeTab = Pick<
   | 'movingTo'
   | 'readOnly'
   | 'foreign'
+  | 'streaming'
   | 'timelineEvents'
 >
 type SessionRuntimeContext = Pick<
@@ -72,7 +73,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
   } = c
   const sessionId = tab?.sessionId
   const tabId = tab?.id
-  const provider = tab?.agentRuntime
+  const provider = tab?.agentRuntime ?? 'claude-code'
   const moving = Boolean(tab?.movingTo)
   const moveInFlight = useRef(false)
 
@@ -160,15 +161,12 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
       teamId,
       sessionId,
       canUpdateTeamAgents: isTeamAdmin,
-      // Nothing to show until the conversation says which agent it is on.
-      value: provider
-        ? {
-            id: tab?.runtimeId,
-            provider,
-            label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
-            status: current?.status,
-          }
-        : null,
+      value: {
+        id: tab?.runtimeId,
+        provider,
+        label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
+        status: current?.status,
+      },
       options: runtimeInstances,
       ...(canMove && {
         onSelect: (runtimeId: string, access) => {
@@ -194,7 +192,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
             })
         },
       }),
-      selectDisabled: moving,
+      selectDisabled: tab?.streaming || moving,
       quotas: runtimeQuotas,
       unavailable:
         !runtimeInstancesLoading && !runtimeInstancesError && current?.status !== 'active',

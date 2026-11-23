@@ -35,7 +35,7 @@ export function ArchivedChatsView({
     items,
     loading,
     failed,
-    reload,
+    retry,
     loadingMore,
     hasMore,
     search,
@@ -56,7 +56,7 @@ export function ArchivedChatsView({
   if (!loading && failed && items.length === 0)
     return (
       <div className="mx-auto w-full max-w-[820px] px-9 pt-6">
-        <LoadFailed message={t('Couldn’t load archived Bots and tasks.')} onRetry={reload} />
+        <LoadFailed message={t('Couldn’t load archived Bots and tasks.')} onRetry={retry} />
       </div>
     )
   if (!loading && items.length === 0 && !search) {

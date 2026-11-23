@@ -19,15 +19,9 @@ const { sessionId, epoch } = JSON.parse(
 )
 if (typeof sessionId !== 'string' || !sessionId.trim()) process.exit(2)
 if (epoch !== undefined && (!Number.isSafeInteger(epoch) || epoch < 0)) process.exit(2)
-// Every generation up to this one (<hash>, <hash>.g-1 …), the owner's and each
-// teammate's: the Task has moved off all of them, and a computer from before
-// generations ran a restored Task's turns in the first one (#4473). A later
-// generation is a restored Task's and stays.
-const ours = new RegExp(
-  '^(' +
-    createHash('sha256').update(sessionId).digest('hex') +
-    '(?:\\.g-([1-9][0-9]*))?(?:\\.[0-9a-f]{64})?)(\\.reclaim-([0-9]+)-.*)?$',
-)
+const generation = epoch === undefined || epoch === 0 ? '' : `.g-${epoch}`
+const id = createHash('sha256').update(sessionId).digest('hex') + generation
+const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const homes = path.join(os.homedir(), '.nuphos', 'session-homes')
 let unreadable
 const done = (result) => {
@@ -129,16 +123,16 @@ const inUse = async (dir, byHome) => {
   }
   return false
 }
-const matches = (await fs.readdir(homes).catch(() => []))
-  .map((name) => ours.exec(name))
-  .filter((match) => match && Number(match[2] ?? 0) <= (epoch ?? 0))
+const names = await fs.readdir(homes).catch(() => [])
 // A job killed during the rm, or a failed rename back, leaves a home's
 // <home>.reclaim-<ms>-* behind; its next reclaim removes it once nothing uses it.
 // One younger than any job may still belong to a running job, so it waits.
-for (const [name, home, , leftover, ms] of matches) {
-  if (!leftover || !(Date.now() - Number(ms) > 10 * 60_000)) continue
+const leftover = new RegExp('^(' + escapedId + '(?:\\.[0-9a-f]{64})?)\\.reclaim-([0-9]+)-')
+for (const name of names) {
+  const match = leftover.exec(name)
+  if (!match || !(Date.now() - Number(match[2]) > 10 * 60_000)) continue
   const left = path.join(homes, name)
-  if (!(await inUse(left, path.join(homes, home))))
+  if (!(await inUse(left, path.join(homes, match[1]))))
     await fs.rm(left, { recursive: true, force: true }).catch(() => {})
 }
 const reclaim = async (home) => {
@@ -160,7 +154,9 @@ const reclaim = async (home) => {
   await fs.rm(aside, { recursive: true, force: true })
   return 'removed'
 }
+const teammates = names.filter((name) =>
+  new RegExp('^' + escapedId + '\\.[0-9a-f]{64}$').test(name),
+)
 const results = []
-for (const [name, , , leftover] of matches)
-  if (!leftover) results.push(await reclaim(path.join(homes, name)))
+for (const name of [id, ...teammates]) results.push(await reclaim(path.join(homes, name)))
 done(results.includes('in_use') ? 'in_use' : results.includes('removed') ? 'removed' : 'absent')

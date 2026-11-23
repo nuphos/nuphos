@@ -8,6 +8,9 @@ struct SavedAccountsView: View {
     @State private var removing: SavedAccount?
 
     private var accounts: [SavedAccount] {
+        #if DEBUG
+        if PreviewIsolation.isActive { return session.savedAccounts.accounts.filter { $0.token == "preview-only" } }
+        #endif
         return session.savedAccounts.accounts
     }
     private var busy: Bool { session.state == .signingIn }

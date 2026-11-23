@@ -102,7 +102,10 @@ export function useChatItems({
       // A Bot's sub-agents show no status on it when it is folded: only its face says it works.
       ...(parent &&
         isBotRow(parent, avatarPicks.get(parent.sessionId)) && { foldedStatus: undefined }),
-      ...(pendingReplies.has(conversation.sessionId) && { taskState: 'attention' as const }),
+      ...(pendingReplies.has(conversation.sessionId) && {
+        taskState: 'attention' as const,
+        finished: false,
+      }),
       actions: <RowMenuButton title={item.label} />,
     }
     // A Bot's chat, or a Bot with no chat yet in its own row: both show the Bot's work alike.

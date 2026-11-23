@@ -65,8 +65,6 @@
     <string name="agent_ok">Aceptar</string>
     <string name="agent_first_runtime_title">Conecta tu primer entorno de ejecución</string>
     <string name="agent_first_runtime_body">Abre Nuphos en tu computadora para añadir un Box o conectar tu propia computadora, o pide a un administrador del espacio de trabajo que conecte uno.</string>
-    <string name="agent_first_runtime_starting_title">%1$s se está preparando</string>
-    <string name="agent_first_runtime_starting_body">Aparecerá aquí en cuanto esté en línea. Puede tardar uno o dos minutos.</string>
     <string name="agent_cloud">Nube</string>
     <plurals name="agent_runtime_count">
         <item quantity="one">%1$d entorno de ejecución</item>

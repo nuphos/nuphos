@@ -130,6 +130,7 @@ export class LocalRuntimeController {
         const cli = await this.deps.probeCli(provider, env, agentHome)
 
         if (userId !== this.userId) return
+        // A running agent keeps the CLI it started with, so one found elsewhere needs a restart.
         if (cliPath(this.agents[provider].cli) !== cliPath(cli)) moved.add(provider)
         this.agents[provider].cli = cli
       }),
@@ -245,7 +246,6 @@ export class LocalRuntimeController {
     this.changed()
     if (!agent.cli.installed) {
       agent.error = agent.cli.error ?? INSTALL_HINT[provider]
-      this.tunnel?.sendStatus()
       this.changed()
 
       return

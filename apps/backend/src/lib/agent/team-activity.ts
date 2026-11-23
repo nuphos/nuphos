@@ -1,6 +1,5 @@
 import { getTeamMembers } from '@/lib/identity'
 
-import { isBot } from './db/access'
 import { readTeamTurns } from './team-turns'
 
 export { OPEN_TURN_LIMIT_MS, turnIntervals } from './team-turns'
@@ -98,9 +97,9 @@ async function scanTeamActivity(
     const hit = sessionSlots(turns, start, slotMs, slotCount)
 
     if (hit.length === 0) continue
-    // The activity is team-wide and cached per team, so a private session or
-    // a Bot, which is its owner's alone, shows that someone worked, never what on.
-    const title = c.generalAccess === 'none' || isBot(c) ? 'Private session' : c.title
+    // The activity is team-wide and cached per team, so a private session
+    // shows that someone worked, never what on.
+    const title = c.generalAccess === 'none' ? 'Private session' : c.title
     const index = listed.push({ id: c.sessionId, title, runtime: c.agentRuntime ?? null }) - 1
     const slots =
       slotsByMember.get(c.userId) ?? Array.from({ length: slotCount }, (): number[] => [])

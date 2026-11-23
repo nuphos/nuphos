@@ -15,26 +15,25 @@ type Rows = AgentConversation[]
 export const agentSessionsQuery = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.agentSessions(teamId),
-    queryFn: async ({ client, queryKey, signal }) => {
-      // The poll reads first pages only; a first listing or an invalidated one reads them all.
-      const state = client.getQueryState<Rows>(queryKey)
-      const listed = state?.isInvalidated ? undefined : state?.data
+    queryFn: async ({ signal }) => {
       // A cancelled listing (an archive, Undo or rename replaced it) stops paging.
       const rows = await loadSidebarChats(
         (options) => api.agentListConversations(teamId, options),
         () => !signal.aborted,
-        listed,
       )
 
       return (rows ?? []).filter((row) => !row.archivedAt)
     },
   })
 
-/** {@link agentSessionsQuery}, polled; undefined until listed once. */
-export function useAgentSessions(teamId: string) {
+/** {@link agentSessionsQuery}, polled every `pollMs` (`false`: not by this reader); undefined until listed once. */
+export function useAgentSessions(
+  teamId: string,
+  pollMs: number | false | (() => number | false) = AGENT_SESSIONS_POLL_MS,
+) {
   return useQuery({
     ...agentSessionsQuery(teamId),
-    refetchInterval: AGENT_SESSIONS_POLL_MS,
+    refetchInterval: pollMs,
   })
 }
 

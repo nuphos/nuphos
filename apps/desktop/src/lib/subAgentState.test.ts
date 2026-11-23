@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
+import { isSubAgentActive, rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentInputRequest } from '../api/agent-types.ts'
@@ -37,6 +37,12 @@ test('answered questions, idle, stopped, disconnected and unknown runtimes are d
   assert.equal(subAgentState({}, stopped), 'done')
   assert.equal(subAgentState({}, disconnected), 'done')
   assert.equal(subAgentState({}, undefined), 'done')
+})
+
+test('waiting and running sub-agents are active, done ones are not', () => {
+  assert.equal(isSubAgentActive({ inputRequests: [request('open')] }, undefined), true)
+  assert.equal(isSubAgentActive({}, background), true)
+  assert.equal(isSubAgentActive({}, idle), false)
 })
 
 test('a thread ignores its unread state, whatever it is doing', () => {

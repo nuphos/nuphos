@@ -153,11 +153,11 @@ const chatBilling = (lift) => `${ios()}${chatHeader('Migrate billing jobs to the
   ${transcript([
     [sender, 128, 'Maya Chen', 'MC'],
     [bubble, 152.7, 'Move the nightly invoice job onto the new<br>queue, and keep the cron as a fallback for<br>now.', 71.5],
-    [pill, 268.7, 'Worked for 8s'],
+    [pill, 268.7, 'Worked for 8s · 2 steps'],
     [prose, 314, 'Done. The job now enqueues one task per account,<br>and the cron stays behind a <code>LEGACY_CRON</code> flag.'],
     [sender, 392.3, 'Bruce Wayne', 'BW'],
     [bubble, 416.5, 'Make the tasks idempotent. A retry must<br>never invoice an account twice.', 79],
-    [pill, 508, 'Worked for 26s'],
+    [pill, 508, 'Worked for 26s · 2 steps'],
     [prose, 552.7, 'Each task now uses <code>account:period</code> as its<br>idempotency key. All 54 billing tests pass.'],
     [sender, 631.3, 'Leo Park', 'LP'],
     [bubble, 656, 'Looks good. Open the PR and I’ll review it.', 71.5],

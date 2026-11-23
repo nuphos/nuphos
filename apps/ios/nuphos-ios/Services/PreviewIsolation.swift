@@ -63,7 +63,7 @@ nonisolated enum PreviewIsolation {
         URLSessionConfiguration.routeThroughPreviewTransport()
     }
 
-    static func launchFixture() -> String? {
+    private static func launchFixture() -> String? {
         #if targetEnvironment(simulator)
         ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_RESPONSES"]
             ?? UserDefaults.standard.string(forKey: "previewResponses")

@@ -176,6 +176,30 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("7-back-to-bot")
     }
 
+    /// Someone else's Bot whose Tasks this viewer does not list still says how many run or
+    /// wait, from the counts on its own row (#4270). Its Tasks' titles never reach the viewer.
+    func testASharedBotShowsItsTaskCounts() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        let page = try XCTUnwrap(responses["GET /agent/conversations?bots=true"] as? [String: Any])
+        var body = try XCTUnwrap(page["body"] as? [String: Any])
+        body["conversations"] = try XCTUnwrap(body["conversations"] as? [[String: Any]]).map { row in
+            row["sessionId"] as? String == "bot-notes"
+                ? row.merging(["isOwner": false, "canManage": false, "tasks": ["running": 2, "waiting": 1]]) { $1 } : row
+        }
+        responses["GET /agent/conversations?bots=true"] = ["status": 200, "body": body]
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+
+        launch(page: "chats")
+        let notes = app.staticTexts["Notes Bot"].firstMatch
+        XCTAssertTrue(notes.waitForExistence(timeout: 10), "Bots did not load")
+        notes.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10), "The Bot's name opens nothing")
+        XCTAssertTrue(name.label.hasSuffix("1 needs input · 2 running"), "No counts under a shared Bot's name: \(name.label)")
+        sleep(1)
+        shot("8-shared-bot-counts")
+    }
+
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
         launch(page: "agent")
         let staging = app.staticTexts["Check the staging cluster"].firstMatch

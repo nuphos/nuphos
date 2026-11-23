@@ -51,10 +51,13 @@ export function HomeWidgets({
   onOpenConversation,
   onOpenNuphosLink,
   revealAt,
+  replayKey,
 }: {
   teamId: string
   /** When the first block slides in; each card after it follows 150ms later. */
   revealAt: number
+  /** A new value replays the reveal. */
+  replayKey: number
   /** Administrators can make their layout the team default. */
   isTeamAdmin?: boolean
   /** Opens a conversation picked from a card. */
@@ -175,9 +178,11 @@ export function HomeWidgets({
           onChange={(grid) => update({ ...settings, grid })}
           label={(key) => cardLabel(settings, key)}
           revealAt={revealAt}
+          replayKey={replayKey}
         />
       )}
       <DelayedPanelReveal
+        replayKey={replayKey}
         // Below the cards, after the last of them has slid in.
         delayMs={revealAt + 150 * cards.length}
         className="mt-3 flex flex-col items-center gap-2"

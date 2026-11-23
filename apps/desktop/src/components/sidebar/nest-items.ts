@@ -13,9 +13,10 @@ export type NestedItem<T> = {
  * Puts each row right after its parent, one level deeper, keeping the given
  * order among siblings. A row whose parent is not in this list — archived,
  * pinned into another section, or unlinked — is simply a top-level row.
- * Rows under a folded parent are left out; every other row is listed.
+ * Rows under a folded parent are left out, and so is a finished child with
+ * nothing unfinished beneath it.
  */
-export function nestItems<T extends { key: string; parentKey?: string }>(
+export function nestItems<T extends { key: string; parentKey?: string; finished?: boolean }>(
   items: readonly T[],
   isFolded: (key: string) => boolean = () => false,
 ): NestedItem<T>[] {
@@ -27,7 +28,11 @@ export function nestItems<T extends { key: string; parentKey?: string }>(
       children.set(item.parentKey, [...(children.get(item.parentKey) ?? []), item])
     }
   }
-  const kidsOf = (key: string): T[] => children.get(key) ?? []
+  // A finished row stays listed while anything under it is unfinished, so no
+  // running row loses the parent it nests under.
+  const settled = (item: T): boolean =>
+    Boolean(item.finished) && (children.get(item.key) ?? []).every(settled)
+  const kidsOf = (key: string): T[] => (children.get(key) ?? []).filter((kid) => !settled(kid))
   const nested: NestedItem<T>[] = []
   const below = (key: string): T[] => kidsOf(key).flatMap((kid) => [kid, ...below(kid.key)])
   const visit = (item: T, trail: boolean[]) => {

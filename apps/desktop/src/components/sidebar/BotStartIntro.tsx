@@ -64,7 +64,9 @@ export function BotStartIntro({
       </Line>
       <Line index={2}>
         <p className="mt-3 max-w-[540px] text-sm leading-relaxed text-secondary">
-          {t('A familiar face for ongoing work. Pick a name and bring your team in.')}
+          {t(
+            'A familiar face for ongoing work. Pick a name and let your team join the conversation.',
+          )}
         </p>
       </Line>
       <Line index={3}>

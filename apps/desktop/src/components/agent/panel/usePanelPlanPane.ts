@@ -1,7 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { findLatestPlanReference } from '../planReference'
 import { usePlan } from '../planUpdates'
 
@@ -143,13 +141,6 @@ export function usePanelPlanPane(acc: Acc) {
   }, [onTitleChange])
   // Re-reported when the server comes to have the chat, not on every streamed delta.
   const stored = activeTab ? serverHasConversation(activeTab) : false
-  // The name the sidebar lists the chat by, so a rename made anywhere reaches the titlebar too.
-  // Read from what the sidebar already listed; it asks the backend nothing.
-  const { data: listedTitle } = useQuery({
-    ...agentSessionsQuery(teamId ?? ''),
-    enabled: false,
-    select: (rows) => rows.find((row) => row.sessionId === activeTab?.sessionId)?.title,
-  })
 
   useEffect(() => {
     // Also fires on sessionIdProp change so the parent's pageHref closure is
@@ -166,7 +157,7 @@ export function usePanelPlanPane(acc: Acc) {
     const gates = sessionActionGates(shown)
 
     onTitleChangeRef.current?.(
-      (unavailable ? '' : listedTitle || shown?.title)?.trim() || '',
+      shown?.title?.trim() || '',
       shown?.sessionId ?? null,
       shown?.agentRuntime,
       gates.canRename,
@@ -180,7 +171,6 @@ export function usePanelPlanPane(acc: Acc) {
     activeTab?.readOnly,
     activeTab?.foreign,
     activeTab?.title,
-    listedTitle,
     activeTab?.sessionId,
     activeTab?.agentRuntime,
     activeTab?.runtimeId,

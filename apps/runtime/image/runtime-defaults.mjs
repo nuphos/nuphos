@@ -275,7 +275,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
 // session is loaded or resumed. The backend sends the conversation's own
 // settings (those it started with, then every change it confirmed), which the
 // agent's restored state can lag: a change no turn followed is not on record.
-export async function nuphosApplyRuntimeDefaults(agent, params, response) {
+export async function nuphosApplyRuntimeDefaults(agent, params, response, reopened = false) {
   const defaults = params._meta?.['ai.nuphos/runtimeDefaults']
   if (!defaults || Object.keys(defaults).length === 0) return response
   let options = response.configOptions
@@ -292,17 +292,26 @@ export async function nuphosApplyRuntimeDefaults(agent, params, response) {
     const value = defaults[kind]
     if (value === undefined) continue
     const option = options?.find((entry) => kindOf(entry) === kind)
-    // A value the agent does not offer (a model that lacks the saved effort, or an older
-    // agent) or does not take leaves the session on the agent's own choice, new or
-    // reopened alike: the session reports what it runs with.
-    if (!option?.options?.some((choice) => choice.value === value)) continue
+    if (!option?.options?.some((choice) => choice.value === value)) {
+      // A reopened session keeps its restored value when the runtime no longer offers
+      // the stored one; any other failure stops it before it can prompt.
+      if (reopened) continue
+      throw new Error(
+        `The default ${kind} is not supported. Update this runtime in Settings → Agent, then start a new conversation.`,
+      )
+    }
     if (option.currentValue === value) continue
     const updated = await agent.setSessionConfigOption({
       sessionId: response.sessionId ?? params.sessionId,
       configId: option.id,
       value,
     })
-    options = updated?.configOptions ?? options
+    options = updated.configOptions
+    if (!options?.some((entry) => entry.id === option.id && entry.currentValue === value)) {
+      throw new Error(
+        `The runtime did not accept the default ${kind}. Update Settings → Agent, then start a new conversation.`,
+      )
+    }
   }
   const model = options?.find((entry) => kindOf(entry) === 'model')
   return {
@@ -429,7 +438,7 @@ export function patchRuntimeDefaults(source) {
             nuphosRestorePhase('adapter-restore');
             nuphosReplyImages(this, params, { sessionId: params.sessionId });
             try {
-                return await nuphosApplyRuntimeDefaults(this, params, await this.nuphos_${method}(params, nuphosRestorePhase));
+                return await nuphosApplyRuntimeDefaults(this, params, await this.nuphos_${method}(params, nuphosRestorePhase), true);
             } finally {
                 await this.nuphosFlushReplyImages?.(params.sessionId);
             }

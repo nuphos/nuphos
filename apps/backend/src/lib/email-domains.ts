@@ -69,10 +69,3 @@ export function extractEmailDomain(email: string): string | null {
 export function isPublicEmailDomain(domain: string): boolean {
   return PUBLIC_EMAIL_DOMAINS.has(domain)
 }
-
-/** Whether the address is on a public provider, so its domain can't open a workspace to discovery. */
-export function hasPublicEmailDomain(email: string): boolean {
-  const domain = extractEmailDomain(email)
-
-  return domain !== null && isPublicEmailDomain(domain)
-}

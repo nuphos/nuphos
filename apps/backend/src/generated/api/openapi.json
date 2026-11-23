@@ -873,6 +873,13 @@
                           ]
                         }
                       },
+                      "personalConnectionIds": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^[a-f0-9]{24}$"
+                        }
+                      },
                       "deviceIds": {
                         "type": "array",
                         "items": {
@@ -1109,6 +1116,17 @@
                               "google-calendar"
                             ]
                           }
+                        },
+                        "personalConnectionIds": {
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^[a-f0-9]{24}$"
+                          }
+                        },
+                        "personalAccountCount": {
+                          "type": "integer",
+                          "minimum": 0
                         },
                         "deviceIds": {
                           "type": "array",
@@ -7200,6 +7218,81 @@
                     "approvalProgress",
                     "createdAt",
                     "updatedAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not found"
+          }
+        }
+      }
+    },
+    "/agent/plan-approval-policy": {
+      "get": {
+        "operationId": "plans.getApprovalPolicy",
+        "tags": [
+          "Plans"
+        ],
+        "summary": "Get the team plan approval policy",
+        "description": "Return the approval requirement that new plans snapshot for this team.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "teamId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requesterApprovalRequired": {
+                      "type": "boolean"
+                    },
+                    "minimumOtherApprovals": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 20
+                    },
+                    "policySource": {
+                      "type": "string",
+                      "enum": [
+                        "legacy-default",
+                        "team-policy"
+                      ]
+                    },
+                    "policyVersion": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "requesterApprovalRequired",
+                    "minimumOtherApprovals",
+                    "policySource",
+                    "policyVersion"
                   ],
                   "additionalProperties": false
                 }

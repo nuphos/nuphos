@@ -13,7 +13,7 @@ import {
 import { logError } from '@/lib/observability'
 import { personalCredentials } from '@/models'
 
-import { accountRequired, chooseCredential } from './choose'
+import { accountRequired, allowedAccounts, chooseCredential, notAuthorized } from './choose'
 import { githubUserInstallationIds, refreshGithubToken } from './github'
 import { isGoogleProvider, refreshGoogleToken, teamGoogleClient } from './google'
 import { open, seal } from './seal'
@@ -128,11 +128,15 @@ const INSTALLATION_ACCESS_TTL_MS = 10 * 60 * 1000
 export async function personalGithubToken(
   userId: string,
   installationId: number,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
   const docs = await personalCredentials().find({ userId, provider: 'github' }).toArray()
+  const allowed = allowedAccounts(docs, authorized)
+
+  if (docs.length > 0 && allowed.length === 0) throw notAuthorized()
   const reaching: { doc: PersonalCredential; current: PersonalToken }[] = []
 
-  for (const doc of docs) {
+  for (const doc of allowed) {
     const current = await currentToken(doc)
 
     if (current && (await seesInstallation(doc, current.token, installationId))) {
@@ -172,9 +176,10 @@ export async function personalOwnToken(
   userId: string,
   provider: 'github' | 'linear',
   connectionId?: string,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
   const docs = await personalCredentials().find({ userId, provider }).toArray()
-  const doc = chooseCredential(docs, connectionId)
+  const doc = chooseCredential(docs, connectionId, authorized)
 
   return doc ? currentToken(doc) : null
 }
@@ -197,9 +202,13 @@ export async function ownPersonalCredentialOptions(userId: string, teamId: strin
 export async function personalLinearToken(
   userId: string,
   workspaceId: string,
+  authorized?: string[],
 ): Promise<PersonalToken | null> {
   const docs = await personalCredentials().find({ userId, provider: 'linear' }).toArray()
-  const doc = docs.find((candidate) => candidate.workspaceId === workspaceId)
+  const allowed = allowedAccounts(docs, authorized)
+
+  if (docs.length > 0 && allowed.length === 0) throw notAuthorized()
+  const doc = allowed.find((candidate) => candidate.workspaceId === workspaceId)
 
   return doc ? currentToken(doc) : null
 }
@@ -214,6 +223,7 @@ export async function googleCredentialFor(
   provider: GoogleProvider,
   teamId: string,
   connectionId?: string,
+  authorized?: string[],
   viaComposio = false,
 ): Promise<PersonalCredential | null> {
   // Composio runs only the accounts connected through it, so a direct account never counts there.
@@ -226,7 +236,7 @@ export async function googleCredentialFor(
     })
     .toArray()
 
-  return chooseCredential(docs, connectionId)
+  return chooseCredential(docs, connectionId, authorized)
 }
 
 /** The token of an already resolved Google account. */
@@ -245,14 +255,15 @@ export async function personalGoogleToken(
 }
 
 /**
- * The member whose Personal Credential this handout uses, or null for the team identity: the agent asked for it (`identity=team`), or the conversation's
+ * The member whose Personal Credential this handout uses, and the account ids the conversation
+ * allows, or null for the team identity: the agent asked for it (`identity=team`), or the conversation's
  * credential selection has the team act for this provider.
  */
 export async function personalCredentialSubjectFor(
   provider: 'github' | 'linear',
   authorization: string | undefined,
   identity?: string,
-): Promise<{ userId: string } | null> {
+): Promise<{ userId: string; connectionIds?: string[] } | null> {
   const subject = personalCredentialSubject(authorization, identity)
   const sessionId = subject
     ? verifyPreviewMcpToken(authorization!.slice('Bearer '.length))?.sid
@@ -262,7 +273,9 @@ export async function personalCredentialSubjectFor(
   const found = await getConversationBySessionId(sessionId)
   const conversation = found && (await credentialSource(found))
 
-  return conversation?.credentialAccess?.teamIdentity?.includes(provider)
+  const access = conversation?.credentialAccess
+
+  return access?.teamIdentity?.includes(provider)
     ? null
-    : { userId: subject }
+    : { userId: subject, connectionIds: access?.personalConnectionIds }
 }

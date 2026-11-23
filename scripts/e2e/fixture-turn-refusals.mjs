@@ -5,20 +5,7 @@ import { existsSync, writeFileSync } from 'node:fs'
 export const VERIFICATION_HOLD =
   "API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000"
 
-export function refuse(text, outOfUsage, turn) {
-  // A session limit after the answer began, as Claude Code's adapter ends such a turn.
-  if (text.includes('E2E_SESSION_LIMIT') && process.env.E2E_AGENT !== 'second') {
-    const update = {
-      sessionUpdate: 'agent_message_chunk',
-      content: { type: 'text', text: 'On it. ' },
-    }
-
-    turn.send({ method: 'session/update', params: { sessionId: turn.sessionId, update } })
-    throw Object.assign(
-      new Error('Internal error: You’ve hit your session limit · resets 11:10am (UTC)'),
-      { code: -32603 },
-    )
-  }
+export function refuse(text, outOfUsage) {
   // While a scenario holds the account, a new Bot's setup turn is refused for verification.
   if (
     text.includes('The person just created you') &&
@@ -51,14 +38,11 @@ export function refuse(text, outOfUsage, turn) {
   }
   // #3160: a conversation too long for the model, on any agent.
   // #3401: Claude Code unable to reach its API, through a proxy or VPN in the way.
-  // #4037: a model the endpoint lacks, on the first agent only so the turn goes on after fallback.
   const reason = text.includes('E2E_TOO_LONG')
     ? 'Prompt is too long'
     : text.includes('E2E_API_UNREACHABLE')
       ? 'API Error: Unable to connect to API (EPROTO)'
-      : text.includes('E2E_MODEL_NOT_FOUND') && process.env.E2E_AGENT !== 'second'
-        ? 'API Error: 404 {"type":"error","error":{"type":"not_found_error","message":"model: claude-e2e-retired"}}'
-        : outOfUsage && 'You’ve hit your usage limit'
+      : outOfUsage && 'You’ve hit your usage limit'
 
   if (reason) throw Object.assign(new Error(`Internal error: ${reason}`), { code: -32603 })
 }

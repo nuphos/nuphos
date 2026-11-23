@@ -85,7 +85,7 @@ export function ChannelPane({
     detail?.timelineEvents?.some((event) => event.kind === 'agent_reply_failed') ?? false
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const lent = { manage: fixes?.onOpenAgentSettings, agents }
-  const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
+  const controls = useBotComposerControls(teamId, bot, botOwned, user, botState, refresh, lent)
   const sessions = useAgentSessions(teamId).data
   const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
   const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
@@ -207,7 +207,7 @@ export function ChannelPane({
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <HeaderEdge
             ref={scrollRef}
-            className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-8 selectable"
+            className="min-h-0 flex-1 overflow-y-auto scrollbar-thin pt-5 selectable"
           >
             {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}

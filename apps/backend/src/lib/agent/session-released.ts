@@ -26,8 +26,6 @@ const MAX_RETRY_MS = 30_000
 const QUICK_REFUSALS = 3
 const REFUSED_WAIT_MS = 5 * 60_000
 const OWN_RELEASE_MS = 5_000
-// A reset can come early (a raised limit) with nothing to release the queue; look hourly.
-const USAGE_WAIT_MS = 60 * 60_000
 const backoff = new Map<string, { timer?: ReturnType<typeof setTimeout>; delayMs: number }>()
 const backoffKey = (userId: string, sessionId: string) => `${userId}:${sessionId}`
 
@@ -44,9 +42,6 @@ function start(userId: string, sessionId: string, released = false): void {
     // Expected, and already reported to whoever sent the messages (runTurn).
     if (error instanceof AppError && error.code === 'runtime_offline')
       logEvent('warn', 'agent.pending_messages.queued_turn_offline', fields)
-    // A move stopped the turn and holds the session; its own release starts the queue there.
-    else if (error instanceof AppError && error.code === 'runtime_moving')
-      logEvent('info', 'agent.pending_messages.queued_turn_moving', fields)
     else logError('agent.pending_messages.queued_turn_failed', error, fields)
   })
 }
@@ -93,7 +88,6 @@ export async function requeueTurnQueue(
   sessionId: string,
   carried: PendingUserMessage[],
   queued?: PendingUserMessage,
-  until?: string,
 ): Promise<void> {
   if (!queued) {
     for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
@@ -101,22 +95,18 @@ export async function requeueTurnQueue(
     return
   }
   const attempts = (queued.attempts ?? 0) + 1
-  const now = Date.now()
   // Each try reads the whole history. A runtime still refusing after a few quick
   // ones is busy for minutes, so every replica's backstop and retry wait it out.
-  // A known end of the wait, such as a usage reset, is waited out from the first try.
-  const waited = !queued.offlineSince && attempts >= QUICK_REFUSALS
-  const reset = Math.min(Date.parse(until ?? ''), now + USAGE_WAIT_MS)
   const retryAfter =
-    reset > now
-      ? new Date(reset).toISOString()
-      : (waited && new Date(now + REFUSED_WAIT_MS).toISOString()) || undefined
+    !queued.offlineSince && attempts >= QUICK_REFUSALS
+      ? new Date(Date.now() + REFUSED_WAIT_MS).toISOString()
+      : undefined
 
   // A waiting head is the backstop's to start, or a release's.
   if (!retryAfter) retryQueuedTurn(userId, sessionId)
   // Counted, each one runs on the retry although the refused turn stored it (turn-history).
   await requeuePendingAtHead(userId, sessionId, [
-    { ...queued, attempts, retryAfter, refusedAt: retryAfter && new Date(now).toISOString() },
+    { ...queued, attempts, retryAfter },
     ...carried.map((entry) => ({ ...entry, attempts: (entry.attempts ?? 0) + 1 })),
   ])
 }
@@ -128,8 +118,7 @@ export async function requeueTurnQueue(
  */
 export function waitingOutRefusal(head: PendingUserMessage | undefined, released: boolean) {
   const until = Date.parse(head?.retryAfter ?? '')
-  // A head stored before \`refusedAt\` waited a fixed time.
-  const refusedAt = Date.parse(head?.refusedAt ?? '') || until - REFUSED_WAIT_MS
+  const refusedAt = until - REFUSED_WAIT_MS
 
   return until > Date.now() && (!released || Date.now() - refusedAt < OWN_RELEASE_MS)
 }

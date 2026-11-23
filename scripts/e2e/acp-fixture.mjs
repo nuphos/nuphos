@@ -111,7 +111,7 @@ async function prompt({ sessionId, prompt: parts }) {
   const outOfUsage =
     text.includes('E2E_USAGE_LIMIT') || (late.has(sessionId) && !text.includes('E2E_ASK'))
 
-  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second', { send, sessionId })
+  refuse(text, outOfUsage && process.env.E2E_AGENT !== 'second')
   // Nuphos tells the agent when a person dismisses its question.
   if (text.includes('was dismissed by')) log({ sessionId, marker, event: 'dismissed' })
   if (text.includes('E2E_DELEGATE') && !text.includes(CHILD)) {
@@ -224,7 +224,7 @@ async function answer(request) {
       )
 
       // The settings the conversation was created with, applied by the runtime's own code,
-      // which leaves a value this agent does not offer to the agent's own choice.
+      // which refuses to open a session on a value this agent does not offer.
       const defaults = request.params._meta?.['ai.nuphos/runtimeDefaults'] ?? {}
       const agent = {
         setSessionConfigOption: async ({ configId, value }) => ({

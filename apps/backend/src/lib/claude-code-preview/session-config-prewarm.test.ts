@@ -3,7 +3,7 @@ import { expect, spyOn, test } from 'bun:test'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 
 import { OpenAbAcpClient } from './openab-acp-client'
-import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbConnectionLostError } from './openab-acp-errors'
 import { conversationSessionConfig } from './session-config'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -60,23 +60,17 @@ test('a host that hangs up during a prewarm, as while it restarts, is a warning 
 
   expect(level).toBe('warn')
   expect(JSON.parse(line)).toMatchObject({
-    event: 'agent.session.prewarm_failed',
+    event: 'agent.session.prewarm_offline',
     session_id: 'restarting',
   })
 })
 
-// The runtime answers this way while a turn holds the session; the turn and the
-// next prompt are unaffected, so the prewarm has nothing to report as an error.
-test('a runtime busy with a turn that does not confirm a prewarm is a warning and not an error', async () => {
-  const { level, line } = await prewarmFailing(
-    'busy',
-    new OpenAbRpcError('Runtime did not confirm session configuration', -32603),
-  )
+test('a prewarm that fails for another reason after connecting is still logged as an error', async () => {
+  const { level, line } = await prewarmFailing('broken', new Error('unexpected reply'))
 
-  expect(level).toBe('warn')
+  expect(level).toBe('error')
   expect(JSON.parse(line)).toMatchObject({
     event: 'agent.session.prewarm_failed',
-    session_id: 'busy',
-    error_message: 'Runtime did not confirm session configuration',
+    session_id: 'broken',
   })
 })

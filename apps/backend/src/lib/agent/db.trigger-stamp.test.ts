@@ -63,7 +63,6 @@ describe('upsertConversationShell trigger stamp', () => {
       title: 'T',
       firstMessage: 'hi',
       source: 'app',
-      agentRuntime: 'claude-code',
     })
 
     expect(normalizeConversationTriggerRun(storedMetadata())).toBeNull()
@@ -77,7 +76,6 @@ describe('upsertConversationShell trigger stamp', () => {
       firstMessage: 'Daily cost check',
       source: 'agent.trigger',
       trigger: { id: TRIGGER, kind: 'scheduled' },
-      agentRuntime: 'claude-code',
     })
 
     expect(normalizeConversationTriggerRun(storedMetadata())).toEqual({
@@ -94,7 +92,6 @@ describe('upsertConversationShell trigger stamp', () => {
       firstMessage: 'Daily cost check',
       source: 'agent.trigger',
       trigger: { id: TRIGGER, kind: 'scheduled' },
-      agentRuntime: 'claude-code',
     })
     // A teammate replying inside the Trigger page: same session, no trigger
     // context, and the interactive source.

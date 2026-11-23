@@ -10,9 +10,7 @@ final class AccountNavigationUITests: XCTestCase {
         app.buttons["Computers & runtimes"].tap()
         XCTAssertTrue(app.buttons["Set up workspace"].waitForExistence(timeout: 5))
         captureFirstUse("No workspace — computers")
-        let setup = try XCTUnwrap(app.buttons.matching(identifier: "Set up workspace")
-            .allElementsBoundByIndex.first(where: { $0.isHittable }), "The visible workspace setup action must be reachable")
-        setup.tap()
+        app.buttons.matching(identifier: "Set up workspace").allElementsBoundByIndex.last!.tap()
         XCTAssertTrue(app.textFields["Workspace name"].waitForExistence(timeout: 5))
         captureFirstUse("Workspace setup")
     }

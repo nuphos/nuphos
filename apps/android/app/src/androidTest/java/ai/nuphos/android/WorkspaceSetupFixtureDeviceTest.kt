@@ -91,11 +91,12 @@ class WorkspaceSetupFixtureDeviceTest {
                 val history = request.method == "GET" && path == "/agent/conversations" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
+                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 // Background reads the home composer makes. Writes stay unexpected.
                 val backgroundRead = request.method == "GET" && (path == "/agent/credential-options" || path == "/agent/devices" || path.endsWith("/agent-runtimes/quota"))
                 // What the pages read to know whether the workspace has a runtime yet.
                 val runtimes = request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes"))
-                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !backgroundRead && !runtimes) unexpected += request
+                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead && !runtimes) unexpected += request
                 var code = 200
                 val body = when {
                     create || join -> {
@@ -115,6 +116,7 @@ class WorkspaceSetupFixtureDeviceTest {
                     history -> """{"conversations":[],"nextCursor":null}"""
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
+                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     runtimes -> """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                     else -> { code = 500; "{}" }
                 }
@@ -274,17 +276,6 @@ class WorkspaceSetupFixtureDeviceTest {
         waitText("Choose or set up a workspace to get started.")
         compose.onNodeWithText("Set up a workspace").performClick()
         waitText("Workspace name"); waitText("Join Fixture Beta")
-    }
-    @Test fun homeSheetOpensFullyExpandedAndClosesAfterCreate() {
-        renderHome(emptyList())
-        compose.onNodeWithText("Set up a workspace").performClick()
-        waitText("Join Fixture Beta")
-        // Fully expanded, so the last control is on screen without dragging the sheet up.
-        compose.onNodeWithText("Close").assertIsDisplayed()
-        create()
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Workspace name").fetchSemanticsNodes().isEmpty() }
-        compose.runOnIdle { assertEquals(a, agent.selectedTeam) }
-        assertEquals(1, posts())
     }
     @Test fun activityRecreationWithFailedReadKeepsUncertainWriteBlocked() {
         release = CountDownLatch(1); renderHome(emptyList())

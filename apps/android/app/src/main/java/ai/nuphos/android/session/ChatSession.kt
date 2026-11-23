@@ -279,9 +279,8 @@ class ChatSession(
         canManage && isOwner
     }
 
-    /** A running turn does not block a move: the server stops it as Stop does (#4619). */
-    val canMoveAgent get() = canManage && serverMetadataObserved &&
-        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed
+    val canMoveAgent get() = canManage && serverMetadataObserved && !isStreaming && !hasActiveRun &&
+        !movingAgent && !submissionPending && !uploadBusy && !runtimeRecoveryRequired && !steeringUnconfirmed && queued.isEmpty()
 
     suspend fun moveAgent(target: ai.nuphos.android.data.AgentRuntime) {
         check(canMoveAgent) { Words(R.string.convtext_move_wait) }
@@ -495,9 +494,6 @@ class ChatSession(
     var isChannel by mutableStateOf(false)
         private set
     var isBot by mutableStateOf(false)
-        private set
-    /** Offered Share: a Task a person opened, as the server decides it. */
-    var shareable by mutableStateOf(false)
         private set
     private fun markChannel() {
         isChannel = true
@@ -947,7 +943,6 @@ class ChatSession(
 
     private fun refreshMetadata(detail: AgentConversationDetail, observedAt: Double, watchReadRevision: Long) {
         isBot = detail.avatar != null && !detail.isChannel
-        shareable = detail.shareable ?: !isBot
         suggestedPrompt = detail.promptSuggestion?.takeIf {
             it.isNotBlank() && it.length <= ai.nuphos.android.data.IncomingShareIntents.MAX_TEXT
         }

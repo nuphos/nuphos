@@ -20,9 +20,8 @@ fun WorkspaceSetupSheet(store: WorkspaceSetupStore, onDismiss: () -> Unit) {
         store.open()
         onDispose { store.close() }
     }
-    // Fully expanded, so Create is never left under the navigation bar of a half-open sheet.
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.shell_set_up_workspace), style = MaterialTheme.typography.headlineSmall)
             Text(stringResource(R.string.shell_workspace_setup_body))
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }

@@ -21,7 +21,7 @@ enum NewRuntimeTests {
         for provider in NewRuntime.providers {
             let name = RuntimeInstance.Provider.name(provider.rawValue)
             precondition(name != "Unknown runtime" && name != "Runtime", "\(provider.rawValue) has no name")
-            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != nil, "\(provider.rawValue) has no mark")
+            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != "logo-runtime", "\(provider.rawValue) has no mark")
         }
         precondition(NewRuntime.previews == [.dsh, .pi])
     }

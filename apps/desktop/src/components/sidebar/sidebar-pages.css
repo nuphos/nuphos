@@ -58,6 +58,10 @@
   outline: 1px solid rgb(var(--color-line-focus));
   outline-offset: 2px;
 }
+.sidebar-page-list {
+  mask-image: linear-gradient(to bottom, #000 0, #000 calc(100% - 26px), transparent 100%);
+}
+
 .sidebar-pin-shelf {
   overflow: hidden;
   transition: height 250ms cubic-bezier(0.22, 1, 0.36, 1);

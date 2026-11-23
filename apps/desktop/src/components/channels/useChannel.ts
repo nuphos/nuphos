@@ -21,10 +21,7 @@ const TAIL = 200
 
 type Channel = { detail: AgentConversationDetail; agents: ChannelAgent[]; revision: string }
 
-/**
- * With a copy on hand, a cheap probe first and the rest only when it shows a change. A copy
- * known to be behind (a push or a post changed the chat, see refreshChannel) skips the probe.
- */
+/** With a copy on hand, a cheap probe first and the rest only when it shows a change. */
 export async function loadChannel(client: QueryClient, teamId: string, channelId: string) {
   const last = client.getQueryData<Channel>(queryKeys.channel(teamId, channelId))
   const all = async () => {
@@ -36,7 +33,7 @@ export async function loadChannel(client: QueryClient, teamId: string, channelId
     return { detail, agents: listed.agents, revision: channelRevision(detail) }
   }
 
-  if (!last?.revision) return all()
+  if (!last) return all()
   const probe = await api.agentGetConversation(channelId, teamId, {
     tail: 1,
     messages: 'omit',

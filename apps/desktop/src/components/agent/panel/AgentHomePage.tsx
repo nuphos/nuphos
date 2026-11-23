@@ -4,12 +4,12 @@ import { t } from '../../../i18n'
 import { projectName } from '../../../lib/taskProjects'
 
 import { Composer } from './Composer'
-import { useComposerOverlay } from './composerOverlay'
 import { successfulTurns } from './endEventEffects'
 import { StarStrip } from './hero'
 import { AgentHomeAnimation, DelayedPanelReveal } from './homeAnimation'
 import { HomeGithubButton } from './HomeGithubButton'
 import { homeGreeting } from './textUtils'
+import { useEntranceCount } from './useEntranceCount'
 
 import type { ComposerSend } from './composerMentionChips'
 import type { CredentialSelectorControl } from './credentialSections'
@@ -93,14 +93,12 @@ export function AgentHomePage({
   onOpenConversation?: (sessionId: string, title: string) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [composer, setComposer] = useState<HTMLDivElement | null>(null)
-  // The hero already clears 20px; reserve only the notice reaching above that gap.
-  const noticeRoom = useComposerOverlay(composer)
 
   useLayoutEffect(() => {
     if (shown && scrollRef.current) scrollRef.current.scrollTop = 0
   }, [shown, newChatRequest])
 
+  const entranceKey = useEntranceCount(shown)
   // Asked once the agent has finished a few turns cleanly. Starring and
   // "not now" both retire it for good.
   const [starDismissed, dismissStar] = useStickyDismiss('nuphos.agent.starStrip.dismissed')
@@ -119,18 +117,18 @@ export function AgentHomePage({
             below it and scrolls. */}
         <div className="mx-auto flex min-h-[50cqh] w-full max-w-[820px] flex-col justify-end">
           <AgentHomeAnimation
-            key={project ?? ''}
+            key={`${entranceKey}:${project ?? ''}`}
             title={
               project
                 ? t('New task in {name}', { name: projectName(project) })
                 : homeGreeting(userName)
             }
           />
-          <DelayedPanelReveal>
+          <DelayedPanelReveal replayKey={entranceKey}>
             {/* The composer is untouched — the tray is a sibling painted
                 behind it, same width, with its square top tucked under the
                 composer's bottom so only the part below shows. */}
-            <div ref={setComposer} className="relative" style={{ marginTop: noticeRoom }}>
+            <div className="relative">
               <div className="relative z-10">
                 {/* Strip backing: an opaque fill in the composer's exact
                     shape, so the composer composites over page colour
@@ -171,7 +169,7 @@ export function AgentHomePage({
           </DelayedPanelReveal>
         </div>
         <div className="mx-auto w-full max-w-[820px] pb-3">
-          <DelayedPanelReveal>
+          <DelayedPanelReveal replayKey={entranceKey}>
             {teamId && isTeamAdmin && !onConnectAgent && !runtimeControl?.loading && (
               <HomeGithubButton teamId={teamId} />
             )}

@@ -179,8 +179,12 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· 호출 %1$d회 · 실행 중</item>
     </plurals>
-    <string name="chat_work_duration">%1$s 동안 작업함</string>
-    <string name="chat_work">작업 완료</string>
+    <plurals name="chat_work_duration_steps">
+        <item quantity="other">%1$d초 동안 작업함 · %2$d단계</item>
+    </plurals>
+    <plurals name="chat_work_steps">
+        <item quantity="other">%1$d단계를 작업함</item>
+    </plurals>
     <string name="chat_share_access_invited">초대된 사용자만</string>
     <string name="chat_share_access_view">팀 보기 가능</string>
     <string name="chat_share_access_reply">팀 보기 및 답장 가능</string>

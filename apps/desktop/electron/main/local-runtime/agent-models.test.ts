@@ -263,40 +263,6 @@ test('an opened picker reads running agents again, at most once a minute', async
   }
 })
 
-test('opening the picker shares one immediate retry after the first discovery failure', async () => {
-  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
-  try {
-    const { agent, current, probes } = setup([new Error('temporary discovery failure'), catalog])
-
-    await settle()
-    assert.equal(agent.models?.failed, true)
-    await refreshRunningModels()
-    assert.equal(probes(), 1)
-    await Promise.all([refreshRunningModels(true), refreshRunningModels(true)])
-    assert.equal(probes(), 2)
-    assert.deepEqual(agent.models, catalog)
-    current.value = false
-  } finally {
-    mock.timers.reset()
-  }
-})
-
-test('opening the picker again after its retry fails respects backoff', async () => {
-  mock.timers.enable({ apis: ['setTimeout', 'Date'] })
-  try {
-    const { current, probes } = setup([new Error('persistent discovery failure')])
-
-    await settle()
-    await refreshRunningModels(true)
-    assert.equal(probes(), 2)
-    await refreshRunningModels(true)
-    assert.equal(probes(), 2)
-    current.value = false
-  } finally {
-    mock.timers.reset()
-  }
-})
-
 test('an adapter that keeps failing is not started again on demand sooner than a retry', async () => {
   mock.timers.enable({ apis: ['setTimeout', 'Date'] })
   try {

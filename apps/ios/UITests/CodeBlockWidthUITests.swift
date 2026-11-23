@@ -33,8 +33,8 @@ final class CodeBlockWidthUITests: XCTestCase {
         if allow.waitForExistence(timeout: 3) { allow.tap() }
         let transcript = app.collectionViews["chat.transcript"]
         XCTAssertTrue(transcript.cells.firstMatch.waitForExistence(timeout: 10), "The chat did not load")
-        // The code block's Copy button sits at its right edge. MarkdownView labels it "Copy" since 4.8.
-        let copy = app.buttons["Copy"]
+        // The code block's copy button sits at its right edge.
+        let copy = app.buttons["copy"]
         XCTAssertTrue(copy.waitForExistence(timeout: 5), "The code block never showed")
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         attachment.name = "code-block"

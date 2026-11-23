@@ -380,8 +380,6 @@ fun HomeScreen(
                 if (!current()) false else {
                     val accepted = store.acceptMemberships(saved, selected?.id)
                     if (accepted) workspaceRevision = store.workspaceRevision
-                    // A verified workspace is now selected, so the sheet has done its job.
-                    if (accepted && selected != null) showSetup = false
                     accepted
                 }
             }, { if (current()) auth.signOut(NuphosApi.Failure.Unauthorized.message) }, auth.workspaceWriteReview, setupStrings)
@@ -543,8 +541,7 @@ fun HomeScreen(
             } else {
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
-                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible, showCreateButton = false,
-                        onNewBot = { showNewBot = true }.takeIf { canCreate && botRuntime != null && !store.creatingBot })
+                    HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible, showCreateButton = false)
                     HomePage.Agent -> CompositionLocalProvider(LocalNewTaskRequest provides { showNewTask = true }) {
                         AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
                     }

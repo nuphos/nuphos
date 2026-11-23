@@ -11,36 +11,25 @@ export async function setupAgentIndexes(): Promise<void> {
   const m = agentMessages()
 
   try {
-    // A conversation listing sorts on its time field, then _id to order rows
-    // that share the time (see getConversations' cursor). Its indexes end in
-    // _id too, so a page still reads only its own rows.
     await c.createIndex({ userId: 1, lastActiveAt: -1 }, { background: true })
     // Admin activation metrics find each user's first-ever conversation.
     await c.createIndex({ userId: 1, createdAt: 1 }, { background: true })
-    await c.createIndex({ userId: 1, teamId: 1, lastActiveAt: -1, _id: -1 }, { background: true })
-    // The Chats sidebar: the viewer's unarchived chats by recent activity.
-    // archivedAt sits before the sort so a page reads only live rows; without
-    // it, the last page reads every archived chat the viewer owns (#4709).
+    await c.createIndex({ userId: 1, teamId: 1, lastActiveAt: -1 }, { background: true })
+    // The compact Chats sidebar is stable by creation time, so continuing an
+    // older conversation cannot move it above a newer one.
     await c.createIndex(
-      { teamId: 1, userId: 1, 'metadata.trigger.id': 1, archivedAt: 1, lastActiveAt: -1, _id: -1 },
+      { teamId: 1, userId: 1, 'metadata.trigger.id': 1, createdAt: -1 },
       { background: true },
     )
     // The sidebar's Shared section: same question as the Chats index above,
     // asked of the participant list instead of the owner.
     await c.createIndex(
-      {
-        teamId: 1,
-        participantIds: 1,
-        'metadata.trigger.id': 1,
-        archivedAt: 1,
-        lastActiveAt: -1,
-        _id: -1,
-      },
+      { teamId: 1, participantIds: 1, 'metadata.trigger.id': 1, createdAt: -1 },
       { background: true },
     )
-    await c.createIndex({ teamId: 1, lastActiveAt: -1, _id: -1 }, { background: true })
+    await c.createIndex({ teamId: 1, lastActiveAt: -1 }, { background: true })
     await c.createIndex(
-      { teamId: 1, userId: 1, archivedAt: -1, _id: -1 },
+      { teamId: 1, userId: 1, archivedAt: -1 },
       { background: true, partialFilterExpression: { archivedAt: { $exists: true } } },
     )
     await c.createIndex({ 'linkedResources.key': 1 }, { background: true })
@@ -54,7 +43,7 @@ export async function setupAgentIndexes(): Promise<void> {
     // Channel mentions are keyed by person (`mentions.<userId>`).
     await c.createIndex({ 'mentions.$**': 1 }, { background: true })
     await c.createIndex({ sessionId: 1 }, { unique: true, background: true })
-    await c.createIndex({ teamId: 1, userId: 1, parentSessionId: 1, lastActiveAt: -1, _id: -1 })
+    await c.createIndex({ teamId: 1, userId: 1, parentSessionId: 1, lastActiveAt: -1 })
     await db()
       .collection('agent_task_reports')
       .createIndex({ deliveredAt: 1, droppedAt: 1, createdAt: 1 })
@@ -75,7 +64,7 @@ export async function setupAgentIndexes(): Promise<void> {
     // team-scoped, lastActiveAt-ordered page, so one index serves both — and
     // without it the exclusion turns every Chats page into a collection scan.
     await c.createIndex(
-      { teamId: 1, 'metadata.trigger.id': 1, lastActiveAt: -1, _id: -1 },
+      { teamId: 1, 'metadata.trigger.id': 1, lastActiveAt: -1 },
       { background: true },
     )
     // Conversations that went quiet in a time window, whoever owns them: the

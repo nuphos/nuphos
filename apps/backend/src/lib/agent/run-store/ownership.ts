@@ -1,4 +1,4 @@
-import { retryQueuedTurn, sessionReleased } from '@/lib/agent/session-released'
+import { sessionReleased } from '@/lib/agent/session-released'
 import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { logError, logEvent } from '@/lib/observability'
 import { redisEnabled, replicaId, withRedis } from '@/lib/redis'
@@ -143,26 +143,23 @@ export function startAgentRunOwnership(
     // flight — tracking it is what lets shutdown wait for the DEL to land.
     trackGuardWrite(release)
     // Only once the active-run hash is gone can the next turn claim the session.
-    // If the release failed, the hash is still there, so do not signal the queue
-    // (that turn would see the busy guard and give up); retry it instead.
-    void release.then(
-      () => {
+    void release
+      .catch(() => undefined)
+      .then(() => {
         sessionReleased(userId, sessionId)
-      },
-      (err: unknown) => {
-        traceRunStoreError(
-          'agent.run.redis_owner_release_failed',
-          err,
-          { userId, sessionId, streamId },
-          {
-            redis_stream_key: key,
-            redis_owner_key: oKey,
-            redis_active_key: aKey,
-          },
-        )
-        retryQueuedTurn(userId, sessionId)
-      },
-    )
+      })
+    void release.catch((err: unknown) => {
+      traceRunStoreError(
+        'agent.run.redis_owner_release_failed',
+        err,
+        { userId, sessionId, streamId },
+        {
+          redis_stream_key: key,
+          redis_owner_key: oKey,
+          redis_active_key: aKey,
+        },
+      )
+    })
   }
 }
 

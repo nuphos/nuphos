@@ -2,6 +2,7 @@
 import { agentLog } from './agent-log.ts'
 import { botNamed, updateBot } from './bot-access-db.ts'
 import { access, details, narrowDetails, shoot } from './bot-details-narrow.ts'
+import { joinTeam } from './dashboard-scenarios.ts'
 import { until } from './processes.ts'
 import { openBotTask, send, setBotDetails } from './ui.ts'
 
@@ -10,7 +11,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
-const UNCHOSEN = 'Unchosen access Bot'
+const SHARED = 'Shared access Bot'
 
 /** Archives a conversation and its chat, so later scenarios don't list it. */
 async function archive(stack: Stack, sessionId: string) {
@@ -146,15 +147,16 @@ export const botAccessScenarios: Scenario[] = [
     },
   },
   {
-    // A Bot made before #4158 asks to choose what it uses; switching Bots keeps details open.
-    name: 'a Bot with no stored access asks to choose, and switching Bots keeps its details open',
+    // #3790: a teammate's Bot the team may read shows what it uses, with nothing to change.
+    name: "a teammate's Bot shows its access in Bot details, read-only",
     run: async (page, stack) => {
+      const mate = await joinTeam(stack, 'access-mate')
       const response = await fetch(`${stack.apiUrl}/agent/bots`, {
         method: 'POST',
         headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           teamId: stack.teamId,
-          title: UNCHOSEN,
+          title: SHARED,
           avatar: '07-ada',
           agentRuntime: 'claude-code',
         }),
@@ -166,10 +168,11 @@ export const botAccessScenarios: Scenario[] = [
       // A Bot made before #4158 stored no selection, and is asked to choose.
       updateBot(stack, bot.sessionId, { $unset: { credentialAccess: '' } })
 
-      await openChat(page, UNCHOSEN)
+      // Its chat is made while the Bot is still the viewer's; then it moves to the teammate.
+      await openChat(page, SHARED)
       // #4038: in a chat with no posts the banner sits in the intro's column, 16px under it.
       const intro = page
-        .getByText(`This is where you and ${UNCHOSEN} get things done.`, { exact: false })
+        .getByText(`This is your conversation with ${SHARED}.`, { exact: false })
         .locator('xpath=..')
       const banner = page.getByText(CHOOSE).locator('xpath=..')
 
@@ -184,7 +187,20 @@ export const botAccessScenarios: Scenario[] = [
       )
         throw new Error(`The banner is not under the intro: ${JSON.stringify({ text, line })}`)
       await shoot(page, 'empty-chat-banner')
+      // Handed to a member, letting the team read it.
+      updateBot(stack, bot.sessionId, { $set: { userId: mate.id, generalAccess: 'team' } })
+      await page.reload()
+      await openChat(page, SHARED)
       await setBotDetails(page, true)
+      // Its mode is shown too: whether it runs in Full Access matters to everyone it works for.
+      for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)$/])
+        await access(page).getByText(row).first().waitFor()
+      const offered = await access(page).getByRole('button').count()
+
+      if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} access controls`)
+      if ((await composerAccess(page)) > 0)
+        throw new Error("A teammate's Bot chat composer offers access controls")
+      await shoot(page, 'teammate')
       // #4072: switching Bots with the details open keeps them open, with no slide-in again.
       await openChat(page, 'E2E Bot')
       await details(page).waitFor()
@@ -200,14 +216,22 @@ export const botAccessScenarios: Scenario[] = [
         throw new Error(`Bot details slid in again on switching Bots: ${JSON.stringify(motion)}`)
       await shoot(page, 'switched-open')
       await setBotDetails(page, false)
-      // Later scenarios list Bots by name, so it is archived with its chat.
+      // Later scenarios list Bots by name: the Bot goes back to the viewer, who archives it
+      // and its chat.
+      const me = (await (
+        await fetch(`${stack.apiUrl}/auth/me`, {
+          headers: { authorization: `Bearer ${stack.token}` },
+        })
+      ).json()) as { id: string }
+
+      updateBot(stack, bot.sessionId, { $set: { userId: me.id, generalAccess: 'team' } })
       await archive(stack, bot.sessionId)
       // The scenarios after this one run in the E2E Bot's chat.
       await openChat(page, 'E2E Bot')
       await until(
-        `${UNCHOSEN} to leave the Bots list`,
+        `${SHARED} to leave the Bots list`,
         async () =>
-          (await page.locator('[data-sidebar-row]').filter({ hasText: UNCHOSEN }).count()) === 0,
+          (await page.locator('[data-sidebar-row]').filter({ hasText: SHARED }).count()) === 0,
       )
     },
   },

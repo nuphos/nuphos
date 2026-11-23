@@ -1,5 +1,4 @@
 import { agentConversations } from '@/lib/agent/db'
-import { ACCESS_PROJECTION } from '@/lib/agent/db/access'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 
 export type AgentRef = {
@@ -52,8 +51,12 @@ export async function verifyAgentForActor(
     {
       projection: {
         _id: 0,
-        ...ACCESS_PROJECTION,
+        userId: 1,
+        teamId: 1,
         runtimeId: 1,
+        generalAccess: 1,
+        participantIds: 1,
+        kind: 1,
       },
     },
   )

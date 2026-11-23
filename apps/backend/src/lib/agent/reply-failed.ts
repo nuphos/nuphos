@@ -103,10 +103,7 @@ async function tellOwnerSignedOut(
   })
 }
 
-/** When the agent's spent usage is back, if its runtime reports it. */
-export async function usageResetsAtOf(
-  agent: Pick<AgentConversation, 'teamId' | 'userId' | 'runtimeId'>,
-): Promise<string | undefined> {
+async function usageResetsAtOf(agent: AgentConversation): Promise<string | undefined> {
   if (!agent.teamId || !agent.runtimeId) return undefined
   // Lazy so importing this does not pull in the runtime graph.
   const { usageResetsAt } = await import('@/lib/claude-code-preview/runtime-catalog')

@@ -8,6 +8,7 @@ import { personalCredentialSubjectFor } from './handout'
 import type { AgentConversation } from '@/lib/agent/db'
 
 let teamIdentity: ('github' | 'linear')[] | undefined
+let connectionIds: string[] | undefined
 
 useAgentDb({
   getConversationBySessionId: (sessionId: string) =>
@@ -15,7 +16,7 @@ useAgentDb({
       sessionId === 'conv-1'
         ? ({
             sessionId,
-            credentialAccess: { teamIdentity },
+            credentialAccess: { teamIdentity, personalConnectionIds: connectionIds },
           } as unknown as AgentConversation)
         : null,
     ),
@@ -33,6 +34,7 @@ const turn = async (actor: string, humanTurn: boolean) =>
 
 beforeEach(() => {
   teamIdentity = undefined
+  connectionIds = undefined
 })
 
 describe('personalCredentialSubjectFor', () => {
@@ -45,6 +47,15 @@ describe('personalCredentialSubjectFor', () => {
     ).toMatchObject({ userId: 'teammate' })
     expect(await personalCredentialSubjectFor('linear', await turn('owner', false))).toMatchObject({
       userId: 'owner',
+    })
+  })
+
+  test('carries the account ids the conversation allows', async () => {
+    connectionIds = ['a', 'b']
+
+    expect(await personalCredentialSubjectFor('github', await turn('owner', true))).toEqual({
+      userId: 'owner',
+      connectionIds: ['a', 'b'],
     })
   })
 

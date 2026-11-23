@@ -1,5 +1,5 @@
 import { agentConversations } from '@/lib/agent/db'
-import { ACCESS_PROJECTION, readsConversation } from '@/lib/agent/db/access'
+import { readsConversation } from '@/lib/agent/db/access'
 import { AppError } from '@/lib/errors'
 import { canonicalize, sha256Hex } from '@/lib/journal'
 import { normalizeComplianceTimestamp } from '@/lib/journal/compliance-export'
@@ -49,7 +49,10 @@ export function contentMatches(contentHot: unknown, payload: unknown): boolean |
 export const JOURNAL_CONVERSATION_PROJECTION = {
   sessionId: 1,
   title: 1,
-  ...ACCESS_PROJECTION,
+  userId: 1,
+  teamId: 1,
+  generalAccess: 1,
+  participantIds: 1,
 } as const
 
 export function journalConversationTitle(conversation: AgentConversation, viewerId: string) {

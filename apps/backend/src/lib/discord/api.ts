@@ -1,5 +1,7 @@
 import { config } from '@/config'
 
+const API = 'https://discord.com/api/v10'
+
 type DiscordApiErrorBody = { message?: string; code?: number; retry_after?: number }
 
 export class DiscordApiError extends Error {
@@ -23,7 +25,7 @@ export async function discordApi<T>(path: string, init: RequestInit = {}): Promi
     headers.set('Authorization', `Bot ${token}`)
     // A multipart upload carries its own boundary.
     if (!(init.body instanceof FormData)) headers.set('Content-Type', 'application/json')
-    const response = await fetch(`${config.discord.apiBaseUrl}${path}`, {
+    const response = await fetch(`${API}${path}`, {
       ...init,
       headers,
     })
@@ -205,7 +207,7 @@ function discordFenceState(text: string, initial: string | null): string | null 
 // Interaction tokens authorize only their own response. Never log them or send
 // the bot token to these webhook endpoints.
 async function interactionRequest(path: string, method: string, body: unknown): Promise<void> {
-  const response = await fetch(`${config.discord.apiBaseUrl}${path}`, {
+  const response = await fetch(`${API}${path}`, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

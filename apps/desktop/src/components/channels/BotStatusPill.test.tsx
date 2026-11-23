@@ -76,19 +76,6 @@ test('the pill rests, opens the Task while working, and shows the oldest questio
     await render()
     assert.equal(button(), null)
 
-    // A step reads as the chat shows it, so compaction is not "Using Context compacting".
-    reading = {
-      work: {
-        kind: 'turn',
-        step: { kind: 'tool', title: 'Context compacting' },
-        reason: 'chat',
-        kids: [],
-      },
-      since: undefined,
-    }
-    await render()
-    assert.equal(container.textContent, 'Context compacting')
-
     // Tasks are named in the line itself: one, then several.
     const kid = (title: string) => ({ conversation: { sessionId: title, title } }) as Run
     const waiting = (...titles: string[]): BotWork => ({ kind: 'waiting', kids: titles.map(kid) })

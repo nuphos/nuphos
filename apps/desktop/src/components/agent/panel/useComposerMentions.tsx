@@ -3,6 +3,7 @@ import { useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { agentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { participantsQuery, teamMembersQuery } from '../../../lib/query/team'
 import { agentSessionsQuery } from '../../sidebar/agentSessions'
 import { AppAlertDialog } from '../../ui/alert-dialog'
@@ -161,16 +162,13 @@ export function useComposerMentions(
 
   async function offerInvites(ids: string[]) {
     if (!scope?.sessionId || ids.length === 0) return
-    const { participants, shareable } = await api.agentGetConversationParticipants(
+    const { participants } = await api.agentGetConversationParticipants(
       scope.sessionId,
       scope.teamId,
     )
     const joined = new Set(participants.map((participant) => participant.id))
 
-    // Only what may be shared offers to invite: never a Bot or what an agent opened.
-    setUninvited(
-      shareable === false ? [] : members.filter((m) => ids.includes(m.id) && !joined.has(m.id)),
-    )
+    setUninvited(members.filter((m) => ids.includes(m.id) && !joined.has(m.id)))
   }
 
   /** Read the mentions before the composer clears; ask about them once sent. */
@@ -189,6 +187,8 @@ export function useComposerMentions(
     }
   }
 
+  const bot = Boolean(scope?.sessionId && agentAvatarPick(scope.sessionId))
+
   const names = uninvited.map((member) => member.name || member.email)
   const ui = (
     <>
@@ -205,12 +205,22 @@ export function useComposerMentions(
         open={uninvited.length > 0}
         title={
           uninvited.length === 1
-            ? t('Invite {name} to this task?', { name: names[0] })
-            : t('Invite {n} people to this task?', { n: String(uninvited.length) })
+            ? bot
+              ? t('Invite {name} to this Bot?', { name: names[0] })
+              : t('Invite {name} to this task?', { name: names[0] })
+            : bot
+              ? t('Invite {n} people to this Bot?', { n: String(uninvited.length) })
+              : t('Invite {n} people to this task?', { n: String(uninvited.length) })
         }
-        description={t('You mentioned {names}, but they are not in this task yet.', {
-          names: names.join(', '),
-        })}
+        description={
+          bot
+            ? t('You mentioned {names}, but they are not in this Bot yet.', {
+                names: names.join(', '),
+              })
+            : t('You mentioned {names}, but they are not in this task yet.', {
+                names: names.join(', '),
+              })
+        }
         confirmLabel={t('Invite')}
         cancelLabel={t("Don't invite")}
         onConfirm={async () => {

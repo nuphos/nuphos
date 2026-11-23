@@ -3,7 +3,6 @@ import type { SessionResourcesResponse } from './session-resource-types'
 
 export type ConversationAccessState = {
   generalAccess: GeneralAccess
-  shareable?: boolean // False for a Bot, its chat or what an agent opened. Older servers omit it.
   participants: AgentConversationParticipant[]
   /** After a removal: the chat's computer the removed person can still use. */
   computerStillShared?: { deviceId: string; label: string }

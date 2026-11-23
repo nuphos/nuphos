@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import * as childProcess from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -20,7 +19,6 @@ const userData = mkdtempSync(path.join(tmpdir(), 'crash-reporter-'))
 const settingFile = path.join(userData, 'diagnostics.json')
 let uploads = false
 let started: StartOptions | undefined
-let launchSteps: string[] = []
 let analytics: boolean[] = []
 let broadcasts: unknown[][] = []
 const syncHandlers = new Map<string, (event: { returnValue?: unknown }) => void>()
@@ -28,8 +26,6 @@ const CLOUD = 'https://api.nuphos.ai'
 const SELF_HOSTED = 'https://api.example.test'
 let setApiUrl: (url: string | null) => string
 const extra = new Map<string, string>()
-// What `ps` lists at launch.
-let processes = ''
 
 type CrashReporterModule = typeof CrashReporter
 // A fresh module instance per "launch", so state read at startup is re-read.
@@ -70,7 +66,6 @@ before(async () => {
       },
       crashReporter: {
         start: (options: StartOptions) => {
-          launchSteps.push('start')
           started = options
           uploads = options.uploadToServer
         },
@@ -87,9 +82,6 @@ before(async () => {
       setMainAnalyticsEnabled: (on: boolean) => analytics.push(on),
     },
   })
-  mock.module('node:child_process', {
-    namedExports: { ...childProcess, execFileSync: () => processes },
-  })
   mock.module('./main/device-identity.ts', {
     namedExports: { readDeviceIdentity: () => ({ deviceId: 'hardware-uuid-1234' }) },
   })
@@ -100,8 +92,6 @@ beforeEach(() => {
   rmSync(settingFile, { force: true })
   setApiUrl(SELF_HOSTED)
   started = undefined
-  launchSteps = []
-  processes = ''
   analytics = []
   broadcasts = []
   extra.clear()
@@ -189,30 +179,4 @@ test('a saved opt-out keeps uploads and analytics off from launch', async () => 
   assert.equal(started?.uploadToServer, false)
   assert.equal(analytics.at(-1), false)
   assert.equal(syncValue(), false)
-})
-
-test('a launch ends the Crashpad handlers a quit Nuphos left running before starting its own', async () => {
-  const handler =
-    '/Nuphos.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler'
-
-  processes = [
-    `  501 ${handler} --database=${userData} --url=https://api.nuphos.ai/desktop/crash-reports --annotation=_version=0.132.0`,
-    ` 1204 ${handler} --monitor-self --database=${userData}`,
-    `  733 /Other.app/Contents/Frameworks/Electron Framework.framework/Helpers/chrome_crashpad_handler --database=${userData}-other --url=x`,
-    `  801 /usr/bin/vim --database=${userData} notes.txt`,
-    '',
-  ].join('\n')
-  const kill = mock.method(process, 'kill', (pid: number) => {
-    launchSteps.push(`kill ${String(pid)}`)
-
-    return true
-  })
-
-  try {
-    await launch()
-  } finally {
-    kill.mock.restore()
-  }
-
-  assert.deepEqual(launchSteps, ['kill 501', 'kill 1204', 'start'])
 })

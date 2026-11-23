@@ -79,7 +79,7 @@ struct ConversationRow: View {
 
 /// Which agent answers in a conversation, as the desktop sidebar's
 /// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
-/// glyph for the built-in agent. An unknown provider leaves the space empty.
+/// glyph for the built-in agent. Unknown providers get a neutral runtime glyph.
 /// It sits at the head of the meta line, so
 /// the trailing indicators can come and go without moving it.
 struct RuntimeMark: View {

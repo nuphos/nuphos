@@ -188,12 +188,12 @@ test('an offline Box is woken and the sender told to resend shortly', async () =
   expect(claims).toBe(0)
 })
 
-test('a started turn that hits a usage limit reports incomplete execution once', async () => {
+test('a started turn that fails tells its sender, once', async () => {
   installTurnRunner({
     claimAgentRunOrEnqueue: async () => ({ mode: 'run', carried: [], release: () => {} }),
     runAgentForTrigger: async (args) => {
       runs.push(args)
-      if (args.sessionId === 'target') throw new Error("You've hit your 5-hour limit.")
+      if (args.sessionId === 'target') throw new Error('Runtime went away mid-turn.')
 
       return { status: 'completed' }
     },
@@ -202,7 +202,7 @@ test('a started turn that hits a usage limit reports incomplete execution once',
   const { status, run } = await startThreadTurn(data)
 
   expect(status).toBe('started')
-  await expect(run).rejects.toThrow("You've hit your 5-hour limit.")
+  await expect(run).rejects.toThrow('Runtime went away mid-turn.')
   await settle()
   expect(notices()).toHaveLength(1)
   expect(notices()[0]?.messages.at(-1)?.metadata).toMatchObject({
@@ -212,7 +212,7 @@ test('a started turn that hits a usage limit reports incomplete execution once',
   })
   // An attribution the parser rejects renders as the owner's own message.
   expect(parseMessageMetadata(notices()[0]?.messages.at(-1)?.metadata)).toBeDefined()
-  expect(noticeText()).toContain("could not finish: You've hit your 5-hour limit.")
+  expect(noticeText()).toContain('did not run: Runtime went away mid-turn.')
   expect(noticeText()).toContain('Handed back: PR is green')
 })
 
@@ -233,7 +233,7 @@ test('a queued message whose turn fails tells its sender', async () => {
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('Thread run failed')
   await settle()
   expect(notices()).toHaveLength(1)
-  expect(noticeText()).toContain('could not finish: Thread run failed')
+  expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
 // A computer's tunnel reconnect is a few seconds offline; the queue waits it out.
@@ -280,9 +280,7 @@ test('a computer offline past the grace fails the queued message and tells its s
   await expect(startQueuedTurn('owner', 'target')).rejects.toThrow('offline')
   await settle()
   expect(await hasPendingUserMessages('owner', 'target')).toBe(false)
-  // The runner was entered, and the host was away, so this is not incomplete work.
   expect(noticeText()).toContain('did not run: The computer running this agent is offline.')
-  expect(noticeText()).not.toContain('could not finish')
 })
 
 test('an archived sender is still told, and its notice turn restores it', async () => {
@@ -305,7 +303,7 @@ test('an archived sender is still told, and its notice turn restores it', async 
   expect(notices()).toHaveLength(1)
   // Nuphos's notice runs like any system notice: no trigger tools, no Full Access default.
   expect(notices()[0]?.origin).toBe('trigger')
-  expect(noticeText()).toContain('could not finish: Thread run failed')
+  expect(noticeText()).toContain('did not run: Thread run failed')
 })
 
 test("a message queued before its thread was archived runs as the thread's turn", async () => {

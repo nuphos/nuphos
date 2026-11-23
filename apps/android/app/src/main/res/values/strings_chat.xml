@@ -184,8 +184,14 @@
         <item quantity="one">· %1$d calls · Running</item>
         <item quantity="other">· %1$d calls · Running</item>
     </plurals>
-    <string name="chat_work_duration">Worked for %1$s</string>
-    <string name="chat_work">Worked</string>
+    <plurals name="chat_work_duration_steps">
+        <item quantity="one">Worked for %1$ds · %2$d steps</item>
+        <item quantity="other">Worked for %1$ds · %2$d steps</item>
+    </plurals>
+    <plurals name="chat_work_steps">
+        <item quantity="one">Worked through %1$d steps</item>
+        <item quantity="other">Worked through %1$d steps</item>
+    </plurals>
     <string name="chat_share_access_invited">Only people invited</string>
     <string name="chat_share_access_view">Team can view</string>
     <string name="chat_share_access_reply">Team can view and reply</string>

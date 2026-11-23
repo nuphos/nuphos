@@ -40,12 +40,12 @@ class ConversationAgentMoveTest {
         assertFalse(session.movingAgent)
         session.disposeForConsent()
     }
-    @Test fun aRunningTurnDoesNotBlockAMove() = runTest {
+    @Test fun activeRunBlocksMovesEvenWithoutLocalStreaming() = runTest {
         val session = ChatSession("fixture", "team", readBypass = { _, _ -> false }, aiAllowed = { true }, readDetail = { _, _, _ -> detail() })
         session.load()
         ChatSession::class.java.getDeclaredMethod("refreshMetadata", AgentConversationDetail::class.java, Double::class.javaPrimitiveType, Long::class.javaPrimitiveType)
             .also { it.isAccessible = true }.invoke(session, detail(busy = true), RuntimeObservation.now(), 0L)
-        assertTrue(session.canMoveAgent)
+        assertFalse(session.canMoveAgent)
         session.disposeForConsent()
     }
     @Test fun memberAndExplicitlyDeniedOwnerCannotMove() = runTest {

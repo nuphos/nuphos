@@ -82,10 +82,11 @@ export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
     throw new AppError(409, 'trigger_target_session_invalid', error)
   }
   if (target.archivedAt) {
-    const error = 'The Task this Trigger belongs to is archived. The Trigger was paused.'
-
-    await pauseTrigger(trigger, error, now)
-    throw new AppError(409, 'trigger_target_session_archived', error)
+    throw new AppError(
+      409,
+      'trigger_target_session_archived',
+      'The Task this Trigger belongs to is archived.',
+    )
   }
   if (!(await getTeamMembership(target.userId, target.teamId))) {
     const error =

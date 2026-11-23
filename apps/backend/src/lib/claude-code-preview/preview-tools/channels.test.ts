@@ -359,23 +359,6 @@ test('a member answers one post by its index, and the reply quotes it', async ()
     createdAt: new Date(),
     updatedAt: new Date(),
   })
-  // A later post, so the answer is not right under the question it quotes.
-  await agentMessages().insertOne({
-    sessionId: chat,
-    userId: 'owner',
-    messageId: 'm-later',
-    index: 5,
-    role: 'user',
-    parts: [{ type: 'text', text: 'Anything else?' }],
-    metadata: {
-      version: 1,
-      sender: { type: 'user', id: 'alice', displayName: 'Alice' },
-      source: 'nuphos',
-      sentAt: new Date().toISOString(),
-    },
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  })
   const post = channelToolModule().handlers({
     userId: 'teammate',
     teamId: team,

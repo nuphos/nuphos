@@ -526,7 +526,7 @@ rl.on('line', (line) => {
 })
 `
 
-test('a reopened session takes the stored settings; a value not offered or not taken is left as restored', async () => {
+test('a reopened session takes the stored settings; only a value no longer offered is left as restored', async () => {
   await withShim(
     'grok',
     async ({ call }) => {
@@ -542,7 +542,7 @@ test('a reopened session takes the stored settings; a value not offered or not t
       assert.equal((await load('b')).result.configOptions[0].currentValue, 'b')
       assert.equal((await load('retired')).result.configOptions[0].currentValue, 'a')
       assert.match((await load('c')).error.message, /rejected/)
-      assert.equal((await load('d')).result.configOptions[0].currentValue, 'a')
+      assert.match((await load('d')).error.message, /did not accept/)
     },
     RESTORING_AGENT,
   )

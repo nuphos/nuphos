@@ -468,14 +468,14 @@ jobs:
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
   # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
   e2e:
-    # The three parts of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
-    # that start a stack of their own run side by side; the first part keeps the check name
+    # The two halves of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
+    # that start a stack of their own run side by side; the first half keeps the check name
     # and the `e2e` artifact.
-    name: Desktop against a real backend${{ matrix.part == '2' && ' (second half)' || matrix.part == 'bots' && ' (Bot chats)' || matrix.part == 'standalone' && ' (standalone suites)' || '' }}
+    name: Desktop against a real backend${{ matrix.part == '2' && ' (second half)' || matrix.part == 'standalone' && ' (standalone suites)' || '' }}
     strategy:
       fail-fast: false
       matrix:
-        part: ['1', '2', bots, standalone]
+        part: ['1', '2', standalone]
     needs: changes
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     # Not in the merge queue: each PR already passed it, and one flaky run there ejects
@@ -485,9 +485,9 @@ jobs:
     # outside the hosted-runner concurrency limit. Revert to ubuntu-24.04 if jobs queue.
     # Only this repository's own code runs on ours; any other pull request stays on GitHub's hosts.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    # The first two parts of the main scenarios take about 19 minutes each with openab from the
-    # cache, the Bot chats about 12 and the standalone leg about 6. A change to prepare.mjs or the
-    # openab source misses that cache until it lands on main, and compiling openab adds about 6 minutes.
+    # Each half of the main scenarios takes about 25 minutes with openab from the cache,
+    # the standalone leg about 6. A change to prepare.mjs or the openab source misses that cache until it
+    # lands on main, and compiling openab adds about 6 minutes.
     timeout-minutes: 50
     permissions:
       contents: read

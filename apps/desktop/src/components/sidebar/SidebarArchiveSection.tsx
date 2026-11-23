@@ -20,22 +20,22 @@ type Props = {
 
 /** Share the first archive page between availability and the expanded list. */
 export function SidebarArchiveSection({ listProps, row }: Props) {
+  const [refreshKey, setRefreshKey] = useState(0)
   const teamId = listProps.scope.teamId
-  const archive = useArchivedChats({ teamId, filter: '' })
-  const { reload } = archive
+  const archive = useArchivedChats({ teamId, filter: '', refreshKey })
 
-  // This window's own archives decide whether the button shows at all.
   useEffect(() => {
+    const refresh = () => setRefreshKey((value) => value + 1)
     const offArchived = onChatArchived((change) => {
-      if (change.teamId === teamId) reload()
+      if (change.teamId === teamId) refresh()
     })
-    const offUnarchived = onChatUnarchived(reload)
+    const offUnarchived = onChatUnarchived(refresh)
 
     return () => {
       offArchived()
       offUnarchived()
     }
-  }, [teamId, reload])
+  }, [teamId])
 
   if (archive.items.length === 0 && !archive.failed) return null
 
@@ -75,10 +75,7 @@ function ArchivePopover({ listProps, row, archive }: ArchiveProps) {
         open={open}
         onOpenChange={(next) => {
           setOpen(next)
-          if (!next) return
-          setPanelVisible(true)
-          // Agents, auto-archive and other devices archive too: read the list afresh.
-          archive.reload()
+          if (next) setPanelVisible(true)
         }}
         onOpenChangeComplete={(next) => {
           if (!next) setPanelVisible(false)
@@ -142,8 +139,7 @@ function ArchiveItems({ listProps, archive }: Omit<ArchiveProps, 'row'>) {
         sections={[
           {
             compact: true,
-            // A reload keeps the rows it has until the new page arrives.
-            loading: archive.loading && archive.items.length === 0,
+            loading: archive.loading,
             items: archive.items.map((chat) => ({
               key: `agent-session:${chat.sessionId}`,
               label: chat.title || chat.firstMessage || t('Untitled task'),
@@ -155,7 +151,7 @@ function ArchiveItems({ listProps, archive }: Omit<ArchiveProps, 'row'>) {
         ]}
       />
       {archive.failed && (
-        <Button variant="ghost" size="sm" onClick={archive.reload}>
+        <Button variant="ghost" size="sm" onClick={archive.retry}>
           {t('Retry')}
         </Button>
       )}

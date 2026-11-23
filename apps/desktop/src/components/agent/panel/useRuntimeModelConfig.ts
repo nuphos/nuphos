@@ -65,9 +65,8 @@ export function useRuntimeModelConfig(
       setOpen(next)
       if (!next) return
       setRevision((previous) => previous + 1)
-      refreshLocalModels(
-        () => api.localRuntimeRefreshModels(true),
-        () => setRevision((previous) => previous + 1),
+      refreshLocalModels(api.localRuntimeRefreshModels, () =>
+        setRevision((previous) => previous + 1),
       )
     },
     select: ({ configId, value }) => onPick({ ...pick, [configId]: value }),

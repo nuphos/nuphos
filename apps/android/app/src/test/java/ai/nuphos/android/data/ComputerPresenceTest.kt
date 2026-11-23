@@ -30,13 +30,4 @@ class ComputerPresenceTest {
         assertEquals(ComputerPresence.Online, ComputerPresence.of(offline.copy(online = null), listOf(device())))
         assertEquals(ComputerPresence.Online, ComputerPresence.of(null, listOf(device())))
     }
-    @Test fun aWorkspaceWithoutRuntimesFindsItsBoxThatIsStillStarting() {
-        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(id = "other", state = "running"), device(state = "connecting"))))
-        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(state = "creating"))))
-    }
-    @Test fun aWorkspaceWithoutAStartingBoxHasNothingToAwait() {
-        assertEquals(null, ComputerPresence.starting(listOf(device(state = "paused"), device(id = "pc", box = false))))
-        assertEquals(null, ComputerPresence.starting(listOf(device(state = "connecting").copy(online = true))))
-        assertEquals(null, ComputerPresence.starting(emptyList()))
-    }
 }

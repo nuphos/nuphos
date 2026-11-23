@@ -27,29 +27,6 @@ export type LocalRuntimePresence = {
   usedAt?: number
 }
 
-/** Whether a failed model catalog has become usable since the previous status. */
-export function modelCatalogRecovered(
-  previousStatus: LocalRuntimeStatus | undefined,
-  reported: LocalRuntimeStatus,
-): boolean {
-  return (
-    Object.entries(reported.agents).some(
-      ([provider, agent]) =>
-        agent?.models?.models.length &&
-        !agent.models.failed &&
-        previousStatus?.agents[provider as keyof LocalRuntimeStatus['agents']]?.models?.failed,
-    ) ||
-    (reported.instances ?? []).some(
-      (agent) =>
-        agent.models?.models.length &&
-        !agent.models.failed &&
-        previousStatus?.instances?.some(
-          (previous) => previous.instanceId === agent.instanceId && previous.models?.failed,
-        ),
-    )
-  )
-}
-
 export type LocalRuntimePresenceStore = {
   get(userId: string, deviceId: string): Promise<LocalRuntimePresence | null>
   /** Takes the computer for `conn`, as `presence` when given, and names the tunnel it replaced. */

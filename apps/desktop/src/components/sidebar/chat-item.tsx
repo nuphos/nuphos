@@ -4,7 +4,7 @@ import { attentionInputRequests } from '../../lib/agentInputRequests'
 import { emptyNavigation, pageLocationForNavigation } from '../../lib/appRoutes'
 import { runtimeTurnActive, runtimeBackgroundRunning } from '../../lib/runtimeExecution'
 import { sidebarTaskState } from '../../lib/sidebarTaskState'
-import { rowDot, rowIndicator } from '../../lib/subAgentState'
+import { rowDot } from '../../lib/subAgentState'
 import { botOfChannel } from '../channels/botChannel'
 import { ChatIcon } from '../channels/channelParts'
 
@@ -14,6 +14,7 @@ import { chatRowIcon } from './chat-row-icon'
 import { ChatRowStatus } from './ChatRowStatus'
 import { PhoneViewingBadge } from './PhoneViewingBadge'
 import { SessionResources } from './SessionResources'
+import { threadFoldsAway } from './thread-status'
 
 import type { Item } from './types'
 import type { AgentConversation } from '../../api'
@@ -113,8 +114,13 @@ export function chatSidebarItem({
     // A phone viewing this chat's dock tab shows here too, where the tab itself may be out of
     // sight. Not in the trailing slot: hover swaps that for the row's actions, hiding Stop.
     note: <PhoneViewingBadge sessionId={conversation.sessionId} />,
-    // Only a status that shows: a folded parent shows the first one.
-    foldedStatus: rowIndicator(runtimeState, dot) === 'none' ? undefined : status,
+    foldedStatus: status,
+    finished: threadFoldsAway({
+      conversation,
+      runtimeState,
+      open: active,
+      unread: unread || waiting,
+    }),
     dot,
     taskState:
       isBot || conversation.kind === 'channel'

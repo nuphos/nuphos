@@ -2,7 +2,6 @@
 // provider registry, whose native adapter reaches identity.ts and back into
 // this file (import cycle).
 import { resolveForNewSession } from '@/lib/agent/memory-slots/session-stamp'
-import { AppError } from '@/lib/errors'
 
 import { canReplyIn } from '../devices/conversation-computer'
 import { fallbackTitle } from '../title-fallback'
@@ -22,7 +21,8 @@ import type {
 } from './shared'
 import type { ConversationTimelineEvent } from './timeline-events'
 
-// Model-fallback helpers live in a sibling file; re-exported so import paths hold.
+// Sticky content-filter model-fallback helpers live in a sibling file (this
+// one is at the max-lines limit); re-exported so existing import paths hold.
 export {
   buildModelFallbackMark,
   getConversationModelFallbackModelId,
@@ -34,8 +34,11 @@ export async function upsertConversationShell(
   data: ConversationShellInput,
 ): Promise<{ isNew: boolean }> {
   const now = new Date()
-  // MongoDB rejects one field in both $setOnInsert and $set (error code 40): a
-  // truthy title is $set, so only an empty one is defaulted in $setOnInsert.
+  // MongoDB rejects the same field appearing in both $setOnInsert and $set
+  // ("Updating the path 'title' would create a conflict at 'title'", error
+  // code 40). When data.title is truthy, $set.title fires, so don't also
+  // include title in $setOnInsert. When data.title is empty (preserveTitle
+  // path), $set doesn't touch title, so $setOnInsert can default it.
   const setOnInsert: Record<string, unknown> = {
     sessionId: data.sessionId,
     userId: data.userId,
@@ -97,12 +100,8 @@ export async function upsertConversationShell(
             ...(data.credentialAccess ? { credentialAccess: data.credentialAccess } : {}),
           },
         },
-    // Only a group chat is stored without a runtime; anything else updates an existing one.
-    { upsert: Boolean(data.agentRuntime) || data.kind === 'channel' },
+    { upsert: true },
   )
-
-  if (result.matchedCount === 0 && result.upsertedCount === 0)
-    throw new AppError(409, 'runtime_required', 'Choose an agent before starting a conversation.')
 
   return { isNew: result.upsertedCount > 0 }
 }

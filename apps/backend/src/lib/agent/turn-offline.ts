@@ -12,7 +12,3 @@ export const withinOfflineGrace = (message: PendingUserMessage) =>
 
 export const reconnecting = (error: unknown, message: PendingUserMessage) =>
   agentHostAway(error) && withinOfflineGrace(message)
-
-/** A thread whose runner started may have acted. One the host never took did not. */
-export const undeliveredLead = (source: string, started: boolean, error: unknown) =>
-  source === 'agent.thread' && started && !agentHostAway(error) ? 'could not finish' : 'did not run'

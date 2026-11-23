@@ -265,16 +265,6 @@ test('a failure that is not the agent’s does not move the conversation', async
   expect(updates).toEqual([])
 })
 
-test('a model its endpoint does not serve moves the conversation on down the list', async () => {
-  await fallBackAfterFailure(
-    'session',
-    new Error('Error code: 404 - model_not_found: The model `gpt-9` does not exist'),
-    'owner',
-  )
-
-  expect(moves).toEqual([{ to: 'b', reason: 'failure', claimed: true }])
-})
-
 test('a teammate’s turn falls back to a Box or team agent they may use, never a computer', async () => {
   usedPercent = { a: 95 }
   instances = [

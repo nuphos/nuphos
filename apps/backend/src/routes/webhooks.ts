@@ -177,11 +177,7 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 
 const QUEUE_RETRY_SECONDS = 30
 // What resolveExecutionAuthorization pauses a Trigger with.
-const PAUSED = new Set([
-  'trigger_target_session_invalid',
-  'trigger_target_session_archived',
-  'trigger_execution_principal_invalid',
-])
+const PAUSED = new Set(['trigger_target_session_invalid', 'trigger_execution_principal_invalid'])
 
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))

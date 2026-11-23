@@ -1,7 +1,6 @@
 // What a chat opened before keeps when it is opened again: the same transcript on screen, not a
 // rebuilt one, scrolled to its newest post, with the draft left in its composer.
 import { until } from './processes.ts'
-import { newTask } from './ui.ts'
 
 import type { Page } from 'playwright-core'
 
@@ -75,48 +74,5 @@ export async function kept(page: Page, name: string, title: string, text: string
     notKept.push(
       `${name}: kept ${String(now?.kept ?? false)}, at bottom ${String(now?.atBottom ?? false)}, draft "${await draft()}", unread ${String(await unread())}`,
     )
-  }
-}
-
-/** A chat opened from the sidebar takes the keyboard. */
-export async function focused(page: Page, name: string) {
-  await until(
-    `${name}: its composer focused`,
-    () => composer(page).evaluate((element) => element.contains(document.activeElement)),
-    5_000,
-  )
-}
-
-const HOME_DRAFT = 'Draft on the New Task page'
-
-/** The New Task page, on screen. */
-async function home(page: Page) {
-  await newTask(page)
-  await page.getByText(/^What's up next/).waitFor()
-}
-
-/** Goes to the New Task page and leaves a draft there. */
-export async function leaveHome(page: Page) {
-  await home(page)
-  await composer(page).fill(HOME_DRAFT)
-}
-
-/** Back to the New Task page, which kept the draft `leaveHome` left. */
-export async function backHome(page: Page) {
-  await home(page)
-  await until(
-    'the New Task page to keep its draft',
-    async () => (await composer(page).innerText()).trim() === HOME_DRAFT,
-    5_000,
-  )
-  // It stays as it came back, not hiding to play its entrance again (#4584).
-  for (let ms = 0; ms <= 700; ms += 50) {
-    if (
-      !(await composer(page).evaluate((element) =>
-        element.checkVisibility({ opacityProperty: true }),
-      ))
-    )
-      throw new Error(`The New Task page hid its composer ${String(ms)} ms after coming back`)
-    await page.waitForTimeout(50)
   }
 }

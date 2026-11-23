@@ -206,27 +206,26 @@ class FixtureDeviceTest {
     }
     @Test fun workGroupExpandsAndCollapsesChildren() {
         render(listOf(ChatPart.Reasoning(text = "Fixture reasoning"), tool(), ChatPart.Text(text = "Fixture final")))
-        compose.onNodeWithText("Worked").performScrollTo().performClick()
+        compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Fixture terminal").assertIsDisplayed()
         compose.onNodeWithText("Fixture terminal").performClick()
         compose.onNodeWithText("FIXTURE_TOOL_OUTPUT", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Done").performClick()
-        compose.onNodeWithText("Worked").performClick()
+        compose.onNodeWithText("Worked through 2 steps").performClick()
         compose.onNodeWithText("Fixture terminal").assertDoesNotExist()
     }
     @Test fun workGroupsExpandIndependently() {
         render(listOf(ChatPart.Reasoning(text = "First reasoning"), tool(), ChatPart.Text(text = "First final"),
             ChatPart.Reasoning(text = "Second reasoning"), tool().copy(toolCallId = "second-tool", title = "Second terminal"),
             tool().copy(toolCallId = "third-tool", title = "Third terminal"), ChatPart.Text(text = "Second final")))
-        // Neither turn has a duration, so both folds read "Worked": tell them apart by order.
-        compose.onAllNodesWithText("Worked")[0].performScrollTo().performClick()
+        compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Fixture terminal").assertExists()
         compose.onNodeWithText("Second terminal").assertDoesNotExist()
-        compose.onAllNodesWithText("Worked")[1].performScrollTo().performClick()
+        compose.onNodeWithText("Worked through 3 steps").performScrollTo().performClick()
         // Two calls in a row fold into one line, named after the last.
         compose.onNode(hasText("Third terminal") and hasText(" · 2 calls")).performScrollTo().performClick()
         compose.onNodeWithText("Second terminal").assertExists()
-        compose.onAllNodesWithText("Worked")[0].performScrollTo().performClick()
+        compose.onNodeWithText("Worked through 2 steps").performScrollTo().performClick()
         compose.onNodeWithText("Fixture terminal").assertDoesNotExist()
         compose.onNodeWithText("Second terminal").assertExists()
     }

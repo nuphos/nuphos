@@ -96,25 +96,18 @@ export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise
     const expired = Boolean(probe) && startIndex > 0
 
     if (expired || orphanConfirmed || Date.now() >= attachDeadline) {
-      // An expired buffer is a finished run resumed too late, which the client is told; the
-      // other two mean a live run's stream is missing.
-      traceRunStoreEvent(
-        expired ? 'warn' : 'error',
-        'agent.run.redis_resume.stream_missing_after_wait',
-        trace,
-        {
-          redis_stream_key: key,
-          redis_owner_key: oKey,
-          resume_from: startIndex,
-          owner_present: Boolean(owner),
-          orphan_confirmed: orphanConfirmed,
-          expired,
-          orphan_probes: orphanProbes,
-          attach_wait_ms: Date.now() - startedAt,
-          attach_grace_ms: RESUME_ATTACH_GRACE_MS,
-          error_code: 'stream_unresumable',
-        },
-      )
+      traceRunStoreEvent('error', 'agent.run.redis_resume.stream_missing_after_wait', trace, {
+        redis_stream_key: key,
+        redis_owner_key: oKey,
+        resume_from: startIndex,
+        owner_present: Boolean(owner),
+        orphan_confirmed: orphanConfirmed,
+        expired,
+        orphan_probes: orphanProbes,
+        attach_wait_ms: Date.now() - startedAt,
+        attach_grace_ms: RESUME_ATTACH_GRACE_MS,
+        error_code: 'stream_unresumable',
+      })
       emit(
         runStoreErrorFrame('stream_unresumable', 'Agent run stream is no longer available', trace, {
           reason: expired

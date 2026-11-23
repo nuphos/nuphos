@@ -1,5 +1,4 @@
 import { t } from '../../../i18n/index.ts'
-import { toGraphemes } from '../../../lib/graphemes.ts'
 
 export function fileNameFromPath(filePath: string): string {
   return filePath.split(/[\\/]/).pop() || filePath
@@ -69,10 +68,4 @@ export function homeGreeting(displayName: string | undefined): string {
   const firstName = displayName?.trim().split(/\s+/)[0]
 
   return firstName ? t("What's up next, {name}?", { name: firstName }) : t("What's up next?")
-}
-
-/** The home title's animated pieces: whole words, so the title wraps only at its spaces and an email
- * stays in one piece; CJK has no spaces and animates per character. */
-export function splitForAnimation(text: string, lang: string): string[] {
-  return /^(zh|ja|ko)/i.test(lang) ? toGraphemes(text) : text.split(/(\s+)/)
 }

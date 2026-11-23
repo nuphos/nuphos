@@ -25,7 +25,6 @@ let wakes: unknown[] = []
 let marked: string[] = []
 let externalChatId: string | undefined = 'chat'
 let notificationThread = false
-let slackPosts: Record<string, unknown>[] = []
 // Slack users as users.info reports them: their home workspace and email.
 const slackUsers: Record<string, { team_id: string; email: string; name: string }> = {
   UOWNER: { team_id: 'T1', email: 'Owner@Example.com', name: 'Owner in Slack' },
@@ -101,11 +100,7 @@ useSlackAgentBot({
 })
 useSlackApi({
   // The Bot's answers, as Slack takes them.
-  slackApi: async (_token: string, _method: string, body: Record<string, unknown>) => {
-    slackPosts.push(body)
-
-    return { ok: true, ts: '30.1' } as never
-  },
+  slackApi: async () => ({ ok: true, ts: '30.1' }) as never,
   slackApiGet: async (_token: string, method: string, params: Record<string, unknown>) => {
     const user = slackUsers[String(params.user)]
 
@@ -297,15 +292,6 @@ describe('a Slack channel that is an external chat', () => {
 
     expect(await agentMessages().countDocuments({ sessionId: 'chat' })).toBe(2)
     expect((await chat()).mentions ?? {}).toEqual({})
-  })
-
-  test('a Bot answering the newest post in a Slack thread answers in that thread', async () => {
-    slackPosts = []
-    await routeSlackToExternalChat(envelope({ user: 'UOWNER' }))
-    await routeSlackToExternalChat(envelope({ user: 'UNEW', ts: '10.2', thread_ts: '10.1' }))
-    await postAsAgent((await chat()).sessionId, { sessionId: 'bot', title: 'Bot' }, 'Done.', [], 1)
-
-    expect(slackPosts).toContainEqual(expect.objectContaining({ thread_ts: '10.1' }))
   })
 
   test('a mapping that names an ordinary Nuphos chat posts nothing there', async () => {

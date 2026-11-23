@@ -4,7 +4,6 @@ import { connectShareScenarios } from './connect-share-scenarios.ts'
 import { departureScenarios } from './departure-scenarios.ts'
 import { invitationScenarios } from './invitation-scenarios.ts'
 import { listingScenarios } from './listing-scenarios.ts'
-import { stagedGrantScenarios } from './staged-grant-scenarios.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -14,5 +13,4 @@ export const accessScenarios: Scenario[] = [
   ...listingScenarios,
   ...invitationScenarios,
   ...departureScenarios,
-  ...stagedGrantScenarios,
 ]

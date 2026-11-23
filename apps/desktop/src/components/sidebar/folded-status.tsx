@@ -1,9 +1,20 @@
+import { Fragment } from 'react'
+
 import type { Item } from './types'
 
 /**
- * The first status among what a folded thread hides. Renders nothing at all
- * when none shows, so an idle row's trailing slot stays empty and takes no space.
+ * One status dot for whatever a folded thread hides; the rest render null.
+ * Renders nothing at all when nothing is folded, so an idle row's trailing slot
+ * stays empty and takes no space.
  */
 export function FoldedStatus({ rows }: { rows: Item[] }) {
-  return rows.find((row) => row.foldedStatus != null)?.foldedStatus ?? null
+  if (rows.length === 0) return null
+
+  return (
+    <span className="contents [&>*:not(:first-child)]:hidden">
+      {rows.map((row) => (
+        <Fragment key={row.key}>{row.foldedStatus}</Fragment>
+      ))}
+    </span>
+  )
 }

@@ -179,8 +179,12 @@
     <plurals name="chat_tool_run_calls_running">
         <item quantity="other">· %1$d การเรียก · กำลังทำงาน</item>
     </plurals>
-    <string name="chat_work_duration">ทำงาน %1$s</string>
-    <string name="chat_work">ทำงานเสร็จแล้ว</string>
+    <plurals name="chat_work_duration_steps">
+        <item quantity="other">ทำงาน %1$d วิ. · %2$d ขั้นตอน</item>
+    </plurals>
+    <plurals name="chat_work_steps">
+        <item quantity="other">ทำงาน %1$d ขั้นตอน</item>
+    </plurals>
     <string name="chat_share_access_invited">เฉพาะผู้ที่ได้รับเชิญ</string>
     <string name="chat_share_access_view">ทีมดูได้</string>
     <string name="chat_share_access_reply">ทีมดูและตอบกลับได้</string>

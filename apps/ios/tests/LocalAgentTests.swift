@@ -5,7 +5,6 @@ enum LocalAgentTests {
         keepsKeysThisBuildDoesNotKnow()
         readsDevicesFromTheCatalog()
         groupsOwnComputersApartFromCloud()
-        listsAnOfflineComputerLastAsOneRow()
         describesAComputersAgent()
         detectsALocalAgentWhileItsComputerIsOffline()
         asksWhoeverCanSignIn()
@@ -124,16 +123,6 @@ enum LocalAgentTests {
         precondition(groups.map(\.tier) == [.myComputers, .cloud])
         precondition(groups[0].runtimes.map(\.id) == [macbook.id, signedOut.id])
         precondition(groups[0].tier.title == "My computers" && groups[1].tier.title == "Cloud")
-    }
-
-    private static func listsAnOfflineComputerLastAsOneRow() {
-        // Desktop's selectorBoxes: a computer whose agents are all offline is one row, after the rest.
-        let studio = agent(#"{"id":"local_u1_studio_claude-code","provider":"claude-code","label":"Studio Mac · Claude Code","status":"active","kind":"local","local":{"ownerUserId":"u1","deviceId":"studio","deviceLabel":"Studio Mac","signedIn":true,"online":false}}"#)
-        let studioCodex = agent(#"{"id":"local_u1_studio_codex","provider":"codex","label":"Studio Mac · Codex","status":"active","kind":"local","local":{"ownerUserId":"u1","deviceId":"studio","deviceLabel":"Studio Mac","signedIn":false,"online":false}}"#)
-        let boxes = SelectorBox.picker([studio, macbook, studioCodex, cloud], devices: [])
-        precondition(boxes.map(\.id) == ["device:mac", "cloud", "device:studio"])
-        precondition(boxes.map(\.offline) == [false, false, true])
-        precondition(boxes[2].agents.count == 2)
     }
 
     private static func detectsALocalAgentWhileItsComputerIsOffline() {

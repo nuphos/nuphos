@@ -62,7 +62,7 @@ enum BotAvatarTests {
         let legacyBot = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada"]])!
         precondition(legacyBot.provider == nil && BotAvatars.runtimeLogo(legacyBot.provider) == nil)
         for raw in [nil, "", "future-provider"] as [String?] {
-            precondition(RuntimeInstance.Provider.logo(raw) == nil)
+            precondition(RuntimeInstance.Provider.logo(raw) == "logo-runtime")
         }
         for (raw, logo) in [("codex", "openai"), ("claude-code", "claude"), ("grok", "grok"), ("opencode", "opencode"), ("antigravity", "antigravity"), ("dsh", "deepseek")] {
             precondition(RuntimeInstance.Provider.logo(raw) == "logo-" + logo)

@@ -284,7 +284,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       runTrace,
       source,
       teamId ? registry.connectionInfo(teamId, [chatRuntime.endpoint.url]) : {},
-      { clientResendsRefusal: params.clientResendsRefusal, waitsOutUsage: params.waitsOutUsage },
+      params.clientResendsRefusal,
     )
 
     chatSpan.end()

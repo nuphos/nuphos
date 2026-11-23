@@ -83,16 +83,15 @@ export async function retryArchivedTaskTriggers(sessionIds?: string[]): Promise<
   }
 }
 
-/**
- * The sweep reclaims the home generations archives queued; one whose runtime is
- * offline waits. Only the sweep: two reclaims of one home at once let the second
- * find it set aside and call it gone while the first is still removing it (#4629).
- */
-export async function retryArchivedHomes(): Promise<void> {
+/** Retry the home generations archives queued; one whose runtime is offline waits. */
+export async function retryArchivedHomes(sessionIds?: string[]): Promise<void> {
   const { reclaimPendingArchiveHome } =
     await import('@/lib/claude-code-preview/runtime-session-home')
   const pending = await agentConversations()
-    .find({ 'archiveHomePendingEpochs.0': { $exists: true } }, { projection: { sessionId: 1 } })
+    .find(
+      { 'archiveHomePendingEpochs.0': { $exists: true }, ...inSessions(sessionIds) },
+      { projection: { sessionId: 1 } },
+    )
     .toArray()
 
   for (const { sessionId } of pending) {
@@ -105,9 +104,8 @@ export async function retryArchivedHomes(): Promise<void> {
 const inSessions = (sessionIds?: string[]) => (sessionIds ? { sessionId: { $in: sessionIds } } : {})
 
 /**
- * Removes the Triggers an archive of these Tasks, and of the threads archived
- * with them, queued. Whatever fails here stays queued for the sweep, which also
- * reclaims their homes.
+ * Removes the Triggers and homes an archive of these Tasks, and of the threads
+ * archived with them, queued. Whatever fails here stays queued for the sweep.
  */
 export async function cleanUpArchived(sessionIds: string[]): Promise<void> {
   const roots = await agentConversations()
@@ -128,4 +126,5 @@ export async function cleanUpArchived(sessionIds: string[]): Promise<void> {
     )
   }
   await retryArchivedTaskTriggers(ids)
+  await retryArchivedHomes(ids)
 }

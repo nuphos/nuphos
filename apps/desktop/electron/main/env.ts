@@ -8,6 +8,4 @@ export const isDev = Boolean(process.env.VITE_DEV_SERVER_URL)
 const rawDevSuffix = process.env.ATLAS_DEV_SUFFIX?.replace(/[/\\]/g, '-') ?? ''
 
 export const devSuffix = rawDevSuffix ? ` (${rawDevSuffix})` : ''
-/** The product's own name; only a build running under it may use the legacy profile. */
-export const PRODUCT_NAME = 'Nuphos'
-export const APP_NAME = isDev ? `Nuphos Dev${devSuffix}` : PRODUCT_NAME
+export const APP_NAME = isDev ? `Nuphos Dev${devSuffix}` : 'Nuphos'

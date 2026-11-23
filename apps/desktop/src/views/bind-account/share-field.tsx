@@ -64,9 +64,7 @@ export function BindShareField({
     <div className="mt-4 border-y border-line-control/60">
       <AllowListSelect
         title={t('Who can use it')}
-        subtitle={t(
-          'You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.',
-        )}
+        subtitle={t('You can always use a connection you add. Change this later from its page.')}
         allowList={value ?? fallback}
         members={members}
         onChange={onChange}

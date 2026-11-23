@@ -15,16 +15,13 @@ export function retryRead(failures: number, error: unknown): boolean {
   return parsed.code === undefined && !TIMEOUT.test(parsed.message)
 }
 
-/** How long a read answers for its query before the next use reads again. */
-export const STALE_MS = 30_000
-
 export function createQueryClient(): QueryClient {
   return new QueryClient({
     defaultOptions: {
       // A hidden window does not poll; focus and visibility refresh what went stale meanwhile.
       queries: {
         retry: retryRead,
-        staleTime: STALE_MS,
+        staleTime: 30_000,
         refetchOnWindowFocus: true,
         refetchIntervalInBackground: false,
       },

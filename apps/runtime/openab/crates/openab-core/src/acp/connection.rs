@@ -1477,9 +1477,9 @@ impl AcpConnection {
         let _ = self._proc.start_kill();
     }
 
-    /// Kill the entire process group: SIGTERM → SIGKILL, once per connection.
+    /// Kill the entire process group: SIGTERM → SIGKILL.
     fn kill_process_group(&mut self) {
-        if let Some(pgid) = self.child_pgid.take() {
+        if let Some(pgid) = self.child_pgid {
             kill_process_group(pgid);
         }
     }
@@ -1911,54 +1911,6 @@ mod retirement_tests {
             !conn.alive(),
             "a retired connection must not take the next prompt"
         );
-    }
-}
-
-/// The agent's process group is signalled once per connection: `kill_agent` and then dropping
-/// the connection sent it SIGTERM twice, and a second stop signal can hang a process in the
-/// group that is still handling the first (#4727).
-#[cfg(all(test, unix))]
-mod group_kill_tests {
-    use super::AcpConnection;
-
-    #[tokio::test]
-    async fn killing_the_agent_then_dropping_the_connection_signals_the_group_once() {
-        let dir = tempfile::tempdir().unwrap();
-        let log = dir.path().join("signals");
-        // A child of the agent, in its group, that counts the SIGTERMs it gets: `kill_agent`
-        // SIGKILLs the agent itself.
-        let child = dir.path().join("child.py");
-        std::fs::write(
-            &child,
-            "import signal, sys, time\n\
-             signal.signal(signal.SIGTERM, lambda *_: open(sys.argv[1], 'a').write('term\\n'))\n\
-             open(sys.argv[1], 'a').close()\n\
-             while True: time.sleep(1)\n",
-        )
-        .unwrap();
-        let args = vec![
-            "-c".to_string(),
-            format!("python3 {} {} & wait", child.display(), log.display()),
-        ];
-        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
-            .await
-            .unwrap();
-        let terms = || {
-            std::fs::read_to_string(&log)
-                .ok()
-                .map(|s| s.lines().count())
-        };
-        for _ in 0..200 {
-            if terms().is_some() {
-                break;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
-        }
-
-        conn.kill_agent();
-        drop(conn);
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-        assert_eq!(terms(), Some(1));
     }
 }
 

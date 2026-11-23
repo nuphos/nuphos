@@ -15,7 +15,7 @@ export const MODEL_ON_DEMAND_MS = 60_000
  */
 export const MODEL_FIRST_READ_MS: Partial<Record<string, number>> = { hermes: 60_000 }
 
-type Reader = { live: () => boolean; read: (pickerOpened: boolean) => Promise<boolean | undefined> }
+type Reader = { live: () => boolean; read: () => Promise<boolean | undefined> }
 
 const readers = new Set<Reader>()
 
@@ -107,22 +107,17 @@ export function discoverModels(
     })
   }
 
-  // Let an opened picker retry the first failed discovery without waiting for the background cycle.
-  const onDemandGap = (pickerOpened: boolean) => {
-    if (pickerOpened && failedReads === 1 && agent.models?.failed) return 0
-
-    return failedReads
+  // An opened picker reads at most once a minute, and after failures no sooner than a retry would.
+  const onDemandGap = () =>
+    failedReads
       ? MODEL_RETRY_MS[Math.min(failedReads - 1, MODEL_RETRY_MS.length - 1)]
       : MODEL_ON_DEMAND_MS
-  }
 
   readers.add({
     live,
-    read: (pickerOpened) =>
+    read: () =>
       inFlight ??
-      (signedOut() || Date.now() - readAt < onDemandGap(pickerOpened)
-        ? Promise.resolve(false)
-        : read()),
+      (signedOut() || Date.now() - readAt < onDemandGap() ? Promise.resolve(false) : read()),
   })
   const first = MODEL_FIRST_READ_MS[run.provider]
 
@@ -138,7 +133,7 @@ export function discoverModels(
  * list that changed since the last read shows without waiting for the next
  * one.
  */
-export async function refreshRunningModels(pickerOpened = false): Promise<void> {
+export async function refreshRunningModels(): Promise<void> {
   for (const reader of readers) if (!reader.live()) readers.delete(reader)
-  await Promise.all([...readers].map((reader) => reader.read(pickerOpened)))
+  await Promise.all([...readers].map((reader) => reader.read()))
 }

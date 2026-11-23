@@ -63,8 +63,6 @@
     <string name="agent_ok">ตกลง</string>
     <string name="agent_first_runtime_title">เชื่อมต่อรันไทม์แรกของคุณ</string>
     <string name="agent_first_runtime_body">เปิด Nuphos บนคอมพิวเตอร์เพื่อเพิ่ม Box หรือเชื่อมต่อคอมพิวเตอร์ของคุณเอง หรือขอให้ผู้ดูแลเวิร์กสเปซเชื่อมต่อให้</string>
-    <string name="agent_first_runtime_starting_title">กำลังเตรียม %1$s</string>
-    <string name="agent_first_runtime_starting_body">จะแสดงที่นี่ทันทีที่ออนไลน์ อาจใช้เวลาหนึ่งถึงสองนาที</string>
     <string name="agent_cloud">คลาวด์</string>
     <plurals name="agent_runtime_count">
         <item quantity="other">%1$d รันไทม์</item>

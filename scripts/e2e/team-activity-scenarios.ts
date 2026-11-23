@@ -45,11 +45,8 @@ function seedSessions(stack: Stack, teamId: string, sessions: Record<string, str
   })
 }
 
-/** Titles by session id, in id order: the seeded sessions ran at the same time, so the list has no order of its own. */
-const byId = (titles: Record<string, string | null>) =>
-  JSON.stringify(Object.entries(titles).sort(([a], [b]) => a.localeCompare(b)))
 const titles = (activity: Activity) =>
-  byId(Object.fromEntries(activity.sessions.map((s) => [s.id, s.title])))
+  Object.fromEntries(activity.sessions.map((s) => [s.id, s.title]))
 
 /** The team switcher: its name is the team icon's initials, then the team's name. */
 const switcher = (page: Page) =>
@@ -132,21 +129,21 @@ export const teamActivityScenarios: Scenario[] = [
         `the administrator to see both rows, got ${JSON.stringify(ids(asAdmin))}`,
       )
       must(
-        titles(asAdmin) ===
-          byId({
+        JSON.stringify(titles(asAdmin)) ===
+          JSON.stringify({
             [`activity-${adminId}`]: 'Admin plan',
             [`activity-${memberId}`]: 'Member fix',
           }),
-        `the administrator to see every title, got ${titles(asAdmin)}`,
+        `the administrator to see every title, got ${JSON.stringify(titles(asAdmin))}`,
       )
       must(
         JSON.stringify(ids(asMember)) === JSON.stringify(both),
         `the member to see both rows, got ${JSON.stringify(ids(asMember))}`,
       )
       must(
-        titles(asMember) ===
-          byId({ [`activity-${adminId}`]: null, [`activity-${memberId}`]: 'Member fix' }),
-        `the member to see only their own title, got ${titles(asMember)}`,
+        JSON.stringify(titles(asMember)) ===
+          JSON.stringify({ [`activity-${adminId}`]: null, [`activity-${memberId}`]: 'Member fix' }),
+        `the member to see only their own title, got ${JSON.stringify(titles(asMember))}`,
       )
       const stats = await member(
         'GET',

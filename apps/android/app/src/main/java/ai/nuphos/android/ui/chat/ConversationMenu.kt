@@ -48,7 +48,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     DropdownMenu(expanded = open, onDismissRequest = { open = false },
         modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
         offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
-        if (session.shareable) DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
+        if (!session.isBot) DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
             share = true
         })
@@ -71,7 +71,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     }
     }
     if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }
-    if (share && session.shareable) {
+    if (share && !session.isBot) {
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }

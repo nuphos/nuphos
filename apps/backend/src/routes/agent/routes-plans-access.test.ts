@@ -114,10 +114,6 @@ describe('plans follow their conversation access', () => {
     expect(writes).toBe(0)
   })
 
-  test('the team Plan approval policy is gone', async () => {
-    expect((await app.request('/agent/plan-approval-policy?teamId=t')).status).toBe(404)
-  })
-
   test('a plan without a source conversation stays team-wide', async () => {
     expect((await app.request('/agent/plans/3')).status).toBe(200)
   })

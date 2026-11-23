@@ -64,8 +64,7 @@ class BotRuntimeAvatarFixtureDeviceTest {
         capture("02-same-bot-grok")
         compose.onNodeWithText("Switch runtime").performClick()
         capture("03-same-bot-missing-runtime")
-        // #4609: a runtime not known yet shows no badge, never a guessed mark.
-        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).assertCountEquals(4)
     }
 
     private fun capture(name: String) {
@@ -75,10 +74,8 @@ class BotRuntimeAvatarFixtureDeviceTest {
         instrumentation.waitForIdleSync()
         Thread.sleep(300) // Let the actual platform window draw after the Compose frame.
         val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No synthetic screenshot")
-        // The additional test output is what CI uploads with the report.
-        listOfNotNull(instrumentation.targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
-            .map { File(it, "review-bot-runtime-avatar").apply { mkdirs() } }
-            .forEach { dir -> File(dir, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "review-bot-runtime-avatar").apply { mkdirs() }
+        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
         image.recycle()
     }
 }

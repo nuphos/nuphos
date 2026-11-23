@@ -6,11 +6,13 @@ import { useAccountLabelledInstances } from '../../hooks/useAccountLabelledInsta
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { useRuntimeQuotas } from '../../hooks/useRuntimeQuotas'
 import { queryKeys } from '../../lib/query/keys'
+import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { useSessionRuntimeControl } from '../agent/panel/conversationRuntimeControl'
 
 import { listedConversation } from './channelShared'
 
 import type { AgentConversation, ChannelAgent } from '../../api'
+import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { UserInfo } from '../../types'
 
 /** The Bot's actual task, never a new-chat default or the channel's runtime. */
@@ -19,6 +21,7 @@ export function useBotRuntimeControl(
   botId: string | undefined,
   owned: boolean,
   user: UserInfo,
+  runtimeState: RuntimeExecution | undefined,
   refresh: () => void,
   /** What the chat lends its composer: the Bot's settings to open, and the chat's agents. */
   chat?: { manage?: () => void; agents?: ChannelAgent[] },
@@ -74,6 +77,7 @@ export function useBotRuntimeControl(
           movingTo,
           readOnly: current.readOnly,
           foreign: false,
+          streaming: runtimeTurnActive(runtimeState),
         }
       : null,
     update: (patch) => {

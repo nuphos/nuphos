@@ -16,9 +16,6 @@ export function teardownOnQuit(
     if (tornDown) return
     tornDown = true
     event.preventDefault()
-    // Electron drops a quit asked for while will-quit is still being dispatched, and a
-    // teardown with nothing to wait for settles before that dispatch ends: quit on the
-    // next turn of the event loop, or the app lingers windowless and never exits (#4524).
-    void teardown().finally(() => setImmediate(() => app.quit()))
+    void teardown().finally(() => app.quit())
   })
 }

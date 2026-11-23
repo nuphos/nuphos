@@ -56,6 +56,22 @@ test('a sub-agent at work is the Bot at work, through its run', () => {
   assert.equal(activity.kind === 'working' && activity.run, kid)
 })
 
+test("someone else's Bot with Tasks running that this viewer does not list is at work", () => {
+  const shared = run('bot', idle, { tasks: { running: 1, waiting: 0 } })
+
+  assert.deepEqual(activityOf(shared, []), { kind: 'working', run: shared })
+  // A Bot still in setup that works says it works, as with listed Tasks.
+  const settingUp = run('bot', idle, {
+    tasks: { running: 1, waiting: 0 },
+    botOnboarding: 'pending',
+  })
+
+  assert.equal(activityOf(settingUp, []).kind, 'working')
+  assert.equal(activityOf(run('bot', idle, { tasks: { running: 0, waiting: 1 } }), []).kind, 'idle')
+  // The owner lists the Tasks themselves, and those decide.
+  assert.equal(activityOf(shared, [run('Done', idle)]).kind, 'idle')
+})
+
 test('a question from the Bot or a sub-agent outranks work', () => {
   const activity = activityOf(run('bot', turn()), [run('kid', idle, asking)])
 

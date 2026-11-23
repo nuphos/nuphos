@@ -85,11 +85,12 @@ class EmailLoginFixtureDeviceTest {
         send()
         shot("email-code")
         code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
         compose.runOnIdle { busy.value = false; authError.value = "That code is invalid or has expired. Request a new code." }
         shot("email-code-error")
     }
 
-    @Test fun continueSendsOnceAndTheSixthDigitSignsInWithoutTappingTheButton() {
+    @Test fun continueSendsOnceAndOpensTheCodeScreenWithoutPasswordReset() {
         render(); send()
         compose.onNodeWithText("Enter the 6-digit code sent to").assertExists()
         compose.onNodeWithText("fixture@example.com").assertExists()
@@ -98,6 +99,7 @@ class EmailLoginFixtureDeviceTest {
         compose.onNodeWithText("Sign in").assertIsNotEnabled()
         code().performTextInput("12a3456789")
         code().assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("123456")))
+        compose.onNodeWithText("Sign in").assertIsEnabled().performClick()
         compose.onNodeWithText("Please wait…").assertIsNotEnabled()
         assertEquals(1, submits); assertEquals(1, requests)
     }
@@ -106,7 +108,7 @@ class EmailLoginFixtureDeviceTest {
         render(); send()
         compose.onNodeWithText("Resend code in 60s").assertExists()
         compose.onNodeWithText("Resend code").assertDoesNotExist()
-        code().performTextInput("12345")
+        code().performTextInput("123456")
         advance(60_000)
         compose.onNodeWithText("Resend code").performScrollTo().performClick()
         compose.waitUntil { requests == 2 }
@@ -117,11 +119,13 @@ class EmailLoginFixtureDeviceTest {
     @Test fun wrongCodeShowsErrorClearsOnEditAndRetriesWithoutAnotherEmail() {
         render(); send()
         code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
         compose.runOnIdle { busy.value = false; authError.value = "Incorrect or expired code. Request a new code if needed." }
         compose.onNodeWithText("Incorrect or expired code. Request a new code if needed.").assertExists()
         code().performTextClearance(); code().performTextInput("654321")
         compose.onNodeWithText("Incorrect or expired code. Request a new code if needed.").assertDoesNotExist()
         assertTrue(dismissals > 0)
+        compose.onNodeWithText("Sign in").performClick()
         assertEquals(2, submits); assertEquals(1, requests)
     }
 
@@ -141,6 +145,7 @@ class EmailLoginFixtureDeviceTest {
     @Test fun backWhileVerifyingCancelsTheAttempt() {
         render(); send()
         code().performTextInput("123456")
+        compose.onNodeWithText("Sign in").performClick()
         Espresso.pressBack()
         compose.onNodeWithText("Email address").assertExists()
         assertEquals(1, cancellations); assertEquals(1, submits)
@@ -148,7 +153,7 @@ class EmailLoginFixtureDeviceTest {
 
     @Test fun expiredCodeCannotSubmitAndCanRequestAnother() {
         render(); send()
-        code().performTextInput("12345")
+        code().performTextInput("123456")
         advance(600_000)
         compose.onNodeWithText("Sign in").assertIsNotEnabled()
         compose.onNodeWithText("Code expired. Request a new code.").assertExists()
@@ -160,7 +165,7 @@ class EmailLoginFixtureDeviceTest {
         val restoration = StateRestorationTester(compose)
         restoration.setContent { NuphosTheme(darkTheme = dark) { content() } }
         send()
-        code().performTextInput("12345")
+        code().performTextInput("123456")
         restoration.emulateSavedInstanceStateRestore()
         compose.onNodeWithText("Check your email").assertExists()
         compose.onNodeWithText("fixture@example.com").assertExists()

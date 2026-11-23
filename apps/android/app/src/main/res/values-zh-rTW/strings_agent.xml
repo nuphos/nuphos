@@ -63,8 +63,6 @@
     <string name="agent_ok">確定</string>
     <string name="agent_first_runtime_title">連接你的第一個執行環境</string>
     <string name="agent_first_runtime_body">在電腦上開啟 Nuphos 來新增 Box 或連接你自己的電腦，或請工作區管理員連接一個。</string>
-    <string name="agent_first_runtime_starting_title">%1$s 正在準備中</string>
-    <string name="agent_first_runtime_starting_body">上線後會立刻顯示在這裡，可能需要一兩分鐘。</string>
     <string name="agent_cloud">雲端</string>
     <plurals name="agent_runtime_count">
         <item quantity="other">%1$d 個執行環境</item>

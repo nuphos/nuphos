@@ -90,9 +90,7 @@ export function AgentAvatar({
               />
             </>
           )}
-          {showBadge && provider && (
-            <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />
-          )}
+          {showBadge && <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />}
         </>
       ) : (
         <span className="inline-flex size-4">{runtime}</span>
@@ -102,7 +100,7 @@ export function AgentAvatar({
 }
 
 /** Decorative runtime disc on a Bot's face. */
-function AgentRuntimeBadge({ provider, size }: { provider: AgentProvider; size: number }) {
+function AgentRuntimeBadge({ provider, size }: { provider?: AgentProvider | null; size: number }) {
   return (
     <span
       aria-hidden="true"

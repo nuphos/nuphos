@@ -31,7 +31,9 @@ export async function handOutLinearToken(
   // The turn acts as its member (the sender, or the session owner for automated
   // work) when they connected this workspace, unless it asks for the team identity.
   const subject = await personalCredentialSubjectFor('linear', authorization, identity)
-  const personal = subject ? await personalLinearToken(subject.userId, binding.workspaceId) : null
+  const personal = subject
+    ? await personalLinearToken(subject.userId, binding.workspaceId, subject.connectionIds)
+    : null
 
   if (personal) return { ...personal, personalLogin: personal.login }
   try {

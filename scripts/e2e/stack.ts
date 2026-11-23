@@ -6,7 +6,6 @@ import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
-import { startDiscordStub } from './discord-stub.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
 import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
 import { rollBackend, startRedis } from './replicas.ts'
@@ -65,13 +64,17 @@ function findOpenab(): string {
   )
 }
 
+function onPath(command: string): boolean {
+  return spawnSync(command, ['--version'], { stdio: 'ignore' }).status === 0
+}
+
 /** E2E_MONGODB_URI, else a mongod on this computer (MONGOD names it), else the compose stack's image. */
 export function startMongo(freePort: number): string {
   if (process.env.E2E_MONGODB_URI) return process.env.E2E_MONGODB_URI
   const port = String(freePort)
   const mongod = process.env.MONGOD ?? 'mongod'
 
-  if (spawnSync(mongod, ['--version'], { stdio: 'ignore' }).status === 0) {
+  if (onPath(mongod)) {
     const dbpath = join(artifacts, 'mongo')
 
     mkdirSync(dbpath, { recursive: true })
@@ -135,7 +138,7 @@ function signInCode(address: string): string | undefined {
 }
 
 export async function startStack(
-  options: { botOnboarding?: boolean; boxes?: boolean; freeBox?: boolean; redis?: boolean } = {},
+  options: { botOnboarding?: boolean; boxes?: boolean; redis?: boolean } = {},
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
@@ -144,7 +147,6 @@ export async function startStack(
     ...(await startStorage(storagePort)),
     ...(await startInstaboxStub()),
     ...(await startSlackStub()),
-    ...(await startDiscordStub()),
     ...(await startWebhookReceiver()),
   }
 
@@ -219,9 +221,6 @@ export async function startStack(
       env: {
         ...backendEnv(port, url, mongoUri),
         ...(options.boxes ? { NUPHOS_PUBLIC_BACKEND_URL: apiUrl } : {}),
-        ...(options.freeBox
-          ? { BOX_DEFAULT_MONTHLY_HOURS: '50', BOX_DEFAULT_VCPU_LIMIT: '2' }
-          : {}),
         ...fakes,
       },
     })

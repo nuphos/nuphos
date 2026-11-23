@@ -1,5 +1,5 @@
 import { File, Image as ImageIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { api } from '../../../api'
@@ -46,8 +46,6 @@ type Props = {
   onOpenSession: (sessionId: string) => void
   /** Opens the conversation in the main pane at the message asking this question. */
   onOpenRequest: (sessionId: string, target?: JournalChatTarget) => void
-  /** Where a question under "Needs your input" opens instead: a Bot's details send it to the Inbox. */
-  onSelectRequest?: (request: SessionInputRequest) => void
   requests: SessionInputRequest[]
   requestsLoaded: boolean
   requestsFailed: boolean
@@ -164,7 +162,6 @@ function SummaryBody({
   onOpenLink,
   onOpenSession,
   onOpenRequest,
-  onSelectRequest,
   requests,
   requestsLoaded,
   requestsFailed,
@@ -183,14 +180,17 @@ function SummaryBody({
   const frameRef = useRef<HTMLSpanElement>(null)
   const docked = useChatSummaryDocked(paneId)
   const [selected, setSelected] = useState<SessionInputRequest | null>(null)
-  // Its own question is answered in its own chat, not in a second copy beside it.
+  // A question this conversation asked is answered in its own chat: a second copy
+  // of the same transcript beside it would only repeat it.
   const select = (request: SessionInputRequest) => {
-    if (onSelectRequest) return onSelectRequest(request)
-    if (request.sessionId !== sessionId) return setSelected(request)
-    const { id, question, options } = request.inputRequest
+    if (request.sessionId === sessionId) {
+      const { id, question, options } = request.inputRequest
 
-    setSelected(null)
-    onOpenRequest(sessionId, { toolCallId: id, question, options })
+      setSelected(null)
+      onOpenRequest(sessionId, { toolCallId: id, question, options })
+    } else {
+      setSelected(request)
+    }
   }
   const { loaded, conversation, threads, outputs } = useChatSummary(sessionId, teamId)
   // The lists that listed these threads published their states to the shared store.
@@ -202,6 +202,19 @@ function SummaryBody({
   const { floating, style } = useSummaryPlacement(frameRef, selected !== null, docked)
 
   useDismissOutside(rootRef, dismiss, floating && !closing, popover)
+  // A chat opened before stays in the page, hidden, for a quick switch back. This floating panel
+  // sits at the root, outside what hides, so it hides with its chat and shows again with it.
+  useEffect(() => {
+    const frame = frameRef.current
+    const root = rootRef.current
+
+    root?.style.removeProperty('display')
+
+    return () => {
+      if (root && !frame?.checkVisibility()) root.style.display = 'none'
+    }
+  }, [floating])
+
   const panel = (
     <aside
       ref={rootRef}

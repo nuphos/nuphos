@@ -13,7 +13,6 @@ import { teamRuntimeFallbacks } from '@/models'
 import { resolveConversationChatRuntime } from './conversation-chat-route'
 import { moveConversationRuntime } from './conversation-runtime-move'
 import { turnFailureCause } from './openab-acp-errors'
-import { userSetupFailure } from './plain-failure'
 import { listRuntimeInstances, listRuntimeQuotas } from './runtime-catalog'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -38,9 +37,9 @@ const CONVERSATION_REFUSALS = new Set([
 
 type Conversation = AgentConversation & { teamId: string; runtimeId: string }
 
-/** The turn failed because of the agent: out of usage, signed out, unreachable, or not serving its model. */
+/** The turn failed because of the agent: out of usage, signed out, or unreachable. */
 export function runtimeFailed(error: unknown): boolean {
-  return turnFailureCause(error) !== 'other' || userSetupFailure(error) === 'model_unavailable'
+  return turnFailureCause(error) !== 'other'
 }
 
 /**

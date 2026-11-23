@@ -52,9 +52,8 @@ export const queuedRefusal = (error: unknown, queued: unknown) =>
     : error
 
 /**
- * A failed turn on a computer below the support floor says so: the error is the one thing every
- * client shows, old ones included. A newer release alone is no cause: most failures, a timeout
- * among them, are not fixed by updating. A refusal stays as it is,
+ * A failed turn on a computer below the support floor, or with a newer Nuphos waiting, says so:
+ * the error is the one thing every client shows, old ones included. A refusal stays as it is,
  * and so does a sign-in or usage failure, whose fix is not an update.
  */
 export async function noteOutdated(

@@ -17,7 +17,6 @@ import {
   SquareTerminal,
   SunMedium,
   Users,
-  Vault,
   Webhook,
 } from 'lucide-react'
 
@@ -103,7 +102,6 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'account.profile', label: t('Profile'), icon: CircleUserRound },
       { key: 'account.devices', label: t('Signed-in devices'), icon: MonitorSmartphone },
       { key: 'account.mfa', label: t('Two-factor authentication'), icon: LockKeyhole },
-      { key: 'account.vault', label: t('Vault'), icon: Vault },
     ],
   },
   {

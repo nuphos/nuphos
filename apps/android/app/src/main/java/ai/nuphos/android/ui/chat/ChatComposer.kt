@@ -126,7 +126,6 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ai.nuphos.android.model.ComposerAttachment
 import ai.nuphos.android.model.ComposerSubmission
@@ -194,7 +193,6 @@ fun ChatComposer(
     modifier: Modifier = Modifier,
     /** Who the message goes to, e.g. "Message #release-planning" in a chat. */
     placeholder: String? = null,
-    bottomPadding: Dp = 8.dp,
     /** Each change raises the keyboard, as choosing to reply does. */
     focusRequest: Int = 0,
     autoFocus: Boolean = false,
@@ -613,7 +611,7 @@ fun ChatComposer(
     }
     val suggestedNextLabel = stringResource(R.string.composer_suggested_next)
     val fieldLabel = if (offersQueue) stringResource(R.string.composer_queue_a_message) else placeholder ?: stringResource(R.string.composer_ask_nuphos)
-    Column(modifier.fillMaxWidth().imePadding().padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = bottomPadding),
+    Column(modifier.fillMaxWidth().imePadding().padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
     if (suggestion != null) {
         Surface(onClick = {
@@ -633,7 +631,7 @@ fun ChatComposer(
         }
     }
     Surface(
-        modifier = Modifier.fillMaxWidth().testTag("chat-composer-surface")
+        modifier = Modifier.fillMaxWidth()
             .graphicsLayer { translationY = handleDrag },
         shape = RoundedCornerShape(24.dp),
         color = colors.surfaceContainerHigh,

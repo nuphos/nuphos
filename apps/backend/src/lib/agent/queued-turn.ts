@@ -201,12 +201,13 @@ const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
 
 /**
  * A send that failed to start waits for another try when the failure can pass:
- * a busy or rate-limited runtime. Anything else
+ * a busy or rate-limited runtime, or an approval still to come. Anything else
  * (an agent that is gone or signed out, a declined computer) never will, so
  * its sender is told instead of the queue being held behind it.
  */
 const mayStartLater = (error: unknown) =>
-  error instanceof AppError && RETRYABLE_STATUS.has(error.status)
+  error instanceof AppError &&
+  (RETRYABLE_STATUS.has(error.status) || error.code === 'local_share_approval_required')
 
 /**
  * A server error or an offline computer usually passes within moments. It is retried

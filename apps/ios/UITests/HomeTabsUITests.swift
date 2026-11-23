@@ -39,13 +39,10 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
         tabs.buttons["Bots"].tap()
         app.staticTexts["design-review"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Everyone here sees each message")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["chat.empty"].waitForExistence(timeout: 5))
         shot("native-tabs-conversation")
         if app.windows.firstMatch.horizontalSizeClass == .compact {
             app.navigationBars.buttons["BackButton"].tap()
-        }
-        if app.keyboards.buttons["Hide keyboard"].exists {
-            app.keyboards.buttons["Hide keyboard"].tap()
         }
         tabs.buttons["Tasks"].tap()
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
@@ -159,7 +156,7 @@ final class HomeTabsUITests: XCTestCase {
         app.navigationBars.buttons["Cancel"].tap()
         tabs.buttons["Bots"].tap()
         app.staticTexts["design-review"].firstMatch.tap()
-        XCTAssertTrue(app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH %@", "Everyone here sees each message")).firstMatch.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["chat.empty"].waitForExistence(timeout: 5))
         shot("review-bot-conversation")
         if !wide { app.navigationBars.buttons["BackButton"].tap() }
         tabs.buttons["Tasks"].tap()
@@ -221,28 +218,6 @@ final class HomeTabsUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["New Task"].waitForNonExistence(timeout: 10))
         XCTAssertTrue(app.buttons["conversation-trigger-entry"].waitForExistence(timeout: 10), "Submission must open the conversation after the sheet closes")
         shot("new-task-submitted")
-    }
-
-    /// #3433: on iPhone Duo's folded cover screen Account hung past the screen's edge. On every
-    /// device the three actions sit in the header at the top of the screen, whole and tappable.
-    func testHomeActionsStayInTopHeader() throws {
-        let app = XCUIApplication()
-        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "tests/fixtures/channel-responses.json")
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-AppleInterfaceStyle", "Light"]
-        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
-        app.launch()
-
-        XCTAssertTrue(app.buttons["Account"].waitForExistence(timeout: 10))
-        let window = app.windows.firstMatch.frame
-        let team = app.buttons["Switch team"].firstMatch.frame
-        for name in ["Create", "Computers & runtimes", "Account"] {
-            let button = app.buttons[name].firstMatch
-            XCTAssertTrue(button.isHittable, "\(name) must be tappable")
-            XCTAssertTrue(window.contains(button.frame), "\(name) at \(button.frame) must be inside \(window)")
-            XCTAssertLessThan(abs(button.frame.midY - team.midY), 8, "\(name) at \(button.frame) must sit in the header beside the team at \(team)")
-        }
-        shot("home-actions-in-top-header")
     }
 
     private func shot(_ name: String) {

@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Check, ChevronRight, CircleAlert, Loader2, Square } from 'lucide-react'
+import { Check, ChevronRight, CircleAlert, Loader2, MessagesSquare, Square } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import { AgentAvatar } from '../AgentAvatar'
@@ -104,7 +104,11 @@ export function ThreadBadge({
   const href = threadHref(teamId, info.threadId, status)
   const body = (
     <>
-      <AgentAvatar agentId={info.threadId ?? ''} provider={info.agentRuntime ?? provider} />
+      {info.threadId ? (
+        <AgentAvatar agentId={info.threadId} provider={provider} />
+      ) : (
+        <MessagesSquare aria-hidden strokeWidth={1.75} className="size-6 shrink-0 text-tertiary" />
+      )}
       <span className="min-w-0 max-w-[64ch]">
         <span className="block truncate font-medium leading-5" title={name}>
           {name}

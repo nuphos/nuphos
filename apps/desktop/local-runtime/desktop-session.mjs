@@ -380,11 +380,9 @@ function computerUse(env) {
     child,
     send: (message) => child.stdin.write(`${JSON.stringify(message)}\n`),
     onMessage: (handle) => lines(child.stdout, handle),
-    // EOF, not a signal: the runtime's stop already signals the whole process group,
-    // and a second signal hangs the proxy for good.
     kill: () => {
       child.removeAllListeners('exit')
-      child.stdin.end()
+      child.kill('SIGTERM')
     },
   }
 }

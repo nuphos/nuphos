@@ -34,8 +34,6 @@ export function AllowedEmailDomainCard({
   // admin (it's the domain that WOULD be enabled); for other members it would
   // imply the workspace is tied to their domain when it isn't.
   const displayDomains = enabled ? storedDomains : isAdmin && userDomain ? [userDomain] : []
-  // The backend owns the public-provider list and says whether the admin's own domain is on it.
-  const publicDomain = isAdmin && !enabled && team.viewerEmailDomainPublic === true
   const [saving, setSaving] = useState(false)
 
   async function toggle(next: boolean) {
@@ -70,12 +68,16 @@ export function AllowedEmailDomainCard({
             {displayDomains.map((domain) => `@${domain}`).join(', ') || '—'}
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
-            {rowHint({ enabled, isAdmin, publicDomain, domain: userDomain })}
+            {enabled
+              ? t('Teammates on this domain can join this workspace.')
+              : isAdmin
+                ? t('Your email domain, taken from your account.')
+                : t('Disabled for this workspace.')}
           </div>
         </div>
         <Switch
           checked={enabled}
-          disabled={!isAdmin || saving || publicDomain}
+          disabled={!isAdmin || saving}
           label={enabled ? t('Disable domain discovery') : t('Enable domain discovery')}
           onChange={(next) => void toggle(next)}
         />
@@ -83,22 +85,4 @@ export function AllowedEmailDomainCard({
       {!isAdmin && <AdminOnlyHint teamId={team.id} />}
     </div>
   )
-}
-
-function rowHint(state: {
-  enabled: boolean
-  isAdmin: boolean
-  publicDomain: boolean
-  domain: string
-}) {
-  if (state.enabled) return t('Teammates on this domain can join this workspace.')
-  if (state.publicDomain)
-    return t(
-      "{domain} is a public email provider, so it can't be used. Sign in with a company email to turn this on.",
-      { domain: state.domain },
-    )
-
-  return state.isAdmin
-    ? t('Your email domain, taken from your account.')
-    : t('Disabled for this workspace.')
 }

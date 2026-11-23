@@ -78,17 +78,6 @@ class ChatRowTest {
         assertEquals(listOf("c", "question", "d", "plan"), rows.filterIsInstance<ChatRow.Tool>().map { it.part.toolCallId })
     }
 
-    /** The desktop's label: the duration as `2m 37s`, no step count, and `Worked` with no duration. */
-    @Test fun workTitleMatchesTheDesktop() {
-        fun title(vararg parts: ChatPart) = ChatRow.rows(listOf(ChatMessage(id = "timed", parts = parts.toList() + ChatPart.Text(text = "Final"))))
-            .filterIsInstance<ChatRow.Work>().single().title
-        val start = 1_700_000_000_000.0
-        assertEquals("Worked for 2m 37s", title(tool("a").copy(startedAt = start, completedAt = start + 5_000),
-            ChatPart.Reasoning(text = "Between"), tool("b").copy(startedAt = start + 150_000, completedAt = start + 157_000)))
-        assertEquals("Worked", title(tool("a"), ChatPart.Reasoning(text = "Between"), tool("b")))
-        assertEquals(listOf("12s", "1m", "3m 5s", "1h", "1h 20m"), listOf(12, 60, 185, 3600, 4800).map { ChatRow.formatWorkDuration(it) })
-    }
-
     @Test fun completedWorkKeepsOriginalStepCountAndPendingApprovalIsNotFolded() {
         val parts = listOf(tool("a"), ChatPart.Reasoning(text = "Between"), tool("b"), ChatPart.Text(text = "Final"))
         val finished = ChatRow.rows(listOf(ChatMessage(id = "complete", parts = parts)))

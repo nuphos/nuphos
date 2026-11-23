@@ -55,7 +55,7 @@ export function useWorkspaceAgentLinks(a: Args) {
 
   const openAgentChatDeepLink = useCallback(
     (payload: AgentChatDeepLinkPayload) => {
-      if (payload.teamId) workspaceActions.enterTeam(payload.teamId)
+      if (payload.teamId) workspaceActions.openTeamTab(payload.teamId)
       const text = [
         payload.prompt,
         payload.cwd ? `Working directory: ${payload.cwd}` : '',

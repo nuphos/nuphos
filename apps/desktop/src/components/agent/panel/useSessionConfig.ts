@@ -76,11 +76,7 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     open,
     setOpen: (next: boolean) => {
       setOpen(next)
-      if (next)
-        refreshLocalModels(
-          () => api.localRuntimeRefreshModels(true),
-          () => void sync.refresh(),
-        )
+      if (next) refreshLocalModels(api.localRuntimeRefreshModels, () => void sync.refresh())
     },
     select: (selection: SessionConfigSelection) => {
       void sync.select(selection)

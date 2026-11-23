@@ -8,7 +8,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { TransferTeamOwnershipResult } from '@/lib/identity/team-roles'
-import type { NuphosTeam, NuphosTeamMember } from '@/lib/identity/types'
+import type { NuphosTeamMember } from '@/lib/identity/types'
 import type { TeamAuthVariables } from '@/middleware/auth'
 
 const MEMBER: NuphosTeamMember = {
@@ -21,17 +21,6 @@ const MEMBER: NuphosTeamMember = {
   createdAt: '2026-10-02T00:00:00.000Z',
   role: 'VIEWER',
   joinedAt: '2026-10-02T00:00:00.000Z',
-}
-const TEAM: NuphosTeam = {
-  id: 'team-1',
-  name: 'Workspace',
-  avatarUrl: '',
-  ownerID: 'owner-1',
-  contactEmails: [],
-  allowedEmailDomains: [],
-  agentRuntime: 'claude-code',
-  createdAt: '2026-10-01T00:00:00.000Z',
-  billing: { activated: true, active: true },
 }
 const REMOVED = { ...MEMBER, id: 'removed-1', removedAt: '2026-10-02T01:00:00.000Z' }
 const REJOINED_TOMBSTONE = { ...REMOVED, id: MEMBER.id, role: 'EDITOR' as const }
@@ -106,36 +95,19 @@ useBoxInstabox({
 
 const { registerTeamManagementRoutes } = await import('./management')
 
-function createApp(teamId = 'team-1', userEmail = 'admin@example.com') {
+function createApp(teamId = 'team-1') {
   const app = new Hono<{ Variables: TeamAuthVariables }>()
 
   app.onError(errorHandler)
   app.use('*', async (c, next) => {
     c.set('teamId', teamId)
     c.set('teamRole', 'ADMINISTRATOR')
-    c.set('userEmail', userEmail)
-    c.set('team', { ...TEAM, id: teamId })
     await next()
   })
   registerTeamManagementRoutes(app)
 
   return app
 }
-
-describe('GET /', () => {
-  test('says whether the viewer’s email domain is a public provider', async () => {
-    for (const [email, isPublic] of [
-      ['bryan@gmail.com', true],
-      ['admin@example.com', false],
-    ] as const) {
-      const body = (await (await createApp('team-1', email).request('/')).json()) as {
-        viewerEmailDomainPublic: boolean
-      }
-
-      expect(body.viewerEmailDomainPublic).toBe(isPublic)
-    }
-  })
-})
 
 describe('GET /members/:memberId', () => {
   test('returns the member from the current team', async () => {

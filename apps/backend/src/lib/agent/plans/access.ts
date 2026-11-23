@@ -1,5 +1,5 @@
 import { agentConversations } from '@/lib/agent/db'
-import { ACCESS_PROJECTION, canReply } from '@/lib/agent/db/access'
+import { canReply } from '@/lib/agent/db/access'
 import { resolveConversationAccess } from '@/lib/agent/devices/conversation-computer'
 import { AppError } from '@/lib/errors'
 
@@ -12,7 +12,14 @@ export async function assertPlanAccess(plan: PlanDTO, userId: string, need: 'rea
   const conversation = await agentConversations().findOne(
     { sessionId: plan.sourceConversationId },
     {
-      projection: { ...ACCESS_PROJECTION, runtimeId: 1 },
+      projection: {
+        userId: 1,
+        teamId: 1,
+        runtimeId: 1,
+        generalAccess: 1,
+        participantIds: 1,
+        kind: 1,
+      },
     },
   )
 

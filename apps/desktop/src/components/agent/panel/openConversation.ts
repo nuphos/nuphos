@@ -3,6 +3,7 @@ import { t } from '../../../i18n/index.ts'
 import { publishRuntimeStates } from '../../../lib/agentRuntimeStates.ts'
 import { trackError } from '../../../lib/analytics.ts'
 import { queryClient } from '../../../lib/query/client.ts'
+import { queryKeys } from '../../../lib/query/keys.ts'
 import { rememberOpenedConversation } from '../../../lib/openedConversation.ts'
 import { toast } from '../../ui/toast.ts'
 
@@ -14,7 +15,7 @@ import { loadedCredentialOptions } from './loadedCredentialOptions.ts'
 import { fromPersistedMessages, transcriptSignature } from './persistence.ts'
 import { retainOpenedTabs, touchOpenedTab } from './sessionContinuity.ts'
 import { INTERRUPTED_TOOL_MESSAGE, uid } from './stall.ts'
-import { cachedTask, fetchTask, readTask } from './taskTranscript.ts'
+import { cachedTask, readTask } from './taskTranscript.ts'
 import { getAgentLocale } from './textUtils.ts'
 import { toUiMessages } from './toUiMessages.ts'
 
@@ -235,11 +236,9 @@ export async function runOpenConversation(
   })
   try {
     // The runtime probe is skipped unless a run needs confirming; the catch-up
-    // poll fetches runtime state as soon as the tab is active. A read the row's
-    // hover or the recent Tasks prefetch started is joined: a second would queue
-    // behind it, a whole round trip more before the Task shows (#3523).
+    // poll fetches runtime state as soon as the tab is active.
     const [detail, options] = await Promise.all([
-      teamId ? fetchTask(queryClient, teamId, sessionId) : readTask(teamId, sessionId),
+      readTask(teamId, sessionId),
       loadedCredentialOptions(teamId, credentialOptions),
     ])
 
@@ -251,6 +250,7 @@ export async function runOpenConversation(
 
       return
     }
+    if (teamId) queryClient.setQueryData(queryKeys.task(teamId, sessionId), detail)
     show(detail, options)
   } catch (err) {
     if (openGenerationRef.current !== generation) {

@@ -7,7 +7,6 @@ import { ObjectId } from 'mongodb'
 import { hostedAvatarOwner } from '@/lib/identity/avatar-url'
 import { options } from '@/lib/test/credential-options-fixture'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useCredentialOptions } from '@/lib/test/doubles/credential-options'
 import { useDb } from '@/lib/test/doubles/db'
@@ -18,11 +17,6 @@ import { agent } from './router'
 let optionsLoad = () => Promise.resolve(options)
 
 useCredentialOptions({ getAgentCredentialOptions: () => optionsLoad() })
-
-// A Bot made without a runtime goes on its owner's default one.
-useConversationChatRoute({
-  resolveNewConversationRuntime: async () => ({ agentRuntime: 'claude-code' }),
-})
 
 const turns: { text: string; avatar?: string }[] = []
 
@@ -299,8 +293,6 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
           avatar: body.avatar,
         },
       },
-      // On its owner's default agent, so every list shows its runtime from the start.
-      agentRuntime: 'claude-code',
     },
   ])
 })

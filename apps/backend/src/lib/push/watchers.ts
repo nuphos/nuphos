@@ -10,10 +10,7 @@ import type { AgentConversation } from '@/lib/agent/db'
  * `watcherIds`.
  */
 export async function watcherCanRead(
-  conversation: Pick<
-    AgentConversation,
-    'userId' | 'teamId' | 'generalAccess' | 'participantIds' | 'kind' | 'avatar'
-  >,
+  conversation: Pick<AgentConversation, 'userId' | 'teamId' | 'generalAccess' | 'participantIds'>,
   userId: string,
   isMember: (userId: string, teamId: string) => Promise<unknown> = getTeamMembership,
 ): Promise<boolean> {

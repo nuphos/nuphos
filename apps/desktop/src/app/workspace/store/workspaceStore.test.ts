@@ -352,7 +352,7 @@ test('an open dock tab steps its own history before the conversation does', () =
   actions.retainTeams([TEAM_A], TEAM_A)
   actions.selectSession('session-a')
   actions.selectSession('session-b')
-  actions.openTab(createWorkspaceTab(TEAM_A))
+  actions.openTeamTab(TEAM_A)
   actions.setDockOpen(true)
   actions.updateActiveTab((tab) => ({ ...tab, active: 'team.architecture' }))
 

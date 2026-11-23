@@ -2,8 +2,6 @@ import type { AgentMessageMention } from '../../../api/agent-types'
 
 /** A fragment, so sanitizing keeps it and it never leaves the app. */
 export const MENTION_HREF = '#mention:'
-/** A chat's agent, told apart from a person's id in a mention link. */
-export const AGENT_MENTION = 'agent:'
 
 export function parseMentions(value: unknown): AgentMessageMention[] | undefined {
   if (!Array.isArray(value)) return undefined
