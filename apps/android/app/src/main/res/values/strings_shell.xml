@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Home -->
     <string name="shell_ok">OK</string>
     <string name="shell_close">Close</string>
@@ -17,7 +17,7 @@
     <string name="shell_collapsed">Collapsed</string>
     <string name="shell_inbox_badge">%1$d in Inbox</string>
     <string name="shell_start_new_task">Start a new task</string>
-    <string name="shell_choose_workspace">Choose or set up a workspace to get started.</string>
+    <string name="shell_choose_workspace">Choose or set up a team to get started.</string>
     <string name="shell_link_error_title">Could not open task</string>
     <string name="shell_link_unavailable">This task is unavailable or your account does not have access.</string>
     <string name="shell_link_expired">Sign-in has expired. Sign in again to open this agent.</string>
@@ -60,9 +60,9 @@
     <string name="shell_request_code_in">You can request another code in %1$ds.</string>
     <string name="shell_use_email_code">Use an email code instead</string>
     <string name="shell_use_password">Use a password</string>
-    <string name="shell_terms_agreement" translatable="false">By continuing, you agree to our %1$s and %2$s.</string>
-    <string name="shell_terms_of_service" translatable="false">Terms of Service</string>
-    <string name="shell_privacy_policy" translatable="false">Privacy Policy</string>
+    <string name="shell_terms_agreement" tools:ignore="MissingTranslation">By continuing, you agree to our %1$s and %2$s.</string>
+    <string name="shell_terms_of_service" tools:ignore="MissingTranslation">Terms of Service</string>
+    <string name="shell_privacy_policy" tools:ignore="MissingTranslation">Privacy Policy</string>
     <string name="shell_email_code_field">6-digit email code</string>
 
     <!-- Sign-in errors (AuthSession) -->
@@ -89,33 +89,33 @@
     <string name="shell_auth_incomplete_connection">Sign-in did not complete. Check your connection, then try again.</string>
 
     <!-- Workspace setup -->
-    <string name="shell_set_up_workspace">Set up a workspace</string>
-    <string name="shell_workspace_setup_body">Create a workspace, join an available workspace, or refresh after accepting an invitation from its link.</string>
-    <string name="shell_workspace_name">Workspace name</string>
-    <string name="shell_create_workspace">Create workspace</string>
-    <string name="shell_workspaces_to_join">Workspaces you can join</string>
-    <string name="shell_no_workspaces_to_join">No workspaces are available to join for this account.</string>
+    <string name="shell_set_up_workspace">Set up a team</string>
+    <string name="shell_workspace_setup_body">Create a team, join an available team, or refresh after accepting an invitation from its link.</string>
+    <string name="shell_workspace_name">Team name</string>
+    <string name="shell_create_workspace">Create team</string>
+    <string name="shell_workspaces_to_join">Teams you can join</string>
+    <string name="shell_no_workspaces_to_join">No teams are available to join for this account.</string>
     <string name="shell_join_workspace">Join %1$s</string>
-    <string name="shell_refresh_workspaces">Refresh workspaces</string>
-    <string name="shell_workspace_may_have_completed">The request may have completed. Closing this sheet does not undo a saved workspace.</string>
-    <string name="shell_saved_workspaces">Saved workspaces</string>
+    <string name="shell_refresh_workspaces">Refresh teams</string>
+    <string name="shell_workspace_may_have_completed">The request may have completed. Closing this sheet does not undo a saved team.</string>
+    <string name="shell_saved_workspaces">Saved teams</string>
     <string name="shell_use_workspace">Use %1$s</string>
-    <string name="shell_reviewed_workspaces">I reviewed saved workspaces</string>
-    <string name="shell_workspace_closed_pending">The request may have saved a workspace. Refresh and review your saved workspaces before continuing.</string>
-    <string name="shell_workspace_discovery_failed">We could not load workspaces to join. %1$s</string>
-    <string name="shell_workspace_name_length">Use a workspace name with 1–80 characters.</string>
-    <string name="shell_workspace_review_pending">The request may have saved a workspace. Review your saved workspaces before continuing.</string>
-    <string name="shell_workspace_selected">Workspace selected: %1$s</string>
-    <string name="shell_workspace_unidentified">We could not identify the saved result. Review your saved workspaces; no request was sent again.</string>
-    <string name="shell_workspace_review_complete">Review complete. A new action can create or join another workspace.</string>
-    <string name="shell_workspace_forbidden">You are not allowed to join this workspace.</string>
-    <string name="shell_workspace_gone">This workspace is no longer available.</string>
-    <string name="shell_workspace_rejected">The workspace request was rejected. Check the name or refresh the list.</string>
-    <string name="shell_workspace_conflict">The workspace request conflicts with saved state. Refresh your workspaces.</string>
-    <string name="shell_workspace_unconfirmed">We could not confirm the result. Refresh your saved workspaces.</string>
+    <string name="shell_reviewed_workspaces">I reviewed saved teams</string>
+    <string name="shell_workspace_closed_pending">The request may have saved a team. Refresh and review your saved teams before continuing.</string>
+    <string name="shell_workspace_discovery_failed">We could not load teams to join. %1$s</string>
+    <string name="shell_workspace_name_length">Use a team name with 1–80 characters.</string>
+    <string name="shell_workspace_review_pending">The request may have saved a team. Review your saved teams before continuing.</string>
+    <string name="shell_workspace_selected">Team selected: %1$s</string>
+    <string name="shell_workspace_unidentified">We could not identify the saved result. Review your saved teams; no request was sent again.</string>
+    <string name="shell_workspace_review_complete">Review complete. A new action can create or join another team.</string>
+    <string name="shell_workspace_forbidden">You are not allowed to join this team.</string>
+    <string name="shell_workspace_gone">This team is no longer available.</string>
+    <string name="shell_workspace_rejected">The team request was rejected. Check the name or refresh the list.</string>
+    <string name="shell_workspace_conflict">The team request conflicts with saved state. Refresh your teams.</string>
+    <string name="shell_workspace_unconfirmed">We could not confirm the result. Refresh your saved teams.</string>
 
     <!-- Agent store -->
-    <string name="shell_bot_no_runtime">This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.</string>
+    <string name="shell_bot_no_runtime">This team has no runtime yet. Add one on the Runtimes page, then create your Bot.</string>
     <string name="shell_bot_chat_failed">The Bot was created, but its chat didn\'t open. Try again.</string>
     <string name="shell_bot_create_failed">Couldn\'t create this Bot. Try again.</string>
     <string name="shell_chat_fallback_title">Chat</string>
@@ -173,7 +173,7 @@
     <string name="shell_voice_prompt_save_failed">Could not save the prompt.</string>
     <string name="shell_voice_prompt">Transcription prompt</string>
     <string name="shell_voice_reset_prompt">Reset prompt</string>
-    <string name="shell_voice_prompt_help" translatable="false">The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.</string>
+    <string name="shell_voice_prompt_help" tools:ignore="MissingTranslation">The prompt guides spelling and writing style. Recordings are transcribed by OpenAI through Nuphos.</string>
 
     <!-- Remote desktop -->
     <string name="shell_desktop">Desktop</string>

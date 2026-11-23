@@ -148,8 +148,8 @@ class HomeNavigationFixtureDeviceTest {
                     }
                     detail -> """{"sessionId":"fixture-chat","title":"Synthetic active conversation","archivedAt":${if (archived) "\"2026-01-02T00:00:00Z\"" else "null"},"canManage":true,"isOwner":true,"messages":[]}"""
                     credentials -> "{}"
-                    consent -> """{"version":"2026-09-28","accepted":true}"""
-                    connectors -> "{}"
+                    consent -> """{"version":"2026-11-23","accepted":true}"""
+                    connectors -> if (accountConnectorFixture) """{"github":[{"id":"fixture-github","accountLogin":"synthetic-org","accountType":"Organization"}]}""" else "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
                         if (request.url.queryParameter("pendingDecision") == "true")
@@ -206,6 +206,8 @@ class HomeNavigationFixtureDeviceTest {
     private fun waitText(text: String) {
         compose.waitUntil(8_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }
+    private var accountConnectorFixture = false
+
     private fun render(newTask: Boolean = false, compact: Boolean = false, restoration: StateRestorationTester? = null, keyboard: Boolean = false) {
         memberships = listOf(a, b)
         compose.runOnIdle {
@@ -231,6 +233,9 @@ class HomeNavigationFixtureDeviceTest {
                     NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("fixtureDark") == "true") { Box(if (compact) Modifier.width(320.dp) else Modifier) {
                         // As in the app, home leaves on sign-out and comes back fresh on the next sign-in.
                         if (auth.state !is AuthSession.State.SignedIn) return@Box
+                        if (accountConnectorFixture) {
+                            LaunchedEffect(agent.selectedTeam) { connectors.select(agent.selectedTeam) }
+                        }
                         val nav = rememberNavController()
                         if (newTask) NavHost(nav, startDestination = "fixture-home") {
                             composable("fixture-home") {
@@ -467,6 +472,40 @@ class HomeNavigationFixtureDeviceTest {
         assertEquals(a.id, agent.selectedTeam?.id)
         noWrites()
         shot("bottom-tabs-tasks")
+    }
+
+    @Test fun accountShowsIntegrationsAndPersistsAvatarPreference() {
+        accountConnectorFixture = true
+        render()
+        val previous = app.botAvatarsEnabled
+        try {
+            compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
+            compose.onNodeWithText(app.getString(R.string.account_connectors)).performScrollTo().performClick()
+            compose.onNodeWithTag("account-connectors-title").assertIsDisplayed()
+            compose.onNodeWithTag("connector-inventory-list").assertIsDisplayed()
+            waitText("synthetic-org")
+            shot("account-connectors")
+            compose.onNodeWithTag("connector-catalog").performClick()
+            compose.onNodeWithTag("connector-catalog-panel").assertIsDisplayed()
+            compose.onNodeWithTag("connector-search").performTextInput("Linear")
+            compose.onNodeWithTag("connector-add-linear").assertIsDisplayed()
+            shot("account-connector-catalog")
+            compose.onNode(hasText(app.getString(R.string.done)) and
+                hasAnyAncestor(hasTestTag("connector-catalog-panel"))).performClick()
+            compose.onNode(hasText(app.getString(R.string.done)) and
+                hasAnySibling(hasTestTag("account-connectors-title"))).performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("account-connectors-title").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithTag("account-bot-avatars").performScrollTo().performClick()
+            compose.runOnIdle { assertEquals(!previous, app.botAvatarsEnabled) }
+            compose.onNodeWithText(app.getString(R.string.account_bot_avatars_help)).performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText(app.getString(R.string.profile_group_app_icon)).performScrollTo()
+            shot("account-appearance")
+            compose.onNodeWithTag("account-version").performScrollTo().assertIsDisplayed()
+            shot("account-version")
+            noWrites()
+        } finally {
+            compose.runOnIdle { app.updateBotAvatars(previous) }
+        }
     }
 
     @Test fun emptyBotsTabSaysWhatABotIsAndOffersTheFirstOne() {

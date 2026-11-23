@@ -171,7 +171,7 @@ const notConnected = (name: string) =>
   new AppError(
     404,
     'personal_credential_not_connected',
-    `This member has not connected ${name}. They can connect it in Settings → Personal Credentials.`,
+    `This member has not connected ${name}. They can connect it in Connectors.`,
   )
 
 const handedOut = (personal: { token: string; expiresAt: Date | null; login: string }) => ({

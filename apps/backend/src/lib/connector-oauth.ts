@@ -136,7 +136,7 @@ export async function claimConnectorOAuth(input: {
 
 /**
  * The list a staged grant is bound with. Grants staged before the access was
- * kept fall back to the team default, which a high-privilege connector never takes.
+ * kept start private to the member who connected them.
  */
 export function stagedGrantAccess(
   ready: Pick<ConnectorOAuthReady, 'access' | 'provider' | 'requesterUserId'>,

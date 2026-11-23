@@ -190,7 +190,8 @@ test('each frame is encoded at the time it arrived, however late the helper runs
   frame('AAAA', 1)
   const at = Number(/^draw\("AAAA", (\d+)\)$/.exec(page.scripts.at(-1) ?? '')?.[1])
 
-  assert.ok(at >= 300 && at < 1000, String(at))
+  // The timer can fire a millisecond before Date.now() has moved 300 ms on (CI measured 299).
+  assert.ok(at >= 290 && at < 1000, String(at))
 })
 
 test('a video with no frame at all fails record_stop instead of writing an empty WebM', async () => {

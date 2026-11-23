@@ -165,13 +165,12 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .agentSummary(isPresented: $summaryOpen) {
+        .sheet(isPresented: $summaryOpen) {
             AgentSummaryPanel(session: session, close: { summaryOpen = false }, archive: archiveTask) { row in
                 summaryOpen = false
                 summaryTarget = row
             }
             .environment(store)
-            .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -308,7 +307,7 @@ struct ConversationView: View {
                     await store.loadAgentDevices(metrics: false)
                 }
                 try? await Task.sleep(for: .seconds(15))
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         .task {

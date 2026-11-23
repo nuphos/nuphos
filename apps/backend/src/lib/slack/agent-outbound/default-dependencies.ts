@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto'
 import {
   appendSlackThreadMessage,
   bindSlackAgentThread,
-  getSlackAgentThreadBySessionId,
   listSlackChannelMappings,
 } from '@/lib/slack/agent-bot'
 import { postAgentSlackMessage } from '@/lib/slack/agent-message'
@@ -48,7 +47,6 @@ export const defaultDependencies: SlackOutboundDependencies = {
 
     return (await getTeamMembership(userId, teamId))?.role === 'ADMINISTRATOR'
   },
-  getThreadBySessionId: getSlackAgentThreadBySessionId,
   bindThread: bindSlackAgentThread,
   appendThreadMessage: appendSlackThreadMessage,
   newSessionId: randomUUID,

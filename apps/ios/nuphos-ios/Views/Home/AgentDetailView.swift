@@ -99,7 +99,7 @@ struct AgentDetailView: View {
             defer { busy = false }
             do {
                 let _: RuntimeInstance = try await WorkspaceAPI.request(path, token: token, method: "PATCH", body: .object(patch))
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             } catch {
                 self.error = error.localizedDescription
             }
@@ -114,7 +114,7 @@ struct AgentDetailView: View {
             defer { busy = false }
             do {
                 _ = try await AgentChatAPI.send("DELETE", path, token: token, body: nil as JSONValue?)
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
                 dismiss()
             } catch {
                 self.error = error.localizedDescription

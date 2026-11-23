@@ -36,7 +36,7 @@
     <string name="storetext_runtime_admin_required">Administrator permission is required. Your account stays signed in.</string>
     <string name="storetext_runtime_unconfirmed">We could not confirm the runtime result. Refresh saved state before continuing.</string>
     <string name="storetext_runtimes_refresh_failed">Could not refresh runtimes.</string>
-    <string name="storetext_runtimes_access_lost">Runtime access is no longer available in this workspace.</string>
+    <string name="storetext_runtimes_access_lost">Runtime access is no longer available in this team.</string>
     <string name="storetext_runtimes_usage_unavailable">Usage unavailable. Try refreshing.</string>
     <string name="storetext_runtimes_computers_unavailable">Computer status unavailable. Try refreshing.</string>
     <string name="storetext_runtime_unknown">Unknown runtime</string>

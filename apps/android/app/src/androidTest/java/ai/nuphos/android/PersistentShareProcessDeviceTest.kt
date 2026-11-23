@@ -116,7 +116,7 @@ class PersistentShareProcessDeviceTest {
                     unexpected += "${request.method} $path"
                     throw IOException("No link-triggered writes are allowed")
                 }
-                path == "/auth/ai-consent" -> """{"version":"2026-09-28","accepted":true}"""
+                path == "/auth/ai-consent" -> """{"version":"2026-11-23","accepted":true}"""
                 path == "/auth/me" -> Http.json.encodeToString(NuphosUser.serializer(), NuphosUser.preview)
                 path == "/teams" && onlyOtherTeam -> """{"teams":[{"id":"$b","name":"Fixture Beta"}]}"""
                 path == "/teams" -> { heldMemberships?.let { check(it.await(30, TimeUnit.SECONDS)) }; """{"teams":[{"id":"$a","name":"Fixture Alpha"},{"id":"$b","name":"Fixture Beta"}]}""" }

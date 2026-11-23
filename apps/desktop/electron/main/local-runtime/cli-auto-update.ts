@@ -208,11 +208,12 @@ export function cliAutoUpdate(apiUrl: () => string, changed: () => void, env = p
 
   return {
     activity,
+    // Only a host that updates itself shows the switch: a foreground one never would (#4792).
     wrap: <S extends object>(
       status: () => S,
       instances?: (request: unknown) => Promise<unknown>,
     ): [() => S & { autoInstall?: boolean }, typeof instances] =>
-      home
+      home && version && exe
         ? [
             () => ({ ...status(), autoInstall: readCliAutoInstall(home).enabled }),
             withAutoInstallRequest(instances, (value) => writeCliAutoInstall(home, value), changed),

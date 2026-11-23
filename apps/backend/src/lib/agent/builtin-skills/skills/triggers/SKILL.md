@@ -84,7 +84,8 @@ belongs to, for good:
 - The Task must be in the same team and owned by you. The trigger runs as the
   Task's owner, and only that owner can change or delete it.
 - If the Task is mid-turn, the fire queues and runs when that turn ends.
-  A fire into an archived Task restores it.
+  Archiving a Task deletes its Triggers. A fire that still reaches an archived
+  Task is refused and its Trigger is paused; it stays paused after a restore.
 - The session id is the last segment of its `/agent/<sessionId>` link; for the
   current conversation use `$NUPHOS_SESSION_ID`.
 - A trigger cannot be unbound. To report to Slack, say the exact destination

@@ -10,12 +10,15 @@ export type QueuedConversationMessage = {
   streamId?: string
 }
 
+/** The agent's usage limit holds the queue, until its reset when known. */
+export type QueueHeld = { reason: 'usage_limit'; until?: string }
+
 /** What waits in the session queue, in the order it runs. */
 export async function listConversationQueue(
   sessionId: string,
   teamId?: string,
-): Promise<{ messages: QueuedConversationMessage[] }> {
-  return callJson<{ messages: QueuedConversationMessage[] }>(
+): Promise<{ messages: QueuedConversationMessage[]; held?: QueueHeld }> {
+  return callJson<{ messages: QueuedConversationMessage[]; held?: QueueHeld }>(
     'GET',
     `/agent/conversations/${encodeURIComponent(sessionId)}/queue${teamQuery(teamId)}`,
   )

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_appearance">外観</string>
+    <string name="account_bot_avatars">ボットのアバター</string>
+    <string name="account_bot_avatars_help">Bot にキャラクターのアバターを表示します。オフにするとランタイムのアイコンを表示します。</string>
+    <string name="account_integrations">連携サービス</string>
+    <string name="account_connectors">コネクタ</string>
+    <string name="account_signed_in_accounts">サインイン中のアカウント</string>
+</resources>

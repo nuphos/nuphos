@@ -93,7 +93,7 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Appearance")
                 } footer: {
-                    Text("Give Agents a character avatar. Turn off to show Runtime icons.")
+                    Text("Give Bots a character avatar. Turn off to show Runtime icons.")
                 }
                 .listRowBackground(Theme.surface)
 

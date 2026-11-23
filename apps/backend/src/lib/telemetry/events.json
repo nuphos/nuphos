@@ -279,7 +279,6 @@
   "openab.runtime.session_stalled",
   "openab.runtime_pairing.compensation_failed",
   "personal_credential.callback_failed",
-  "personal_credential.installations_failed",
   "personal_credential.refresh_failed",
   "personal_credential.revoke_failed",
   "posthog.capture_event_failed",

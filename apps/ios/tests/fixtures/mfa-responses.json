@@ -12,7 +12,7 @@
   "GET /auth/ai-consent": {
     "status": 200,
     "body": {
-      "version": "2026-09-28",
+      "version": "2026-11-23",
       "accepted": true
     }
   },

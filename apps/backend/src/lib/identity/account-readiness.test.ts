@@ -191,6 +191,12 @@ test('consent defaults off, rejects stale notices, and is scoped to the authenti
   expect((await readAIConsent(String(USER))).accepted).toBe(false)
 })
 
+// The 2026-11-23 notice added OpenCode, xAI and DeepSeek, so earlier consent is asked for again.
+test('consent to the 2026-09-28 notice is asked for again', async () => {
+  Object.assign(docs('users')[0]!, { aiConsent: { version: '2026-09-28', accepted: true } })
+  expect(await readAIConsent(String(USER))).toEqual({ version: '2026-11-23', accepted: false })
+})
+
 test('deletion requires email proof and persists one deadline across retries', async () => {
   const user = mapUser(docs('users')[0] as NuphosUserDoc)
 

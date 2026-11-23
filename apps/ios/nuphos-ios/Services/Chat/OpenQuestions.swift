@@ -88,7 +88,7 @@ final class OpenQuestions {
             return
         }
         guard ids.allSatisfy(connected.contains) else {
-            failures[question.id] = String(localized: "Connect it in Settings → Personal Credentials first.")
+            failures[question.id] = String(localized: "Connect it in Connectors on Nuphos Desktop first.")
             return
         }
         guard var selection = await storedSelection(for: question) else { return }
