@@ -31,7 +31,7 @@ enum NuphosAPI {
 }
 
 enum AccountAPI {
-    static let aiConsentVersion = "2026-09-28"
+    static let aiConsentVersion = "2026-11-23"
     struct Consent: Codable { let version: String; let accepted: Bool }
     struct SignIn: Decodable { let token: String; let user: NuphosUser }
 

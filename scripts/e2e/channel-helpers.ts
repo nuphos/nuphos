@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { openComputers, pickInRow } from './ui.ts'
+import { openComputers, pickInRow, settingButton } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
@@ -89,10 +89,10 @@ export async function computerWithUsage(
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
+  await (await settingButton(page, /^Runtime:/)).click()
   await pickInRow(page, row, item)
-  // A Bot's move takes a moment; until it lands the composer still names the old runtime.
-  await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
+  // A Bot's move takes a moment; until it lands the control still names the old runtime.
+  await (await settingButton(page, new RegExp(`^Runtime: .*${row}`))).waitFor()
 }
 
 /** Shoots the composer in light; whether its runtime line shows the usage bar. */

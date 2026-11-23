@@ -11,7 +11,6 @@ import { t } from '../../i18n'
 
 import { AllowedEmailDomainCard } from './AllowedEmailDomainCard'
 import { AvatarPicker } from './AvatarPicker'
-import { BindingShareDefaultCard } from './BindingShareDefaultCard'
 import { DangerZone } from './DangerZone'
 import { DataMigrationCard } from './DataMigrationCard'
 import { GoogleOAuthClientCard } from './GoogleOAuthClientCard'
@@ -163,7 +162,6 @@ export function GeneralSection({
           </form>
 
           <AllowedEmailDomainCard team={team} userEmail={userEmail} onTeamUpdated={onTeamUpdated} />
-          <BindingShareDefaultCard team={team} onTeamUpdated={onTeamUpdated} />
           <GoogleOAuthClientCard team={team} />
 
           <DataMigrationCard team={team} />

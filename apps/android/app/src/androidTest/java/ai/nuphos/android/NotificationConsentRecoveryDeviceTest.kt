@@ -69,9 +69,9 @@ class NotificationConsentRecoveryDeviceTest {
                 check(request.method == "GET" && request.url.encodedPath == "/auth/ai-consent")
                 if (reply == "failure") { entered.countDown(); check(release.await(10, TimeUnit.SECONDS)); throw IOException("Synthetic offline") }
                 val body = when(reply) {
-                    "rejected" -> "{\"version\":\"2026-09-28\",\"accepted\":false}"
+                    "rejected" -> "{\"version\":\"2026-11-23\",\"accepted\":false}"
                     "version" -> "{\"version\":\"future-version\",\"accepted\":true}"
-                    else -> "{\"version\":\"2026-09-28\",\"accepted\":true}"
+                    else -> "{\"version\":\"2026-11-23\",\"accepted\":true}"
                 }
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("fixture")
                     .body(body.toResponseBody(Http.jsonMedia)).build()

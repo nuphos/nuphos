@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">この下書きを保存できませんでした。ストレージの空きを増やしてから、もう一度お試しください。</string>
-    <string name="composer_voice_unavailable">音声入力を使うには、ワークスペースを選択し、AI の共有設定を確認してください。</string>
+    <string name="composer_voice_unavailable">音声入力を使うには、チームを選択し、AI の共有設定を確認してください。</string>
     <string name="composer_voice_start_failed">音声入力を開始できませんでした。マイクの権限を確認してから、もう一度お試しください。</string>
     <string name="composer_voice_failed">音声入力に失敗しました</string>
     <string name="composer_add_to_draft">下書きに追加</string>
@@ -79,7 +79,7 @@
     <string name="composer_runtime_offline">このランタイムはオフラインです。再接続するとモデル設定が表示されます。</string>
     <string name="composer_runtime_no_model">このランタイムにはモデル設定がありません。</string>
     <string name="composer_share_open_failed">この下書きを開けませんでした。共有内容はまだ送信されていません。</string>
-    <string name="composer_share_no_workspace">この共有を受け取るには、「アカウント」でワークスペースを開いてください。まだ何も送信されていません。</string>
+    <string name="composer_share_no_workspace">この共有を受け取るには、「アカウント」でチームを開いてください。まだ何も送信されていません。</string>
     <string name="composer_preparing_draft">下書きを準備中</string>
     <string name="composer_open_draft_failed">下書きを開けませんでした</string>
     <string name="composer_preparing_share">共有されたコンテンツを準備中…</string>

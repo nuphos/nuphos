@@ -61,11 +61,15 @@ import ai.nuphos.android.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, showIntegrations: Boolean = false, onDismiss: () -> Unit) {
+fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (() -> Unit)? = null, workspacePicker: (@Composable (onBack: () -> Unit) -> Unit)? = null, teamId: String? = null, showIntegrations: Boolean = false, onDismiss: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val injectedVoice = ai.nuphos.android.voice.LocalVoiceServices.current
     val voiceServices = remember(context, injectedVoice) { injectedVoice ?: ai.nuphos.android.voice.deviceVoiceServices(context) }
     val auth = LocalAuthSession.current
+    var computerNotifications by remember(auth.generation, teamId) { mutableStateOf(false) }
+    val subscriptionToken = auth.token
+    val canSubscribe = teamId != null && subscriptionToken != null && auth.aiAllowed &&
+        ai.nuphos.android.data.BackendOrigin.supportsCloudPush()
     var showingConnectors by remember(auth.generation) { mutableStateOf(false) }
     var choosingWorkspace by remember(auth.generation) { mutableStateOf(false) }
     var confirm by remember { mutableStateOf(false) }
@@ -96,6 +100,7 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             onCopyUserId = { clipboard.setText(AnnotatedString((auth.user ?: user).id)) },
             accounts = { SavedAccountsList(auth, allowAdding = true, onSwitch = onDismiss) },
             voiceSettings = { ai.nuphos.android.voice.VoiceSettingsSection(voiceServices) },
+            onComputerNotifications = if (canSubscribe) ({ computerNotifications = true }) else null,
             integrations = if (showIntegrations && auth.aiAllowed) ({
                 ProfileAction(stringResource(R.string.account_connectors), disclosure = true, icon = R.drawable.account_connectors,
                     onClick = { showingConnectors = true })
@@ -140,6 +145,9 @@ fun ProfileSheet(user: NuphosUser, workspaceName: String? = null, onWorkspace: (
             containerColor = MaterialTheme.colorScheme.background) {
             workspacePicker { choosingWorkspace = false }
         }
+    }
+    if (computerNotifications && canSubscribe) {
+        ComputerNotificationsSheet(subscriptionToken, teamId) { computerNotifications = false }
     }
     if (edit) EditProfileSheet(user = auth.user ?: user, onDismiss = { edit = false })
     if (devices) SignedInDevicesSheet(onDismiss = { devices = false })
@@ -186,6 +194,7 @@ internal fun ProfileContent(
     onCopyUserId: () -> Unit = {},
     voiceSettings: @Composable () -> Unit,
     workspaceSettings: (@Composable () -> Unit)? = null,
+    onComputerNotifications: (() -> Unit)? = null,
     accounts: (@Composable () -> Unit)? = null,
     appearanceSettings: (@Composable () -> Unit)? = null,
     integrations: (@Composable () -> Unit)? = null,
@@ -242,6 +251,12 @@ internal fun ProfileContent(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     voiceSettings()
+                }
+            }
+            if (onComputerNotifications != null) {
+                ProfileGroup(stringResource(R.string.account_notifications)) {
+                    ProfileAction(stringResource(R.string.account_computer_alerts), disclosure = true,
+                        onClick = onComputerNotifications)
                 }
             }
             if (appearanceSettings != null) ProfileGroup(stringResource(R.string.account_appearance)) { appearanceSettings() }

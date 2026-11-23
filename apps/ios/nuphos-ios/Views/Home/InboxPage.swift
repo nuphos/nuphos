@@ -27,7 +27,7 @@ struct InboxPage: View {
     @ViewBuilder
     private var content: some View {
         if store.phase == .loaded, store.selectedTeam == nil {
-            SetupEmptyState(title: "No workspace yet", message: "Your Inbox will show requests from your team once you join a workspace.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+            SetupEmptyState(title: "No team yet", message: "Your Inbox will show requests from your team once you join one.", actionTitle: "Set up a team") { showWorkspaceSetup = true }
         } else if let inbox, inbox.loaded {
             if inbox.list.isEmpty {
                 VStack(spacing: 16) {

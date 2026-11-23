@@ -46,6 +46,11 @@ Say what the change does and why the problem exists, not just what you edited.
 If there was a choice between adding something and removing something, say why
 the subtraction did not work — that question comes up in review every time.
 
+In UI copy, call the Nuphos team a team (in other languages, that language's
+word for team), never a workspace. "Workspace" is only for a third-party
+service's own workspace, such as Slack, Notion or Linear, and for the local file
+workspace or working directory.
+
 Tests for behaviour, not for coverage. A test that would have caught the bug is
 worth more than three that restate the implementation.
 

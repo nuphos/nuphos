@@ -190,7 +190,7 @@ struct NewRuntimeSheet: View {
                 _ = try? await AgentChatAPI.send(
                     "DELETE", "\(path)/\(created.instanceId)",
                     query: [URLQueryItem(name: "teamId", value: team.id)], token: token, body: JSONValue?.none)
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         dismiss()

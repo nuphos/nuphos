@@ -178,12 +178,12 @@ export async function runTurn(
         // Only an unbroken run of offline tries counts; out of usage waits for its reset.
         const offlineSince = offline ? (head.offlineSince ?? new Date().toISOString()) : undefined
         const requeued = { ...head, offlineSince }
-        const until = limited ? await usageResetsAtOf(target).catch(() => undefined) : undefined
+        const usage = limited && { until: await usageResetsAtOf(target).catch(() => undefined) }
 
         if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, until)
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, usage)
         // A channel that woke it says why, once per post, however often it retries.
         if (limited)
           for (const channelId of new Set(fresh.flatMap((m) => channelIdOf(m) ?? [])))

@@ -35,7 +35,7 @@ final class HomeTabsUITests: XCTestCase {
         app.buttons["Close account"].tap()
         app.buttons["Computers & runtimes"].tap()
         XCTAssertTrue(app.navigationBars["Computers & runtimes"].waitForExistence(timeout: 5))
-        app.buttons["Close workspace"].tap()
+        app.buttons["Close"].tap()
         XCTAssertTrue(tabs.buttons["Tasks"].isSelected)
         tabs.buttons["Bots"].tap()
         app.staticTexts["design-review"].firstMatch.tap()
@@ -144,7 +144,7 @@ final class HomeTabsUITests: XCTestCase {
         app.buttons["Computers & runtimes"].tap()
         XCTAssertTrue(app.navigationBars["Computers & runtimes"].waitForExistence(timeout: 5))
         shot("review-connectors")
-        app.buttons["Close workspace"].tap()
+        app.buttons["Close"].tap()
         tabs.buttons["Tasks"].tap()
         let wide = app.windows.firstMatch.horizontalSizeClass == .regular
         XCTAssertFalse(app.textFields.firstMatch.exists)

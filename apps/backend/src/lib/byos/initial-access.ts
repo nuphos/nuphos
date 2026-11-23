@@ -17,8 +17,8 @@ export type BindingShare = z.infer<typeof bindingShareSchema>
 
 /**
  * The member list a new binding starts with. It is private to the member who
- * connected it unless they share it, or the team shares new bindings by
- * default; a high-privilege binding ignores that default and stays private.
+ * connected it unless sharing is explicitly selected. Legacy team-wide
+ * defaults never publish a new connection.
  */
 export function initialBindingAccess(input: {
   userId: string
@@ -27,9 +27,7 @@ export function initialBindingAccess(input: {
   highPrivilege?: boolean
   now?: Date
 }): BindingAccess {
-  const teamDefault =
-    input.team?.bindingShareDefault === 'team' && !input.highPrivilege ? 'team' : 'private'
-  const mode = input.share?.mode ?? teamDefault
+  const mode = input.share?.mode ?? 'private'
   const members = mode === 'members' ? (input.share?.memberIds ?? []) : []
 
   return {

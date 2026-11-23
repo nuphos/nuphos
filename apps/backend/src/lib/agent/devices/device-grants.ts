@@ -1,13 +1,17 @@
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 
-import { buildDeviceAccessAuditEntry, recordDeviceAccessChange } from './access-audit'
+import { buildDeviceAccessAuditEntry, teamGrant } from './access-audit'
+import { recordAccessChange } from './agent-sign-ins'
 import { migrateDeviceAccessGrants } from './device-grants-migration'
 import { agentDevices } from './store'
 
 import type { DeviceAccessAuditEntry, DeviceAccessChanger } from './access-audit'
 import type { AgentDevice, DeviceGrant } from './store'
 import type { Document, Filter, UpdateFilter } from 'mongodb'
+
+// Kept with the audit, so box-access needs nothing from here: ending sign-ins resets through it.
+export { teamGrant }
 
 /**
  * Who besides a computer's owner may use or manage it, one grant per team.
@@ -25,11 +29,6 @@ export async function setupDeviceGrantIndexes(): Promise<void> {
 
   if (migrated > 0)
     logEvent('info', 'backend.migration.device_access_grants', { devices: migrated })
-}
-
-/** This team's grant on the computer, if any. */
-export function teamGrant(device: AgentDevice, teamId: string): DeviceGrant | undefined {
-  return device.access?.find((grant) => grant.teamId === teamId)
 }
 
 /** Who may use the computer in this team, besides its owner and managers. */
@@ -109,7 +108,8 @@ export async function setTeamUse(
   if (!before) return false
   const kept = teamGrant(before, teamId)?.managerIds ?? []
 
-  await recordDeviceAccessChange(
+  await recordAccessChange(
+    before,
     buildDeviceAccessAuditEntry(before, teamId, { ...use, managerIds: managerIds ?? kept }, by),
   )
 
@@ -260,7 +260,7 @@ async function auditEach(
     seen.add(String(before._id))
     const grant = teamGrant(before, teamId)
 
-    await recordDeviceAccessChange({
+    await recordAccessChange(before, {
       ...buildDeviceAccessAuditEntry(before, teamId, grant ? next(grant) : null, by),
       ...(owner ? { owner } : {}),
     })

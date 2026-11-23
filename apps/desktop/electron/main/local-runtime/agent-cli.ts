@@ -56,7 +56,7 @@ const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
-function run(
+export function run(
   file: string,
   args: string[],
   env: NodeJS.ProcessEnv,

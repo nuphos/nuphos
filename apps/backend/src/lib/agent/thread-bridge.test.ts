@@ -526,6 +526,24 @@ describe('conversation-scoped thread tools', () => {
     expect(claims).toHaveLength(1)
   })
 
+  test("a parent's effort the thread's model does not offer is left to the agent, and the rest carries over", async () => {
+    const speeds = offered as Record<string, string[]>
+
+    speeds.fast = ['on', 'off']
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'max', fast: 'on' }
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+      expect(picks).toEqual([
+        { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+        { sessionId: threadId, configId: 'fast', value: 'on' },
+      ])
+      expect(archives).toEqual([])
+    } finally {
+      delete speeds.fast
+    }
+  })
+
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {
     await createAgentThread(actor, 'Work', 'Task', { runtimeId: 'box-1' })
 

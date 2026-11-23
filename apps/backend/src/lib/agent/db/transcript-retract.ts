@@ -103,3 +103,33 @@ export async function retractTrailingUserMessage(args: {
     return 'retracted'
   })
 }
+
+/**
+ * A turn that never reached the agent put its messages back in the queue: they
+ * leave the transcript until a turn runs them, so a held message shows only as
+ * waiting. The turn stored nothing after them (resentAfter, Stop before the send).
+ */
+export async function unstoreRequeuedMessages(args: {
+  sessionId: string
+  ownerUserId: string
+  teamId: string | undefined
+  messageIds: string[]
+}): Promise<void> {
+  const { sessionId, ownerUserId } = args
+
+  if (args.messageIds.length === 0) return
+  await withTranscriptWriteLock(sessionId, ownerUserId, async () => {
+    const { deletedCount } = await agentMessages().deleteMany({
+      sessionId,
+      userId: ownerUserId,
+      role: 'user',
+      messageId: { $in: args.messageIds },
+    })
+
+    if (deletedCount === 0) return
+    await agentConversations().updateOne(
+      withTeamScope({ sessionId, userId: ownerUserId }, args.teamId),
+      { $inc: { messageCount: -deletedCount }, $set: { transcriptUpdatedAt: new Date() } },
+    )
+  })
+}

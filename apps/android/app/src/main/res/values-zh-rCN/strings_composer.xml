@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">无法保存此草稿。请释放存储空间后重试。</string>
-    <string name="composer_voice_unavailable">请选择工作区并确认 AI 分享选项，才能使用语音输入。</string>
+    <string name="composer_voice_unavailable">请选择团队并确认 AI 分享选项，才能使用语音输入。</string>
     <string name="composer_voice_start_failed">无法启动语音输入。请检查麦克风权限后重试。</string>
     <string name="composer_voice_failed">语音输入失败</string>
     <string name="composer_add_to_draft">添加到草稿</string>
@@ -79,7 +79,7 @@
     <string name="composer_runtime_offline">此运行环境已离线，重新连接后即可恢复模型设置。</string>
     <string name="composer_runtime_no_model">此运行环境不提供模型设置。</string>
     <string name="composer_share_open_failed">无法打开此草稿。你的分享尚未发送。</string>
-    <string name="composer_share_no_workspace">请在“账号”中打开工作区以接收此分享。尚未发送任何内容。</string>
+    <string name="composer_share_no_workspace">请在“账号”中打开团队以接收此分享。尚未发送任何内容。</string>
     <string name="composer_preparing_draft">正在准备草稿</string>
     <string name="composer_open_draft_failed">无法打开草稿</string>
     <string name="composer_preparing_share">正在准备分享的内容…</string>

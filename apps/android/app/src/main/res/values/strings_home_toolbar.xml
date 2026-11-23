@@ -7,5 +7,5 @@
     <string name="home_toolbar_new_bot">New Bot</string>
     <string name="home_toolbar_new_task">New Task</string>
     <string name="home_toolbar_account">Account</string>
-    <string name="home_toolbar_close_workspace">Close workspace</string>
+    <string name="home_toolbar_close_workspace">Close</string>
 </resources>

@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">Tidak dapat menyimpan draf ini. Kosongkan penyimpanan lalu coba lagi.</string>
-    <string name="composer_voice_unavailable">Pilih workspace dan konfirmasi pilihan berbagi AI untuk menggunakan input suara.</string>
+    <string name="composer_voice_unavailable">Pilih tim dan konfirmasi pilihan berbagi AI untuk menggunakan input suara.</string>
     <string name="composer_voice_start_failed">Tidak dapat memulai input suara. Periksa izin mikrofon lalu coba lagi.</string>
     <string name="composer_voice_failed">Input suara gagal</string>
     <string name="composer_add_to_draft">Tambahkan ke draf</string>
@@ -79,7 +79,7 @@
     <string name="composer_runtime_offline">Runtime ini sedang offline. Pengaturan model akan kembali saat runtime terhubung lagi.</string>
     <string name="composer_runtime_no_model">Runtime ini tidak menyediakan pengaturan model.</string>
     <string name="composer_share_open_failed">Tidak dapat membuka draf ini. Konten yang Anda bagikan belum dikirim.</string>
-    <string name="composer_share_no_workspace">Buka workspace di Akun untuk menerima konten bersama ini. Belum ada yang dikirim.</string>
+    <string name="composer_share_no_workspace">Buka tim di Akun untuk menerima konten bersama ini. Belum ada yang dikirim.</string>
     <string name="composer_preparing_draft">Menyiapkan draf</string>
     <string name="composer_open_draft_failed">Tidak dapat membuka draf</string>
     <string name="composer_preparing_share">Menyiapkan konten yang dibagikan…</string>

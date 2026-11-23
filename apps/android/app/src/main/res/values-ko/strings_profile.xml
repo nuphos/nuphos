@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">다시 로그인</string>
     <string name="profile_accounts_active">활성 계정</string>
     <string name="profile_workspace_back">계정으로 돌아가기</string>
-    <string name="profile_workspace">워크스페이스</string>
-    <string name="profile_workspace_none">사용할 수 있는 워크스페이스가 없습니다</string>
-    <string name="profile_workspace_current">현재 워크스페이스</string>
-    <string name="profile_workspace_setup">워크스페이스 설정</string>
+    <string name="profile_workspace">팀</string>
+    <string name="profile_workspace_none">사용할 수 있는 팀이 없습니다</string>
+    <string name="profile_workspace_current">현재 팀</string>
+    <string name="profile_workspace_setup">팀 설정</string>
     <string name="profile_two_factor">2단계 인증</string>
     <string name="profile_two_factor_intro">로그인할 때마다 인증 앱의 코드를 요구해, 비밀번호나 이메일이 도용되어도 로그인할 수 없게 합니다.</string>
     <string name="profile_two_factor_load_failed">2단계 인증을 불러올 수 없습니다.</string>

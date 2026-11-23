@@ -13,7 +13,7 @@ import org.junit.Test
 
 class AccountApiTest {
     private val requests = mutableListOf<okhttp3.Request>()
-    private var response = """{"version":"2026-09-28","accepted":false}"""
+    private var response = """{"version":"2026-11-23","accepted":false}"""
     private var status = 200
     private val api = AccountApi("fixture-token", OkHttpClient.Builder().addInterceptor { chain ->
         requests.add(chain.request())
@@ -105,9 +105,9 @@ class AccountApiTest {
         api.setConsent(true)
         assertEquals("PUT", requests.last().method)
         assertEquals("${NuphosApi.BASE_URL}/auth/ai-consent", requests.last().url.toString())
-        assertEquals("""{"version":"2026-09-28","accepted":true}""", body())
+        assertEquals("""{"version":"2026-11-23","accepted":true}""", body())
         api.setConsent(false)
-        assertEquals("""{"version":"2026-09-28","accepted":false}""", body())
+        assertEquals("""{"version":"2026-11-23","accepted":false}""", body())
         requests.forEach {
             assertEquals("Bearer fixture-token", it.header("Authorization"))
             assertNotNull(it.header("x-atlas-client"))

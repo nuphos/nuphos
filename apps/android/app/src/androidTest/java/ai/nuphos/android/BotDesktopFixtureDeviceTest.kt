@@ -316,32 +316,35 @@ class BotDesktopFixtureDeviceTest {
         capture("4-desktop-viewer")
     }
 
-    @Test fun ownerCanOpenBotModelFromChat() {
+    /** A Bot's runtime and model are picked in its details; its chat's composer shows neither. */
+    @Test fun ownerPicksBotModelInDetails() {
         composerFixture = true
         render("chat-plain")
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-entry").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isEmpty())
+        captureComposer("bot-details-android-chat")
+        compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithTag("bot-composer.runtime").assertExists()
-        captureComposer("bot-composer-android-owner")
-        compose.onNodeWithTag("bot-composer.model").performClick()
+        compose.onNodeWithTag("bot-details-runtime").assertHasClickAction()
+        // The runtime's full name wraps rather than being cut short, even at 320 dp.
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
+        captureComposer("bot-details-android-owner")
+        compose.onNodeWithTag("bot-details-model").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Opus").fetchSemanticsNodes().isNotEmpty() }
-        captureComposer("bot-composer-android-model")
+        captureComposer("bot-details-android-model")
     }
 
-    @Test fun nonOwnerCanSeeButNotChangeBotSettings() {
+    @Test fun nonOwnerSeesBotRuntimeAndModelReadOnly() {
         composerFixture = true
         nonOwner = true
         render("chat-plain")
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isNotEmpty() }
-        captureComposer("bot-composer-android-locked-before")
-        compose.onNodeWithTag("bot-composer.runtime").performClick()
-        captureComposer("bot-composer-android-locked-after")
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("Only the owner can change model settings.").fetchSemanticsNodes().isNotEmpty() &&
-                compose.onNodeWithText("Only the owner can change model settings.").isDisplayed()
-        }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-runtime").assertHasNoClickAction()
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
         compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
-        captureComposer("bot-composer-android-locked")
+        captureComposer("bot-details-android-member")
     }
 
     private fun captureComposer(name: String) {

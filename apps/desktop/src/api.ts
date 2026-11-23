@@ -182,7 +182,7 @@ export const api = instrumentApi(
       reportFrontendError({
         source: 'api',
         phase: `${operation}_stalled`,
-        message: `${operation} took ${String(Math.round(elapsedMs / 1000))} seconds to settle.`,
+        message: `${operation} was slow to settle.`,
         apiOperation: operation,
         elapsedMs,
       })

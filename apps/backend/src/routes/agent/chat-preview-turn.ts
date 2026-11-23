@@ -247,15 +247,17 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       return 'connection-lost'
     }
     await noteOutdated(err, args.endpoint.local)
-    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered)
-    else await persistInterrupted(err)
+    const resent = resentAfter(err, args)
+    const requeued = resent && (await requeueUnsent(args, prepared.carried, steered, false, err))
+
+    if (!resent) await persistInterrupted(err)
 
     state.unbind()
     await clearActiveTurn()
     if (!state.handedOff()) await fallBackAfterFailure(sessionId, err, actorUserId)
     // Handoff errors belong to the continuation; the original run is closed.
-    if (!state.handedOff()) throw queuedRefusal(err, args.queued)
-    appendAgentRunError(state.current(), queuedRefusal(err, args.queued))
+    if (!state.handedOff()) throw queuedRefusal(err, requeued)
+    appendAgentRunError(state.current(), queuedRefusal(err, requeued))
     state.finish()
 
     return

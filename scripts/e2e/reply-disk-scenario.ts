@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { client, must } from './binding-access-scenarios.ts'
 import { laptopOnline, LAPTOP } from './laptop-fixture.ts'
 import { artifacts } from './processes.ts'
-import { pickInSubmenu } from './ui.ts'
+import { pickInSubmenu, settingButton } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
@@ -65,7 +65,7 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
     if (!(await editor.isVisible())) throw new Error('Composer is not visible without a warning')
     await cancel.click()
     await cancel.waitFor({ state: 'hidden' })
-    await page.getByRole('button', { name: /^Runtime:/ }).click()
+    await (await settingButton(page, /^Runtime:/)).click()
     await page.getByRole('menu').getByText(LAPTOP).first().click()
     await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
     switched = true
@@ -112,7 +112,7 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
     await cdp.send('Emulation.clearDeviceMetricsOverride')
     await cdp.detach()
     if (switched) {
-      await page.getByRole('button', { name: /^Runtime:/ }).click()
+      await (await settingButton(page, /^Runtime:/)).click()
       await page.getByRole('menu').getByText('E2E fixture agent').first().click()
       await pickInSubmenu(
         page,
