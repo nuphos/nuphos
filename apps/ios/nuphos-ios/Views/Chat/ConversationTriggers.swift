@@ -83,7 +83,7 @@ struct ConversationTriggers: View {
     private func nextRunLabel(_ trigger: ConversationTrigger) -> String {
         if !trigger.enabled { return String(localized: "Paused") }
         if let date = trigger.nextRun { return String(localized: "Next: \(date.formatted(date: .abbreviated, time: .shortened))") }
-        return String(localized: trigger.triggerType == "webhook" ? "Waiting for webhook" : "No upcoming runs")
+        return trigger.triggerType == "webhook" ? String(localized: "Waiting for webhook") : String(localized: "No upcoming runs")
     }
 
     private func details(_ trigger: ConversationTrigger) -> some View {
