@@ -12,17 +12,23 @@ export function connectedComputerCount(): number {
 /**
  * Closes every tunnel held here before shutdown, so its computer moves to another
  * replica instead of being cut when the server is force-stopped. Spread over
- * `spreadMs` so the computers do not all redial at once.
+ * `spreadMs` so the computers do not all redial at once; resolves once the last is closed.
  */
-export function closeTunnelsForRestart(spreadMs = 2_000): void {
+export function closeTunnelsForRestart(spreadMs = 2_000): Promise<void> {
   const shuts = [...heldTunnels]
 
-  shuts.forEach((shut, i) => {
-    setTimeout(
-      () => {
-        shut(TUNNEL_CLOSE_RESTART, 'Server restarting')
-      },
-      (spreadMs * i) / shuts.length,
-    )
-  })
+  return Promise.all(
+    shuts.map(
+      (shut, i) =>
+        new Promise<void>((resolve) => {
+          setTimeout(
+            () => {
+              shut(TUNNEL_CLOSE_RESTART, 'Server restarting')
+              resolve()
+            },
+            (spreadMs * i) / shuts.length,
+          )
+        }),
+    ),
+  ).then(() => undefined)
 }

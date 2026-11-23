@@ -443,8 +443,8 @@ describe('local runtime tunnel', () => {
     tunnels.push(...held)
     const start = Date.now()
 
-    closeTunnelsForRestart(90)
-    await eventually(() => closes.length === 3)
+    await closeTunnelsForRestart(90)
+    expect(closes).toHaveLength(3)
     expect(closes.map((close) => close.code)).toEqual([1012, 1012, 1012])
     expect(closes[0]!.at - start).toBeLessThan(30)
     expect(closes[2]!.at - start).toBeGreaterThanOrEqual(55)
