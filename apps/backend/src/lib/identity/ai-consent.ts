@@ -4,7 +4,9 @@ import { AppError } from '@/lib/errors'
 import { users } from '@/lib/identity/shared'
 
 // Bump when the recipients, data, or purposes in the iOS disclosure change.
-export const AI_CONSENT_VERSION = '2026-11-23'
+// Shipped iOS and Android clients send this exact value, and the auth middleware rejects any
+// other, so bump it only after clients that show the new notice are live.
+export const AI_CONSENT_VERSION = '2026-09-28'
 
 export async function readAIConsent(userId: string) {
   const user = await users().findOne({ _id: new ObjectId(userId), deletedAt: { $exists: false } })
