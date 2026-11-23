@@ -22,6 +22,7 @@ import { hermesProfile } from './hermes-session.mjs'
 import { nuphosBridgeMcpServers } from './mcp-bridge-config.mjs'
 import { openCodeEndpoint, openCodeRefusal } from './opencode-session.mjs'
 import { piAgentDir, piTurnError, writePiMcpServers } from './pi-session.mjs'
+import { nuphosProcessDeathMessage } from './process-death.mjs'
 import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-defaults.mjs'
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
@@ -51,6 +52,7 @@ const SESSION_ENV = new Set([
 
 export const PROVIDERS = {
   grok: {
+    name: 'Grok Build',
     // --no-leader keeps tools in this process, so they run with this session's env
     // rather than in a leader shared by every conversation.
     command: ['grok', 'agent', '--no-leader', 'stdio'],
@@ -62,6 +64,7 @@ export const PROVIDERS = {
     instruct: (meta, text) => ({ ...meta, rules: text }),
   },
   antigravity: {
+    name: 'Antigravity',
     command: (env) => [
       'agy',
       'acp',
@@ -76,6 +79,7 @@ export const PROVIDERS = {
     serialPrompts: true,
   },
   opencode: {
+    name: 'OpenCode',
     command: ['opencode', 'acp'],
     home: () => ({ OPENCODE_DISABLE_AUTOUPDATE: '1' }),
     // OpenCode keeps its login (auth.json) and its sessions in XDG_DATA_HOME/opencode,
@@ -91,6 +95,7 @@ export const PROVIDERS = {
     refusal: true,
   },
   hermes: {
+    name: 'Hermes Agent',
     command: ['hermes', 'acp'],
     // A profile, and so a background daemon, of the session home's own: see hermes-session.mjs.
     home: (runtimeHome, sessionHome) => ({
@@ -101,6 +106,7 @@ export const PROVIDERS = {
     serialPrompts: true,
   },
   dsh: {
+    name: 'DeepSeek Harness',
     command: ['dsh', '--profile', 'acp'],
     // Its login (.credentials.yaml), profiles and sessions, in the runtime home.
     home: (runtimeHome) => ({ DSH_HOME: join(runtimeHome, '.dsh') }),
@@ -111,6 +117,7 @@ export const PROVIDERS = {
     loadAsResume: true,
   },
   pi: {
+    name: 'Pi',
     // Pi speaks its own RPC, not ACP: pi-acp, installed beside this file, runs the CLI.
     adapter: true,
     command: [
@@ -348,7 +355,7 @@ export function runShim({
     agentEndpoint = endpoint
     // The agent is the session: when it ends, so does this process.
     let initialized = false
-    child.on('exit', (code) => {
+    child.on('exit', (code, signal) => {
       if (agent !== child) return
       if (endpoint && !initialized) {
         const retry = pendingInitialize
@@ -359,7 +366,13 @@ export function runShim({
         void restarting.catch(() => onExit(code ?? 1))
         return
       }
-      onExit(code ?? 1)
+      if (!signal) return onExit(code ?? 1)
+      // Killed (the memory limit, most often): the turns in flight fail with the reason,
+      // as Claude Code's and Codex's do, before the output closes.
+      const reason = nuphosProcessDeathMessage(spec.name, `process terminated by signal ${signal}`)
+      for (const id of prompts.keys())
+        write({ jsonrpc: '2.0', id, error: { code: -32603, message: `Internal error: ${reason}` } })
+      output.write('', () => onExit(1))
     })
     createInterface({ input: child.stdout }).on('line', (line) => {
       if (agent !== child) return
