@@ -57,7 +57,6 @@ export {
 } from './db/maintenance'
 export {
   addInputRequest,
-  findInputRequest,
   resolveInputRequest,
   resolvePlanInputRequests,
 } from './db/pending-decision'
@@ -82,6 +81,7 @@ export {
 } from './db/transcript'
 export { getConversations } from './db/conversations-list'
 export {
+  archiveConversationAs,
   restoreArchivedConversation,
   setConversationArchived,
   setMemberArchived,

@@ -102,6 +102,19 @@ export function answeredIn(
   return [...answered].filter(([id, until]) => !open.has(id) || until < now).map(([id]) => id)
 }
 
+/** The rows the Inbox shows for a search: those whose question, details or conversation title has it. */
+export function shownQuestions(rows: readonly InboxQuestion[], query: string): InboxQuestion[] {
+  const needle = query.trim().toLowerCase()
+
+  return rows.filter(
+    ({ conversation, request }) =>
+      !needle ||
+      [request.question, request.body, conversation.title].some((text) =>
+        text?.toLowerCase().includes(needle),
+      ),
+  )
+}
+
 /** The row the Inbox opens: the selected one while it is listed, else the first. */
 export function openQuestion(
   rows: readonly InboxQuestion[],

@@ -29,3 +29,11 @@ export const teamRosterQuery = (
     queryFn: () => read(teamId, true),
     staleTime: 60_000,
   })
+
+/** The people in one chat, e.g. a channel's, which its `@` menu offers alone. */
+export const participantsQuery = (teamId: string, sessionId: string) =>
+  queryOptions({
+    queryKey: queryKeys.participants(teamId, sessionId),
+    queryFn: () => api.agentGetConversationParticipants(sessionId, teamId),
+    staleTime: 60_000,
+  })

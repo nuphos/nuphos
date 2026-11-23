@@ -9,11 +9,13 @@ enum ToolRuns {
         case run([Int])
     }
 
-    /// Tools the desktop never renders.
-    static let hiddenTools: Set<String> = ["skill"]
+    /// Tools the desktop never renders as a row.
+    static func isHidden(_ tool: ChatPart.ToolPart) -> Bool {
+        tool.toolName == "skill" || tool.isQuestionCard
+    }
 
     static func isPlainTool(_ tool: ChatPart.ToolPart) -> Bool {
-        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && !hiddenTools.contains(tool.toolName) && ThreadReference(tool) == nil
+        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && !isHidden(tool) && ThreadReference(tool) == nil
     }
 
     /// Parts that render as nothing; they neither join nor split a run.
@@ -22,7 +24,7 @@ enum ToolRuns {
         case .stepStart: true
         case .text(let text): text.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         case .reasoning(let reasoning): reasoning.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .tool(let tool): hiddenTools.contains(tool.toolName)
+        case .tool(let tool): isHidden(tool)
         default: false
         }
     }

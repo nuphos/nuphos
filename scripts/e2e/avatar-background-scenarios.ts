@@ -78,7 +78,7 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       // In the group chat: the Bot's post and the chat's members wear it too.
       await page.locator('aside [data-sidebar-row]', { hasText: 'Painter room' }).first().click()
-      const post = page.locator('.group\\/post', {
+      const post = page.locator('.group\\/post:visible', {
         has: page.getByText('POSTED E2E_DELIVERY:avatar-background', { exact: true }),
       })
 

@@ -56,6 +56,8 @@ data class AgentConversation(
     val unread: JsonValue? = null,
     val parentSessionId: String? = null,
     val canManage: Boolean? = null,
+    /** The owner archives it for everyone; someone else in a Task, for themselves. */
+    val canArchive: Boolean? = null,
     val agentRuntime: String? = null,
     val runtimeId: String? = null,
     val runtimeLabel: String? = null,
@@ -87,6 +89,11 @@ data class AgentConversation(
 
     /** An agent with a face: a Bot, talked to in its 1:1 chat. */
     val isBot: Boolean get() = avatar != null && !isChannel
+    /** An open question waits on the viewer; a Bot's own setup preferences don't count while it is being set up. */
+    val isWaiting: Boolean get() {
+        val onboarding = botOnboarding == "pending" || botOnboarding == "active"
+        return inputRequests.orEmpty().any { !onboarding || it.category != "preference" }
+    }
 
     /** The Bot this chat is the 1:1 of: its one other member is an agent with a face. */
     val botId: String? get() = faces?.takeIf { isChannel && group != true }?.botFace?.id
@@ -211,6 +218,9 @@ data class AgentConversationDetail(
     val readOnly: Boolean? = null,
     val isOwner: Boolean? = null,
     val canManage: Boolean? = null,
+    val canArchive: Boolean? = null,
+    /** Whether Share is offered: never on a Bot or a Task an agent opened. Null from an older server. */
+    val shareable: Boolean? = null,
     val canCancelRun: Boolean? = null,
     val canRespondToRun: Boolean? = null,
     val agentRuntime: String? = null,
@@ -259,6 +269,8 @@ data class AgentConversationDetail(
         val cause: String? = null,
         /** `agent_reply_failed`: when an agent out of usage gets it back. */
         @Serializable(with = InstantAsStringSerializer::class) val resetsAt: Instant? = null,
+        /** `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do. */
+        val verifyUrl: String? = null,
     )
     @Serializable
     data class ActiveRun(

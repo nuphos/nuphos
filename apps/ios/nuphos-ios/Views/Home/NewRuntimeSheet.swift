@@ -135,7 +135,7 @@ struct NewRuntimeSheet: View {
                 Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
             }
         }
-        .navigationTitle("New \(label) runtime")
+        .navigationTitle("New runtime")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }

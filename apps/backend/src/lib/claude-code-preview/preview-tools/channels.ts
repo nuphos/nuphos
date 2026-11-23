@@ -54,7 +54,9 @@ const post = z
       .number()
       .int()
       .optional()
-      .describe('The index of the one message you answer: your post quotes it, as in its thread.'),
+      .describe(
+        'The index of the one message you answer: your post quotes it, as in its thread, unless it is the newest message.',
+      ),
   })
   .strict()
 const create = z

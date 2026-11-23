@@ -140,7 +140,12 @@ export function AddAgentDialog({
                       onCloseGuard={(guard) => {
                         closeGuard.current = guard
                       }}
-                      onBack={onBack ?? (() => go('choose'))}
+                      // Opened on this step with nowhere to go back to, it can only be cancelled.
+                      cancel={Boolean(onBoxCreated) && !onBack}
+                      onBack={
+                        onBack ??
+                        (onBoxCreated ? () => presence.onOpenChange(false) : () => go('choose'))
+                      }
                       onChosen={setSigningIn}
                       onCreated={
                         onBoxCreated &&

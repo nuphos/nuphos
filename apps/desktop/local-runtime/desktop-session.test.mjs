@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readdirSync, utimesSync, writeFileSync } from 'node:fs'
+import { spawn } from 'node:child_process'
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -185,3 +194,47 @@ test('a full pool answers the call that needs a desktop, and the next call tries
   await relay.receive({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'click' } })
   assert.equal(sent[1].result.content[0].text, ':2')
 })
+
+// The agent's runtime ends a session by signalling its whole process group, which
+// already reaches the computer-use proxy; a second signal from here re-entered the
+// proxy's handler and left it hung for good, holding the session's home (#4727).
+test(
+  "ending the session closes the proxy's stdin instead of signalling it",
+  {
+    skip: process.platform === 'win32',
+  },
+  async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'desktop-session-'))
+    const log = path.join(dir, 'proxy.log')
+
+    // Stands in for `python3 -I <proxy>`: notes each signal, then EOF on stdin.
+    writeFileSync(
+      path.join(dir, 'python3'),
+      `#!/bin/sh\ntrap 'echo signal >> "${log}"' TERM HUP INT\necho started >> "${log}"\nwhile read -r line; do :; done\necho eof >> "${log}"\n`,
+    )
+    chmodSync(path.join(dir, 'python3'), 0o755)
+    const session = spawn(
+      process.execPath,
+      [new URL('desktop-session.mjs', import.meta.url).pathname, 'serve'],
+      {
+        env: {
+          PATH: `${dir}:/usr/bin:/bin`,
+          HOME: dir,
+          NUPHOS_SESSION_ID: 'session',
+          NUPHOS_DESKTOP_POOL: path.join(dir, 'pool'),
+        },
+        stdio: ['pipe', 'ignore', 'inherit'],
+      },
+    )
+    const until = async (done) => {
+      for (const deadline = Date.now() + 5000; !done() && Date.now() < deadline;)
+        await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+
+    await until(() => existsSync(log))
+    session.kill('SIGTERM')
+    await new Promise((resolve) => session.once('exit', resolve))
+    await until(() => readFileSync(log, 'utf8').includes('eof'))
+    assert.equal(readFileSync(log, 'utf8'), 'started\neof\n')
+  },
+)

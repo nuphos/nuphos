@@ -14,15 +14,28 @@ export async function laptopOnline(
   stack: Stack,
   {
     diskPercent,
+    oomKilledAt,
     client,
     app,
     box,
+    cliVersion,
+    restoreFails,
+    busy,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
+    /** When the host saw the kernel's OOM kill count rise (#4345); sent with each reading. */
+    oomKilledAt?: string
     client?: string
-    app?: { version: string; update: { version: string; ready: boolean } }
+    /** Without `update`, a computer that is behind with nothing staged to install. */
+    app?: { version: string; update?: { version: string; ready: boolean } }
     box?: string
+    /** The CLI the host says it runs, as `nuphos agent` reports it. */
+    cliVersion?: string
+    /** The runtime reports an active turn when queried by a pre-#4011 backend. */
+    busy?: boolean
+    /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
+    restoreFails?: boolean
     owner?: { token: string; deviceId: string; label: string }
   } = {},
 ): Promise<() => void> {
@@ -36,7 +49,11 @@ export async function laptopOnline(
     } as unknown as string[],
   )
 
-  tunnel.addEventListener('message', () => tunnel.send(JSON.stringify({ t: 'pong' })))
+  tunnel.addEventListener('message', (event: MessageEvent) => {
+    tunnel.send(JSON.stringify({ t: 'pong' }))
+    if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
+    if (busy) answerAsBusyRuntime(tunnel, String(event.data))
+  })
   await new Promise((opened, failed) => {
     tunnel.addEventListener('open', opened)
     tunnel.addEventListener('error', failed)
@@ -47,6 +64,7 @@ export async function laptopOnline(
       status: {
         localMetrics: diskPercent !== undefined,
         app,
+        cliVersion,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
       },
     }),
@@ -65,6 +83,7 @@ export async function laptopOnline(
           cpuPercent: 12,
           memory: { used: 6 * GIB, total: 16 * GIB },
           disk: { used: diskPercent * GIB, total: 100 * GIB },
+          ...(oomKilledAt ? { oomKilledAt } : {}),
         },
       }),
     )
@@ -128,4 +147,56 @@ async function boxRegistered(stack: Stack, label: string) {
       instaboxMachines.delete(sandboxId)
     },
   }
+}
+
+export const RESTORE_FAILED = 'Could not restore the saved session; it is kept for the next attempt'
+
+// How a runtime without #3373 answered once it could not restore the saved session (#3371).
+function answerAsOldRuntime(tunnel: WebSocket, raw: string) {
+  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
+  const reply = (d: unknown) =>
+    tunnel.send(JSON.stringify({ t: 'data', s: frame.s, d: JSON.stringify(d) }))
+
+  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
+  if (frame.t !== 'data' || !frame.d) return
+  const request = JSON.parse(frame.d) as { id?: number; method?: string }
+
+  if (request.id === undefined || !request.method) return
+  if (request.method === 'initialize')
+    reply({
+      jsonrpc: '2.0',
+      id: request.id,
+      result: {
+        protocolVersion: 1,
+        agentCapabilities: {
+          loadSession: true,
+          _meta: { 'dev.openab/permissionRelay': true, 'dev.openab/sessionAuthority': 2 },
+        },
+        authMethods: [],
+      },
+    })
+  else reply({ jsonrpc: '2.0', id: request.id, error: { code: -32603, message: RESTORE_FAILED } })
+}
+
+/** A mid-turn runtime: lets the cache-clear scenario exercise the old busy refusal. */
+function answerAsBusyRuntime(tunnel: WebSocket, raw: string) {
+  const frame = JSON.parse(raw) as { t: string; s?: string; d?: string }
+
+  if (frame.t === 'open') tunnel.send(JSON.stringify({ t: 'opened', s: frame.s }))
+  if (frame.t !== 'data' || !frame.d) return
+  const request = JSON.parse(frame.d) as { id?: number; method?: string }
+
+  if (request.id === undefined) return
+  const result =
+    request.method === 'initialize'
+      ? { protocolVersion: 1, agentCapabilities: {}, authMethods: [] }
+      : { sessions: [{ state: 'active' }] }
+
+  tunnel.send(
+    JSON.stringify({
+      t: 'data',
+      s: frame.s,
+      d: JSON.stringify({ jsonrpc: '2.0', id: request.id, result }),
+    }),
+  )
 }

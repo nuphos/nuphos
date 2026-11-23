@@ -184,14 +184,8 @@
         <item quantity="one">· %1$d calls · Running</item>
         <item quantity="other">· %1$d calls · Running</item>
     </plurals>
-    <plurals name="chat_work_duration_steps">
-        <item quantity="one">Worked for %1$ds · %2$d steps</item>
-        <item quantity="other">Worked for %1$ds · %2$d steps</item>
-    </plurals>
-    <plurals name="chat_work_steps">
-        <item quantity="one">Worked through %1$d steps</item>
-        <item quantity="other">Worked through %1$d steps</item>
-    </plurals>
+    <string name="chat_work_duration">Worked for %1$s</string>
+    <string name="chat_work">Worked</string>
     <string name="chat_share_access_invited">Only people invited</string>
     <string name="chat_share_access_view">Team can view</string>
     <string name="chat_share_access_reply">Team can view and reply</string>
@@ -214,5 +208,10 @@
     <string name="chat_summary_triggers">Triggers</string>
     <string name="chat_summary_no_triggers">Ask the agent to schedule recurring work in this task.</string>
     <string name="chat_summary_idle">Idle</string>
+    <string name="chat_bot_details_title">Bot details</string>
+    <string name="chat_bot_state_waiting">%1$d needs input</string>
+    <string name="chat_bot_state_running">%1$d running</string>
+    <string name="chat_summary_idle_since">Idle · %1$s</string>
+    <string name="chat_bot_details_no_triggers">Ask here to schedule recurring work.</string>
     <string name="chat_summary_paused">Paused</string>
 </resources>

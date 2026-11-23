@@ -4,8 +4,14 @@ import { getConversationBySessionId } from '@/lib/agent/db'
 import { isChannel } from '@/lib/agent/db/channels'
 import { getTeamMembers } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
-import { getSlackChannelMapping, getSlackUserMapping, markSlackEvent } from '@/lib/slack/agent-bot'
+import {
+  getSlackAgentThread,
+  getSlackChannelMapping,
+  getSlackUserMapping,
+  markSlackEvent,
+} from '@/lib/slack/agent-bot'
 import { slackApiGet } from '@/lib/slack/api'
+import { slackPostId } from '@/lib/slack/external-chat-post'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
 import { resolveSlackMentionNames } from '@/routes/slack/render'
 import { SUBTYPES_WITH_ATTACHMENTS } from '@/routes/slack/shared'
@@ -28,6 +34,13 @@ export async function routeSlackToExternalChat(envelope: SlackEventEnvelope): Pr
   const mapping = await getSlackChannelMapping(slackWorkspaceId, event.channel)
 
   if (!mapping?.externalChatId) return false
+  // A reply under a Bot's notification (slack_post) continues that conversation.
+  if (
+    event.thread_ts &&
+    (await getSlackAgentThread(slackWorkspaceId, event.channel, event.thread_ts))?.origin ===
+      'agent_notification'
+  )
+    return false
   const posted =
     event.type === 'message' &&
     (await postFromSlack(slackWorkspaceId, mapping.teamId, mapping.externalChatId, event))
@@ -74,7 +87,11 @@ async function postFromSlack(
     // Slack's own id for the message, so a redelivery is the same post.
     id: slackPostId(slackChannelId, ts),
     text,
-    metadata: replyTo ? { ...metadata, replyTo } : metadata,
+    metadata: {
+      ...metadata,
+      ...(replyTo ? { replyTo } : {}),
+      ...(rootId ? { slackThreadTs: rootId } : {}),
+    },
   })
 }
 
@@ -87,8 +104,6 @@ function personPost(event: SlackMessageEvent, botUserId: string) {
 
   return { channel, user, ts, text }
 }
-
-export const slackPostId = (slackChannelId: string, ts: string) => `slack:${slackChannelId}:${ts}`
 
 /**
  * Who a Slack message is from. A team member when their Slack account is linked,

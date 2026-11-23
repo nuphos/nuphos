@@ -1,11 +1,11 @@
 import { turnDiagnosticsSchema } from '@/lib/agent/turn-diagnostics-schema'
+import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
 import { errorMessage } from '@/lib/observability-sanitize'
 import { redactSecrets } from '@/lib/secrets/scan'
 
 import { agentHostAway } from './openab-acp-connect'
 import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
-import { refusal } from './runtime-refusal'
 
 import type { PreviewToolStep } from './preview-transcript'
 import type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'
@@ -37,9 +37,10 @@ export class RuntimeStateProbeError extends Error {
 }
 
 /**
- * What a turn fails with when its state check before the prompt failed. Nothing
- * was sent, so a check that got no answer in time is refused like a busy agent:
- * the queue sends it again. An away host fails as away, which the queue waits out.
+ * What a turn fails with when its state check before the prompt failed. A check
+ * that got no answer in time fails as an agent host away, as the queue's own
+ * status read does (queued-turn.ts): nothing was sent, so the queue sends it
+ * again, and tells the sender why once the host has stayed away past its grace.
  */
 export async function probeFailure(
   cause: unknown,
@@ -55,7 +56,7 @@ export async function probeFailure(
     error: cause.message,
   })
 
-  return refusal('The agent did not report its state in time')
+  return new AppError(409, 'runtime_offline', 'The agent did not report its state in time.')
 }
 
 export type { TurnDiagnostics } from '@/lib/agent/turn-diagnostics-schema'

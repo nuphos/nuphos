@@ -110,7 +110,7 @@ export function SidebarPageList({
         className={clsx(
           'px-2.5 pb-2',
           'flex flex-col',
-          'sidebar-page-list min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-overlay',
+          'sidebar-page-list t-scroll-fade min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin scrollbar-overlay',
         )}
       >
         {page === 0 ? (

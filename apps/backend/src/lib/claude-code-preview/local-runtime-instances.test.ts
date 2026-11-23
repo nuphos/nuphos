@@ -8,12 +8,8 @@ import {
 } from '@/lib/agent/devices/local-runtime/address'
 import { localRuntimeStatusSchema } from '@/lib/agent/devices/local-runtime/protocol'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  localRuntimeStatus,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels, localRuntimeStatus } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { LocalAgentProvider } from '@/lib/agent/devices/local-runtime/protocol'

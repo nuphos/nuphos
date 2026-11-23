@@ -15,25 +15,26 @@ type Rows = AgentConversation[]
 export const agentSessionsQuery = (teamId: string) =>
   queryOptions({
     queryKey: queryKeys.agentSessions(teamId),
-    queryFn: async ({ signal }) => {
+    queryFn: async ({ client, queryKey, signal }) => {
+      // The poll reads first pages only; a first listing or an invalidated one reads them all.
+      const state = client.getQueryState<Rows>(queryKey)
+      const listed = state?.isInvalidated ? undefined : state?.data
       // A cancelled listing (an archive, Undo or rename replaced it) stops paging.
       const rows = await loadSidebarChats(
         (options) => api.agentListConversations(teamId, options),
         () => !signal.aborted,
+        listed,
       )
 
       return (rows ?? []).filter((row) => !row.archivedAt)
     },
   })
 
-/** {@link agentSessionsQuery}, polled every `pollMs` (`false`: not by this reader); undefined until listed once. */
-export function useAgentSessions(
-  teamId: string,
-  pollMs: number | false | (() => number | false) = AGENT_SESSIONS_POLL_MS,
-) {
+/** {@link agentSessionsQuery}, polled; undefined until listed once. */
+export function useAgentSessions(teamId: string) {
   return useQuery({
     ...agentSessionsQuery(teamId),
-    refetchInterval: pollMs,
+    refetchInterval: AGENT_SESSIONS_POLL_MS,
   })
 }
 
@@ -69,4 +70,15 @@ export const retitleChat = (
 ) =>
   relist(client, teamId, (rows) =>
     rows.map((row) => (row.sessionId === sessionId ? { ...row, title } : row)),
+  )
+
+/** A Bot's instructions its owner just saved show at once, before the next listing. */
+export const setChatInstructions = (
+  client: QueryClient,
+  teamId: string,
+  sessionId: string,
+  instructions: string,
+) =>
+  relist(client, teamId, (rows) =>
+    rows.map((row) => (row.sessionId === sessionId ? { ...row, instructions } : row)),
   )

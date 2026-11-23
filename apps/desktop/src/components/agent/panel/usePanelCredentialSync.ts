@@ -4,6 +4,7 @@ import { api } from '../../../api'
 import { t } from '../../../i18n/index.ts'
 import { toast } from '../../ui/toast'
 
+import { useSavedSelections } from './adoptSavedSelection'
 import {
   EMPTY_CREDENTIAL_ACCESS,
   EMPTY_CREDENTIAL_OPTIONS,
@@ -124,6 +125,8 @@ export function usePanelCredentialSync(acc: Acc) {
   }, [teamId])
 
   useCredentialOptionsFreshness({ activeTab, credentialOptions, refreshCredentialOptions, setTabs })
+
+  useSavedSelections(acc)
 
   const updateCredentialSelection = useCallback(
     (next: AgentCredentialSelection) => {

@@ -48,7 +48,7 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
     DropdownMenu(expanded = open, onDismissRequest = { open = false },
         modifier = Modifier.widthIn(min = 220.dp, max = 320.dp),
         offset = DpOffset(0.dp, 4.dp), shape = RoundedCornerShape(24.dp)) {
-        if (!session.isBot) DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
+        if (session.shareable) DropdownMenuItem(text = { Text(stringResource(R.string.chat_share)) }, leadingIcon = { Icon(Icons.Outlined.PersonAdd, null) }, enabled = session.loaded && session.loadError == null, onClick = {
             open = false
             share = true
         })
@@ -63,13 +63,15 @@ fun ConversationMenu(session: ChatSession, store: AgentStore, onArchived: () -> 
             DropdownMenuItem(text = { Text(stringResource(R.string.chat_menu_rename)) }, leadingIcon = { Icon(Icons.Outlined.Edit, null) }, enabled = !busy, onClick = { open = false; title = session.title; rename = true })
             if (onChooseRuntime != null) DropdownMenuItem(text = { Text(stringResource(R.string.chat_switch_runtime)) }, leadingIcon = { Icon(Icons.Outlined.SwapHoriz, null) },
                 enabled = !busy && session.canMoveAgent, onClick = { open = false; onChooseRuntime() })
+        }
+        // Someone else in a Task archives it for themselves alone (#3686).
+        if (session.canArchive)
             DropdownMenuItem(text = { Text(if (session.isArchived) stringResource(R.string.chat_menu_restore) else stringResource(R.string.chat_menu_archive)) }, leadingIcon = { Icon(Icons.Outlined.Archive, null) },
                 enabled = !busy && (!session.isBot || store.canArchiveBot(session.sessionId)), onClick = { open = false; archive = true })
-        }
     }
     }
     if (desktop) ai.nuphos.android.desktop.DesktopScreen(session, store) { desktop = false }
-    if (share && !session.isBot) {
+    if (share && session.shareable) {
         val sharing = remember(session) { session.sharingState() }
         ShareSessionSheet(sharing, ConversationActions.shareUrl(session.teamId, session.sessionId)) { share = false }
     }

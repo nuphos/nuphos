@@ -27,8 +27,13 @@ export const boxRestarts = {
     }
   },
   current: () => restarts,
-  start: (deviceId: string, teamId: string, kind: BoxRestartKind, now = Date.now()) =>
-    set(new Map(restarts).set(deviceId, { teamId, kind, startedAt: now, sawOffline: false })),
+  start: (
+    deviceId: string,
+    teamId: string,
+    kind: BoxRestartKind,
+    lastSeenAt?: string,
+    now = Date.now(),
+  ) => set(new Map(restarts).set(deviceId, { teamId, kind, startedAt: now, lastSeenAt })),
   /** Moves the team's restarts on with its fresh list; returns the ones that ended. */
   settle: (devices: AgentDevice[], teamId: string, now = Date.now()) => {
     const next = new Map(restarts)
@@ -43,14 +48,12 @@ export const boxRestarts = {
       // Another team's list does not list this Box; that does not end its restart.
       if (restart.teamId !== teamId) continue
       const device = devices.find((candidate) => candidate.deviceId === deviceId)
-      const step = boxRestartStep(restart, device, now)
+      const { outcome } = boxRestartStep(restart, device, now)
 
-      if (step.outcome === 'restarting') next.set(deviceId, { ...restart, ...step.restart })
-      else {
-        next.delete(deviceId)
-        ended.push({ device, kind: restart.kind, outcome: step.outcome })
-      }
-      changed ||= step.outcome !== 'restarting' || step.restart.sawOffline !== restart.sawOffline
+      if (outcome === 'restarting') continue
+      next.delete(deviceId)
+      ended.push({ device, kind: restart.kind, outcome })
+      changed = true
     }
     if (changed) set(next)
 

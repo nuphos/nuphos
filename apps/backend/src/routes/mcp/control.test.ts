@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { agentRuns } from '@/lib/agent/run-admission'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useIdentity } from '@/lib/test/doubles/identity'
@@ -24,6 +25,8 @@ const session = { sessionId: 's1', userId: ME, teamId: 't1', messageCount: 6 } a
 let member: boolean
 let readable: AgentConversation | null
 let canReply: boolean
+let movable: boolean
+let moves: [string, string, boolean][]
 let stopped: string[]
 let queue: PendingUserMessage[]
 let active: { streamId: string } | null
@@ -31,8 +34,17 @@ let frames: Record<string, { id: string; frame: string }[]>
 // A self-hosted compose stack runs without Redis: runs live in this process only.
 let redisOn: boolean
 
+useArchiveCleanup({ cleanUpArchived: async () => {} })
 useIdentity({ getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null) })
-useAgentDb({ getReadableConversation: async () => readable })
+useAgentDb({
+  getReadableConversation: async () => readable,
+  archiveConversationAs: async (conversation, userId, archived) => {
+    if (!movable) return null
+    moves.push([conversation.sessionId, userId, archived])
+
+    return { sessionIds: [conversation.sessionId, 'child'] }
+  },
+})
 useConversationComputer({ canReplyIn: async () => canReply })
 useRuntimeCatalog({
   listRuntimeInstances: async () => [
@@ -92,8 +104,14 @@ useAgentRunStore({
   },
 })
 
-const { nuphosListRuntimes, nuphosStop, nuphosListQueue, nuphosRemoveQueued, nuphosEvents } =
-  await import('./control')
+const {
+  nuphosListRuntimes,
+  nuphosStop,
+  nuphosArchiveSession,
+  nuphosListQueue,
+  nuphosRemoveQueued,
+  nuphosEvents,
+} = await import('./control')
 const body = (result: { structuredContent?: unknown }) =>
   result.structuredContent as Record<string, any>
 const errorText = (result: { isError?: boolean; content: { type: string; text?: string }[] }) =>
@@ -112,6 +130,8 @@ beforeEach(() => {
   member = true
   readable = session
   canReply = true
+  movable = true
+  moves = []
   stopped = []
   queue = []
   active = null
@@ -171,6 +191,43 @@ describe('nuphos_stop', () => {
 
     expect(errorText(await nuphosStop({ session_id: 's1' }, ctx))).toBe('Session not found: s1')
     expect(stopped).toEqual([])
+  })
+})
+
+describe('nuphos_archive_session', () => {
+  test('archives through the app’s Archive, default true, and restores with false', async () => {
+    expect(body(await nuphosArchiveSession({ session_id: 's1' }, ctx))).toEqual({
+      session_id: 's1',
+      archived: true,
+      session_ids: ['s1', 'child'],
+    })
+    await nuphosArchiveSession({ session_id: 's1', archived: false }, ctx)
+    expect(moves).toEqual([
+      ['s1', ME, true],
+      ['s1', ME, false],
+    ])
+  })
+
+  test('someone who may only view it cannot archive it', async () => {
+    movable = false
+
+    expect(errorText(await nuphosArchiveSession({ session_id: 's1' }, ctx))).toContain('only view')
+  })
+
+  test('a session the caller cannot read is not found', async () => {
+    readable = null
+
+    expect(errorText(await nuphosArchiveSession({ session_id: 's1' }, ctx))).toBe(
+      'Session not found: s1',
+    )
+    expect(moves).toEqual([])
+  })
+
+  test('archived must be a boolean', async () => {
+    expect(errorText(await nuphosArchiveSession({ session_id: 's1', archived: 'yes' }, ctx))).toBe(
+      '`archived` must be a boolean.',
+    )
+    expect(moves).toEqual([])
   })
 })
 

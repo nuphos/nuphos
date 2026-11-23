@@ -30,6 +30,7 @@ export type CreateTriggerInput = {
   enabled?: boolean
   /** Webhook flood guard: min seconds between runs (default from config; 0 disables). */
   minIntervalSeconds?: number
+  payloadFilters?: unknown
 }
 
 export type UpdateTriggerPatch = {
@@ -39,6 +40,10 @@ export type UpdateTriggerPatch = {
   cronExpression?: string
   timeZone?: string
   minIntervalSeconds?: number
+  /** A new expiry, or null to remove it. */
+  expiresAt?: Date | null
+  /** An empty list removes the rules. */
+  payloadFilters?: unknown
 }
 
 /** A Trigger is created in a Task its creator owns, and that Task's owner owns it from then on. */
@@ -49,12 +54,27 @@ export async function assertBindableSession(
 ): Promise<void> {
   const target = await getConversationBySessionId(sessionId)
 
-  if (!teamId || !target || target.teamId !== teamId || target.userId !== ownerUserId) {
+  if (
+    !teamId ||
+    !target ||
+    target.archivedAt ||
+    target.teamId !== teamId ||
+    target.userId !== ownerUserId
+  ) {
     throw new AppError(
       400,
       'invalid_target_session',
       'targetSessionId must be a Task you own in this team',
     )
+  }
+}
+
+export function validateExpiresAt(expiresAt: Date): void {
+  if (!(expiresAt instanceof Date) || Number.isNaN(expiresAt.getTime())) {
+    throw new AppError(400, 'invalid_request', 'expiresAt must be a valid date')
+  }
+  if (expiresAt.getTime() <= Date.now()) {
+    throw new AppError(400, 'invalid_request', 'expiresAt must be in the future')
   }
 }
 
@@ -103,6 +123,7 @@ export function serializeTrigger(trigger: AgentTrigger, exposeSecret = false) {
     _id,
     webhookSecret,
     dedupeKey: _dedupeKey,
+    archiveEpoch: _archiveEpoch,
     executionCredentialAccess: _executionCredentialAccess,
     ...rest
   } = trigger

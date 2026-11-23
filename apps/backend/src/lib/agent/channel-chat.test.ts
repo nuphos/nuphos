@@ -1,5 +1,7 @@
+import { OUTDATED_HOST_HINT } from '@/lib/claude-code-preview/host-minimum-version'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
+import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { AGENT_CLI_UNSTARTABLE_MESSAGE } from '@/lib/claude-code-preview/plain-failure'
 import { AppError } from '@/lib/errors'
@@ -31,11 +33,15 @@ import {
 } from './message-metadata'
 import { clearPendingUserMessages, enqueuePendingUserMessage } from './pending-messages'
 import { listPendingUserMessages } from './pending-queue'
+import { startQueuedTurn } from './queued-turn'
+import { installQueuedTurnStarter } from './session-released'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+import { noteReplyFailed } from './reply-failed'
 
 import type { AgentConversation } from './db'
 import type { MessageMetadata } from './message-metadata'
 import type { TurnRunner } from './turn-runner'
+import type { TeamSession } from '@/lib/claude-code-preview/team-openab-runtime'
 import type * as dbActual from '@/lib/db'
 
 const TEAM = 'team'
@@ -376,6 +382,34 @@ describe('waking a channel’s agents', () => {
     })
   })
 
+  test('an agent whose Claude account needs verification says where to verify it', async () => {
+    const portal = 'https://portal.anthropic.com/verify?org=00000000-0000-4000-8000-000000000000'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(
+            `**Internal Error** (code: -32603)\nInternal error: API Error: Your account can't receive replies from Claude right now. You can find the next step in the Anthropic Verification Portal: ${portal}\n> {"errorKind":"verification_required"}`,
+            -32603,
+          )
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'usage_limit',
+      reason: 'its account must be verified with Anthropic.',
+      verifyUrl: portal,
+    })
+  })
+
   test("an agent the model provider refused says the provider's words", async () => {
     const refused =
       'The model provider refused the request: 400: request (46055 tokens) exceeds the available context size (8192 tokens)'
@@ -426,6 +460,37 @@ describe('waking a channel’s agents', () => {
     ).toMatchObject({ agentId: 'agent-a', cause: 'cli', reason: AGENT_CLI_UNSTARTABLE_MESSAGE })
   })
 
+  test('a Bot CLI failure preserves the old host update hint beside its repair sentence', async () => {
+    // As logged for a Bot's first turn on 2026-11-19 (path shortened).
+    const died =
+      'Codex process has exited with code 1:\nError: spawn /usr/local/lib/node_modules/@openai/codex/node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/codex/codex ENOENT'
+
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId }) => {
+        if (sessionId === 'agent-a')
+          throw new OpenAbRpcError(`${died}\n\n${OUTDATED_HOST_HINT}`, 1001, {
+            code: 1001,
+            message: died,
+          })
+
+        return { status: 'completed' }
+      },
+    })
+    await say('hello')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // Older clients probe only transcriptUpdatedAt, not the timeline events.
+    expect((await channel()).transcriptUpdatedAt).toBeInstanceOf(Date)
+    expect(
+      (await channel()).timelineEvents?.find((event) => event.kind === 'agent_reply_failed'),
+    ).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'cli',
+      reason: `${AGENT_CLI_UNSTARTABLE_MESSAGE} ${OUTDATED_HOST_HINT}`,
+    })
+  })
+
   test("an agent's other internal error leaves its words out of the chat", async () => {
     const internal = 'Internal error: ENOENT: no such file, open /home/runner/.claude/settings.json'
 
@@ -448,8 +513,12 @@ describe('waking a channel’s agents', () => {
       (event) => event.kind === 'agent_reply_failed',
     )
 
-    expect(failed).toMatchObject({ agentId: 'agent-a', cause: 'other' })
-    expect(failed && 'reason' in failed ? failed.reason : undefined).toBeUndefined()
+    // A short reason for people, never the adapter's paths.
+    expect(failed).toMatchObject({
+      agentId: 'agent-a',
+      cause: 'other',
+      reason: 'its runtime ran into an error.',
+    })
   })
 
   test('a disabled agent says where to move, so the chat can offer Switch agent', async () => {
@@ -787,6 +856,28 @@ describe('a person posting while an agent’s turn runs', () => {
     expect(
       (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner', true)).messages,
     ).toHaveLength(1)
+  })
+
+  test('a notice that cannot steer never reads as the session let go', async () => {
+    // #4164: each give-up said the session was released, so a turn waiting out a usage limit
+    // was sent again every few seconds rather than after its wait.
+    const starts: boolean[] = []
+
+    installQueuedTurnStarter(async (_userId, _sessionId, released) => {
+      starts.push(released)
+    })
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    steerable = false
+    try {
+      await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+      await new Promise((resolve) => setTimeout(resolve, 30))
+      expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+      expect(starts).toEqual([])
+    } finally {
+      installQueuedTurnStarter(startQueuedTurn)
+    }
   })
 
   test('a runtime that cannot steer, or another person’s turn, gets the notice queued', async () => {
@@ -1215,6 +1306,25 @@ describe('an agent speaks in a channel only with channel_post', () => {
       },
     ])
   })
+
+  test('a reply quotes the post it answers unless that post is the newest', async () => {
+    runTurns(async () => {})
+    await say('first')
+    await say('second')
+    await new Promise((resolve) => setTimeout(resolve, 20))
+    const indexOf = async (messageId: string) =>
+      (await agentMessages().findOne({ sessionId: 'channel', messageId }))!.index as number
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+
+    // Right under the post it answers, a quote of it only repeats it.
+    await postAsAgent('channel', agent, 'Hi', [], await indexOf('m2'))
+    await postAsAgent('channel', agent, 'About that', [], await indexOf('m1'))
+
+    const [plain, quoting] = await agentPosts()
+
+    expect(plain?.metadata).not.toHaveProperty('replyTo')
+    expect(quoting?.metadata).toMatchObject({ replyTo: { text: 'first' } })
+  })
 })
 
 describe('an agent whose computer is offline', () => {
@@ -1266,6 +1376,24 @@ describe('an agent whose computer is offline', () => {
     expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
   })
 
+  // A runtime that kept dropping wrote a line for every failed wake (#3332), then one per post.
+  test('keeps one couldn’t-reply line per agent, the latest, and takes it away once it replies', async () => {
+    await say('anyone there?')
+    for (let drop = 0; drop < 3; drop++) await noteReplyFailed('channel', 'agent-a', offline())
+    await say('still there?')
+    await noteReplyFailed('channel', 'agent-a', new Error('OpenAB ACP initialize timed out'))
+    expect(await failures()).toEqual([
+      expect.objectContaining({
+        agentId: 'agent-a',
+        cause: 'other',
+        reason: 'its runtime ran into an error.',
+      }),
+    ])
+
+    await postAsAgent('channel', { sessionId: 'agent-a', title: 'Agent A' }, 'Back now')
+    expect(await failures()).toEqual([])
+  })
+
   test('is woken for the posts it missed when its computer is back, and only for those', async () => {
     await say('anyone there?')
     // Its notice was lost while it was away.
@@ -1309,5 +1437,56 @@ describe('an agent whose computer is offline', () => {
     wakes = []
     await wakeMissedPosts({ runtimeId: 'local_agent-a-owner_mac' })
     expect(wakes).toEqual([])
+  })
+})
+
+// #4061: a wake whose turn a runtime restart cut off said the Bot couldn't reply, beside the
+// answer a later wake was already giving, and left its posts read so nothing asked again.
+describe('a channel wake cut off by a runtime restart', () => {
+  beforeEach(async () => {
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'], 'agentReadIndex.agent-a': -1 } },
+    )
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async (args) => {
+        await enqueuePendingUserMessage(args.userId, args.sessionId, args.message)
+
+        return { mode: 'queued' }
+      },
+      runAgentForTrigger: async () => ({ status: 'completed', finishReason: 'connection-lost' }),
+    })
+    // Back on the air with no turn and no outcome: the runtime restarted under it.
+    sessionsByConversation.set(`${TEAM}:agent-a`, {
+      openabSessionId: 'openab-a',
+      reattached: Promise.resolve(true),
+      client: { getSessionExecutionState: async () => ({ state: 'idle' }) },
+    } as unknown as TeamSession)
+  })
+  afterEach(() => {
+    sessionsByConversation.delete(`${TEAM}:agent-a`)
+  })
+
+  test('is not reported as a couldn’t-reply line: its posts wait for the next wake', async () => {
+    await say('anyone there?')
+    const [notice] = await listPendingUserMessages('agent-a-owner', 'agent-a')
+
+    await clearPendingUserMessages('agent-a-owner', 'agent-a')
+    await runTurn(
+      { userId: 'agent-a-owner', teamId: TEAM, targetSessionId: 'agent-a' },
+      (await agentConversations().findOne({ sessionId: 'agent-a' }))!,
+      'agent.resource',
+      [notice!],
+    )
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    const failed = (await channel()).timelineEvents?.filter(
+      (event) => event.kind === 'agent_reply_failed',
+    )
+
+    expect(failed ?? []).toEqual([])
+    expect((await channel()).agentReadIndex?.['agent-a']).toBe(-1)
+    // Asked again, with the same post.
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
   })
 })

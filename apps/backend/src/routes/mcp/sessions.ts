@@ -81,7 +81,7 @@ export async function nuphosUpdateSession(
   }
 
   // A Task under a Bot runs in its Bot's permission mode. Refused before
-  // anything changes, like update_thread.
+  // anything changes, like update_task.
   const modeFrom = await modeSource(sessionId)
 
   if (fullAccess !== undefined && modeFrom !== sessionId) {

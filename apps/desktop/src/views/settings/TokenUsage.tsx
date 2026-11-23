@@ -10,6 +10,7 @@ import { PanelHeading } from './RuntimePanel'
 import {
   TOKEN_USAGE_GROUPS,
   formatUsd,
+  listPriceTotal,
   previousTokenUsageWindow,
   tokenUsageLines,
   tokenUsageSplit,
@@ -36,7 +37,7 @@ const NOTE =
 
 /** What the team's runtimes spent in model tokens, per day and split by one dimension, each
  *  group against the period before. Every member sees the team's numbers; the backend names
- *  another member's Bot, Task, conversation, Trigger or computer only where the viewer may see
+ *  another member's Bot, Task, Trigger or computer only where the viewer may see
  *  it, and the rest show as their dimension. */
 export function TokenUsage({
   teamId,
@@ -53,6 +54,8 @@ export function TokenUsage({
   const where = filterQuery(filters)
   const days = useTeamUsageQuery(teamId, { ...span, ...where, bucket: 'day', timeZone, groupBy })
   const groups = useTeamUsageQuery(teamId, { ...span, ...where, groupBy })
+  // The cost is read by model whatever the grouping, so every grouping shows the same total.
+  const models = useTeamUsageQuery(teamId, { ...span, ...where, groupBy: 'model' })
   // The same days just before, so a group that grew stands out.
   const previous = useTeamUsageQuery(teamId, {
     ...previousTokenUsageWindow(span),
@@ -93,6 +96,7 @@ export function TokenUsage({
         days={days.data}
         groups={groups.data}
         previous={previous.data}
+        priced={models.data && listPriceTotal(models.data.rows)}
         names={names}
         // The last grouping stays on screen, dimmed, until the new one arrives.
         stale={groups.isPlaceholderData || days.isPlaceholderData}
@@ -125,6 +129,7 @@ function UsageReport({
   days,
   groups,
   previous,
+  priced,
   names,
   stale,
   groupBy,
@@ -138,6 +143,7 @@ function UsageReport({
   groups: UsageAnswer
   /** Absent until read; compared only once it is for the same grouping. */
   previous: UsageAnswer | undefined
+  priced: ReturnType<typeof listPriceTotal>
   names: UsageNames
   stale: boolean
   groupBy: UsageDimension
@@ -162,9 +168,6 @@ function UsageReport({
     days.query,
   )
   const total = lines.reduce((sum, line) => sum + line.totalTokens, 0)
-  const cost = lines.some((line) => line.costUsd !== undefined)
-    ? lines.reduce((sum, line) => sum + (line.costUsd ?? 0), 0)
-    : undefined
 
   return (
     <div aria-busy={stale} className={stale ? 'opacity-50 transition-opacity' : undefined}>
@@ -180,7 +183,13 @@ function UsageReport({
           onChange={onFilters}
         />
         <div className="flex items-center gap-3 text-xs text-tertiary">
-          {cost === undefined ? null : t('About {cost} at list prices', { cost: formatUsd(cost) })}
+          {priced === undefined
+            ? null
+            : priced.complete
+              ? t('About {cost} at list prices', { cost: formatUsd(priced.costUsd) })
+              : t('About {cost} at list prices, not counting models without one', {
+                  cost: formatUsd(priced.costUsd),
+                })}
           <AppSelect
             size="sm"
             ariaLabel={t('Group by')}

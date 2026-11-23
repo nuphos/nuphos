@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 // Small Mongo fixture for the lifecycle state machine, including positional
 // updates (by `placements.id` or a top-level $elemMatch) and duplicate-key
 // behavior used by the placement lease.
@@ -8,14 +10,16 @@ const valueAt = (doc: Doc, key: string): any =>
 function matches(doc: Doc, query: Doc): boolean {
   return Object.entries(query).every(([key, expected]) => {
     if (key === '$or') return expected.some((part: Doc) => matches(doc, part))
-    // A path through an array matches when any element does, as in Mongo.
+    if (key === '$nor') return !expected.some((part: Doc) => matches(doc, part))
+    // A path through an array matches when any element does, and a number indexes it, as in Mongo.
     const [head = key, ...rest] = key.split('.')
 
-    if (rest.length && Array.isArray(doc[head]))
+    if (rest.length && Array.isArray(doc[head]) && !/^\d+$/.test(rest[0]!))
       return doc[head].some((entry: Doc) => matches(entry, { [rest.join('.')]: expected }))
     const actual = valueAt(doc, key)
 
     if (expected && typeof expected === 'object' && !(expected instanceof Date)) {
+      if ('$not' in expected) return !matches(doc, { [key]: expected.$not })
       if ('$elemMatch' in expected)
         return (
           Array.isArray(actual) && actual.some((entry: Doc) => matches(entry, expected.$elemMatch))
@@ -28,6 +32,9 @@ function matches(doc: Doc, query: Doc): boolean {
         )
       if ('$lte' in expected) return actual <= expected.$lte
       if ('$gt' in expected) return actual > expected.$gt
+      // Like Mongo, an array or document is compared by value.
+      if ('$ne' in expected && expected.$ne && typeof expected.$ne === 'object')
+        return !isDeepStrictEqual(actual, expected.$ne)
       if ('$ne' in expected)
         return Array.isArray(actual) ? !actual.includes(expected.$ne) : actual !== expected.$ne
       if ('$in' in expected)
@@ -39,7 +46,36 @@ function matches(doc: Doc, query: Doc): boolean {
     return Array.isArray(actual) ? actual.includes(expected) : actual === expected
   })
 }
+// The aggregation operators the backend's pipeline updates use.
+function evaluate(doc: Doc, expr: any): any {
+  if (typeof expr === 'string' && expr.startsWith('$')) return doc[expr.slice(1)]
+  if (Array.isArray(expr)) return expr.map((one) => evaluate(doc, one))
+  if (!expr || typeof expr !== 'object' || expr instanceof Date) return expr
+  if ('$ifNull' in expr) return evaluate(doc, expr.$ifNull[0]) ?? evaluate(doc, expr.$ifNull[1])
+  if ('$add' in expr)
+    return expr.$add.reduce((sum: number, one: any) => sum + Number(evaluate(doc, one)), 0)
+  if ('$setUnion' in expr) {
+    const all = expr.$setUnion.flatMap((one: any) => evaluate(doc, one))
+
+    return all.filter(
+      (one: any, i: number) =>
+        all.findIndex((other: any) => JSON.stringify(other) === JSON.stringify(one)) === i,
+    )
+  }
+
+  return Object.fromEntries(Object.entries(expr).map(([k, v]) => [k, evaluate(doc, v)]))
+}
+
 function update(doc: Doc, query: Doc, mutation: Doc) {
+  if (Array.isArray(mutation)) {
+    for (const stage of mutation)
+      Object.assign(
+        doc,
+        Object.fromEntries(Object.entries(stage.$set ?? {}).map(([k, v]) => [k, evaluate(doc, v)])),
+      )
+
+    return
+  }
   // Like Mongo, `$` names the element the query matched, before any $set changes it.
   const positional = new Map<string, Doc>()
 
@@ -125,13 +161,36 @@ export function portabilityDb() {
 
     return stores.get(name)!
   }
+  // A projection keeps what Mongo would: a test misses a field a read left out.
+  // Dotted paths keep their whole top-level field.
+  const project = (doc: Doc, projection?: Doc): Doc => {
+    if (!projection) return doc
+    const kept = new Set(Object.keys(projection).map((path) => path.split('.')[0]!))
+    const including = Object.entries(projection).some(([key, on]) => key !== '_id' && on)
+
+    return Object.fromEntries(
+      Object.entries(doc).filter(([key]) =>
+        key === '_id' ? projection._id !== 0 : including === kept.has(key) && projection[key] !== 0,
+      ),
+    )
+  }
   const collection = (name: string) => ({
-    find: (query: Doc) => {
-      let docs = () => rows(name).filter((doc) => matches(doc, query))
+    find: (query: Doc, options?: Doc) => {
+      let docs = () =>
+        rows(name)
+          .filter((doc) => matches(doc, query))
+          .map((doc) => project(doc, options?.projection))
       // Rows come back in insertion order; the fixtures insert them in the order wanted.
       const cursor = {
         toArray: async () => docs(),
         project: () => cursor,
+        map: (fn: (doc: Doc) => unknown) => {
+          const unmapped = docs
+
+          docs = () => unmapped().map(fn) as Doc[]
+
+          return cursor
+        },
         sort: () => cursor,
         limit: (count: number) => {
           const unlimited = docs
@@ -149,7 +208,11 @@ export function portabilityDb() {
 
       return { insertedId: doc._id }
     },
-    findOne: async (query: Doc) => rows(name).find((doc) => matches(doc, query)) ?? null,
+    findOne: async (query: Doc, options?: Doc) => {
+      const doc = rows(name).find((entry) => matches(entry, query))
+
+      return doc ? project(doc, options?.projection) : null
+    },
     countDocuments: async (query: Doc) => rows(name).filter((doc) => matches(doc, query)).length,
     findOneAndUpdate: async (query: Doc, mutation: Doc, options?: Doc) => {
       let doc = rows(name).find((entry) => matches(entry, query))

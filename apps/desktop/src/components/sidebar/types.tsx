@@ -59,8 +59,6 @@ export type Item = {
   watching?: boolean
   /** This row's activity, shown on its parent while the parent is folded. */
   foldedStatus?: ReactNode
-  /** A finished thread with nothing left to show; its parent counts it instead. */
-  finished?: boolean
   /** A channel: listed under Channels rather than Agents. */
   channel?: boolean
   /** A Bot's sub-agent repeated under its chat in Bots (the tree status style). */
