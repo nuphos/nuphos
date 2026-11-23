@@ -39,6 +39,7 @@ import { linkChipScenarios } from './link-chip-scenarios.ts'
 import { longTranscriptScenarios } from './long-transcript-scenarios.ts'
 import { mcpDefaultsScenarios } from './mcp-defaults-scenarios.ts'
 import { mcpCredentialDefaultsScenarios } from './mcp-credential-defaults-scenarios.ts'
+import { mcpAgentTokenScenarios } from './mcp-agent-token-scenarios.ts'
 import { mcpScenarios } from './mcp-scenarios.ts'
 import { modelRecoveryScenarios } from './model-recovery-scenarios.ts'
 import { moveMidTurnScenarios } from './move-mid-turn-scenarios.ts'
@@ -198,6 +199,8 @@ const later: Scenario[] = [
   ...offlineScenarios,
   ...mcpNotificationScenarios,
   ...webhookScenarios,
+  // Before the laptop's turns: a new Task over MCP starts where the last Task ran.
+  ...mcpAgentTokenScenarios,
   ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,

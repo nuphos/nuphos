@@ -47,6 +47,10 @@ async function maySendTo(
   )
 }
 
+/** The caller, or their Bot when they signed in with its agent token. */
+const attribute = (ctx: McpCallContext) =>
+  createMessageMetadata(ctx.userId, 'nuphos', undefined, ctx.cliToken?.principal)
+
 /**
  * An answer to an open question is not a message: the question is resolved and
  * the agent that asked is woken with it, as when a person answers its card.
@@ -59,7 +63,7 @@ async function answerQuestion(
   ctx: McpCallContext,
 ): Promise<ToolResult> {
   try {
-    const { sender } = await createMessageMetadata(ctx.userId, 'nuphos')
+    const { sender } = await attribute(ctx)
 
     await answerDecision({
       conversation,
@@ -167,7 +171,7 @@ export async function nuphosAsk(
   const renderedText = `${prompt}${contextBlock}`
   // The caller's own request, made through their MCP client: attributed to them.
   // Resolved before the claim below, which nothing would release if this threw.
-  const attribution = await createMessageMetadata(ctx.userId, 'nuphos')
+  const attribution = await attribute(ctx)
   // A prompt sent while this session is already running is handed to the turn
   // in flight instead of being refused: the agent sees it at its next step and
   // decides whether to ignore it, finish first, or change course.
@@ -242,7 +246,7 @@ export async function nuphosAsk(
       await runAgentForTrigger({
         userId: ctx.userId,
         conversationOwnerUserId: ownerUserId,
-        nuphosToken: signNuphosToken(ctx.userId, NUPHOS_TOKEN_TTL_SECONDS),
+        nuphosToken: ctx.cliToken?.token ?? signNuphosToken(ctx.userId, NUPHOS_TOKEN_TTL_SECONDS),
         teamId,
         sessionId,
         messages,
