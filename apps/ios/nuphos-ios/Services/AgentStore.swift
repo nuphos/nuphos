@@ -424,8 +424,8 @@ final class AgentStore {
         publishSharingContext()
     }
 
-    func loadRuntimes(force: Bool = false) async {
-        guard let team = selectedTeam, force || !runtimesLoaded else { return }
+    func loadRuntimes() async {
+        guard let team = selectedTeam else { return }
         do {
             let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -796,7 +796,7 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            // Cancelled (a page that went away): the list stays as it was (#3620).
             guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
@@ -820,7 +820,8 @@ final class AgentStore {
     /// work out afterwards, which can leave a page with nothing to show.
     /// Rows can repeat across pages because the cursor is a timestamp.
     private func listConversations(teamId: String) async throws -> [AgentConversation] {
-        var rows: [String: AgentConversation] = [:]
+        var rows: [AgentConversation] = []
+        var listed: Set<String> = []
         for scope in ["mine", "shared"] {
             var cursor: String?
             var cursors: Set<String> = []
@@ -828,12 +829,14 @@ final class AgentStore {
                 let page = try await NuphosAPI.conversations(
                     token: token, teamId: teamId, cursor: cursor, limit: 100, search: search, scope: scope
                 )
-                for row in page.rows where rows[row.sessionId] == nil { rows[row.sessionId] = row }
+                for row in page.rows where listed.insert(row.sessionId).inserted { rows.append(row) }
                 cursor = page.nextCursor
                 if let cursor, !cursors.insert(cursor).inserted { throw NuphosAPI.Failure.invalidResponse }
             } while cursor != nil
         }
-        return rows.values.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        // Ties keep the server's order. A dictionary's changed from one read to the next,
+        // moving a row under a tap so the other one opened (#4732).
+        return rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     /// A live session for an existing conversation, already loading. The

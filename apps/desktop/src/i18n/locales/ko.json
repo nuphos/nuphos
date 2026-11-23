@@ -3402,6 +3402,8 @@
   "Other members’ private Tasks": "다른 멤버의 비공개 Task",
   "Other…": "기타…",
   "Out of usage": "사용량 소진",
+  "Out of usage. These run when usage resets in {time}.": "사용량 소진. {time} 후 초기화되면 실행됩니다.",
+  "Out of usage. These run when usage resets.": "사용량 소진. 사용량이 초기화되면 실행됩니다.",
   "Outbound": "아웃바운드",
   "Outbound relay": "아웃바운드 릴레이",
   "Outcome": "결과",

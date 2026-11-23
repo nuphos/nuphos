@@ -3402,6 +3402,8 @@
   "Other members’ private Tasks": "Tasks privadas de otros miembros",
   "Other…": "Otra…",
   "Out of usage": "Sin uso disponible",
+  "Out of usage. These run when usage resets in {time}.": "Sin uso disponible. Se envían cuando el uso se restablezca en {time}.",
+  "Out of usage. These run when usage resets.": "Sin uso disponible. Se envían cuando el uso se restablezca.",
   "Outbound": "Saliente",
   "Outbound relay": "Relé saliente",
   "Outcome": "Resultado",

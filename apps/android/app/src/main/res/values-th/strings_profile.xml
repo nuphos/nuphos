@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">ลงชื่อเข้าใช้อีกครั้ง</string>
     <string name="profile_accounts_active">บัญชีที่ใช้งานอยู่</string>
     <string name="profile_workspace_back">กลับไปที่บัญชี</string>
-    <string name="profile_workspace">เวิร์กสเปซ</string>
-    <string name="profile_workspace_none">ไม่มีเวิร์กสเปซที่ใช้ได้</string>
-    <string name="profile_workspace_current">เวิร์กสเปซปัจจุบัน</string>
-    <string name="profile_workspace_setup">ตั้งค่าเวิร์กสเปซ</string>
+    <string name="profile_workspace">ทีม</string>
+    <string name="profile_workspace_none">ไม่มีทีมที่ใช้ได้</string>
+    <string name="profile_workspace_current">ทีมปัจจุบัน</string>
+    <string name="profile_workspace_setup">ตั้งค่าทีม</string>
     <string name="profile_two_factor">การยืนยันตัวตนแบบสองขั้นตอน</string>
     <string name="profile_two_factor_intro">ขอรหัสจากแอปยืนยันตัวตนทุกครั้งที่ลงชื่อเข้าใช้ เพื่อให้รหัสผ่านหรืออีเมลที่ถูกขโมยไม่เพียงพอ</string>
     <string name="profile_two_factor_load_failed">โหลดการยืนยันตัวตนแบบสองขั้นตอนไม่ได้</string>

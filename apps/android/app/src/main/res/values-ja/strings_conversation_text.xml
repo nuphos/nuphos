@@ -56,7 +56,7 @@
     <string name="convtext_conflict_busy">このタスクは別の応答を処理中です。</string>
     <string name="convtext_runtime_signed_out">このランタイムはサインアウトしています。実行しているコンピューターの Nuphos からサインインするか、別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_disabled">このタスクのランタイムは無効になっています。続けるには別のランタイムに切り替えてください。</string>
-    <string name="convtext_runtime_not_found">このランタイムはこのワークスペースで利用できなくなりました。続けるには別のランタイムに切り替えてください。</string>
+    <string name="convtext_runtime_not_found">このランタイムはこのチームで利用できなくなりました。続けるには別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_offline">このランタイムを実行しているコンピューターはオフラインです。そのコンピューターで Nuphos を開くか、別のランタイムに切り替えてください。</string>
     <string name="convtext_runtime_paused">%1$s は一時停止中です。送信すると再開します。</string>
     <string name="convtext_runtime_starting">%1$s を起動しています。数秒で使えるようになります。</string>

@@ -1,8 +1,10 @@
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 
+import { cliSignedIn } from './local-agent-access'
 import { reportedLocalAgent } from './local-runtime-catalog'
 
+import type { LocalStatusDeps } from './local-agent-access'
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RuntimeModelCatalog } from './runtime-models'
 import type { PreviewRuntimeStatus } from './runtime-status'
@@ -39,13 +41,13 @@ export async function localRuntimeModels(
 /** A local runtime's status comes from its computer's tunnel, not a probe. */
 export async function localRuntimeStatus(
   runtimeId: string,
-  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> = presenceDeps,
+  deps: Pick<LocalRuntimeCatalogDeps, 'getPresence'> & LocalStatusDeps = presenceDeps,
 ): Promise<PreviewRuntimeStatus> {
   const ref = parseLocalRuntimeId(runtimeId)
   const presence = ref ? await deps.getPresence(ref.userId, ref.deviceId) : null
   const agent = ref ? reportedLocalAgent(presence?.status, ref) : undefined
   const online = agent !== undefined
-  const signedIn = agent?.cli.loggedIn
+  const signedIn = ref ? await cliSignedIn(ref, agent?.cli.loggedIn, deps) : undefined
 
   return {
     configured: true,

@@ -34,7 +34,7 @@
     <string name="storetext_runtime_admin_required">需要管理员权限。你的账号仍保持登录。</string>
     <string name="storetext_runtime_unconfirmed">无法确认运行环境的结果。继续之前，请先刷新已保存的状态。</string>
     <string name="storetext_runtimes_refresh_failed">无法刷新运行环境。</string>
-    <string name="storetext_runtimes_access_lost">你已无法再访问此工作区的运行环境。</string>
+    <string name="storetext_runtimes_access_lost">你已无法再访问此团队的运行环境。</string>
     <string name="storetext_runtimes_usage_unavailable">无法获取用量。请尝试刷新。</string>
     <string name="storetext_runtimes_computers_unavailable">无法获取电脑状态。请尝试刷新。</string>
     <string name="storetext_runtime_unknown">未知的运行环境</string>

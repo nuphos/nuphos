@@ -34,7 +34,7 @@
     <string name="storetext_runtime_admin_required">管理者権限が必要です。アカウントはサインインしたままです。</string>
     <string name="storetext_runtime_unconfirmed">ランタイムの結果を確認できませんでした。続行する前に、保存された状態を更新してください。</string>
     <string name="storetext_runtimes_refresh_failed">ランタイムを更新できませんでした。</string>
-    <string name="storetext_runtimes_access_lost">このワークスペースではランタイムにアクセスできなくなりました。</string>
+    <string name="storetext_runtimes_access_lost">このチームではランタイムにアクセスできなくなりました。</string>
     <string name="storetext_runtimes_usage_unavailable">使用量を取得できません。更新してみてください。</string>
     <string name="storetext_runtimes_computers_unavailable">コンピューターの状態を取得できません。更新してみてください。</string>
     <string name="storetext_runtime_unknown">不明なランタイム</string>

@@ -17,6 +17,7 @@
     <string name="agent_restore">Restore</string>
     <string name="agent_archive">Archive</string>
     <string name="agent_rename_task">Rename task</string>
+    <string name="agent_rename_bot">Rename Bot</string>
     <string name="agent_title">Title</string>
     <string name="agent_save">Save</string>
     <string name="agent_watch_failed">Watch update failed</string>
@@ -72,7 +73,7 @@
 
     <!-- First runtime -->
     <string name="agent_first_runtime_title">Connect your first runtime</string>
-    <string name="agent_first_runtime_body">Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one.</string>
+    <string name="agent_first_runtime_body">Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one.</string>
     <string name="agent_first_runtime_starting_title">%1$s is getting ready</string>
     <string name="agent_first_runtime_starting_body">It will show up here as soon as it is online. This can take a minute or two.</string>
 
@@ -119,11 +120,11 @@
     <string name="agent_ask_owner_sign_in">Ask its owner to sign in</string>
     <string name="agent_sign_in_on">Sign in on %1$s</string>
     <string name="agent_ask_admin_sign_in">Ask an administrator to sign in</string>
-    <string name="agent_runtime_gone_body">This runtime is no longer in the current workspace. Refresh runtimes before continuing.</string>
+    <string name="agent_runtime_gone_body">This runtime is no longer in the current team. Refresh runtimes before continuing.</string>
     <string name="agent_runtime_disabled_body">This runtime is disabled or being removed. Ask an administrator to check its saved state.</string>
     <string name="agent_teammate_sign_in_body">%1$s belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.</string>
     <string name="agent_host_sign_in_body">On %1$s, open Nuphos, go to the Runtimes page and choose Sign in for this runtime.</string>
-    <string name="agent_admin_sign_in_body">A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.</string>
+    <string name="agent_admin_sign_in_body">A team administrator can sign it in from the Runtimes page in Nuphos on their computer.</string>
 
     <!-- Runtime details -->
     <string name="agent_back_to_runtimes">Back to runtimes</string>
@@ -141,7 +142,7 @@
     <string name="agent_removal_in_progress">Removal is in progress. Refresh to check saved state.</string>
     <string name="agent_manage_on_host">Manage this runtime and its sign-in on the computer that hosts it.</string>
     <string name="agent_manage_in_development">Manage this runtime in its local development configuration.</string>
-    <string name="agent_admins_only_manage">Only workspace administrators can rename, enable, or remove this runtime and manage its sign-in.</string>
+    <string name="agent_admins_only_manage">Only team administrators can rename, enable, or remove this runtime and manage its sign-in.</string>
     <string name="agent_unreconciled">A request may have reached the server. Refresh saved state before another change.</string>
     <string name="agent_refresh_runtime">Refresh runtime</string>
     <string name="agent_remove_named">Remove %1$s?</string>
@@ -176,7 +177,7 @@
     <string name="agent_review_new_sign_in">Review and allow a new sign-in</string>
     <string name="agent_self_hosted_unavailable">Provider setup for self-hosted runtimes is not available here.</string>
     <string name="agent_sign_in_unavailable">Sign-in is unavailable. Refresh the runtime list and check your computer access.</string>
-    <string name="agent_admins_only_create">Only a current workspace administrator can create runtimes.</string>
+    <string name="agent_admins_only_create">Only a current team administrator can create runtimes.</string>
     <string name="agent_closing_stops_polling">Closing this sheet stops local polling. It does not cancel server sign-in.</string>
     <string name="agent_close">Close</string>
 </resources>

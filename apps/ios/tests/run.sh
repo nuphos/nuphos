@@ -75,7 +75,8 @@ done
 swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
 "$test_dir/hosted-bot-avatar-tests"
 
-# The store and the session it keeps (#3525), with what they name. Analytics and AuthSession are stand-ins in the test.
+# The store and the session it keeps (#3525), and the runtimes it reloads, with what they name. Analytics and AuthSession are stand-ins in the tests.
+for store_test in ChatReopenTests RuntimeReloadTests; do
 swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
   -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
   "${chat_sources[@]}" \
@@ -99,5 +100,6 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   nuphos-ios/Views/Home/NewBox.swift \
   ShareSupport/SubmissionAdmission.swift \
   ShareSupport/SharedShareSession.swift \
-  tests/ChatReopenTests.swift -o "$test_dir/ChatReopenTests"
-"$test_dir/ChatReopenTests"
+  "tests/$store_test.swift" -o "$test_dir/$store_test"
+"$test_dir/$store_test"
+done

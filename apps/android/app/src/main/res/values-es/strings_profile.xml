@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">Volver a iniciar sesión</string>
     <string name="profile_accounts_active">Cuenta activa</string>
     <string name="profile_workspace_back">Volver a Cuenta</string>
-    <string name="profile_workspace">Espacio de trabajo</string>
-    <string name="profile_workspace_none">No hay espacios de trabajo disponibles</string>
-    <string name="profile_workspace_current">Espacio de trabajo actual</string>
-    <string name="profile_workspace_setup">Configurar un espacio de trabajo</string>
+    <string name="profile_workspace">Equipo</string>
+    <string name="profile_workspace_none">No hay equipos disponibles</string>
+    <string name="profile_workspace_current">Equipo actual</string>
+    <string name="profile_workspace_setup">Configurar un equipo</string>
     <string name="profile_two_factor">Verificación en dos pasos</string>
     <string name="profile_two_factor_intro">Pide un código de una app de autenticación cada vez que inicias sesión, para que una contraseña o un correo robados no basten.</string>
     <string name="profile_two_factor_load_failed">No se pudo cargar la verificación en dos pasos.</string>

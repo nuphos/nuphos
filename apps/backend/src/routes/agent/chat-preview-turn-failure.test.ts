@@ -24,11 +24,19 @@ let carried: PendingUserMessage[] = []
 let stopBeforeSend: ReturnType<typeof createAgentRun> | null = null
 
 useRedis({ redisEnabled: () => false, withRedis: async () => null })
+/** Messages a requeue took back out of the transcript. */
+const unstored: string[][] = []
+
 useAgentDb({
   appendTranscriptMessages: (args) => {
     persisted.push({ messages: args.messages })
 
     return Promise.resolve({ isNew: false, count: args.messages.length })
+  },
+  unstoreRequeuedMessages: (args) => {
+    unstored.push(args.messageIds)
+
+    return Promise.resolve()
   },
 })
 useChatPreviewPrepare({
@@ -303,6 +311,7 @@ test('Stop before the agent receives a queued message puts it back instead of re
   expect(persisted).toHaveLength(before)
   expect(run.frames.join('')).not.toContain('turn-interrupted')
   expect(run.done).toBe(true)
+  expect(unstored.at(-1)).toEqual(['user-message', 'queued-behind'])
   expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
     expect.objectContaining({ id: 'user-message', attempts: 1 }),
     expect.objectContaining({ id: 'queued-behind' }),
@@ -324,10 +333,12 @@ test("a person's queued message whose agent is out of usage goes back to the que
 
   await expect(
     runClaudeCodePreviewChatTurn({ ...turnArgs(run), queued: waiting('user-message', 'fix it') }),
-  ).rejects.toThrow('session limit')
+  ).rejects.toMatchObject({ code: 'message_queued' })
   expect(persisted).toHaveLength(before)
+  // #4816: the copy stored before the refusal leaves the transcript; it shows only as waiting.
+  expect(unstored.at(-1)).toEqual(['user-message'])
   expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
-    expect.objectContaining({ id: 'user-message', attempts: 1 }),
+    expect.objectContaining({ id: 'user-message', attempts: 1, usageHold: expect.any(Object) }),
   ])
 })
 
@@ -366,6 +377,8 @@ test('Stop before the agent receives a direct send records the stop and keeps wh
     carried = []
   }
   expect(persisted.at(-1)!.messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+  // The direct send stays recorded; only what waited behind it goes back.
+  expect(unstored.at(-1)).toEqual(['queued-behind'])
   expect(run.frames.join('')).toContain('turn-interrupted')
   expect(await drainPendingUserMessages('user-failure', 'session-failure')).toEqual([
     expect.objectContaining({ id: 'queued-behind' }),

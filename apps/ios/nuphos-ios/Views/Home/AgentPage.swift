@@ -3,6 +3,7 @@ import SwiftUI
 /// Conversation history for the selected team. Task creation lives in a sheet.
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var page: HomePage
     /// True once the large header has scrolled under the bar.
     @Binding var titleCollapsed: Bool
@@ -49,7 +50,9 @@ struct AgentPage: View {
                 refreshing = true
                 pulling = true
                 defer { pulling = false }
-                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+                // Its own task: a read that redraws this page (an empty state does) hands SwiftUI
+                // a new refresh action, and SwiftUI cancels the pull it replaces.
+                await Task { if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() } }.value
             }
             // SwiftUI ends the pull only after its task returns, and this runs only when the
             // phase changes, so the first idle after `pulling` ends follows that end at any speed.
@@ -104,6 +107,8 @@ struct AgentPage: View {
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
             .onPreferenceChange(ComposerOwnsKeyboard.self) { ownsKeyboard = $0 }
             .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
+            // A runtime that joined while the app was away shows when it comes back.
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await store.loadRuntimes() } } }
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {

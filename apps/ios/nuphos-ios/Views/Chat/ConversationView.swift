@@ -307,7 +307,7 @@ struct ConversationView: View {
                     await store.loadAgentDevices(metrics: false)
                 }
                 try? await Task.sleep(for: .seconds(15))
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         .task {
