@@ -47,14 +47,14 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
     .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
   // The menu opens upward, so a computer that joins while it is open slides another row under
-  // the pointer and opens that row's submenu instead: hover again until the runtime takes focus.
-  await until(`${row}'s runtime to take focus`, async () => {
+  // the pointer and opens that row's submenu instead: hover again until the menu takes the key.
+  await until(`${row}'s runtime to take the key`, async () => {
     await trigger.hover()
-    await runtime.focus({ timeout: 2_000 })
+    await runtime.press('Enter', { timeout: 2_000 })
+    await page.getByRole('menu').first().waitFor({ state: 'hidden', timeout: 2_000 })
 
     return true
   })
-  await page.keyboard.press('Enter')
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
