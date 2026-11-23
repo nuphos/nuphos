@@ -158,37 +158,20 @@ test('terminal requests require their own capability and never reach old exec cl
   expect(current.commands).toEqual(['{"action":"open"}'])
 })
 
-test('someone who only uses a Box runs no commands, and opens a terminal only when its owner lets them', async () => {
+test('someone who only uses a Box runs no commands and opens no terminal', async () => {
   const deps = await setup({ terminal: true })
-  const box = (useTerminal?: boolean) => ({
-    ...access,
-    listBoxes: () => Promise.resolve([{ ...target, box: { ...target.box!, useTerminal } }]),
-  })
+  const box = { ...access, listBoxes: () => Promise.resolve([target]) }
 
   for (const purpose of ['exec', 'terminal'] as const)
     await expect(
-      dispatchLocalExec('user', 'd1', 'cat secrets', {
+      dispatchLocalExec('user', 'd1', '{"action":"open"}', {
         teamId: 't1',
         deps,
-        access: box(),
+        access: box,
         purpose,
       }),
     ).rejects.toMatchObject({ status: 403, code: 'device_manage_required' })
-  await expect(
-    dispatchLocalExec('user', 'd1', 'cat secrets', { teamId: 't1', deps, access: box(true) }),
-  ).rejects.toMatchObject({ status: 403 })
   expect(deps.commands).toEqual([])
-  expect(
-    (
-      await dispatchLocalExec('user', 'd1', '{"action":"open"}', {
-        teamId: 't1',
-        deps,
-        access: box(true),
-        purpose: 'terminal',
-      })
-    ).status,
-  ).toBe('ok')
-  expect(deps.commands).toEqual(['{"action":"open"}'])
 })
 
 test('dispatch authorizes the actor and sends through the owner tunnel; revocation denies later terminal input', async () => {
