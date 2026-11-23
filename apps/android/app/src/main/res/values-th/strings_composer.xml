@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">สลับรันไทม์ไม่ได้ โปรดรีเฟรชแล้วลองอีกครั้ง</string>
     <string name="composer_switching_runtime">กำลังสลับรันไทม์…</string>
     <string name="composer_runtime_view_only">คุณดูรันไทม์ของงานนี้ได้ แต่ย้ายไม่ได้</string>
-    <string name="composer_runtime_wait">โปรดรอให้คำตอบปัจจุบันหรือข้อความที่รอดำเนินการเสร็จก่อนสลับรันไทม์</string>
+    <string name="composer_runtime_wait">รอให้ข้อความที่กำลังส่งหรือการอัปโหลดเสร็จก่อน แล้วจึงสลับรันไทม์</string>
     <string name="composer_loading_runtimes">กำลังโหลดรันไทม์…</string>
     <string name="composer_no_runtimes">ไม่มีรันไทม์ที่ใช้ได้</string>
     <string name="composer_no_runtimes_body">เปิด Nuphos บนคอมพิวเตอร์ของคุณเพื่อเพิ่ม Box หรือเชื่อมต่อคอมพิวเตอร์ของคุณเอง</string>

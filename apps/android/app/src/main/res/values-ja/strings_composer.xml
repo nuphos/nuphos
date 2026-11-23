@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">ランタイムを切り替えられませんでした。更新してから、もう一度お試しください。</string>
     <string name="composer_switching_runtime">ランタイムを切り替え中…</string>
     <string name="composer_runtime_view_only">このタスクのランタイムは表示できますが、移動はできません。</string>
-    <string name="composer_runtime_wait">現在の応答または保留中のメッセージが完了してから、ランタイムを切り替えてください。</string>
+    <string name="composer_runtime_wait">送信中のメッセージまたはアップロードが完了してから、ランタイムを切り替えてください。</string>
     <string name="composer_loading_runtimes">ランタイムを読み込み中…</string>
     <string name="composer_no_runtimes">利用できるランタイムがありません。</string>
     <string name="composer_no_runtimes_body">コンピュータで Nuphos を開いて、Box を追加するか自分のコンピュータを接続してください。</string>
