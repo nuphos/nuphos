@@ -11,11 +11,7 @@ import type { AddressInfo } from 'node:net'
 
 export type WebhookRequest = {
   headers: IncomingHttpHeaders
-  body: {
-    id: string
-    type: string
-    data: { session_id?: string; task_report?: { data?: unknown } }
-  }
+  body: { id: string; type: string; data: { session_id?: string } }
   status: number
 }
 
