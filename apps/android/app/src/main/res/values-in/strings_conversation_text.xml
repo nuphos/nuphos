@@ -56,7 +56,7 @@
     <string name="convtext_conflict_busy">Tugas ini sedang sibuk dengan balasan lain.</string>
     <string name="convtext_runtime_signed_out">Runtime ini sudah keluar. Masuk dari Nuphos di komputer tempat runtime berjalan, atau ganti ke runtime lain.</string>
     <string name="convtext_runtime_disabled">Runtime tugas ini dinonaktifkan. Ganti ke runtime lain untuk melanjutkan.</string>
-    <string name="convtext_runtime_not_found">Runtime ini tidak lagi tersedia di workspace ini. Ganti ke runtime lain untuk melanjutkan.</string>
+    <string name="convtext_runtime_not_found">Runtime ini tidak lagi tersedia di tim ini. Ganti ke runtime lain untuk melanjutkan.</string>
     <string name="convtext_runtime_offline">Komputer yang menjalankan runtime ini sedang offline. Buka Nuphos di komputer tersebut, atau ganti ke runtime lain.</string>
     <string name="convtext_runtime_paused">%1$s sedang dijeda. Akan berjalan lagi saat Anda mengirim pesan.</string>
     <string name="convtext_runtime_starting">%1$s sedang dimulai. Akan siap dalam beberapa detik.</string>

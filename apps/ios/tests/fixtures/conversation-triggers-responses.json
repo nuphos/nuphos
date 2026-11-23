@@ -245,7 +245,8 @@
         "cronExpression": "0 9 * * 1-5",
         "scheduleDescription": "Weekdays at 09:00 UTC",
         "nextRunAt": "2027-01-04T09:00:00.000Z",
-        "canManage": true
+        "canManage": true,
+        "messageTemplate": "Summarize the pull requests merged since yesterday and post the list here."
       },
       {
         "id": "watch",
@@ -271,6 +272,17 @@
     "body": {
       "conversations": [],
       "hasMore": false
+    }
+  },
+  "PATCH /agent/triggers/weekly": {
+    "status": 200,
+    "body": {
+      "id": "weekly",
+      "name": "Weekly dependency review",
+      "enabled": true,
+      "triggerType": "cron",
+      "cronExpression": "0 10 * * 1",
+      "canManage": true
     }
   }
 }

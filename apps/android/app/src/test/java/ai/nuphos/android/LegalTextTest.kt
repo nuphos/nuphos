@@ -1,12 +1,12 @@
 package ai.nuphos.android
 
 import java.io.File
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 /**
- * Consent, deletion and terms statements stay in English until a native speaker confirms each
- * language (#3031). Put a key in [REVIEWED] together with its reviewed translations.
+ * Consent, deletion and terms statements ship in English except in the languages a native speaker
+ * confirmed (#3031). Add a locale to [REVIEWED] together with its translation of every key.
  */
 class LegalTextTest {
     private val legal = listOf(
@@ -15,18 +15,16 @@ class LegalTextTest {
         "profile_deletion_body", "profile_deletion_request_note", "profile_deletion_saved", "profile_withdraw_body",
         "shell_voice_prompt_help",
     )
-    private val REVIEWED = emptySet<String>()
+    private val REVIEWED = setOf("values-zh-rTW", "values-zh-rCN")
     private val values = File(System.getProperty("nuphos.strings")!!)
 
-    @Test fun unreviewedLegalTextIsEnglishOnly() {
-        val english = values.listFiles()!!.joinToString("") { it.readText() }
+    @Test fun legalTextIsTranslatedOnlyInReviewedLanguages() {
         val locales = values.parentFile!!.listFiles { dir -> dir.name.startsWith("values-") }!!
-            .flatMap { dir -> dir.listFiles()!!.map { it to it.readText() } }
-        for (key in legal - REVIEWED) {
-            assertTrue("$key must be translatable=\"false\" until reviewed",
-                Regex("""<string name="$key" translatable="false">""").containsMatchIn(english))
-            locales.forEach { (file, text) ->
-                assertTrue("$key is translated in ${file.parentFile.name} before review", "name=\"$key\"" !in text)
+        for (dir in locales) {
+            val text = dir.listFiles()!!.joinToString("") { it.readText() }
+            for (key in legal) {
+                val translated = "name=\"$key\"" in text
+                assertEquals("$key translated in ${dir.name}", dir.name in REVIEWED, translated)
             }
         }
     }

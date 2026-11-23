@@ -46,10 +46,8 @@ export const resentAfter = (
  * What the client hears about a refused turn that came from, or went back to,
  * the session queue: that the message waits there, not that it was refused.
  */
-export const queuedRefusal = (error: unknown, queued: unknown) =>
-  queued && isRuntimeRefusal(error)
-    ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
-    : error
+export const queuedRefusal = (error: unknown, requeued: boolean) =>
+  requeued ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead') : error
 
 /**
  * A failed turn on a computer below the support floor says so: the error is the one thing every

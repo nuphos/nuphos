@@ -1,4 +1,5 @@
-// #3298: the Bot chat edits the Bot's own permission mode, in Bot details since #3790, and model.
+// #3298: the Bot chat edits the Bot's own permission mode and model, in Bot details since #3790
+// and #4766.
 // The E2E Bot's setup finished in a scenario before; this one opens the Bot's chat itself.
 import { artifacts } from '../processes.ts'
 import { openBotTask, setBotDetails } from '../ui.ts'
@@ -12,35 +13,29 @@ const composer = (page: Page) =>
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
 
-/** The mode control: a Bot chat's in its details' Access section, the Bot's page's in its composer. */
-const modeControl = (page: Page, chat: boolean) =>
+/** A Bot chat's control is in its details, the Bot's page's in its composer. */
+const control = (page: Page, chat: boolean, name: RegExp) =>
   (chat ? page.getByRole('complementary', { name: 'Bot details' }) : composer(page)).getByRole(
     'button',
-    { name: 'Authorization mode' },
+    { name },
   )
 
-/** The permission mode and the composer's model, as their controls read. */
-async function composerSettings(page: Page, chat: boolean) {
-  const modeChip = modeControl(page, chat)
+/** The permission mode and the model, as their controls read. */
+async function settings(page: Page, chat: boolean) {
   // What it shows: the other mode's label stays in the chip, unseen, to keep its width.
-  const mode = await modeChip.innerText()
-  const chip = composer(page).getByRole('button', { name: /^Model settings/ })
-  const model = await chip.getAttribute('aria-label')
+  const mode = await control(page, chat, /Authorization mode/).innerText()
+  const model = await control(page, chat, /^Model settings/).getAttribute('aria-label')
 
   return { full: Boolean(mode?.includes('Full')), model: model ?? '' }
 }
 
-/** Sets the permission mode and the composer's model. */
-async function setComposerSettings(page: Page, chat: boolean, full: boolean, model: string) {
-  await modeControl(page, chat).click()
+/** Sets the permission mode and the model. */
+async function setSettings(page: Page, chat: boolean, full: boolean, model: string) {
+  await control(page, chat, /Authorization mode/).click()
   await page.getByRole('menuitem', { name: full ? /^Full Access/ : /^Auto Mode/ }).click()
-  await composer(page)
-    .getByRole('button', { name: /^Model settings/ })
-    .click()
+  await control(page, chat, /^Model settings/).click()
   await page.getByRole('menuitemcheckbox', { name: new RegExp(model) }).click()
-  const name = new RegExp(`^Model settings: ${model}`)
-
-  await composer(page).getByRole('button', { name }).waitFor()
+  await control(page, chat, new RegExp(`^Model settings: ${model}`)).waitFor()
 }
 
 const scenario: Scenario = {
@@ -61,25 +56,21 @@ const scenario: Scenario = {
     await chat().screenshot({ path: `${artifacts}/bot-controls-composer-light.png` })
     // From the chat: the Bot's page shows what was picked there.
     await setBotDetails(page, true)
-    await setComposerSettings(page, true, true, 'fixture-large')
+    await setSettings(page, true, true, 'fixture-large')
     // Its setup has finished, so the Bot's page opens from the chat.
     await openBotTask(page)
     await page.getByText('Back to conversation').waitFor()
-    await composer(page)
-      .getByRole('button', { name: /^Model settings: fixture-large/ })
-      .waitFor()
-    const onPage = await composerSettings(page, false)
+    await control(page, false, /^Model settings: fixture-large/).waitFor()
+    const onPage = await settings(page, false)
 
     if (!onPage.full) throw new Error(`The Bot's page shows ${JSON.stringify(onPage)}`)
     // From the Bot's page: the chat shows what was picked there.
-    await setComposerSettings(page, false, false, 'fixture-small')
+    await setSettings(page, false, false, 'fixture-small')
     await page.getByText('Back to conversation').click()
     await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
-    await composer(page)
-      .getByRole('button', { name: /^Model settings: fixture-small/ })
-      .waitFor()
     await setBotDetails(page, true)
-    const inChat = await composerSettings(page, true)
+    await control(page, true, /^Model settings: fixture-small/).waitFor()
+    const inChat = await settings(page, true)
 
     await setBotDetails(page, false)
 

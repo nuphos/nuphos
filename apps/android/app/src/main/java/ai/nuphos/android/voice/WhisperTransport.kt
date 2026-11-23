@@ -26,9 +26,9 @@ data class Transcript(val text: String, val language: String?)
 /** Messages are fixed client copy: never display a response body or echo credentials. */
 class VoiceFailure(val status: Int, val code: String? = null) : IOException(when (status) {
     401 -> "Your sign-in has expired. Sign in again to use voice input."
-    402 -> "Voice input is included with a Nuphos subscription. Choose a subscribed workspace to continue."
+    402 -> "Voice input is included with a Nuphos subscription. Choose a subscribed team to continue."
     403 -> if (code == "ai_consent_required") "Confirm your AI sharing choice before using voice input."
-        else "Your account does not have access to voice input in this workspace."
+        else "Your account does not have access to voice input in this team."
     413 -> "The recording is too long to transcribe. Record a shorter message."
     429 -> "Voice input is busy. Wait a moment and try again."
     503 -> if (code == "voice_unavailable") "Voice input is not available on this server."
@@ -44,7 +44,7 @@ class NuphosWhisperTransport(
     private val baseUrl: String? = null,
 ) : WhisperTransport {
     override suspend fun transcribe(file: File, token: String, teamId: String, prompt: String): Transcript {
-        require(token.isNotBlank() && teamId.isNotBlank()) { "Choose a workspace and sign in to use voice input." }
+        require(token.isNotBlank() && teamId.isNotBlank()) { "Choose a team and sign in to use voice input." }
         require(file.length() in 1..MAX_AUDIO_BYTES) { "The recording is empty or too large. Record a shorter message." }
         val multipart = MultipartBody.Builder().setType(MultipartBody.FORM)
         if (prompt.isNotBlank()) multipart.addFormDataPart("prompt", prompt.trim())

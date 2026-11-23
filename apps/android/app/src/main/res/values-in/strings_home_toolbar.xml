@@ -7,5 +7,5 @@
     <string name="home_toolbar_new_bot">Bot baru</string>
     <string name="home_toolbar_new_task">Tugas baru</string>
     <string name="home_toolbar_account">Akun</string>
-    <string name="home_toolbar_close_workspace">Tutup halaman ruang kerja</string>
+    <string name="home_toolbar_close_workspace">Tutup</string>
 </resources>

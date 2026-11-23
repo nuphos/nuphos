@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">No se pudo guardar este borrador. Libera espacio de almacenamiento e inténtalo de nuevo.</string>
-    <string name="composer_voice_unavailable">Elige un espacio de trabajo y confirma tu elección de uso compartido con IA para usar la entrada de voz.</string>
+    <string name="composer_voice_unavailable">Elige un equipo y confirma tu elección de uso compartido con IA para usar la entrada de voz.</string>
     <string name="composer_voice_start_failed">No se pudo iniciar la entrada de voz. Revisa el permiso del micrófono e inténtalo de nuevo.</string>
     <string name="composer_voice_failed">Error en la entrada de voz</string>
     <string name="composer_add_to_draft">Añadir al borrador</string>
@@ -79,7 +79,7 @@
     <string name="composer_runtime_offline">Este entorno de ejecución está sin conexión. La configuración del modelo volverá cuando se reconecte.</string>
     <string name="composer_runtime_no_model">Este entorno de ejecución no ofrece configuración del modelo.</string>
     <string name="composer_share_open_failed">No se pudo abrir este borrador. Tu contenido compartido no se ha enviado.</string>
-    <string name="composer_share_no_workspace">Abre un espacio de trabajo en Cuenta para recibir este contenido compartido. No se ha enviado nada.</string>
+    <string name="composer_share_no_workspace">Abre un equipo en Cuenta para recibir este contenido compartido. No se ha enviado nada.</string>
     <string name="composer_preparing_draft">Preparando el borrador</string>
     <string name="composer_open_draft_failed">No se pudo abrir el borrador</string>
     <string name="composer_preparing_share">Preparando el contenido compartido…</string>

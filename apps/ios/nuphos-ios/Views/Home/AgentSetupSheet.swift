@@ -350,7 +350,7 @@ struct AgentSetupView: View {
 
     private func finish(_ runtime: RuntimeInstance) {
         Task {
-            async let runtimes: Void = store.loadRuntimes(force: true)
+            async let runtimes: Void = store.loadRuntimes()
             async let quotas: Void = store.loadQuotas()
             _ = await (runtimes, quotas)
             if selectOnCompletion { store.selectRuntime(runtime) }

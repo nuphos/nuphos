@@ -3,7 +3,7 @@ import Foundation
 /// Account operations deliberately do not use the agent transport.
 enum AccountAPI {
     /// Bump together with the displayed notice and backend AI_CONSENT_VERSION.
-    static let aiConsentVersion = "2026-09-28"
+    static let aiConsentVersion = "2026-11-23"
     struct Consent: Codable { let version: String; let accepted: Bool }
     struct SignIn: Decodable { let token: String; let user: NuphosUser }
     struct OK: Decodable { let ok: Bool }

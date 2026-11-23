@@ -1,7 +1,7 @@
 <resources>
     <!-- ChatComposer -->
     <string name="composer_draft_save_failed">Could not save this draft. Free storage and try again.</string>
-    <string name="composer_voice_unavailable">Choose a workspace and confirm your AI sharing choice to use voice input.</string>
+    <string name="composer_voice_unavailable">Choose a team and confirm your AI sharing choice to use voice input.</string>
     <string name="composer_voice_start_failed">Could not start voice input. Check microphone permission and try again.</string>
     <string name="composer_voice_failed">Voice input failed</string>
     <string name="composer_add_to_draft">Add to draft</string>
@@ -88,7 +88,7 @@
 
     <!-- IncomingShareSheet -->
     <string name="composer_share_open_failed">Could not open this draft. Your share has not been sent.</string>
-    <string name="composer_share_no_workspace">Open a workspace in Account to receive this share. Nothing has been sent.</string>
+    <string name="composer_share_no_workspace">Open a team in Account to receive this share. Nothing has been sent.</string>
     <string name="composer_preparing_draft">Preparing draft</string>
     <string name="composer_open_draft_failed">Could not open draft</string>
     <string name="composer_preparing_share">Preparing shared content…</string>

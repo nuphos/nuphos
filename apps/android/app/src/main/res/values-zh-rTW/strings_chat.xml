@@ -197,12 +197,12 @@
     <string name="chat_summary_running">執行中</string>
     <string name="chat_summary_open">Agent 摘要</string>
     <string name="chat_summary_output_truncated">已隱藏較早的輸出。</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">變更</string>
     <string name="chat_summary_children">子任務</string>
     <string name="chat_summary_files">檔案</string>
     <string name="chat_summary_triggers">觸發條件</string>
     <string name="chat_summary_no_triggers">請代理程式為這個任務安排定期工作。</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_idle">閒置</string>
     <string name="chat_bot_details_title">Bot 詳細資料</string>
     <string name="chat_bot_state_waiting">%1$d 個需要你的回覆</string>
     <string name="chat_bot_state_running">%1$d 個執行中</string>

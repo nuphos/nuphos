@@ -8,7 +8,7 @@ struct RuntimeSetupGuide: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("Connect a computer").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading)
-                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
+                    Text("Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a team administrator to share a runtime.").font(.callout).foregroundStyle(Theme.body)
                     // Desktop's Add computer offers a Box first, on the same flags.
                     if store.canCreateBox {
                         NavigationLink { NewBoxView() } label: {
@@ -43,7 +43,7 @@ struct RuntimeSetupGuide: View {
                     }
                     VStack(alignment: .leading, spacing: 16) {
                         Text("1. Open Nuphos on your computer.")
-                        Text("2. Sign in and choose this workspace.")
+                        Text("2. Sign in and choose this team.")
                         Text("3. Connect your computer and add a runtime.")
                     }.font(.callout).foregroundStyle(Theme.body).padding(20).frame(maxWidth: .infinity, alignment: .leading).background(Theme.surface, in: RoundedRectangle(cornerRadius: 14))
                     Link("Visit Nuphos", destination: URL(string: "https://nuphos.ai")!).prominentButton()

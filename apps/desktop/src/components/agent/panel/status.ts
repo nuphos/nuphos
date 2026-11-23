@@ -82,16 +82,19 @@ export function parseAgentPhase(value: unknown): AgentPhase | null {
   return typeof value === 'string' && value in AGENT_PHASE_LABELS ? (value as AgentPhase) : null
 }
 
-/** The failed turn already says why inline; a runtime ready for the next message is not broken. */
-function failedTurnExplainedInline(
-  snapshot: Tab['runtimeState'],
-  lastMsg: Message | undefined,
-): boolean {
+/**
+ * The failed turn already says why: inline, or in the queue strip when the usage
+ * limit refused it and holds its message. A runtime ready for the next message is not broken.
+ */
+function failedTurnExplained(tab: Tab, lastMsg: Message | undefined): boolean {
+  const snapshot = tab.runtimeState
+
   return (
     ['interrupted', 'failed'].includes(snapshot?.phase ?? '') &&
     runtimeAllows(snapshot, 'send') &&
-    lastMsg?.role === 'assistant' &&
-    lastMsg.parts.some((part) => part.type === 'turn-interrupted')
+    (Boolean(tab.queueHeld) ||
+      (lastMsg?.role === 'assistant' &&
+        lastMsg.parts.some((part) => part.type === 'turn-interrupted')))
   )
 }
 
@@ -112,7 +115,7 @@ export function computeStatus(tab: Tab, lastMsg: Message | undefined): AgentStat
     return null
   // Stop was asked for here; say so before the runtime reports it.
   if (tab.streaming && tab.phase === 'stopping') return { label: AGENT_PHASE_LABELS.stopping }
-  if (failedTurnExplainedInline(snapshot, lastMsg)) return null
+  if (failedTurnExplained(tab, lastMsg)) return null
   // Running background work already shows as the composer's chip; one place says so.
   if (snapshot.phase === 'background_tools' && shellsFromRuntimeState(snapshot).length > 0)
     return null
