@@ -54,7 +54,7 @@ export function ReplaceInstaboxKeyDialog({
           <Field
             label={t('New API key')}
             hint={t(
-              "From the same instabox account. The team's computers on it keep running and use the new key.",
+              "Use a key from the same instabox account. The team's computers on it keep running and switch to the new key.",
             )}
           >
             <input
