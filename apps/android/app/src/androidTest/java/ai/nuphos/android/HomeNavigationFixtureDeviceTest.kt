@@ -148,7 +148,7 @@ class HomeNavigationFixtureDeviceTest {
                     }
                     detail -> """{"sessionId":"fixture-chat","title":"Synthetic active conversation","archivedAt":${if (archived) "\"2026-01-02T00:00:00Z\"" else "null"},"canManage":true,"isOwner":true,"messages":[]}"""
                     credentials -> "{}"
-                    consent -> """{"version":"2026-11-23","accepted":true}"""
+                    consent -> """{"version":"2026-09-28","accepted":true}"""
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> {
