@@ -1,4 +1,4 @@
-import { beforeEach, expect, test } from 'bun:test'
+import { afterAll, beforeEach, expect, test } from 'bun:test'
 
 import { claimAgentRunForSession } from '@/lib/agent/run-admission'
 import { installQueuedTurnStarter } from '@/lib/agent/session-released'
@@ -93,10 +93,7 @@ useRunCancel({
 let queuedClaim: ((outcome: string) => void) | null = null
 
 usePendingQueue({ hasQueuedTranscriptMessage: async () => Boolean(queuedClaim) })
-// The starter outlives this file. Unarmed, it must not claim and release a later
-// suite's real queue: each release starts it again, a loop that starves every timer.
 installQueuedTurnStarter(async (userId, sessionId) => {
-  if (!queuedClaim) return
   const release = await claimAgentRunForSession(userId, sessionId).catch(
     (error: unknown) => (error as { code?: string }).code,
   )
@@ -105,6 +102,9 @@ installQueuedTurnStarter(async (userId, sessionId) => {
   queuedClaim?.(typeof release === 'function' ? 'claimed' : String(release))
   queuedClaim = null
 })
+// The starter is module state: left installed, it would claim and release a later
+// suite's real queue, and each release would start it again.
+afterAll(() => installQueuedTurnStarter(null))
 useRuntimeCatalog({
   requireRuntimeInstance: async () => target,
   developmentRuntimeEndpoint: () => {},

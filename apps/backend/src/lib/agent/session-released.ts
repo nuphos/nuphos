@@ -17,7 +17,7 @@ type QueuedTurnStarter = (userId: string, sessionId: string, released: boolean) 
 // Installed at boot: the run locks that call this must not import the turn graph.
 let startQueuedTurn: QueuedTurnStarter | null = null
 
-export function installQueuedTurnStarter(start: QueuedTurnStarter): void {
+export function installQueuedTurnStarter(start: QueuedTurnStarter | null): void {
   startQueuedTurn = start
 }
 
