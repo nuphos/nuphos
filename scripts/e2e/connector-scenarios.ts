@@ -89,9 +89,22 @@ export const connectorScenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors' }).click()
       await page.getByLabel('Add Cloudflare').click()
-      await page.getByRole('button', { name: 'All members', exact: true }).click()
+      const share = page.getByRole('button', { name: 'All members', exact: true })
+      const connect = page.getByRole('button', { name: 'Connect with Cloudflare' })
+      const action = await connect.elementHandle()
+
+      assert.equal(
+        await share.evaluate(
+          (field, button) =>
+            Boolean(field.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING),
+          action,
+        ),
+        true,
+        'the sharing field appears before the authorization action',
+      )
+      await share.click()
       await page.screenshot({ path: `${artifacts}/cloudflare-connect-sharing.png` })
-      await page.getByRole('button', { name: 'Connect with Cloudflare' }).click()
+      await connect.click()
       await page.getByText('Waiting for browser authorization…').waitFor()
       assert.deepEqual(stack.cloudflareShare(), { mode: 'team', memberIds: [] })
       await page.screenshot({ path: `${artifacts}/cloudflare-waiting.png` })

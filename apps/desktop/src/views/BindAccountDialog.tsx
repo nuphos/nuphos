@@ -116,6 +116,17 @@ export function BindAccountDialog({
     />
   ) : undefined
 
+  const shareField = (
+    <BindShareField
+      key={teamId}
+      teamId={teamId}
+      provider={provider}
+      value={shareList}
+      onChange={setShareList}
+      onDefaultChange={setDefaultShareList}
+    />
+  )
+
   return (
     <Modal
       open={open}
@@ -142,21 +153,13 @@ export function BindAccountDialog({
           <BindDialogBody
             st={st}
             teamId={teamId}
+            cloudflareShareField={
+              provider === 'cloudflare' && !cloudflareConnecting ? shareField : undefined
+            }
             onConnectCloudflare={(scopes) => void connectCloudflareOAuth(scopes)}
           />
         )}
-        {(provider === 'cloudflare'
-          ? !cloudflareConnecting
-          : showFooter && SHAREABLE_PROVIDERS.has(provider)) && (
-          <BindShareField
-            key={teamId}
-            teamId={teamId}
-            provider={provider}
-            value={shareList}
-            onChange={setShareList}
-            onDefaultChange={setDefaultShareList}
-          />
-        )}
+        {showFooter && SHAREABLE_PROVIDERS.has(provider) && shareField}
 
         {error && (
           <div className="mt-3 px-3 py-2 rounded-md bg-error/10 text-error text-[12.5px]">

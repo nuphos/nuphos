@@ -8,12 +8,16 @@ import { t } from '../../i18n'
 import { CLOUDFLARE_SCOPE_CATEGORIES } from './cloudflare-scopes'
 import { cloudflareScopesFor } from './constants'
 
+import type { ReactNode } from 'react'
+
 import type { BindState } from './use-bind-state'
 
 export function CloudflareConnect({
   st,
   onConnect,
+  shareField,
 }: {
+  shareField?: ReactNode
   st: BindState
   onConnect: (scopes: string[]) => void
 }) {
@@ -73,6 +77,8 @@ export function CloudflareConnect({
           </div>
         ))}
       </div>
+
+      {shareField}
 
       {/* Primary CTA */}
       <button
