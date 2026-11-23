@@ -4,7 +4,7 @@ import { recordDeviceAccessChange } from './access-audit'
 import { registryKey } from './agent-registry'
 import { deviceOwner } from './box-access'
 import { LOCAL_AGENT_PROVIDERS } from './local-runtime/protocol'
-import { requestAgentReset } from './pending-resets'
+import { hostResets, requestAgentReset } from './pending-resets'
 import { agentDevices } from './store'
 
 import type { DeviceAccessAuditEntry, DeviceAccessChanger, TeamAccess } from './access-audit'
@@ -94,7 +94,7 @@ async function endSignIns(
       { $set: { 'signIns.$.endedAt': endedAt } },
     )
 
-    if (matchedCount)
+    if (matchedCount && hostResets(removable(agent), Boolean(device.box)))
       void reset({ userId, deviceId }, removable(agent), by).catch((error: unknown) => {
         logError('backend.device_agent_reset_failed', error, { deviceId, agent })
       })

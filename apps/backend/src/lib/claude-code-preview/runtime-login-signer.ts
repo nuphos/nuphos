@@ -3,7 +3,7 @@ import { endAgentSignIn, recordAgentSignIn } from '@/lib/agent/devices/agent-sig
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { requireAgentSignInAccess } from '@/lib/agent/devices/manage-access'
-import { requestAgentReset } from '@/lib/agent/devices/pending-resets'
+import { hostResets, requestAgentReset } from '@/lib/agent/devices/pending-resets'
 import { agentDevices } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
@@ -75,9 +75,10 @@ export async function resetBeforeSignIn(
   const ref = parseLocalRuntimeId(runtimeId)
 
   if (!ref) return
-  if (!ref.instanceId && (ref.provider === 'antigravity' || !(await box(ref)))) return
-  if (ref.instanceId && (await fresh(ref))) return
   const agent = ref.instanceId ? { instanceId: ref.instanceId } : { provider: ref.provider }
+
+  if (!ref.instanceId && !hostResets(agent, await box(ref))) return
+  if (ref.instanceId && (await fresh(ref))) return
   const result = await reset(ref, agent, { actorId: userId, teamId })
 
   if (result.state === 'queued' && result.why === 'offline')

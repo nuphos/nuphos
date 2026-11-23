@@ -42,6 +42,7 @@ const device = (extra: Partial<AgentDevice> = {}): AgentDevice => ({
   label: 'Box',
   platform: 'linux',
   allowLocalExec: true,
+  box: { provider: 'instabox', teamId: 'team' },
   signIns: [lead],
   createdAt: at,
   updatedAt: at,
@@ -154,6 +155,23 @@ test('anyone losing access ends every sign-in on the computer and resets its age
       onBox({ instanceId: 'i1' }, 'owner'),
     ])
   }
+})
+
+test('a default agent is reset only on a Box, and never Antigravity', async () => {
+  const added: AgentSignIn = { agent: 'i1', userId: 'lead', teamId: 'team', at }
+  const keyring: AgentSignIn = { agent: 'antigravity', userId: 'lead', teamId: 'team', at }
+  const removed = entry(grant([], ['lead']), grant([], []))
+
+  // A person's computer: its default agents are that person's own CLI logins.
+  fresh()
+  await endSignInsAfter(device({ box: undefined, signIns: [lead, added] }), removed, reset())
+  expect(ended()).toEqual(endedOnly('claude-code', 'i1'))
+  expect(resets).toEqual([onBox({ instanceId: 'i1' }, 'owner')])
+
+  fresh()
+  await endSignInsAfter(device({ signIns: [lead, keyring] }), removed, reset())
+  expect(ended()).toEqual(endedOnly('claude-code', 'antigravity'))
+  expect(resets).toEqual([onBox({ provider: 'claude-code' }, 'owner')])
 })
 
 test('a sign-in recorded while access changed is neither ended nor reset', async () => {

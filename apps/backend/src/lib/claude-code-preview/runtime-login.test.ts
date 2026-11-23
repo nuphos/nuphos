@@ -468,6 +468,7 @@ test('a sign-in completed by someone who stopped managing the computer meanwhile
   docs.push({
     userId: 'host',
     deviceId: 'box',
+    box: { provider: 'instabox', teamId: 'team' },
     signIns: [{ agent: 'codex', userId: 'lead', teamId: 'team', at }],
   } as unknown as RuntimeLoginDoc)
   await performRuntimeLogin(doc, deps)

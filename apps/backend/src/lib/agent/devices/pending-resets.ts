@@ -60,6 +60,13 @@ const defaultDeps: PendingResetDeps = {
 export type AgentResetResult =
   { state: 'done' } | { state: 'queued'; why: 'offline' | 'unsupported' }
 
+/**
+ * Whether a host ever resets this agent: an added one always, a default one only on a Box. On a
+ * person's own computer it is their CLI login, and Antigravity's sign-in is the OS keyring.
+ */
+export const hostResets = (agent: RemovableAgent, box: boolean) =>
+  'instanceId' in agent || (box && agent.provider !== 'antigravity')
+
 const unreachable = (error: unknown) =>
   error instanceof AppError &&
   (error.code === 'runtime_offline' || error.code === 'agent_instance_timeout')
