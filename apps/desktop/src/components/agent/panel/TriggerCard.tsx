@@ -25,7 +25,9 @@ const CARD =
   't-chat-card-in w-full max-w-[520px] overflow-hidden rounded-xl border border-line-control bg-state-selected'
 
 function scheduleLine(trigger: AgentTrigger): string {
-  if (trigger.triggerType !== 'cron') return scheduleSummary(trigger)
+  // The card's own wording reads a rule's hours as UTC, so a rule kept in another zone is described in that zone.
+  if (trigger.triggerType !== 'cron' || (trigger.timeZone && trigger.timeZone !== 'UTC'))
+    return scheduleSummary(trigger)
 
   return cardSchedule(trigger.cronExpression ?? '', viewerTimeZone())
 }
