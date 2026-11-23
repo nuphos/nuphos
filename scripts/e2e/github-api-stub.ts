@@ -10,9 +10,10 @@ const modulePath = resolve(import.meta.dirname, '../../apps/backend/src/lib/byos
 const http = await import(modulePath)
 // mock.module patches this namespace in place, so keep the real function first.
 const { githubFetch } = http
+const stub = process.env.E2E_GITHUB_API ?? ''
 
 mock.module(modulePath, () => ({
   ...http,
   githubFetch: (url: string, init: RequestInit) =>
-    githubFetch(url.replace(http.GITHUB_API, process.env.E2E_GITHUB_API), init),
+    githubFetch(url.replace(http.GITHUB_API, stub), init),
 }))

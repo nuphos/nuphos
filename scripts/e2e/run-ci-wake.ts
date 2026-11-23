@@ -78,23 +78,25 @@ try {
 
   must(started.status === 200, `chat to start, got ${started.status}`)
   // The PR is linked through an installation the Task may use, as bind_session_resource leaves it.
-  await db.collection('team_byos_bindings').updateOne(
-    { _id: new ObjectId(stack.teamId) },
-    {
-      $push: {
-        githubInstallations: {
-          id: new ObjectId(),
-          installationId: 77,
-          accountLogin: 'acme',
-          accountType: 'Organization',
-          accountId: 1,
-          targetType: 'all',
-          createdAt: new Date(),
+  await db
+    .collection<{ githubInstallations: Record<string, unknown>[] }>('team_byos_bindings')
+    .updateOne(
+      { _id: new ObjectId(stack.teamId) },
+      {
+        $push: {
+          githubInstallations: {
+            id: new ObjectId(),
+            installationId: 77,
+            accountLogin: 'acme',
+            accountType: 'Organization',
+            accountId: 1,
+            targetType: 'all',
+            createdAt: new Date(),
+          },
         },
       },
-    },
-    { upsert: true },
-  )
+      { upsert: true },
+    )
   await db.collection('agent_conversations').updateOne(
     { sessionId: id },
     {
