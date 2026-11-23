@@ -54,3 +54,6 @@ export const messageRehypePlugins = [
   defaultRehypePlugins.sanitize,
   rehypeRuntimeFilePaths,
 ]
+
+/** Markdown-only surfaces keep sanitization and path links without parsing HTML. */
+export const markdownOnlyRehypePlugins = [defaultRehypePlugins.sanitize, rehypeRuntimeFilePaths]

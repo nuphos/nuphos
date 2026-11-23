@@ -504,7 +504,7 @@ struct PlanChatTarget: Identifiable, Hashable {
         planId = plan.id
         self.sessionId = sessionId
         title = plan.title
-        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in the task" : "Open Task"
+        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in the task" : "Open task"
     }
 
     static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id }
