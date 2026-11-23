@@ -31,9 +31,9 @@ const DEFAULT_PROMPT_TIMEOUT_MS = 180_000
 const DEFAULT_PROMPT_PROGRESS_TIMEOUT_MS = 32 * 60_000
 // Until the first model output (text, reasoning or a tool call). An agent whose
 // model provider takes the request and never answers sends nothing, and would
-// otherwise hang for the whole progress window (#4859). Conservative for now;
-// tighten from the agent.chat.first_output distribution.
-const DEFAULT_PROMPT_FIRST_OUTPUT_TIMEOUT_MS = 10 * 60_000
+// otherwise hang for the whole progress window (#4859). Loose on purpose, as a
+// legitimate turn may think silently for minutes; tighten from agent.chat.first_output.
+const DEFAULT_PROMPT_FIRST_OUTPUT_TIMEOUT_MS = 15 * 60_000
 const DEFAULT_RETIRE_GRACE_MS = 30_000
 
 /** The agent host did not take the connection: it is down, restarting or out of reach. */
