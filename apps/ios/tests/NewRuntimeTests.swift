@@ -11,6 +11,7 @@ enum NewRuntimeTests {
         onlyManagersOfARunningComputerMayAdd()
         signsInASignedOutRuntimeInsteadOfAddingASecond()
         namesANewRuntimePastTheOnesAlreadyThere()
+        aBoxThatBringsItsRuntimeIsStarting()
         print("New runtime passed")
     }
 
@@ -70,6 +71,24 @@ enum NewRuntimeTests {
         precondition(box([signedIn(.codex, "j")]).defaultRuntimeName(.opencode) == "OpenCode")
         let taken = box([named(.opencode, "k", "Spare")])
         precondition(taken.nameTaken("spare") && taken.nameTaken("  Spare  ") && !taken.nameTaken("Spare 2"))
+    }
+
+    /// Home says a Box that brings its runtime by itself is getting ready, rather than asking for a
+    /// computer. A host goes online before its runtime is listed (#4839), so a running Box with its
+    /// host up counts; one whose host is down never lists a runtime by itself, so it does not.
+    private static func aBoxThatBringsItsRuntimeIsStarting() {
+        for state in ["creating", "connecting"] {
+            for online in [true, false, nil] as [Bool?] {
+                precondition(device(access: "owner", online: online, box: state).isStarting, "A \(state) Box is starting")
+            }
+        }
+        precondition(device(access: "owner", online: true, box: "running").isStarting, "A running Box whose host is up is starting")
+        precondition(!device(access: "owner", online: false, box: "running").isStarting, "A running Box whose host is down is not starting")
+        precondition(!device(access: "owner", online: nil, box: "running").isStarting, "A running Box nobody saw online is not starting")
+        for state in ["paused", "error"] {
+            precondition(!device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is not starting")
+        }
+        precondition(!device(access: "owner", online: true).isStarting, "A computer is never starting")
     }
 
     // MARK: - Fixtures

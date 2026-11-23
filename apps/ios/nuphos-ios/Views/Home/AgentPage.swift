@@ -242,7 +242,13 @@ struct AgentPage: View {
         case .loaded where store.selectedTeam == nil:
             SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a workspace to start working with your team.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
-            SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showRuntimeSetup = true }
+            if let box = store.agentDevices.first(where: \.isStarting) {
+                BoxStartingState(label: box.label)
+            } else {
+                SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showRuntimeSetup = true }
+                    // An empty workspace may already have a Box on its way, as a new account's free one is.
+                    .task(id: store.selectedTeam?.id) { await store.loadAgentDevices(metrics: false) }
+            }
         case .idle, .loading:
             ProgressView("Loading tasks…")
                 .tint(Theme.muted)
@@ -639,4 +645,27 @@ private func endEditing() {
     #if canImport(UIKit) && !NUPHOS_SHARE_EXTENSION
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     #endif
+}
+
+/// Shown for a Box still coming up while the workspace has no runtime, in place of advice to
+/// connect a computer. It re-reads both lists every 5 s until the Box's runtimes are listed,
+/// which takes this view off screen and ends the loop.
+private struct BoxStartingState: View {
+    @Environment(AgentStore.self) private var store
+    let label: String
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView().tint(Theme.muted)
+            Text("\(label) is getting ready").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading).multilineTextAlignment(.center)
+            Text("It will show up here as soon as it is online. This can take a minute or two.").font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
+        }
+        .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            while true {
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                await store.loadRuntimes()
+                await store.loadAgentDevices(metrics: false)
+            }
+        }
+    }
 }
