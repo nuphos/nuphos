@@ -7,7 +7,8 @@ import { t } from '../i18n'
 import { cssDurationMs } from '../lib/motion'
 
 import { useModalFocus } from './modalFocus'
-import { ModalScrollFade, useModalScroll } from './modalScroll'
+import { ModalScrollFade } from './modalScroll'
+import { useModalScroll } from './useModalScroll'
 
 import type { ReactNode } from 'react'
 
