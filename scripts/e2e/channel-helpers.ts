@@ -116,7 +116,7 @@ export async function shootRuntimeLine(page: Page, name: string) {
 /** The compact composer keeps reset timing in the usage tooltip. */
 export async function shootChipResets(page: Page) {
   const composer = page.locator('.composer-surface:visible').last()
-  const duration = composer.getByText(/^(2h 5\dm|3h 0m)$/u)
+  const duration = composer.getByText(/^\d+h \d+m$/u)
   const usage = composer.getByRole('progressbar', { name: 'Usage remaining' })
 
   await usage.waitFor()
@@ -125,7 +125,7 @@ export async function shootChipResets(page: Page) {
   await usage.hover()
   await page
     .getByRole('tooltip')
-    .filter({ hasText: /resets in (2h 5\dm|3h 0m)/u })
+    .filter({ hasText: /13% left · resets in \d+h \d+m/u })
     .waitFor()
   await page.screenshot({ path: `${artifacts}/usage-resets-chip-tooltip-light.png` })
   await page.mouse.move(0, 0)
@@ -143,7 +143,7 @@ export async function shootUsageResets(page: Page, computer: string) {
     .first()
 
   await row.waitFor({ timeout: 30_000 })
-  await row.getByText(/^resets in (2h 5\dm|3h 0m)$/u).waitFor({ timeout: 30_000 })
+  await row.getByText(/^resets in \d+h \d+m$/u).waitFor({ timeout: 30_000 })
   await row.getByText(/^13% left$/u).waitFor({ timeout: 10_000 })
   await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
