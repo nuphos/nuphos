@@ -9,7 +9,6 @@ import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerC
 import { BypassControlMenu } from './BypassControlMenu'
 import { ComposerAttachmentMenu } from './composerMenus'
 import { ComposerOverlays } from './ComposerOverlays'
-import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
