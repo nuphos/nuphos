@@ -1,8 +1,8 @@
-// Updates idle Boxes whose CLI does not update itself (#2104). From 0.28.0 the host installs a
-// new release between turns; an older one waits for someone to click Update. Each minute one
+// Updates idle Boxes whose CLI does not update itself (#2104). From 0.27.0 the host installs a
+// new release by itself (#3521); an older one waits for someone to click Update. Each minute one
 // replica updates up to MAX_PER_SWEEP running Boxes nobody used for IDLE_MS whose agents are
 // not mid-turn, each once per version: one whose update fails waits for its owner. A paused
-// Box stays paused. A host that turned autoInstall off is left alone.
+// Box stays paused.
 
 import { config } from '@/config'
 import { boxAgentBusy, hostAgents, startBoxUpdate } from '@/lib/claude-code-preview/box-update'
@@ -23,8 +23,8 @@ import type { RunningBox } from './box-free-sweep'
 import type { LocalRuntimePresence } from './local-runtime/presence'
 import type { LocalRuntimeStatus } from './local-runtime/protocol'
 
-/** The first CLI that updates itself between turns. */
-export const SELF_UPDATING_CLI = '0.28.0'
+/** The first CLI that updates itself. */
+export const SELF_UPDATING_CLI = '0.27.0'
 const SWEEP_MS = 60_000
 const IDLE_MS = 10 * 60_000
 const MAX_PER_SWEEP = 3
@@ -72,11 +72,9 @@ export const boxUpdateSweepDeps: UpdateSweepDeps = {
     }),
 }
 
-/** The version to update from: one older than the one that updates itself, on a host that allows it. */
-function outdated({ cliVersion, autoInstall }: LocalRuntimeStatus): string | undefined {
-  return stableRuntimeVersion(cliVersion) &&
-    newerRuntimeVersion(SELF_UPDATING_CLI, cliVersion) &&
-    autoInstall !== false
+/** The version to update from: one older than the one that updates itself. */
+function outdated({ cliVersion }: LocalRuntimeStatus): string | undefined {
+  return stableRuntimeVersion(cliVersion) && newerRuntimeVersion(SELF_UPDATING_CLI, cliVersion)
     ? cliVersion
     : undefined
 }
