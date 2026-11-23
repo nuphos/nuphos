@@ -9,10 +9,10 @@ import { redisEnabled } from '@/lib/redis'
 
 import { taskReports } from './task-reports'
 import { closeThreadQueue } from './thread-queue'
-import { whoseJob } from './trigger-job-owner'
 import { agentTriggers, liveTriggerShapeFilter } from './trigger-db'
 import { executeTrigger } from './trigger-executor'
 import { TRIGGER_PAUSED } from './trigger-executor-authorization'
+import { whoseJob } from './trigger-job-owner'
 import { startMissedRunDetector, stopMissedRunDetector } from './trigger-missed-runs'
 import { AGENT_TRIGGER_QUEUE, buildBullMQConnection } from './trigger-scheduler-setup'
 // Straight to the section module, not the trigger-service barrel: the barrel

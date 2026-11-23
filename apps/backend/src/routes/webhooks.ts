@@ -177,6 +177,7 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 }
 
 const QUEUE_RETRY_SECONDS = 30
+
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))
 
