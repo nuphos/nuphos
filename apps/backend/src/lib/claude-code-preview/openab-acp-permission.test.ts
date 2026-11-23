@@ -1,4 +1,4 @@
-import { afterEach, expect, spyOn, test } from 'bun:test'
+import { afterAll, afterEach, expect, spyOn, test } from 'bun:test'
 
 import { OpenAbConnectError } from './openab-acp-connect'
 import { OpenAbConnectionLostError } from './openab-acp-errors'
@@ -12,6 +12,12 @@ const warn = spyOn(console, 'warn').mockImplementation(() => {})
 afterEach(() => {
   error.mockClear()
   warn.mockClear()
+})
+// Restored, or every later file in the same run gets these mocks back from its
+// own spyOn, with the calls logged since, and miscounts its warnings.
+afterAll(() => {
+  error.mockRestore()
+  warn.mockRestore()
 })
 
 /** Answers one request whose handler throws `thrown`; returns what the runtime was sent. */
