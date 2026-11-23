@@ -2,7 +2,7 @@
 // artifact directory and is stopped, newest first, when the run ends.
 import { spawn as spawnChild } from 'node:child_process'
 import { randomInt } from 'node:crypto'
-import { createWriteStream, mkdtempSync } from 'node:fs'
+import { createWriteStream, mkdtempSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -129,4 +129,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void stopAll().finally(() => process.exit(1))
   })
+}
+
+/** The newest six-digit sign-in code the backend logged for this address. */
+export function signInCode(address: string): string | undefined {
+  return readFileSync(logPath('backend'), 'utf8')
+    .split('\n')
+    .filter((line) => line.includes(address) && line.includes('auth.email_otp.dev_code'))
+    .map((line) => /"sign_in_code"\s*:\s*"(\d{6})"/.exec(line)?.[1])
+    .findLast(Boolean)
 }
