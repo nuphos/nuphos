@@ -501,6 +501,14 @@ final class AgentStore {
         return "Model"
     }
 
+    /// Saves a Bot's standing instructions; the error says why the server refused them.
+    func setBotInstructions(_ botId: String, _ text: String) async throws {
+        guard let team = selectedTeam?.id else { return }
+        let saved = try await AgentChatAPI.setBotInstructions(token: token, teamId: team, sessionId: botId, instructions: text)
+        if let i = bots.firstIndex(where: { $0.sessionId == botId }) { bots[i].instructions = saved }
+        if let i = conversations.firstIndex(where: { $0.sessionId == botId }) { conversations[i].instructions = saved }
+    }
+
     func loadNewModelConfig() async {
         guard let team = selectedTeam, let runtime = newConversationRuntime, canConfigureNewModel else {
             newModelConfig = nil

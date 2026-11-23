@@ -104,3 +104,91 @@ struct BotTaskRow: View {
         return String(localized: "Idle · \(HistoryTime.format(task.lastActiveAt))")
     }
 }
+
+/// A Bot's standing instructions in full, as Desktop's Bot details has them (#4084). Only the
+/// owner sees them here, and rewrites them in place; the server's refusal shows under the field.
+struct BotInstructionsCard: View {
+    let botId: String
+    @Environment(AgentStore.self) private var store
+    @State private var draft: String?
+    @State private var saving = false
+    @State private var error: String?
+    @FocusState private var editing: Bool
+
+    var body: some View {
+        if let bot = store.bots.first(where: { $0.sessionId == botId }), bot.ownsChat {
+            let instructions = bot.instructions ?? ""
+            ScrollViewReader { proxy in
+            VStack(alignment: .leading, spacing: Theme.Space.medium) {
+                HStack {
+                    Text("Bot instructions").font(.system(.subheadline, weight: .semibold)).foregroundStyle(Theme.heading)
+                    Spacer()
+                    if draft == nil {
+                        Button { draft = instructions } label: { LucideIcon("pencil", size: 14) }
+                            .accessibilityLabel(Text("Edit instructions"))
+                            .accessibilityIdentifier("bot-instructions-edit")
+                    }
+                }
+                if let text = draft {
+                    TextEditor(text: Binding { text } set: { draft = $0 })
+                        .frame(minHeight: 120, maxHeight: 320)
+                        .scrollContentBackground(.hidden)
+                        .overlay(RoundedRectangle(cornerRadius: 6).stroke(Theme.hairline, lineWidth: 1))
+                        .accessibilityLabel(Text("Bot instructions"))
+                        .focused($editing)
+                        .accessibilityIdentifier("bot-instructions-field")
+                    if let error {
+                        Text(error).font(.caption).foregroundStyle(Theme.attention).accessibilityIdentifier("bot-instructions-error")
+                    }
+                    HStack {
+                        Spacer()
+                        Button("Cancel") { draft = nil; error = nil }.buttonStyle(.borderless)
+                        Button { Task { await save(text) } } label: {
+                            HStack(spacing: 6) {
+                                if saving { ProgressView().controlSize(.small) }
+                                Text("Save")
+                            }
+                        }
+                        .buttonStyle(DesignPrimaryButtonStyle(minimumHeight: 36))
+                        .disabled(text == instructions || saving)
+                        .accessibilityIdentifier("bot-instructions-save")
+                    }
+                    .id("bot-instructions-actions")
+                } else if instructions.isEmpty {
+                    Text("None yet").foregroundStyle(Theme.muted)
+                } else {
+                    Text(instructions).foregroundStyle(Theme.body).textSelection(.enabled)
+                        .accessibilityIdentifier("bot-instructions-text")
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Theme.Space.large)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
+            .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.hairline, lineWidth: 1))
+            // The keyboard covers the bottom of the sheet, so keep Cancel and Save above it when
+            // editing starts and when a refusal pushes them down.
+            .onChange(of: editing) { _, now in if now { showActions(proxy) } }
+            .onChange(of: error) { _, now in if now != nil { showActions(proxy) } }
+            }
+        }
+    }
+
+    private func showActions(_ proxy: ScrollViewProxy) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            withAnimation { proxy.scrollTo("bot-instructions-actions", anchor: .bottom) }
+        }
+    }
+
+    private func save(_ text: String) async {
+        saving = true
+        error = nil
+        defer { saving = false }
+        do {
+            try await store.setBotInstructions(botId, text)
+            draft = nil
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}

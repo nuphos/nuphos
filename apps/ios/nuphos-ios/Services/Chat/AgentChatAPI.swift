@@ -159,6 +159,16 @@ enum AgentChatAPI {
         )
     }
 
+    /// `PATCH …/instructions` — the owner rewrites a Bot's standing instructions; returns them as saved.
+    static func setBotInstructions(token: String, teamId: String, sessionId: String, instructions: String) async throws -> String {
+        struct Body: Codable { let instructions: String }
+        let data = try await send(
+            "PATCH", "agent/conversations/\(sessionId)/instructions",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(instructions: instructions)
+        )
+        return try JSONDecoder().decode(Body.self, from: data).instructions
+    }
+
     /// `POST /agent/bots` — a Bot with the picked name and face, on the
     /// runtime a new chat would use (#1691).
     static func createBot(token: String, teamId: String, title: String, avatar: String, runtime: RuntimeInstance?) async throws -> String {

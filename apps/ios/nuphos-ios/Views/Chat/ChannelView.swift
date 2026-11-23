@@ -70,6 +70,7 @@ struct ChannelView: View {
                     catch { switchError = error.localizedDescription }
                 }
             }
+            BotInstructionsCard(botId: bot.sessionId)
         }
         return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(lead)) { task in
             open(task.sessionId, title: task.displayTitle)
