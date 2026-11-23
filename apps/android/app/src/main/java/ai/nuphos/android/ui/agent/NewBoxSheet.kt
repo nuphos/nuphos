@@ -54,23 +54,7 @@ internal fun ConnectComputerFlow(onDismiss: () -> Unit) {
                 }
             }
         }
-        var adding by remember { mutableStateOf(false) }
-        val device = store.inventory.devices.firstOrNull { it.id == store.deviceId }
-        if (adding && device?.canAddRuntime == true && current()) {
-            val creation = remember(device.id) { NewRuntimeStore(api, scope, device, { store.runtimes.filter { it.local?.deviceId == device.id } },
-                { current() && store.inventory.devices.any { it.id == device.id && it.canAddRuntime } }, expired, { adding = false }) }
-            val selection = remember(creation) { RuntimeSelections.Selection(account, team.id).also { it.saveCatalog(store.runtimes) } }
-            val transport = remember(creation) { object : RuntimeTransport by api {
-                override suspend fun catalog(): List<AgentRuntime> {
-                    val rows = api.catalog(); val pending = creation.runtime
-                    return if (pending != null && rows.none { it.id == pending.id }) rows + pending else rows
-                }
-            } }
-            val setup = remember(creation) { RuntimeSetupStore(transport, scope, current, { false }, selection, expired,
-                loginAllowed = { row -> current() && row.local?.deviceId == device.id && store.inventory.devices.any { it.id == device.id && it.canAddRuntime } }, useSelectedRuntime = false) }
-            DisposableEffect(creation) { onDispose { creation.close(); setup.close(); selection.invalidate() } }
-            NewRuntimeSheet(creation, setup)
-        } else if (current()) NewBoxSheet(store, onDismiss, onAdd = if (device?.canAddRuntime == true) ({ adding = true }) else null) { runtime, close ->
+        if (current()) NewBoxSheet(store, onDismiss) { runtime, close ->
             key(runtime.id) {
                 val selection = remember { RuntimeSelections.Selection(account, team.id).also { it.saveCatalog(store.runtimes) } }
                 val setup = remember { RuntimeSetupStore(api, scope, current, { false }, selection, expired,
@@ -84,7 +68,7 @@ internal fun ConnectComputerFlow(onDismiss: () -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit, onAdd: (() -> Unit)? = null,
+internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit,
     signIn: @Composable (AgentRuntime, () -> Unit) -> Unit) {
     var creatingBox by remember { mutableStateOf(false) }
     var login by remember { mutableStateOf<AgentRuntime?>(null) }
@@ -125,7 +109,6 @@ internal fun NewBoxSheet(store: NewBoxStore, onDismiss: () -> Unit, onAdd: (() -
                 NewBox.Phase.Starting -> { LinearProgressIndicator(Modifier.fillMaxWidth()); Text(stringResource(R.string.box_starting)) }
                 NewBox.Phase.Ready -> {
                     Text(stringResource(R.string.box_ready))
-                    onAdd?.let { TextButton(onClick = it) { Text(stringResource(R.string.new_runtime_title)) } }
                     store.agents.forEach { runtime ->
                         OutlinedButton(onClick = { login = runtime }, modifier = Modifier.fillMaxWidth().testTag("box-login-${runtime.id}")) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
