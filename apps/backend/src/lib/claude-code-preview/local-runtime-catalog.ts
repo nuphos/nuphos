@@ -182,6 +182,14 @@ export async function listOwnLocalRuntimes(
   return listed.flat()
 }
 
+/** What a refused turn reads, by why its agent is unavailable. */
+const UNAVAILABLE_MESSAGE = {
+  agent_unreported:
+    'The computer running this agent is connected, but the agent is not running on it. Open Nuphos on that computer and check the agent.',
+  no_presence:
+    'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+} as const
+
 /**
  * Checked on every turn and control call: someone who may use the computer, in a
  * team they still belong to.
@@ -225,7 +233,7 @@ export async function resolveLocalRuntimeEndpoint(
     throw new AppError(
       409,
       'runtime_offline',
-      'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+      UNAVAILABLE_MESSAGE[offlineCause],
       // The placement just authorized: a send to an offline computer queues for it (queueForOfflineComputer).
       { runtimeId, deviceId: ref.deviceId, runtimeLabel: label, cause: offlineCause },
     )

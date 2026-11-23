@@ -48,6 +48,7 @@ const DEFAULT_LIVENESS_MS = 10_000
 const CLOSE_RETRY_MS = 1_000
 const CLOSE_RETRIES = 30
 const OFFLINE_REASON = 'The computer running this agent is offline'
+const RECONNECTED_REASON = 'The computer running this agent reconnected. Try again'
 
 /** Closes a stream the computer is online for but cannot take, such as a terminal on a Box. */
 export const UNSUPPORTED_CLOSE_CODE = 4400
@@ -119,7 +120,7 @@ export class DeviceRuntimeSocket {
     void this.closeOnHolder()
   }
 
-  /** Logs which check found the computer unreachable, since the person only sees "offline". */
+  /** Logs which check ended the stream; the person reads "offline" unless the computer reconnected. */
   private fail(stage: 'connect' | 'liveness' | 'send', cause: string, error?: unknown): void {
     const { userId, deviceId, teamId, purpose, provider, instanceId } = this.target
 
@@ -134,9 +135,11 @@ export class DeviceRuntimeSocket {
       cause,
       ...(error === undefined ? {} : errorTelemetryProperties(error)),
     })
+    const reason = cause === 'tunnel_replaced' ? RECONNECTED_REASON : OFFLINE_REASON
+
     this.finish(
       cause === 'capability_missing' ? UNSUPPORTED_CLOSE_CODE : 1006,
-      error instanceof Error ? error.message : OFFLINE_REASON,
+      error instanceof Error ? error.message : reason,
     )
   }
 

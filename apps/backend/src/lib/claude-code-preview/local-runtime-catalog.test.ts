@@ -226,12 +226,17 @@ describe('local runtime catalog', () => {
     expect(parseLocalRuntimeUrl(codex.url)).toMatchObject({ provider: 'codex' })
   })
 
-  test('an agent the computer is not running is offline even while its tunnel is up', async () => {
+  test('an agent the computer is not running waits for it, but does not call it offline', async () => {
     const codexId = localRuntimeId({ ...ref, provider: 'codex' })
 
     await expect(
       resolveLocalRuntimeEndpoint('t1', codexId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'agent_unreported' } })
+    ).rejects.toMatchObject({
+      code: 'runtime_offline',
+      message:
+        'The computer running this agent is connected, but the agent is not running on it. Open Nuphos on that computer and check the agent.',
+      details: { runtimeId: codexId, cause: 'agent_unreported' },
+    })
   })
 
   test('a team the owner is not in, or has left, is refused at the next request', async () => {
@@ -251,7 +256,12 @@ describe('local runtime catalog', () => {
     expect(await listOwnLocalRuntimes('t1', 'owner', deps)).toEqual([])
     await expect(
       resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_offline', details: { cause: 'no_presence' } })
+    ).rejects.toMatchObject({
+      code: 'runtime_offline',
+      message:
+        'The computer running this agent is offline. Open Nuphos on it with the local agent turned on.',
+      details: { cause: 'no_presence' },
+    })
   })
 
   test('an unusable CLI reports its probe failure on a conversation turn', async () => {

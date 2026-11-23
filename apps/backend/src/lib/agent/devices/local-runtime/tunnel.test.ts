@@ -11,7 +11,7 @@ import {
 } from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
-import { openLocalRuntimeSocket } from './socket'
+import { DeviceRuntimeSocket, openLocalRuntimeSocket } from './socket'
 
 import type { TunnelBus } from './bus'
 import type { RuntimeTunnel } from './holder'
@@ -237,6 +237,38 @@ describe('local runtime tunnel', () => {
         cause: 'no_presence',
       }),
     )
+  })
+
+  test('a stream whose computer reconnected on another tunnel says so, not offline', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    const socket = new DeviceRuntimeSocket(
+      { ...owner, actorId: owner.userId, teamId: 't1', purpose: 'transport' },
+      { bus, presence, livenessMs: 5, closeRetryMs: 5 },
+    )
+    let closedReason = ''
+
+    socket.addEventListener('close', (event) => {
+      closedReason = event.reason ?? ''
+    })
+    await socket.connect()
+    await eventually(() => socket.readyState === 1)
+    const previous = await presence.get(owner.userId, owner.deviceId)
+
+    expect(previous).not.toBeNull()
+    // Another tunnel takes the computer over while this stream is open.
+    await logged('warn', async () => {
+      await presence.claim(owner.userId, owner.deviceId, 'replacement', {
+        ...previous!,
+        conn: 'replacement',
+        seenAt: Date.now(),
+      })
+      await eventually(() => closedReason !== '')
+    })
+    expect(closedReason).toBe('The computer running this agent reconnected. Try again')
+    expect((await presence.get(owner.userId, owner.deviceId))?.conn).toBe('replacement')
   })
 
   test('a dropped tunnel logs the teams whose streams it was carrying', async () => {
