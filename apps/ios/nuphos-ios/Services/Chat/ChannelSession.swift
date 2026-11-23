@@ -26,8 +26,8 @@ final class ChannelSession {
     private(set) var sending: [ChannelPost] = []
     /// What a sending post attached, drawn from the device until it is posted.
     private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
-    /// Each posted file group's files, read before its post shows, so a post
-    /// is measured once at its final height.
+    /// Each posted file group's files, read once its post shows, so the chat
+    /// shows without waiting on them; a card drawn before then reads its own (#3525).
     private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
     /// The latest send, so the transcript returns to the end for it.
     private(set) var lastSubmittedRowID: String?
@@ -140,8 +140,8 @@ final class ChannelSession {
             async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
             async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
             let (read, people) = try await (detail, listed)
-            await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
             apply(read, agents: people)
+            await resolveFiles(of: stored)
         } catch {
             // Cancelled (the chat closed, the app left the foreground): not a
             // failure, and not loaded, so the next poll reads it (#3620).

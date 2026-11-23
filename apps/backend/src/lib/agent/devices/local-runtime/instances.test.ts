@@ -7,10 +7,11 @@ import {
   createLocalAgentInstance,
   openLocalDesktop,
   removeLocalAgentInstance,
+  resetLocalAgentInstance,
   setLocalAutoInstall,
 } from './instances'
 import { createMemoryPresenceStore } from './presence'
-import { holderChannel, streamChannel } from './protocol'
+import { holderChannel, localRuntimeStatusSchema, streamChannel } from './protocol'
 import { DeviceRuntimeSocket } from './socket'
 
 import type { HolderMessage } from './protocol'
@@ -216,6 +217,42 @@ test('a reply about a different agent is rejected', async () => {
   await expect(
     commitLocalAgentInstance(target, { instanceId: instance.instanceId }, { deps }),
   ).rejects.toMatchObject({ code: 'agent_instance_invalid_response' })
+})
+
+test('reset names an added agent by its instance id and a default one by its provider', async () => {
+  const { deps, requests } = await answering((request) =>
+    request.instanceId ? { ok: true, instance } : { ok: true },
+  )
+
+  await resetLocalAgentInstance(target, { instanceId: instance.instanceId }, { deps })
+  await resetLocalAgentInstance(target, { provider: 'codex' }, { deps })
+  expect(requests).toEqual([
+    { method: 'reset', instanceId: instance.instanceId },
+    { method: 'reset', provider: 'codex' },
+  ])
+})
+
+test('reset surfaces the host refusal and an unanswered reset times out', async () => {
+  const { deps } = await answering(() => ({
+    ok: false,
+    error: 'Only a computer from Nuphos resets its default runtimes',
+  }))
+
+  await expect(
+    resetLocalAgentInstance(target, { provider: 'claude-code' }, { deps }),
+  ).rejects.toMatchObject({
+    code: 'agent_instance_failed',
+    message: 'Only a computer from Nuphos resets its default runtimes',
+  })
+  await expect(
+    resetLocalAgentInstance(target, { provider: 'codex' }, { deps: setup().deps, timeoutMs: 5 }),
+  ).rejects.toMatchObject({ code: 'agent_instance_timeout' })
+})
+
+test('a host that can reset agents says so in its status', () => {
+  expect(localRuntimeStatusSchema.parse({ agents: {}, agentReset: true }).agentReset).toBe(true)
+  expect(localRuntimeStatusSchema.parse({ agents: {} }).agentReset).toBeUndefined()
+  expect(() => localRuntimeStatusSchema.parse({ agents: {}, agentReset: 'yes' })).toThrow()
 })
 
 // #2947: a Mac that cannot be controlled refuses its screen, and the viewer is told why.

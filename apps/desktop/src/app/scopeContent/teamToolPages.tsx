@@ -153,7 +153,6 @@ export function renderTeamToolPages(ctx: ScopeRenderContext): React.ReactNode | 
       <Inbox className="w-3.5 h-3.5 text-tertiary" strokeWidth={1.8} />,
       <InboxView
         teamId={scope.teamId}
-        query={filter}
         refreshKey={refreshKey}
         onCount={onCount}
         onLoading={onLoading}

@@ -382,7 +382,7 @@ class BotsPageFixtureDeviceTest {
         noRuntimes = true
         nameField().performTextInput("Grace")
         create().performClick()
-        waitText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.")
+        waitText("This team has no runtime yet. Add one on the Runtimes page, then create your Bot.")
         assertEquals("No Bot", 0, posts("/agent/bots"))
         assertEquals("No chat", 0, posts("/agent/channels"))
         nameField().assertTextContains("Grace")
@@ -401,7 +401,7 @@ class BotsPageFixtureDeviceTest {
         create().performClick()
         waitText("Couldn't create this Bot. Try again.")
         // A list that didn't load says nothing about whether there are runtimes.
-        compose.onNodeWithText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.").assertDoesNotExist()
+        compose.onNodeWithText("This team has no runtime yet. Add one on the Runtimes page, then create your Bot.").assertDoesNotExist()
         assertEquals(0, posts("/agent/bots"))
         runtimesFail = false
         create().performClick()
@@ -430,8 +430,8 @@ class BotsPageFixtureDeviceTest {
 
     // MARK: No runtime yet: the first-runtime prompt, as on iOS.
     private val prompt = "Connect your first runtime"
-    private val adminWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
-    private val memberWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
+    private val adminWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one."
+    private val memberWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one."
     private fun asAdministrator() = InstrumentationRegistry.getInstrumentation().runOnMainSync {
         store.acceptMemberships(listOf(teamA.copy(role = "ADMINISTRATOR"), teamB), teamA.id)
     }

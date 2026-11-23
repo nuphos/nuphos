@@ -21,7 +21,7 @@ import { DelayedPanelReveal } from './homeAnimation'
 import { canEditMessage } from './messageEdit'
 import { AuthorizationActionContext } from './parts'
 import { ownsPermissionMode } from './permissionModeMenu'
-import { canStopTurn, waitingMessages } from './queuedAutoSend'
+import { canStopTurn, usageHoldNotice, waitingMessages } from './queuedAutoSend'
 import { useQueuedShareApproval } from './queuedShareApproval'
 import { QueuedStrip } from './QueuedStrip'
 import { cardReplyId } from './replyTarget'
@@ -200,7 +200,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                   {waitingMessages(shown).length > 0 && (
                     <QueuedStrip
                       items={waitingMessages(shown)}
-                      approval={queuedApproval}
+                      approval={queuedApproval ?? usageHoldNotice(shown.queueHeld)}
                       canSteer={runtimeAllows(shown.runtimeState, 'steer')}
                       onRemove={(queuedId) => void removeQueued(shown.id, queuedId)}
                       onSteer={(queuedId) => void steerQueued(shown.id, queuedId)}

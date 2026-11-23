@@ -2,11 +2,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { localRuntimeId, parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 
-import {
-  listOwnLocalRuntimes,
-  localRuntimeModels,
-  resolveLocalRuntimeEndpoint,
-} from './local-runtime-catalog'
+import { listOwnLocalRuntimes, resolveLocalRuntimeEndpoint } from './local-runtime-catalog'
+import { localRuntimeModels } from './local-runtime-report'
 
 import type { LocalRuntimeCatalogDeps } from './local-runtime-catalog'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
@@ -274,6 +271,29 @@ describe('local runtime catalog', () => {
     ).rejects.toMatchObject({
       code: 'runtime_not_installed',
       message,
+    })
+  })
+
+  test('an unusable CLI exposes its existing guidance in the runtime catalog', async () => {
+    const message =
+      "DeepSeek Harness couldn't start on this computer. Update Node.js, then try again."
+
+    presence = {
+      ...online(),
+      status: {
+        agents: {
+          dsh: { cli: { installed: false, loggedIn: false, probeError: message } },
+        },
+      },
+    }
+    const known = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      agents: [{ provider: 'dsh', signedIn: true }] as RegisteredAgent[],
+    }
+    const catalogDeps = { ...deps, access: { ...deps.access, listDevices: async () => [known] } }
+
+    expect((await listOwnLocalRuntimes('t1', 'owner', catalogDeps))[0]?.local).toMatchObject({
+      probeError: message,
     })
   })
 
@@ -563,6 +583,55 @@ describe('a computer that reports settings without a model list', () => {
 
     expect(catalog.models.map((entry) => entry.id)).toEqual(['opus'])
     expect(catalog.controls?.modelId).toBe('opus')
+  })
+})
+
+describe('who an agent is signed in as', () => {
+  const at = new Date('2026-11-13T00:00:00Z')
+  const signedInAs = (endedAt?: Date): LocalRuntimeCatalogDeps => {
+    const mac = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      signIns: [
+        {
+          agent: 'claude-code',
+          userId: 'owner',
+          teamId: 't1',
+          at,
+          ...(endedAt ? { endedAt } : {}),
+        },
+      ],
+    }
+
+    return {
+      ...deps,
+      access: { ...deps.access, getDevice: async () => mac, listDevices: async () => [mac] },
+    }
+  }
+
+  test('the listing says who signed the agent in through Nuphos', async () => {
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', signedInAs())
+
+    expect(listed?.local).toMatchObject({
+      signedIn: true,
+      signedInBy: { userId: 'owner', at: at.toISOString() },
+    })
+  })
+
+  test('an ended sign-in runs nothing until someone who manages the computer signs in again', async () => {
+    const ended = signedInAs(at)
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', ended)
+
+    expect(listed?.local.signedIn).toBe(false)
+    expect(listed?.local.signedInBy).toBeUndefined()
+    // The Desktop then renews it through Nuphos, not the CLI's own login.
+    expect(listed?.local.signInEnded).toBe(true)
+    for (const purpose of ['transport', 'control'] as const)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', purpose, ended),
+      ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'login', ended)).authKey,
+    ).toBe('control')
   })
 })
 

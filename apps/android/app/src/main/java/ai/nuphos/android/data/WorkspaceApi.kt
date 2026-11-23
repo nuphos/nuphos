@@ -8,7 +8,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 
-class WorkspaceAlreadyMember : Exception("You are already a member of this workspace.")
+class WorkspaceAlreadyMember : Exception("You are already a member of this team.")
 
 interface WorkspaceTransport {
     suspend fun memberships(): List<Team>
@@ -26,11 +26,11 @@ class WorkspaceApi internal constructor(private val token: String, private val c
     }
     override suspend fun create(name: String): Team {
         val trimmed = name.trim()
-        require(trimmed.length in 1..80) { "Use a workspace name with 1–80 characters." }
+        require(trimmed.length in 1..80) { "Use a team name with 1–80 characters." }
         return team(execute("teams", "POST", buildJsonObject { put("name", trimmed) }.toString(), 201))
     }
     override suspend fun join(teamId: String): Team {
-        require(teamId.matches(Regex("[a-fA-F0-9]{24}"))) { "Invalid workspace ID." }
+        require(teamId.matches(Regex("[a-fA-F0-9]{24}"))) { "Invalid team ID." }
         return team(execute("teams/discoverable/$teamId/join", "POST", "", 201))
     }
     private suspend fun teams(path: String): List<Team> {

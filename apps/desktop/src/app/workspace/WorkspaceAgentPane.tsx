@@ -200,6 +200,7 @@ export function WorkspaceAgentPane({
               currentUserId={user.id}
               canManage={mayRename}
               compact={compact}
+              onOpenComputers={() => openSettingsSection('workspace.computers')}
             />
           )}
           {savedSessionId && (

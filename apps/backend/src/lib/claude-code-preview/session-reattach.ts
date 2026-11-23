@@ -210,21 +210,6 @@ export async function reattachAfterTransportLoss(
   wait: Sleep = (ms) => sleep(ms).then(() => untilOnline(session.endpoint.url)),
 ): Promise<boolean> {
   if (session.reattaching) return false
-  // A draining replica hands the session on; winning it back would strand it.
-  if (isShuttingDown()) {
-    if ((await owned(session, transport, 0)) === 'no') return false
-    try {
-      await publishLostSessionHandoff(session)
-    } catch (error) {
-      logError('agent.runtime_handoff.publish_failed', error, {
-        team_id: session.teamId,
-        session_id: session.conversationId,
-      })
-      await markBackgroundWorkLost(session, 'unreachable')
-    }
-
-    return false
-  }
   session.reattaching = transport
   // Set only by a failure against the runtime itself, never by a bookkeeping
   // read that happened to throw: a Mongo hiccup is no evidence about the
@@ -240,6 +225,19 @@ export async function reattachAfterTransportLoss(
       // Superseded, perhaps long after a wait for the computer: whoever holds
       // the session now owns its story, so this attempt writes nothing.
       if (ownership === 'no') return false
+      // A draining replica hands the session on, even in a loop that began before
+      // the drain: winning it back would strand its output here when this one exits.
+      if (isShuttingDown()) {
+        await publishLostSessionHandoff(session).catch(async (error: unknown) => {
+          logError('agent.runtime_handoff.publish_failed', error, {
+            team_id: session.teamId,
+            session_id: session.conversationId,
+          })
+          await markBackgroundWorkLost(session, 'unreachable')
+        })
+
+        return false
+      }
       try {
         const client = await registry.acquire(session.teamId, session.endpoint)
 

@@ -33,7 +33,6 @@ import {
   CONNECTION_LOST_TOOL_ERROR,
   HANDED_OFF,
   HANDED_OFF_TOOL_ERROR,
-  handOffPreviewTurn,
   handedOff,
   lostToReattach,
 } from './chat-preview-handoff'
@@ -215,11 +214,11 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
     if ((await Promise.race([prompt, handedOff(state.signal)])) === HANDED_OFF) {
       pauses.abort()
       state.unbind()
-      await handOffPreviewTurn({
+      // The turn runs on here until shutdown hands it on with this replica's connection.
+      prompt.catch(() => {})
+      await persistHandedOffPreviewTurn({
         ...args,
         provider: args.endpoint.provider ?? 'claude-code',
-        actorUserId,
-        prompt,
         run: state.current(),
         orderedParts: orderedParts.materialize(
           interruptToolSteps(toolLog.list(), HANDED_OFF_TOOL_ERROR),
@@ -248,15 +247,17 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       return 'connection-lost'
     }
     await noteOutdated(err, args.endpoint.local)
-    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered)
-    else await persistInterrupted(err)
+    const resent = resentAfter(err, args)
+    const requeued = resent && (await requeueUnsent(args, prepared.carried, steered, false, err))
+
+    if (!resent) await persistInterrupted(err)
 
     state.unbind()
     await clearActiveTurn()
     if (!state.handedOff()) await fallBackAfterFailure(sessionId, err, actorUserId)
     // Handoff errors belong to the continuation; the original run is closed.
-    if (!state.handedOff()) throw queuedRefusal(err, args.queued)
-    appendAgentRunError(state.current(), queuedRefusal(err, args.queued))
+    if (!state.handedOff()) throw queuedRefusal(err, requeued)
+    appendAgentRunError(state.current(), queuedRefusal(err, requeued))
     state.finish()
 
     return

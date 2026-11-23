@@ -21,19 +21,6 @@ export function subAgentState(
   return indicator === 'turn' || indicator === 'background' ? 'running' : 'done'
 }
 
-/** Waiting or running: what a list of sub-agents keeps in view. */
-export function isSubAgentActive(
-  conversation: Pick<AgentConversation, 'inputRequests' | 'botOnboarding'>,
-  runtimeState: RuntimeExecution | undefined,
-): boolean {
-  return subAgentState(conversation, runtimeState) !== 'done'
-}
-
-/** A run that failed, not one the user stopped: its row shows the alert icon. */
-export function subAgentRunFailed(runtimeState: RuntimeExecution | undefined): boolean {
-  return ['failed', 'resume_failed'].includes(runtimeState?.phase ?? '')
-}
-
 /** Why a row carries its dot, if it does. */
 export type RowDot = 'unread' | 'waiting' | null
 

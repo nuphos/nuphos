@@ -41,7 +41,6 @@ export function ConnectorSearch({
   installed,
   personal,
   onPick,
-  onPickPersonal,
 }: {
   filter: string
   onFilterChange: (filter: string) => void
@@ -49,7 +48,6 @@ export function ConnectorSearch({
   /** The member's own accounts matching the search; listed after the team's while typing. */
   personal: PersonalConnector[]
   onPick: (item: CatalogItem) => void
-  onPickPersonal: () => void
 }) {
   const [open, setOpen] = useState(false)
   const items = useMemo<Suggestion[]>(
@@ -87,8 +85,8 @@ export function ConnectorSearch({
       onValueChange={(suggestion) => {
         if (!suggestion) return
         setOpen(false)
-        if (suggestion.kind === 'personal') onPickPersonal()
-        else onPick(suggestion.item)
+        // A personal account's row is already on the page, filtered by what was typed.
+        if (suggestion.kind === 'team') onPick(suggestion.item)
       }}
       itemToStringLabel={(item) => item.name}
       autoHighlight

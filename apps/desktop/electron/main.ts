@@ -48,6 +48,7 @@ import { localTerminalChannels } from './main/channels-local-terminal'
 import { monitoringChannels } from './main/channels-monitoring'
 import { posthogChannels } from './main/channels-posthog'
 import { teamChannels } from './main/channels-team'
+import { vaultChannels } from './main/channels-vault'
 import { webhooksChannels } from './main/channels-webhooks'
 import {
   findDeepLinkInArgv,
@@ -109,8 +110,6 @@ for (const stream of [process.stdout, process.stderr]) {
   })
 }
 
-watchCrashes()
-
 if (process.platform === 'darwin' && process.env.ATLAS_WT_BADGE) {
   app
     .whenReady()
@@ -141,9 +140,9 @@ if (!isDev) {
 const claimIntro = prepareFirstLaunch(userDataDir)
 const gotInstanceLock = app.requestSingleInstanceLock()
 
-if (!gotInstanceLock) {
-  app.quit()
-}
+// Only with the lock: it ends the Crashpad handlers a quit Nuphos left behind (#4708).
+if (gotInstanceLock) watchCrashes()
+else app.quit()
 
 let firstLaunchPending = gotInstanceLock && (isDev || claimIntro())
 
@@ -291,6 +290,7 @@ const channels = {
   ...webhooksChannels,
   ...deviceChannels,
   ...boxChannels,
+  ...vaultChannels,
 } as const
 
 for (const [name, handler] of Object.entries(channels)) {

@@ -8,7 +8,8 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { usePendingQueue } from '@/lib/test/doubles/pending-queue'
 
 let readable = false
-let report: { id: string; status: 'done'; summary: string; at: Date } | undefined
+let report: { id: string; status: 'done'; summary: string; data?: object; at: Date } | undefined
+let parentSessionId: string | undefined
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: '111111111111111111111111' } }),
@@ -24,6 +25,7 @@ useAgentDb({
           teamId: '222222222222222222222222',
           messageCount: 2,
           taskReport: report,
+          ...(parentSessionId ? { parentSessionId } : {}),
         }
       : null,
   getLatestAssistantMessage: async () => ({
@@ -37,6 +39,7 @@ const { mcp } = await import('../mcp')
 beforeEach(() => {
   readable = false
   report = undefined
+  parentSessionId = undefined
 })
 test('a subscription requires the same MCP bearer authentication', async () => {
   expect((await mcp.request('/?session_id=task')).status).toBe(401)
@@ -63,6 +66,31 @@ test('a stored answer is replayable with the same stable id after reconnect', as
 
   expect(reported?.id).not.toBe(first?.id)
   expect(reported?.notification.params.task_report).toMatchObject({ id: 'report', status: 'done' })
+})
+
+test("a Task report's data reaches the notification unchanged", async () => {
+  readable = true
+  const data = { pr_url: 'https://github.com/o/r/pull/1', blocked_reason: null }
+
+  report = { id: 'report', status: 'done', summary: 'Verified', data, at: new Date('2026-01-01') }
+  const { sessionNotification } = await import('./notifications')
+  const reported = await sessionNotification('task', '111111111111111111111111')
+
+  expect(reported?.notification.params.task_report).toMatchObject({ data })
+})
+
+// #4747: an endpoint that started a session learns which of its events come from its Tasks.
+test('a Task names the session above it', async () => {
+  readable = true
+  const { sessionNotification } = await import('./notifications')
+
+  expect(
+    (await sessionNotification('task', '111111111111111111111111'))?.notification.params,
+  ).not.toHaveProperty('parent_session_id')
+  parentSessionId = 'coordinator'
+  expect(
+    (await sessionNotification('task', '111111111111111111111111'))?.notification.params,
+  ).toMatchObject({ parent_session_id: 'coordinator' })
 })
 
 test('SSE sends a JSON-RPC notification with a resumable id', async () => {

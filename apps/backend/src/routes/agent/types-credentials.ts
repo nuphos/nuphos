@@ -37,12 +37,6 @@ export type AgentCredentialSelection = {
   teamIdentity?: ('github' | 'linear')[]
   /** The owner's own Personal Credentials this conversation may use, without a team binding. */
   personalCredentialIds?: PersonalCredentialProvider[]
-  /**
-   * Which of those connections (by id) this conversation may use, so one member can hold several
-   * accounts of a provider and authorize only some. Unset keeps a lone account usable and never
-   * grants a second one.
-   */
-  personalConnectionIds?: string[]
 }
 
 export type AgentCredentialOptions = {

@@ -143,7 +143,7 @@ export const nudgeDeps: NudgeDeps = {
         { runtimeStatusWithUpdate },
         { authRefusedRuntimes },
       ] = await Promise.all([
-        import('@/lib/claude-code-preview/local-runtime-catalog'),
+        import('@/lib/claude-code-preview/local-runtime-report'),
         import('@/lib/claude-code-preview/runtime-catalog'),
         import('@/lib/claude-code-preview/runtime-updates'),
         import('@/lib/claude-code-preview/runtime-auth-refusal'),

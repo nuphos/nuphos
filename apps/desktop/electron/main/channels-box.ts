@@ -15,6 +15,7 @@ import {
   bindInstaboxAccount,
   instaboxAccountSizes,
   listInstaboxAccounts,
+  replaceInstaboxKey,
   unbindInstaboxAccount,
   renameBox,
   setBoxAccess,
@@ -125,6 +126,8 @@ export const boxChannels = {
     bindInstaboxAccount(string(teamId), string(label), string(apiKey)),
   'box:unbindInstaboxAccount': (_e: unknown, teamId: unknown, accountId: unknown) =>
     unbindInstaboxAccount(string(teamId), string(accountId)),
+  'box:replaceInstaboxKey': (_e: unknown, teamId: unknown, accountId: unknown, apiKey: unknown) =>
+    replaceInstaboxKey(string(teamId), string(accountId), string(apiKey)),
   'box:instaboxSizes': (_e: unknown, teamId: unknown, accountId: unknown) =>
     instaboxAccountSizes(string(teamId), string(accountId)),
   'box:createAgent': (

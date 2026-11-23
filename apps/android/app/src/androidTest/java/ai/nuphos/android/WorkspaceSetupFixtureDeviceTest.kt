@@ -91,12 +91,11 @@ class WorkspaceSetupFixtureDeviceTest {
                 val history = request.method == "GET" && path == "/agent/conversations" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val plans = request.method == "GET" && path == "/agent/plans" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 val members = request.method == "GET" && path in setOf("/teams/${a.id}/members", "/teams/${b.id}/members")
-                val policy = request.method == "GET" && path == "/agent/plan-approval-policy" && request.url.queryParameter("teamId") in setOf(a.id, b.id)
                 // Background reads the home composer makes. Writes stay unexpected.
                 val backgroundRead = request.method == "GET" && (path == "/agent/credential-options" || path == "/agent/devices" || path.endsWith("/agent-runtimes/quota"))
                 // What the pages read to know whether the workspace has a runtime yet.
                 val runtimes = request.method == "GET" && path.matches(Regex("/teams/[a-f0-9]{24}/agent-runtimes"))
-                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !backgroundRead && !runtimes) unexpected += request
+                if (!create && !join && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !backgroundRead && !runtimes) unexpected += request
                 var code = 200
                 val body = when {
                     create || join -> {
@@ -116,7 +115,6 @@ class WorkspaceSetupFixtureDeviceTest {
                     history -> """{"conversations":[],"nextCursor":null}"""
                     plans -> """{"plans":[],"hasMore":false}"""
                     members -> """{"members":[]}"""
-                    policy -> """{"requesterApprovalRequired":true,"minimumOtherApprovals":0}"""
                     runtimes -> """{"runtimes":[{"id":"r1","provider":"codex","label":"Synthetic runtime","status":"active","kind":"managed"}]}"""
                     else -> { code = 500; "{}" }
                 }
@@ -156,7 +154,7 @@ class WorkspaceSetupFixtureDeviceTest {
                 NuphosTheme { if (visible) WorkspaceSetupSheet(setup) { visible = false } }
             }
         }
-        waitText("Workspace name")
+        waitText("Team name")
         compose.waitUntil(5_000) { !setup.state.busy && (setup.state.discoveryLoaded || setup.state.discoveryError != null) }
     }
     private fun waitText(text: String, substring: Boolean = false) {
@@ -164,44 +162,44 @@ class WorkspaceSetupFixtureDeviceTest {
     }
     private fun posts() = requests.count { it.method == "POST" }
     private fun create() {
-        compose.onNodeWithText("Workspace name").performScrollTo().performTextInput(" Fixture Alpha ")
-        compose.onNodeWithText("Create workspace").performScrollTo().performClick()
+        compose.onNodeWithText("Team name").performScrollTo().performTextInput(" Fixture Alpha ")
+        compose.onNodeWithText("Create team").performScrollTo().performClick()
     }
     @Test fun actualSheetCreatesOnceAndSelectsSavedRole() {
         release = CountDownLatch(1); renderSheet(); create()
-        compose.onNodeWithText("Create workspace").assertIsNotEnabled()
+        compose.onNodeWithText("Create team").assertIsNotEnabled()
         compose.waitUntil(5_000) { posts() == 1 }
         assertNull(selected); release!!.countDown()
-        waitText("Workspace selected: Fixture Alpha")
+        waitText("Team selected: Fixture Alpha")
         assertEquals(a, selected); assertEquals(1, posts())
         assertTrue(requests.last { it.url.encodedPath == "/teams" }.method == "GET")
     }
     @Test fun actualJoinAndAlreadyMemberBothReadSavedMembership() {
         writeStatus = 409; renderSheet()
         compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
-        waitText("Workspace selected: Fixture Beta")
+        waitText("Team selected: Fixture Beta")
         assertEquals(b, selected); assertEquals(1, posts())
         assertEquals(false, selected!!.isOwner); assertEquals("EDITOR", selected!!.role)
     }
     @Test fun actualJoin201SelectsOnlySavedTarget() {
         renderSheet(); compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
-        waitText("Workspace selected: Fixture Beta"); assertEquals(b, selected); assertEquals(1, posts())
+        waitText("Team selected: Fixture Beta"); assertEquals(b, selected); assertEquals(1, posts())
     }
     @Test fun unknownCreateReconcilesAndNeedsExplicitSavedReview() {
         unknownWrite = true; renderSheet(); create()
         waitText("We could not identify the saved result", true)
-        compose.onNodeWithText("Create workspace").assertIsNotEnabled()
+        compose.onNodeWithText("Create team").assertIsNotEnabled()
         compose.onNodeWithText("Use Fixture Alpha").performScrollTo().performClick()
         assertEquals(a, selected); assertEquals(1, posts())
-        compose.onNodeWithText("Create workspace").assertIsNotEnabled()
+        compose.onNodeWithText("Create team").assertIsNotEnabled()
     }
     @Test fun forbiddenDoesNotSignOutAndEmptyDiscoveryIsValid() {
         writeStatus = 403; renderSheet()
         compose.onNodeWithText("Join Fixture Beta").performScrollTo().performClick()
-        waitText("You are not allowed to join this workspace."); assertEquals(0, expired); assertNull(selected)
+        waitText("You are not allowed to join this team."); assertEquals(0, expired); assertNull(selected)
         discovered = emptyList()
-        compose.onNodeWithText("Refresh workspaces").performScrollTo().performClick()
-        waitText("No workspaces are available to join for this account.")
+        compose.onNodeWithText("Refresh teams").performScrollTo().performClick()
+        waitText("No teams are available to join for this account.")
     }
     @Test fun discoveryForbiddenDoesNotInventJoinOrExpire() {
         discovered = emptyList(); discoveryStatus = 403
@@ -210,7 +208,7 @@ class WorkspaceSetupFixtureDeviceTest {
                 strings = compose.activity.resources)
             compose.activity.setContent { NuphosTheme { WorkspaceSetupSheet(setup) {} } }
         }
-        waitText("We could not load workspaces to join", true)
+        waitText("We could not load teams to join", true)
         compose.onAllNodesWithText("Join Fixture Beta").assertCountEquals(0); assertEquals(0, expired)
     }
     @Test fun dismissedWriteAndLateAccountResultNeverSelect() {
@@ -241,8 +239,8 @@ class WorkspaceSetupFixtureDeviceTest {
     /** The workspace list is in the profile sheet. */
     private fun openWorkspaces() {
         compose.onNodeWithContentDescription(app.getString(R.string.home_toolbar_account)).performClick()
-        waitText("Workspace")
-        compose.onNodeWithText("Workspace").performScrollTo().performClick()
+        waitText("Team")
+        compose.onNodeWithText("Team").performScrollTo().performClick()
     }
     private fun chooseWorkspace(team: Team) {
         openWorkspaces()
@@ -273,44 +271,55 @@ class WorkspaceSetupFixtureDeviceTest {
     }
     @Test fun actualHomeEmptyEntryOpensNativeSetup() {
         renderHome(emptyList())
-        waitText("Choose or set up a workspace to get started.")
-        compose.onNodeWithText("Set up a workspace").performClick()
-        waitText("Workspace name"); waitText("Join Fixture Beta")
+        waitText("Choose or set up a team to get started.")
+        compose.onNodeWithText("Set up a team").performClick()
+        waitText("Team name"); waitText("Join Fixture Beta")
+    }
+    @Test fun homeSheetOpensFullyExpandedAndClosesAfterCreate() {
+        renderHome(emptyList())
+        compose.onNodeWithText("Set up a team").performClick()
+        waitText("Join Fixture Beta")
+        // Fully expanded, so the last control is on screen without dragging the sheet up.
+        compose.onNodeWithText("Close").assertIsDisplayed()
+        create()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Team name").fetchSemanticsNodes().isEmpty() }
+        compose.runOnIdle { assertEquals(a, agent.selectedTeam) }
+        assertEquals(1, posts())
     }
     @Test fun activityRecreationWithFailedReadKeepsUncertainWriteBlocked() {
         release = CountDownLatch(1); renderHome(emptyList())
         compose.runOnIdle {
             NuphosApplication::class.java.getDeclaredField("authSession").also { it.isAccessible = true }.set(app, auth)
         }
-        compose.onNodeWithText("Set up a workspace").performClick()
+        compose.onNodeWithText("Set up a team").performClick()
         waitText("Join Fixture Beta"); create()
         compose.waitUntil(5_000) { posts() == 1 }
         membershipStatus = 500
         compose.activityRule.scenario.recreate()
         release!!.countDown()
         openWorkspaces()
-        waitText("Set up a workspace")
-        compose.onNodeWithText("Set up a workspace").performClick()
-        waitText("The request may have completed. Closing this sheet does not undo a saved workspace.")
-        compose.onNodeWithText("Create workspace").assertIsNotEnabled()
-        compose.onNodeWithText("I reviewed saved workspaces").assertIsNotEnabled()
+        waitText("Set up a team")
+        compose.onNodeWithText("Set up a team").performClick()
+        waitText("The request may have completed. Closing this sheet does not undo a saved team.")
+        compose.onNodeWithText("Create team").assertIsNotEnabled()
+        compose.onNodeWithText("I reviewed saved teams").assertIsNotEnabled()
         assertEquals(1, posts())
     }
     @Test fun revokedSourceClosesSheetWithoutRecompositionLoop() {
         renderHome(emptyList())
-        compose.onNodeWithText("Set up a workspace").performClick()
-        waitText("Workspace name")
+        compose.onNodeWithText("Set up a team").performClick()
+        waitText("Team name")
         compose.runOnIdle { AiAccess.revoke() }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Workspace name").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Team name").fetchSemanticsNodes().isEmpty() }
         compose.waitForIdle()
         assertEquals(0, posts())
     }
     @Test fun invitationRefreshRevealsOnlySavedMembershipInChooser() {
         renderHome(emptyList())
-        compose.onNodeWithText("Set up a workspace").performClick()
+        compose.onNodeWithText("Set up a team").performClick()
         waitText("Join Fixture Beta")
         memberships = listOf(b)
-        compose.onNodeWithText("Refresh workspaces").performScrollTo().performClick()
+        compose.onNodeWithText("Refresh teams").performScrollTo().performClick()
         compose.waitUntil(5_000) { agent.teams == listOf(b) }
         compose.onNodeWithText("Close").performScrollTo().performClick()
         chooseWorkspace(b)
@@ -334,8 +343,8 @@ class WorkspaceSetupFixtureDeviceTest {
             assertEquals("Beta draft", auth.composerDrafts.bind(NuphosUser.preview.id, b.id, ComposerDrafts.Destination.NewChat)!!.text)
         }
         openWorkspaces()
-        waitText("Set up a workspace")
-        compose.onNodeWithText("Set up a workspace").performClick()
-        waitText("Workspace name")
+        waitText("Set up a team")
+        compose.onNodeWithText("Set up a team").performClick()
+        waitText("Team name")
     }
 }

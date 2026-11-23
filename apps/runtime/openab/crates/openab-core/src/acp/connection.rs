@@ -525,10 +525,6 @@ pub struct AcpConnection {
     pub last_active: Instant,
     pub activity: Arc<SessionActivity>,
     pub session_reset: bool,
-    /// Dormant Part B scaffolding (https://agentclientprotocol.com/protocol/terminals):
-    /// tracks terminals created via the spec's `terminal/*` RPCs. No adapter this
-    /// gateway talks to today issues those RPCs (see `terminal.rs`).
-    pub terminal: Arc<super::terminal::TerminalManager>,
     _reader_handle: JoinHandle<()>,
     _stderr_handle: Option<JoinHandle<()>>,
     /// The pool must not route to this connection again, even if the reader has not
@@ -576,44 +572,15 @@ fn build_agent_env(
 /// legacy chat surfaces auto-approve permissions, while opted-in ACP clients
 /// can relay the request to their user before responding.
 ///
-/// Only `spawn()`'s production path needs `terminal/*` dispatch, so it goes
-/// straight to [`run_reader_loop_with_state_and_terminal`]; this narrower
-/// signature remains for tests that don't exercise terminals.
-#[cfg(test)]
+/// `stdin` answers the agent's own requests nothing past here would; tests that
+/// don't need that pass `None`.
 pub(crate) async fn run_reader_loop_with_state<R>(
     reader: R,
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>>,
     notify_tx: NotificationSender,
     idle_notify_tx: NotificationSender,
     execution: Option<Arc<SessionActivity>>,
-) where
-    R: AsyncRead + Unpin + Send + 'static,
-{
-    run_reader_loop_with_state_and_terminal(
-        reader,
-        pending,
-        notify_tx,
-        idle_notify_tx,
-        execution,
-        None,
-        None,
-    )
-    .await
-}
-
-/// Same as [`run_reader_loop_with_state`], additionally serving the dormant
-/// `terminal/*` RPC family (Part B: https://agentclientprotocol.com/protocol/terminals)
-/// directly off `stdin`/`terminal` when both are present. Split out so tests that
-/// don't care about terminals keep the simpler signature.
-#[allow(clippy::too_many_arguments)]
-pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
-    reader: R,
-    pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>>,
-    notify_tx: NotificationSender,
-    idle_notify_tx: NotificationSender,
-    execution: Option<Arc<SessionActivity>>,
     stdin: Option<Arc<Mutex<ChildStdin>>>,
-    terminal: Option<Arc<super::terminal::TerminalManager>>,
 ) where
     R: AsyncRead + Unpin + Send + 'static,
 {
@@ -671,30 +638,6 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
                 // to subscriber forwarding; the adapter recv loop filters by
                 // request_id so it can't leak into the next prompt.
                 trace!(request_id = id, "stale id-bearing message after abandon");
-            }
-        }
-
-        // Dormant Part B scaffolding: an agent-initiated `terminal/*` request
-        // (https://agentclientprotocol.com/protocol/terminals). No adapter this
-        // gateway talks to today issues these (see terminal.rs), but if one
-        // does, answer it directly here instead of routing it through the
-        // chat-turn subscriber — terminal lifecycle is client-local process
-        // management, not something a turn's UI needs to see.
-        if let (Some(id), Some(method), Some(stdin), Some(terminal)) = (
-            msg.id,
-            msg.method.as_deref(),
-            stdin.clone(),
-            terminal.clone(),
-        ) {
-            if let Some(handler) = terminal_method_handler(method) {
-                tokio::spawn(handle_terminal_request(
-                    id,
-                    handler,
-                    msg.params.clone(),
-                    stdin,
-                    terminal,
-                ));
-                continue;
             }
         }
 
@@ -764,51 +707,8 @@ pub(crate) async fn run_reader_loop_with_state_and_terminal<R>(
     *idle_notify_tx.lock().await = None;
 }
 
-type TerminalHandler = for<'a> fn(
-    &'a super::terminal::TerminalManager,
-    Option<&'a Value>,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Value>> + Send + 'a>,
->;
-
-/// Maps a `terminal/*` method name to its [`super::terminal::TerminalManager`] handler.
-fn terminal_method_handler(method: &str) -> Option<TerminalHandler> {
-    match method {
-        "terminal/create" => Some(|m, p| Box::pin(m.create(p))),
-        "terminal/output" => Some(|m, p| Box::pin(m.output(p))),
-        "terminal/wait_for_exit" => Some(|m, p| Box::pin(m.wait_for_exit(p))),
-        "terminal/kill" => Some(|m, p| Box::pin(m.kill(p))),
-        "terminal/release" => Some(|m, p| Box::pin(m.release(p))),
-        _ => None,
-    }
-}
-
-/// Run one `terminal/*` handler and write its JSON-RPC response back to the
-/// agent. Spawned per-request so a slow `terminal/wait_for_exit` never blocks
-/// the reader loop from processing the agent's other traffic.
-async fn handle_terminal_request(
-    id: u64,
-    handler: TerminalHandler,
-    params: Option<Value>,
-    stdin: Arc<Mutex<ChildStdin>>,
-    terminal: Arc<super::terminal::TerminalManager>,
-) {
-    let response = match handler(&terminal, params.as_ref()).await {
-        Ok(result) => json!({"jsonrpc": "2.0", "id": id, "result": result}),
-        Err(err) => json!({
-            "jsonrpc": "2.0",
-            "id": id,
-            "error": {"code": -32000, "message": err.to_string()},
-        }),
-    };
-    if let Ok(data) = serde_json::to_string(&response) {
-        let _ = write_to_stdin(&stdin, &data).await;
-    }
-}
-
 /// Bounded raw write to an agent's stdin, mirroring [`AcpConnection::send_raw`].
-/// Standalone because the terminal RPC handlers run detached from an
-/// `AcpConnection` borrow (they own only an `Arc` clone of its stdin).
+/// Standalone because the reader loop owns only an `Arc` clone of the stdin.
 async fn write_to_stdin(stdin: &Arc<Mutex<ChildStdin>>, data: &str) -> Result<()> {
     tokio::time::timeout(std::time::Duration::from_secs(10), async {
         let mut w = stdin.lock().await;
@@ -822,12 +722,10 @@ async fn write_to_stdin(stdin: &Arc<Mutex<ChildStdin>>, data: &str) -> Result<()
     Ok(())
 }
 
-/// Build a `Command` with the security baseline shared by every subprocess this
-/// crate spawns (the agent process itself and, for the dormant `terminal/*` RPC
-/// scaffolding, terminals the agent asks the client to create): its own process
-/// group for tree-wide kill, a cleared environment, and the minimal HOME/PATH/
-/// user vars a subprocess needs to function. Callers layer stdio and any
-/// additional env on top.
+/// Build a `Command` with the security baseline for the agent process: its own
+/// process group for tree-wide kill, a cleared environment, and the minimal
+/// HOME/PATH/user vars a subprocess needs to function. Callers layer stdio and
+/// any additional env on top.
 pub(crate) fn baseline_command(
     command: &str,
     args: &[String],
@@ -872,7 +770,7 @@ pub(crate) fn baseline_command(
     // Clear inherited env to prevent credential leakage (e.g. DISCORD_BOT_TOKEN).
     // Only explicit values + essential baseline vars are passed through.
     cmd.env_clear();
-    // Preserve the real HOME so agents/terminals can find OAuth/auth files
+    // Preserve the real HOME so agents can find OAuth/auth files
     // (~/.codex, ~/.claude, ~/.config/gh, etc.). working_dir is already set via
     // current_dir() above and is not necessarily the user's home directory.
     cmd.env(
@@ -912,8 +810,7 @@ pub(crate) fn baseline_command(
     cmd
 }
 
-/// SIGTERM → SIGKILL a process group. Shared by the agent connection's own
-/// teardown and the `terminal/kill` / `terminal/release` RPC handlers.
+/// SIGTERM → SIGKILL a process group, for the agent connection's teardown.
 /// Uses std::thread (not tokio::spawn) so SIGKILL fires even during
 /// runtime shutdown or panic unwinding.
 pub(crate) fn kill_process_group(pgid: i32) {
@@ -1034,15 +931,13 @@ impl AcpConnection {
         let idle_notify_tx: Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>> =
             Arc::new(Mutex::new(None));
 
-        let terminal = Arc::new(super::terminal::TerminalManager::new());
-        let reader_handle = tokio::spawn(run_reader_loop_with_state_and_terminal(
+        let reader_handle = tokio::spawn(run_reader_loop_with_state(
             stdout,
             pending.clone(),
             notify_tx.clone(),
             idle_notify_tx.clone(),
             Some(activity.clone()),
             Some(stdin.clone()),
-            Some(terminal.clone()),
         ));
 
         Ok(Self {
@@ -1065,7 +960,6 @@ impl AcpConnection {
             last_active: Instant::now(),
             activity,
             session_reset: false,
-            terminal,
             _reader_handle: reader_handle,
             _stderr_handle: stderr_handle,
             retired: false,
@@ -1194,10 +1088,6 @@ impl AcpConnection {
                 Some(json!({
                     "protocolVersion": 1,
                     "clientCapabilities": {
-                        // Spec capability (agentclientprotocol.com/protocol/terminals).
-                        // Neither adapter this gateway runs against today reads it; see
-                        // `terminal_output` below, which is what they actually gate on.
-                        "terminal": true,
                         "_meta": {
                             "jetbrains": {
                                 "air": {
@@ -1208,7 +1098,7 @@ impl AcpConnection {
                             // Zed's own client-capability convention (claude-agent-acp is
                             // published from zed-industries/claude-code-acp), not part of the
                             // ACP spec. claude-agent-acp 0.74.0 and codex-acp 1.1.4 both gate
-                            // terminal behavior on this instead of `terminal` above.
+                            // terminal output on this, not on the spec's `terminal`.
                             "terminal_output": true
                         }
                     },
@@ -1587,9 +1477,9 @@ impl AcpConnection {
         let _ = self._proc.start_kill();
     }
 
-    /// Kill the entire process group: SIGTERM → SIGKILL.
+    /// Kill the entire process group: SIGTERM → SIGKILL, once per connection.
     fn kill_process_group(&mut self) {
-        if let Some(pgid) = self.child_pgid {
+        if let Some(pgid) = self.child_pgid.take() {
             kill_process_group(pgid);
         }
     }
@@ -1661,9 +1551,6 @@ impl Drop for AcpConnection {
             handle.abort();
         }
         self.kill_process_group();
-        // Terminals are tracked independently of the agent process; a terminal
-        // the agent never `terminal/release`d must not outlive this connection.
-        self.terminal.shutdown();
     }
 }
 
@@ -2024,6 +1911,54 @@ mod retirement_tests {
             !conn.alive(),
             "a retired connection must not take the next prompt"
         );
+    }
+}
+
+/// The agent's process group is signalled once per connection: `kill_agent` and then dropping
+/// the connection sent it SIGTERM twice, and a second stop signal can hang a process in the
+/// group that is still handling the first (#4727).
+#[cfg(all(test, unix))]
+mod group_kill_tests {
+    use super::AcpConnection;
+
+    #[tokio::test]
+    async fn killing_the_agent_then_dropping_the_connection_signals_the_group_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let log = dir.path().join("signals");
+        // A child of the agent, in its group, that counts the SIGTERMs it gets: `kill_agent`
+        // SIGKILLs the agent itself.
+        let child = dir.path().join("child.py");
+        std::fs::write(
+            &child,
+            "import signal, sys, time\n\
+             signal.signal(signal.SIGTERM, lambda *_: open(sys.argv[1], 'a').write('term\\n'))\n\
+             open(sys.argv[1], 'a').close()\n\
+             while True: time.sleep(1)\n",
+        )
+        .unwrap();
+        let args = vec![
+            "-c".to_string(),
+            format!("python3 {} {} & wait", child.display(), log.display()),
+        ];
+        let mut conn = AcpConnection::spawn("sh", &args, ".", &Default::default(), &[])
+            .await
+            .unwrap();
+        let terms = || {
+            std::fs::read_to_string(&log)
+                .ok()
+                .map(|s| s.lines().count())
+        };
+        for _ in 0..200 {
+            if terms().is_some() {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+        }
+
+        conn.kill_agent();
+        drop(conn);
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        assert_eq!(terms(), Some(1));
     }
 }
 
@@ -2623,6 +2558,7 @@ mod reader_loop_tests {
             notify.clone(),
             idle.clone(),
             Some(activity.clone()),
+            None,
         ));
         let frame = b"{\"jsonrpc\":\"2.0\",\"method\":\"session/update\",\"params\":{\"update\":{\"sessionUpdate\":\"agent_message_chunk\",\"content\":{\"type\":\"text\",\"text\":\"working\"}}}}\n";
         writer.write_all(frame).await.unwrap();
@@ -2650,5 +2586,5 @@ async fn run_reader_loop<R: AsyncRead + Unpin + Send + 'static>(
     notify_tx: NotificationSender,
     idle_notify_tx: NotificationSender,
 ) {
-    run_reader_loop_with_state(reader, pending, notify_tx, idle_notify_tx, None).await;
+    run_reader_loop_with_state(reader, pending, notify_tx, idle_notify_tx, None, None).await;
 }

@@ -118,10 +118,10 @@ export function ConnectionAccessSection({
                 )
               : connection.agentPolicy === 'metadata-only'
                 ? t(
-                    'Bots and tasks can discover metadata and propose governed change Plans, but query execution is rejected.',
+                    'Bots and tasks can discover metadata and propose change requests, but query execution is rejected.',
                   )
                 : t(
-                    'Bots and tasks can inspect metadata, run bounded read-only queries, and propose governed change Plans. Mutations still require Plan approval and explicit execution.',
+                    "Bots and tasks can inspect metadata, run bounded read-only queries, and propose change requests. Mutations still need approval under this connection's policy and explicit execution.",
                   )}
         </div>
         <div className="mt-3 flex gap-2 text-[11.5px] text-tertiary">

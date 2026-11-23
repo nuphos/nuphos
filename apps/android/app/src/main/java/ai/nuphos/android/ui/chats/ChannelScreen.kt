@@ -158,6 +158,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         if (onOpenTask != null && auth.aiAllowed && AiAccess.revision == taskConsent && store.workspaceRevision == taskWorkspace &&
             store.selectedTeam?.id == session.teamId) onOpenTask(id)
     }
+    // The Bot's own Task, opened from the title bar and its details card alike, under one visibility check.
+    val openBotTask: (() -> Unit)? = if (canOpenTask && onOpenTask != null && bot != null) {
+        { openTask(bot.sessionId) }
+    } else null
     // What the Bot dispatched comes from the Tasks list, read again while its chat is on screen.
     LaunchedEffect(store, botFace?.id, lifecycle) {
         if (botFace == null) return@LaunchedEffect
@@ -177,9 +181,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { id -> detailsOpen = false; openTask(id) },
             onDismiss = { detailsOpen = false },
-            lead = { BotDetailsCard(session, openTask = if (canOpenTask && onOpenTask != null) {
-                { detailsOpen = false; openTask(bot.sessionId) }
-            } else null) },
+            lead = { BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } }) },
             canManage = bot.canManage)
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
@@ -206,7 +208,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                         ChatIcon(session.faces, session.title, 28.dp)
                         Column {
                             Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                            BotStateLine(tasks, botFace?.let { store.botRow(it.id) })
+                            BotStateLine(tasks)
                         }
                         // The arrow says the title opens the chat's Bots.
                         if (group) Icon(Icons.Outlined.ExpandMore, null,
@@ -215,6 +217,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.chats_back)) } },
                 actions = {
+                    // One tap to the Bot's own Task, as on iOS.
+                    if (openBotTask != null) IconButton(onClick = openBotTask, modifier = Modifier.testTag("chat-bot-task")) {
+                        Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), stringResource(R.string.chat_task_fallback_title))
+                    }
                     if (bot?.canOpenDesktop == true) IconButton(onClick = { desktop = true }) { Icon(Icons.Outlined.DesktopWindows, stringResource(R.string.chats_desktop)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -263,9 +269,11 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
 
 /** Under a Bot's name, what its Tasks are doing: "1 needs input · 1 running", in the attention colour when one waits on you. */
 @Composable
-private fun BotStateLine(tasks: List<AgentConversation>, bot: AgentConversation?) {
+private fun BotStateLine(tasks: List<AgentConversation>) {
     val store = LocalAgentStore.current
-    val (waiting, running) = botStateCounts(tasks.map { store.taskState(it) }, bot)
+    val states = tasks.map { store.taskState(it) }
+    val waiting = states.count { it == AgentStore.TaskState.Waiting }
+    val running = states.count { it == AgentStore.TaskState.Running }
     val parts = listOfNotNull(
         waiting.takeIf { it > 0 }?.let { stringResource(R.string.chat_bot_state_waiting, it) },
         running.takeIf { it > 0 }?.let { stringResource(R.string.chat_bot_state_running, it) },
@@ -274,14 +282,6 @@ private fun BotStateLine(tasks: List<AgentConversation>, bot: AgentConversation?
     Text(parts.joinToString(" · "), maxLines = 1, style = MaterialTheme.typography.labelSmall, modifier = Modifier.testTag("bot-state"),
         color = if (waiting > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
 }
-
-/**
- * How many of a Bot's Tasks wait on the viewer and run. Someone else's Bot lists none of its Tasks
- * for the viewer, so its row says how many run (#4270); they are not the viewer's to answer, so none waits.
- */
-internal fun botStateCounts(states: List<AgentStore.TaskState>, bot: AgentConversation?): Pair<Int, Int> =
-    if (states.isEmpty()) 0 to (bot?.tasks?.running ?: 0)
-    else states.count { it == AgentStore.TaskState.Waiting } to states.count { it == AgentStore.TaskState.Running }
 
 /** The card that leads a Bot's details, as on Desktop: its face, name and runtime, and the way into the Bot's own Task. */
 @Composable

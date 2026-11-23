@@ -20,7 +20,7 @@ async function mcp(server, sessionHeader, method, params) {
     body: JSON.stringify({ jsonrpc: '2.0', id: randomUUID(), method, params }),
   })
   const text = await response.text()
-  const data = text.startsWith('{') ? text : (/^data: (.+)$/m.exec(text)?.[1] ?? '{}')
+  const data = /^data: (.+)$/m.exec(text)?.[1] ?? text
 
   return { message: JSON.parse(data), session: response.headers.get('mcp-session-id') }
 }
@@ -133,10 +133,13 @@ export async function personalToken({ log, sessionId, marker, text }) {
 
 const TASK_PROMPT = 'Report E2E_REPORT_BACK E2E_DELIVERY:webhook-task'
 
+export const REPORT_DATA = { pr_url: 'https://example.com/pull/1', ci: 'passed', merged: false }
+
 /** #4361: hands off a Task that reports back; a nested E2E_CALL's JSON did not parse in the Task. */
 export async function reportBack({ log, sessionId, marker }) {
+  const report = { report_id: 'e2e', status: 'done', summary: 'Done', data: REPORT_DATA }
   const [name, args] = marker.endsWith('-task')
-    ? ['report_task', { label: 'Report', report_id: 'e2e', status: 'done', summary: 'Done' }]
+    ? ['report_task', { label: 'Report', ...report }]
     : ['create_thread', { label: 'Hand off', title: 'E2E webhook task', prompt: TASK_PROMPT }]
   const message = await call(sessionId, name, args)
 

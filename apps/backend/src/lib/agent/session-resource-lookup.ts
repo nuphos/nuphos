@@ -13,7 +13,7 @@ import { logEvent } from '@/lib/observability'
 
 import { agentConversations, credentialSource } from './db'
 import { resolveGithubIssue } from './github-issue-lookup'
-import { fetchPullHealth } from './github-pull-health'
+import { readPull } from './github-pull-health'
 import { mergedAtOf } from './merged-at'
 
 import type { AgentConversation } from './db'
@@ -133,7 +133,8 @@ export async function resolveResource(
     const mergedAt = mergedAtOf(pr.merged_at)
 
     const repository = pr.base.repo.full_name
-    const health = await fetchPullHealth(input.installationId, repository, pr.number, pr).catch(
+    const health = await readPull(input.installationId, repository, pr.number, pr).then(
+      (read) => read?.health ?? null,
       () => null,
     )
 

@@ -13,6 +13,7 @@ import { computerRemoveScenarios } from './computer-remove-scenarios.ts'
 import { browserDownloadScenarios } from './browser-download-scenarios.ts'
 import { browserHandBackScenarios } from './browser-hand-back-scenarios.ts'
 import { browserVideoScenarios } from './browser-video-scenarios.ts'
+import { chatComputerUseScenarios } from './chat-computer-use-scenarios.ts'
 import { computersPageScenarios } from './computers-page-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { shareNoticeScenarios } from './share-notice-scenarios.ts'
@@ -264,4 +265,5 @@ export const computerScenarios: Scenario[] = [
   ...browserVideoScenarios,
   ...threadRuntimeScenarios,
   ...shareNoticeScenarios,
+  ...chatComputerUseScenarios,
 ]

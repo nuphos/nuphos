@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">No se pudieron actualizar los archivos del agente.</string>
     <string name="convtext_attachment_access_unavailable">No se puede acceder a los archivos adjuntos</string>
-    <string name="convtext_move_wait">Espera a que termine la respuesta actual antes de cambiar de entorno de ejecución.</string>
+    <string name="convtext_move_wait">Espera a que termine el mensaje que se está enviando o la subida y luego cambia de entorno de ejecución.</string>
     <string name="convtext_move_choose_runtime">Elige un entorno de ejecución disponible.</string>
     <string name="convtext_runtime_status_unavailable">Estado del entorno de ejecución no disponible</string>
     <string name="convtext_attachments_after_run">Guarda los adjuntos para un mensaje nuevo cuando termine la ejecución actual.</string>
@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">Preparando herramientas…</string>
     <string name="convtext_phase_building_prompt">Preparando el prompt…</string>
     <string name="convtext_phase_recalling_memory">Recordando la memoria…</string>
-    <string name="convtext_phase_loading_history">Cargando historial…</string>
     <string name="convtext_phase_preparing_model">Preparando el modelo…</string>
     <string name="convtext_phase_connecting">Conectando…</string>
     <string name="convtext_phase_thinking">Pensando…</string>
@@ -57,7 +56,7 @@
     <string name="convtext_conflict_busy">Esta tarea está ocupada con otra respuesta.</string>
     <string name="convtext_runtime_signed_out">Este entorno de ejecución cerró sesión. Inicia sesión desde Nuphos en el ordenador donde se ejecuta o cambia a otro entorno de ejecución.</string>
     <string name="convtext_runtime_disabled">El entorno de ejecución de esta tarea está desactivado. Cambia a otro entorno de ejecución para continuar.</string>
-    <string name="convtext_runtime_not_found">Este entorno de ejecución ya no está disponible en este espacio de trabajo. Cambia a otro entorno de ejecución para continuar.</string>
+    <string name="convtext_runtime_not_found">Este entorno de ejecución ya no está disponible en este equipo. Cambia a otro entorno de ejecución para continuar.</string>
     <string name="convtext_runtime_offline">El ordenador que ejecuta este entorno de ejecución está sin conexión. Abre Nuphos en él o cambia a otro entorno de ejecución.</string>
     <string name="convtext_runtime_paused">%1$s está en pausa. Se reanudará cuando envíes un mensaje.</string>
     <string name="convtext_runtime_starting">%1$s se está iniciando. Estará listo en unos segundos.</string>

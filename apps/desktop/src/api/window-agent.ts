@@ -154,7 +154,10 @@ export type WindowAgentApi = AgentDecisionApi & {
   agentListQueue(
     sessionId: string,
     teamId?: string,
-  ): Promise<{ messages: { id: string; mine: boolean; text: string }[] }>
+  ): Promise<{
+    messages: { id: string; mine: boolean; text: string }[]
+    held?: { reason: 'usage_limit'; until?: string }
+  }>
   agentUnqueueMessage(
     sessionId: string,
     messageId: string,

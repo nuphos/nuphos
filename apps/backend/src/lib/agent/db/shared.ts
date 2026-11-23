@@ -107,6 +107,7 @@ export type AgentConversation = ConversationTaskState & {
   compactionSummary?: string
   compactionMessageCount?: number
   parentSessionId?: string // The managing conversation: create_thread's opener or set_thread_parent's choice.
+  webhookId?: string // The team webhook that alone receives this session's events: nuphos_ask's webhook_id.
   // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
   conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
@@ -218,7 +219,6 @@ export type AgentCredentialAccess = {
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
-  personalConnectionIds?: string[] // which of the owner's own connections, by id
   updatedAt: Date
   updatedBy: string
 }
