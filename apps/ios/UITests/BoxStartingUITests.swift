@@ -54,6 +54,15 @@ final class BoxStartingUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Connect your first runtime"].exists, "Fell back to the empty state")
     }
 
+    /// A running Box whose host is down lists no runtime by itself, so Home does not wait for it forever.
+    func testABoxWhoseHostIsDownIsNotAwaited() throws {
+        XCTAssertTrue(app.staticTexts[starting].waitForExistence(timeout: 12), "No getting-ready state")
+        responses[devices] = box(state: "running", online: false)
+        try write()
+        XCTAssertTrue(app.staticTexts["Connect your first runtime"].waitForExistence(timeout: 15), "Kept waiting for a Box whose host is down")
+        XCTAssertFalse(app.staticTexts[starting].exists)
+    }
+
     private func box(state: String, online: Bool) -> [String: Any] {
         ["status": 200, "body": ["boxAvailable": true, "canCreateBox": false, "devices": [[
             "deviceId": "box-1", "label": "Free Box", "access": "owner", "online": online,

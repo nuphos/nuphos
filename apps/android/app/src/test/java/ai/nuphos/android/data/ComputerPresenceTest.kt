@@ -31,11 +31,15 @@ class ComputerPresenceTest {
         assertEquals(ComputerPresence.Online, ComputerPresence.of(null, listOf(device())))
     }
     @Test fun aWorkspaceWithoutRuntimesFindsItsBoxThatBringsOne() {
-        for (state in listOf("creating", "connecting", "running")) {
-            for (online in listOf(true, false, null)) {
+        for (state in listOf("creating", "connecting")) {
+            for (online in listOf(true, false)) {
                 assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(id = "pc", box = false), device(state = state).copy(online = online))))
             }
         }
+        assertEquals(ComputerPresence.Starting("Work Box"), ComputerPresence.starting(listOf(device(state = "running").copy(online = true))))
+    }
+    @Test fun aRunningBoxWhoseHostIsDownIsNotAwaited() {
+        assertEquals(null, ComputerPresence.starting(listOf(device(state = "running").copy(online = false))))
     }
     @Test fun aWorkspaceWithoutABoxThatBringsARuntimeHasNothingToAwait() {
         assertEquals(null, ComputerPresence.starting(listOf(device(state = "paused"), device(state = "error"), device(id = "pc", box = false).copy(online = true))))
