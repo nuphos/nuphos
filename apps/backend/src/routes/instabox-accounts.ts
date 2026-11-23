@@ -25,10 +25,16 @@ const bindSchema = z
     apiKey: z.string().trim().min(1).max(300),
   })
   .strict()
+const keySchema = z.object({ apiKey: z.string().trim().min(1).max(300) }).strict()
 const accountParam = z.object({ accountId: z.string().trim().min(1).max(64) })
 
 export function publicView(binding: InstaboxAccountBinding) {
-  return { id: binding.id.toHexString(), label: binding.label, createdAt: binding.createdAt }
+  return {
+    id: binding.id.toHexString(),
+    label: binding.label,
+    createdAt: binding.createdAt,
+    ...(binding.keyRejectedAt ? { keyRejectedAt: binding.keyRejectedAt } : {}),
+  }
 }
 
 /** The key's sizes; a bad key is the caller's 400, anything else instabox's 502. */
@@ -108,6 +114,34 @@ instaboxAccountsRoutes.get('/:accountId', zv('param', accountParam), async (c) =
     sizes: await readSizes(decryptInstaboxSecret(account.encryptedApiKey)),
   })
 })
+
+// A new key for the same binding, checked as a new account's is, so its computers stay on it.
+instaboxAccountsRoutes.put(
+  '/:accountId/key',
+  requireTeamRole('ADMINISTRATOR'),
+  zv('param', accountParam),
+  zv('json', keySchema),
+  async (c) => {
+    const teamId = c.get('teamId')
+    const { accountId } = c.req.valid('param')
+    const { apiKey } = c.req.valid('json')
+
+    await requireAccount(teamId, accountId)
+    await readSizes(apiKey)
+    await teamByosBindings().updateOne(
+      { _id: parseObjectId(teamId, 'teamId'), 'instaboxAccounts.id': new ObjectId(accountId) },
+      {
+        $set: {
+          'instaboxAccounts.$.encryptedApiKey': encryptInstaboxSecret(apiKey),
+          updatedAt: new Date(),
+        },
+        $unset: { 'instaboxAccounts.$.keyRejectedAt': '' },
+      },
+    )
+
+    return c.body(null, 204)
+  },
+)
 
 // Machines on the account are never deleted implicitly: unbinding waits until its
 // Boxes are gone, since without the key nothing could manage or delete them.
