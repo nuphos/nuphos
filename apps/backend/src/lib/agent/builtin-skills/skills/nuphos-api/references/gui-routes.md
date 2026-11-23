@@ -115,6 +115,7 @@ linode.instances | linode akamai instance instances | teamId, accountId | `https
 linode.lkeClusters | linode akamai lke kubernetes cluster clusters | teamId, accountId | `https://nuphos.ai/teams/<teamId>/infra/linode/<accountId>/lke` | LKE clusters
 hetzner.servers | hetzner cloud server servers | teamId, accountId | `https://nuphos.ai/teams/<teamId>/infra/hetzner/<accountId>/servers` | Servers
 betterstack.monitors | betterstack uptime monitor monitors | teamId, integrationId | `https://nuphos.ai/teams/<teamId>/infra/betterstack/<integrationId>/monitors` | Monitors
+uptimeKuma.monitors | uptime kuma monitor monitors | teamId, instanceId | `https://nuphos.ai/teams/<teamId>/infra/uptime-kuma/<instanceId>/monitors` | Monitors
 betterstack.incidents | betterstack incident incidents | teamId, integrationId | `https://nuphos.ai/teams/<teamId>/infra/betterstack/<integrationId>/incidents` | Incidents
 betterstack.sources | betterstack telemetry source sources logs | teamId, integrationId | `https://nuphos.ai/teams/<teamId>/infra/betterstack/<integrationId>/sources` | Sources
 betterstack.dashboards | betterstack dashboard dashboards | teamId, integrationId | `https://nuphos.ai/teams/<teamId>/infra/betterstack/<integrationId>/dashboards` | Dashboards
@@ -130,6 +131,7 @@ k8s.cluster.events | k8s kubernetes events | teamId, provider, parentId, region,
 k8s.cluster.nodes | k8s kubernetes nodes | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/nodes` | Nodes
 k8s.helm.releases | k8s kubernetes helm releases | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/helm/releases` | Helm releases
 k8s.workloads.pods | k8s kubernetes pods | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/workloads/pods` | Pods
+k8s.onprem.pods | k8s kubernetes on-prem onprem cluster pods | teamId, clusterId | `https://nuphos.ai/teams/<teamId>/k8s/onprem/<clusterId>/onprem/<clusterId>/workloads/pods` | cluster label or clusterId
 k8s.workloads.deployments | k8s kubernetes deployments | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/workloads/deployments` | Deployments
 k8s.workloads.replicasets | k8s kubernetes replicasets replica sets | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/workloads/replicasets` | ReplicaSets
 k8s.workloads.statefulsets | k8s kubernetes statefulsets | teamId, provider, parentId, region, clusterName | `https://nuphos.ai/teams/<teamId>/infra/<provider>/<parentId>/clusters/<region>/<clusterName>/workloads/statefulsets` | StatefulSets

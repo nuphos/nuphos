@@ -1,6 +1,6 @@
 ---
 name: asana
-description: Operate on Asana tasks — read, create, comment, and complete — through an Asana account the user's team has bound to Nuphos via OAuth. Use whenever the user asks to open/track/close an Asana task, file a to-do for an incident, comment on a task, or check task status. Nuphos backend hands the agent a short-lived Asana access token; the agent calls app.asana.com/api/1.0 directly with curl.
+description: Read, create, comment on and complete Asana tasks in a team-bound Asana account. Use for opening, tracking or closing a task, or checking its status.
 ---
 
 # asana

@@ -43,7 +43,7 @@ export const approvalFeedbackScenarios: Scenario[] = [
           .first()
           .click()
         await send(page, 'OK')
-        await page.getByText('OK', { exact: true }).first().waitFor()
+        await page.getByText('OK', { exact: true }).filter({ visible: true }).first().waitFor()
         release()
         release = () => {}
         const notice = page.getByRole('status').filter({

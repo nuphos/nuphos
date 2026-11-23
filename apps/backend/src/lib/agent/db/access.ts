@@ -24,7 +24,22 @@ export type ReadGrants = {
   kind?: string
   participantIds?: string[]
 }
-type AccessFields = ReadGrants & { userId: string; teamId?: string }
+type AccessFields = ReadGrants & { userId: string; teamId?: string; avatar?: string }
+
+/** A Bot is its owner's alone: nobody else is invited to it or sees it. */
+export const isBot = (conversation: { kind?: string; avatar?: string }) =>
+  conversation.kind !== 'channel' && conversation.avatar !== undefined
+const BOT = { kind: { $ne: 'channel' }, avatar: { $exists: true } }
+
+/** Every field conversationAccess reads: a projection that drops one reads it wrong. */
+export const ACCESS_PROJECTION = {
+  userId: 1,
+  teamId: 1,
+  generalAccess: 1,
+  participantIds: 1,
+  kind: 1,
+  avatar: 1,
+} as const
 
 // Absent is every conversation from before access existed, which the whole
 // team could already open. It stays open to read, and a chat to post in.
@@ -54,7 +69,7 @@ export function conversationAccess(
   // An agent token reaches only its own team's conversations, its user's included.
   if (!inTokenTeamScope(conversation.teamId)) return null
   if (conversation.userId === viewerId) return 'owner'
-  if (!conversation.teamId) return null
+  if (!conversation.teamId || isBot(conversation)) return null
   // Without a computer, being invited is what lets someone reply.
   if (usesComputer ?? isParticipant(conversation, viewerId)) return 'reply'
   if (isParticipant(conversation, viewerId)) return 'view'
@@ -76,7 +91,10 @@ export function canReply(access: ConversationAccess | null) {
 /** The Mongo form of readsConversation, for list and read queries. */
 export function readableByFilter(viewerId: string) {
   return {
-    $or: [{ userId: viewerId }, { generalAccess: { $ne: 'none' } }, { participantIds: viewerId }],
+    $or: [
+      { userId: viewerId },
+      { $nor: [BOT], $or: [{ generalAccess: { $ne: 'none' } }, { participantIds: viewerId }] },
+    ],
   }
 }
 

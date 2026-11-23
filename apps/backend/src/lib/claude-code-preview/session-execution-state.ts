@@ -60,12 +60,14 @@ export async function conversationExecutionState(
 
 /**
  * Prompt admission must retain probe failures rather than treating them as runtime state.
- * It also keeps the default connect timeout: a computer's tunnel can be slow to open a
- * stream, and admission failing loses the turn (a scheduled one is not retried).
+ * It also keeps the default deadlines: a computer's tunnel can be slow to open a stream and
+ * slow to answer the first call after it reconnects, and admission failing loses the turn
+ * (a scheduled one is not retried). The prompt that follows waits that long anyway. Only the
+ * polled status read, which falls back to 'disconnected', passes a short one.
  */
 export async function probeExecutionState(
   conversation: ExecutionStateConversation,
-  connectTimeoutMs?: number,
+  timeoutMs?: number,
 ): Promise<SessionExecutionState> {
   const attachment = liveAttachment(conversation)
 
@@ -88,8 +90,8 @@ export async function probeExecutionState(
       return { state: 'disconnected' }
     client = await OpenAbAcpClient.connect({
       ...endpoint,
-      connectTimeoutMs,
-      callTimeoutMs: 3_000,
+      connectTimeoutMs: timeoutMs,
+      callTimeoutMs: timeoutMs,
     })
     await client.initialize()
     const state = parseSessionExecutionState(

@@ -203,6 +203,7 @@ export async function localAgentNotInstalled(
     ref && reportedLocalAgent((await presence.get(ref.userId, ref.deviceId))?.status, ref)
 
   if (!ref || agent?.cli.installed !== false) return undefined
+  if (agent.cli.probeError) return new AppError(409, 'runtime_not_installed', agent.cli.probeError)
   if (agent.cli.installError)
     return new AppError(
       409,

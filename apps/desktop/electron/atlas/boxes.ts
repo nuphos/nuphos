@@ -144,12 +144,6 @@ export function setBoxAccess(
 export function renameBox(deviceId: string, teamId: string, label: string): Promise<{ ok: true }> {
   return call('PATCH', deviceRoute(deviceId, teamId), { label }, { retry: false })
 }
-export function boxDesktop(
-  deviceId: string,
-  teamId: string,
-): Promise<{ url: string; label: string }> {
-  return call('POST', box(deviceId, '/desktop', teamId), undefined, { retry: false })
-}
 /** Has the conversation's Box hold a desktop for it, or with `runtime/<id>` a computer its own screen. */
 export function openSessionDesktop(
   teamId: string,

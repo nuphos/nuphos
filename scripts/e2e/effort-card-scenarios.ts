@@ -39,11 +39,15 @@ export const effortCardScenarios: Scenario[] = [
       })
 
       // Error toasts left by earlier scenarios stack over a started Task's chip, each over
-      // the last one's button, so each is told to close directly.
+      // the last one's button, so each is told to close directly. One can close on its own
+      // first, so this clicks whichever are still there until none is.
       const dismiss = '[data-base-ui-portal] button[aria-label="Dismiss"]'
 
-      for (const button of await page.locator(dismiss).all()) await button.dispatchEvent('click')
-      await page.waitForFunction((selector) => !document.querySelector(selector), dismiss)
+      await page.waitForFunction((selector) => {
+        for (const button of document.querySelectorAll<HTMLButtonElement>(selector)) button.click()
+
+        return !document.querySelector(selector)
+      }, dismiss)
       try {
         await newTask(page)
         await pickAgent(page, 'E2E fixture agent')
@@ -55,7 +59,7 @@ export const effortCardScenarios: Scenario[] = [
         )
         const started = await openChip(page, 'effort-card-started-task')
 
-        await page.locator('button[title="Stop"]').click()
+        await page.locator('button[title="Stop"]:visible').click()
         await until('the held turn to be cancelled', async () =>
           agentEvents(stack).includes('cancelled E2E_DELIVERY:effort-held'),
         )

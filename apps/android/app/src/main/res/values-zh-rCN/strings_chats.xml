@@ -26,6 +26,8 @@
     <string name="chats_bots">Bot</string>
     <string name="chats_bot">Bot</string>
     <string name="chats_new_bot">新 Bot</string>
+    <string name="chats_first_bot_title">从第一个 Bot 开始</string>
+    <string name="chats_first_bot_body">一个熟悉的面孔，陪你处理长期的工作。取个名字，邀请团队一起加入。</string>
     <string name="chats_archive_bot">归档 Bot</string>
     <string name="chats_more_actions">更多操作</string>
     <string name="chats_is_typing">%1$s 正在输入</string>
@@ -45,6 +47,7 @@
     <string name="chats_reply">回复</string>
     <string name="chats_copy">复制</string>
     <string name="chats_usage_resets">用量%1$s。</string>
+    <string name="chats_verify_with_anthropic">前往 Anthropic 验证</string>
     <string name="chats_switch_runtime">切换运行环境</string>
     <string name="chats_retry">重试</string>
     <string name="chats_send_failed_title">无法发送消息</string>
@@ -57,7 +60,7 @@
     <string name="chats_question_snooze_tomorrow">明天 9:00</string>
     <string name="chats_question_snooze_monday">下周一 9:00</string>
     <string name="chats_question_dismiss_reason">理由（可选）</string>
-    <string name="chats_empty_bot_body">这里是你和 %1$s 的对话。聊聊你需要什么协助，一起建立适合你的工作方式。</string>
+    <string name="chats_empty_bot_body">你可以在这里和 %1$s 一起完成工作。聊聊你需要什么协助，一起建立适合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告诉 %1$s，你想做些什么。</string>
     <string name="chats_bot_computer_offline">%1$s 的电脑离线。</string>
     <string name="chats_presence_online">在线</string>

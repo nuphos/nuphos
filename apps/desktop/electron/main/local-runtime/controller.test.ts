@@ -599,7 +599,7 @@ test('reconnecting Codex after login leaves the Claude process running', async (
 })
 
 test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', async () => {
-  const { tunnelStatusOf } = await import('./controller-types.ts')
+  const { tunnelStatusOf } = await import('./controller-status.ts')
   const agents = {
     'claude-code': { runtime: null },
     codex: { runtime: null },
@@ -625,7 +625,7 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
 })
 
 test('a running agent reports which account it spends beside its usage, not in its CLI status', async () => {
-  const { tunnelStatusOf } = await import('./controller-types.ts')
+  const { tunnelStatusOf } = await import('./controller-status.ts')
   const signedIn = {
     installed: true,
     path: '/bin/claude',

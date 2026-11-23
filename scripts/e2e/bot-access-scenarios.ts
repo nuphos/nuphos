@@ -1,98 +1,42 @@
 // What a Bot may use, set in its details. Runs in the Bot chat the scenarios before opened.
-import { execFileSync } from 'node:child_process'
-import { resolve } from 'node:path'
-
-import { joinTeam } from './dashboard-scenarios.ts'
-import { artifacts, until } from './processes.ts'
-import { openBotTask, setBotDetails } from './ui.ts'
+import { agentLog } from './agent-log.ts'
+import { botNamed, updateBot } from './bot-access-db.ts'
+import { access, details, narrowDetails, shoot } from './bot-details-narrow.ts'
+import { until } from './processes.ts'
+import { openBotTask, send, setBotDetails } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
-const CHOOSE = "This Bot can't use any computers or credentials yet. Choose what it may use."
-const NARROW = { width: 820, height: 760, deviceScaleFactor: 0, mobile: false }
-const SHARED = 'Shared access Bot'
+const CHOOSE = "This Bot can't use any computers yet. Choose what it may use."
+const UNCHOSEN = 'Unchosen access Bot'
 
-/** Runs a script against the E2E database; it prints one JSON line. */
-function mongo(stack: Stack, script: string, ...args: string[]): unknown {
-  const out = execFileSync('bun', ['-e', script, stack.mongoUri, ...args], {
-    cwd: BACKEND_DIR,
-    timeout: 10_000,
-  }).toString()
+/** Archives a conversation and its chat, so later scenarios don't list it. */
+async function archive(stack: Stack, sessionId: string) {
+  const archived = await fetch(`${stack.apiUrl}/agent/conversations/${sessionId}/archive`, {
+    method: 'PATCH',
+    headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ teamId: stack.teamId, archived: true }),
+  })
 
-  return out.trim() ? JSON.parse(out) : null
+  if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
 }
 
-/** The E2E Bot's stored credentialAccess. */
-function botAccess(stack: Stack) {
-  return mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const bots = client.db('nuphos_e2e').collection('agent_conversations')
-    const bot = await bots.findOne({ title: 'E2E Bot', avatar: { $exists: true } })
-    console.log(JSON.stringify({ sessionId: bot.sessionId, access: bot.credentialAccess ?? null }))
-    await client.close()`,
-  ) as { sessionId: string; access: unknown }
+// A Task's linked issue; no route links one without a provider.
+const ISSUE = {
+  id: 'e2e-issue',
+  provider: 'linear',
+  title: 'E2E linked issue',
+  url: 'https://linear.app/e2e/issue/E2E-1',
+  state: 'open',
 }
 
-/** Hands a Bot to a member, letting the team read it. No route does this, so Mongo does. */
-function shareAway(stack: Stack, botId: string, userId: string) {
-  mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
-      { sessionId: process.argv[2] },
-      { $set: { userId: process.argv[3], generalAccess: 'team' } },
-    )
-    await client.close()`,
-    botId,
-    userId,
-  )
-}
-
-/** Links an issue to a Bot's session, or unlinks it. No route links one without a provider. */
-function setLinkedIssue(stack: Stack, sessionId: string, linked: boolean) {
-  mongo(
-    stack,
-    `
-    import { MongoClient } from 'mongodb'
-    const client = await new MongoClient(process.argv[1]).connect()
-    const issue = { id: 'e2e-issue', provider: 'linear', title: 'E2E linked issue',
-      url: 'https://linear.app/e2e/issue/E2E-1', state: 'open', linkedAt: new Date().toISOString() }
-    await client.db('nuphos_e2e').collection('agent_conversations').updateOne(
-      { sessionId: process.argv[2] },
-      process.argv[3] === '1' ? { $set: { linkedResources: [issue] } } : { $unset: { linkedResources: '' } },
-    )
-    await client.close()`,
-    sessionId,
-    linked ? '1' : '0',
-  )
-}
-
-const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
-// Exact: the Bot's card is a region too, named after the Bot.
-const access = (page: Page) => details(page).getByRole('region', { name: 'Access', exact: true })
 /** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
 const composer = (page: Page) =>
   page.locator(
     "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
   )
-
-/** A light capture of the window once the panel or menu has landed. */
-async function shoot(page: Page, name: string) {
-  await page.evaluate(() => {
-    document.documentElement.classList.remove('dark')
-    document.documentElement.classList.add('light')
-  })
-  await page.waitForTimeout(600)
-  await page.screenshot({ path: `${artifacts}/bot-access-${name}-light.png` })
-}
 
 /** Opens a row's picker or menu, captures it, and closes it again. */
 async function shootMenu(page: Page, row: RegExp, name: string) {
@@ -118,70 +62,76 @@ async function openChat(page: Page, name: string) {
 
 export const botAccessScenarios: Scenario[] = [
   {
-    // #3259: a Bot made with "+" stored no selection, so its picker showed every computer
-    // selected while the Bot could use none of them. It now shows none, and asks.
-    // #3790: what it may use is chosen in Bot details, not in its chat's composer.
-    name: 'a Bot made with "+" can use nothing until its owner chooses in Bot details',
+    // #4158: a Bot made with "+" may use everything its owner may, as a new chat does, and
+    // its turns reach a computer. Before, it stored nothing and could use none of them.
+    // #3790: what it may use is shown and changed in Bot details, not in its chat's composer.
+    name: 'a Bot made with "+" may use every credential and computer of its owner',
     run: async (page, stack) => {
-      const made = botAccess(stack)
+      const made = botNamed(stack, 'E2E Bot')
+      const deviceIds = made?.access?.deviceIds ?? []
 
-      if (made.access) throw new Error('"+" stored computers or credentials nobody chose')
-      await page.getByText(CHOOSE).waitFor()
-      await shoot(page, 'choose-banner')
+      if (
+        !made?.access?.awsRoleIds ||
+        !deviceIds.length ||
+        made.access.resendIntegrationIds?.length
+      )
+        throw new Error(`"+" stored ${JSON.stringify(made?.access)}, not its owner's default`)
+      if ((await page.getByText(CHOOSE).count()) > 0)
+        throw new Error('A Bot that may use everything is asked to choose')
       if ((await composerAccess(page)) > 0)
         throw new Error("The Bot chat's composer still offers credentials, computers or a mode")
-      // Choose opens Bot details at the Access section: credentials, computers and mode.
-      await page.getByRole('button', { name: 'Choose', exact: true }).click()
-      for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)/])
+      await setBotDetails(page, true)
+      for (const row of [/^Credentials/, /^Computers/, /^Full Access/])
         await access(page).getByText(row).first().waitFor()
       await shoot(page, 'owner')
       await shootMenu(page, /^Computers/, 'menu-computers')
+      await shootMenu(page, /^Credentials/, 'picker')
       await shootMenu(page, /^Authorization mode/, 'menu-mode')
 
-      // Any choice saved, even of nothing, is the Bot's answer: the prompt goes.
-      const response = await fetch(
-        `${stack.apiUrl}/agent/conversations/${made.sessionId}/credentials`,
-        {
-          method: 'PATCH',
-          headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-          body: JSON.stringify({ teamId: stack.teamId, credentialAccess: { deviceIds: [] } }),
-        },
+      // A Bot its agent makes with create_bot gets what that agent may use, never more.
+      await send(
+        page,
+        'Make one E2E_CALL create_bot {"label":"Make","name":"E2E Made Bot"} E2E_DELIVERY:bot-made',
+      )
+      await until('create_bot to make a Bot', async () => botNamed(stack, 'E2E Made Bot'))
+      const minted = botNamed(stack, 'E2E Made Bot')
+
+      if (!minted || JSON.stringify(minted.access?.deviceIds) !== JSON.stringify(deviceIds))
+        throw new Error(`create_bot stored ${JSON.stringify(minted?.access)}, not its maker's`)
+      await archive(stack, minted.sessionId)
+
+      // A turn in its chat runs a command on its owner's computer, which it may now use.
+      const from = agentLog(stack).length
+      const args = JSON.stringify({
+        label: 'Run it',
+        command: 'echo E2E_ON_COMPUTER',
+        device: deviceIds[0],
+      })
+
+      await send(page, `Run it E2E_CALL local_exec ${args} E2E_DELIVERY:bot-computer`)
+      await until('the Bot to run a command on a computer', async () =>
+        agentLog(stack)
+          .slice(from)
+          .some(
+            (entry) =>
+              entry.event === 'called' &&
+              entry.name === 'local_exec' &&
+              JSON.stringify(entry.result).includes('E2E_ON_COMPUTER'),
+          ),
       )
 
-      if (!response.ok) throw new Error(`Saving a choice answered ${String(response.status)}`)
-      await page.reload()
-      await access(page)
-        .getByRole('button', { name: /^Computers/ })
-        .waitFor()
-      await until(
-        'the prompt to go once a choice is saved',
-        async () => (await page.getByText(CHOOSE).count()) === 0,
-      )
-      // The picker shows what the Bot can use: the team-wide kinds, and nothing it was not given.
-      await shootMenu(page, /^Credentials/, 'picker')
-
-      // Narrow, the details float over the chat with the same rows.
-      const cdp = await page.context().newCDPSession(page)
-
-      try {
-        await cdp.send('Emulation.setDeviceMetricsOverride', NARROW)
-        await access(page)
-          .getByRole('button', { name: /^Credentials/ })
-          .waitFor()
-        await shoot(page, 'owner-narrow')
-      } finally {
-        await cdp.send('Emulation.clearDeviceMetricsOverride')
-        await cdp.detach()
-      }
+      await narrowDetails(page)
 
       // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
-      setLinkedIssue(stack, made.sessionId, true)
+      updateBot(stack, made.sessionId, {
+        $set: { linkedResources: [{ ...ISSUE, linkedAt: new Date().toISOString() }] },
+      })
       await page.reload()
       await access(page).waitFor()
       if ((await details(page).getByRole('region', { name: 'Changes', exact: true }).count()) > 0)
         throw new Error('Bot details show Changes')
       await shoot(page, 'no-changes')
-      setLinkedIssue(stack, made.sessionId, false)
+      updateBot(stack, made.sessionId, { $unset: { linkedResources: '' } })
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
@@ -196,16 +146,15 @@ export const botAccessScenarios: Scenario[] = [
     },
   },
   {
-    // #3790: a teammate's Bot the team may read shows what it uses, with nothing to change.
-    name: "a teammate's Bot shows its access in Bot details, read-only",
+    // A Bot made before #4158 asks to choose what it uses; switching Bots keeps details open.
+    name: 'a Bot with no stored access asks to choose, and switching Bots keeps its details open',
     run: async (page, stack) => {
-      const mate = await joinTeam(stack, 'access-mate')
       const response = await fetch(`${stack.apiUrl}/agent/bots`, {
         method: 'POST',
         headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
         body: JSON.stringify({
           teamId: stack.teamId,
-          title: SHARED,
+          title: UNCHOSEN,
           avatar: '07-ada',
           agentRuntime: 'claude-code',
         }),
@@ -214,44 +163,51 @@ export const botAccessScenarios: Scenario[] = [
       if (!response.ok) throw new Error(`Making a Bot answered ${String(response.status)}`)
       const bot = (await response.json()) as { sessionId: string }
 
-      // Its chat is made while the Bot is still the viewer's; then it moves to the teammate.
-      await openChat(page, SHARED)
-      shareAway(stack, bot.sessionId, mate.id)
-      await page.reload()
-      await openChat(page, SHARED)
+      // A Bot made before #4158 stored no selection, and is asked to choose.
+      updateBot(stack, bot.sessionId, { $unset: { credentialAccess: '' } })
+
+      await openChat(page, UNCHOSEN)
+      // #4038: in a chat with no posts the banner sits in the intro's column, 16px under it.
+      const intro = page
+        .getByText(`This is where you and ${UNCHOSEN} get things done.`, { exact: false })
+        .locator('xpath=..')
+      const banner = page.getByText(CHOOSE).locator('xpath=..')
+
+      await banner.waitFor()
+      const [text, line] = await Promise.all([intro.boundingBox(), banner.boundingBox()])
+
+      if (
+        !text ||
+        !line ||
+        Math.abs(line.x - text.x) > 1 ||
+        Math.abs(line.y - (text.y + text.height) - 16) > 1
+      )
+        throw new Error(`The banner is not under the intro: ${JSON.stringify({ text, line })}`)
+      await shoot(page, 'empty-chat-banner')
       await setBotDetails(page, true)
-      // Its mode is shown too: whether it runs in Full Access matters to everyone it works for.
-      for (const row of [/^Credentials/, /^Computers/, /^(Full Access|Auto Mode)$/])
-        await access(page).getByText(row).first().waitFor()
-      const offered = await access(page).getByRole('button').count()
+      // #4072: switching Bots with the details open keeps them open, with no slide-in again.
+      await openChat(page, 'E2E Bot')
+      await details(page).waitFor()
+      const motion = await details(page).evaluate((panel) => ({
+        classes: `${panel.className} ${panel.parentElement?.className ?? ''}`,
+        running: document
+          .getAnimations()
+          .map((animation) => (animation as CSSAnimation).animationName)
+          .filter((name) => name?.startsWith('t-summary')),
+      }))
 
-      if (offered > 0) throw new Error(`A teammate's Bot offers ${String(offered)} access controls`)
-      if ((await composerAccess(page)) > 0)
-        throw new Error("A teammate's Bot chat composer offers access controls")
-      await shoot(page, 'teammate')
+      if (/t-summary(-slot)?-in/.test(motion.classes) || motion.running.length > 0)
+        throw new Error(`Bot details slid in again on switching Bots: ${JSON.stringify(motion)}`)
+      await shoot(page, 'switched-open')
       await setBotDetails(page, false)
-      // Later scenarios list Bots by name: the Bot goes back to the viewer, who archives it
-      // and its chat.
-      const me = (await (
-        await fetch(`${stack.apiUrl}/auth/me`, {
-          headers: { authorization: `Bearer ${stack.token}` },
-        })
-      ).json()) as { id: string }
-
-      shareAway(stack, bot.sessionId, me.id)
-      const archived = await fetch(`${stack.apiUrl}/agent/conversations/${bot.sessionId}/archive`, {
-        method: 'PATCH',
-        headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ teamId: stack.teamId, archived: true }),
-      })
-
-      if (!archived.ok) throw new Error(`Archiving the Bot answered ${String(archived.status)}`)
+      // Later scenarios list Bots by name, so it is archived with its chat.
+      await archive(stack, bot.sessionId)
       // The scenarios after this one run in the E2E Bot's chat.
       await openChat(page, 'E2E Bot')
       await until(
-        `${SHARED} to leave the Bots list`,
+        `${UNCHOSEN} to leave the Bots list`,
         async () =>
-          (await page.locator('[data-sidebar-row]').filter({ hasText: SHARED }).count()) === 0,
+          (await page.locator('[data-sidebar-row]').filter({ hasText: UNCHOSEN }).count()) === 0,
       )
     },
   },

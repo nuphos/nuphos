@@ -1,14 +1,5 @@
-import {
-  assertPlanAccess,
-  getPlan,
-  getTeamPlanApprovalRequirement,
-  listPlans,
-} from '@/lib/agent/plans'
-import {
-  planApprovalPolicyGetOperation,
-  planGetOperation,
-  planListOperation,
-} from '@/lib/api/plans'
+import { assertPlanAccess, getPlan, listPlans } from '@/lib/agent/plans'
+import { planGetOperation, planListOperation } from '@/lib/api/plans'
 import { AppError } from '@/lib/errors'
 import { unreadableSessionIds } from '@/routes/agent-journal/shared'
 
@@ -54,14 +45,6 @@ defineAgentApiRoute(planGetOperation, async (c, { path }) => {
   await assertPlanAccess(plan, userId, 'read')
 
   return c.json(plan)
-})
-
-defineAgentApiRoute(planApprovalPolicyGetOperation, async (c, { query }) => {
-  const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, query.teamId))
-
-  if (!teamId) throw new AppError(400, 'invalid_request', 'teamId is required')
-
-  return c.json(await getTeamPlanApprovalRequirement(teamId))
 })
 
 // Plans are retired in favour of approval decisions (#2316). Released clients

@@ -18,5 +18,6 @@ export type {
   TriggerCallerContext,
   UpdateTriggerPatch,
 } from './trigger-service/shared'
+export { rotateTriggerSecret } from './trigger-service/rotate-secret'
 export { testFireTrigger } from './trigger-service/test-fire'
 export { updateTrigger } from './trigger-service/update'

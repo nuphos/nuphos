@@ -27,6 +27,10 @@ struct ChatComposerBar<Controls: View>: View {
     var recipient: String? = nil
     /// Each change raises the keyboard, as choosing to reply does.
     var focusRequest = 0
+    /// A Bot chat keeps its runtime and model visible while the composer is collapsed.
+    var alwaysShowControls = false
+    /// Conditional controls can be absent even when their view type is not EmptyView.
+    var controlsAvailable = true
     var onSend: (ComposerSubmission) -> Void
     var onStop: (() -> Void)? = nil
     /// Shown above the input while expanded (Credentials picker, permission mode).
@@ -70,7 +74,7 @@ struct ChatComposerBar<Controls: View>: View {
         #endif
     }
     private var expanded: Bool { focused || hasPayload }
-    private var hasControls: Bool { Controls.self != EmptyView.self }
+    private var hasControls: Bool { controlsAvailable && Controls.self != EmptyView.self }
     private var mentionQuery: String? { mentions == nil ? nil : SessionMention.query(in: text) }
     /// Nothing until the sessions are listed, so the list never opens part-filled.
     private var mentionResults: [AgentConversation] {
@@ -88,7 +92,7 @@ struct ChatComposerBar<Controls: View>: View {
         // focus in a loop.
         // Collapsed, the controls row is zero high; spacing around it would
         // stay, so a collapsed composer has none.
-        VStack(alignment: .leading, spacing: expanded ? 8 : 0) {
+        VStack(alignment: .leading, spacing: expanded || alwaysShowControls ? 8 : 0) {
             // The controls own the sheets they present (agent setup, pickers).
             // A text field in one of those sheets takes focus from the
             // composer, so the row stays mounted while collapsed; removing it
@@ -98,10 +102,10 @@ struct ChatComposerBar<Controls: View>: View {
                     HStack(spacing: 8) { controls() }
                         .padding(.horizontal, 12)
                 }
-                .frame(height: expanded ? nil : 0)
-                .opacity(expanded ? 1 : 0)
-                .allowsHitTesting(expanded)
-                .accessibilityHidden(!expanded)
+                .frame(height: expanded || alwaysShowControls ? nil : 0)
+                .opacity(expanded || alwaysShowControls ? 1 : 0)
+                .allowsHitTesting(expanded || alwaysShowControls)
+                .accessibilityHidden(!expanded && !alwaysShowControls)
             }
 
             if expanded, !mentionResults.isEmpty || !mentionDevices.isEmpty {
@@ -716,16 +720,21 @@ struct ComposerChip: View {
 
 /// A brand mark from the asset catalog, sized like an inline symbol.
 /// Monochrome marks are template images and take the foreground colour.
+/// An asset-catalog mark; without one it holds the same space empty, never a guess.
 struct BrandLogo: View {
-    let name: String
+    let name: String?
     var size: CGFloat = 16
 
     var body: some View {
-        Image(name)
-            .resizable()
-            .scaledToFit()
-            .frame(width: size, height: size)
-            .accessibilityHidden(true)
+        Group {
+            if let name {
+                Image(name).resizable().scaledToFit()
+            } else {
+                Color.clear
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityHidden(true)
     }
 }
 

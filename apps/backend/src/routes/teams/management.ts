@@ -1,9 +1,11 @@
 import { ObjectId } from 'mongodb'
 import { z } from 'zod'
 
+import { deleteTeamBoxes } from '@/lib/agent/devices/box-delete'
+import { listTeamBoxes } from '@/lib/agent/devices/store'
 import { revokeDepartedMember } from '@/lib/byos/departing-member'
 import { OPENAB_PROVIDERS } from '@/lib/claude-code-preview/runtime-provider'
-import { extractEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
+import { extractEmailDomain, hasPublicEmailDomain, isPublicEmailDomain } from '@/lib/email-domains'
 import { AppError } from '@/lib/errors'
 import {
   deleteTeam,
@@ -61,14 +63,14 @@ const updateAgentRuntimeSchema = z
 /** The team as its routes return it, or a 404 when the update found no team. */
 export function teamJson(c: Context<{ Variables: TeamAuthVariables }>, team: NuphosTeam | null) {
   if (!team) throw new AppError(404, 'team_not_found', 'Team not found')
+  const isOwner = team.ownerID === c.get('userId')
+  const viewerEmailDomainPublic = hasPublicEmailDomain(c.get('userEmail'))
 
-  return c.json({ ...team, isOwner: team.ownerID === c.get('userId'), role: c.get('teamRole') })
+  return c.json({ ...team, isOwner, role: c.get('teamRole'), viewerEmailDomainPublic })
 }
 
 export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamAuthVariables }>) {
-  teamScoped.get('/', (c) => {
-    return teamJson(c, c.get('team'))
-  })
+  teamScoped.get('/', (c) => teamJson(c, c.get('team')))
 
   teamScoped.patch(
     '/',
@@ -229,9 +231,12 @@ export function registerTeamManagementRoutes(teamScoped: Hono<{ Variables: TeamA
   // Disband the whole team. Owner-only (enforced inside deleteTeam); the
   // ADMINISTRATOR gate just rejects non-admins early with a clean 403.
   teamScoped.delete('/', requireTeamRole('ADMINISTRATOR'), async (c) => {
+    const boxes = await listTeamBoxes(c.get('teamId'))
     const result = await deleteTeam(c.get('teamId'), c.get('userId'))
 
     if (result === 'deleted') {
+      await deleteTeamBoxes(c.get('teamId'), boxes)
+
       return c.body(null, 204)
     }
     if (result === 'team_not_found') {

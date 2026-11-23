@@ -26,6 +26,8 @@
     <string name="chats_bots">봇</string>
     <string name="chats_bot">봇</string>
     <string name="chats_new_bot">새 봇</string>
+    <string name="chats_first_bot_title">첫 Bot으로 시작하세요</string>
+    <string name="chats_first_bot_body">계속되는 업무를 함께할 익숙한 동료. 이름을 정하고 팀을 초대하세요.</string>
     <string name="chats_archive_bot">봇 보관</string>
     <string name="chats_more_actions">더 보기</string>
     <string name="chats_is_typing">%1$s 입력 중</string>
@@ -45,6 +47,7 @@
     <string name="chats_reply">답장</string>
     <string name="chats_copy">복사</string>
     <string name="chats_usage_resets">사용량: %1$s.</string>
+    <string name="chats_verify_with_anthropic">Anthropic에서 인증</string>
     <string name="chats_switch_runtime">런타임 전환</string>
     <string name="chats_retry">다시 시도</string>
     <string name="chats_send_failed_title">메시지를 보내지 못했습니다</string>
@@ -57,7 +60,7 @@
     <string name="chats_question_snooze_tomorrow">내일 9:00</string>
     <string name="chats_question_snooze_monday">다음 주 월요일 9:00</string>
     <string name="chats_question_dismiss_reason">이유(선택)</string>
-    <string name="chats_empty_bot_body">%1$s와 대화하는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요.</string>
+    <string name="chats_empty_bot_body">%1$s와 함께 일을 해내는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요.</string>
     <string name="chats_empty_bot_start">먼저 %1$s에게 하고 싶은 일을 알려 주세요.</string>
     <string name="chats_bot_computer_offline">%1$s의 컴퓨터가 오프라인입니다.</string>
     <string name="chats_presence_online">온라인</string>

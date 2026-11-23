@@ -1,6 +1,6 @@
 ---
 name: vanta
-description: Read a team's Vanta compliance posture (failing tests / vulnerabilities that need attention) through the Nuphos API. Use when the user asks what compliance or security issues their infrastructure has, what is failing in Vanta, or what to remediate for SOC 2 / ISO 27001 / HIPAA.
+description: "Read a team's Vanta compliance posture: failing tests and vulnerabilities, and what to remediate for SOC 2, ISO 27001 or HIPAA."
 ---
 
 # Vanta compliance

@@ -132,11 +132,14 @@ export async function bindSessionResource(
 }
 
 export async function unlinkSessionResource(actor: ResourceActor, id: string) {
-  await resourceConversation(actor, true)
+  const conversation = await resourceConversation(actor, true)
+  // The resource list exposes both the stable provider key and the binding UUID.
+  const bindingId = conversation.linkedResources?.find((entry) => entry.key === id)?.id ?? id
+
   await Promise.all([
     agentConversations().updateOne(
       { sessionId: actor.sessionId, teamId: actor.teamId },
-      { $pull: { linkedResources: { id } } },
+      { $pull: { linkedResources: { id: bindingId } } },
     ),
     unlinkSessionThread(actor.sessionId, id),
   ])

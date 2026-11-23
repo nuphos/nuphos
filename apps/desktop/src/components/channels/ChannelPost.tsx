@@ -17,7 +17,7 @@ import { exactTime } from './chatTime'
 import { channelFiles } from './postFiles'
 import { ReplyButton } from './ReplyButton'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageMention, AgentPersistedMessage } from '../../api'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 
 export type Links = {
@@ -25,11 +25,13 @@ export type Links = {
   onLinkClick?: (href: string, beside?: boolean) => boolean
   /** The chat: its files load through it, so every member sees them. */
   channelId: string
+  /** The chat's agents, named as a post's `@Name` addresses them. */
+  agentMentions?: AgentMessageMention[]
 }
 
 /**
  * One post: yours on the right in a bubble a shade apart, everyone else's on
- * the left, an agent's filled and a person's outlined. The first post of a run carries the avatar and name; an agent's open its session.
+ * the left in one filled bubble, agent or person alike. The first post of a run carries the avatar and name; an agent's open its session.
  */
 export function ChannelMessage({
   message,
@@ -83,7 +85,8 @@ export function ChannelMessage({
       renderLink={links.renderLink}
       onLinkClick={links.onLinkClick}
     >
-      {linkMentions(text, metadata.mentions)}
+      {/* People last, so a person keeps a name an agent shares. */}
+      {linkMentions(text, [...(links.agentMentions ?? []), ...(metadata.mentions ?? [])])}
     </MessageResponse>
   )
 
@@ -190,9 +193,7 @@ export function ChannelMessage({
         {text && (
           <div
             className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md px-3.5 py-2 break-words',
-              // An agent's bubble is filled; another person's is outlined, so a group chat tells them apart.
-              agentId ? 'bg-state-selected' : 'border border-line-control',
+              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
               fresh && 't-bubble-in',
             )}
           >

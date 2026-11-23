@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
+import { config } from '@/config'
+
 import { nativeSkillFiles } from './native-skills'
 
 describe('nativeSkillFiles', () => {
@@ -53,5 +55,25 @@ describe('nativeSkillFiles', () => {
       ).toString(),
     ).toBe('# demo')
     expect(files.find((file) => file.path.endsWith('oom-hint.sh'))?.executable).toBe(true)
+  })
+
+  // Without RAG_API_KEY every knowledge call answers 503, so agents must not
+  // be told the skill exists.
+  test('ships knowledge-base only where the knowledge service is configured', () => {
+    const original = config.agent.ragApiKey
+    const paths = () =>
+      nativeSkillFiles([
+        { relPath: 'knowledge-base/SKILL.md', content: Buffer.from('# kb') },
+        { relPath: 'github/SKILL.md', content: Buffer.from('# github') },
+      ]).map((file) => file.path)
+
+    try {
+      config.agent.ragApiKey = undefined
+      expect(paths()).toEqual(['github/SKILL.md'])
+      config.agent.ragApiKey = 'configured'
+      expect(paths()).toEqual(['knowledge-base/SKILL.md', 'github/SKILL.md'])
+    } finally {
+      config.agent.ragApiKey = original
+    }
   })
 })

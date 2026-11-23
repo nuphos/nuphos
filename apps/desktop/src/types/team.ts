@@ -96,6 +96,8 @@ export type AtlasTeam = {
   createdAt?: string
   isOwner?: boolean
   role?: TeamRole
+  /** Whether the signed-in member's email is on a public provider, so its domain can't be allowed. */
+  viewerEmailDomainPublic?: boolean
   billing?: TeamBillingSummary
 }
 

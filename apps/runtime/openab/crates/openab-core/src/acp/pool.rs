@@ -1,14 +1,14 @@
 use crate::acp::connection::{AcpConnection, AcpRequestError, SessionActivity};
 use crate::acp::protocol::{ConfigOption, JsonRpcError};
 use crate::acp::session_credentials::{
-    try_write_session_credentials, write_session_credentials, SESSION_CREDENTIALS_DIR_ENV,
-    SESSION_CREDENTIALS_META_KEY,
+    try_write_session_credentials, SESSION_CREDENTIALS_DIR_ENV, SESSION_CREDENTIALS_META_KEY,
 };
 use crate::acp::startup::{spawn_initialized, AgentCommand, LOCKED_STATE_RETRY_DELAYS};
 use crate::config::AgentConfig;
 use anyhow::{anyhow, Result};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use tokio::sync::{Mutex, OwnedSemaphorePermit, RwLock, Semaphore};
 use tokio::time::Instant;
@@ -81,8 +81,23 @@ struct PoolState {
     session_meta: HashMap<String, serde_json::Value>,
 }
 
+/// Assign revisions while holding the pool lock; serialize each file's writes outside it.
+#[derive(Default)]
+struct OrderedFile {
+    next: AtomicU64,
+    written: std::sync::Mutex<u64>,
+}
+
+impl OrderedFile {
+    fn snapshot<T>(&self, value: T) -> (u64, T) {
+        (self.next.fetch_add(1, Ordering::Relaxed) + 1, value)
+    }
+}
+
+type MapSnapshot = (u64, HashMap<String, String>);
+
 pub struct SessionPool {
-    state: RwLock<PoolState>,
+    state: Arc<RwLock<PoolState>>,
     config: AgentConfig,
     max_sessions: usize,
     /// Bounds active plus initializing sessions. Per-thread `creating` gates
@@ -93,7 +108,10 @@ pub struct SessionPool {
     hung_threshold_secs: u64,
     mapping_path: PathBuf,
     meta_path: PathBuf,
+    mapping_order: Arc<OrderedFile>,
+    meta_order: Arc<OrderedFile>,
     credentials_root: PathBuf,
+    credentials_locks: std::sync::Mutex<HashMap<String, std::sync::Weak<Mutex<()>>>>,
     default_config_options: HashMap<String, String>,
     session_registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
     facade_url: Option<String>,
@@ -124,6 +142,25 @@ fn remove_if_same_handle<T>(
     } else {
         None
     }
+}
+
+/// A new system prompt reaches a live agent only through a respawn that loads its session:
+/// it reads the prompt when the session opens. An absent one leaves the agent as it is.
+fn system_prompt_changed(
+    started: Option<&serde_json::Value>,
+    session_meta: Option<&serde_json::Value>,
+) -> bool {
+    super::connection::meta_system_prompt(session_meta)
+        .is_some_and(|prompt| Some(prompt) != started)
+}
+
+/// Env, like the system prompt, is read when the agent spawns. Credentials refreshed through
+/// files on every prompt are left out, so only a real change, such as a new setting, respawns.
+fn env_changed(
+    started: Option<&serde_json::Value>,
+    session_meta: Option<&serde_json::Value>,
+) -> bool {
+    super::connection::meta_stable_env(session_meta).is_some_and(|env| Some(&env) != started)
 }
 
 /// Whether `declared` names different MCP servers than the agent was started with.
@@ -536,20 +573,49 @@ impl SessionPool {
         expected: &serde_json::Value,
         credentials: serde_json::Value,
     ) -> Result<()> {
-        let mut state = self.state.write().await;
-        let meta = state
-            .session_meta
-            .get_mut(thread_id)
-            .filter(|meta| meta.is_object())
-            .ok_or_else(|| anyhow!("No session to refresh"))?;
-        if &meta[SESSION_CREDENTIALS_META_KEY] != expected {
-            return Err(anyhow!("Session credentials changed since this refresh"));
-        }
-        let mut next = meta.clone();
-        next[SESSION_CREDENTIALS_META_KEY] = credentials;
-        try_write_session_credentials(&self.credentials_root, thread_id, Some(&next))?;
-        *meta = next;
-        Ok(())
+        // The per-session lock orders all writes to this credentials directory without
+        // making unrelated state probes wait for the filesystem.
+        let lock = self.credentials_lock(thread_id);
+        let guard = lock.lock_owned().await;
+        let (previous, next) = {
+            let mut state = self.state.write().await;
+            let meta = state
+                .session_meta
+                .get_mut(thread_id)
+                .filter(|meta| meta.is_object())
+                .ok_or_else(|| anyhow!("No session to refresh"))?;
+            if &meta[SESSION_CREDENTIALS_META_KEY] != expected {
+                return Err(anyhow!("Session credentials changed since this refresh"));
+            }
+            let previous = meta.clone();
+            let mut next = previous.clone();
+            next[SESSION_CREDENTIALS_META_KEY] = credentials;
+            *meta = next.clone();
+            (previous, next)
+        };
+        // The detached task finishes the write and any rollback even if its caller is
+        // cancelled. The owned per-session guard remains held until both complete.
+        let state = Arc::clone(&self.state);
+        let root = self.credentials_root.clone();
+        let thread_id = thread_id.to_string();
+        tokio::spawn(async move {
+            let (result, _guard) =
+                Self::write_credentials(root, thread_id.clone(), Some(next.clone()), guard).await;
+            match result {
+                Ok(_) => Ok(()),
+                Err(error) => {
+                    let mut state = state.write().await;
+                    if let Some(meta) = state.session_meta.get_mut(&thread_id) {
+                        if *meta == next {
+                            *meta = previous;
+                        }
+                    }
+                    Err(error.into())
+                }
+            }
+        })
+        .await
+        .map_err(anyhow::Error::from)?
     }
 
     pub async fn execution_snapshot(&self, thread_id: &str) -> serde_json::Value {
@@ -591,7 +657,7 @@ impl SessionPool {
         let suspended = Self::load_mapping(&mapping_path);
         let session_workdirs = Self::load_mapping(&meta_path);
         Self {
-            state: RwLock::new(PoolState {
+            state: Arc::new(RwLock::new(PoolState {
                 active: HashMap::new(),
                 admission_permits: HashMap::new(),
                 cancel_handles: HashMap::new(),
@@ -606,14 +672,17 @@ impl SessionPool {
                 session_workdirs,
                 session_mcp_servers: HashMap::new(),
                 session_meta: HashMap::new(),
-            }),
+            })),
             config,
             max_sessions,
             admission: Arc::new(Semaphore::new(max_sessions)),
             hung_threshold_secs,
             mapping_path,
             meta_path,
+            mapping_order: Arc::new(OrderedFile::default()),
+            meta_order: Arc::new(OrderedFile::default()),
             credentials_root,
+            credentials_locks: std::sync::Mutex::new(HashMap::new()),
             default_config_options,
             session_registrar: None,
             facade_url: None,
@@ -650,36 +719,88 @@ impl SessionPool {
         }
     }
 
-    fn save_mapping(&self, persisted: &HashMap<String, String>) {
-        let data = match serde_json::to_string_pretty(persisted) {
-            Ok(d) => d,
-            Err(e) => {
-                warn!(error = %e, "failed to serialize thread mapping");
-                return;
-            }
-        };
-        let tmp = self.mapping_path.with_extension("json.tmp");
-        if let Err(e) =
-            std::fs::write(&tmp, &data).and_then(|_| std::fs::rename(&tmp, &self.mapping_path))
+    fn credentials_lock(&self, thread_id: &str) -> Arc<Mutex<()>> {
+        let mut locks = self
+            .credentials_locks
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        locks.retain(|_, lock| lock.strong_count() > 0);
+        if let Some(lock) = locks.get(thread_id).and_then(std::sync::Weak::upgrade) {
+            return lock;
+        }
+        let lock = Arc::new(Mutex::new(()));
+        locks.insert(thread_id.to_string(), Arc::downgrade(&lock));
+        lock
+    }
+
+    async fn write_credentials(
+        root: PathBuf,
+        thread_id: String,
+        meta: Option<serde_json::Value>,
+        guard: tokio::sync::OwnedMutexGuard<()>,
+    ) -> (
+        std::io::Result<Option<PathBuf>>,
+        Option<tokio::sync::OwnedMutexGuard<()>>,
+    ) {
+        match tokio::task::spawn_blocking(move || {
+            let result = try_write_session_credentials(&root, &thread_id, meta.as_ref());
+            (result, guard)
+        })
+        .await
         {
-            warn!(path = %self.mapping_path.display(), error = %e, "failed to persist thread mapping");
+            Ok((result, guard)) => (result, Some(guard)),
+            Err(error) => (Err(std::io::Error::other(error)), None),
         }
     }
 
-    fn save_meta(&self, workdirs: &HashMap<String, String>) {
-        let data = match serde_json::to_string_pretty(workdirs) {
-            Ok(d) => d,
-            Err(e) => {
-                warn!(error = %e, "failed to serialize session metadata");
+    fn snapshot_mapping(&self, persisted: &HashMap<String, String>) -> MapSnapshot {
+        self.mapping_order.snapshot(persisted.clone())
+    }
+
+    fn snapshot_meta(&self, workdirs: &HashMap<String, String>) -> MapSnapshot {
+        self.meta_order.snapshot(workdirs.clone())
+    }
+
+    async fn write_snapshot(path: PathBuf, order: Arc<OrderedFile>, (seq, snapshot): MapSnapshot) {
+        let task = tokio::task::spawn_blocking(move || {
+            let mut written = order.written.lock().unwrap_or_else(|e| e.into_inner());
+            if seq <= *written {
                 return;
             }
-        };
-        let tmp = self.meta_path.with_extension("json.tmp");
-        if let Err(e) =
-            std::fs::write(&tmp, &data).and_then(|_| std::fs::rename(&tmp, &self.meta_path))
-        {
-            warn!(path = %self.meta_path.display(), error = %e, "failed to persist session metadata");
+            let result = serde_json::to_string_pretty(&snapshot)
+                .map_err(std::io::Error::other)
+                .and_then(|data| {
+                    let tmp = path.with_extension("json.tmp");
+                    std::fs::write(&tmp, data).and_then(|_| std::fs::rename(&tmp, &path))
+                });
+            match result {
+                Ok(()) => *written = seq,
+                Err(error) => {
+                    warn!(path = %path.display(), %error, "failed to persist session state")
+                }
+            }
+        });
+        if let Err(error) = task.await {
+            warn!(%error, "session state writer failed");
         }
+    }
+
+    async fn save_mapping(&self, snapshot: MapSnapshot) {
+        Self::write_snapshot(
+            self.mapping_path.clone(),
+            Arc::clone(&self.mapping_order),
+            snapshot,
+        )
+        .await;
+    }
+
+    async fn save_meta(&self, snapshot: MapSnapshot) {
+        Self::write_snapshot(
+            self.meta_path.clone(),
+            Arc::clone(&self.meta_order),
+            snapshot,
+        )
+        .await;
     }
 
     /// Reserve one pool slot before any ACP process is spawned.
@@ -706,6 +827,7 @@ impl SessionPool {
             return Ok(permit);
         }
 
+        let mut mapping = None;
         if let Some((key, expected_conn, _, sid)) = eviction_candidate {
             // The candidate was idle when scanned, but it may have started a
             // turn since then. Never evict a connection that is busy now.
@@ -744,7 +866,7 @@ impl SessionPool {
                 } else {
                     state.persisted.remove(&key);
                 }
-                self.save_mapping(&state.persisted);
+                mapping = Some(self.snapshot_mapping(&state.persisted));
             } else {
                 warn!(evicted = %crate::redact::redact_session_ids(&key), "pool full but eviction candidate changed before removal");
             }
@@ -756,9 +878,14 @@ impl SessionPool {
             );
         }
 
-        Arc::clone(&self.admission)
+        let permit = Arc::clone(&self.admission)
             .try_acquire_owned()
-            .map_err(|_| SessionStartError::PoolExhausted(self.max_sessions))
+            .map_err(|_| SessionStartError::PoolExhausted(self.max_sessions));
+        drop(state);
+        if let Some(mapping) = mapping {
+            self.save_mapping(mapping).await;
+        }
+        permit
     }
 
     /// Check if session state exists for this thread (active, suspended, or persisted).
@@ -795,21 +922,26 @@ impl SessionPool {
         .await
     }
 
-    /// Removes an idle live connection whose MCP declaration is out of date, keeping its
+    /// Removes an idle live connection whose MCP declaration or system prompt is out of date, keeping its
     /// native session resumable and its admission slot for the replacement spawn.
     /// Returns that session id, or `None` and leaves the agent running when nothing changed,
     /// it cannot resume its session, or a turn is still live.
-    async fn suspend_for_mcp_change(
+    async fn suspend_for_context_change(
         &self,
         thread_id: &str,
         handle: &Arc<Mutex<AcpConnection>>,
         declared: &[serde_json::Value],
+        session_meta: Option<&serde_json::Value>,
     ) -> Option<String> {
         let mut state = self.state.write().await;
         let conn = handle.try_lock().ok()?;
         let sid = conn.acp_session_id.clone()?;
         // Without session/load the replacement would start a new conversation.
-        if !conn.supports_load_session || !mcp_declaration_changed(&conn.mcp_servers, declared) {
+        if !conn.supports_load_session
+            || !(mcp_declaration_changed(&conn.mcp_servers, declared)
+                || system_prompt_changed(conn.system_prompt.as_ref(), session_meta)
+                || env_changed(conn.stable_env.as_ref(), session_meta))
+        {
             return None;
         }
         drop(conn);
@@ -827,9 +959,11 @@ impl SessionPool {
             return None;
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
-        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers changed, respawning idle session");
+        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers, system prompt or env changed, respawning idle session");
         suspend_entry(&mut state, thread_id, &sid);
-        self.save_mapping(&state.persisted);
+        let mapping = self.snapshot_mapping(&state.persisted);
+        drop(state);
+        self.save_mapping(mapping).await;
         Some(sid)
     }
 
@@ -848,7 +982,9 @@ impl SessionPool {
         if let Some(sid) = sid {
             info!(thread_id = %crate::redact::redact_session_ids(thread_id), "agent lost its session, restoring it");
             suspend_entry(&mut state, thread_id, &sid);
-            self.save_mapping(&state.persisted);
+            let mapping = self.snapshot_mapping(&state.persisted);
+            drop(state);
+            self.save_mapping(mapping).await;
         }
     }
 
@@ -873,6 +1009,8 @@ impl SessionPool {
         restore_only: bool,
     ) -> Result<bool, SessionStartError> {
         let working_dir_override = working_dir_override.or_else(|| meta_working_dir(session_meta));
+        let credentials_lock = self.credentials_lock(thread_id);
+        let credentials_guard = Arc::clone(&credentials_lock).lock_owned().await;
         let create_gate = {
             let mut state = self.state.write().await;
             if restore_only
@@ -902,7 +1040,17 @@ impl SessionPool {
         };
         // A live agent keeps its spawn-time env; credentials reach it through
         // these files, refreshed on every prompt.
-        write_session_credentials(&self.credentials_root, thread_id, session_meta);
+        let (result, credentials_guard) = Self::write_credentials(
+            self.credentials_root.clone(),
+            thread_id.to_string(),
+            session_meta.cloned(),
+            credentials_guard,
+        )
+        .await;
+        if let Err(error) = result {
+            warn!(%error, "could not write session credentials");
+        }
+        drop(credentials_guard);
         let _create_guard = create_gate.lock().await;
 
         let (existing, saved_session_id) = {
@@ -925,16 +1073,16 @@ impl SessionPool {
                 return Ok(false);
             };
             if conn.alive() {
-                // The agent read its MCP tool lists when it started. When the
-                // declaration has changed since, suspend it between turns, as
-                // the idle sweep does, so the spawn below resumes the same
-                // conversation with the new servers. Never mid-turn.
+                // The agent read its MCP tool lists and system prompt when it
+                // started. When either has changed since, suspend it between
+                // turns, as the idle sweep does, so the spawn below resumes the
+                // same conversation with them. Never mid-turn.
                 drop(conn);
                 if restore_only {
                     return Ok(false);
                 }
                 let Some(sid) = self
-                    .suspend_for_mcp_change(thread_id, &handle, mcp_servers)
+                    .suspend_for_context_change(thread_id, &handle, mcp_servers, session_meta)
                     .await
                 else {
                     return Ok(false);
@@ -946,6 +1094,7 @@ impl SessionPool {
         }
 
         if restore_only {
+            let _credentials_guard = credentials_lock.lock().await;
             if saved_session_id.is_none() {
                 return Err(anyhow!("No saved native session to restore").into());
             }
@@ -1044,7 +1193,7 @@ impl SessionPool {
 
         // Resolve effective working directory: stored per-session > explicit override > global config.
         // Stored value has highest priority to enforce immutability (ADR §4.5).
-        let (stored_workdir, session_mcp_servers, session_meta) = {
+        let (stored_workdir, session_mcp_servers) = {
             let state = self.state.read().await;
             (
                 state.session_workdirs.get(thread_id).cloned(),
@@ -1053,7 +1202,6 @@ impl SessionPool {
                     .get(thread_id)
                     .cloned()
                     .unwrap_or_default(),
-                state.session_meta.get(thread_id).cloned(),
             )
         };
 
@@ -1111,9 +1259,28 @@ impl SessionPool {
         // Build the replacement connection outside the state lock so one stuck
         // initialization does not block all unrelated sessions.
         let mut base_env = self.config.env.clone();
-        if let Some(dir) =
-            write_session_credentials(&self.credentials_root, thread_id, session_meta.as_ref())
-        {
+        let credentials_guard = Arc::clone(&credentials_lock).lock_owned().await;
+        let current_meta = {
+            let state = self.state.read().await;
+            state.session_meta.get(thread_id).cloned()
+        };
+        let session_meta = current_meta;
+        let (result, credentials_guard) = Self::write_credentials(
+            self.credentials_root.clone(),
+            thread_id.to_string(),
+            session_meta.clone(),
+            credentials_guard,
+        )
+        .await;
+        let credentials_dir = match result {
+            Ok(dir) => dir,
+            Err(error) => {
+                warn!(%error, "could not write session credentials");
+                None
+            }
+        };
+        drop(credentials_guard);
+        if let Some(dir) = credentials_dir {
             base_env.insert(
                 SESSION_CREDENTIALS_DIR_ENV.to_string(),
                 dir.to_string_lossy().into_owned(),
@@ -1269,18 +1436,24 @@ impl SessionPool {
                 self.session_registrar.as_ref(),
             );
         }
-        self.save_mapping(&state.persisted);
+        let mapping = self.snapshot_mapping(&state.persisted);
 
         // Persist workspace override only after session spawn succeeded (口渡 F2).
-        if working_dir_override.is_some() {
+        let meta = if working_dir_override.is_some() {
             state
                 .session_workdirs
                 .entry(thread_id.to_string())
                 .or_insert_with(|| effective_workdir.clone());
-            self.save_meta(&state.session_workdirs);
-        }
+            Some(self.snapshot_meta(&state.session_workdirs))
+        } else {
+            None
+        };
 
         drop(state);
+        self.save_mapping(mapping).await;
+        if let Some(meta) = meta {
+            self.save_meta(meta).await;
+        }
 
         // Return true only for genuinely new sessions — not resumed or reconnected ones.
         // A session with prior state (saved_session_id or had_existing) is a resume,
@@ -1541,8 +1714,11 @@ impl SessionPool {
         // Resetting a hung session drops the map's Arc but not the one the stuck task holds, so the
         // guard cannot revoke — do it synchronously here too (F3).
         revoke_facade_token_for_key(&mut state, thread_id, self.session_registrar.as_ref());
-        self.save_mapping(&state.persisted);
-        self.save_meta(&state.session_workdirs);
+        let mapping = self.snapshot_mapping(&state.persisted);
+        let meta = self.snapshot_meta(&state.session_workdirs);
+        drop(state);
+        self.save_mapping(mapping).await;
+        self.save_meta(meta).await;
         if had_active {
             info!(thread_id = %crate::redact::redact_session_ids(thread_id), "session reset");
             Ok(())
@@ -1686,8 +1862,11 @@ impl SessionPool {
                 warn!(thread_id = %crate::redact::redact_session_ids(&key), "hung session was replaced before eviction; maps untouched");
             }
         }
-        self.save_mapping(&state.persisted);
-        self.save_meta(&state.session_workdirs);
+        let mapping = self.snapshot_mapping(&state.persisted);
+        let meta = self.snapshot_meta(&state.session_workdirs);
+        drop(state);
+        self.save_mapping(mapping).await;
+        self.save_meta(meta).await;
     }
 
     pub async fn shutdown(&self) {
@@ -1716,7 +1895,7 @@ impl SessionPool {
             state.persisted.insert(key.clone(), sid.clone());
             state.suspended.insert(key, sid);
         }
-        self.save_mapping(&state.persisted);
+        let mapping = self.snapshot_mapping(&state.persisted);
         let count = state.active.len();
         state.active.clear();
         state.admission_permits.clear();
@@ -1724,6 +1903,8 @@ impl SessionPool {
         state.steering_handles.clear();
         state.activity.clear();
         state.pgids.clear();
+        drop(state);
+        self.save_mapping(mapping).await;
         info!(count, "pool shutdown complete");
     }
 }
@@ -1744,9 +1925,9 @@ fn meta_working_dir(meta: Option<&serde_json::Value>) -> Option<&str> {
 mod tests {
     use super::{
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
-        classify_hung, classify_idle, get_or_insert_gate, mcp_declaration_changed,
+        classify_hung, classify_idle, env_changed, get_or_insert_gate, mcp_declaration_changed,
         meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
-        PoolState, AGENT_RELAY_GRACE_SECS,
+        system_prompt_changed, PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
     use crate::acp::protocol::JsonRpcError;
@@ -1794,6 +1975,153 @@ mod tests {
             session_mcp_servers: HashMap::new(),
             session_meta: HashMap::new(),
         }
+    }
+
+    #[cfg(unix)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn state_probe_survives_a_blocked_mapping_write() {
+        use std::io::Read;
+        use std::time::Duration;
+        let dir = tempfile::tempdir().unwrap();
+        let mapping = dir.path().join("thread_map.json");
+        let fifo = mapping.with_extension("json.tmp");
+        assert!(std::process::Command::new("mkfifo")
+            .arg(&fifo)
+            .status()
+            .unwrap()
+            .success());
+        let pool = Arc::new(super::SessionPool {
+            state: Arc::new(tokio::sync::RwLock::new(empty_pool_state())),
+            config: crate::config::AgentConfig::default(),
+            max_sessions: 4,
+            admission: Arc::new(tokio::sync::Semaphore::new(4)),
+            hung_threshold_secs: 60,
+            mapping_path: mapping,
+            meta_path: dir.path().join("session_meta.json"),
+            mapping_order: Arc::new(super::OrderedFile::default()),
+            meta_order: Arc::new(super::OrderedFile::default()),
+            credentials_root: dir.path().join("credentials"),
+            credentials_locks: std::sync::Mutex::new(HashMap::new()),
+            default_config_options: HashMap::new(),
+            session_registrar: None,
+            facade_url: None,
+        });
+        let writer_pool = Arc::clone(&pool);
+        let writer = tokio::spawn(async move { writer_pool.reset_session("first").await });
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while pool.mapping_order.written.try_lock().is_ok() {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .unwrap();
+        let result =
+            tokio::time::timeout(Duration::from_secs(3), pool.execution_snapshot("other")).await;
+        let reader = std::thread::spawn(move || {
+            let mut data = String::new();
+            std::fs::File::open(fifo)
+                .unwrap()
+                .read_to_string(&mut data)
+                .unwrap();
+        });
+        let _ = tokio::time::timeout(Duration::from_secs(5), writer)
+            .await
+            .unwrap();
+        reader.join().unwrap();
+        assert!(
+            result.is_ok(),
+            "a blocked state-file write blocked another session's probe"
+        );
+    }
+
+    #[tokio::test]
+    async fn concurrent_saves_keep_the_newest_snapshot() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("thread_map.json");
+        let pool = super::SessionPool {
+            state: Arc::new(tokio::sync::RwLock::new(empty_pool_state())),
+            config: crate::config::AgentConfig::default(),
+            max_sessions: 4,
+            admission: Arc::new(tokio::sync::Semaphore::new(4)),
+            hung_threshold_secs: 60,
+            mapping_path: path.clone(),
+            meta_path: dir.path().join("session_meta.json"),
+            mapping_order: Arc::new(super::OrderedFile::default()),
+            meta_order: Arc::new(super::OrderedFile::default()),
+            credentials_root: dir.path().join("credentials"),
+            credentials_locks: std::sync::Mutex::new(HashMap::new()),
+            default_config_options: HashMap::new(),
+            session_registrar: None,
+            facade_url: None,
+        };
+        let older = HashMap::from([("session".into(), "old".into())]);
+        let newer = HashMap::from([("session".into(), "new".into())]);
+        // Simulate a newer snapshot winning the race to disk.
+        let older = pool.snapshot_mapping(&older);
+        let newer = pool.snapshot_mapping(&newer);
+        let pool = Arc::new(pool);
+        let slow_pool = Arc::clone(&pool);
+        let (release, wait) = tokio::sync::oneshot::channel::<()>();
+        let slow = tokio::spawn(async move {
+            wait.await.unwrap();
+            slow_pool.save_mapping(older).await;
+        });
+        pool.save_mapping(newer).await;
+        release.send(()).unwrap();
+        slow.await.unwrap();
+        let saved: HashMap<String, String> =
+            serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+        assert_eq!(saved.get("session").map(String::as_str), Some("new"));
+    }
+
+    #[tokio::test]
+    async fn concurrent_credential_refreshes_keep_expected_value_and_disk_consistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("credentials");
+        let mut state = empty_pool_state();
+        state.session_meta.insert(
+            "session".into(),
+            serde_json::json!({
+                "dev.openab/credentials": {"TOKEN": "initial"}
+            }),
+        );
+        let pool = super::SessionPool {
+            state: Arc::new(tokio::sync::RwLock::new(state)),
+            config: crate::config::AgentConfig::default(),
+            max_sessions: 4,
+            admission: Arc::new(tokio::sync::Semaphore::new(4)),
+            hung_threshold_secs: 60,
+            mapping_path: dir.path().join("thread_map.json"),
+            meta_path: dir.path().join("session_meta.json"),
+            mapping_order: Arc::new(super::OrderedFile::default()),
+            meta_order: Arc::new(super::OrderedFile::default()),
+            credentials_root: root.clone(),
+            credentials_locks: std::sync::Mutex::new(HashMap::new()),
+            default_config_options: HashMap::new(),
+            session_registrar: None,
+            facade_url: None,
+        };
+        let expected = serde_json::json!({"TOKEN": "initial"});
+        let (first, second) = tokio::join!(
+            pool.refresh_session_credentials(
+                "session",
+                &expected,
+                serde_json::json!({"TOKEN": "one"})
+            ),
+            pool.refresh_session_credentials(
+                "session",
+                &expected,
+                serde_json::json!({"TOKEN": "two"})
+            ),
+        );
+        assert_ne!(first.is_ok(), second.is_ok());
+        let state = pool.state.read().await;
+        let expected_token = state.session_meta["session"]["dev.openab/credentials"]["TOKEN"]
+            .as_str()
+            .unwrap();
+        let file = crate::acp::session_credentials::session_credentials_dir(&root, "session")
+            .join("TOKEN");
+        assert_eq!(std::fs::read_to_string(file).unwrap(), expected_token);
     }
 
     /// F3: replacing a hung predecessor's token revokes the predecessor's EXACT token and leaves
@@ -1963,6 +2291,67 @@ mod tests {
             &[server("https://x/mcp-tools?tools=b", "t1")]
         ));
         assert!(mcp_declaration_changed(&[], &started));
+    }
+
+    #[test]
+    fn system_prompt_changes_respawn_only_when_the_text_differs() {
+        let claude =
+            |text: &str| serde_json::json!({"systemPrompt": {"append": text}, "creds": "t1"});
+        let started = serde_json::json!({"append": "be terse"});
+        // Same text, other per-turn fields (credentials) changed: no respawn.
+        let mut same = claude("be terse");
+        same["creds"] = serde_json::json!("t2");
+        assert!(!system_prompt_changed(Some(&started), Some(&same)));
+        // No meta, or meta without a prompt, never respawns.
+        assert!(!system_prompt_changed(Some(&started), None));
+        assert!(!system_prompt_changed(
+            Some(&started),
+            Some(&serde_json::json!({"creds": "t"}))
+        ));
+        assert!(system_prompt_changed(
+            Some(&started),
+            Some(&claude("be thorough"))
+        ));
+        assert!(system_prompt_changed(None, Some(&claude("be terse"))));
+        // Codex and the ACP shim carry it in their own shapes.
+        let codex = |text: &str| serde_json::json!({"ai.nuphos/codex": {"developerInstructions": text, "env": {"T": "1"}}});
+        let shim = |text: &str| serde_json::json!({"ai.nuphos/session": {"systemPrompt": text}});
+        let old = serde_json::json!("old");
+        assert!(!system_prompt_changed(Some(&old), Some(&codex("old"))));
+        assert!(system_prompt_changed(Some(&old), Some(&codex("new"))));
+        assert!(!system_prompt_changed(Some(&old), Some(&shim("old"))));
+        assert!(system_prompt_changed(Some(&old), Some(&shim("new"))));
+    }
+
+    #[test]
+    fn env_changes_respawn_only_when_a_setting_differs() {
+        use super::super::connection::meta_stable_env;
+        let claude = |window: &str, token: &str| {
+            serde_json::json!({
+                "claudeCode": {"options": {"env": {
+                    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": window,
+                    "NUPHOS_TOKEN": token,
+                }}},
+                "dev.openab/credentials": {"NUPHOS_TOKEN": token},
+            })
+        };
+        let started = meta_stable_env(Some(&claude("100000", "t1")));
+        // A turn's fresh credentials alone never respawn.
+        assert!(!env_changed(
+            started.as_ref(),
+            Some(&claude("100000", "t2"))
+        ));
+        assert!(!env_changed(started.as_ref(), None));
+        // A changed setting does, as does an env the agent started without.
+        assert!(env_changed(started.as_ref(), Some(&claude("200000", "t2"))));
+        assert!(env_changed(None, Some(&claude("100000", "t1"))));
+        // Codex and the ACP shim carry env in their own shapes.
+        let codex = |actor: &str| serde_json::json!({"ai.nuphos/codex": {"env": {"NUPHOS_SESSION_ACTOR": actor}}});
+        let shim = |actor: &str| serde_json::json!({"ai.nuphos/session": {"env": {"NUPHOS_SESSION_ACTOR": actor}}});
+        let owner = meta_stable_env(Some(&codex("owner")));
+        assert!(!env_changed(owner.as_ref(), Some(&codex("owner"))));
+        assert!(env_changed(owner.as_ref(), Some(&codex("guest"))));
+        assert!(!env_changed(owner.as_ref(), Some(&shim("owner"))));
     }
 
     #[test]

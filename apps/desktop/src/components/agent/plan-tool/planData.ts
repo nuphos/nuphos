@@ -59,19 +59,6 @@ export function planToPayload(plan: Plan): PlanPayload {
   }
 }
 
-export function isPlanReadyForApproval(plan: Plan): boolean {
-  const hasText = (value: string | undefined): boolean =>
-    typeof value === 'string' && value.trim().length > 0
-
-  return (
-    plan.steps.length > 0 &&
-    plan.steps.every((step) => step.jobs.length > 0) &&
-    hasText(plan.costSummary) &&
-    hasText(plan.riskWorstCase) &&
-    (plan.riskMitigations?.some((item) => hasText(item)) ?? false)
-  )
-}
-
 export function planToProgress(plan: Plan): CommandStatus[] {
   const out: CommandStatus[] = []
 

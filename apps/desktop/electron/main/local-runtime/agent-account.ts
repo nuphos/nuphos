@@ -26,11 +26,18 @@ function jwtClaims(token: unknown): Record<string, unknown> | null {
   }
 }
 
+/** One login can sit in several organizations, each with its own plan, so the
+ *  organization names the quota too. */
 async function claudeAccountId(env: NodeJS.ProcessEnv): Promise<string | undefined> {
   const config = await readJson(path.join(env.CLAUDE_CONFIG_DIR ?? homeOf(env), '.claude.json'))
-  const id = (config?.oauthAccount as { accountUuid?: unknown } | undefined)?.accountUuid
+  const { accountUuid: account, organizationUuid: org } = (config?.oauthAccount ?? {}) as {
+    accountUuid?: unknown
+    organizationUuid?: unknown
+  }
 
-  return typeof id === 'string' && id ? id : undefined
+  return typeof account === 'string' && account && typeof org === 'string' && org
+    ? `${account}:${org}`
+    : undefined
 }
 
 /** A ChatGPT workspace is shared by its members, so its user names the quota too. */
@@ -47,8 +54,7 @@ async function codexAccountId(env: NodeJS.ProcessEnv): Promise<string | undefine
     : undefined
 }
 
-/** The signed-in account's own id, one quota per id. Claude gives each seat of a
- *  team its own account, so its organization would group too much. */
+/** The signed-in account's own id, one quota per id. */
 const ACCOUNT_ID: Partial<
   Record<LocalAgentProvider, (env: NodeJS.ProcessEnv) => Promise<string | undefined>>
 > = { 'claude-code': claudeAccountId, codex: codexAccountId }
@@ -61,5 +67,5 @@ export async function readAccountKey(
 ): Promise<string | undefined> {
   const id = await ACCOUNT_ID[provider]?.(env)
 
-  return id && createHash('sha256').update(`${provider}:${id}`).digest('hex').slice(0, 16)
+  return id && createHash('sha256').update(`${provider}:${id}`).digest('hex').slice(0, 20)
 }

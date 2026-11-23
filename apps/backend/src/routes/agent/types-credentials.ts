@@ -160,6 +160,7 @@ export type AgentCredentialOptions = {
   }[]
   /** The requesting member's own Personal Credentials; nobody else's. */
   personalCredentials: {
+    id: string
     provider: PersonalCredentialProvider
     login: string
   }[]

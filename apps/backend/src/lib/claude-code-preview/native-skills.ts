@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 
+import { config } from '@/config'
 import { collectSkillFiles } from '@/lib/agent/skill-store/inject'
 import { mergedSkillsFingerprint, resolveSkillsDirectory } from '@/lib/agent/skill-store/merge'
 import { safeJoinUnder } from '@/lib/agent/skill-store/safe-path'
@@ -26,8 +27,9 @@ export function nativeSkillFiles(files: { relPath: string; content: Buffer }[]):
   const selected = files.filter((file) => {
     const root = file.relPath.split('/', 1)[0]
 
-    // `plan` collides with Claude Code's /plan UI command.
-    return root !== 'plan'
+    // `plan` collides with Claude Code's /plan UI command. `knowledge-base`
+    // only answers where the deployment set RAG_API_KEY.
+    return root !== 'plan' && (root !== 'knowledge-base' || !!config.agent.ragApiKey)
   })
   const totalBytes = selected.reduce((total, file) => total + file.content.byteLength, 0)
 
@@ -92,8 +94,7 @@ async function bundleOf(key: string, inputs: string, directory: string): Promise
 
 /**
  * The complete merged builtin/global/team skill tree for Claude Code's native
- * discovery. A skill named `plan` is omitted: Claude Code reserves that name
- * for its /plan UI command.
+ * discovery, less the skills `nativeSkillFiles` omits.
  */
 export async function nativeSkillBundle(teamId: string): Promise<SkillBundle> {
   const directory = await resolveSkillsDirectory(teamId)

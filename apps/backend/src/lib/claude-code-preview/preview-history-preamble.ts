@@ -18,8 +18,7 @@ import type { UIMessage } from 'ai'
  * last N turns silently loses the investigation. Newest turns are kept first,
  * so a long conversation still ends with the part that matters. Anything older
  * stays readable with read_conversation, so the budget only has to cover the
- * recent part: 32k characters is at most about 32k tokens even in CJK text,
- * well inside a Bot's 100k-token compaction window (previewSessionAccess).
+ * recent part: 32k characters is at most about 32k tokens even in CJK text.
  */
 const HISTORY_BUDGET_CHARS = 32_000
 

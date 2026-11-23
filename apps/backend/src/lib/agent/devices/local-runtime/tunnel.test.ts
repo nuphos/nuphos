@@ -3,7 +3,12 @@ import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { localRuntimeUrl } from './address'
 import { createLocalTunnelBus, guardedReconnect } from './bus'
 import { holderChannel, streamChannel } from './protocol'
-import { attachRuntimeTunnel, connectedComputerCount, TUNNEL_CLOSE_SUPERSEDED } from './holder'
+import {
+  attachRuntimeTunnel,
+  closeTunnelsForRestart,
+  connectedComputerCount,
+  TUNNEL_CLOSE_SUPERSEDED,
+} from './holder'
 import { createMemoryPresenceStore } from './presence'
 import { processSingleton } from './singleton'
 import { openLocalRuntimeSocket } from './socket'
@@ -295,6 +300,23 @@ describe('local runtime tunnel', () => {
     expect(after.events.some((event) => event.type === 'close')).toBe(false)
   })
 
+  test('a second tunnel from the same computer leaves the first one’s streams alone', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true })
+    await connectDesktop(bus, presence, new Set(['t1']), { echo: true, silent: true })
+    const { socket, events } = openStream(bus, presence, 't1')
+
+    await eventually(() => events.some((event) => event.type === 'open'))
+    socket.send('hi')
+    socket.send('again')
+    await eventually(() => events.some((event) => event.data === 'echo:again'))
+    await tick()
+
+    expect(events.some((event) => event.type === 'close')).toBe(false)
+  })
+
   test('an agent being added shows in presence as soon as it installs, not at the next heartbeat', async () => {
     const presence = createMemoryPresenceStore()
     const desktop = await connectDesktop(createLocalTunnelBus(), presence, new Set(['t1']), {
@@ -401,6 +423,32 @@ describe('local runtime tunnel', () => {
     first.tunnel.closed()
     second.tunnel.closed()
     expect(connectedComputerCount()).toBe(before)
+  })
+
+  test('a restart closes every held tunnel with 1012, spread over the window', async () => {
+    const bus = createLocalTunnelBus()
+    const presence = createMemoryPresenceStore()
+    const closes: { code: number; at: number }[] = []
+    const held = await Promise.all(
+      ['r1', 'r2', 'r3'].map((deviceId) =>
+        attachRuntimeTunnel(
+          'u-restart',
+          deviceId,
+          { send: () => {}, close: (code) => closes.push({ code, at: Date.now() }) },
+          { bus, presence, isMember: async () => true, heartbeatMs: 60_000 },
+        ),
+      ),
+    )
+
+    tunnels.push(...held)
+    const start = Date.now()
+
+    closeTunnelsForRestart(90)
+    await eventually(() => closes.length === 3)
+    expect(closes.map((close) => close.code)).toEqual([1012, 1012, 1012])
+    expect(closes[0]!.at - start).toBeLessThan(30)
+    expect(closes[2]!.at - start).toBeGreaterThanOrEqual(55)
+    expect(connectedComputerCount()).toBe(0)
   })
 
   test('closing the backend side tells the computer to drop the stream', async () => {
@@ -545,6 +593,47 @@ test('the first frame advertises presence with the status it carries', async () 
   tunnel.receive(JSON.stringify({ t: 'status', status: { agents: {}, localExec: true } }))
   await tick()
   expect((await presence.get('u1', 'd1'))?.status?.localExec).toBe(true)
+})
+
+test('a recovered model catalog is published before the next heartbeat', async () => {
+  const presence = createMemoryPresenceStore()
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    { bus: createLocalTunnelBus(), presence, isMember: async () => true, heartbeatMs: 60_000 },
+  )
+
+  tunnels.push(tunnel)
+  const report = (failed: boolean) =>
+    tunnel.receive(
+      JSON.stringify({
+        t: 'status',
+        status: {
+          agents: {
+            codex: {
+              cli: { installed: true, loggedIn: true },
+              models: {
+                models: failed ? [] : [{ id: 'fixture', name: 'Fixture' }],
+                defaultModel: failed ? '' : 'fixture',
+                controls: {},
+                ...(failed ? { failed: true } : {}),
+              },
+            },
+          },
+        },
+      }),
+    )
+
+  report(true)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.failed).toBe(true)
+
+  report(false)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.models).toEqual([
+    { id: 'fixture', name: 'Fixture' },
+  ])
 })
 
 test('a model catalog over its bounds costs the catalog, never the presence', async () => {

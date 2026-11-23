@@ -50,6 +50,8 @@ export type LocalRuntimeSummary = {
   desktopOpen?: true
   /** The owner's own `claude` sign-in, last reported while away; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Why the runtime CLI failed its existing startup probe. */
+  probeError?: string
   /** Seen signed in at least once; a host's default agent no one used, or a failed sign-in, has none. */
   everSignedIn?: true
   /** Provider usage that computer reported; the backend normalizes it. */
@@ -137,8 +139,6 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
-  /** The other agents signed in to the same account: they run out together. */
-  sharesQuotaWith?: { runtimeId: string; label: string }[]
 }
 
 export type RuntimeMetricSample = {

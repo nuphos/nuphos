@@ -60,10 +60,15 @@ useIdentity({
   getTeamMembership: async () => ({ role: 'MEMBER' }),
   signNuphosToken: () => 'test-token',
 })
+const accepted = (messageId: string) => alreadyAccepted || acceptedIds.has(messageId)
+
 useAgentDb({
   agentMessages: () => ({
     findOne: async ({ messageId }: { messageId: string }) =>
-      alreadyAccepted || acceptedIds.has(messageId) ? { _id: 'accepted' } : null,
+      accepted(messageId) ? { _id: 'accepted' } : null,
+    find: ({ messageId }: { messageId: { $in: string[] } }) => ({
+      toArray: async () => messageId.$in.filter(accepted).map((id) => ({ messageId: id })),
+    }),
   }),
   getConversationBySessionId: async (id) => ({ ...source, sessionId: id }),
   getConversationWithMessages: async (_session, _viewer, _team, options) => {

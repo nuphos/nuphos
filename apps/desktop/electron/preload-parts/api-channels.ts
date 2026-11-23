@@ -10,8 +10,8 @@ export const channelsApi = {
   agentApplyBotImport: (target: BotImportTarget, id: string, selection: BotImportSelection) =>
     ipcRenderer.invoke('agent:applyBotImport', target, id, selection),
   agentSaveGrokExportSkill: () => ipcRenderer.invoke('agent:saveGrokExportSkill'),
-  agentCreateChannel: (teamId: string, group?: boolean) =>
-    ipcRenderer.invoke('agent:createChannel', teamId, group),
+  agentCreateChannel: (teamId: string, group?: boolean, title?: string) =>
+    ipcRenderer.invoke('agent:createChannel', teamId, group, title),
   agentCreateBot: (
     teamId: string,
     bot?: {
@@ -28,6 +28,10 @@ export const channelsApi = {
   ) => ipcRenderer.invoke('agent:createBot', teamId, bot),
   agentStartBotOnboarding: (sessionId: string, teamId: string, channelId: string) =>
     ipcRenderer.invoke('agent:startBotOnboarding', sessionId, teamId, channelId),
+  agentWaitForRunEnd: (args: { sessionId: string; teamId: string; streamId: string }) =>
+    ipcRenderer.invoke('agent:waitForRunEnd', args),
+  agentStopWaitingForRunEnd: (streamId: string) =>
+    ipcRenderer.invoke('agent:stopWaitingForRunEnd', streamId),
   agentMakeBot: (sessionId: string, teamId: string) =>
     ipcRenderer.invoke('agent:makeBot', sessionId, teamId),
   agentListChannelMentions: (teamId: string) =>
