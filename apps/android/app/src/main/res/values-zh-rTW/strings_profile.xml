@@ -126,9 +126,9 @@
     </plurals>
     <string name="profile_consent_intro">使用 Agent 時，你的提示詞、對話紀錄、上傳的圖片與檔案，以及已連接工具的相關結果，會傳送給執行你的請求所需的供應商。</string>
     <string name="profile_consent_recipients_body">視你使用的執行環境與模型而定，這包括 Anthropic（Claude）、OpenAI（Codex）、xAI（Grok）、Google（Antigravity）、DeepSeek（DeepSeek Harness）、OpenCode 執行環境所使用的模型供應商（未登入任何供應商時為 OpenCode Zen），或 Amazon Web Services。啟用追蹤時，Nuphos 會儲存 AI 執行追蹤紀錄，其中可能包含對話與工具內容，用於診斷與改善服務。</string>
-    <string name="profile_consent_choice_body">請只分享你有權分享的資訊。你可以拒絕，仍然能管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料共享」撤回同意。撤回後，這個 App 將不再發起新的 AI 使用；已完成的傳輸不會被撤銷，已在執行的工作也不會停止，包括在其他裝置上或由排程 Agent 啟動的工作。</string>
+    <string name="profile_consent_choice_body">請只分享你有權分享的資訊。即使拒絕，你仍然可以管理帳號或申請刪除帳號。你可以在「帳號 → AI 資料共享」撤回同意。撤回後，這個 App 將停止新的 AI 使用；已完成的傳輸不會被撤銷，已在執行的工作也不會停止，包括在其他裝置上或由排程 Agent 啟動的工作。</string>
     <string name="profile_deletion_body">我們會在 30 天內永久刪除你的帳號及相關個人資料。我們的團隊會協調工作區擁有權與共享資料。依法須保存的紀錄，以及由你的團隊共同持有的資料，可能會被保留。</string>
     <string name="profile_deletion_request_note">這會送出申請，不會立即清除你的帳號。處理期間，你仍可繼續使用帳號。重新登入不會取消申請。</string>
-    <string name="profile_deletion_saved">你的申請已儲存。不需要聯絡客服即可開始刪除。</string>
+    <string name="profile_deletion_saved">你的申請已儲存。不需要另外聯絡客服，刪除流程就會開始。</string>
     <string name="profile_withdraw_body">伺服器確認你的選擇後，這個 App 將不再發起新的 AI 工作。已傳送的資料不會被撤銷，進行中、已排程或在其他裝置上的執行也不會停止。尚未送出的草稿將會清除。</string>
 </resources>

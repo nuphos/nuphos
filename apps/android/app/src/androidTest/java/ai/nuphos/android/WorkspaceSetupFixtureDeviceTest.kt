@@ -109,7 +109,7 @@ class WorkspaceSetupFixtureDeviceTest {
                     }
                     teamRead -> { code = membershipStatus; """{"teams":${Http.json.encodeToString(ListSerializer(Team.serializer()), memberships)}}""" }
                     discovery -> { code = discoveryStatus; """{"teams":${Http.json.encodeToString(ListSerializer(Team.serializer()), discovered)}}""" }
-                    consent -> """{"version":"2026-09-28","accepted":true}"""
+                    consent -> """{"version":"2026-11-23","accepted":true}"""
                     connectors -> "{}"
                     favorites -> """{"entries":[],"revision":0}"""
                     history -> """{"conversations":[],"nextCursor":null}"""
