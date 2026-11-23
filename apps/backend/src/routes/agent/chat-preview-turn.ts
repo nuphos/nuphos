@@ -247,7 +247,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       return 'connection-lost'
     }
     await noteOutdated(err, args.endpoint.local)
-    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered)
+    if (resentAfter(err, args)) await requeueUnsent(args, prepared.carried, steered, false, err)
     else await persistInterrupted(err)
 
     state.unbind()

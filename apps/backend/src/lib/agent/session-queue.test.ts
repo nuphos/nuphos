@@ -307,6 +307,24 @@ test('a usage-limit refusal marks the head as held, and its next ordinary refusa
   expect((await listPendingUserMessages(OWNER, SESSION))[0]?.usageHold).toBeUndefined()
 })
 
+test("the user's own queued message refused for usage goes back held", async () => {
+  const { requeueUnsent } = await import('@/routes/agent/chat-preview-run')
+  const turn = {
+    userId: OWNER,
+    teamId: 'team',
+    sessionId: SESSION,
+    queued: human('limited'),
+    endpoint: {},
+  } as Parameters<typeof requeueUnsent>[0]
+  const outOfUsage = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8:10am (UTC)",
+    -32603,
+  )
+
+  await requeueUnsent(turn, [], [], false, outOfUsage)
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.usageHold).toEqual({})
+})
+
 test('a head stored before refusedAt still waits out its own releases', () => {
   const head = {
     ...human('stored earlier'),
