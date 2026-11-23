@@ -199,8 +199,9 @@ const later: Scenario[] = [
   ...offlineScenarios,
   ...mcpNotificationScenarios,
   ...webhookScenarios,
-  ...outdatedTurnScenarios,
+  // Before the laptop's turns: a new Task over MCP starts where the last Task ran.
   ...mcpAgentTokenScenarios,
+  ...outdatedTurnScenarios,
   ...mcpScenarios,
   ...skillScenarios,
   ...approvalFeedbackScenarios,
