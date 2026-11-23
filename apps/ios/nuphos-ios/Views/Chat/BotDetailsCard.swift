@@ -165,15 +165,18 @@ struct BotInstructionsCard: View {
             .padding(Theme.Space.large)
             .background(Theme.surface, in: RoundedRectangle(cornerRadius: Theme.Radius.card))
             .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.hairline, lineWidth: 1))
-            // The keyboard covers the bottom of the sheet, so keep Cancel and Save above it.
-            .onChange(of: editing) { _, now in
-                guard now else { return }
-                Task {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    withAnimation { proxy.scrollTo("bot-instructions-actions", anchor: .bottom) }
-                }
+            // The keyboard covers the bottom of the sheet, so keep Cancel and Save above it when
+            // editing starts and when a refusal pushes them down.
+            .onChange(of: editing) { _, now in if now { showActions(proxy) } }
+            .onChange(of: error) { _, now in if now != nil { showActions(proxy) } }
             }
-            }
+        }
+    }
+
+    private func showActions(_ proxy: ScrollViewProxy) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(400))
+            withAnimation { proxy.scrollTo("bot-instructions-actions", anchor: .bottom) }
         }
     }
 
