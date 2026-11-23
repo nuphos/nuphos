@@ -24,7 +24,6 @@ var unconverted: Set = [
     "Connect a cloud account or an integration to let the agent work in it.",
     "Continue in agent",
     "Couldn't stop the agent",
-    "Create a workspace for your agents and runtimes, or join one your organization has made available.",
     "Create or join a workspace to start chatting with an agent.",
     "Hide %lld sub-agents",
     "How this runtime appears on the computer and when choosing a runtime for an agent.",

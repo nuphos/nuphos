@@ -1945,48 +1945,48 @@
         }
       }
     },
-    "2. Sign in and choose this workspace." : {
+    "2. Sign in and choose this team." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. Inicia sesión y elige este espacio de trabajo."
+            "value" : "2. Inicia sesión y elige este equipo."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. Masuk dan pilih ruang kerja ini."
+            "value" : "2. Masuk dan pilih tim ini."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. サインインしてこのワークスペースを選びます。"
+            "value" : "2. サインインしてこのチームを選びます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. 로그인하고 이 워크스페이스를 선택하세요."
+            "value" : "2. 로그인하고 이 팀을 선택하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. ลงชื่อเข้าใช้และเลือกเวิร์กสเปซนี้"
+            "value" : "2. ลงชื่อเข้าใช้และเลือกทีมนี้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. 登录并选择此工作区。"
+            "value" : "2. 登录并选择此团队。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "2. 登入並選擇這個工作區。"
+            "value" : "2. 登入並選擇這個團隊。"
           }
         }
       }
@@ -2221,6 +2221,52 @@
         }
       }
     },
+    "A team administrator can sign it in from the Runtimes page in Nuphos on their computer." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Un administrador del equipo puede iniciar sesión desde la página Entornos de ejecución de Nuphos en su computadora."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Administrator tim dapat memasukkannya dari halaman Runtime di Nuphos pada komputer mereka."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チームの管理者が、自分のコンピュータの Nuphos のランタイムのページからサインインできます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팀 관리자가 자신의 컴퓨터에 있는 Nuphos의 런타임 페이지에서 로그인할 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ผู้ดูแลทีมลงชื่อเข้าใช้ได้จากหน้ารันไทม์ใน Nuphos บนคอมพิวเตอร์ของตน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "团队管理员可以在自己电脑上的 Nuphos“运行环境”页面登录它。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "團隊管理員可以在自己電腦上的 Nuphos「執行環境」頁面登入它。"
+          }
+        }
+      }
+    },
     "A teammate is using this task right now. Try again after their turn finishes." : {
       "localizations" : {
         "es" : {
@@ -2263,52 +2309,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "隊友正在使用這個任務。請等對方這一輪結束後再試。"
-          }
-        }
-      }
-    },
-    "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Un administrador del espacio de trabajo puede iniciar sesión desde la página Entornos de ejecución de Nuphos en su computadora."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Administrator workspace dapat memasukkannya dari halaman Runtime di Nuphos pada komputer mereka."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペースの管理者が、自分のコンピュータの Nuphos のランタイムのページからサインインできます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "워크스페이스 관리자가 자신의 컴퓨터에 있는 Nuphos의 런타임 페이지에서 로그인할 수 있습니다."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ผู้ดูแลเวิร์กสเปซลงชื่อเข้าใช้ได้จากหน้ารันไทม์ใน Nuphos บนคอมพิวเตอร์ของตน"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "工作区管理员可以在自己电脑上的 Nuphos“运行环境”页面登录它。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "工作區管理員可以在自己電腦上的 Nuphos「執行環境」頁面登入它。"
           }
         }
       }
@@ -3279,48 +3279,48 @@
         }
       }
     },
-    "Already invited? Accept the invitation from your email, then refresh your workspaces." : {
+    "Already invited? Accept the invitation from your email, then refresh your teams." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "¿Ya te invitaron? Acepta la invitación desde tu correo y actualiza tus espacios de trabajo."
+            "value" : "¿Ya te invitaron? Acepta la invitación desde tu correo y actualiza tus equipos."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sudah diundang? Terima undangan dari email Anda, lalu muat ulang workspace."
+            "value" : "Sudah diundang? Terima undangan dari email Anda, lalu muat ulang tim."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "招待を受け取りましたか？メールから招待を承諾してから、ワークスペースを更新してください。"
+            "value" : "招待を受け取りましたか？メールから招待を承諾してから、チームを更新してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이미 초대를 받으셨나요? 이메일에서 초대를 수락한 다음 워크스페이스를 새로고침하세요."
+            "value" : "이미 초대를 받으셨나요? 이메일에서 초대를 수락한 다음 팀을 새로고침하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ได้รับคำเชิญแล้วใช่ไหม ยอมรับคำเชิญจากอีเมลของคุณ แล้วรีเฟรชเวิร์กสเปซ"
+            "value" : "ได้รับคำเชิญแล้วใช่ไหม ยอมรับคำเชิญจากอีเมลของคุณ แล้วรีเฟรชทีม"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已经收到邀请？请从电子邮件接受邀请，然后刷新工作区。"
+            "value" : "已经收到邀请？请从电子邮件接受邀请，然后刷新团队。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已經收到邀請？請從電子郵件接受邀請，然後重新整理工作區。"
+            "value" : "已經收到邀請？請從電子郵件接受邀請，然後重新整理團隊。"
           }
         }
       }
@@ -4799,48 +4799,48 @@
         }
       }
     },
-    "Available workspaces" : {
+    "Available teams" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Espacios de trabajo disponibles"
+            "value" : "Equipos disponibles"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Workspace yang tersedia"
+            "value" : "Tim yang tersedia"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "参加できるワークスペース"
+            "value" : "参加できるチーム"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "참여 가능한 워크스페이스"
+            "value" : "참여 가능한 팀"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เวิร์กสเปซที่เข้าร่วมได้"
+            "value" : "ทีมที่เข้าร่วมได้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "可加入的工作区"
+            "value" : "可加入的团队"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "可加入的工作區"
+            "value" : "可加入的團隊"
           }
         }
       }
@@ -6972,52 +6972,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "關閉終端機"
-          }
-        }
-      }
-    },
-    "Close workspace" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cerrar la página del espacio de trabajo"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tutup halaman ruang kerja"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペース画面を閉じる"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "워크스페이스 화면 닫기"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ปิดหน้าเวิร์กสเปซ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "关闭工作区页面"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "關閉工作區頁面"
           }
         }
       }
@@ -10798,48 +10752,48 @@
         }
       }
     },
-    "Create a workspace for your agents and runtimes, or join one your organization has made available." : {
+    "Create a team for your Bots and runtimes, or join one your organization has made available." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crea un espacio de trabajo para tus agentes y entornos de ejecución, o únete a uno que tu organización haya habilitado."
+            "value" : "Crea un equipo para tus Bots y entornos de ejecución, o únete a uno que tu organización haya habilitado."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buat workspace untuk agen dan runtime Anda, atau bergabung dengan yang disediakan organisasi Anda."
+            "value" : "Buat tim untuk Bot dan runtime Anda, atau bergabung dengan yang disediakan organisasi Anda."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントとランタイム用のワークスペースを作成するか、組織が用意したワークスペースに参加してください。"
+            "value" : "Bot とランタイム用のチームを作成するか、組織が用意したチームに参加してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "에이전트와 런타임을 위한 워크스페이스를 만들거나 조직에서 제공하는 워크스페이스에 참여하세요."
+            "value" : "Bot과 런타임을 위한 팀을 만들거나 조직에서 제공하는 팀에 참여하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "สร้างเวิร์กสเปซสำหรับเอเจนต์และรันไทม์ของคุณ หรือเข้าร่วมเวิร์กสเปซที่องค์กรเปิดให้ใช้"
+            "value" : "สร้างทีมสำหรับ Bot และรันไทม์ของคุณ หรือเข้าร่วมทีมที่องค์กรเปิดให้ใช้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "为你的 Agent 和运行环境创建工作区，或加入组织提供的工作区。"
+            "value" : "为你的 Bot 和运行环境创建团队，或加入组织提供的团队。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "為你的 Agent 與執行環境建立工作區，或加入組織提供的工作區。"
+            "value" : "為你的 Bot 與執行環境建立團隊，或加入組織提供的團隊。"
           }
         }
       }
@@ -10890,48 +10844,94 @@
         }
       }
     },
-    "Create or join a workspace before connecting a computer." : {
+    "Create or join a team before connecting a computer." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Crea un espacio de trabajo o únete a uno antes de conectar un ordenador."
+            "value" : "Crea un equipo o únete a uno antes de conectar un ordenador."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buat atau bergabung dengan ruang kerja sebelum menghubungkan komputer."
+            "value" : "Buat atau bergabung dengan tim sebelum menghubungkan komputer."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "コンピュータを接続する前にワークスペースを作成または参加してください。"
+            "value" : "コンピュータを接続する前にチームを作成または参加してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "컴퓨터를 연결하기 전에 워크스페이스를 만들거나 참여하세요."
+            "value" : "컴퓨터를 연결하기 전에 팀을 만들거나 참여하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "สร้างหรือเข้าร่วมเวิร์กสเปซก่อนเชื่อมต่อคอมพิวเตอร์"
+            "value" : "สร้างหรือเข้าร่วมทีมก่อนเชื่อมต่อคอมพิวเตอร์"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请先创建或加入工作区，再连接电脑。"
+            "value" : "请先创建或加入团队，再连接电脑。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請先建立或加入工作區，再連接電腦。"
+            "value" : "請先建立或加入團隊，再連接電腦。"
+          }
+        }
+      }
+    },
+    "Create or join a team to get started." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Crea un equipo o únete a uno para empezar."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Buat atau bergabung dengan tim untuk memulai."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チームを作成または参加して始めましょう。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "팀을 만들거나 참여하여 시작하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สร้างหรือเข้าร่วมทีมเพื่อเริ่มต้น"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "创建或加入团队即可开始。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立或加入團隊即可開始。"
           }
         }
       }
@@ -10983,52 +10983,6 @@
         }
       }
     },
-    "Create or join a workspace to start working with your team." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crea un espacio de trabajo o únete a uno para empezar a trabajar con tu equipo."
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buat atau bergabung dengan ruang kerja untuk mulai bekerja dengan tim Anda."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペースを作成または参加して、チームとの作業を始めましょう。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "워크스페이스를 만들거나 참여하여 팀과 작업을 시작하세요."
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "สร้างหรือเข้าร่วมเวิร์กสเปซเพื่อเริ่มทำงานกับทีม"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创建或加入工作区，开始与团队协作。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建立或加入工作區，開始與團隊合作。"
-          }
-        }
-      }
-    },
     "Create team" : {
       "localizations" : {
         "es" : {
@@ -11071,52 +11025,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建立團隊"
-          }
-        }
-      }
-    },
-    "Create workspace" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Crear espacio de trabajo"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buat workspace"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペースを作成"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "워크스페이스 만들기"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "สร้างเวิร์กสเปซ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "创建工作区"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "建立工作區"
           }
         }
       }
@@ -17076,48 +16984,48 @@
         }
       }
     },
-    "No computers in this workspace." : {
+    "No computers in this team." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No hay computadoras en este espacio de trabajo."
+            "value" : "No hay computadoras en este equipo."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tidak ada komputer di ruang kerja ini."
+            "value" : "Tidak ada komputer di tim ini."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このワークスペースにはコンピュータがありません。"
+            "value" : "このチームにはコンピュータがありません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 워크스페이스에는 컴퓨터가 없습니다."
+            "value" : "이 팀에는 컴퓨터가 없습니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ไม่มีคอมพิวเตอร์ในพื้นที่ทำงานนี้"
+            "value" : "ไม่มีคอมพิวเตอร์ในทีมนี้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此工作区中没有电脑。"
+            "value" : "此团队中没有电脑。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "此工作區中沒有電腦。"
+            "value" : "此團隊中沒有電腦。"
           }
         }
       }
@@ -17582,6 +17490,52 @@
         }
       }
     },
+    "No team yet" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Aún no hay equipo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Belum ada tim"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "チームがありません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아직 팀이 없습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ยังไม่มีทีม"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无团队"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚無團隊"
+          }
+        }
+      }
+    },
     "No upcoming runs" : {
       "localizations" : {
         "es" : {
@@ -17624,52 +17578,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有即將執行的排程"
-          }
-        }
-      }
-    },
-    "No workspace yet" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aún no hay espacio de trabajo"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Belum ada ruang kerja"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペースがありません"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "아직 워크스페이스가 없습니다"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ยังไม่มีเวิร์กสเปซ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "暂无工作区"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "尚無工作區"
           }
         }
       }
@@ -19107,48 +19015,48 @@
         }
       }
     },
-    "Open Nuphos and select the workspace for this share." : {
+    "Open Nuphos and select the team for this share." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre Nuphos y selecciona el espacio de trabajo para compartir."
+            "value" : "Abre Nuphos y selecciona el equipo para compartir."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buka Nuphos dan pilih workspace untuk berbagi ini."
+            "value" : "Buka Nuphos dan pilih tim untuk berbagi ini."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos を開いて、この共有のワークスペースを選択してください。"
+            "value" : "Nuphos を開いて、この共有のチームを選択してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Nuphos를 열고 이 공유에 사용할 워크스페이스를 선택하세요."
+            "value" : "Nuphos를 열고 이 공유에 사용할 팀을 선택하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เปิด Nuphos แล้วเลือกเวิร์กสเปซสำหรับการแชร์นี้"
+            "value" : "เปิด Nuphos แล้วเลือกทีมสำหรับการแชร์นี้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请打开 Nuphos 并选择这次分享的工作区。"
+            "value" : "请打开 Nuphos 并选择这次分享的团队。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請開啟 Nuphos 並選擇這次分享的工作區。"
+            "value" : "請開啟 Nuphos 並選擇這次分享的團隊。"
           }
         }
       }
@@ -19245,49 +19153,49 @@
         }
       }
     },
-    "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one." : {
+    "Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one." : {
       "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Abre Nuphos en tu computadora para añadir un Box o conectar tu propia computadora, o pide a un administrador del espacio de trabajo que conecte una."
+            "value" : "Abre Nuphos en tu computadora para añadir un Box o conectar tu propia computadora, o pide a un administrador del equipo que conecte una."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri, atau minta administrator workspace untuk menghubungkannya."
+            "value" : "Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri, atau minta administrator tim untuk menghubungkannya."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "コンピュータで Nuphos を開いて Box を追加するか自分のコンピュータを接続するか、ワークスペースの管理者に接続を依頼してください。"
+            "value" : "コンピュータで Nuphos を開いて Box を追加するか自分のコンピュータを接続するか、チームの管理者に接続を依頼してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "컴퓨터에서 Nuphos를 열어 Box를 추가하거나 자신의 컴퓨터를 연결하거나, 워크스페이스 관리자에게 연결을 요청하세요."
+            "value" : "컴퓨터에서 Nuphos를 열어 Box를 추가하거나 자신의 컴퓨터를 연결하거나, 팀 관리자에게 연결을 요청하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "เปิด Nuphos บนคอมพิวเตอร์ของคุณเพื่อเพิ่ม Box หรือเชื่อมต่อคอมพิวเตอร์ของคุณเอง หรือขอให้ผู้ดูแลเวิร์กสเปซเชื่อมต่อให้"
+            "value" : "เปิด Nuphos บนคอมพิวเตอร์ของคุณเพื่อเพิ่ม Box หรือเชื่อมต่อคอมพิวเตอร์ของคุณเอง หรือขอให้ผู้ดูแลทีมเชื่อมต่อให้"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在你的电脑上打开 Nuphos 添加 Box 或连接你自己的电脑，或请工作区管理员连接一台。"
+            "value" : "在你的电脑上打开 Nuphos 添加 Box 或连接你自己的电脑，或请团队管理员连接一台。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在你的電腦上開啟 Nuphos 新增 Box 或連接你自己的電腦，或請工作區管理員連接一台。"
+            "value" : "在你的電腦上開啟 Nuphos 新增 Box 或連接你自己的電腦，或請團隊管理員連接一台。"
           }
         }
       }
@@ -21784,48 +21692,48 @@
         }
       }
     },
-    "Refresh workspaces" : {
+    "Refresh teams" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Actualizar espacios de trabajo"
+            "value" : "Actualizar equipos"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Muat ulang workspace"
+            "value" : "Muat ulang tim"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ワークスペースを更新"
+            "value" : "チームを更新"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "워크스페이스 새로고침"
+            "value" : "팀 새로고침"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "รีเฟรชเวิร์กสเปซ"
+            "value" : "รีเฟรชทีม"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "刷新工作区"
+            "value" : "刷新团队"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "重新整理工作區"
+            "value" : "重新整理團隊"
           }
         }
       }
@@ -25565,48 +25473,48 @@
         }
       }
     },
-    "Set up workspace" : {
+    "Set up a team" : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Configurar el espacio de trabajo"
+            "value" : "Configurar un equipo"
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Siapkan workspace"
+            "value" : "Siapkan tim"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ワークスペースを設定"
+            "value" : "チームを設定"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "워크스페이스 설정"
+            "value" : "팀 설정"
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ตั้งค่าเวิร์กสเปซ"
+            "value" : "ตั้งค่าทีม"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设置工作区"
+            "value" : "设置团队"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "設定工作區"
+            "value" : "設定團隊"
           }
         }
       }
@@ -31143,48 +31051,48 @@
         }
       }
     },
-    "This runtime is no longer available in this workspace. Switch to another runtime to continue." : {
+    "This runtime is no longer available in this team. Switch to another runtime to continue." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Este entorno de ejecución ya no está disponible en este espacio de trabajo. Cambia a otro para continuar."
+            "value" : "Este entorno de ejecución ya no está disponible en este equipo. Cambia a otro para continuar."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Runtime ini tidak lagi tersedia di workspace ini. Beralih ke runtime lain untuk melanjutkan."
+            "value" : "Runtime ini tidak lagi tersedia di tim ini. Beralih ke runtime lain untuk melanjutkan."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "このランタイムはこのワークスペースで使用できなくなりました。続けるには別のランタイムに切り替えてください。"
+            "value" : "このランタイムはこのチームで使用できなくなりました。続けるには別のランタイムに切り替えてください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "이 런타임은 더 이상 이 워크스페이스에서 사용할 수 없습니다. 계속하려면 다른 런타임으로 전환하세요."
+            "value" : "이 런타임은 더 이상 이 팀에서 사용할 수 없습니다. 계속하려면 다른 런타임으로 전환하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "รันไทม์นี้ไม่มีในเวิร์กสเปซนี้แล้ว สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ"
+            "value" : "รันไทม์นี้ไม่มีในทีมนี้แล้ว สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "这个运行环境已不在此工作区中。请切换到其他运行环境以继续。"
+            "value" : "这个运行环境已不在此团队中。请切换到其他运行环境以继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "這個執行環境已不在此工作區中。請切換到其他執行環境以繼續。"
+            "value" : "這個執行環境已不在此團隊中。請切換到其他執行環境以繼續。"
           }
         }
       }
@@ -35622,52 +35530,6 @@
         }
       }
     },
-    "Workspace name" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nombre del espacio de trabajo"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nama workspace"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ワークスペース名"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "워크스페이스 이름"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ชื่อเวิร์กสเปซ"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "工作区名称"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "工作區名稱"
-          }
-        }
-      }
-    },
     "Worst case" : {
       "localizations" : {
         "es" : {
@@ -36037,140 +35899,140 @@
         }
       }
     },
-    "Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a workspace administrator to share a runtime." : {
+    "Your Bots and tasks need a runtime to work. Connect your computer with Nuphos Desktop, or ask a team administrator to share a runtime." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tus Bots y tareas necesitan un entorno de ejecución. Conecta tu ordenador con Nuphos Desktop o pide a un administrador del espacio de trabajo que comparta uno."
+            "value" : "Tus Bots y tareas necesitan un entorno de ejecución. Conecta tu ordenador con Nuphos Desktop o pide a un administrador del equipo que comparta uno."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot dan tugas Anda membutuhkan runtime. Hubungkan komputer dengan Nuphos Desktop, atau minta administrator ruang kerja membagikan runtime."
+            "value" : "Bot dan tugas Anda membutuhkan runtime. Hubungkan komputer dengan Nuphos Desktop, atau minta administrator tim membagikan runtime."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot とタスクにはランタイムが必要です。Nuphos Desktop でコンピュータを接続するか、ワークスペース管理者にランタイムの共有を依頼してください。"
+            "value" : "Bot とタスクにはランタイムが必要です。Nuphos Desktop でコンピュータを接続するか、チーム管理者にランタイムの共有を依頼してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot과 작업에는 런타임이 필요합니다. Nuphos Desktop으로 컴퓨터를 연결하거나 워크스페이스 관리자에게 런타임 공유를 요청하세요."
+            "value" : "Bot과 작업에는 런타임이 필요합니다. Nuphos Desktop으로 컴퓨터를 연결하거나 팀 관리자에게 런타임 공유를 요청하세요."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot และงานต้องใช้รันไทม์ เชื่อมต่อคอมพิวเตอร์ด้วย Nuphos Desktop หรือขอให้ผู้ดูแลเวิร์กสเปซแชร์รันไทม์"
+            "value" : "Bot และงานต้องใช้รันไทม์ เชื่อมต่อคอมพิวเตอร์ด้วย Nuphos Desktop หรือขอให้ผู้ดูแลทีมแชร์รันไทม์"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot 和任务需要运行环境才能工作。请使用 Nuphos Desktop 连接电脑，或请工作区管理员共享运行环境。"
+            "value" : "Bot 和任务需要运行环境才能工作。请使用 Nuphos Desktop 连接电脑，或请团队管理员共享运行环境。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Bot 與任務需要執行環境才能工作。請使用 Nuphos Desktop 連接電腦，或請工作區管理員共用執行環境。"
+            "value" : "Bot 與任務需要執行環境才能工作。請使用 Nuphos Desktop 連接電腦，或請團隊管理員共用執行環境。"
           }
         }
       }
     },
-    "Your Inbox will show requests from your team once you join a workspace." : {
+    "Your Inbox will show requests from your team once you join one." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La bandeja de entrada mostrará las solicitudes de tu equipo cuando te unas a un espacio de trabajo."
+            "value" : "La bandeja de entrada mostrará las solicitudes de tu equipo cuando te unas a un equipo."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Kotak masuk akan menampilkan permintaan tim setelah Anda bergabung dengan ruang kerja."
+            "value" : "Kotak masuk akan menampilkan permintaan tim setelah Anda bergabung dengan tim."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "ワークスペースに参加すると、チームからのリクエストが受信トレイに表示されます。"
+            "value" : "チームに参加すると、チームからのリクエストが受信トレイに表示されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "워크스페이스에 참여하면 받은 편지함에 팀의 요청이 표시됩니다."
+            "value" : "팀에 참여하면 받은 편지함에 팀의 요청이 표시됩니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "กล่องข้อความจะแสดงคำขอจากทีมเมื่อคุณเข้าร่วมเวิร์กสเปซ"
+            "value" : "กล่องข้อความจะแสดงคำขอจากทีมเมื่อคุณเข้าร่วมทีม"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "加入工作区后，收件箱就会显示团队的请求。"
+            "value" : "加入团队后，收件箱就会显示团队的请求。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "加入工作區後，收件匣就會顯示團隊的請求。"
+            "value" : "加入團隊後，收件匣就會顯示團隊的請求。"
           }
         }
       }
     },
-    "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent." : {
+    "Your account or team changed. Cancel this share and share again. Nothing else will be sent." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Tu cuenta o espacio de trabajo cambió. Cancela este envío y vuelve a compartir. No se enviará nada más."
+            "value" : "Tu cuenta o equipo cambió. Cancela este envío y vuelve a compartir. No se enviará nada más."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Akun atau workspace Anda berubah. Batalkan berbagi ini dan bagikan lagi. Tidak ada lagi yang akan dikirim."
+            "value" : "Akun atau tim Anda berubah. Batalkan berbagi ini dan bagikan lagi. Tidak ada lagi yang akan dikirim."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アカウントまたはワークスペースが変更されました。この共有をキャンセルしてもう一度共有してください。これ以上は何も送信されません。"
+            "value" : "アカウントまたはチームが変更されました。この共有をキャンセルしてもう一度共有してください。これ以上は何も送信されません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "계정 또는 워크스페이스가 변경되었습니다. 이 공유를 취소하고 다시 공유하세요. 더 이상 아무것도 보내지 않습니다."
+            "value" : "계정 또는 팀이 변경되었습니다. 이 공유를 취소하고 다시 공유하세요. 더 이상 아무것도 보내지 않습니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "บัญชีหรือเวิร์กสเปซของคุณเปลี่ยนไป ยกเลิกการแชร์นี้แล้วแชร์ใหม่ จะไม่มีการส่งสิ่งอื่นอีก"
+            "value" : "บัญชีหรือทีมของคุณเปลี่ยนไป ยกเลิกการแชร์นี้แล้วแชร์ใหม่ จะไม่มีการส่งสิ่งอื่นอีก"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的账号或工作区已更改。请取消这次分享后重新分享。不会再发送其他内容。"
+            "value" : "你的账号或团队已更改。请取消这次分享后重新分享。不会再发送其他内容。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "你的帳號或工作區已變更。請取消這次分享後重新分享。不會再傳送其他內容。"
+            "value" : "你的帳號或團隊已變更。請取消這次分享後重新分享。不會再傳送其他內容。"
           }
         }
       }
