@@ -25,9 +25,6 @@ export function activityOf(bot: Run | undefined, kids: Run[]): Activity {
   const busy = kids.find((kid) => runtimeTurnActive(kid.runtimeState))
 
   if (busy) return { kind: 'working', run: busy }
-  // Someone else's Bot: its Tasks are not in this viewer's list, only how many run (#4270).
-  if (bot && kids.length === 0 && (bot.conversation.tasks?.running ?? 0) > 0)
-    return { kind: 'working', run: bot }
   // A Bot still in setup says so only while nothing runs: a working Bot shows it works.
   if (
     bot &&

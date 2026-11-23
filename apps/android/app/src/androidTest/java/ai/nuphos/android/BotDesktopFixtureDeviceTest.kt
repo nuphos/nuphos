@@ -54,8 +54,6 @@ class BotDesktopFixtureDeviceTest {
     @Volatile private var nonOwner = false
     /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
     @Volatile private var dispatched = false
-    /** Release notes is someone else's Bot: the viewer lists none of its Tasks, only its row's count (#4278). */
-    @Volatile private var sharedRunning = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -126,8 +124,7 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
-                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":${!sharedRunning},"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"${
-                        if (sharedRunning) ""","tasks":{"running":1,"waiting":1}""" else ""}}""" }}],"hasMore":false}"""
+                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":true,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"}""" }}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
@@ -206,6 +203,7 @@ class BotDesktopFixtureDeviceTest {
         denyBotTask = true
         render("chat-plain", taskNavigation = true)
         compose.waitUntil(5_000) { botReads.get() > 0 && store.session("bot-plain", "Release notes")?.loadError != null }
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
@@ -228,7 +226,7 @@ class BotDesktopFixtureDeviceTest {
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         val before = position()
         assertTrue(before > 5)
-        // The Bot's own Task opens from its details, not the header.
+        // The details card's own entry sits in the details, not in the transcript.
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
@@ -254,12 +252,30 @@ class BotDesktopFixtureDeviceTest {
         capture("7-task-return-scroll-and-draft")
     }
 
+    @Test fun titleBarTaskButtonOpensBotTaskAndReturns() {
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("chat-bot-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task")
+            .assert(hasContentDescription(inst.targetContext.getString(R.string.chat_task_fallback_title)) and hasClickAction())
+        capture("11-title-bar-task-button")
+        compose.onNodeWithTag("chat-bot-task").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Release notes draft: Shared Bot Tasks keep the conversation and working context together.").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task").assertExists()
+    }
+
     @Test fun aBotWithoutADesktopHasNoButton() {
         render("chat-plain")
         // Long enough for the Bot's own read to land.
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
         assertTrue(compose.onAllNodes(button).fetchSemanticsNodes().isEmpty())
+        // Nowhere to open a Task: no Task button either.
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         // Nothing dispatched: nothing under the name.
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertDoesNotExist()
         capture("2-no-desktop")
@@ -288,15 +304,6 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
-    }
-
-    @Test fun aSharedBotSaysItsTasksRunFromItsRow() {
-        sharedRunning = true; nonOwner = true
-        render("chat-plain", listBots = true)
-        compose.waitUntil(8_000) { compose.onAllNodesWithTag("bot-state", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-        // What waits is its owner's to answer, not the viewer's.
-        compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertTextEquals("1 running")
-        capture("8b-shared-bot-state")
     }
 
     @Test fun aBotWithADesktopOpensItFromTheHeader() {

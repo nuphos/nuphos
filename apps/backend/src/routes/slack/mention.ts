@@ -2,10 +2,7 @@ import type { SlackEventEnvelope } from '@/routes/slack/types'
 
 import { getSlackAgentThread, markSlackEvent } from '@/lib/slack/agent-bot'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
-import { postSenderNotice } from '@/routes/slack/shared'
-
-export const NO_BOT_HERE =
-  'No Bot answers in this channel yet. Choose the Bots for it in Nuphos → Settings → Slack.'
+import { NO_BOT_HERE, postSenderNotice } from '@/routes/slack/shared'
 
 /**
  * A mention in a channel that is no external chat (#3702): a channel with Bots

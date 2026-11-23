@@ -11,12 +11,12 @@ import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
-import { noteReplyFailed } from './reply-failed'
+import { noteReplyFailed, usageResetsAtOf } from './reply-failed'
 import { recordFailedFires } from './trigger-failed-runs'
 import { recordFiresRan } from './trigger-missed-runs'
 import { liveTriggerMessages } from './trigger-pending'
 import { readTurnHistory } from './turn-history'
-import { reconnecting } from './turn-offline'
+import { reconnecting, undeliveredLead } from './turn-offline'
 import { turnRunner } from './turn-runner'
 import { keepUndelivered, LOST_TURN, runtimeRestarted } from './undelivered-send'
 import { failureLine, keepAnswersThatWait } from './waiting-answers'
@@ -116,6 +116,7 @@ export async function runTurn(
   pending: PendingUserMessage[],
 ): Promise<string | undefined> {
   let taken = pending
+  let started = false
   let unmarkRead: (() => Promise<void>) | undefined
 
   try {
@@ -125,8 +126,6 @@ export async function runTurn(
     const history = await readTurnHistory(data, pending, source)
 
     if (!history) throw new Error('Target conversation no longer exists.')
-    // BullMQ can redeliver a stalled job: a message a turn already ran must not run
-    // twice. One a refused turn stored and handed back runs again.
     const { messages: fresh, markRead } = await withChannelPosts(
       data.targetSessionId,
       data.userId,
@@ -136,12 +135,13 @@ export async function runTurn(
 
     taken = fresh
     if (!head) return
-    // Read as the turn sees them, so its channel_read goes on from there.
     unmarkRead = await markRead()
     const prior = history.messages
       .filter((message) => !fresh.some((entry) => entry.id === message.messageId))
       .map(persistedMessageToUiMessage)
       .filter((message): message is UIMessage => message !== null)
+
+    started = true
     const outcome = await turnRunner
       .runAgentForTrigger({
         userId: data.userId,
@@ -175,15 +175,15 @@ export async function runTurn(
         const offline = reconnecting(error, head)
         const draining = error instanceof AppError && error.code === 'server_draining'
         const limited = outOfUsageUntilReset(error) && !fresh.some((message) => message.answers)
+        // Only an unbroken run of offline tries counts; out of usage waits for its reset.
+        const offlineSince = offline ? (head.offlineSince ?? new Date().toISOString()) : undefined
+        const requeued = { ...head, offlineSince }
+        const usage = limited && { until: await usageResetsAtOf(target).catch(() => undefined) }
 
         if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
         taken = []
         await unmarkRead?.()
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, {
-          ...head,
-          // Only an unbroken run of offline tries counts toward the grace.
-          offlineSince: offline ? (head.offlineSince ?? new Date().toISOString()) : undefined,
-        })
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, usage)
         // A channel that woke it says why, once per post, however often it retries.
         if (limited)
           for (const channelId of new Set(fresh.flatMap((m) => channelIdOf(m) ?? [])))
@@ -197,7 +197,6 @@ export async function runTurn(
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     await recordFiresRan(fresh)
-    // Not awaited: it waits for the computer to come back, which may be never,
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
@@ -206,7 +205,7 @@ export async function runTurn(
     await reportUndelivered(
       data,
       await keepAnswersThatWait(target, taken, error),
-      `did not run: ${failureLine(error)}`,
+      `${undeliveredLead(source, started, error)}: ${failureLine(error)}`,
       error,
     )
     throw error

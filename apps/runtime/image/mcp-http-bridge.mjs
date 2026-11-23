@@ -88,15 +88,42 @@ export async function relay(line, { url, env, post = postJson, write }) {
     write(body)
     return
   }
-  if (response.status >= 300 || text) {
-    fail(`Nuphos MCP HTTP ${String(response.status)}${text ? `: ${text.slice(0, 500)}` : ''}`)
-  }
+  fail(`Nuphos MCP HTTP ${String(response.status)}${text ? `: ${text.slice(0, 500)}` : ''}`)
+}
+
+// Each request's lifecycle on stderr, structure only (#4521): a call that starts and never
+// ends, or ends without an answer to its id, is visible without the call's content.
+export async function tracedRelay(line, { post = postJson, write, log, ...options }) {
+  const message = parseJson(line)
+  const ids = message === undefined ? [] : requestIds(message)
+  const method = Array.isArray(message) ? 'batch' : message?.method
+  const started = Date.now()
+  let status
+  let bytes
+  let outcome = 'no answer'
+  if (ids.length) log({ event: 'start', ids, method })
+  await relay(line, {
+    ...options,
+    post: async (...args) => {
+      const response = await post(...args)
+      status = response.status
+      bytes = Buffer.byteLength(response.text)
+      return response
+    },
+    write: (answer) => {
+      outcome = answer.error ? 'error' : 'answered'
+      write(answer)
+    },
+  })
+  if (!ids.length) return
+  log({ event: 'end', ids, method, status, bytes, ms: Date.now() - started, outcome })
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const url = new URL(process.argv[2])
   const write = (message) => process.stdout.write(`${JSON.stringify(message)}\n`)
+  const log = (entry) => process.stderr.write(`mcp-http-bridge: ${JSON.stringify(entry)}\n`)
   createInterface({ input: process.stdin }).on('line', (line) => {
-    if (line.trim()) void relay(line, { url, env: process.env, write })
+    if (line.trim()) void tracedRelay(line, { url, env: process.env, write, log })
   })
 }

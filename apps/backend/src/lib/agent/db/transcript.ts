@@ -44,6 +44,7 @@ function conversationShell(data: ConversationTranscriptSync) {
     runtimeId: data.runtimeId,
     runtimeLabel: data.runtimeLabel,
     parentSessionId: data.parentSessionId,
+    webhookId: data.webhookId,
   })
 }
 

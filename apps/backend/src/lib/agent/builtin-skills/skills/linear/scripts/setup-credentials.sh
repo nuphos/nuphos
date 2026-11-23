@@ -30,6 +30,8 @@ binding_enc="$(urlencode "$binding_id")"
 # `personal`: the conversation owner's own Linear account, when this conversation selected it.
 if [ "$binding_id" = personal ]; then
   path="/teams/${team_enc}/personal-credentials/linear/token"
+  # With several connected accounts, LINEAR_CONNECTION_ID names the one for this call.
+  [ -z "${LINEAR_CONNECTION_ID:-}" ] || path="${path}?connectionId=${LINEAR_CONNECTION_ID}"
 else
   path="/teams/${team_enc}/linear-workspaces/${binding_enc}/credentials${3:+?identity=team}"
 fi
@@ -37,7 +39,7 @@ fi
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 
-curl -fsSL \
+status="$(curl -sSL -o "$tmp" -w '%{http_code}' \
   --connect-timeout 10 \
   --max-time 30 \
   --retry 3 \
@@ -45,7 +47,14 @@ curl -fsSL \
   --retry-connrefused \
   -H @<(printf 'Authorization: Bearer %s\n' "${auth_token}") \
   -H "Accept: application/json" \
-  "${base}${path}" > "$tmp"
+  "${base}${path}")"
+
+# Print the body on failure: a 409 personal_credential_account_required lists the accounts.
+if [ "$status" != "200" ]; then
+  echo "Credential fetch failed with HTTP $status:" >&2
+  cat "$tmp" >&2
+  exit 1
+fi
 
 mkdir -p "$HOME/.linear"
 chmod 700 "$HOME/.linear"

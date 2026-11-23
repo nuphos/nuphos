@@ -81,6 +81,49 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('sparse conversation lists', () =
     expect(read).toBeLessThan(10)
   })
 
+  test('the Chats sidebar reads its live rows, not the archived history', async () => {
+    // Live chats are the newest; the archived ones and the trigger runs sit
+    // below them in activity order, where the last page used to walk them all.
+    const team = new ObjectId().toHexString()
+    const other = new ObjectId().toHexString()
+
+    await agentConversations().insertMany(
+      Array.from({ length: 600 }, (_, i) => ({
+        sessionId: `${team}-${String(i)}`,
+        teamId: team,
+        title: 'chat',
+        lastActiveAt: new Date(Date.now() - i * 60_000),
+        createdAt: new Date(Date.now() - i * 60_000),
+        // The viewer's own chats, and chats another member shared with them.
+        ...(i % 2 ? { userId: other, participantIds: [VIEWER] } : { userId: VIEWER }),
+        ...(i >= 20 && i < 400 ? { archivedAt: new Date() } : {}),
+        ...(i >= 400 ? { metadata: { trigger: { id: 'trigger' } } } : {}),
+      })) as never,
+    )
+
+    for (const scope of ['mine', 'shared'] as const) {
+      let listed: { lastActiveAt: Date; archivedAt?: Date }[] = []
+      const read = await documentsRead(async () => {
+        listed = (
+          await getConversations(VIEWER, {
+            teamId: team,
+            scope,
+            archived: 'exclude',
+            sort: 'activity',
+            limit: 100,
+          })
+        ).conversations
+      })
+      const times = listed.map((c) => c.lastActiveAt.getTime())
+
+      expect(listed).toHaveLength(10)
+      expect(listed.every((c) => !c.archivedAt)).toBe(true)
+      expect(times).toEqual(times.toSorted((a, b) => b - a))
+      expect(read).toBeLessThan(20)
+    }
+    await agentConversations().deleteMany({ teamId: team })
+  })
+
   test('channel mentions read only the channels that mention the viewer', async () => {
     let found = -1
     const read = await documentsRead(async () => {

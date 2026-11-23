@@ -106,7 +106,7 @@ test("the banner says only that the Bot has no computer, under an empty chat's i
   )
   const column = view.container.firstElementChild
   const intro = [...(column?.children ?? [])].findIndex((node) =>
-    node.textContent.startsWith('This is your conversation with Ada.'),
+    node.textContent.startsWith('This is where you and Ada get things done.'),
   )
   const banner = column?.lastElementChild
 

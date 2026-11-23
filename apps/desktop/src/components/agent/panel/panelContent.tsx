@@ -79,13 +79,24 @@ export function PanelContent({ c, homePage, conversationPage }: ContentProps) {
         onDragOver={onPanelDragOver}
         onDragLeave={onPanelDragLeave}
         onDrop={onPanelDrop}
-        className="t-page-slide relative flex-1 min-h-0"
-        data-page={showingConversationPage ? '2' : '1'}
+        className="relative flex-1 min-h-0"
       >
-        <section className="t-page flex flex-col min-h-0" data-page-id="1">
+        {/* Both pages stay mounted, keeping their drafts and scroll, and swap at once: a
+            conversation opened from the home page shows as it is, without fading in (#4584). */}
+        <section
+          className={clsx(
+            'absolute inset-0 flex flex-col min-h-0',
+            showingConversationPage && 'invisible',
+          )}
+        >
           {homePage}
         </section>
-        <section className="t-page flex flex-col min-h-0" data-page-id="2">
+        <section
+          className={clsx(
+            'absolute inset-0 flex flex-col min-h-0',
+            !showingConversationPage && 'invisible',
+          )}
+        >
           {conversationPage}
         </section>
         {draggingFiles && <DropOverlay />}

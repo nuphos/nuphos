@@ -10,7 +10,40 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
     var avatar: String? = nil
     /// The tint its face sits on; nil for none.
     var avatarBackground: String? = nil
+    /// Whether it can reply now, as the server works it out; nil from a server without it.
+    var presence: BotPresence? = nil
     var id: String { sessionId }
+}
+
+/// Whether a Bot can reply now (`presence`), read as Desktop and Android read it.
+struct BotPresence: Decodable, Equatable, Sendable {
+    let state: String
+    var reason: String? = nil
+    var resetsAt: String? = nil
+
+    enum Tone { case ready, waiting, down }
+
+    /// Its dot's tone and the word beside it.
+    var tag: (tone: Tone, word: String) {
+        switch (state, reason) {
+        case ("online", _): (.ready, String(localized: "Online"))
+        case ("busy", _): (.ready, String(localized: "Busy"))
+        case (_, "computer_offline"): (.down, String(localized: "Offline"))
+        case (_, "sign_in_required"): (.waiting, String(localized: "Needs sign-in"))
+        case (_, "usage_limit"): (.waiting, String(localized: "Out of usage"))
+        default: (.down, String(localized: "Unavailable"))
+        }
+    }
+
+    /// The line above the composer while an agent's computer is away: a Bot's own
+    /// chat says it as its Task does; a group chat names the agent.
+    static func offlineStrip(_ agents: [ChannelAgent], botId: String?) -> String? {
+        guard let away = agents.first(where: { $0.presence?.state == "offline" && $0.presence?.reason == "computer_offline" })
+        else { return nil }
+        return away.sessionId == botId
+            ? String(localized: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
+            : String(localized: "\(away.title)’s computer is offline.")
+    }
 }
 
 /// The post a reply answers, as the server quoted it when the reply was sent.

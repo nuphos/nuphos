@@ -1,4 +1,4 @@
-import { callJson, callJsonForRenderer, teamQuery } from './http'
+import { callJson, teamQuery } from './http'
 
 export type AgentTriggerType = 'cron' | 'webhook'
 
@@ -47,7 +47,7 @@ export async function listAgentTriggers(
 }
 
 export async function getAgentTrigger(triggerId: string, teamId?: string): Promise<AgentTrigger> {
-  return callJsonForRenderer<AgentTrigger>(
+  return callJson<AgentTrigger>(
     'GET',
     `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
   )
@@ -58,7 +58,7 @@ export async function updateAgentTrigger(
   patch: UpdateAgentTriggerInput,
   teamId?: string,
 ): Promise<AgentTrigger> {
-  return callJsonForRenderer<AgentTrigger>(
+  return callJson<AgentTrigger>(
     'PATCH',
     `/agent/triggers/${encodeURIComponent(triggerId)}${teamQuery(teamId)}`,
     patch,

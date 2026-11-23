@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">에이전트 파일을 새로 고칠 수 없습니다.</string>
     <string name="convtext_attachment_access_unavailable">첨부 파일에 접근할 수 없습니다</string>
-    <string name="convtext_move_wait">현재 응답이 끝난 뒤 런타임을 전환하세요.</string>
+    <string name="convtext_move_wait">전송 중인 메시지나 업로드가 끝난 후 런타임을 전환하세요.</string>
     <string name="convtext_move_choose_runtime">사용 가능한 런타임을 선택하세요.</string>
     <string name="convtext_runtime_status_unavailable">런타임 상태를 확인할 수 없음</string>
     <string name="convtext_attachments_after_run">첨부 파일은 현재 실행이 끝난 뒤 새 메시지로 보내세요.</string>

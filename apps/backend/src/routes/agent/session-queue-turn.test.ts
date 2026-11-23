@@ -31,6 +31,7 @@ import {
 } from './session-queue-turn'
 
 import type { AgentConversation } from '@/lib/agent/db'
+import type { PendingUserMessage } from '@/lib/agent/pending-message-types'
 import type { UIMessage } from 'ai'
 
 const OWNER = '64b5f1c2e4b0a1d2c3e4f5a6'
@@ -363,6 +364,23 @@ test('everyone in the conversation sees the queue; only the sender takes a messa
   expect((await request(`/conversations/${SESSION}/queue/mine`, 'DELETE')).status).toBe(404)
 })
 
+test('the queue says it is held by the usage limit, with the reset only when known', async () => {
+  const head = buildPendingUserMessage({ renderedText: 'later', source: 'app', actorUserId: OWNER })
+  const held = async (usageHold?: PendingUserMessage['usageHold']) => {
+    await clearPendingUserMessages(OWNER, SESSION)
+    await enqueuePendingUserMessage(OWNER, SESSION, { ...head, usageHold })
+    const listed = await request(`/conversations/${SESSION}/queue`)
+
+    return ((await listed.json()) as { held?: unknown }).held
+  }
+  const until = new Date(Date.now() + 3_600_000).toISOString()
+
+  expect(await held()).toBeUndefined()
+  expect(await held({ until })).toEqual({ reason: 'usage_limit', until })
+  expect(await held({})).toEqual({ reason: 'usage_limit' })
+  expect(await held({ until: new Date(0).toISOString() })).toBeUndefined()
+})
+
 // A phone send that lands while an agent.thread turn holds the session waits in
 // the server queue, in order, around agent messages. Admitted on the runtime
 // status alone, the runtime refused it, and it was lost once the app stopped
@@ -484,9 +502,9 @@ test('a message id that could match another message is refused', async () => {
 test('a refused start of a queued message tells the client it waits, not that it was refused', () => {
   const refused = refusal('Responding…')
 
-  expect(queuedRefusal(refused, { id: 'queued' })).toMatchObject({ code: 'message_queued' })
+  expect(queuedRefusal(refused, true)).toMatchObject({ code: 'message_queued' })
   // Nothing was queued: the refusal stands, so the client knows to send again.
-  expect(queuedRefusal(refused, undefined)).toBe(refused)
+  expect(queuedRefusal(refused, false)).toBe(refused)
 })
 
 test('a persisted input from an explicitly refused attempt still reaches the retry handoff', async () => {

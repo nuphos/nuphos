@@ -1,8 +1,11 @@
 // An agent out of usage keeps the queue it cannot run, rather than failing it message by message.
-import { agentLog } from './agent-log.ts'
-import { until } from './processes.ts'
+import { rmSync, writeFileSync } from 'node:fs'
+import { join } from 'node:path'
+
+import { agentEvents, agentLog } from './agent-log.ts'
+import { artifacts, until } from './processes.ts'
 import { client, createTrigger, taskWith } from './trigger-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Trigger } from './trigger-scenarios.ts'
 import type { Scenario } from './ui.ts'
@@ -86,6 +89,38 @@ export const usageQueueScenarios: Scenario[] = [
 
         if (!now.enabled || now.executionAuthorizationError)
           throw new Error(`Out of usage paused the Trigger: ${JSON.stringify(now)}`)
+      }
+    },
+  },
+  {
+    // #4573: a message the usage limit held still said it ran after the turn ahead.
+    name: 'a message the usage limit holds says so in the queue strip',
+    run: async (page, stack) => {
+      const release = join(artifacts, 'release')
+
+      rmSync(release, { force: true })
+      try {
+        await newTask(page)
+        await pickAgent(page, 'E2E fixture agent')
+        await send(page, 'Work until released E2E_WAIT_RELEASE E2E_DELIVERY:usage-ahead')
+        await until('the agent to start the turn ahead', async () =>
+          agentEvents(stack).includes('start E2E_DELIVERY:usage-ahead'),
+        )
+        await send(page, 'Out of usage E2E_USAGE_LIMIT E2E_DELIVERY:usage-held')
+        await page.getByText('Runs after the turn ahead').waitFor()
+        // The turn ahead ends by itself, so the server runs the queued message and keeps it.
+        writeFileSync(release, '')
+        await until('the queued message to be refused for usage', async () =>
+          agentEvents(stack).includes('start E2E_DELIVERY:usage-held'),
+        )
+        await page.getByText(/^Out of usage\. These run when usage resets/).waitFor()
+        await page.screenshot({ path: `${artifacts}/usage-held-queue.png` })
+        if (await page.getByText('Runs after the turn ahead').isVisible())
+          throw new Error('A queue held by the usage limit says it runs after the turn ahead')
+        // Taken back, it stops waiting for an agent that is out of usage.
+        await page.getByRole('button', { name: 'Take back' }).click()
+      } finally {
+        rmSync(release, { force: true })
       }
     },
   },
