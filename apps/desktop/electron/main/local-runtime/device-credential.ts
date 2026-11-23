@@ -96,10 +96,16 @@ export async function credentialRevoked(
   return response?.status === 401
 }
 
-/** Exits for good: the saved credential stays, so a restart fails the same way. */
-export function exitRevoked(): never {
+/**
+ * Exits for good: the saved credential stays, so a restart fails the same way. With `dataDir`,
+ * another host with this computer's identity took over, which a restart would take back, forever
+ * (#4844).
+ */
+export function exitRevoked(dataDir?: string): never {
   console.error(
-    'This computer was disconnected from Nuphos. Join it again with a new token: `nuphos agent --join -`.',
+    dataDir === undefined
+      ? 'This computer was disconnected from Nuphos. Join it again with a new token: `nuphos agent --join -`.'
+      : `Another Nuphos app or computer with this computer's identity took over the local runtime. If this machine is a copy of another one, give it its own /etc/machine-id, remove device-identity.json and device-credential.json from ${dataDir}, and sign in again.`,
   )
   process.exit(EXIT_REVOKED)
 }
