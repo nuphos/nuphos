@@ -515,19 +515,34 @@ describe('decision tool module', () => {
     })
   })
 
-  test('withdraw_user_decision takes the open request off the list', async () => {
+  test('withdraw_user_decision takes an open request this conversation asked, or one about it, off the list', async () => {
     const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
     const result = await tools.withdraw_user_decision!({ label: 'Withdraw', requestId: 'nuphos-1' })
 
     expect(result.structuredContent).toMatchObject({ status: 'withdrawn' })
     expect(conversationUpdates.at(-1)).toEqual([
       {
-        sessionId: 'conv-1',
         userId: 'u1',
         'inputRequests.id': 'nuphos-1',
+        $or: [
+          { sessionId: 'conv-1' },
+          { inputRequests: { $elemMatch: { id: 'nuphos-1', about: 'conv-1' } } },
+        ],
       },
       { $pull: { inputRequests: { id: 'nuphos-1' } } },
     ])
+  })
+
+  test('update_user_decision corrects only a request this conversation asked, never one about it', async () => {
+    const tools = decisionToolModule({ publish: async () => {} }).handlers(ctx)
+    await tools.update_user_decision!({
+      label: 'Correct',
+      requestId: 'nuphos-1',
+      question: 'Approve the new plan?',
+    })
+
+    expect(conversationUpdates.at(-1)?.[0]).toMatchObject({ sessionId: 'conv-1', userId: 'u1' })
+    expect(JSON.stringify(conversationUpdates.at(-1)?.[0])).not.toContain('about')
   })
 
   test('several related questions and a multi-select go out as one card, kept for the Inbox', async () => {
