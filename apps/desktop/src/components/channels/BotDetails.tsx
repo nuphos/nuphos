@@ -9,6 +9,7 @@ import {
   useBotDetailsOpen,
 } from '../../lib/botDetailsPanel'
 import { useChatSummaryDocked } from '../../lib/chatSummaryPanel'
+import { selectInboxQuestion } from '../../views/inbox/inboxSelection'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
@@ -16,15 +17,18 @@ import { useNoRoomBeside } from '../agent/summary/summaryPlacement'
 import { useChatSummaryShortcut } from '../agent/summary/useChatSummaryShortcut'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 import { useAgentSessions } from '../sidebar/agentSessions'
+import { setSidebarMode } from '../sidebar/sidebarModeStore'
 
 import { BotAccessSection } from './BotAccessSection'
 import { botOfChannel } from './botChats'
 import { BotDetailsCard } from './BotDetailsCard'
+import { BotRuntimeSection } from './BotRuntimeSection'
 import { ChatHeaderIcon } from './channelParts'
 
 import type { ChannelAgent, ChannelFace } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
+import type { RuntimeControl } from '../agent/panel/RuntimeSelector'
 
 /** A Bot chat's face and name: one button for the Bot's details beside the chat, as ⌘I is. */
 function BotDetailsToggle({
@@ -104,6 +108,7 @@ export function BotDetailsPanel({
   onOpenLink,
   onEditTrigger,
   credentials,
+  runtime,
 }: {
   teamId: string
   bot: string
@@ -120,6 +125,8 @@ export function BotDetailsPanel({
   onEditTrigger?: (message: string) => void
   /** The Bot's selection, for its Access section; undefined until it loads. */
   credentials: CredentialSelectorControl | undefined
+  /** The owner's control of the Bot's runtime, for its Runtime section. */
+  runtime: RuntimeControl | undefined
 }) {
   const frameRef = useRef<HTMLSpanElement>(null)
   const narrow = useNoRoomBeside(frameRef, useChatSummaryDocked(usePaneId()))
@@ -156,6 +163,13 @@ export function BotDetailsPanel({
         onOpenSession={onOpenSession}
         onEditTrigger={onEditTrigger}
         onOpenRequest={(sessionId) => onOpenSession(sessionId)}
+        // A Bot's questions, its own and its Tasks', are answered in the Inbox, open on the one picked.
+        onSelectRequest={(request) => {
+          // As the Inbox tab and then the question would: the sidebar shows the Inbox list too.
+          setSidebarMode(teamId, 2)
+          selectInboxQuestion(teamId, request.inputRequest.id)
+          onOpenLink?.(`/teams/${teamId}/inbox`)
+        }}
         requests={inputQueue.requests}
         requestsLoaded={inputQueue.loaded}
         requestsFailed={inputQueue.failed}
@@ -163,21 +177,29 @@ export function BotDetailsPanel({
           <BotAccessSection credentials={credentials} bypassControl={bypassControl} owned={owned} />
         }
         lead={
-          <BotDetailsCard
-            teamId={teamId}
-            bot={bot}
-            title={title}
-            agent={agent}
-            runtimeLabel={listed?.runtimeLabel}
-            loading={loading && !listed}
-            owned={owned}
-            onOpenTask={onOpenTask && (() => onOpenTask(bot))}
-            canOpenDesktop={
-              sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !owned }).canOpen ===
-              true
-            }
-            onEdited={onEdited}
-          />
+          <>
+            <BotDetailsCard
+              teamId={teamId}
+              bot={bot}
+              title={title}
+              agent={agent}
+              loading={loading && !listed}
+              owned={owned}
+              onOpenTask={onOpenTask && (() => onOpenTask(bot))}
+              canOpenDesktop={
+                sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !owned }).canOpen ===
+                true
+              }
+              onEdited={onEdited}
+            />
+            <BotRuntimeSection
+              teamId={teamId}
+              bot={bot}
+              runtime={runtime}
+              listed={listed}
+              owned={owned}
+            />
+          </>
         }
       />
     </>

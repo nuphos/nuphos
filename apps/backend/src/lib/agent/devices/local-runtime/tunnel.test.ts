@@ -488,6 +488,33 @@ describe('local runtime tunnel', () => {
     ).not.toHaveProperty('team_ids')
   })
 
+  test('the opened tunnel logs which app holds it', async () => {
+    const lines = await logged('log', async () => {
+      tunnels.push(
+        await attachRuntimeTunnel(
+          owner.userId,
+          owner.deviceId,
+          { send: () => {}, close: () => {} },
+          {
+            bus: createLocalTunnelBus(),
+            presence: createMemoryPresenceStore(),
+            isMember: async () => true,
+            heartbeatMs: 60_000,
+          },
+          'nuphos-desktop/1.2.3',
+        ),
+      )
+    })
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_opened',
+        device_id: owner.deviceId,
+        client: 'nuphos-desktop/1.2.3',
+      }),
+    )
+  })
+
   test('the computer reports why it gave up its last tunnel', async () => {
     const desktop = await connectDesktop(
       createLocalTunnelBus(),
@@ -593,6 +620,47 @@ test('the first frame advertises presence with the status it carries', async () 
   tunnel.receive(JSON.stringify({ t: 'status', status: { agents: {}, localExec: true } }))
   await tick()
   expect((await presence.get('u1', 'd1'))?.status?.localExec).toBe(true)
+})
+
+test('a recovered model catalog is published before the next heartbeat', async () => {
+  const presence = createMemoryPresenceStore()
+  const tunnel = await attachRuntimeTunnel(
+    'u1',
+    'd1',
+    { send() {}, close() {} },
+    { bus: createLocalTunnelBus(), presence, isMember: async () => true, heartbeatMs: 60_000 },
+  )
+
+  tunnels.push(tunnel)
+  const report = (failed: boolean) =>
+    tunnel.receive(
+      JSON.stringify({
+        t: 'status',
+        status: {
+          agents: {
+            codex: {
+              cli: { installed: true, loggedIn: true },
+              models: {
+                models: failed ? [] : [{ id: 'fixture', name: 'Fixture' }],
+                defaultModel: failed ? '' : 'fixture',
+                controls: {},
+                ...(failed ? { failed: true } : {}),
+              },
+            },
+          },
+        },
+      }),
+    )
+
+  report(true)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.failed).toBe(true)
+
+  report(false)
+  await tick()
+  expect((await presence.get('u1', 'd1'))?.status?.agents.codex?.models?.models).toEqual([
+    { id: 'fixture', name: 'Fixture' },
+  ])
 })
 
 test('a model catalog over its bounds costs the catalog, never the presence', async () => {

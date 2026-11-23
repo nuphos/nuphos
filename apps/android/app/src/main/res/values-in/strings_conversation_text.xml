@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">Tidak dapat memuat ulang file agen.</string>
     <string name="convtext_attachment_access_unavailable">Akses lampiran tidak tersedia</string>
-    <string name="convtext_move_wait">Tunggu hingga respons saat ini selesai sebelum mengganti runtime.</string>
+    <string name="convtext_move_wait">Tunggu pesan yang sedang dikirim atau unggahan selesai, lalu ganti runtime.</string>
     <string name="convtext_move_choose_runtime">Pilih runtime yang tersedia.</string>
     <string name="convtext_runtime_status_unavailable">Status runtime tidak tersedia</string>
     <string name="convtext_attachments_after_run">Simpan lampiran untuk pesan baru setelah proses saat ini selesai.</string>
@@ -36,7 +36,6 @@
     <string name="convtext_phase_preparing_tools">Menyiapkan alat…</string>
     <string name="convtext_phase_building_prompt">Menyusun prompt…</string>
     <string name="convtext_phase_recalling_memory">Mengingat memori…</string>
-    <string name="convtext_phase_loading_history">Memuat riwayat…</string>
     <string name="convtext_phase_preparing_model">Menyiapkan model…</string>
     <string name="convtext_phase_connecting">Menghubungkan…</string>
     <string name="convtext_phase_thinking">Berpikir…</string>
@@ -57,9 +56,10 @@
     <string name="convtext_conflict_busy">Tugas ini sedang sibuk dengan balasan lain.</string>
     <string name="convtext_runtime_signed_out">Runtime ini sudah keluar. Masuk dari Nuphos di komputer tempat runtime berjalan, atau ganti ke runtime lain.</string>
     <string name="convtext_runtime_disabled">Runtime tugas ini dinonaktifkan. Ganti ke runtime lain untuk melanjutkan.</string>
-    <string name="convtext_runtime_not_found">Runtime ini tidak lagi tersedia di workspace ini. Ganti ke runtime lain untuk melanjutkan.</string>
+    <string name="convtext_runtime_not_found">Runtime ini tidak lagi tersedia di tim ini. Ganti ke runtime lain untuk melanjutkan.</string>
     <string name="convtext_runtime_offline">Komputer yang menjalankan runtime ini sedang offline. Buka Nuphos di komputer tersebut, atau ganti ke runtime lain.</string>
     <string name="convtext_runtime_paused">%1$s sedang dijeda. Akan berjalan lagi saat Anda mengirim pesan.</string>
+    <string name="convtext_runtime_starting">%1$s sedang dimulai. Akan siap dalam beberapa detik.</string>
     <string name="convtext_ask_owner">Tanya pemilik</string>
     <string name="convtext_ask_admin">Tanya admin</string>
     <string name="convtext_server_status">Nuphos mengembalikan status %1$d.</string>

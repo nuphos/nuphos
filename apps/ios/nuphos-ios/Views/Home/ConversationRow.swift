@@ -44,7 +44,7 @@ struct ConversationRow: View {
                 ProgressView()
                     .controlSize(.small)
                     .tint(Theme.muted)
-                    .accessibilityLabel("Agent is working")
+                    .accessibilityLabel("Running")
             case .background:
                 Circle().fill(Theme.warning).frame(width: 7, height: 7).accessibilityLabel("Background task running")
             case .unread:
@@ -79,7 +79,7 @@ struct ConversationRow: View {
 
 /// Which agent answers in a conversation, as the desktop sidebar's
 /// `RuntimeChatIcon` shows it: the provider's mark for a runtime, a message
-/// glyph for the built-in agent. Unknown providers get a neutral runtime glyph.
+/// glyph for the built-in agent. An unknown provider leaves the space empty.
 /// It sits at the head of the meta line, so
 /// the trailing indicators can come and go without moving it.
 struct RuntimeMark: View {

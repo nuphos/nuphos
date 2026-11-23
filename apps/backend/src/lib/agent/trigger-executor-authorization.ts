@@ -68,6 +68,13 @@ async function markExecutionAuthorizationValid(trigger: AgentTrigger, now: Date)
   )
 }
 
+/** What a Trigger that was just paused instead of run throws. */
+export const TRIGGER_PAUSED = new Set([
+  'trigger_target_session_invalid',
+  'trigger_target_session_archived',
+  'trigger_execution_principal_invalid',
+])
+
 /** A Trigger runs in its Task, as that Task's owner. */
 export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
   const now = new Date()
@@ -80,6 +87,12 @@ export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
 
     await pauseTrigger(trigger, error, now)
     throw new AppError(409, 'trigger_target_session_invalid', error)
+  }
+  if (target.archivedAt) {
+    const error = 'The Task this Trigger belongs to is archived. The Trigger was paused.'
+
+    await pauseTrigger(trigger, error, now)
+    throw new AppError(409, 'trigger_target_session_archived', error)
   }
   if (!(await getTeamMembership(target.userId, target.teamId))) {
     const error =

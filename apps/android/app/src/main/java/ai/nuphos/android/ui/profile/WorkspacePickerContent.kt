@@ -33,7 +33,6 @@ internal fun WorkspacePickerContent(
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.profile_workspace_back)) }
             Text(stringResource(R.string.profile_workspace), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f).testTag("workspace-picker-title"))
-            TextButton(onClick = onBack) { Text(stringResource(R.string.cancel)) }
         }
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 520.dp), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp)) {
             if (teams.isEmpty()) item {

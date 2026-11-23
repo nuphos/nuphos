@@ -50,6 +50,12 @@ export type LocalRuntimeSummary = {
   desktopOpen?: true
   /** The owner's own `claude` sign-in, last reported while away; null when the computer cannot tell. */
   signedIn: boolean | null
+  /** Someone lost access since it was signed in; only a sign-in through Nuphos renews it. */
+  signInEnded?: true
+  /** Why the runtime CLI failed its existing startup probe. */
+  probeError?: string
+  /** Who signed it in through Nuphos, and when, while it is signed in. */
+  signedInBy?: { userId: string; at: string }
   /** Seen signed in at least once; a host's default agent no one used, or a failed sign-in, has none. */
   everSignedIn?: true
   /** Provider usage that computer reported; the backend normalizes it. */

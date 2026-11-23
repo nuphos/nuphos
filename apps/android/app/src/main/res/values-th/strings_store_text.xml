@@ -34,7 +34,7 @@
     <string name="storetext_runtime_admin_required">ต้องมีสิทธิ์ผู้ดูแลระบบ บัญชีของคุณยังคงลงชื่อเข้าใช้อยู่</string>
     <string name="storetext_runtime_unconfirmed">ยืนยันผลลัพธ์ของรันไทม์ไม่ได้ รีเฟรชสถานะที่บันทึกไว้ก่อนดำเนินการต่อ</string>
     <string name="storetext_runtimes_refresh_failed">รีเฟรชรันไทม์ไม่ได้</string>
-    <string name="storetext_runtimes_access_lost">ไม่สามารถเข้าถึงรันไทม์ในเวิร์กสเปซนี้ได้อีกต่อไป</string>
+    <string name="storetext_runtimes_access_lost">ไม่สามารถเข้าถึงรันไทม์ในทีมนี้ได้อีกต่อไป</string>
     <string name="storetext_runtimes_usage_unavailable">ไม่มีข้อมูลการใช้งาน ลองรีเฟรช</string>
     <string name="storetext_runtimes_computers_unavailable">ไม่มีข้อมูลสถานะคอมพิวเตอร์ ลองรีเฟรช</string>
     <string name="storetext_runtime_unknown">รันไทม์ที่ไม่รู้จัก</string>

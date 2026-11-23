@@ -1,3 +1,5 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
+import { withShare } from './binding-access'
 import { call } from './client'
 
 export type CloudflareZone = {
@@ -120,11 +122,12 @@ export type CloudflareOAuthStart = {
 export async function startCloudflareOAuth(
   teamId: string,
   scopes?: string[],
+  share?: BindingShare,
 ): Promise<CloudflareOAuthStart> {
   return call<CloudflareOAuthStart>(
     'POST',
     `/teams/${teamId}/cloudflare-accounts/start-oauth`,
-    scopes && scopes.length > 0 ? { scopes } : {},
+    withShare(scopes && scopes.length > 0 ? { scopes } : {}, share),
     { retry: false },
   )
 }

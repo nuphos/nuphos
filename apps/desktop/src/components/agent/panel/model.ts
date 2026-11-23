@@ -147,6 +147,8 @@ export type Tab = {
   foreign?: boolean
   /** A teammate's conversation this viewer may still move and re-credential. */
   canManage?: boolean
+  /** The server's `canArchive`: a participant archives a teammate's Task for themselves alone. */
+  canArchive?: boolean
   /** A fork the server has not stored yet: its sessionId is client-minted until the first turn. */
   unsaved?: boolean
   /** A message Esc took back while its turn still stops: hidden until the server drops it. */
@@ -171,6 +173,8 @@ export type Tab = {
   // cleanly (no error). Optional so older persisted snapshots keep loading;
   // read with `?? []`.
   queued?: QueuedMessage[]
+  // The server queue waits for the agent's usage to reset, at `until` when known.
+  queueHeld?: { until?: string }
   // Deterministic-failure detector: the last normalized error that latched and
   // how many times in a row it did. Deliberately NOT cleared when a new turn
   // dispatches (a retry into the same broken transcript must escalate, not

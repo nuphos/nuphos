@@ -159,6 +159,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
     var botOnboarding: String?
+    /// A Bot's standing instructions, in full; its owner rewrites them in Bot details (#4084).
+    var instructions: String?
 
     var id: String { sessionId }
 
@@ -235,6 +237,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
+        instructions = try? c.decodeIfPresent(String.self, forKey: .instructions)
     }
 
     init(
@@ -319,17 +322,6 @@ extension Array where Element == SessionResource {
     }
 }
 
-extension Array where Element == AgentConversation {
-    /// A fresh first page over the rows already listed: page one as the
-    /// server returns it, then the later rows it no longer covers. Nothing a
-    /// refresh misses is dropped, so a chat that leaves the list has to be
-    /// removed by whoever took it out.
-    func refreshed(firstPage: [AgentConversation]) -> [AgentConversation] {
-        let ids = Set(firstPage.map(\.sessionId))
-        return firstPage + filter { !ids.contains($0.sessionId) }
-    }
-}
-
 struct AgentConversationsPage: Codable, Sendable {
     let conversations: [AgentConversation]
     /// The page's threads' parents that another page lists, so a thread nests
@@ -380,6 +372,8 @@ struct AgentConversationDetail: Decodable, Sendable {
         var cause: String? = nil
         /// `agent_reply_failed`: when an agent out of usage gets it back.
         var resetsAt: Date? = nil
+        /// `agent_reply_failed`: where the account's holder verifies it, when its provider holds it until they do.
+        var verifyUrl: URL? = nil
     }
 
     let messages: [ChatMessage]
@@ -391,6 +385,8 @@ struct AgentConversationDetail: Decodable, Sendable {
     let canManage: Bool?
     let canArchive: Bool?
     let readOnly: Bool?
+    /// Whether Share is offered: never on a Bot or a Task an agent opened. Nil from an older server.
+    let shareable: Bool?
     let title: String?
     /// The conversation's stored IAM choice (`AgentCredentialAccess`).
     let credentialAccess: JSONValue?
@@ -444,7 +440,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, shareable, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -462,6 +458,7 @@ struct AgentConversationDetail: Decodable, Sendable {
         canManage = try c.decodeIfPresent(Bool.self, forKey: .canManage)
         canArchive = try c.decodeIfPresent(Bool.self, forKey: .canArchive)
         readOnly = try c.decodeIfPresent(Bool.self, forKey: .readOnly)
+        shareable = try? c.decodeIfPresent(Bool.self, forKey: .shareable)
         title = try c.decodeIfPresent(String.self, forKey: .title)
         credentialAccess = try? c.decodeIfPresent(JSONValue.self, forKey: .credentialAccess)
         followsBot = c.contains(.credentialSource)

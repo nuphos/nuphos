@@ -14,7 +14,7 @@ import { queryKeys } from '../../lib/query/keys'
 import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
-import { AgentAddedBy } from './AgentAddedBy'
+import { AgentAddedBy, AgentSignedInBy } from './AgentAddedBy'
 import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
@@ -146,6 +146,9 @@ export function RuntimeInstanceCard({
             </p>
             {instance.local?.addedBy && (
               <AgentAddedBy teamId={teamId} addedBy={instance.local.addedBy} />
+            )}
+            {instance.local?.signedInBy && (
+              <AgentSignedInBy teamId={teamId} signedInBy={instance.local.signedInBy} />
             )}
           </div>
         </div>

@@ -35,18 +35,6 @@ export function buildDiagramMessage(
   return `The user has an architecture diagram open in the desktop app. You can edit it DIRECTLY with the arch_* tools (arch_get_diagram, arch_add_node, arch_add_edge, arch_update_node, arch_update_edge, arch_delete_edge, arch_set_node_style, arch_create_view, arch_delete_view, arch_delete_node, arch_rename_diagram). When the user asks you to draw, build, or update an architecture/system diagram you MUST construct it incrementally with these tools — one node per arch_add_node call, then connect them with arch_add_edge — so the user watches it appear on their canvas. NEVER reply with a Mermaid, DOT, or ASCII diagram; the canvas is the only correct output surface.\n\n${skillInstruction} Then call arch_get_diagram to see existing nodes/views and their ids, and build.`
 }
 
-export const TEAM_SKILL_TOOL_MESSAGE = [
-  '## Team-shared skills',
-  '',
-  'This team has editable shared agent skills (`skill_create`, `skill_upsert`). Use them when the user asks to capture a repeatable playbook for the whole team — deploy checklists, incident runbooks, provider-specific workflows — not for one-off answers or personal notes.',
-  '- Confirm the skill name and what will be stored BEFORE calling `skill_create` or `skill_upsert` — these mutate shared team state visible in the Skills library.',
-  '- `skill_create`: only for a NEW skill directory. Provide name, description, and SKILL.md body; optional `files[]` for scripts/references.',
-  '- `skill_upsert`: update existing files via `{ key: "skills/<name>/...", content }` entries. Use when revising an existing team skill.',
-  '- Never store secrets, API keys, tokens, or private keys in skill files. Reference env vars, Nuphos credentials, or ask the user to configure secrets separately.',
-  '- After saving, the skill appears in the registry on the next turn; use `skill("<name>")` to load the full SKILL.md before relying on it.',
-  '- VIEWER team members cannot write skills; if the user lacks permission, explain that an EDITOR or ADMINISTRATOR must make the change or upgrade their role.',
-].join('\n')
-
 /** The language a turn's user-facing words are in, named at the end of each turn's prompt. */
 export function responseLanguageLine(language: string): string {
   return `Response language: ${language}.`

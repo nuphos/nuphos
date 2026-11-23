@@ -505,3 +505,96 @@ test.each([true, false])(
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
   },
 )
+
+describe('OpenAB permission bridge in an automatic turn nobody is watching', () => {
+  const neverAsked: BridgeDeps = {
+    getSessionBypass: async () => false,
+    registerWait: () => Promise.reject(new Error('an automatic turn asks nobody')),
+    awaitDecision: () => Promise.reject(new Error('an automatic turn waits for nobody')),
+  }
+  const ask = (toolCall: { toolCallId: string; title: string; rawInput?: unknown }) => {
+    const frames: Record<string, unknown>[] = []
+    const tools: Record<string, unknown>[] = []
+    const outcome = handleOpenAbPermissionRequest(
+      {
+        userId: 'owner-1',
+        conversationId: 'conversation-1',
+        request: { ...request, toolCall },
+        emit: (frame) => frames.push(frame),
+        handleTool: (update) => tools.push(update),
+        run: { deadlineAt: 1, channelIds: ['woke-1'], trace: { route: 'agent.resource' } },
+      },
+      neverAsked,
+    )
+
+    return { outcome, frames, tools }
+  }
+
+  test.each([
+    // Claude Code names an MCP tool mcp__<server>__<tool>; reading the channel that woke it.
+    { title: 'mcp__nuphos-tools__channel_read', rawInput: { channelId: 'woke-1' } },
+    // codex-acp names it mcp.<server>.<tool> and wraps its arguments; answering there.
+    {
+      title: 'mcp.nuphos-tools.channel_post',
+      rawInput: {
+        server: 'nuphos-tools',
+        tool: 'channel_post',
+        arguments: { channelId: 'woke-1', text: 'hi' },
+      },
+    },
+  ])('runs $title without asking', async (call) => {
+    const { outcome, frames } = ask({ toolCallId: 'read-1', ...call })
+
+    expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
+    expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(false)
+  })
+
+  test.each([
+    { title: 'Patch MongoDBCommunity', rawInput: { command: 'kubectl patch x' } },
+    { title: 'mcp__nuphos-tools__get_kubeconfig', rawInput: {} },
+    { title: 'mcp__other-server__channel_read', rawInput: { channelId: 'woke-1' } },
+    // Reading another channel, or the owner's memory, could be posted back to this one.
+    { title: 'mcp__nuphos-tools__channel_read', rawInput: { channelId: 'other-2' } },
+    { title: 'mcp__nuphos-tools__memory_get', rawInput: { query: 'q' } },
+    // Posting anywhere but the channel that woke the turn still needs a person.
+    { title: 'mcp__nuphos-tools__channel_post', rawInput: { channelId: 'other-2', text: 'hi' } },
+  ])('fails $title at once, saying how to let it run', async (call) => {
+    const { outcome, frames, tools } = ask({ toolCallId: 'act-1', ...call })
+
+    expect(await outcome).toEqual({ outcome: { outcome: 'cancelled' } })
+    expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(false)
+    const failed = tools.find((update) => update.status === 'failed')
+
+    expect(String(failed?.contentText)).toContain('Full Access')
+    expect(String(failed?.contentText)).not.toContain(PERMISSION_TIMED_OUT_TEXT)
+  })
+
+  test("a sub-Task's request still asks, for a person to answer from the sidebar", async () => {
+    const waits: string[] = []
+    const outcome = await handleOpenAbPermissionRequest(
+      {
+        userId: 'owner-1',
+        conversationId: 'conversation-1',
+        request,
+        emit: () => undefined,
+        handleTool: () => undefined,
+        run: { deadlineAt: 1, trace: { route: 'agent.thread' } },
+      },
+      {
+        getSessionBypass: async () => false,
+        registerWait: async (wait) => {
+          waits.push(wait.ref)
+
+          return { ...wait, waitId: 'wait-1', createdAt: 1 }
+        },
+        awaitDecision: async () => ({
+          timedOut: false as const,
+          decision: { payload: { decision: 'approved' } } as never,
+        }),
+      },
+    )
+
+    expect(waits).toEqual(['tool-dangerous'])
+    expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
+  })
+})

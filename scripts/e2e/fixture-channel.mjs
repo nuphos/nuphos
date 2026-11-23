@@ -16,12 +16,25 @@ function whoAsked(read, marker) {
 }
 
 /** Reads what the wake left with channel_read, logs a page it was shown twice, and answers. */
-export async function answerChannel({ call, log, sessionId, channelId, text }) {
+export async function answerChannel({ call, log, sessionId, channelId, text, ask }) {
+  // The ask-tools post asks before each Nuphos tool, as a runtime out of Full Access does.
+  // Only when it is the newest post: a later turn's wake still carries it.
+  const permit =
+    (text.match(MARKER) ?? []).at(-1) === 'E2E_DELIVERY:ask-tools' &&
+    ((tool, args) => ask({ title: `mcp__nuphos-tools__${tool}`, kind: 'other', rawInput: args }))
+
   const seen = new Set(indexes(text))
   let read = text
   let last = text
 
   log({ sessionId, event: 'channel', detail: channelId })
+  // Read and answer as a runtime that asks first, then try another channel.
+  if (permit) {
+    const read = { label: 'Read the chat', channelId }
+
+    if ((await permit('channel_read', read)) === 'allow')
+      await call(sessionId, 'channel_read', read)
+  }
   // E2E_SLOW keeps this turn busy, so the posts that follow wait for one notice.
   if (text.includes('E2E_SLOW')) await new Promise((resolve) => setTimeout(resolve, 5_000))
   for (let tries = 0; tries < 5 && more(last); tries++) {
@@ -50,16 +63,21 @@ export async function answerChannel({ call, log, sessionId, channelId, text }) {
 
   if (twice)
     await call(sessionId, 'channel_post', { label: 'Ack', channelId, text: `FIRST ${marker}` })
-  // E2E_REPLY_TO answers the post that carries it, by its index, so the answer quotes it.
+  // E2E_REPLY_TO answers the post that carries it, by its index.
   const asked = [...read.matchAll(/"index":\s*(\d+)((?:(?!"index":)[\s\S])*)/g)].find((match) =>
     match[2].includes('E2E_REPLY_TO'),
   )
 
-  await call(sessionId, 'channel_post', {
+  const answer = {
     label: 'Answer',
     channelId,
-    text: `POSTED ${marker}${who}`,
+    text: `POSTED ${marker}${who}${marker === 'E2E_DELIVERY:link-file-bot' ? ' [missing-report.md](/tmp/nuphos-e2e-missing/missing-report.md)' : ''}`,
     ...(asked ? { replyTo: Number(asked[1]) } : {}),
-  })
+  }
+
+  if (!permit || (await permit('channel_post', answer)) === 'allow')
+    await call(sessionId, 'channel_post', answer)
+  if (permit)
+    await permit('channel_post', { label: 'Elsewhere', channelId: 'e2e-other-channel', text: 'x' })
   if (twice) await new Promise((resolve) => setTimeout(resolve, 10_000))
 }

@@ -164,6 +164,8 @@ export function localSignIn(
 
   if (!local || local.signedIn === true) return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
+  // An ended sign-in is renewed only through Nuphos, not by the CLI's own login.
+  if (local.signInEnded) return 'runtime'
 
   return !local.instanceId && isThisComputer(thisComputer, computerOf(local))
     ? instance.provider
@@ -185,4 +187,9 @@ export function newAgentAction(
 
   // Native keyring sign-in is shared; another home does not create another account.
   return provider === 'antigravity' ? null : { create: true }
+}
+
+/** Whose account a computer's agent runs as: whoever signed it in through Nuphos. */
+export function signedInAs(name: string, signerId: string, viewerId: string | undefined): string {
+  return signerId === viewerId ? t('Signed in as you') : t('Signed in as {name}', { name })
 }

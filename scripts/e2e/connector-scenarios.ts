@@ -48,9 +48,11 @@ export const connectorScenarios: Scenario[] = [
         await page.getByRole('button', { name: 'Connectors' }).click()
         const dialog = page.getByRole('dialog', { name: 'Connectors', exact: true })
         const route = page.url()
-        const row = dialog.getByRole('button', { name: 'Add GitHub', exact: true }).locator('..')
 
-        await row.getByText('Connect', { exact: true }).click()
+        await dialog.getByRole('button', { name: 'Add GitHub', exact: true }).click()
+        const service = page.getByRole('dialog', { name: 'GitHub', exact: true })
+
+        await service.getByRole('button', { name: 'Connect', exact: true }).click()
         await until('the personal OAuth URL to open', async () =>
           fixture.evaluate((state) => state.opened.length > 0),
         )
@@ -63,7 +65,7 @@ export const connectorScenarios: Scenario[] = [
         assert.deepEqual(evidence.providerRequests, ['github'])
         assert.deepEqual(evidence.openedUrls, [evidence.expectedUrl])
         assert.equal(page.url(), route)
-        await dialog.waitFor({ state: 'visible' })
+        await service.waitFor({ state: 'visible' })
         assert.equal(
           await page.getByRole('heading', { name: 'Personal Credentials', exact: true }).count(),
           0,
@@ -73,7 +75,7 @@ export const connectorScenarios: Scenario[] = [
           JSON.stringify({ ...evidence, routeBefore: route, routeAfter: page.url() }, null, 2),
         )
         await page.screenshot({ path: `${artifacts}/personal-connect-start.png` })
-        await dialog.getByLabel('Close modal').click()
+        await service.getByLabel('Close modal').click()
       } finally {
         await fixture.evaluate((state) => state.restore())
         await fixture.dispose()
@@ -87,8 +89,24 @@ export const connectorScenarios: Scenario[] = [
     run: async (page, stack) => {
       await page.getByRole('button', { name: 'Connectors' }).click()
       await page.getByLabel('Add Cloudflare').click()
-      await page.getByRole('button', { name: 'Connect with Cloudflare' }).click()
+      const share = page.getByRole('button', { name: 'All members', exact: true })
+      const connect = page.getByRole('button', { name: 'Connect with Cloudflare' })
+      const action = await connect.elementHandle()
+
+      assert.equal(
+        await share.evaluate(
+          (field, button) =>
+            Boolean(field.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING),
+          action,
+        ),
+        true,
+        'the sharing field appears before the authorization action',
+      )
+      await share.click()
+      await page.screenshot({ path: `${artifacts}/cloudflare-connect-sharing.png` })
+      await connect.click()
       await page.getByText('Waiting for browser authorization…').waitFor()
+      assert.deepEqual(stack.cloudflareShare(), { mode: 'team', memberIds: [] })
       await page.screenshot({ path: `${artifacts}/cloudflare-waiting.png` })
       // Cloudflare's redirect, answered in place of it. No deep link reaches the app.
       const query = new URLSearchParams({

@@ -28,6 +28,20 @@ export function reachabilityCopy(
   fixes: BannerFixes,
   onSwitchAgent?: () => void,
 ): BannerCopy {
+  const copy = signedOutOrOfflineCopy(reachability, control, fix, fixes, onSwitchAgent)
+  const problem = control.options?.find((instance) => instance.id === control.value?.id)?.local
+    ?.probeError
+
+  return reachability === 'signIn' && problem ? { text: problem, action: null } : copy
+}
+
+function signedOutOrOfflineCopy(
+  reachability: 'signIn' | 'offline',
+  control: Pick<RuntimeControl, 'value' | 'options' | 'onSettings'>,
+  fix: AgentFix | undefined,
+  fixes: BannerFixes,
+  onSwitchAgent?: () => void,
+): BannerCopy {
   const runFix = fixes.run
   const name = selectedAgentName(control)
   // A new chat has nothing to retry or reconnect yet: it just starts on another agent.
@@ -54,7 +68,7 @@ export function reachabilityCopy(
     }
 
   return {
-    text: t('{name} is signed out. Ask a workspace administrator to reconnect this runtime.', {
+    text: t('{name} is signed out. Ask a team administrator to reconnect this runtime.', {
       name,
     }),
     action: null,

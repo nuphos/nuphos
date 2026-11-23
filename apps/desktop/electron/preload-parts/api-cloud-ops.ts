@@ -132,8 +132,6 @@ export const cloudOpsApi = {
   ) => ipcRenderer.invoke('atlas:grafanaProxy', teamId, instanceId, method, path, body),
   atlasListGithubInstallations: (teamId: string) =>
     ipcRenderer.invoke('atlas:listGithubInstallations', teamId),
-  atlasStartGithubInstall: (teamId: string) =>
-    ipcRenderer.invoke('atlas:startGithubInstall', teamId),
   atlasUnbindGithubInstallation: (teamId: string, installationId: number) =>
     ipcRenderer.invoke('atlas:unbindGithubInstallation', teamId, installationId),
   atlasListGithubRepositories: (teamId: string, installationId: number) =>
@@ -161,19 +159,6 @@ export const cloudOpsApi = {
   ) => ipcRenderer.invoke('atlas:listGithubActionRuns', teamId, installationId, owner, repo, page),
   atlasListGitlabBindings: (teamId: string) =>
     ipcRenderer.invoke('atlas:listGitlabBindings', teamId),
-  atlasStartGitlabOAuth: (
-    teamId: string,
-    hostUrl: string,
-    clientId?: string,
-    clientSecret?: string,
-    scopes?: string[],
-  ) =>
-    ipcRenderer.invoke('atlas:startGitlabOAuth', teamId, hostUrl, clientId, clientSecret, scopes),
-  atlasCancelGitlabOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelGitlabOAuth', teamId),
-  atlasStartCloudflareConnect: (teamId: string, scopes?: string[]) =>
-    ipcRenderer.invoke('atlas:startCloudflareConnect', teamId, scopes),
-  atlasCancelCloudflareConnect: (teamId: string) =>
-    ipcRenderer.invoke('atlas:cancelCloudflareConnect', teamId),
   atlasUnbindGitlab: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindGitlab', teamId, bindingId),
   atlasListGitlabNamespaces: (teamId: string) =>
@@ -192,8 +177,6 @@ export const cloudOpsApi = {
     ipcRenderer.invoke('atlas:listTeamConnectors', teamId),
   atlasListLinearWorkspaces: (teamId: string) =>
     ipcRenderer.invoke('atlas:listLinearWorkspaces', teamId),
-  atlasStartLinearOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startLinearOAuth', teamId),
-  atlasCancelLinearOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelLinearOAuth', teamId),
   atlasUnbindLinear: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindLinear', teamId, bindingId),
   atlasGetLinearIssue: (teamId: string, bindingId: string, identifier: string) =>
@@ -207,19 +190,13 @@ export const cloudOpsApi = {
     cursor?: string,
   ) => ipcRenderer.invoke('atlas:listLinearTeamIssues', teamId, bindingId, linearTeamId, cursor),
   atlasListJiraSites: (teamId: string) => ipcRenderer.invoke('atlas:listJiraSites', teamId),
-  atlasStartJiraOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startJiraOAuth', teamId),
-  atlasCancelJiraOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelJiraOAuth', teamId),
   atlasUnbindJira: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindJira', teamId, bindingId),
   atlasListAsanaAccounts: (teamId: string) => ipcRenderer.invoke('atlas:listAsanaAccounts', teamId),
-  atlasStartAsanaOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startAsanaOAuth', teamId),
-  atlasCancelAsanaOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelAsanaOAuth', teamId),
   atlasUnbindAsana: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindAsana', teamId, bindingId),
   atlasListSentryAccounts: (teamId: string) =>
     ipcRenderer.invoke('atlas:listSentryAccounts', teamId),
-  atlasStartSentryOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startSentryOAuth', teamId),
-  atlasCancelSentryOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelSentryOAuth', teamId),
   atlasUnbindSentry: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindSentry', teamId, bindingId),
   agentStart: (args: {

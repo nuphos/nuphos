@@ -32,7 +32,7 @@ enum LaunchCacheTests {
     private static func keepsTheUserThroughARoundTrip() {
         let cached = LaunchCache.User(
             user: NuphosUser(id: "u1", email: "ada@example.com", name: "Ada", username: "ada", avatarURL: ""),
-            aiConsentVersion: "2026-09-28"
+            aiConsentVersion: "2026-11-23"
         )
         let decoded = try! JSONDecoder().decode(LaunchCache.User.self, from: JSONEncoder().encode(cached))
         precondition(decoded.user == cached.user)

@@ -14,8 +14,6 @@ export type ModelSession = {
   sessionId: string
   teamId: string
   runtimeId?: string
-  /** Why the viewer may see the model but not change it. */
-  lockedHint?: string
 }
 
 export function useSessionConfig(session: ModelSession | undefined, streaming: boolean) {
@@ -76,7 +74,11 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
     open,
     setOpen: (next: boolean) => {
       setOpen(next)
-      if (next) refreshLocalModels(api.localRuntimeRefreshModels, () => void sync.refresh())
+      if (next)
+        refreshLocalModels(
+          () => api.localRuntimeRefreshModels(true),
+          () => void sync.refresh(),
+        )
     },
     select: (selection: SessionConfigSelection) => {
       void sync.select(selection)

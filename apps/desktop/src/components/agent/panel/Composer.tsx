@@ -6,11 +6,12 @@ import { runtimeAllows } from '../../../lib/runtimeExecution'
 import { clearAgentMenuRequest, useAgentMenuRequested } from './agentMenuRequest'
 import { AttachmentChips } from './composerAttachments'
 import { ComposerEditor, ComposerSendControls, ComposerTools } from './composerControls'
+import { ComposerOverlays } from './ComposerOverlays'
 import { BypassControlMenu, ComposerAttachmentMenu } from './composerMenus'
 import { CredentialSelectorButton } from './CredentialSelectorButton'
 import { ModelSelector } from './ModelSelector'
 import { runtimeSendRefusal } from './queuedAutoSend'
-import { AgentStatusBanner, ReadOnlyConversationNotice } from './ReadOnlyNotice'
+import { ReadOnlyConversationNotice } from './ReadOnlyNotice'
 import { runtimeControlSendBlock, shouldSwitchAgent } from './runtimeControlSignOut'
 import { RuntimeSelector } from './RuntimeSelector'
 import { useComposerActions } from './useComposerActions'
@@ -60,6 +61,7 @@ export function Composer({
   promptSuggestion,
   recall,
   agentMenu,
+  aboveStatus,
 }: {
   variant?: 'compact' | 'hero'
   newChat?: boolean // a new chat fixes an unusable agent by picking another
@@ -104,7 +106,7 @@ export function Composer({
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
-}) {
+} & Pick<Parameters<typeof ComposerOverlays>[0], 'aboveStatus'>) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
   // Queued and sent later, not refused, unless it never will be (an outdated runtime): say why.
@@ -120,7 +122,9 @@ export function Composer({
   const [agentMenuOpen, setAgentMenuOpen] = agentMenu ?? ownAgentMenu
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
-    newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
+    newChat || (!runtimeControl?.statusOnly && shouldSwitchAgent(runtimeControl))
+      ? () => setAgentMenuOpen(true)
+      : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,
@@ -138,7 +142,7 @@ export function Composer({
     state.ref,
     state.composingRef,
     state.syncEmpty,
-    modelSession && !modelSession.lockedHint && modelControl.data?.status !== 'unsupported'
+    modelSession && modelControl.data?.status !== 'unsupported'
       ? () => modelControl.setOpen(true)
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
@@ -169,9 +173,7 @@ export function Composer({
       )}
     >
       <div className="relative w-full">
-        {!readOnly && runtimeControl && (
-          <AgentStatusBanner control={runtimeControl} hero={hero} onSwitchAgent={switchAgent} />
-        )}
+        <ComposerOverlays {...{ aboveStatus, readOnly, runtimeControl, hero, switchAgent }} />
         <div
           className={clsx(
             'relative',
@@ -252,7 +254,7 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && !runtimeControl.offlineAgent && (
+              {runtimeControl && !runtimeControl.statusOnly && (
                 <RuntimeSelector
                   {...runtimeControl}
                   menuOpen={agentMenuOpen || agentMenuRequested}
@@ -265,12 +267,7 @@ export function Composer({
               )}
             </ComposerTools>
             {modelSession ? (
-              <ModelSelector
-                control={modelControl}
-                disabled={readOnly || Boolean(modelSession.lockedHint)}
-                disabledHint={modelSession.lockedHint}
-                hero={hero}
-              />
+              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
             ) : (
               newConversationModelControl
             )}

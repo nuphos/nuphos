@@ -40,8 +40,33 @@ class LocalNotifications(
     fun dismiss(target: LocalNotificationTarget) { manager.cancel(TAG, target.hashCode()) }
 
     fun clear(clearPending: Boolean = true) {
-        if (clearPending) pending.clear()
+        if (clearPending) { pending.clear(); clearComputerAlerts() }
         manager.activeNotifications.filter { it.tag == TAG }.forEach { manager.cancel(TAG, it.id) }
+    }
+
+    fun clearComputerAlerts() {
+        manager.activeNotifications.filter { it.tag == COMPUTER_TAG }.forEach { manager.cancel(COMPUTER_TAG, it.id) }
+    }
+
+    fun postComputerAlert(computerId: String, title: String, body: String) {
+        if (computerId.isBlank() || computerId.length > 200 ||
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED ||
+            !manager.areNotificationsEnabled()) return
+        manager.createNotificationChannel(NotificationChannel(
+            COMPUTER_CHANNEL, context.getString(R.string.account_computer_alerts), NotificationManager.IMPORTANCE_DEFAULT,
+        ))
+        if (manager.getNotificationChannel(COMPUTER_CHANNEL).importance == NotificationManager.IMPORTANCE_NONE) return
+        val home = Intent(context, MainActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+        val tap = PendingIntent.getActivity(context, 0, home, PendingIntent.FLAG_IMMUTABLE)
+        manager.notify(COMPUTER_TAG, computerId.hashCode(), NotificationCompat.Builder(context, COMPUTER_CHANNEL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(title.take(200))
+            .setContentText(body.take(200))
+            .setContentIntent(tap)
+            .setAutoCancel(true)
+            .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+            .build())
     }
 
     fun accept(intent: Intent): Boolean {
@@ -94,6 +119,8 @@ class LocalNotifications(
     }
 
     companion object {
+        private const val COMPUTER_TAG = "nuphos-computers"
+        private const val COMPUTER_CHANNEL = "computer_status"
         const val CHANNEL = "conversation_updates"
         const val TAG = "nuphos-local"
         const val ACTION = "ai.nuphos.android.LOCAL_NOTIFICATION"

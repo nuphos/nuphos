@@ -57,9 +57,6 @@ function extractPlanMentions(text: string): { planId: string; teamId: string }[]
 export const UserMessage = memo(
   ({
     message,
-    onApprovePlan,
-    onRejectPlan,
-    canActOnPlans = false,
     onOpenNuphosLink,
     onEdit,
     teamId,
@@ -67,11 +64,6 @@ export const UserMessage = memo(
     message: Message
     /** Lets uploaded images and videos preview inline. */
     teamId?: string
-    onApprovePlan?: (planId: string) => void
-    onRejectPlan?: (planId: string, reason: string, mode: 'revise' | 'delete') => void
-    /** Whether a referenced `proposed` plan can be acted on (not streaming/read-only).
-     *  This is what lets a historical plan be pulled into chat and executed. */
-    canActOnPlans?: boolean
     onOpenNuphosLink?: (href: string, beside?: boolean) => boolean
     /** Re-runs the message with new text, in a fork of the chat. */
     onEdit?: (messageId: string, text: string) => void
@@ -256,21 +248,7 @@ export const UserMessage = memo(
         </div>
         {planMentions.map(({ planId, teamId }) => (
           <div key={planId} className="w-full">
-            <PlanCard
-              planId={planId}
-              teamId={teamId}
-              // A referenced plan can be pulled back into context and run: when
-              // it's still `proposed` (PlanCard gates that internally) and the
-              // tab is idle, Approve / Reject act on it just like a fresh plan.
-              // The backend scopes team plans by team, so any member can run it.
-              canApprove={canActOnPlans}
-              onApprove={onApprovePlan ? () => onApprovePlan(planId) : undefined}
-              onReject={
-                onRejectPlan ? (reason, mode) => onRejectPlan(planId, reason, mode) : undefined
-              }
-              canChat={false}
-              foldable
-            />
+            <PlanCard planId={planId} teamId={teamId} foldable />
           </div>
         ))}
       </div>

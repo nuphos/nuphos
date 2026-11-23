@@ -7,9 +7,11 @@ import Foundation
 enum NewRuntimeTests {
     static func run() {
         offersTheSameProvidersInTheSameOrder()
+        listsANewBoxsRuntimesInAFixedOrder()
         onlyManagersOfARunningComputerMayAdd()
         signsInASignedOutRuntimeInsteadOfAddingASecond()
         namesANewRuntimePastTheOnesAlreadyThere()
+        aBoxThatBringsItsRuntimeIsStarting()
         print("New runtime passed")
     }
 
@@ -21,7 +23,7 @@ enum NewRuntimeTests {
         for provider in NewRuntime.providers {
             let name = RuntimeInstance.Provider.name(provider.rawValue)
             precondition(name != "Unknown runtime" && name != "Runtime", "\(provider.rawValue) has no name")
-            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != "logo-runtime", "\(provider.rawValue) has no mark")
+            precondition(RuntimeInstance.Provider.logo(provider.rawValue) != nil, "\(provider.rawValue) has no mark")
         }
         precondition(NewRuntime.previews == [.dsh, .pi])
     }
@@ -71,6 +73,24 @@ enum NewRuntimeTests {
         precondition(taken.nameTaken("spare") && taken.nameTaken("  Spare  ") && !taken.nameTaken("Spare 2"))
     }
 
+    /// Home says a Box that brings its runtime by itself is getting ready, rather than asking for a
+    /// computer. A host goes online before its runtime is listed (#4839), so a running Box with its
+    /// host up counts; one whose host is down never lists a runtime by itself, so it does not.
+    private static func aBoxThatBringsItsRuntimeIsStarting() {
+        for state in ["creating", "connecting"] {
+            for online in [true, false, nil] as [Bool?] {
+                precondition(device(access: "owner", online: online, box: state).isStarting, "A \(state) Box is starting")
+            }
+        }
+        precondition(device(access: "owner", online: true, box: "running").isStarting, "A running Box whose host is up is starting")
+        precondition(!device(access: "owner", online: false, box: "running").isStarting, "A running Box whose host is down is not starting")
+        precondition(!device(access: "owner", online: nil, box: "running").isStarting, "A running Box nobody saw online is not starting")
+        for state in ["paused", "error"] {
+            precondition(!device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is not starting")
+        }
+        precondition(!device(access: "owner", online: true).isStarting, "A computer is never starting")
+    }
+
     // MARK: - Fixtures
 
     private static func device(access: String?, online: Bool?, box state: String? = nil) -> AgentDevice {
@@ -79,6 +99,15 @@ enum NewRuntimeTests {
         let onlineJSON = online.map { #""online":\#($0 ? "true" : "false"),"# } ?? ""
         return try! JSONDecoder().decode(AgentDevice.self, from: Data(
             #"{"deviceId":"mac","label":"Mac mini",\#(accessJSON)\#(onlineJSON)"metricsStatus":"offline","metrics":null\#(boxJSON)}"#.utf8))
+    }
+
+    private static func listsANewBoxsRuntimesInAFixedOrder() {
+        let first = [signedOut(.grok, "g"), signedOut(.pi, "p")]
+        let later = first + [signedOut(.opencode, "o"), signedOut(.claudeCode, "c")]
+        precondition(NewRuntime.ordered(first).map(\.id) == ["g", "p"])
+        precondition(NewRuntime.ordered(later).map(\.id) == ["c", "g", "o", "p"],
+                     "Runtimes take Desktop's LOCAL_AGENT_PROVIDERS slots, whatever order they join in")
+        precondition(NewRuntime.ordered(later.reversed()).map(\.id) == ["c", "g", "o", "p"])
     }
 
     private static func box(_ agents: [RuntimeInstance]) -> SelectorBox {

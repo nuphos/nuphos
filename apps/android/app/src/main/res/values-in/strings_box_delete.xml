@@ -1,0 +1,6 @@
+<resources>
+    <string name="box_delete">Hapus komputer</string>
+    <string name="box_delete_named">Hapus %1$s?</string>
+    <string name="box_delete_failed">Tidak dapat menghapus komputer</string>
+    <string name="box_delete_body">Ini menghapus komputer, file-nya, dan info masuk runtime-nya secara permanen, serta menghentikan tugas yang berjalan di sana. Riwayat tugas Anda tetap ada di Nuphos.</string>
+</resources>

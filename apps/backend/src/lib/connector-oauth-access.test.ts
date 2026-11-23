@@ -4,7 +4,7 @@ import { ObjectId } from 'mongodb'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useModels } from '@/lib/test/doubles/models'
 
-import { finishConnectorOAuth } from './connector-oauth'
+import { finishConnectorOAuth, stagedGrantAccess } from './connector-oauth'
 
 import type { BindingAccess } from '@/models'
 
@@ -29,10 +29,7 @@ beforeEach(() => {
   staged = []
 })
 
-async function accessFor(input: {
-  share?: { mode: 'team'; memberIds: [] }
-  highPrivilege?: boolean
-}) {
+async function accessFor(input: { share?: { mode: 'team'; memberIds: [] }; provider?: string }) {
   let access: BindingAccess | undefined
 
   await finishConnectorOAuth({
@@ -57,10 +54,12 @@ test('an OAuth-connected binding starts private to the member who connected it',
   expect(await accessFor({})).toMatchObject({ memberAllowList: ['u1'], ownerUserId: 'u1' })
 })
 
-test('it follows the team default and the choice made when starting the flow', async () => {
+test('it stays private unless sharing is chosen when starting the flow', async () => {
   teamDefault = 'team'
-  expect((await accessFor({}))?.memberAllowList).toEqual(['*'])
-  expect((await accessFor({ highPrivilege: true }))?.memberAllowList).toEqual(['u1'])
+  expect((await accessFor({}))?.memberAllowList).toEqual(['u1'])
+  // Cloudflare and Trello stay private whatever the team default.
+  expect((await accessFor({ provider: 'cloudflare' }))?.memberAllowList).toEqual(['u1'])
+  expect((await accessFor({ provider: 'trello' }))?.memberAllowList).toEqual(['u1'])
   teamDefault = 'private'
   expect((await accessFor({ share: { mode: 'team', memberIds: [] } }))?.memberAllowList).toEqual([
     '*',
@@ -78,4 +77,14 @@ test('a deferred grant keeps the decided access for the requester to complete', 
     persist: async () => ({}),
   })
   expect(staged[0]).toMatchObject({ access: { memberAllowList: ['u1'], ownerUserId: 'u1' } })
+})
+
+test('a grant staged before its access was kept stays private whatever the team default', () => {
+  const team = { bindingShareDefault: 'team' as const }
+  const staged = (provider: string) =>
+    stagedGrantAccess({ provider, requesterUserId: 'u1' }, team).memberAllowList
+
+  expect(staged('linear')).toEqual(['u1'])
+  expect(staged('cloudflare')).toEqual(['u1'])
+  expect(staged('trello')).toEqual(['u1'])
 })

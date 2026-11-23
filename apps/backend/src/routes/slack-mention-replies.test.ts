@@ -217,6 +217,7 @@ useTurnRunner({
 })
 
 const { handleAppMention, handleThreadMessage } = await import('./slack')
+const { NO_BOT_HERE } = await import('./slack/shared')
 
 function mentionEnvelope(text: string) {
   return {
@@ -281,64 +282,30 @@ beforeEach(() => {
   statusCalls.length = 0
 })
 
-describe('bare mention', () => {
-  test('registers the thread and posts the hint, so the thread is not a dead end', async () => {
-    await handleAppMention(mentionEnvelope(`<@${BOT_USER}>`))
+describe('a mention in a channel with no Bots', () => {
+  test('tells only the sender that no Bot answers here, and runs nothing', async () => {
+    await handleAppMention(mentionEnvelope(`<@${BOT_USER}> check prod`))
 
-    expect(threadUpserts).toHaveLength(1)
     expect(agentRuns).toHaveLength(0)
-    expect(posted).toHaveLength(1)
-    expect(posted[0]!.text).toContain('What would you like Nuphos to look into?')
-    expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
-
-    // The next mention in the hint thread runs a turn in the same conversation.
-    await handleAppMention(threadMentionEnvelope(`<@${BOT_USER}> which team are you bound to?`))
-    expect(agentRuns).toHaveLength(1)
-    expect(agentRuns[0]!.firstMessage).toBe('which team are you bound to?')
-    expect(agentRuns[0]!.teamId).toBe(TEAM)
-  })
-
-  test('in an unlinked channel posts the channel-link prompt instead of the hint', async () => {
-    state.channelMapping = null
-
-    await handleAppMention(mentionEnvelope(`<@${BOT_USER}>`))
-
-    expect(threadUpserts).toHaveLength(0)
-    expect(posted).toHaveLength(1)
-    expect(posted[0]!.text).toContain("isn't linked to Nuphos yet")
-    expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
-  })
-
-  test('from an unlinked Slack user shows the account-link prompt to that user only', async () => {
-    state.userMapping = null
-    state.userEmail = 'stranger@example.com'
-
-    await handleAppMention(mentionEnvelope(`<@${BOT_USER}>`))
-
     expect(threadUpserts).toHaveLength(0)
     expect(posted).toHaveLength(0)
     expect(ephemerals).toEqual([
-      expect.objectContaining({
-        user: SLACK_USER,
-        // A top-level mention: the notice sits beside it, not in a new thread.
-        threadTs: undefined,
-        text: expect.stringContaining("doesn't match any Nuphos user"),
-      }),
+      expect.objectContaining({ user: SLACK_USER, threadTs: undefined, text: NO_BOT_HERE }),
     ])
     expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
+  })
+
+  test('in a notification thread is left to the reply handler', async () => {
+    state.thread = makeThread({ origin: 'agent_notification' })
+
+    await handleAppMention(threadMentionEnvelope(`<@${BOT_USER}> status?`))
+
+    expect(ephemerals).toHaveLength(0)
+    expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'ignored' }])
   })
 })
 
 describe('thread replies never fail silently', () => {
-  test('mention with text runs a turn', async () => {
-    await handleAppMention(mentionEnvelope(`<@${BOT_USER}> check prod`))
-
-    expect(agentRuns).toHaveLength(1)
-    expect(agentRuns[0]!.firstMessage).toBe('check prod')
-    expect(claimActors).toEqual([NUPHOS_USER])
-    expect(eventMarks).toEqual([{ eventId: 'Ev-mention', status: 'completed' }])
-  })
-
   test('a teammate message arriving during finalization starts the successor turn', async () => {
     state.thread = makeThread({ origin: 'agent_notification' })
     state.userMapping = { ...makeUserMapping(), nuphosUserId: OTHER_NUPHOS_USER }
@@ -379,30 +346,6 @@ describe('thread replies never fail silently', () => {
       run.releaseOwnership()
       liveRuns.delete(run.key)
     }
-  })
-
-  test('reply in a thread whose channel was unlinked explains instead of ignoring', async () => {
-    state.thread = makeThread()
-    state.channelMapping = null
-
-    await handleThreadMessage(threadReplyEnvelope('status?'))
-
-    expect(agentRuns).toHaveLength(0)
-    expect(posted).toHaveLength(1)
-    expect(posted[0]!.text).toContain('no longer linked to Nuphos')
-    expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'completed' }])
-  })
-
-  test('reply in a thread whose channel moved to another team explains instead of ignoring', async () => {
-    state.thread = makeThread()
-    state.channelMapping = makeMapping({ teamId: 'someOtherTeam' })
-
-    await handleThreadMessage(threadReplyEnvelope('status?'))
-
-    expect(agentRuns).toHaveLength(0)
-    expect(posted).toHaveLength(1)
-    expect(posted[0]!.text).toContain('linked to a different Nuphos team')
-    expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'completed' }])
   })
 
   test('notification-thread reply with neither installation nor grant explains instead of ignoring', async () => {
@@ -529,17 +472,20 @@ describe('an unbound thread under a message the bot posted', () => {
     return { ...envelope, event: { ...envelope.event, parent_user_id: BOT_USER } }
   }
 
-  test('explains how to reach the agent instead of dropping the reply', async () => {
+  test('points to choosing a Bot for the channel instead of dropping the reply', async () => {
     state.thread = null
 
     await handleThreadMessage(replyUnderBotRoot('why is 2.5TB over budget?'))
 
+    // A mention here only gets NO_BOT_HERE back, so the notice must not
+    // promise that mentioning the app picks the question up.
     expect(posted).toEqual([
       expect.objectContaining({
         threadTs: '100.1',
-        text: expect.stringContaining('Mention me'),
+        text: expect.stringContaining(NO_BOT_HERE),
       }),
     ])
+    expect(posted[0]?.text).not.toContain('Mention me')
     expect(eventMarks).toEqual([{ eventId: 'Ev-reply', status: 'completed' }])
     expect(agentRuns).toEqual([])
   })
@@ -606,36 +552,5 @@ describe('a thread forked off a proactive post', () => {
 
     expect(agentRuns).toHaveLength(1)
     expect(agentRuns[0]!.renderedTurn).not.toContain(REPORT)
-  })
-})
-
-// A mention in a thread the agent already follows must carry what teammates
-// said there without mentioning it — otherwise "can you see what Tony said
-// above?" is answered from half the conversation.
-describe('a mention in a thread the agent already follows', () => {
-  test('carries the replies posted since the agent last spoke', async () => {
-    state.thread = makeThread({
-      recentMessages: [
-        { ts: '100.1', authorName: 'Yuan', text: 'how many boxes are running?' },
-        { ts: '100.2', authorName: 'Nuphos', text: '8 boxes are running', fromBot: true },
-        { ts: '100.3', authorName: 'Tony', text: 'the oldest one is mine' },
-        { ts: '100.4', authorName: 'Devin', text: 'mine is the 8c16g one' },
-        { ts: '100.5', authorName: 'Yuan', text: 'can you see what Tony and Devin said?' },
-      ],
-    })
-
-    await handleAppMention(
-      threadMentionEnvelope(`<@${BOT_USER}> can you see what Tony and Devin said?`),
-    )
-
-    expect(agentRuns).toHaveLength(1)
-    const turn = agentRuns[0]!.renderedTurn
-
-    expect(turn).toContain('Tony: the oldest one is mine')
-    expect(turn).toContain('Devin: mine is the 8c16g one')
-    // Already answered before the agent's last reply.
-    expect(turn).not.toContain('how many boxes are running?')
-    // The mention itself is delivered on its own, not repeated as missed.
-    expect(turn).not.toContain('Yuan: can you see')
   })
 })

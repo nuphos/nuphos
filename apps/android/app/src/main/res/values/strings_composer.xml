@@ -1,7 +1,7 @@
 <resources>
     <!-- ChatComposer -->
     <string name="composer_draft_save_failed">Could not save this draft. Free storage and try again.</string>
-    <string name="composer_voice_unavailable">Choose a workspace and confirm your AI sharing choice to use voice input.</string>
+    <string name="composer_voice_unavailable">Choose a team and confirm your AI sharing choice to use voice input.</string>
     <string name="composer_voice_start_failed">Could not start voice input. Check microphone permission and try again.</string>
     <string name="composer_voice_failed">Voice input failed</string>
     <string name="composer_add_to_draft">Add to draft</string>
@@ -68,7 +68,7 @@
     <string name="composer_switch_runtime_failed">Could not switch runtimes. Refresh and try again.</string>
     <string name="composer_switching_runtime">Switching runtime…</string>
     <string name="composer_runtime_view_only">You can view this task\'s runtime, but cannot move it.</string>
-    <string name="composer_runtime_wait">Wait for the current response or pending message to finish before switching runtimes.</string>
+    <string name="composer_runtime_wait">Wait for the message being sent or the upload to finish, then switch runtimes.</string>
     <string name="composer_loading_runtimes">Loading runtimes…</string>
     <string name="composer_no_runtimes">No available runtimes.</string>
     <string name="composer_no_runtimes_body">Open Nuphos on your computer to add a Box or connect your own computer.</string>
@@ -88,7 +88,7 @@
 
     <!-- IncomingShareSheet -->
     <string name="composer_share_open_failed">Could not open this draft. Your share has not been sent.</string>
-    <string name="composer_share_no_workspace">Open a workspace in Account to receive this share. Nothing has been sent.</string>
+    <string name="composer_share_no_workspace">Open a team in Account to receive this share. Nothing has been sent.</string>
     <string name="composer_preparing_draft">Preparing draft</string>
     <string name="composer_open_draft_failed">Could not open draft</string>
     <string name="composer_preparing_share">Preparing shared content…</string>

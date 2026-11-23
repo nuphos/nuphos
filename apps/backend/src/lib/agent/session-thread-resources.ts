@@ -1,6 +1,6 @@
 import { discordAgentThreads } from '@/lib/discord/store'
 import { AppError } from '@/lib/errors'
-import { slackAgentThreads } from '@/lib/slack/agent-bot/collections'
+import { LIVE_SLACK_THREAD, slackAgentThreads } from '@/lib/slack/agent-bot/collections'
 
 import type { AgentConversation } from './db'
 import type { DiscordAgentThread } from '@/lib/discord/store'
@@ -86,9 +86,10 @@ export async function sessionThreadResources(
     sessions.map((session) => [session.sessionId, session.firstMessage]),
   )
   const filter = { sessionId: { $in: [...firstMessages.keys()] } }
+  const slackFilter = { ...filter, ...LIVE_SLACK_THREAD }
   const [slack, discord] = await Promise.all([
     slackAgentThreads()
-      .find<SlackThreadRef>(filter, {
+      .find<SlackThreadRef>(slackFilter, {
         projection: {
           _id: 0,
           sessionId: 1,

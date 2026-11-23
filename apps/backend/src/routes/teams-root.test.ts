@@ -84,13 +84,13 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 10))
 
 const { registerTeamsRootRoutes } = await import('@/routes/teams/root')
 
-function app() {
+function app(email = EMAIL) {
   const outer = new Hono<{ Variables: AuthVariables }>()
 
   outer.onError(errorHandler)
   outer.use('*', async (c, next) => {
     c.set('userId', USER)
-    c.set('userEmail', EMAIL)
+    c.set('userEmail', email)
     await next()
   })
   registerTeamsRootRoutes(outer)
@@ -193,5 +193,18 @@ describe('POST /teams starts the free Box of a first team', () => {
 
     expect((await createTeam()).status).toBe(201)
     expect(performance.now() - started).toBeLessThan(500)
+  })
+})
+
+describe('GET /teams', () => {
+  test('says whether the viewer’s email domain is a public provider', async () => {
+    for (const [email, isPublic] of [
+      ['bryan@gmail.com', true],
+      [EMAIL, false],
+    ] as const) {
+      const { teams } = (await (await app(email).request('/')).json()) as { teams: TeamBody[] }
+
+      expect(teams[0]!.viewerEmailDomainPublic).toBe(isPublic)
+    }
   })
 })

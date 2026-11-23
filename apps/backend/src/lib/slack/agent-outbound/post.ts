@@ -18,11 +18,7 @@ export function createSlackOutboundPost(setup: {
   const budget = createSlackPostBudget()
 
   return async (input) => {
-    // The fork owns the thread, so binding this conversation to the same root
-    // would be a second claim on it. replyThread wins — bindConversation
-    // defaults to true and the model should not have to turn it off.
     const forkThread = input.replyThread
-    const bindCurrentConversation = input.bindConversation && !forkThread
     const rejectedEarly = budget.beginCall()
 
     if (rejectedEarly) return rejectedEarly
@@ -66,16 +62,6 @@ export function createSlackOutboundPost(setup: {
 
       const text = input.text.trim()
 
-      if (bindCurrentConversation) {
-        const existing = await dependencies.getThreadBySessionId(args.conversationId)
-
-        if (existing) {
-          return rejectBeforeDelivery(
-            `This conversation is already bound to Slack channel ${existing.slackChannelId}. Do not post another replyable root message.`,
-          )
-        }
-      }
-
       if (!commitAttempt()) return budget.overBudget()
       const response = await dependencies.postMessage({
         token: sendToken,
@@ -94,7 +80,6 @@ export function createSlackOutboundPost(setup: {
         dependencies,
         userId: args.userId,
         teamId: args.teamId!,
-        conversationId: args.conversationId,
         destinationType: input.destination.type,
         label,
         text,
@@ -104,7 +89,6 @@ export function createSlackOutboundPost(setup: {
         responseChannel,
         messageTs,
         selfMapping,
-        bindCurrentConversation,
         forkThread,
       })
     } catch (err) {

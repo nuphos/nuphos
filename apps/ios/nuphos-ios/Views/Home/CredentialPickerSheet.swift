@@ -119,7 +119,7 @@ struct ComposerControls: View {
 
         if let session, !session.isNew, session.isNativeRuntime, session.sessionConfig?.status != .unsupported {
             Button { showModel = true } label: {
-                ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: modelTitle(session), isActive: false)
+                ComposerChip(systemImage: session.sessionConfig?.isFast == true ? "bolt.fill" : "cpu", title: session.modelTitle, isActive: false)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Model settings")
@@ -184,13 +184,13 @@ struct ComposerControls: View {
     @ViewBuilder
     private var runtimeChip: some View {
         if let session, !session.isNew {
-            if let switchRuntime, let name = runtimeName(session) {
+            if let switchRuntime {
                 Button(action: switchRuntime) {
-                    ComposerChip(logo: RuntimeInstance.Provider.logo(session.agentRuntime), title: name, isActive: true)
+                    ComposerChip(logo: RuntimeInstance.Provider.logo(session.agentRuntime), title: session.runtimeName(in: store), isActive: true)
                 }
                 .buttonStyle(.plain)
                 .disabled(session.isStreaming)
-                .accessibilityLabel("Switch runtime, \(name)")
+                .accessibilityLabel("Switch runtime, \(session.runtimeName(in: store))")
                 .task { await store.loadRuntimes() }
             }
         } else {
@@ -213,20 +213,6 @@ struct ComposerControls: View {
             return store.runtimesLoaded ? String(localized: "Runtime") : String(localized: "Runtime…")
         }
         return SelectorBox.agentName(runtime)
-    }
-
-    /// The runtime's short name, as Desktop's selector shows it: a computer's
-    /// runtime goes by its own name or its provider's, never "<name> in <computer>".
-    private func runtimeName(_ session: ChatSession) -> String? {
-        if let runtime = session.runtime ?? store.runtimes.first(where: { $0.id == session.runtimeId }) {
-            return SelectorBox.agentName(runtime)
-        }
-        // Gone from the list: the chip still opens the picker, which is how the conversation moves.
-        return session.runtimeDisplayName ?? String(localized: "Choose runtime")
-    }
-
-    private func modelTitle(_ session: ChatSession) -> String {
-        session.sessionConfig?.model.map { $0.currentLabel } ?? session.initialModelTitle ?? session.sessionConfig?.modelTitle ?? "Model"
     }
 
     private var deviceTitle: String {
@@ -281,5 +267,21 @@ struct PermissionModeSheet: View {
         .tint(Theme.heading)
         .presentationDetents([.height(260)])
         .presentationDragIndicator(.visible)
+    }
+}
+
+extension ChatSession {
+    /// The runtime's short name, as Desktop's selector shows it: a computer's
+    /// runtime goes by its own name or its provider's, never "<name> in <computer>".
+    func runtimeName(in store: AgentStore) -> String {
+        if let runtime = runtime ?? store.runtimes.first(where: { $0.id == runtimeId }) {
+            return SelectorBox.agentName(runtime)
+        }
+        // Gone from the list: the picker is still how the conversation moves.
+        return runtimeDisplayName ?? String(localized: "Choose runtime")
+    }
+
+    var modelTitle: String {
+        sessionConfig?.model.map { $0.currentLabel } ?? initialModelTitle ?? sessionConfig?.modelTitle ?? "Model"
     }
 }

@@ -36,6 +36,7 @@ All paths start with `/teams/{teamId}/agent-triggers`.
 | Update | `PATCH /{triggerId}` |
 | Delete | `DELETE /{triggerId}` |
 | Test once | `POST /{triggerId}/test-fire` with optional `{ "payload": {...} }` |
+| New webhook secret | `POST /{triggerId}/rotate-secret` |
 
 Create body:
 
@@ -55,13 +56,36 @@ the only copy of `webhookSecret`, the external `webhookUrl`, and
 `secretHeader`. Never print or persist the secret in a skill, log, or final
 answer.
 
+`minIntervalSeconds` limits how often a webhook Trigger wakes its Task. A
+delivery inside the window is not rejected: the endpoint answers `202`
+(`{ "ok": true, "held": true, "firesInSeconds": N }`), keeps up to 20 held
+deliveries, and when the window ends fires once. A single held delivery reaches
+the template as `payload`; several arrive as
+`payload = { coalesced: N, deliveries: [...] }`, oldest first. Without a queue
+to fire from, the endpoint answers `429` with `Retry-After`.
+
+PATCH accepts `name`, `messageTemplate`, `enabled`, `cronExpression`,
+`timeZone`, `minIntervalSeconds` and `expiresAt`. A new `expiresAt` must be a
+future ISO timestamp; `null` removes the expiry. A Trigger the hourly sweep
+already turned off stays off until you also send `{ "enabled": true }`.
+
+A webhook trigger can also carry `payloadFilters`, so deliveries you do not care
+about start no turn. Each rule is `{ "path": "action", "in": [...] }` and/or
+`"notIn": [...]`; `path` is a dot path into the JSON payload and values are
+compared as exact strings. A delivery fires only if every rule holds, otherwise
+the endpoint answers `200 {"ok":true,"skipped":true,"reason":"filtered"}`. A
+missing field fails `in` and passes `notIn`. `PATCH` with `[]` removes the rules.
+For GitHub pull requests, `{ "path": "action", "in": ["opened", "synchronize",
+"ready_for_review", "review_requested"] }` skips labeled, edited and closed.
+
 `targetSessionId` is required on every create. It names the Task the trigger
 belongs to, for good:
 
 - The Task must be in the same team and owned by you. The trigger runs as the
   Task's owner, and only that owner can change or delete it.
 - If the Task is mid-turn, the fire queues and runs when that turn ends.
-  A fire into an archived Task restores it.
+  Archiving a Task deletes its Triggers. A fire that still reaches an archived
+  Task is refused and its Trigger is paused; it stays paused after a restore.
 - The session id is the last segment of its `/agent/<sessionId>` link; for the
   current conversation use `$NUPHOS_SESSION_ID`.
 - A trigger cannot be unbound. To report to Slack, say the exact destination
@@ -77,7 +101,10 @@ contact point, an SNS subscription, a CI job) is configured and owned in that
 provider; Nuphos does not track it, and deleting the trigger leaves it in
 place. Point the sender at `webhookUrl` with the secret in the
 `X-Webhook-Secret` header, or as `?secret=` on the URL when the sender cannot
-set headers. AWS SNS subscriptions to that URL are confirmed automatically and
+set headers. If the secret leaks, `rotate-secret` returns a new `webhookSecret`
+with `webhookUrl` and `secretHeader`, shown only in that response. The old secret
+is refused with 401 from the next delivery, so update the sender right away.
+AWS SNS subscriptions to that URL are confirmed automatically and
 CloudWatch alarm notifications arrive normalized. For monitoring alerts, load
 `monitoring-workflow` for wiring and rollback rules.
 
@@ -94,5 +121,5 @@ CloudWatch alarm notifications arrive normalized. For monitoring alerts, load
   provider if the user wants that; Nuphos does not do it.
 - `test-fire` only proves the message was queued for the bound conversation,
   not that the run completed successfully.
-- Only the owner of the trigger's Task can update, delete or test-fire it.
+- Only the owner of the trigger's Task can update, delete, test-fire it or rotate its secret.
   Creating one needs a team role above viewer.

@@ -33,7 +33,7 @@ export function runtimeUpdatePresentation(
     if (managed)
       detail = canUpdate
         ? t('Updates wait for Bots and tasks to finish replying.')
-        : t('Ask a workspace administrator to update this runtime.')
+        : t('Ask a team administrator to update this runtime.')
   }
   let button = t('Update')
 

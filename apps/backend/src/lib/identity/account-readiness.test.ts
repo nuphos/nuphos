@@ -320,6 +320,22 @@ test('iOS AI requests require current saved consent, including after withdrawal'
   ).toBe(401)
 })
 
+// Shipped iOS 0.50.0 and Android 1.21.0 send 2026-09-28; any other value locks them out.
+test('the consent version shipped clients send passes auth and can be saved', async () => {
+  const app = new Hono().onError(errorHandler)
+
+  app.use('*', requireAuth)
+  app.post('/agent/chat', (c) => c.json({ ran: true }))
+  const headers = {
+    Authorization: 'Bearer valid-session',
+    'x-nuphos-ai-consent-version': '2026-09-28',
+  }
+
+  await saveAIConsent(String(USER), { version: '2026-09-28', accepted: true })
+  expect(await readAIConsent(String(USER))).toEqual({ version: '2026-09-28', accepted: true })
+  expect((await app.request('/agent/chat', { method: 'POST', headers })).status).toBe(200)
+})
+
 test('password reset revokes earlier sessions and run tokens', async () => {
   const earlier = Date.now() - 60_000
   const clock = spyOn(Date, 'now').mockReturnValue(earlier)
@@ -431,7 +447,7 @@ test('deletion can use the account password without access to the email inbox', 
     requestAccountDeletion(user, { confirmation: 'DELETE', password: wrongPassword }),
   ).rejects.toMatchObject({ code: 'invalid_credentials' })
   expect((await getDeletionRequest(user.id)).request).toBeNull()
-  docs('personal_credentials').push({ userId: user.id, provider: 'github' })
+  docs('personal_credentials').push({ _id: new ObjectId(), userId: user.id, provider: 'github' })
   const result = await requestAccountDeletion(user, {
     confirmation: 'DELETE',
     password: testPassword,

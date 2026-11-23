@@ -73,11 +73,13 @@ translations in the pull request; a follow-up commit on the same branch fills
 them before it merges.
 
 Legal and consent statements (the sign-in terms, the AI data sharing consent,
-account deletion and the voice transcription notice) stay in English in every
-language until a native speaker confirms the translation (#3031). They are
-`translatable="false"`, and `LegalTextTest` fails if one is translated before
-review. To ship a reviewed language set, add the translations, remove
-`translatable="false"` and list the key in the test's `REVIEWED`.
+account deletion and the voice transcription notice) are translated only into
+languages a native speaker has confirmed (#3031), currently `zh-rTW` and
+`zh-rCN`; the other languages show English. They carry
+`tools:ignore="MissingTranslation"`, and `LegalTextTest` fails if one is
+translated in a language outside its `REVIEWED` set or missing from one inside
+it. To add a reviewed language, translate every key and add the locale to
+`REVIEWED`.
 
 ## Service support
 

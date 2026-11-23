@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { ChevronDown, Loader2 } from 'lucide-react'
+import { ChevronDown, Cpu, Loader2 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { t } from '../../../i18n'
@@ -8,6 +8,7 @@ import { effortStops } from '../../../lib/effortStops'
 import { Kbd } from '../../ui/kbd'
 import { Menu, MenuPanel, MenuTrigger } from '../../ui/menu'
 import { Tooltip } from '../../ui/tooltip'
+import { SummaryMenuNote, SummaryMenuRow } from '../summary/ChatSummaryRows'
 
 import { ModelChipLabel } from './ModelChipLabel'
 import { ModelEffortPanel } from './ModelEffortPanel'
@@ -41,6 +42,7 @@ export function ModelSelector({
   disabled,
   hero = false,
   disabledHint,
+  asRow,
 }: {
   control: ModelControl
   disabled: boolean
@@ -48,6 +50,8 @@ export function ModelSelector({
   hero?: boolean
   /** Why the picker is disabled, when it is not just waiting for the task. */
   disabledHint?: string
+  /** A row of a details panel, opening the menu under it, instead of a composer chip. */
+  asRow?: boolean
 }) {
   const { data, loading, slow, saving, error, writeError } = control
   // A refused change reports its own reason; a stalled connection keeps its note.
@@ -137,9 +141,22 @@ export function ModelSelector({
     onRetry: error || status === 'offline' ? control.refresh : undefined,
     retrying: loading || saving,
   }
-  // Closing returns to the message box, so typing carries on.
-  const finalFocus = () =>
-    composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true
+  // Closing returns to the message box, so typing carries on, unless the person
+  // already moved on: the runtime list opened while this menu closed lost focus
+  // to it and closed again (#3862).
+  const finalFocus = () => {
+    const focused = document.activeElement
+    // The chip counts as the menu's own: pressing it to close still returns to typing.
+    const movedOn =
+      focused !== null &&
+      focused !== document.body &&
+      !menuRef.current?.contains(focused) &&
+      !chipRef.current?.contains(focused)
+
+    return movedOn
+      ? false
+      : (composerOf(chipRef.current)?.querySelector<HTMLElement>('[aria-label="Message"]') ?? true)
+  }
 
   // Shown once the task's own settings are known, never a placeholder before them.
   if (loading && !slow && !error && !data) return null
@@ -168,41 +185,58 @@ export function ModelSelector({
         checked.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
       }}
     >
-      <Tooltip
-        content={
-          <span className="flex items-center gap-2">
-            {model ? t('Select model') : t('Select effort')} <Kbd combo={EFFORT_SHORTCUT} />
-          </span>
-        }
-        disabled={control.open}
-        triggerClassName="min-w-0"
-      >
-        <MenuTrigger
-          ref={chipRef}
-          data-model-chip=""
+      {asRow ? (
+        <SummaryMenuRow
           aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
-          // A filled pill at rest, so opening it changes nothing but the text.
-          className={clsx(
-            hero ? 'h-8' : 'h-7',
-            'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
-          )}
+          icon={
+            saving ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Cpu className="size-3.5" strokeWidth={1.8} />
+            )
+          }
+          label={t('Model')}
+          note={<SummaryMenuNote>{[name, level].filter(Boolean).join(' · ')}</SummaryMenuNote>}
+        />
+      ) : (
+        <Tooltip
+          content={
+            <span className="flex items-center gap-2">
+              {model ? t('Select model') : t('Select effort')} <Kbd combo={EFFORT_SHORTCUT} />
+            </span>
+          }
+          disabled={control.open}
+          triggerClassName="min-w-0"
         >
-          {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
-          <ModelChipLabel
-            name={name}
-            level={level}
-            levels={effortLevels}
-            fast={fast?.currentValue}
-          />
-          <ChevronDown
-            size={14}
-            strokeWidth={1.8}
-            className="hidden shrink-0 text-tertiary @[320px]:block"
-          />
-        </MenuTrigger>
-      </Tooltip>
+          <MenuTrigger
+            ref={chipRef}
+            data-model-chip=""
+            aria-label={chipLabel([name, level].filter(Boolean).join(' '), fast?.currentValue)}
+            // A filled pill at rest, so opening it changes nothing but the text.
+            className={clsx(
+              hero ? 'h-8' : 'h-7',
+              'flex min-w-0 max-w-64 items-center gap-1 rounded-full px-2 text-[13px] text-main outline-none transition-colors hover:bg-state-hover focus-visible:bg-state-hover',
+            )}
+          >
+            {saving && <Loader2 className="h-3 w-3 shrink-0 animate-spin" />}
+            <ModelChipLabel
+              name={name}
+              level={level}
+              levels={effortLevels}
+              fast={fast?.currentValue}
+            />
+            <ChevronDown
+              size={14}
+              strokeWidth={1.8}
+              className="hidden shrink-0 text-tertiary @[320px]:block"
+            />
+          </MenuTrigger>
+        </Tooltip>
+      )}
       <MenuPanel
         ref={menuRef}
+        side={asRow ? 'bottom' : undefined}
+        align={asRow ? 'end' : undefined}
         finalFocus={finalFocus}
         className="w-72"
         footer={

@@ -47,7 +47,7 @@ final class StopRefusedUITests: XCTestCase {
 
         XCTAssertTrue(waitUntil(timeout: 5) { self.visible(self.refusal) },
                       "A refused Stop showed nothing on screen while reading older messages")
-        let alert = app.alerts["Couldn't stop the agent"]
+        let alert = app.alerts["Could not stop the turn on the server"]
         XCTAssertTrue(alert.exists, "The refusal is not in the Stop alert")
         XCTAssertTrue(alert.staticTexts[refusal].exists, "The alert does not say why")
 
@@ -80,7 +80,7 @@ final class StopRefusedUITests: XCTestCase {
 
         let alert = app.alerts[notice]
         XCTAssertTrue(alert.waitForExistence(timeout: 5), "A Stop the runtime never heard showed nothing")
-        XCTAssertFalse(app.alerts["Couldn't stop the agent"].exists, "The stop is reported as refused")
+        XCTAssertFalse(app.alerts["Could not stop the turn on the server"].exists, "The stop is reported as refused")
         alert.buttons["OK"].tap()
         XCTAssertFalse(alert.waitForExistence(timeout: 2), "The notice did not close")
     }

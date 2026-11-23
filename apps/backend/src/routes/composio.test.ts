@@ -48,6 +48,9 @@ function collection(rows: Doc[]) {
   return {
     insertOne: (doc: Doc) => Promise.resolve(rows.push(doc)),
     findOne: (filter: Doc) => Promise.resolve(rows.find((doc) => matches(doc, filter)) ?? null),
+    find: (filter: Doc) => ({
+      toArray: () => Promise.resolve(rows.filter((doc) => matches(doc, filter))),
+    }),
     countDocuments: (filter: Doc) =>
       Promise.resolve(rows.filter((doc) => matches(doc, filter)).length),
     findOneAndDelete: (filter: Doc) => {
@@ -157,6 +160,11 @@ fetchSpy.mockImplementation(((input: string | URL | Request, init?: RequestInit)
   if (path === '/tools/execute/GOOGLECALENDAR_GET_CURRENT_USER') {
     return Promise.resolve(
       Response.json({ successful: true, data: { email: 'alice@gmail.test' }, error: null }),
+    )
+  }
+  if (path === '/tools/execute/GMAIL_NO_SUCH_TOOL') {
+    return Promise.resolve(
+      Response.json({ error: { message: 'Tool GMAIL_NO_SUCH_TOOL not found' } }, { status: 404 }),
     )
   }
   if (path === '/tools/execute/GMAIL_GET_PROFILE') {
@@ -415,6 +423,13 @@ describe('agents running tools through Composio', () => {
     expect(await res.json()).toEqual({ code: 'personal_credential_via_composio' })
   })
 
+  test('a tool Composio does not know is a 404 for the caller, not a backend 502', async () => {
+    const res = await execute(await turn('owner', true), { tool: 'GMAIL_NO_SUCH_TOOL' })
+
+    expect(res.status).toBe(404)
+    expect(await res.json()).toEqual({ code: 'composio_request_failed' })
+  })
+
   test('runs a Gmail tool as the session owner, with the server key', async () => {
     const res = await execute(await turn('owner', true), {
       tool: 'GMAIL_FETCH_EMAILS',
@@ -436,6 +451,17 @@ describe('agents running tools through Composio', () => {
         },
       },
     ])
+  })
+
+  test('a direct OAuth account of the same member never takes part in execute', async () => {
+    const { composioAccountId: _, ...direct } = connection('owner', 'gmail', 'direct')
+
+    saved.push(direct)
+
+    const res = await execute(await turn('owner', true), { tool: 'GMAIL_FETCH_EMAILS' })
+
+    expect(res.status).toBe(200)
+    expect(requests[0]?.body).toMatchObject({ connected_account_id: 'ca_owner' })
   })
 
   test('runs a Google Calendar tool through the Calendar connection', async () => {

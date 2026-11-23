@@ -10,9 +10,20 @@
             "state" : "new",
             "value" : "Nuphos records your voice only while you dictate a message, then sends it to OpenAI to transcribe."
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 只会在你口述消息时录下你的声音，并发送给 OpenAI 转写成文字。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 只會在你口述訊息時錄下你的聲音，並傳送給 OpenAI 轉寫成文字。"
+          }
         }
-      },
-      "shouldTranslate" : false
+      }
     },
     "NSPhotoLibraryAddUsageDescription" : {
       "comment" : "Legal text",
@@ -23,9 +34,20 @@
             "state" : "new",
             "value" : "Nuphos saves the images and videos you choose to share from an agent to your photo library."
           }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 会将你选择从 Agent 分享的图片和视频保存到你的照片图库。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nuphos 會將你選擇從 Agent 分享的圖片與影片儲存到你的照片圖庫。"
+          }
         }
-      },
-      "shouldTranslate" : false
+      }
     }
   },
   "version" : "1.0"

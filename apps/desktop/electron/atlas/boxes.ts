@@ -79,6 +79,14 @@ export function bindInstaboxAccount(
 export async function unbindInstaboxAccount(teamId: string, accountId: string): Promise<void> {
   await call<void>('DELETE', instabox(teamId, accountId), undefined, { retry: false })
 }
+/** A new API key for the same account, so its computers stay on it. */
+export async function replaceInstaboxKey(
+  teamId: string,
+  accountId: string,
+  apiKey: string,
+): Promise<void> {
+  await call<void>('PUT', `${instabox(teamId, accountId)}/key`, { apiKey }, { retry: false })
+}
 /** The sizes a Box on this account can have, smallest first. */
 export async function instaboxAccountSizes(teamId: string, accountId: string) {
   return (await call<{ sizes: BoxSize[] }>('GET', instabox(teamId, accountId))).sizes

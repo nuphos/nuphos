@@ -91,7 +91,7 @@ export function TeamSwitcherMenu({
               chevron={<ChevronRight className="w-3 h-3" />}
               disabled={!teamSegment.options || teamSegment.options.length === 0}
             >
-              {t('Switch workspace')}
+              {t('Switch team')}
             </MenuSubmenuTrigger>
             <MenuContent align="start" className="w-[260px]">
               {teamSegment.options && teamSegment.options.length > 0 ? (

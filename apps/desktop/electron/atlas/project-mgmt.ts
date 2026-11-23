@@ -1,4 +1,7 @@
+import { withShare } from './binding-access'
 import { call } from './client'
+
+import type { BindingShare } from '../../src/lib/bindingShare'
 
 export type LinearWorkspace = {
   id: string
@@ -133,11 +136,14 @@ export async function listLinearWorkspaces(teamId: string): Promise<LinearWorksp
   return data.workspaces ?? []
 }
 
-export async function startLinearOAuth(teamId: string): Promise<LinearOAuthStart> {
+export async function startLinearOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<LinearOAuthStart> {
   return call<LinearOAuthStart>(
     'POST',
     `/teams/${teamId}/linear-workspaces/start-oauth`,
-    {},
+    withShare({}, share),
     { retry: false },
   )
 }
@@ -179,11 +185,14 @@ export async function listJiraSites(teamId: string): Promise<JiraSite[]> {
   return data.sites ?? []
 }
 
-export async function startJiraOAuth(teamId: string): Promise<JiraOAuthStart> {
+export async function startJiraOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<JiraOAuthStart> {
   return call<JiraOAuthStart>(
     'POST',
     `/teams/${teamId}/jira-sites/start-oauth`,
-    {},
+    withShare({}, share),
     { retry: false },
   )
 }
@@ -217,11 +226,14 @@ export async function listAsanaAccounts(teamId: string): Promise<AsanaAccount[]>
   return data.accounts ?? []
 }
 
-export async function startAsanaOAuth(teamId: string): Promise<AsanaOAuthStart> {
+export async function startAsanaOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<AsanaOAuthStart> {
   return call<AsanaOAuthStart>(
     'POST',
     `/teams/${teamId}/asana-accounts/start-oauth`,
-    {},
+    withShare({}, share),
     { retry: false },
   )
 }
@@ -255,11 +267,14 @@ export async function listSentryAccounts(teamId: string): Promise<SentryAccount[
   return data.accounts ?? []
 }
 
-export async function startSentryOAuth(teamId: string): Promise<SentryOAuthStart> {
+export async function startSentryOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<SentryOAuthStart> {
   return call<SentryOAuthStart>(
     'POST',
     `/teams/${teamId}/sentry-accounts/start-oauth`,
-    {},
+    withShare({}, share),
     { retry: false },
   )
 }

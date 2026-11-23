@@ -65,6 +65,8 @@ Permissions: acting as a member and the member's own `personal` / `github` crede
 
 Without a team installation: when `list_credentials` lists a selected `personal` / `github` entry, the conversation owner chose their own GitHub account for this conversation. Load it with `bash skills/github/scripts/setup-credentials.sh <teamId> personal`; it reaches what that member can reach.
 
+Several GitHub accounts: `list_credentials` shows each account with its `connectionId`. When more than one is connected and the request does not say which, ask the user; never pick one yourself. Pass the chosen id as `GITHUB_CONNECTION_ID=<id>` before `setup-credentials.sh <teamId> personal`. A 409 `personal_credential_account_required` lists the choices.
+
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
 
 After `setup-credentials.sh` runs, `gh` is logged in (auth lives in the session’s `$GH_CONFIG_DIR/hosts.yml`, with mode restricted to the current OS user and without using the shared system keychain, so every later `bash` tool call picks it up — no env-var dance). The token is good for ~1 hour; if any call returns 401, just re-run the setup script. For raw curl, get the current token with `gh auth token`.
@@ -206,7 +208,7 @@ A few rules:
   - Claude Code: `Co-authored-by: claude <noreply@anthropic.com>`
   - Codex: `Co-authored-by: codex <codex@openai.com>`
 - Avoid duplicate trailers and preserve legitimate existing co-authors when carrying work forward. A participant email links to a GitHub profile only if registered there; report an unlinked co-author without substituting a different email.
-- A `Signed-off-by` line certifies the DCO for the commit's author only. Never sign off for the participant, a co-author or anyone else; when carrying other people's commits forward, keep their existing `Signed-off-by` lines and add yours below them. Merge commits from `POST /repos/OWNER/REPO/merges` need no sign-off.
+- A `Signed-off-by` line certifies the DCO for the commit's author, and a new commit gets only the author's line, copied verbatim from `commit-signoff.sh` (a DCO check compares it exactly, so a login in place of the author's name fails). When a member's Personal Credential makes the commit, the author is that member and the line is theirs: they asked for the commit under their own account, so add it without asking. Never add a line for a co-author, the runtime account or anyone else; when carrying other people's commits forward, keep their existing `Signed-off-by` lines and add the author's below them. Merge commits from `POST /repos/OWNER/REPO/merges` need no sign-off.
 - If the repo has CODEOWNERS or required reviews, mention that the PR will need a human reviewer — `gh` will not bypass branch protection.
 
 ## Safety

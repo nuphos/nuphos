@@ -269,7 +269,7 @@ describe('launchAcceptedChatTurn on the Claude Code runtime', () => {
   })
 
   test('a message left waiting in the queue is logged as queued, not as a failed request', async () => {
-    const queued = queuedRefusal(refusal('Responding…'), { id: 'queued' }) as Error
+    const queued = queuedRefusal(refusal('Responding…'), true) as Error
     const { run, info, errors } = await logsOfTurnEndingWith('conv-queued', queued)
 
     expect(errors).toEqual([])

@@ -38,6 +38,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -50,6 +52,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -157,6 +160,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         if (onOpenTask != null && auth.aiAllowed && AiAccess.revision == taskConsent && store.workspaceRevision == taskWorkspace &&
             store.selectedTeam?.id == session.teamId) onOpenTask(id)
     }
+    // The Bot's own Task, opened from the title bar and its details card alike, under one visibility check.
+    val openBotTask: (() -> Unit)? = if (canOpenTask && onOpenTask != null && bot != null) {
+        { openTask(bot.sessionId) }
+    } else null
     // What the Bot dispatched comes from the Tasks list, read again while its chat is on screen.
     LaunchedEffect(store, botFace?.id, lifecycle) {
         if (botFace == null) return@LaunchedEffect
@@ -169,6 +176,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     val tasks = botFace?.let { store.tasks(under = it.id, teamId = session.teamId) }.orEmpty()
     var detailsOpen by remember(session.channelId) { mutableStateOf(false) }
+    // The Bot's own agent list: from its details, or after it could not reply, as on its Task screen.
+    var switching by remember(bot) { mutableStateOf(false) }
     var showMembers by remember(session.channelId) { mutableStateOf(false) }
     if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (detailsOpen && bot != null && auth.token != null) {
@@ -176,16 +185,15 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { id -> detailsOpen = false; openTask(id) },
             onDismiss = { detailsOpen = false },
-            lead = { BotDetailsCard(session, openTask = if (canOpenTask && onOpenTask != null) {
-                { detailsOpen = false; openTask(bot.sessionId) }
-            } else null) },
+            lead = {
+                BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
+                BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
+            },
             canManage = bot.canManage)
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
-    // After the Bot could not reply: its own agent list, as on its Task screen.
-    var switching by remember(bot) { mutableStateOf(false) }
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {
         val workspaceRevision = store.workspaceRevision
@@ -214,6 +222,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.chats_back)) } },
                 actions = {
+                    // One tap to the Bot's own Task, as on iOS.
+                    if (openBotTask != null) IconButton(onClick = openBotTask, modifier = Modifier.testTag("chat-bot-task")) {
+                        Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), stringResource(R.string.chat_task_fallback_title))
+                    }
                     if (bot?.canOpenDesktop == true) IconButton(onClick = { desktop = true }) { Icon(Icons.Outlined.DesktopWindows, stringResource(R.string.chats_desktop)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -276,21 +288,64 @@ private fun BotStateLine(tasks: List<AgentConversation>) {
         color = if (waiting > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The card that leads a Bot's details, as on Desktop: its face, name and runtime, and the way into the Bot's own Task. */
+/** The card that leads a Bot's details, as on Desktop: its face, name, and the way into the Bot's own Task. */
 @Composable
 private fun BotDetailsCard(session: ChannelSession, openTask: (() -> Unit)?) {
-    val store = LocalAgentStore.current
-    val runtime = store.bots.firstOrNull { it.sessionId == session.botId }
-        ?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeLabel) }
     ai.nuphos.android.ui.chat.SummaryCard(horizontalAlignment = Alignment.CenterHorizontally) {
         ChatIcon(session.faces, session.title, 64.dp)
         Text(session.title, maxLines = 2, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        runtime?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (openTask != null) OutlinedButton(onClick = openTask, modifier = Modifier.testTag("bot-task-entry")) {
             Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), null, Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.chat_task_fallback_title))
         }
+    }
+}
+
+/** A Bot's runtime and model, where they are picked: its owner opens either picker; anyone else sees what it runs. */
+@Composable
+private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession, onSwitchAgent: () -> Unit) {
+    val store = LocalAgentStore.current
+    val auth = LocalAuthSession.current
+    DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
+        val workspace = store.workspaceRevision
+        val generation = auth.generation
+        val consent = AiAccess.revision
+        bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
+            auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
+                store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
+        }
+        onDispose { bot.activateModelSettings(false) }
+    }
+    val models = bot.modelSettings
+    LaunchedEffect(models) { models?.refresh() }
+    var showModel by remember(models) { mutableStateOf(false) }
+    if (showModel && models != null) ai.nuphos.android.ui.chat.ModelSettingsSheet(models) { showModel = false }
+    val owns = bot.loaded && bot.isOwner && auth.aiAllowed
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Text(stringResource(R.string.agent_runtime), style = MaterialTheme.typography.titleSmall)
+        BotRuntimeRow({ ai.nuphos.android.ui.components.RuntimeMark(bot.agentRuntime, 18.dp) }, stringResource(R.string.agent_runtime),
+            if (bot.loaded) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
+            onClick = if (owns) onSwitchAgent else null, tag = "bot-details-runtime")
+        BotRuntimeRow({ Icon(Icons.Outlined.Memory, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }, stringResource(R.string.composer_model),
+            models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
+        if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun BotRuntimeRow(icon: @Composable () -> Unit, label: String, value: String, onClick: (() -> Unit)?, tag: String) {
+    Row(
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 6.dp).testTag(tag),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon()
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        // The value takes the rest of the row and wraps, so a long runtime name is read in full.
+        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        if (onClick != null) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -359,6 +414,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
         handledSubmission = session.lastSubmittedKey
     }
     val scrollToLatest = stringResource(R.string.chats_scroll_to_latest)
+    val uri = LocalUriHandler.current
     Box(Modifier.fillMaxSize()) {
         LazyColumn(Modifier.fillMaxSize().testTag("channel-transcript"), state = state, reverseLayout = true,
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)) {
@@ -380,6 +436,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                             // Only an agent's owner can move it, and only when the agent itself was the cause.
                             val owned = session.agents.any { it.sessionId == agentId && it.ownerId == viewerId }
                             ReplyFailedLine(item.event,
+                                onVerify = item.event.verifyUrl?.takeIf { item.actionable && owned }?.let { url -> { uri.openUri(url) } },
                                 onSwitch = onSwitchAgent?.takeIf { item.actionable && owned && item.event.cause in AGENT_CAUSES && agentId != null }
                                     ?.let { switch -> { switch(agentId!!) } },
                                 onRetry = agentId?.takeIf { item.actionable && allowed() }?.let { id -> { session.retry(id, scope) } })
@@ -540,9 +597,10 @@ private fun RecordLine(text: String) {
 
 private val AGENT_CAUSES = setOf("usage_limit", "auth", "offline")
 
-/** An agent could not reply: what happened and why, when its usage returns, and the fix. */
+/** An agent could not reply: what happened and why, when its usage returns, and the fixes: Verify, Switch runtime, Retry. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
+private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDetail.TimelineEvent, onVerify: (() -> Unit)?, onSwitch: (() -> Unit)?, onRetry: (() -> Unit)?) {
     val resets = ai.nuphos.android.ui.agent.resetsInText(ai.nuphos.android.ui.agent.ResetsIn.of(event.resetsAt.takeIf { event.cause == "usage_limit" }))
         ?.let { stringResource(R.string.chats_usage_resets, it) }
     Column(Modifier.fillMaxWidth().padding(vertical = 10.dp).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(16.dp))
@@ -552,7 +610,10 @@ private fun ReplyFailedLine(event: ai.nuphos.android.model.AgentConversationDeta
             Text(listOfNotNull(event.text, resets).joinToString(" "), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (onSwitch != null || onRetry != null) Row(Modifier.padding(start = 24.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // Three fixes do not fit a phone's width on one line, so they wrap.
+        if (onVerify != null || onSwitch != null || onRetry != null) FlowRow(Modifier.padding(start = 24.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            onVerify?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_verify_with_anthropic)) } }
             onSwitch?.let { OutlinedButton(onClick = it) { Text(stringResource(R.string.chats_switch_runtime)) } }
             onRetry?.let { TextButton(onClick = it) { Text(stringResource(R.string.chats_retry)) } }
         }

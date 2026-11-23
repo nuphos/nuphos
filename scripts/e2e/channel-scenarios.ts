@@ -3,7 +3,6 @@ import { existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { agentEvents, agentLog } from './agent-log.ts'
-import { must } from './binding-access-scenarios.ts'
 import { botAccessScenarios } from './bot-access-scenarios.ts'
 import {
   computerWithUsage,
@@ -16,10 +15,9 @@ import {
 import { checkDockToggleClear } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { screencast } from './question-scenarios.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
 
 /** One scenario per file in ./channel, its default export, in file-name order. */
 async function scenarioFiles(): Promise<Scenario[]> {
@@ -34,10 +32,6 @@ async function scenarioFiles(): Promise<Scenario[]> {
     files.map(async (file) => ((await import(join(dir, file))) as { default: Scenario }).default),
   )
 }
-
-/** A post in the open chat's transcript. A sidebar row can preview the same words. */
-const transcriptPost = (page: Page, text: string) =>
-  page.getByRole('paragraph').filter({ hasText: new RegExp(`^${text}$`) })
 
 export const channelScenarios: Scenario[] = [
   {
@@ -84,8 +78,8 @@ export const channelScenarios: Scenario[] = [
     },
   },
   {
-    // #3702: a Bot answers one post with replyTo, and its answer quotes that post.
-    name: "a Bot's answer to one post quotes it",
+    // #4654: a Bot answering the newest post with replyTo lands right under it, so it quotes nothing.
+    name: "a Bot's answer to the newest post does not quote it",
     run: async (page, stack) => {
       const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
@@ -104,15 +98,16 @@ export const channelScenarios: Scenario[] = [
 
       if (!response.ok) throw new Error(`Posting failed: ${String(response.status)}`)
       await transcriptPost(page, 'POSTED E2E_DELIVERY:reply').waitFor()
-      // The quote above the answer is a button titled with the post it answers.
-      await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').waitFor()
+      // A quote above the answer would be a button titled with the post it answers.
+      if ((await page.locator('button[title^="Which regions are down? E2E_REPLY_TO"]').count()) > 0)
+        throw new Error('The answer to the newest post quoted it')
     },
   },
   {
     // #3246: every Bot post was headed by the Bot's name and an "Agent" tag.
     name: "a Bot's posts are headed by its name, with no Agent tag",
     run: async (page) => {
-      const posts = page.locator('[data-post-id]')
+      const posts = page.locator('[data-post-id]:visible')
 
       await posts.first().waitFor()
       await page.evaluate(() => {
@@ -203,13 +198,19 @@ export const channelScenarios: Scenario[] = [
         await rows.filter({ hasText: 'E2E Scout' }).first().waitFor()
         await page.locator('.workspace-agent-titlebar').getByText('E2E Scout').first().waitFor()
         await page.getByText('Message E2E Scout', { exact: true }).waitFor()
-        await page.locator('[data-post-id]').filter({ hasText: 'E2E Scout' }).first().waitFor()
+        await page
+          .locator('[data-post-id]:visible')
+          .filter({ hasText: 'E2E Scout' })
+          .first()
+          .waitFor()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')
         })
         await page.screenshot({ path: `${artifacts}/bot-renamed-light.png` })
-        const stale = await rows.filter({ hasText: 'E2E Bot' }).count()
+        // Case-sensitive, since a string matches any case and the Bot's sub-Task "E2E bot kid"
+        // stays listed under it.
+        const stale = await rows.filter({ hasText: /E2E Bot/ }).count()
 
         if (stale > 0) throw new Error(`${String(stale)} sidebar rows still show the old name`)
       } finally {
@@ -220,52 +221,16 @@ export const channelScenarios: Scenario[] = [
       // Renamed from outside the app, the Bot's sidebar row follows on its own, with no reload.
       await page
         .locator('[data-sidebar-row]')
-        .filter({ hasText: 'E2E Bot' })
+        .filter({ hasText: /E2E Bot/ })
         .first()
         .waitFor({ timeout: 10_000 })
     },
   },
   ...botAccessScenarios,
   {
-    // #3310: the Bot's name above its Inbox question opened the Bot's session as a Task,
-    // with the sidebar left on the Inbox.
-    name: "a Bot's name above its Inbox question opens the Bot's chat, with Bots in the sidebar",
-    run: async (page, stack) => {
-      await send(page, 'Ask me E2E_ASK E2E_DELIVERY:inbox-bot')
-      await transcriptPost(page, 'POSTED E2E_DELIVERY:inbox-bot').waitFor()
-      await page.getByRole('tab', { name: /^Inbox/ }).click()
-      const source = page.locator('article header').getByRole('button', { name: 'E2E Bot' })
-
-      await source.waitFor()
-      await page.screenshot({ path: `${artifacts}/inbox-bot-source-light.png` })
-      await source.click()
-      // The Bot's chat, not its own session: only the chat's composer is headed by its name.
-      await page.locator('[aria-placeholder="Message E2E Bot"]').waitFor()
-      await page.getByRole('tab', { name: /^Bots/, selected: true }).waitFor({ timeout: 5_000 })
-      // The sidebar slides over to Bots; shoot it once it has.
-      await page.waitForTimeout(1_000)
-      await page.screenshot({ path: `${artifacts}/inbox-bot-opened-light.png` })
-      // #4065: a link in the Bot's question card opens in the dock, as in a Task's
-      // chat, never in the system browser.
-      await page.locator('[data-open-question] a[href$="/health/ready"]').last().click()
-      const address = page.getByRole('textbox', { name: 'Search or enter URL' })
-
-      await address.waitFor({ timeout: 10_000 })
-      must(
-        (await address.inputValue()).endsWith('/health/ready'),
-        `the dock's browser to open the card's link, got ${await address.inputValue()}`,
-      )
-      await page.screenshot({ path: `${artifacts}/bot-question-link-dock-light.png` })
-      await page.getByRole('button', { name: 'Close workspace panel' }).click()
-      await page.getByRole('button', { name: 'E2E_DELIVERY:answered' }).last().click()
-      await until('the answer in the Bot chat to reach the Bot', async () =>
-        agentEvents(stack).includes('finish E2E_DELIVERY:answered'),
-      )
-    },
-  },
-  {
-    // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
-    name: 'the Bot composer and the Task composer both show the runtime usage bar',
+    // #3252: Bot details' Runtime section (#4766) and the Task composer's runtime
+    // line both show the usage bar.
+    name: 'Bot details and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
       const computer = 'E2E usage computer'
       const fixture = 'E2E fixture agent'
@@ -274,7 +239,12 @@ export const channelScenarios: Scenario[] = [
       try {
         // Still in the Bot chat the scenarios before opened.
         await pickRuntime(page, computer, /^Claude Code/)
-        const bot = await shootRuntimeLine(page, 'bot')
+        const bot = await page
+          .getByRole('complementary', { name: 'Bot details' })
+          .getByRole('progressbar', { name: 'Usage remaining' })
+          .waitFor({ timeout: 30_000 })
+          .then(() => true)
+          .catch(() => false)
 
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         await newTask(page)

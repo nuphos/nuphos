@@ -17,8 +17,8 @@ import { t } from '../i18n'
 
 import { BindSlackDialog } from './BindSlackDialog'
 import { ConnectionActions } from './messaging-settings/ConnectionActions'
+import { ChannelBots } from './slack-settings/ChannelBots'
 import { LinkChannelPanel } from './slack-settings/LinkChannelPanel'
-import { SlackAccountsCard } from './slack-settings/SlackAccountsCard'
 import { useSlackSettings } from './slack-settings/useSlackSettings'
 
 import type { SlackChannelMapping, SlackChannelOption } from '../types'
@@ -55,7 +55,8 @@ export function SlackSettingsView({
   const {
     installation,
     channelMappings,
-    myMapping,
+    myBots,
+    setChannelBot,
     status,
     loading,
     busyKey,
@@ -70,10 +71,7 @@ export function SlackSettingsView({
     setNewChannelId,
     linkChannelSubmitting,
     canManage,
-    memberById,
     channelsById,
-    linkedAccountRows,
-    defaultWorkspaceId,
     load,
     submitLinkChannel,
     deleteChannel,
@@ -95,14 +93,6 @@ export function SlackSettingsView({
     await load()
     onChanged?.()
   }
-  // Slack users @mention the bot by its display name, not the internal user id
-  // (U01ABC…), so prefer botName from auth.test and omit the hint otherwise.
-  const botMention = status?.botName ?? null
-  const botUserId = status?.botUserId ?? installation?.botUserId ?? null
-  const botDmLink =
-    botUserId && defaultWorkspaceId
-      ? `slack://user?team=${defaultWorkspaceId}&id=${botUserId}`
-      : null
 
   return (
     <div>
@@ -134,7 +124,7 @@ export function SlackSettingsView({
             <h1 className="text-[20px] font-semibold text-main">Slack</h1>
             <p className="mt-1 text-[13px] text-tertiary">
               {t(
-                'Install Nuphos in Slack, pick channels from the bot DM, then @mention Nuphos in those channels.',
+                'Install Nuphos in Slack, connect channels here, and choose the Bot that answers in each one.',
               )}
             </p>
           </div>
@@ -177,7 +167,7 @@ export function SlackSettingsView({
       <div className="mb-8 overflow-hidden rounded-lg border border-line-control/70 bg-surface">
         <div className="border-b border-line-control/60 px-4 py-3">
           <div className="text-[13px] font-medium text-main">
-            {t('Linked channels')}
+            {t('Connected channels')}
             {!loading && channelMappings.length > 0 && (
               <span className="ml-2 rounded-full border border-line-control px-1.5 py-0.5 text-[11px] font-normal text-tertiary">
                 {channelMappings.length}
@@ -186,7 +176,7 @@ export function SlackSettingsView({
           </div>
           <div className="mt-0.5 text-[12px] text-tertiary">
             {t(
-              "Channels chosen in Slack or linked by an admin. Nuphos responds to @mentions here and can post notifications — including channels served by another workspace's installation.",
+              'Each channel has one Bot, which reads every message there and answers in Slack. A team admin connects channels; a member chooses their own Bot for a channel without a teammate’s.',
             )}
           </div>
         </div>
@@ -194,9 +184,7 @@ export function SlackSettingsView({
           <div className="px-4 py-6 text-[13px] text-tertiary">{t('Loading…')}</div>
         ) : channelMappings.length === 0 ? (
           <div className="px-4 py-6 text-[13px] text-tertiary">
-            {t(
-              'No channels linked yet. After installing, open your DM with the Nuphos bot and pick a channel.',
-            )}
+            {t('No channels connected yet. A team admin connects one by its ID below.')}
           </div>
         ) : (
           <div className="divide-y divide-line-control/60">
@@ -216,6 +204,14 @@ export function SlackSettingsView({
                   <div className="mt-0.5 text-[11.5px] text-tertiary truncate">
                     {mapping.workspace?.name ?? mapping.slackWorkspaceId}
                   </div>
+                  <ChannelBots
+                    mapping={mapping}
+                    myBots={myBots}
+                    busyKey={busyKey}
+                    onChange={(botSessionId, answers) =>
+                      void setChannelBot(mapping, botSessionId, answers)
+                    }
+                  />
                 </div>
                 <button
                   type="button"
@@ -237,7 +233,7 @@ export function SlackSettingsView({
                     onClick={() => void deleteChannel(mapping)}
                     disabled={busyKey === `channel:${mapping.id}`}
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition-colors hover:bg-status-danger/10 hover:text-error disabled:opacity-50"
-                    title={t('Remove mapping')}
+                    title={t('Disconnect this channel')}
                   >
                     <UiIcon size={16} icon={Trash2Icon} className="h-4 w-4" />
                   </button>
@@ -246,7 +242,8 @@ export function SlackSettingsView({
             ))}
           </div>
         )}
-        {!loading && (
+        {/* Only an admin connects channels; members bring their Bots on the rows above. */}
+        {!loading && canManage && (
           <div className="border-t border-line-control/60">
             <button
               type="button"
@@ -255,7 +252,7 @@ export function SlackSettingsView({
             >
               <span className="inline-flex items-center gap-2 text-[12.5px] font-medium text-main">
                 <UiIcon size={16} icon={PlusIcon} className="h-4 w-4 text-tertiary" />
-                {t('Link a new channel')}
+                {t('Connect a channel')}
               </span>
               <UiIcon
                 size={16}
@@ -265,11 +262,8 @@ export function SlackSettingsView({
             </button>
             {linkChannelOpen && (
               <LinkChannelPanel
-                canManage={canManage}
                 installed={installed}
                 oauthAvailable={oauthAvailable}
-                botMention={botMention}
-                botDmLink={botDmLink}
                 onInstall={() => setInstallOpen(true)}
                 newChannelWorkspaceId={newChannelWorkspaceId}
                 setNewChannelWorkspaceId={setNewChannelWorkspaceId}
@@ -282,14 +276,6 @@ export function SlackSettingsView({
           </div>
         )}
       </div>
-      <SlackAccountsCard
-        loading={loading}
-        myMapping={myMapping}
-        linkedAccountRows={linkedAccountRows}
-        memberById={memberById}
-        currentUserId={currentUserId}
-        canManage={canManage}
-      />
     </div>
   )
 }

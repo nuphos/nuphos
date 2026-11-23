@@ -3,6 +3,10 @@ import { ObjectId } from 'mongodb'
 
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { fireTrigger } from '@/lib/agent/trigger-executor'
+import { TRIGGER_PAUSED } from '@/lib/agent/trigger-executor-authorization'
+import { claimWindow } from '@/lib/agent/trigger-held-claim'
+import { holdDelivery } from '@/lib/agent/trigger-held-deliveries'
+import { matchesPayloadFilters } from '@/lib/agent/trigger-payload-filter'
 import {
   AwsSnsValidationError,
   confirmAwsSnsSubscription,
@@ -120,41 +124,38 @@ webhooksRoutes.post('/:triggerId', async (c) => {
     return c.json({ ok: false, reason: 'trigger_disabled' }, 200)
   }
 
+  if (!matchesPayloadFilters(payload, trigger.payloadFilters)) {
+    return c.json({ ok: true, skipped: true, reason: 'filtered' }, 200)
+  }
+
   return await deliver(c, trigger, payload)
 })
 
 /**
  * A delivery is accepted or refused, never acknowledged and dropped. Deliveries close together
- * need no guard: a busy conversation parks them and runs them together in its next turn. Only
- * a Trigger set to fire at most every minIntervalSeconds asks the sender to come back.
+ * need no guard: a busy conversation parks them and runs them together in its next turn. A
+ * Trigger set to fire at most every minIntervalSeconds holds what arrives inside the window
+ * and fires it all once the window ends, because senders such as GitHub never retry a 429.
  */
 async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
   const triggerId = String(trigger._id)
-  const cooldownSeconds = trigger.minIntervalSeconds ?? 0
+  let fired = payload
 
-  if (cooldownSeconds > 0) {
-    const now = new Date()
-    const cutoff = new Date(now.getTime() - cooldownSeconds * 1000)
-    const claimed = await agentTriggers().findOneAndUpdate(
-      {
-        _id: trigger._id,
-        $or: [{ lastRunAt: { $exists: false } }, { lastRunAt: { $lte: cutoff } }],
-      },
-      { $set: { lastRunAt: now } },
-    )
+  if ((trigger.minIntervalSeconds ?? 0) > 0) {
+    const claim = await claimWindow(trigger, payload)
 
-    if (!claimed) {
-      const elapsed = trigger.lastRunAt ? (now.getTime() - trigger.lastRunAt.getTime()) / 1000 : 0
-      const retryAfter = Math.max(1, Math.ceil(cooldownSeconds - elapsed))
+    if ('waitSeconds' in claim) {
+      if (!(await holdDelivery(trigger, payload, claim.waitSeconds))) {
+        return refuse(c, claim.waitSeconds, 'rate_limited')
+      }
+      logEvent('info', 'webhook.held', { trigger_id: triggerId, fires_in: claim.waitSeconds })
 
-      // The sender is told to come back; if it never does, this is the only trace.
-      logEvent('warn', 'webhook.rate_limited', { trigger_id: triggerId, retry_after: retryAfter })
-
-      return refuse(c, retryAfter, 'rate_limited')
+      return c.json({ ok: true, held: true, firesInSeconds: claim.waitSeconds }, 202)
     }
+    fired = claim.payload
   }
   try {
-    const { run } = await fireTrigger(trigger, payload, { runKind: 'webhook' })
+    const { run } = await fireTrigger(trigger, fired, { runKind: 'webhook' })
 
     // Accepted: the turn runs in the background, after the sender has its answer.
     void run.catch((err: unknown) => {
@@ -167,7 +168,7 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
       return refuse(c, QUEUE_RETRY_SECONDS, error.code)
     // The Trigger was just paused for a reason its owner is told; like a disabled one, a sender
     // retrying would not help, and a 4xx can make it turn the webhook off.
-    if (error instanceof AppError && PAUSED.has(error.code))
+    if (error instanceof AppError && TRIGGER_PAUSED.has(error.code))
       return c.json({ ok: false, reason: error.code }, 200)
     throw error
   }
@@ -176,8 +177,6 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 }
 
 const QUEUE_RETRY_SECONDS = 30
-// What resolveExecutionAuthorization pauses a Trigger with.
-const PAUSED = new Set(['trigger_target_session_invalid', 'trigger_execution_principal_invalid'])
 
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))

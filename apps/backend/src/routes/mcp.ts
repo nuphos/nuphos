@@ -6,19 +6,10 @@
 // an MCP server is the zero-glue integration surface (no custom CLI or A2A
 // bridge required on the caller's side).
 //
-// Transport: MCP Streamable HTTP, JSON-response mode. We speak JSON-RPC 2.0 over
-// a single `POST /mcp` endpoint and reply with `application/json`. We do NOT
-// open a server->client SSE stream (`GET /mcp` is unsupported), because the
-// long-running-task story is handled at the data layer, not the transport:
-//   - `nuphos_ask` starts an agent run and blocks until it finishes. The run is
-//     created via `runAgentForTrigger`, which drives its own AbortController
-//     independent of this HTTP request — so if the caller's tool-call times out
-//     and the connection drops, the agent keeps running to completion and the
-//     transcript is persisted.
-//   - `nuphos_check` reconnects to a session by id and returns the answer if the
-//     run has finished, or "running" if it's still going. This is how a caller
-//     recovers a result after a timeout — no separate "task" concept is exposed;
-//     the session id is the only handle.
+// POST speaks JSON-RPC in JSON-response mode. GET subscribes to a readable
+// session's current state over SSE, rebuilt from persisted answers and Task
+// reports on reconnect; it does not keep an in-process completion callback.
+// A dropped request never cancels the agent's independent run.
 //
 // The pure JSON-RPC/protocol layer lives in lib/mcp/protocol.ts; the
 // agent-touching tool implementations live in routes/mcp/*.
@@ -28,10 +19,13 @@ import { ObjectId } from 'mongodb'
 
 import { config } from '@/config'
 import { authenticateToken } from '@/lib/identity'
+import { authenticateCliToken, isCliToken } from '@/lib/identity/cli-tokens'
+import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
 import { fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
 import { mcpResourceUrl } from '@/lib/oauth/metadata'
 import { getClient } from '@/lib/oauth/store'
 import { verifyAccessToken } from '@/lib/oauth/tokens'
+import { subscribeMcpSession } from '@/routes/mcp/notifications'
 import { toolsForContext } from '@/routes/mcp/tools'
 
 import type { AgentClientMeta } from '@/lib/agent/db'
@@ -49,7 +43,8 @@ export const mcp = new Hono<{ Variables: McpVariables }>()
 // MCP clients (Claude Code, Codex) can discover the authorization server and
 // run the native browser OAuth flow. Accepts either:
 //   1. an MCP OAuth access token (issued by /oauth/token via the browser flow), or
-//   2. a raw Nuphos session token (the manual `--header` path from #285).
+//   2. a raw Nuphos session token (the manual `--header` path from #285), or
+//   3. a CLI token: a Bot's agent token is held to its team, and its messages are the Bot's.
 const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c, next) => {
   const challenge = `Bearer resource_metadata="${config.auth.publicBaseUrl}/.well-known/oauth-protected-resource"`
   const header = c.req.header('Authorization')
@@ -66,13 +61,14 @@ const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c,
     mcpResourceUrl(config.auth.publicBaseUrl),
     config.auth.publicBaseUrl,
   )
-  let userId: string | null = claims?.sub ?? null
+  const result = claims
+    ? null
+    : isCliToken(token)
+      ? await authenticateCliToken(token)
+      : await authenticateToken(token)
+  const userId = claims?.sub ?? result?.user.id
+  const cliToken = result && 'cliToken' in result ? result.cliToken : undefined
 
-  if (!userId) {
-    // Back-compat: accept a raw Nuphos session token so the paste-a-token path
-    // keeps working alongside the OAuth flow.
-    userId = (await authenticateToken(token))?.user.id ?? null
-  }
   if (!userId || !ObjectId.isValid(userId)) {
     c.header('WWW-Authenticate', `${challenge}, error="invalid_token"`)
 
@@ -81,6 +77,11 @@ const requireMcpAuth: MiddlewareHandler<{ Variables: McpVariables }> = async (c,
 
   c.set('userId', userId)
   c.set('mcpOauthClientId', claims?.client_id)
+  if (cliToken) {
+    c.set('cliToken', cliToken)
+    c.set('authToken', token)
+  }
+  if (cliToken?.teamId) return runInTokenTeamScope(cliToken.teamId, next)
   await next()
 }
 
@@ -97,9 +98,11 @@ mcp.post('/', async (c) => {
     ...(oauthClientId ? { oauthClientId } : {}),
     ...(userAgent ? { userAgent } : {}),
   }
+  const cliToken = c.get('cliToken')
   const tools = toolsForContext({
     userId: c.get('userId'),
     client: Object.keys(clientMeta).length > 0 ? clientMeta : undefined,
+    ...(cliToken ? { cliToken: { principal: cliToken, token: c.get('authToken') } } : {}),
   })
 
   let payload: unknown
@@ -118,6 +121,4 @@ mcp.post('/', async (c) => {
   return c.json(body, status)
 })
 
-// We don't support the optional server->client SSE stream; long-running work is
-// recovered via nuphos_check, not a held-open GET stream.
-mcp.get('/', (c) => c.json(fail(null, -32000, 'SSE stream not supported; use POST.'), 405))
+mcp.get('/', subscribeMcpSession)

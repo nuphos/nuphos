@@ -9,9 +9,11 @@ import { publishRuntimeStates } from '../../lib/agentRuntimeStates'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 
 let listings = 0
-// The Bot's state each listing reports, as the session list publishes it, and when its run began.
+// The Bot's state each listing reports, as the session list publishes it.
 let state: RuntimeExecution['state'] = 'active'
-let startedAt = Date.now()
+// The turn the Bot chat follows, ended by the test; and the turns it stopped following.
+let endTurn = () => {}
+let stopped: string[] = []
 
 mock.module('../../api.ts', () => ({
   api: {
@@ -26,7 +28,7 @@ mock.module('../../api.ts', () => ({
             sessionId: 'bot',
             title: 'Bot',
             lastActiveAt: '2026-11-18T00:00:00Z',
-            activeRun: state === 'active' ? { streamId: 's', startedAt: String(startedAt) } : null,
+            activeRun: state === 'active' ? { streamId: 's', startedAt: null } : null,
           },
         ],
       }
@@ -53,6 +55,17 @@ async function listingsWhile(during: () => Promise<void>) {
     (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
   )
 
+  Object.assign(dom, {
+    api: {
+      agentWaitForRunEnd: () =>
+        new Promise<void>((resolve) => {
+          endTurn = resolve
+        }),
+      agentStopWaitingForRunEnd: async (streamId: string) => {
+        stopped.push(streamId)
+      },
+    },
+  })
   for (const [key, value] of Object.entries(values))
     Object.defineProperty(globalThis, key, { configurable: true, value })
   // After the window: the query library decides at import whether it runs on a server, without timers.
@@ -67,6 +80,7 @@ async function listingsWhile(during: () => Promise<void>) {
   }
 
   listings = 0
+  stopped = []
   try {
     await act(() =>
       root.render(
@@ -84,26 +98,22 @@ async function listingsWhile(during: () => Promise<void>) {
   }
 }
 
-test('the session list is read every second while the Bot works, and every 4 s again after', async () => {
+test("the end of the Bot's turn lists again at once, and nothing polls faster meanwhile", async () => {
   state = 'active'
-  startedAt = Date.now()
   await listingsWhile(async () => {
     await wait(2_500)
-    assert.ok(listings >= 3, `a listing about every second while the Bot works, got ${listings}`)
+    assert.equal(listings, 1, 'no fast listing while the Bot works')
     state = 'idle'
-    await wait(1_200)
-    const after = listings
-
-    await wait(2_500)
-    assert.equal(listings, after, 'no fast listing once the Bot rests')
+    await act(async () => endTurn())
+    await wait(300)
+    assert.equal(listings, 2, 'the turn ending lists again')
   })
 }, 15_000)
 
-test('a turn running for over two minutes is read every 4 s, as one never closed would be', async () => {
+test('leaving the Bot chat stops following its turn', async () => {
   state = 'active'
-  startedAt = Date.now() - 3 * 60_000
   await listingsWhile(async () => {
-    await wait(2_500)
-    assert.equal(listings, 1, 'no fast listing for a turn past two minutes')
+    await wait(300)
   })
+  assert.deepEqual(stopped, ['s'])
 }, 15_000)

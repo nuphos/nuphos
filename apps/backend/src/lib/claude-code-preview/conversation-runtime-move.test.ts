@@ -1,13 +1,17 @@
-import { beforeEach, expect, test } from 'bun:test'
+import { afterAll, beforeEach, expect, test } from 'bun:test'
 
+import { claimAgentRunForSession } from '@/lib/agent/run-admission'
+import { installQueuedTurnStarter } from '@/lib/agent/session-released'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useDb } from '@/lib/test/doubles/db'
 import { useModels } from '@/lib/test/doubles/models'
+import { usePendingQueue } from '@/lib/test/doubles/pending-queue'
 import { useRedis } from '@/lib/test/doubles/redis'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 import { useRuntimeModels } from '@/lib/test/doubles/runtime-models'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
+import { useRunCancel } from '@/lib/test/doubles/run-cancel'
 import { portabilityDb } from '@/lib/test/runtime-portability-db'
 
 import { sessionsByConversation } from './agent-chat-registry'
@@ -21,6 +25,8 @@ import type { AgentConversation } from '@/lib/agent/db/shared'
 
 let memory = portabilityDb()
 let busy = false
+let stopped: string[] = []
+let onStop: (() => void) | null = null
 let target: RuntimeInstance
 let conversation: AgentConversation
 const allModels = ['old-agent-model', 'chosen-model', 'latest-model']
@@ -46,12 +52,59 @@ useRuntimeModels({
   },
 })
 
-useDb({ db: () => memory })
+// Writes take a round trip, as Mongo's do, where a test asks for it, or fail.
+let writeMs = 0
+let writesFail = false
+
+useDb({
+  db: () => ({
+    ...memory,
+    collection: (name: string) => {
+      const collection = memory.collection(name)
+
+      return {
+        ...collection,
+        updateOne: async (...args: Parameters<typeof collection.updateOne>) => {
+          await new Promise((resolve) => setTimeout(resolve, writeMs))
+          if (writesFail) throw new Error('Mongo unavailable')
+
+          return collection.updateOne(...args)
+        },
+      }
+    },
+  }),
+})
 useRedis({ redisEnabled: () => true })
 useAgentRunStore({
   getActiveAgentRunForSession: async () => (busy ? { streamId: 'active' } : null),
   reserveActiveAgentRunForSession: async () => async () => {},
 })
+// The turn ends once Stop reaches it, which lets the move claim the session.
+useRunCancel({
+  stopConversationTurn: async ({ sessionId }) => {
+    stopped.push(sessionId)
+    busy = false
+    onStop?.()
+
+    return 'requested'
+  },
+})
+// A queued message, which claims the session the moment a release starts it.
+let queuedClaim: ((outcome: string) => void) | null = null
+
+usePendingQueue({ hasQueuedTranscriptMessage: async () => Boolean(queuedClaim) })
+installQueuedTurnStarter(async (userId, sessionId) => {
+  const release = await claimAgentRunForSession(userId, sessionId).catch(
+    (error: unknown) => (error as { code?: string }).code,
+  )
+
+  if (typeof release === 'function') release()
+  queuedClaim?.(typeof release === 'function' ? 'claimed' : String(release))
+  queuedClaim = null
+})
+// The starter is module state: left installed, it would claim and release a later
+// suite's real queue, and each release would start it again.
+afterAll(() => installQueuedTurnStarter(null))
 useRuntimeCatalog({
   requireRuntimeInstance: async () => target,
   developmentRuntimeEndpoint: () => {},
@@ -64,6 +117,11 @@ useRuntimeRegistry({
 beforeEach(() => {
   memory = portabilityDb()
   busy = false
+  stopped = []
+  onStop = null
+  queuedClaim = null
+  writeMs = 0
+  writesFail = false
   destinationModels = allModels
   destinationDefaults = { modelId: 'default' }
   target = {
@@ -159,11 +217,51 @@ test('a move records where the conversation came from', async () => {
   // Not in the capped timeline, which could evict it.
   expect(conversation.timelineEvents ?? []).toEqual([])
 })
-test('an active turn preserves the original placement and releases the operation lock', async () => {
+test('a move during a turn stops it as Stop does, then moves', async () => {
   busy = true
-  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
-    code: 'conversation_busy',
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+  expect(stopped).toEqual(['conversation'])
+  expect(conversation.runtimeId).toBe('new')
+  expect(conversation.runtimeOperation).toBeUndefined()
+})
+test('a message queued behind a turn a failed move stopped runs as soon as the move lets go', async () => {
+  const claimed = new Promise<string>((resolve) => {
+    queuedClaim = resolve
   })
+
+  writeMs = 20
+  busy = true
+  // The destination goes away once the turn is stopped, so the move fails after it.
+  onStop = () => {
+    target.status = 'disabled'
+  }
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toMatchObject({
+    code: 'runtime_unavailable',
+  })
+  expect(await claimed).toBe('claimed')
+  expect(conversation.runtimeId).toBe('old')
+})
+test('a failed move that cannot unlock still lets the session go', async () => {
+  busy = true
+  onStop = () => {
+    target.status = 'disabled'
+    writesFail = true
+  }
+  await expect(moveConversationRuntime({ ...conversation }, 'new', 'owner')).rejects.toThrow(
+    'Mongo unavailable',
+  )
+  // The lock expires on its own; the run claim would be held until a restart.
+  const release = await claimAgentRunForSession('owner', 'conversation', true)
+
+  expect(release).toBeFunction()
+  release?.()
+})
+test('a fallback leaves a running turn alone and the conversation where it is', async () => {
+  busy = true
+  await expect(
+    moveConversationRuntime({ ...conversation }, 'new', 'owner', { reason: 'quota' }),
+  ).rejects.toMatchObject({ code: 'conversation_busy' })
+  expect(stopped).toEqual([])
   expect(conversation.runtimeId).toBe('old')
   expect(conversation.runtimeOperation).toBeUndefined()
 })

@@ -33,7 +33,6 @@ export async function listTriggers(
   const rows = await agentTriggers()
     .find(triggerListFilter(scope, targetSessionId))
     .sort({ createdAt: -1 })
-    .limit(100)
     .toArray()
 
   return rows.map((trigger) => {
@@ -60,12 +59,12 @@ export async function getTrigger(
   const trigger = await findManagedTrigger(parseTriggerId(triggerId))
 
   await assertTriggerAccess(trigger, actor, 'read')
-  const exposeSecret = canManageTrigger(trigger, typeof actor === 'string' ? actor : actor.userId)
 
   return {
-    ...serializeTrigger(trigger, exposeSecret),
+    // The secret is shown on create and rotate only; a read would put it in every transcript.
+    ...serializeTrigger(trigger),
     // As in the list, so a card shows its switch only to whoever may flip it.
-    canManage: exposeSecret,
+    canManage: canManageTrigger(trigger, typeof actor === 'string' ? actor : actor.userId),
   }
 }
 

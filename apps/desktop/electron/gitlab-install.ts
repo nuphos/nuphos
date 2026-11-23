@@ -34,6 +34,7 @@ export async function startInstall(
   clientId?: string,
   clientSecret?: string,
   scopes?: string[],
+  share?: atlas.BindingShare,
 ): Promise<GitlabBindResult> {
   const { authorizeUrl, state } = await atlas.startGitlabOAuth(
     teamId,
@@ -41,6 +42,7 @@ export async function startInstall(
     clientId,
     clientSecret,
     scopes,
+    share,
   )
 
   return new Promise<GitlabBindResult>((resolve, reject) => {

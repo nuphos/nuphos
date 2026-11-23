@@ -39,6 +39,14 @@ class RuntimesFixtureDeviceTest {
     private var management = 0
     private var failure = false
     private var empty = false
+    /** `box.state` of the synthetic Box while it is not online; null keeps it online. */
+    private var startingState: String? = null
+    /** The member owns the running Box, so it offers Add runtime. */
+    private var owner = false
+    private var boxMember = false
+    private var boxDeleted = false
+    private var failBoxDelete = false
+    private var added: String? = null
     private lateinit var store: RuntimesStore
     private val cloud = AgentRuntime("cloud", "codex", "Synthetic Cloud", "active", "managed")
     private val local = AgentRuntime("local", "claude-code", "Synthetic Desktop", "active", "local", local = RuntimeHost("host", "Synthetic Box", true))
@@ -46,14 +54,18 @@ class RuntimesFixtureDeviceTest {
     private fun render(rtl: Boolean = false, waitLoaded: Boolean = true) {
         compose.setContent {
             val scope = rememberCoroutineScope()
-            store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), local, offline) },
+            store = remember { RuntimesStore(scope, { true }, { held?.await(); if (failure) throw IOException() else if (empty) emptyList() else listOf(cloud, cloud.copy(id="grok",provider="grok",label="Synthetic Grok"), cloud.copy(id="antigravity",provider="antigravity",label="Synthetic Antigravity"), cloud.copy(id="opencode",provider="opencode",label="Synthetic OpenCode"), offline) + listOfNotNull(local.takeUnless { boxDeleted }) },
                 { mapOf("cloud" to RuntimeQuota("cloud", true, windows = listOf(RuntimeQuota.Window("Weekly", 38.0, java.time.Instant.now().plusSeconds((2 * 24 + 5) * 3600L + 1800).toString())))) },
-                { listOf(RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824)), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)) }, {}) }
+                { if (empty) emptyList() else listOf(if (startingState != null) RuntimeDevice("host", "Synthetic Box", false, RuntimeDevice.Box(startingState), "offline", null, null, null) else RuntimeDevice("host", "Synthetic Box", true, RuntimeDevice.Box(if (owner || boxMember) "running" else null), "live", 22.0, RuntimeDevice.Capacity(6.0 * 1073741824,16.0 * 1073741824), RuntimeDevice.Capacity(120.0 * 1073741824,512.0 * 1073741824), if (owner) "owner" else if (boxMember) "use" else null), RuntimeDevice("mac", "Synthetic Mac", false, null, "offline", null, null, null)).filterNot { boxDeleted && it.id == "host" } }, {}) }
             LaunchedEffect(store) { store.refresh() }
             CompositionLocalProvider(LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
                 LocalDensity provides Density(LocalDensity.current.density, if (rtl) 2f else 1f)) {
                 RuntimeFixtureTheme { Surface(Modifier.fillMaxSize(),color=MaterialTheme.colorScheme.background) { Box(Modifier.fillMaxSize()) { Box(if(rtl) Modifier.width(320.dp) else Modifier.fillMaxSize()) {
-                    RuntimeInventory(store, { details = it; detailClicks++ })
+                    RuntimeInventory(store, { details = it; detailClicks++ }, { added = it.device?.id }, deleteBox = {
+                        assertEquals("host", it.id)
+                        if (failBoxDelete) throw RuntimeHttpFailure(409, null, "The computer is still pausing.")
+                        boxDeleted = true
+                    })
                 } } } }
             }
         }
@@ -70,6 +82,40 @@ class RuntimesFixtureDeviceTest {
         listOfNotNull(context.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
             .forEach { dir -> File(dir, file).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
+    @Test fun deletingOwnedBoxRefreshesList() {
+        owner = true
+        render()
+        val action = compose.onNodeWithTag("delete-box-host")
+        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasTestTag("delete-box-host"))
+        action.assertIsDisplayed()
+        shot("box-delete-action.png")
+        action.performClick()
+        compose.onNodeWithText("Delete Synthetic Box?").assertIsDisplayed()
+        shot("box-delete-confirmation.png")
+        compose.onNode(hasText("Delete computer") and hasAnyAncestor(isDialog())).performClick()
+        compose.waitUntil(5_000) { store.devices.none { it.id == "host" } && store.runtimes.none { it.id == "local" } }
+        action.assertDoesNotExist()
+    }
+
+    @Test fun nonOwnerCannotDeleteBox() {
+        boxMember = true
+        render()
+        assertTrue(store.devices.any { it.id == "host" && it.box != null })
+        compose.onNodeWithTag("delete-box-host").assertDoesNotExist()
+    }
+
+    @Test fun failedBoxDeleteShowsServerMessage() {
+        owner = true
+        failBoxDelete = true
+        render()
+        compose.onNodeWithTag("runtime-inventory").performScrollToNode(hasTestTag("delete-box-host"))
+        compose.onNodeWithTag("delete-box-host").performClick()
+        compose.onNode(hasText("Delete computer") and hasAnyAncestor(isDialog())).performClick()
+        compose.onNodeWithText("Could not delete computer").assertIsDisplayed()
+        compose.onNodeWithText("The computer is still pausing.").assertIsDisplayed()
+        shot("box-delete-error.png")
+    }
+
     @Test fun catalogQuotaOfflineAndExactDetailCallbacks() {
         render()
         compose.onNodeWithText("Cloud").assertIsDisplayed()
@@ -86,6 +132,34 @@ class RuntimesFixtureDeviceTest {
         compose.onNodeWithTag("runtime-row-local").performScrollTo().performClick()
         assertEquals("local", details)
         compose.onNodeWithText("Add runtime").assertDoesNotExist()
+    }
+    /** #3781: the owner of a running Box can add a runtime to it from the list. */
+    @Test fun anOwnerCanAddARuntimeToTheirBox() {
+        owner = true
+        render()
+        compose.onNodeWithTag("new-runtime-host").performScrollTo().assertIsDisplayed()
+        shot("runtimes-add-runtime-owner.png")
+        compose.onNodeWithTag("new-runtime-host").performClick()
+        assertEquals("host", added)
+    }
+    /** #4192: a Box coming up says Starting… then Connecting…, like Desktop and iOS, and nothing once online. */
+    @Test fun aStartingBoxSaysStartingThenConnectingNotOffline() {
+        startingState = "creating"
+        render()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        compose.onNodeWithText("Starting…").assertIsDisplayed()
+        shot("runtimes-box-starting-4192.png")
+        startingState = "connecting"
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Starting…").assertDoesNotExist()
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-connecting-4192.png")
+        startingState = null
+        compose.runOnIdle { store.refresh() }
+        compose.waitUntil(5000) { compose.onAllNodesWithText("Connecting…").fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag("runtime-row-local").performScrollTo()
+        shot("runtimes-box-online-4192.png")
     }
     @Test fun firstLoadNeverShowsEmptyAndFailedRequestOffersRealRetry() {
         held = kotlinx.coroutines.CompletableDeferred()

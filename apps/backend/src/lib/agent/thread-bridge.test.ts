@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
 import { useConversationRuntimeMove } from '@/lib/test/doubles/conversation-runtime-move'
 import { useDb } from '@/lib/test/doubles/db'
@@ -77,6 +78,7 @@ afterEach(async () => {
     await clearPendingUserMessages('owner', id)
 })
 
+useArchiveCleanup({ cleanUpArchived: async () => {} })
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
@@ -238,7 +240,7 @@ const installAgentDb = useAgentDb({
 
     return { isNew: true }
   },
-  agentMessages: () => ({ findOne: async () => null }),
+  agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   recordAgentEvent: (event) => {
     events.push(event)
   },
@@ -522,6 +524,24 @@ describe('conversation-scoped thread tools', () => {
     expect(picks).toEqual([])
     expect(archives).toEqual([])
     expect(claims).toHaveLength(1)
+  })
+
+  test("a parent's effort the thread's model does not offer is left to the agent, and the rest carries over", async () => {
+    const speeds = offered as Record<string, string[]>
+
+    speeds.fast = ['on', 'off']
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'max', fast: 'on' }
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+      expect(picks).toEqual([
+        { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+        { sessionId: threadId, configId: 'fast', value: 'on' },
+      ])
+      expect(archives).toEqual([])
+    } finally {
+      delete speeds.fast
+    }
   })
 
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {

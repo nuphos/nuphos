@@ -16,6 +16,7 @@ const started: {
 const answers: unknown[][] = []
 const dismissals: unknown[][] = []
 let answerFails = false
+let answerError = 'This question is no longer open'
 
 Object.defineProperty(globalThis, 'window', {
   configurable: true,
@@ -36,7 +37,7 @@ Object.defineProperty(globalThis, 'window', {
       },
       agentAnswerDecision: async (...args: unknown[]) => {
         answers.push(args)
-        if (answerFails) throw new Error('This question is no longer open')
+        if (answerFails) throw new Error(answerError)
 
         return { ok: true }
       },
@@ -135,6 +136,22 @@ test('an Inbox answer refused says why, though its question is already gone', as
   await settle()
   assert.deepEqual(reasons, ['This question is no longer open'])
   answerFails = false
+})
+
+test("a refused answer says the server's message, not the IPC error around it", async () => {
+  answerFails = true
+  answerError =
+    "Error invoking remote method 'agent:answerDecision': Error: __ATLAS_API_ERROR__" +
+    '{"message":"Answer this question in its own card","code":"decision_not_answerable"}'
+  publish([waiting('h4')])
+  const reasons: (string | undefined)[] = []
+
+  inbox.replyInInbox('team', 'agent', 'h4', { text: 'Done' }, (reason) => reasons.push(reason))
+  await settle()
+  await settle()
+  assert.deepEqual(reasons, ['Answer this question in its own card'])
+  answerFails = false
+  answerError = 'This question is no longer open'
 })
 
 test('an Inbox dismissal leaves at once and is sent at once with its reason', () => {

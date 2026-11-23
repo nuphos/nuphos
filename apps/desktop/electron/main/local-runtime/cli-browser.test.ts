@@ -267,5 +267,24 @@ test('record_start with video records the tab from a helper window and record_st
   }
 
   assert.equal(readFileSync(stopped.video.file).subarray(0, 4).toString('hex'), '1a45dfa3')
-  assert.ok(chromium.commands.some((c) => c.method === 'Target.closeTarget'))
+})
+
+test('the video helper opens in a browser context of its own, disposed when it closes', async () => {
+  const chromium = fakeChromium()
+  const run = createCliBrowser(() => chromium.browser, temp)
+
+  await run(call('s1', { action: 'open', url: 'https://example.com/' }))
+  await run(call('s1', { action: 'record_start', tab: 1, video: true }))
+  // Some machines never finish a navigation in Chromium's default context (#4347).
+  const helper = chromium.commands.find(
+    (c) => c.method === 'Target.createTarget' && c.params.newWindow === true,
+  )
+
+  assert.equal(helper?.params.browserContextId, 'ctx-2')
+  await run(call('s1', { action: 'record_stop', tab: 1 }))
+  assert.ok(
+    chromium.commands.some(
+      (c) => c.method === 'Target.disposeBrowserContext' && c.params.browserContextId === 'ctx-2',
+    ),
+  )
 })

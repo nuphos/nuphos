@@ -7,6 +7,7 @@ import { bindingAccessApi } from './preload-parts/api-binding-access'
 import { browserExtensionsApi } from './preload-parts/api-browser-extensions'
 import { channelsApi } from './preload-parts/api-channels'
 import { cloudAccountsApi } from './preload-parts/api-cloud-accounts'
+import { teamOAuthApi } from './preload-parts/api-team-oauth'
 import { cloudOpsApi } from './preload-parts/api-cloud-ops'
 import { cloudflareApi } from './preload-parts/api-cloudflare'
 import { connectApi } from './preload-parts/api-connect'
@@ -23,8 +24,10 @@ import { sessionAccessApi } from './preload-parts/api-session-access'
 import { sidebarGesturesApi } from './preload-parts/api-sidebar-gestures'
 import { signInSessionsApi } from './preload-parts/api-sign-in-sessions'
 import { teamApi } from './preload-parts/api-team'
+import { vaultApi } from './preload-parts/api-vault'
 import { voiceApi } from './preload-parts/api-voice'
 import { vpsApi } from './preload-parts/api-vps'
+import { webhooksApi } from './preload-parts/api-webhooks'
 import { windowSessionApi } from './preload-parts/api-window-session'
 
 const api = {
@@ -39,6 +42,7 @@ const api = {
   ...deviceApi,
   ...awsApi,
   ...cloudOpsApi,
+  ...teamOAuthApi,
   ...githubCliApi,
   ...agentApi,
   ...integrationsApi,
@@ -53,7 +57,9 @@ const api = {
   ...sidebarGesturesApi,
   ...connectApi,
   ...instructionsApi,
+  ...webhooksApi,
   ...browserExtensionsApi,
+  ...vaultApi,
 }
 
 contextBridge.exposeInMainWorld('api', api)

@@ -19,7 +19,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 
 import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
-import { podOwnerAgentHome } from './agent-home.ts'
+import { prepareAgentHome } from './agent-home.ts'
 import { withE2eStagedUpdate } from './app-update-request.ts'
 import { localFileConnectors } from './attachment-stream.ts'
 import { cliAutoUpdate } from './cli-auto-update.ts'
@@ -136,7 +136,6 @@ if (!bundle()) {
   process.exit(1)
 }
 
-const prepareAgentHome = podOwnerAgentHome(owner, dataDir)
 const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   bundle,
   ownsMachine: ownsMachine(deviceCredential),
@@ -182,7 +181,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
         return dialBackend(tunnelUrlFor(apiUrl(), deviceId, reclaim), headers)
       },
       onRevoked: () => {
-        void controller.shutdown().then(exitRevoked)
+        void controller.shutdown().then(() => exitRevoked())
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
@@ -201,7 +200,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       status,
       onChange: (connected, superseded, revoked) => {
         onChange(connected, superseded, revoked)
-        if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
+        if (superseded) void controller.shutdown().then(() => exitRevoked(dataDir))
       },
       ...desktops(status, instances),
     })

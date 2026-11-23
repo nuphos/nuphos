@@ -7,6 +7,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { connectorOAuthReady } from '@/models'
 
+import type { NuphosTeam } from '@/lib/identity/types'
 import type { BindingAccess, BindingShareChoice, ConnectorOAuthReady } from '@/models'
 import type { ObjectId } from 'mongodb'
 
@@ -55,6 +56,12 @@ export function reboundAccess(
   return existing.access ? { access: existing.access } : {}
 }
 
+/**
+ * OAuth connectors that stay private to the member who connects them whatever
+ * the team default, like the cloud accounts.
+ */
+export const HIGH_PRIVILEGE_PROVIDERS: ReadonlySet<string> = new Set(['cloudflare', 'trello'])
+
 const READY_TTL_MS = 10 * 60_000
 
 /**
@@ -72,7 +79,6 @@ export async function finishConnectorOAuth<B extends object>(input: {
   requesterUserId: string
   /** What the requester chose when starting the flow. */
   share?: BindingShareChoice
-  highPrivilege?: boolean
   draft: B
   persist: ConnectorBindPersist<B>
 }): Promise<Record<string, string>> {
@@ -81,7 +87,7 @@ export async function finishConnectorOAuth<B extends object>(input: {
     userId: input.requesterUserId,
     team: membership?.team,
     share: input.share,
-    highPrivilege: input.highPrivilege,
+    highPrivilege: HIGH_PRIVILEGE_PROVIDERS.has(input.provider),
   })
 
   if (!(input.defer ?? config.byos.connectorOAuthDeferredBind)) {
@@ -126,6 +132,24 @@ export async function claimConnectorOAuth(input: {
   }
 
   return ready
+}
+
+/**
+ * The list a staged grant is bound with. Grants staged before the access was
+ * kept start private to the member who connected them.
+ */
+export function stagedGrantAccess(
+  ready: Pick<ConnectorOAuthReady, 'access' | 'provider' | 'requesterUserId'>,
+  team: Pick<NuphosTeam, 'bindingShareDefault'> | undefined,
+): BindingAccess {
+  return (
+    ready.access ??
+    initialBindingAccess({
+      userId: ready.requesterUserId,
+      team,
+      highPrivilege: HIGH_PRIVILEGE_PROVIDERS.has(ready.provider),
+    })
+  )
 }
 
 function sha256(value: string): string {

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">コンピュータの通知</string>
+    <string name="computer_notifications_intro_title">必要な通知を選ぶ</string>
+    <string name="computer_notifications_intro">必要なコンピュータだけをフォロー。他のコンピュータからは通知されません。</string>
+    <string name="computer_notifications_empty">このチームにはコンピュータがありません。</string>
+    <string name="computer_notifications_help">初期設定ではオフです。選択したコンピュータが2分間オフラインになったときと、再接続したときに通知します。自分のアカウントにのみ適用されます。</string>
+    <string name="computer_notifications_online">オンライン</string>
+    <string name="computer_notifications_offline">オフライン</string>
+    <string name="account_notifications">通知</string>
+    <string name="computer_notifications_load_failed">コンピュータを読み込めませんでした。</string>
+</resources>

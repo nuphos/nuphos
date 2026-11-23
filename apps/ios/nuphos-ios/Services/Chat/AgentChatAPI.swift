@@ -159,6 +159,16 @@ enum AgentChatAPI {
         )
     }
 
+    /// `PATCH …/instructions` — the owner rewrites a Bot's standing instructions; returns them as saved.
+    static func setBotInstructions(token: String, teamId: String, sessionId: String, instructions: String) async throws -> String {
+        struct Body: Codable { let instructions: String }
+        let data = try await send(
+            "PATCH", "agent/conversations/\(sessionId)/instructions",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Body(instructions: instructions)
+        )
+        return try JSONDecoder().decode(Body.self, from: data).instructions
+    }
+
     /// `POST /agent/bots` — a Bot with the picked name and face, on the
     /// runtime a new chat would use (#1691).
     static func createBot(token: String, teamId: String, title: String, avatar: String, runtime: RuntimeInstance?) async throws -> String {
@@ -433,11 +443,11 @@ enum AgentChatAPI {
             case .transcriptOutOfSync: String(localized: "The task changed elsewhere; resyncing.")
             case .streamNotResumable: String(localized: "The previous reply can no longer be resumed.")
             case .streamConflict: String(localized: "That stream belongs to another task.")
-            case .conversationBusy: String(localized: "This agent is busy with another reply.")
+            case .conversationBusy: String(localized: "This chat is busy with another reply.")
             case .runtimeNotReady: String(localized: "The runtime is not ready for a new message yet. Try again in a moment.")
             case .runtimeLoginRequired: String(localized: "This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.")
             case .runtimeDisabled: String(localized: "This task's runtime is disabled. Switch to another runtime to continue.")
-            case .runtimeNotFound: String(localized: "This runtime is no longer available in this workspace. Switch to another runtime to continue.")
+            case .runtimeNotFound: String(localized: "This runtime is no longer available in this team. Switch to another runtime to continue.")
             case .runtimeOffline: String(localized: "The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.")
             case .runtimeUnavailable(let message): message
             case .runtimeBusy: String(localized: "Wait for the current reply to finish before changing model settings.")

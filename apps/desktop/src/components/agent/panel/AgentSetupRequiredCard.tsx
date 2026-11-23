@@ -149,7 +149,7 @@ export function AgentSetupRequiredCard({
             ? t('Ask {name} to sign this runtime in, then resend your message.', {
                 name: route.name,
               })
-            : t('Ask a workspace administrator to reconnect this runtime.')}
+            : t('Ask a team administrator to reconnect this runtime.')}
         </p>
       )}
       {route.kind === 'none' && personalAgent && !onThisComputer && (

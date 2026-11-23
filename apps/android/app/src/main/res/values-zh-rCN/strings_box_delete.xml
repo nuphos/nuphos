@@ -1,0 +1,6 @@
+<resources>
+    <string name="box_delete">删除电脑</string>
+    <string name="box_delete_named">删除 %1$s？</string>
+    <string name="box_delete_failed">无法删除电脑</string>
+    <string name="box_delete_body">此操作将永久删除该电脑、其文件及其运行环境的登录信息，并停止在其上运行的任务。你的任务历史记录会保留在 Nuphos 中。</string>
+</resources>

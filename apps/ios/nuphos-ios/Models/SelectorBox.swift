@@ -25,6 +25,12 @@ struct AgentDevice: Decodable, Sendable {
     var desktopRuntimeId: String? = nil
     /// Whether its host is connected now; nil from older backends.
     var online: Bool? = nil
+    /// A Box that brings its runtime by itself, as a new account's free one does: one coming up, or
+    /// one whose host is up but whose runtime is not listed yet, as a host goes online before its
+    /// runtime is listed (#4839). A running Box whose host is down is not on its way.
+    var isStarting: Bool {
+        ["creating", "connecting"].contains(box?.state) || (box?.state == "running" && online == true)
+    }
     /// A live, sane reading, or nil: the picker then shows no meters at all.
     var liveMetrics: Metrics? {
         guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),
@@ -70,6 +76,14 @@ struct SelectorBox: Identifiable {
     let device: AgentDevice?
     var agents: [RuntimeInstance]
     var isComputer: Bool { device.map { $0.box == nil } ?? (agents.first?.local != nil) }
+    /// Desktop's `unavailable`: every agent on it is offline, so the picker shows it as one row.
+    var offline: Bool { !agents.isEmpty && agents.allSatisfy { $0.local?.online == false } }
+
+    /// Desktop's `selectorBoxes`: the picker's boxes, with offline computers last.
+    static func picker(_ agents: [RuntimeInstance], devices: [AgentDevice]) -> [SelectorBox] {
+        let boxes = grouped(agents, devices: devices)
+        return boxes.filter { !$0.offline } + boxes.filter(\.offline)
+    }
 
     static func grouped(_ agents: [RuntimeInstance], devices: [AgentDevice]) -> [SelectorBox] {
         var groups: [SelectorBox] = []

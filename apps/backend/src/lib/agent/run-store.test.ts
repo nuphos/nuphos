@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { RUNTIME_HANDOFFS_KEY } from '@/lib/claude-code-preview/runtime-handoff-store'
 import { useRedis } from '@/lib/test/doubles/redis'
 
 import { sweepAbandonedAgentRuns } from './run-store/run-index'
+import * as sessionReleasedModule from './session-released'
 
 import type { real as realRedis } from '@/lib/test/doubles/redis'
 
@@ -366,8 +367,14 @@ async function claimSession(): Promise<() => void> {
   }
 }
 
+const spies: { mockRestore: () => void }[] = []
+
 beforeEach(() => {
   redis.reset()
+})
+
+afterEach(() => {
+  for (const spy of spies.splice(0)) spy.mockRestore()
 })
 
 describe('distributed agent run cancellation', () => {
@@ -579,6 +586,50 @@ describe('agent run busy-guard lifecycle (issue #338)', () => {
 
   test('flushing with nothing in flight is a no-op', async () => {
     expect(await flushGuardWrites(1_000)).toBe(0)
+  })
+})
+
+describe('agent run release signalling', () => {
+  test('a failed Redis release does not signal the queue and schedules a retry', async () => {
+    const released = spyOn(sessionReleasedModule, 'sessionReleased').mockImplementation(() => {})
+    const retried = spyOn(sessionReleasedModule, 'retryQueuedTurn').mockImplementation(() => {})
+    const get = redis.get.bind(redis)
+
+    spies.push(released, retried)
+    redis.get = (key: string) => {
+      if (key === OWNER_KEY) return Promise.reject(new Error('redis unavailable'))
+
+      return get(key)
+    }
+
+    try {
+      const release = startAgentRunOwnership(USER, SESSION, STREAM)
+
+      await flush()
+      release()
+      await flush()
+
+      expect(released).not.toHaveBeenCalled()
+      expect(retried).toHaveBeenCalledTimes(1)
+      expect(retried).toHaveBeenCalledWith(USER, SESSION)
+    } finally {
+      redis.get = get
+    }
+  })
+
+  test('a successful release signals the queue without a retry', async () => {
+    const released = spyOn(sessionReleasedModule, 'sessionReleased').mockImplementation(() => {})
+    const retried = spyOn(sessionReleasedModule, 'retryQueuedTurn').mockImplementation(() => {})
+
+    spies.push(released, retried)
+    const release = startAgentRunOwnership(USER, SESSION, STREAM)
+
+    await flush()
+    release()
+    await flush()
+
+    expect(released).toHaveBeenCalledWith(USER, SESSION)
+    expect(retried).not.toHaveBeenCalled()
   })
 })
 

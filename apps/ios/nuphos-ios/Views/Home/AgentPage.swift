@@ -3,6 +3,7 @@ import SwiftUI
 /// Conversation history for the selected team. Task creation lives in a sheet.
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
+    @Environment(\.scenePhase) private var scenePhase
     @Binding var page: HomePage
     /// True once the large header has scrolled under the bar.
     @Binding var titleCollapsed: Bool
@@ -49,7 +50,9 @@ struct AgentPage: View {
                 refreshing = true
                 pulling = true
                 defer { pulling = false }
-                if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() }
+                // Its own task: a read that redraws this page (an empty state does) hands SwiftUI
+                // a new refresh action, and SwiftUI cancels the pull it replaces.
+                await Task { if store.selectedTeam == nil { await store.loadTeams() } else { await store.reload() } }.value
             }
             // SwiftUI ends the pull only after its task returns, and this runs only when the
             // phase changes, so the first idle after `pulling` ends follows that end at any speed.
@@ -104,6 +107,8 @@ struct AgentPage: View {
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
             .onPreferenceChange(ComposerOwnsKeyboard.self) { ownsKeyboard = $0 }
             .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
+            // A runtime that joined while the app was away shows when it comes back.
+            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await store.loadRuntimes() } } }
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {
@@ -235,9 +240,15 @@ struct AgentPage: View {
     private var status: some View {
         switch store.phase {
         case .loaded where store.selectedTeam == nil:
-            SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a workspace to start working with your team.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+            SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a team to get started.", actionTitle: "Set up a team") { showWorkspaceSetup = true }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
-            SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showRuntimeSetup = true }
+            if let box = store.agentDevices.first(where: \.isStarting) {
+                BoxStartingState(label: box.label)
+            } else {
+                SetupEmptyState(title: "Connect your first runtime", message: "Connect a computer so your Bots and tasks have a place to work.", actionTitle: "Set up a computer") { showRuntimeSetup = true }
+                    // An empty workspace may already have a Box on its way, as a new account's free one is.
+                    .task(id: store.selectedTeam?.id) { await store.loadAgentDevices(metrics: false) }
+            }
         case .idle, .loading:
             ProgressView("Loading tasks…")
                 .tint(Theme.muted)
@@ -360,7 +371,7 @@ struct AgentPage: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.borderless)
-                .accessibilityLabel(folded ? "Show \(item.threads) sub-agents" : "Hide \(item.threads) sub-agents")
+                .accessibilityLabel(folded ? "Show sub-tasks" : "Hide sub-tasks")
             }
         }
         // Insets live here, not on the row, so the tree lines span the whole row.
@@ -483,16 +494,6 @@ struct AgentPage: View {
             } else {
                 Section {
                     ForEach(store.nestedConversations) { item in agentRow(item) }
-
-                    if store.hasMore {
-                        HStack {
-                            Spacer()
-                            ProgressView().tint(Theme.muted)
-                            Spacer()
-                        }
-                        .listRowBackground(Color.clear)
-                        .task { await store.loadMore() }
-                    }
                 }
             }
         }
@@ -511,9 +512,9 @@ struct AgentPage: View {
 
 /// A row under Bots: a chat, or a Bot with no chat yet, by its face. A Bot's
 /// chat is named after the Bot. A chat shows its newest post (`lastMessage`),
-/// and when it last moved. A question from the Bot or a thread it dispatched
-/// comes first; otherwise the row shows the chat's typing dots exactly while
-/// the chat shows them (#3522). A Bot at work adds nothing else here.
+/// on up to two lines, and when it last moved. The row shows the chat's typing
+/// dots exactly while the chat shows them (#3522). A question from the Bot stays
+/// in the Inbox (#4508), and a Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
     @Environment(AgentStore.self) private var store
@@ -521,9 +522,6 @@ struct ChannelRow: View {
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         let title = store.title(of: channel)
-        let bot = channel.isChannel ? store.bot(of: channel) : nil
-        let runs = bot.map { [$0] + store.threads(of: $0) } ?? []
-        let question = runs.lazy.compactMap { $0.attentionInputRequests.first?.question }.first
         HStack(spacing: 12) {
             if channel.isChannel {
                 ChatIcon(faces: channel.faces ?? [], title: title, size: 36)
@@ -542,12 +540,7 @@ struct ChannelRow: View {
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)
                 }
-                if let question {
-                    Text("Needs your input: \(question)")
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.body)
-                        .lineLimit(1)
-                } else if channel.botTyping(in: store.observations, team: team) {
+                if channel.botTyping(in: store.observations, team: team) {
                     // As iMessage does: the dots stand in for the newest post until the reply lands.
                     TypingDots(size: 5)
                         .frame(height: 16)
@@ -556,7 +549,7 @@ struct ChannelRow: View {
                     Text(preview)
                         .font(Theme.Text.label)
                         .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
+                        .lineLimit(2)
                 }
             }
             if store.unread.contains(team: team, session: channel.sessionId) {
@@ -652,4 +645,27 @@ private func endEditing() {
     #if canImport(UIKit) && !NUPHOS_SHARE_EXTENSION
     UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
     #endif
+}
+
+/// Shown for a Box still coming up while the workspace has no runtime, in place of advice to
+/// connect a computer. It re-reads both lists every 5 s until the Box's runtimes are listed,
+/// which takes this view off screen and ends the loop.
+private struct BoxStartingState: View {
+    @Environment(AgentStore.self) private var store
+    let label: String
+    var body: some View {
+        VStack(spacing: 16) {
+            ProgressView().tint(Theme.muted)
+            Text("\(label) is getting ready").font(.title3.weight(.semibold)).foregroundStyle(Theme.heading).multilineTextAlignment(.center)
+            Text("It will show up here as soon as it is online. This can take a minute or two.").font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
+        }
+        .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
+        .task {
+            while true {
+                do { try await Task.sleep(for: .seconds(5)) } catch { return }
+                await store.loadRuntimes()
+                await store.loadAgentDevices(metrics: false)
+            }
+        }
+    }
 }

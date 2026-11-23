@@ -553,7 +553,8 @@ fun ConversationScreen(
                         onStop = if (session.canCancel) session::stop else null,
                 stopsRuntimeTurn = session.isNative,
                         showControls = session.canManage,
-                        selection = session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection(),
+                        selection = (session.credentialAccess ?: ai.nuphos.android.model.CredentialSelection())
+                            .reaching(store.credentialCatalog),
                         onSelectionChange = session::updateCredentials,
                         mode = session.permissionMode,
                         onModeChange = session::updatePermissionMode,
@@ -901,10 +902,8 @@ private fun WorkGroup(
     onOpenTool: (ChatPart.Tool) -> Unit,
 ) {
     var expanded by remember(row.id) { mutableStateOf(false) }
-    val title = row.duration?.takeIf { it >= 1 }?.let { pluralStringResource(R.plurals.chat_work_duration_steps, row.rows.size, it.toInt(), row.rows.size) }
-        ?: pluralStringResource(R.plurals.chat_work_steps, row.rows.size, row.rows.size)
     Column {
-        TranscriptDisclosure(title, expanded, { expanded = !expanded })
+        TranscriptDisclosure(row.title, expanded, { expanded = !expanded })
         if (expanded) {
             Column(Modifier.padding(start = 12.dp, top = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ChatRow.toolRuns(row.rows, live = false).forEach { child ->

@@ -46,6 +46,11 @@ Say what the change does and why the problem exists, not just what you edited.
 If there was a choice between adding something and removing something, say why
 the subtraction did not work — that question comes up in review every time.
 
+In UI copy, call the Nuphos team a team (in other languages, that language's
+word for team), never a workspace. "Workspace" is only for a third-party
+service's own workspace, such as Slack, Notion or Linear, and for the local file
+workspace or working directory.
+
 Tests for behaviour, not for coverage. A test that would have caught the bug is
 worth more than three that restate the implementation.
 
@@ -177,10 +182,11 @@ Maven Central) before adding or bumping a dependency by hand:
 
 One deliberate exception has no delay at all: the runtime image's Claude Agent
 SDK and Codex CLI (`apps/runtime/image`). `runtime-update-claude-sdk.yml` and
-`runtime-update-codex-cli.yml` take each vendor's latest release daily, with
+`runtime-update-codex-cli.yml` take each vendor's latest release, with
 whatever new transitive packages it brings, so the runtime keeps up with the
-agents it runs. The reviewer of those pull requests is the gate: read the
-lockfile diff for new or unexpected packages before approving.
+agents it runs. They run on demand, and every runtime release pull request
+includes the latest SDK and Codex CLI. The reviewer of that pull request is the
+gate: read the lockfile diff for new or unexpected packages before approving.
 
 Bun's version lives in `.bun-version` (every CI job reads it) and in
 `apps/backend/Dockerfile`; CI fails if they differ, and Renovate updates both

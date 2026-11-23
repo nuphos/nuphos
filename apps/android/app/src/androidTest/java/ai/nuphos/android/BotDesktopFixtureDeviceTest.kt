@@ -50,8 +50,12 @@ class BotDesktopFixtureDeviceTest {
     private var savedAccess: Any? = null
     private var historicalPosts = false
     @Volatile private var denyBotTask = false
+    @Volatile private var composerFixture = false
+    @Volatile private var nonOwner = false
     /** The Tasks list carries what Release notes dispatched, oldest waiting first to show state outranks time. */
     @Volatile private var dispatched = false
+    /** A pull request linked to the Bot's own session, which Bot details leaves out (#4790). */
+    @Volatile private var linkedPr = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -86,7 +90,8 @@ class BotDesktopFixtureDeviceTest {
     }
     private fun bot(bot: Bot): String {
         val desktop = if (bot.desktop) ""","canOpenDesktop":true""" else ""
-        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":true,"canManage":true,"readOnly":false,"messages":[
+        val native = if (composerFixture) ""","agentRuntime":"claude-code","runtimeId":"fixture-runtime","runtimeLabel":"Fixture Box"""" else ""
+        return """{"sessionId":"${bot.id}","title":"${bot.title}","avatar":"${bot.avatar}","isOwner":${!nonOwner},"canManage":${!nonOwner},"readOnly":$nonOwner$native,"messages":[
             {"id":"task-prompt","role":"user","parts":[{"type":"text","text":"Draft the 0.26 release notes."}]},
             {"id":"task-answer","role":"assistant","parts":[{"type":"text","text":"Release notes draft: Shared Bot Tasks keep the conversation and working context together."}]}],
             "runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle","actions":{"send":true}$desktop}}"""
@@ -111,12 +116,13 @@ class BotDesktopFixtureDeviceTest {
                     .code(403).message("fixture").body("""{"error":{"message":"Session access denied"}}""".toResponseBody(Http.jsonMedia)).build()
             }
             val body = when {
+                path.endsWith("/model-config") && composerFixture -> """{"status":"ready","options":[{"id":"model","name":"Model","kind":"model","currentValue":"sonnet","options":[{"value":"sonnet","name":"Sonnet"},{"value":"opus","name":"Opus"}]}]}"""
                 chatId != null -> chat(chatId, bots.getValue(chatId))
                 ofBot != null -> bot(ofBot)
                 ofTask != null -> """{"sessionId":"${ofTask.first}","title":"${ofTask.second}","isOwner":true,"canManage":true,"readOnly":false,"parentSessionId":"bot-plain",
                     "messages":[{"id":"m","role":"assistant","parts":[{"type":"text","text":"Working on: ${ofTask.second}."}]}]}"""
                 path.endsWith("/agents") -> bots.entries.first { path.contains("/${it.key}/") }.value
-                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","ownerId":"${if (denyBotTask) "another-viewer" else "viewer"}"}]}""" }
+                    .let { """{"agents":[{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","ownerId":"${if (denyBotTask || nonOwner) "another-viewer" else "viewer"}"}]}""" }
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
@@ -125,6 +131,8 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
                     """{"sessionId":"$id","title":"$title","isOwner":true,"agentRuntime":"claude-code","parentSessionId":"bot-plain",$rest}""" }}],"hasMore":false}"""
+                linkedPr && path.endsWith("/agent/conversations/bot-plain/resources") ->
+                    """{"resources":[{"id":"pr1","provider":"github","title":"Release notes for 0.26","url":"https://github.com/example/project/pull/42","state":"open","number":42}]}"""
                 path.endsWith("/resources") -> """{"resources":[]}"""
                 path.endsWith("/read") -> """{"activitySeq":2,"readSeq":2,"unread":false}"""
                 else -> "{}"
@@ -199,6 +207,7 @@ class BotDesktopFixtureDeviceTest {
         denyBotTask = true
         render("chat-plain", taskNavigation = true)
         compose.waitUntil(5_000) { botReads.get() > 0 && store.session("bot-plain", "Release notes")?.loadError != null }
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
@@ -221,7 +230,7 @@ class BotDesktopFixtureDeviceTest {
             .config[SemanticsProperties.VerticalScrollAxisRange].value()
         val before = position()
         assertTrue(before > 5)
-        // The Bot's own Task opens from its details, not the header.
+        // The details card's own entry sits in the details, not in the transcript.
         compose.onNodeWithTag("bot-task-entry").assertDoesNotExist()
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-task-entry").fetchSemanticsNodes().isNotEmpty() }
@@ -247,12 +256,30 @@ class BotDesktopFixtureDeviceTest {
         capture("7-task-return-scroll-and-draft")
     }
 
+    @Test fun titleBarTaskButtonOpensBotTaskAndReturns() {
+        render("chat-plain", taskNavigation = true)
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("chat-bot-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task")
+            .assert(hasContentDescription(inst.targetContext.getString(R.string.chat_task_fallback_title)) and hasClickAction())
+        capture("11-title-bar-task-button")
+        compose.onNodeWithTag("chat-bot-task").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Release notes draft: Shared Bot Tasks keep the conversation and working context together.").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithContentDescription(inst.targetContext.getString(R.string.chat_back)).performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("chat-bot-task").assertExists()
+    }
+
     @Test fun aBotWithoutADesktopHasNoButton() {
         render("chat-plain")
         // Long enough for the Bot's own read to land.
         compose.mainClock.advanceTimeBy(2_000)
         compose.waitForIdle()
         assertTrue(compose.onAllNodes(button).fetchSemanticsNodes().isEmpty())
+        // Nowhere to open a Task: no Task button either.
+        compose.onNodeWithTag("chat-bot-task").assertDoesNotExist()
         // Nothing dispatched: nothing under the name.
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertDoesNotExist()
         capture("2-no-desktop")
@@ -283,6 +310,21 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-state", useUnmergedTree = true).assertExists()
     }
 
+    /** As on Desktop (#4080): a pull request linked to the Bot's own session stays off Bot details. A Task's summary keeps it. */
+    @Test fun botDetailsLeavesOutChanges() {
+        linkedPr = true
+        render("chat-plain")
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.readAllowed == true }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
+        // The linked pull request has loaded, so its absence is the sheet's choice.
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes")?.linkedResources?.resources?.isNotEmpty() == true }
+        compose.waitForIdle()
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_summary_changes)).assertDoesNotExist()
+        compose.onNodeWithText("Release notes for 0.26").assertDoesNotExist()
+        capture("11-bot-details-no-changes")
+    }
+
     @Test fun aBotWithADesktopOpensItFromTheHeader() {
         render("chat-box")
         compose.waitUntil(5_000) { compose.onAllNodes(button).fetchSemanticsNodes().isNotEmpty() }
@@ -291,6 +333,46 @@ class BotDesktopFixtureDeviceTest {
         // The Task screen's own viewer, for the Bot's session.
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Close").fetchSemanticsNodes().isNotEmpty() }
         capture("4-desktop-viewer")
+    }
+
+    /** A Bot's runtime and model are picked in its details; its chat's composer shows neither. */
+    @Test fun ownerPicksBotModelInDetails() {
+        composerFixture = true
+        render("chat-plain")
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-entry").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodesWithTag("bot-composer.model").fetchSemanticsNodes().isEmpty())
+        captureComposer("bot-details-android-chat")
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-runtime").assertHasClickAction()
+        // The runtime's full name wraps rather than being cut short, even at 320 dp.
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
+        captureComposer("bot-details-android-owner")
+        compose.onNodeWithTag("bot-details-model").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Opus").fetchSemanticsNodes().isNotEmpty() }
+        captureComposer("bot-details-android-model")
+    }
+
+    @Test fun nonOwnerSeesBotRuntimeAndModelReadOnly() {
+        composerFixture = true
+        nonOwner = true
+        render("chat-plain")
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-runtime").assertHasNoClickAction()
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
+        compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
+        captureComposer("bot-details-android-member")
+    }
+
+    private fun captureComposer(name: String) {
+        compose.waitForIdle()
+        val output = InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File)
+            ?: inst.targetContext.getExternalFilesDir(null) ?: error("No screenshot directory")
+        output.mkdirs()
+        val bitmap = inst.uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
+        File(output, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
     }
 
     /** Screenshots for review, only with `-e botDesktopShots true`. */

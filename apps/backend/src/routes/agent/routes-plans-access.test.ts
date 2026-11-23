@@ -57,7 +57,7 @@ useAgentPlans({
 
     return Promise.resolve({ plan: null, thresholdReached: false } as never)
   },
-  updatePlan: () => {
+  closePlan: () => {
     writes++
 
     return Promise.resolve(plan(2, 'shared') as never)
@@ -112,6 +112,10 @@ describe('plans follow their conversation access', () => {
       expect(await response.json()).toMatchObject({ error: { code: 'plans_retired' } })
     }
     expect(writes).toBe(0)
+  })
+
+  test('the team Plan approval policy is gone', async () => {
+    expect((await app.request('/agent/plan-approval-policy?teamId=t')).status).toBe(404)
   })
 
   test('a plan without a source conversation stays team-wide', async () => {

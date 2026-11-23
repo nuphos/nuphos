@@ -65,7 +65,7 @@ struct AgentSummaryPanel: View {
                   }
                 }
                 if !background.isEmpty {
-                    SummaryCard("Background work") {
+                    SummaryCard("Background tasks") {
                         ForEach(background) { work in
                             DisclosureGroup {
                                 if !work.output.isEmpty {
@@ -77,7 +77,8 @@ struct AgentSummaryPanel: View {
                         }
                     }
                 }
-                if !changes.isEmpty {
+                // Bot details leaves out Changes, as on Desktop (#4080): they belong to the Bot's tasks.
+                if !isBotDetails && !changes.isEmpty {
                     SummaryCard("Changes") {
                         ForEach(changes) { resource in
                             Link(destination: resource.url) {
@@ -87,7 +88,7 @@ struct AgentSummaryPanel: View {
                     }
                 }
                 if !children.isEmpty {
-                    SummaryCard(isBotDetails ? "Sub-tasks" : "Sub-agents") {
+                    SummaryCard("Sub-tasks") {
                         ForEach(children) { child in
                             Button { openSession(child) } label: {
                                 if isBotDetails {
@@ -110,11 +111,7 @@ struct AgentSummaryPanel: View {
                 }
                 SummaryCard("Triggers") {
                     if triggers.isEmpty {
-                        Group {
-                            if isBotDetails { Text("Ask here to schedule recurring work.") }
-                            else { Text("Ask the agent to schedule recurring work in this task.") }
-                        }
-                        .foregroundStyle(Theme.body)
+                        Text("Ask here to schedule recurring work.").foregroundStyle(Theme.body)
                     } else {
                         ForEach(triggers) { trigger in
                             Button { showTriggers = true } label: {
@@ -140,7 +137,7 @@ struct AgentSummaryPanel: View {
                         ContentUnavailableView {
                             Label { Text("Nothing here yet") } icon: { LucideIcon("layers", size: 32) }
                         } description: {
-                            Text("Questions, changes, sub-agents and files from this task appear here as work progresses.")
+                            Text("Questions, changes, sub-tasks and files from this task appear here as work progresses.")
                         }
                     }
                 }
@@ -256,10 +253,10 @@ struct AgentSummaryPanel: View {
     }
 }
 
-private struct SummaryCard<Content: View>: View {
-    let title: String
+struct SummaryCard<Content: View>: View {
+    let title: LocalizedStringKey
     @ViewBuilder var content: Content
-    init(_ title: String, @ViewBuilder content: () -> Content) {
+    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
         self.title = title
         self.content = content()
     }
@@ -295,31 +292,6 @@ private struct SummaryBackgroundWork: Identifiable {
             return Self(id: task["id"]?.stringValue ?? key, title: task["name"]?.stringValue ?? key, output: "")
         }
         return terminals + tasks
-    }
-}
-
-
-extension View {
-    func agentSummary<Panel: View>(isPresented: Binding<Bool>, @ViewBuilder panel: @escaping () -> Panel) -> some View {
-        modifier(AgentSummaryPresentation(isPresented: isPresented, panel: panel))
-    }
-}
-
-private struct AgentSummaryPresentation<Panel: View>: ViewModifier {
-    @Binding var isPresented: Bool
-    let panel: () -> Panel
-    @Environment(\.horizontalSizeClass) private var sizeClass
-
-    func body(content: Content) -> some View {
-        if sizeClass == .regular {
-            content.inspector(isPresented: $isPresented) {
-                panel().inspectorColumnWidth(min: 300, ideal: 340, max: 420)
-            }
-        } else {
-            content.sheet(isPresented: $isPresented) {
-                panel().presentationDetents([.large]).presentationDragIndicator(.visible)
-            }
-        }
     }
 }
 

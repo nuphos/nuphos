@@ -91,8 +91,8 @@ export async function connectShareFlow(stack: Flow, log: (line: string) => void 
       'the team default to change',
     )
     must(
-      same(await connect('no choice, team default'), ['*']),
-      'no choice to follow a shared default',
+      same(await connect('no choice, team default'), [ownerId]),
+      'no choice to remain private despite a legacy team default',
     )
     await owner('PUT', `/teams/${stack.teamId}/binding-share-default`, { share: 'private' })
   } finally {

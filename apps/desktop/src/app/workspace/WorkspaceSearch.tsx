@@ -38,7 +38,7 @@ export function WorkspaceSearch({
       open={shown}
       onExited={onExited}
       teamId={scope.teamId}
-      teamName={ws.currentTeam?.name ?? t('Workspace')}
+      teamName={ws.currentTeam?.name ?? t('Team')}
       otherTeams={ws.teams.filter((team) => team.id !== scope.teamId)}
       userId={userId}
       onClose={() => ws.setSessionSearchOpen(false)}

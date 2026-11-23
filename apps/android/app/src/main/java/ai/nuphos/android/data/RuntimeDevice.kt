@@ -8,14 +8,29 @@ sealed interface ComputerPresence {
     data object Offline : ComputerPresence
     /** A paused Box: sending a message resumes it. */
     data class Paused(val label: String) : ComputerPresence
+    /** A Box that is still coming up: it goes online by itself. */
+    data class Starting(val label: String) : ComputerPresence
 
     companion object {
-        /** Only the device list says an offline Box is paused. A runtime with no computer is online. */
+        /** Only the device list says an offline Box is paused or starting. A runtime with no computer is online. */
         fun of(host: RuntimeHost?, devices: List<RuntimeDevice>): ComputerPresence {
             if (host?.online != false) return Online
             val device = devices.firstOrNull { it.id == host.deviceId }
-            return if (device?.box?.state == "paused") Paused(device.label) else Offline
+            return when (device?.box?.state) {
+                "paused" -> Paused(device.label)
+                "creating", "connecting" -> Starting(device.label)
+                else -> Offline
+            }
         }
+
+        /**
+         * The workspace's Box that brings its runtime by itself, while it has no runtime yet: one coming
+         * up, or one whose host is up but whose runtime is not listed yet, as a host goes online before
+         * its runtime is listed (#4839). A running Box whose host is down is not on its way.
+         */
+        fun starting(devices: List<RuntimeDevice>): Starting? = devices.firstOrNull {
+            it.box?.state in listOf("creating", "connecting") || (it.box?.state == "running" && it.online)
+        }?.let { Starting(it.label) }
     }
 }
 
@@ -23,6 +38,7 @@ data class RuntimeHost(val deviceId: String?, val deviceLabel: String?, val onli
 /** `box`: present only for a Box. */
 data class RuntimeDevice(val id: String, val label: String, val online: Boolean, val box: Box?,
     val metricsStatus: String, val cpuPercent: Double?, val memory: Capacity?, val disk: Capacity?, val access: String? = null) {
+    val canAddRuntime get() = online && access in setOf("owner", "manage") && (box == null || box.state == "running")
     /** `state`: what instabox says of its machine, such as `paused`. */
     data class Box(val state: String?)
     data class Capacity(val used: Double, val total: Double) {

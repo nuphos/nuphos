@@ -1,15 +1,15 @@
 import { z } from 'zod'
 
+import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
 
 import {
+  archiveConversationAs,
   credentialSource,
   getConversationBySessionId,
   getReadableConversation,
   recordAgentEvent,
   renameConversation,
-  setConversationArchived,
-  setMemberArchived,
   setConversationParent,
   setMessageFeedback,
   syncConversationTranscript,
@@ -150,17 +150,12 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
   const teamId = await resolveVerifiedTeamId(c, readTeamIdCandidate(c, body.teamId))
   const conversation = await getReadableConversation(sessionId, userId, teamId)
 
-  if (!conversation) throw new AppError(404, 'not_found', 'Conversation not found')
-  // Anyone else in a Task archives it for themselves alone; a group chat they leave instead.
-  if (conversation.userId !== userId) {
-    if (conversation.kind === 'channel' || !conversation.participantIds?.includes(userId))
-      throw new AppError(404, 'not_found', 'Conversation not found')
-    await setMemberArchived(sessionId, userId, body.archived)
+  // What moved with it (a Bot and its chats), so clients close and hide exactly that. Someone
+  // else in a Task archives it for themselves alone; a group chat they leave instead.
+  const moved = conversation && (await archiveConversationAs(conversation, userId, body.archived))
 
-    return c.json({ ok: true, archived: body.archived, sessionIds: [sessionId] })
-  }
-  // What moved with it (a Bot and its chats), so clients close and hide exactly that.
-  const moved = await setConversationArchived(sessionId, body.archived)
+  if (!moved) throw new AppError(404, 'not_found', 'Conversation not found')
+  if (body.archived) await cleanUpArchived(moved.sessionIds)
 
   return c.json({ ok: true, archived: body.archived, ...moved })
 })

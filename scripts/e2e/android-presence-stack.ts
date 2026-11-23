@@ -26,7 +26,7 @@ const api = async (method: string, path: string, body?: object) => {
 const consent = await fetch(`${stack.apiUrl}/auth/ai-consent`, {
   method: 'PUT',
   headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
-  body: JSON.stringify({ version: '2026-09-28', accepted: true }),
+  body: JSON.stringify({ version: '2026-11-23', accepted: true }),
 })
 
 if (!consent.ok) throw new Error(`Consent answered ${String(consent.status)}`)

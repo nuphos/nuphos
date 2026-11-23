@@ -51,10 +51,10 @@ export function SetupComplete({
   return (
     <SetupScreen
       step={3}
-      title={workspaceCreated ? t('Your workspace is ready') : t('Continue to your workspace')}
+      title={workspaceCreated ? t('Your team is ready') : t('Continue to your team')}
       subtitle={
         empty
-          ? t('Connect a runtime when you’re ready to start your first conversation.')
+          ? t('Connect a runtime when you’re ready to start your first Task.')
           : t('Start a conversation, give your runtime a task, and work through it with your team.')
       }
       hint={t('You can manage runtimes any time on the Runtimes page.')}
@@ -63,7 +63,7 @@ export function SetupComplete({
           <Button variant="ghost" onClick={onBack}>
             {t('Back')}
           </Button>
-          <Button onClick={onFinish}>{t('Open workspace')}</Button>
+          <Button onClick={onFinish}>{t('Open team')}</Button>
         </>
       }
     >
@@ -74,10 +74,10 @@ export function SetupComplete({
           </span>
           <div className="min-w-0 flex-1">
             <p className="text-[13.5px] font-medium text-main">
-              {workspaceCreated ? t('Workspace created') : t('Workspace available')}
+              {workspaceCreated ? t('Team created') : t('Team available')}
             </p>
             <p className="text-[12px] text-tertiary">
-              {t('A shared place for your team’s conversations and work.')}
+              {t('A shared place for your team’s Bots and work.')}
             </p>
           </div>
           <Check className="h-4 w-4 shrink-0 text-success" aria-label={t('Complete')} />

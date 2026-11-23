@@ -17,7 +17,11 @@ function QuotaStats({ quota }: { quota?: RuntimeQuota }) {
 
   return (
     <>
-      {note && <PanelStat label={t('Usage')}>{note}</PanelStat>}
+      {note && (
+        <PanelStat label={t('Usage')} className="col-span-2">
+          <span className="whitespace-normal">{note}</span>
+        </PanelStat>
+      )}
       {quota?.available &&
         quota.windows.map((window) => {
           const left = quotaLeftPercent(window)
@@ -72,7 +76,7 @@ export function RuntimeOverview({
     body = (
       <Note>
         {t(
-          'Nuphos is starting this workspace’s {name} runtime; this usually takes about a minute. Sign in once the status changes to Online.',
+          'Nuphos is starting this team’s {name} runtime; this usually takes about a minute. Sign in once the status changes to Online.',
           { name: instance.label },
         )}
       </Note>
