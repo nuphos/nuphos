@@ -256,7 +256,7 @@ struct AgentSummaryPanel: View {
     }
 }
 
-struct SummaryCard<Content: View>: View {
+private struct SummaryCard<Content: View>: View {
     let title: String
     @ViewBuilder var content: Content
     init(_ title: String, @ViewBuilder content: () -> Content) {
