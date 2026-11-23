@@ -249,10 +249,6 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           initialSection={settingsInitialSection ?? undefined}
           initialFilter={settingsInitialFilter}
           onClose={() => setSettingsOpen(false)}
-          onOpenConnectors={() => {
-            setSettingsOpen(false)
-            ws.openConnectors()
-          }}
           onTeamUpdated={handleTeamUpdated}
           onTeamRemoved={handleTeamRemoved}
           onSignOut={handleLogout}

@@ -1,10 +1,12 @@
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
 import { nameOf } from '../settings/personalCredentials'
-import { PersonalCredentialsSection } from '../settings/PersonalCredentialsSection'
+import { TEAM_SETTINGS_DEFAULT_SECTION } from '../settings/settingsNav'
 
 import type { AtlasTeam, PersonalCredentialProvider } from '../../types'
 import type { AddIntegrationKey } from '../addIntegrationCatalog'
+import { PersonalAccountManager } from './personal-account-manager'
+
 import type { IntegrationPlatformRow } from './team-home-bind'
 
 export function ConnectorServiceDetail({
@@ -49,11 +51,10 @@ export function ConnectorServiceDetail({
       <h2 className="mb-3 text-[13px] font-medium text-main">{t('My connections')}</h2>
       <p className="mb-3 text-[12px] text-secondary">{t('Only me')}</p>
       {team && (
-        <PersonalCredentialsSection
-          team={team}
+        <PersonalAccountManager
+          teamId={team.id}
           provider={personalProvider}
-          hideHeading
-          onOpenSection={onOpenSettingsSection}
+          onOpenTeamSettings={() => onOpenSettingsSection(TEAM_SETTINGS_DEFAULT_SECTION)}
         />
       )}
       {groups.map(
