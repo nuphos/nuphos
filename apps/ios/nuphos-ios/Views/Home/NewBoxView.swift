@@ -63,7 +63,7 @@ struct NewBoxView: View {
             while made != nil, phase.reads, !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 async let devices: Void = store.loadAgentDevices()
-                async let runtimes: Void = store.loadRuntimes(force: true)
+                async let runtimes: Void = store.loadRuntimes()
                 _ = await (devices, runtimes)
                 now = Date()
             }

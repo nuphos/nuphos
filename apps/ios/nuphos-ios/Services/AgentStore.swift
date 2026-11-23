@@ -424,8 +424,8 @@ final class AgentStore {
         publishSharingContext()
     }
 
-    func loadRuntimes(force: Bool = false) async {
-        guard let team = selectedTeam, force || !runtimesLoaded else { return }
+    func loadRuntimes() async {
+        guard let team = selectedTeam else { return }
         do {
             let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -787,7 +787,7 @@ final class AgentStore {
             }
         } catch {
             guard generation == loadGeneration else { return }
-            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            // Cancelled (a page that went away): the list stays as it was (#3620).
             guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)

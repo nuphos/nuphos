@@ -51,7 +51,7 @@ private struct RuntimePicker: View {
                     ContentUnavailableView {
                         Label("Couldn't load runtimes", image: "lucide-wifi-off")
                     } description: { Text(error) } actions: {
-                        Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
+                        Button("Try again") { Task { await store.loadRuntimes() } }.buttonStyle(.bordered)
                     }
                 } else if !store.runtimesLoaded {
                     ProgressView("Loading runtimes…").tint(Theme.muted)
@@ -132,7 +132,7 @@ private struct RuntimePicker: View {
             .onChange(of: expanded) { _, id in if let id { withAnimation(.snappy(duration: 0.25)) { proxy.scrollTo(id, anchor: .top) } } }
             .onAppear { if let expanded { proxy.scrollTo(expanded, anchor: .top) } }
             .refreshable {
-                async let agents: Void = store.loadRuntimes(force: true)
+                async let agents: Void = store.loadRuntimes()
                 async let quotas: Void = store.loadQuotas()
                 async let devices: Void = store.loadAgentDevices()
                 _ = await (agents, quotas, devices)
