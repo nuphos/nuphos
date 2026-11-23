@@ -11,7 +11,9 @@ const trigger: AgentTrigger = {
   userId: 'u-1',
   name: 'Daily digest',
   triggerType: 'cron',
-  cronExpression: '0 9 * * *',
+  cronExpression: '0 1 1 * *',
+  scheduleDescription: 'Schedule: 0 1 1 * * (UTC)',
+  nextRunAt: '2026-12-01T01:00:00Z',
   timeZone: 'UTC',
   messageTemplate: 'Summarise yesterday’s merged pull requests.',
   enabled: true,
@@ -33,7 +35,7 @@ mock.module('../../../api', () => ({
   },
 }))
 
-mock.module('../../ui/toast', () => ({ toast: { apiError: () => undefined } }))
+mock.module('../../ui/toast', () => ({ toast: { apiError: () => {} } }))
 
 const dom = new Window()
 const browser: Record<string, unknown> = {
@@ -71,14 +73,20 @@ async function mount() {
 
 test('a Trigger row opens its details, and its switch does not', async () => {
   const container = await mount()
+
+  assert.ok(container.textContent?.includes('Scheduled:'))
+  assert.ok(container.textContent?.includes(Intl.DateTimeFormat().resolvedOptions().timeZone))
+  assert.ok(!container.textContent?.includes('Schedule: 0 1 1 * *'))
   const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
 
   assert.ok(row, 'the row is a disclosure button')
+  assert.equal(container.textContent?.includes('Source rule:'), false)
   assert.equal(row.getAttribute('aria-expanded'), 'false')
   assert.ok(!container.textContent?.includes(trigger.messageTemplate))
 
   await act(async () => row.click())
   assert.equal(row.getAttribute('aria-expanded'), 'true')
+  assert.ok(container.textContent?.includes('Source rule:'))
   assert.ok(container.textContent?.includes(trigger.messageTemplate), 'shows what it sends')
   const edit = [...container.querySelectorAll('button')].find((b) => b.textContent === 'Edit')
 
@@ -95,4 +103,18 @@ test('a Trigger row opens its details, and its switch does not', async () => {
   await act(async () => toggle.click())
   assert.deepEqual(updates, [{ id: 'trg-1', patch: { enabled: false } }])
   assert.equal(row.getAttribute('aria-expanded'), 'false', 'the switch leaves the row closed')
+})
+
+test('paused sidebar rows show their rule without upcoming dates', async () => {
+  trigger.enabled = false
+  const container = await mount()
+
+  assert.match(container.textContent ?? '', /Paused · /)
+  assert.doesNotMatch(container.textContent ?? '', /Scheduled:/)
+  const row = container.querySelector<HTMLButtonElement>('button[aria-expanded]')
+
+  assert.ok(row)
+  await act(async () => row.click())
+  assert.doesNotMatch(container.textContent ?? '', /Next runs, your time|Scheduled:/)
+  trigger.enabled = true
 })
