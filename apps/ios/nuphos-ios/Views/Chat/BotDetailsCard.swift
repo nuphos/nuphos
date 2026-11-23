@@ -103,14 +103,14 @@ struct BotInstructionsCard: View {
                     }
                     HStack {
                         Spacer()
-                        Button("Cancel") { draft = nil; error = nil }.buttonStyle(.bordered)
+                        Button("Cancel") { draft = nil; error = nil }.buttonStyle(.borderless)
                         Button { Task { await save(text) } } label: {
                             HStack(spacing: 6) {
                                 if saving { ProgressView().controlSize(.small) }
                                 Text("Save")
                             }
                         }
-                        .buttonStyle(.borderedProminent)
+                        .buttonStyle(DesignPrimaryButtonStyle(minimumHeight: 36))
                         .disabled(text == instructions || saving)
                         .accessibilityIdentifier("bot-instructions-save")
                     }
