@@ -8,7 +8,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { usePendingQueue } from '@/lib/test/doubles/pending-queue'
 
 let readable = false
-let report: { id: string; status: 'done'; summary: string; data?: object; at: Date } | undefined
+let report: { id: string; status: 'done'; summary: string; at: Date } | undefined
 
 useIdentity({
   authenticateToken: async () => ({ user: { id: '111111111111111111111111' } }),
@@ -63,17 +63,6 @@ test('a stored answer is replayable with the same stable id after reconnect', as
 
   expect(reported?.id).not.toBe(first?.id)
   expect(reported?.notification.params.task_report).toMatchObject({ id: 'report', status: 'done' })
-})
-
-test("a Task report's data reaches the notification unchanged", async () => {
-  readable = true
-  const data = { pr_url: 'https://github.com/o/r/pull/1', blocked_reason: null }
-
-  report = { id: 'report', status: 'done', summary: 'Verified', data, at: new Date('2026-01-01') }
-  const { sessionNotification } = await import('./notifications')
-  const reported = await sessionNotification('task', '111111111111111111111111')
-
-  expect(reported?.notification.params.task_report).toMatchObject({ data })
 })
 
 test('SSE sends a JSON-RPC notification with a resumable id', async () => {
