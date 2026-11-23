@@ -24,7 +24,6 @@ import { agent } from './agent/router'
 import { channelRoutes } from './agent/routes-channels'
 import { conversationParticipantsRoutes } from './agent/routes-conversation-participants'
 import { createDeviceAccessAuditRoutes } from './agent/routes-devices-access-audit'
-import { createBoxTerminalRoutes } from './agent/routes-devices-box-terminal'
 import { createDeviceShareRoutes } from './agent/routes-devices-share'
 import { sessionConfigRoutes } from './agent/routes-session-config'
 
@@ -32,7 +31,6 @@ agent.route('/', conversationParticipantsRoutes)
 agent.route('/', sessionConfigRoutes)
 agent.route('/', createDeviceShareRoutes())
 agent.route('/', createDeviceAccessAuditRoutes())
-agent.route('/', createBoxTerminalRoutes())
 agent.route('/', channelRoutes)
 
 export { chatSurfaceMessage } from './agent/chat-surface'

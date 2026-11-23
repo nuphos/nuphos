@@ -49,7 +49,6 @@ export async function deviceView(
             ...(level !== 'use' ? { access: teamUse(device, device.box.teamId) } : {}),
             ...(device.box.sandboxId ? { sandboxId: device.box.sandboxId } : {}),
             ...(device.box.accountId ? { instaboxAccountId: device.box.accountId } : {}),
-            ...(device.box.useTerminal ? { useTerminal: true } : {}),
             state,
             ...(pausedBy ? { pausedBy } : {}),
             // Its host restarting for an update: offline on purpose, and back on its own.

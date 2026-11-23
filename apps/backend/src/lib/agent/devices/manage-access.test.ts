@@ -1,18 +1,18 @@
 import { expect, test } from 'bun:test'
 
-import { requireAgentSignInAccess, requireShellAccess, shellAllowed } from './manage-access'
+import { requireAgentSignInAccess, requireShellAccess } from './manage-access'
 
 import type { DeviceAccessDeps } from './box-access'
 import type { AgentDevice } from './store'
 
-function box(useTerminal?: boolean): AgentDevice {
+function box(): AgentDevice {
   return {
     userId: 'host',
     deviceId: 'box',
     label: 'Box',
     platform: 'linux',
     allowLocalExec: true,
-    box: { provider: 'instabox', teamId: 't1', createdBy: 'owner', useTerminal },
+    box: { provider: 'instabox', teamId: 't1', createdBy: 'owner' },
     access: [
       { teamId: 't1', everyone: false, userIds: ['user', 'manager'], managerIds: ['manager'] },
     ],
@@ -32,40 +32,27 @@ function deps(device: AgentDevice): DeviceAccessDeps {
   }
 }
 
-test('commands take managing the computer; a terminal opens for users only when its owner lets them', () => {
-  for (const useTerminal of [undefined, false, true]) {
-    const device = box(useTerminal)
+test('commands and a terminal take managing the computer; one who only uses it is told why', async () => {
+  // A record saved while an owner could let users open a terminal still grants nothing more.
+  const legacy = { ...box(), box: { ...box().box!, useTerminal: true } } as AgentDevice
 
-    for (const actor of ['owner', 'manager']) {
-      expect(shellAllowed(device, actor, 't1', 'exec')).toBe(true)
-      expect(shellAllowed(device, actor, 't1', 'terminal')).toBe(true)
+  for (const device of [box(), legacy])
+    for (const purpose of ['exec', 'terminal'] as const) {
+      for (const actor of ['owner', 'manager'])
+        expect((await requireShellAccess(actor, 't1', 'box', purpose, deps(device))).deviceId).toBe(
+          'box',
+        )
+      await expect(
+        requireShellAccess('user', 't1', 'box', purpose, deps(device)),
+      ).rejects.toMatchObject({ status: 403, code: 'device_manage_required' })
+      await expect(
+        requireShellAccess('stranger', 't1', 'box', purpose, deps(device)),
+      ).rejects.toMatchObject({ status: 404 })
     }
-    expect(shellAllowed(device, 'user', 't1', 'exec')).toBe(false)
-    expect(shellAllowed(device, 'user', 't1', 'terminal')).toBe(useTerminal === true)
-    expect(shellAllowed(device, 'stranger', 't1', 'terminal')).toBe(false)
-    expect(shellAllowed(device, 'user', 't2', 'terminal')).toBe(false)
-  }
 })
 
-test('one who only uses the computer is told why; one who cannot use it does not learn it exists', async () => {
+test('only those who manage the computer sign its agents in or out', async () => {
   const device = box()
-
-  await expect(
-    requireShellAccess('user', 't1', 'box', 'terminal', deps(device)),
-  ).rejects.toMatchObject({ status: 403, code: 'device_manage_required' })
-  await expect(
-    requireShellAccess('stranger', 't1', 'box', 'exec', deps(device)),
-  ).rejects.toMatchObject({ status: 404 })
-  expect((await requireShellAccess('manager', 't1', 'box', 'exec', deps(device))).deviceId).toBe(
-    'box',
-  )
-  expect((await requireShellAccess('user', 't1', 'box', 'terminal', deps(box(true)))).userId).toBe(
-    'host',
-  )
-})
-
-test('only those who manage the computer sign its agents in or out, whatever the terminal setting', async () => {
-  const device = box(true)
 
   await expect(requireAgentSignInAccess('user', 't1', 'box', deps(device))).rejects.toMatchObject({
     status: 403,
