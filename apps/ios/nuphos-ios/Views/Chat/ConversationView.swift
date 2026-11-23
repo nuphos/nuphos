@@ -280,7 +280,8 @@ struct ConversationView: View {
             Button("OK") { session.stopNotice = nil }
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
-        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
+        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token,
+                                 onEdit: { draft = $0 }).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) {
             if session.shareable { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         }

@@ -4246,6 +4246,52 @@
         }
       }
     },
+    "Ask here to change this trigger." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pide aquí que se cambie este disparador."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minta di sini untuk mengubah pemicu ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このトリガーの変更はここで依頼してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 트리거를 바꾸려면 여기에서 요청하세요."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ขอที่นี่เพื่อเปลี่ยนทริกเกอร์นี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在这里要求修改此触发器。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在這裡要求修改此觸發條件。"
+          }
+        }
+      }
+    },
     "Ask here to schedule recurring work." : {
       "localizations" : {
         "es" : {
@@ -12264,6 +12310,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "編輯個人資料"
+          }
+        }
+      }
+    },
+    "Edit your trigger “%@”: " : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edita tu disparador “%@”: "
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ubah pemicu “%@”: "
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "トリガー「%@」を変更："
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "트리거 “%@” 수정: "
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "แก้ไขทริกเกอร์ “%@”: "
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改触发器“%@”："
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "修改觸發條件「%@」："
           }
         }
       }
