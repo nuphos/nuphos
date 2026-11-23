@@ -11,7 +11,7 @@ enum NewRuntimeTests {
         onlyManagersOfARunningComputerMayAdd()
         signsInASignedOutRuntimeInsteadOfAddingASecond()
         namesANewRuntimePastTheOnesAlreadyThere()
-        aBoxStillComingUpIsStarting()
+        aBoxThatBringsItsRuntimeIsStarting()
         print("New runtime passed")
     }
 
@@ -73,18 +73,18 @@ enum NewRuntimeTests {
         precondition(taken.nameTaken("spare") && taken.nameTaken("  Spare  ") && !taken.nameTaken("Spare 2"))
     }
 
-    /// Android's `ComputerPresence.Starting`: Home says a new account's free Box is getting
-    /// ready rather than asking for a computer while it comes up.
-    private static func aBoxStillComingUpIsStarting() {
-        for state in ["creating", "connecting"] {
-            precondition(device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is starting")
-            precondition(device(access: "owner", online: nil, box: state).isStarting)
-            precondition(!device(access: "owner", online: true, box: state).isStarting, "An online Box is not starting")
+    /// Home says a Box that brings its runtime by itself is getting ready, rather than asking for a
+    /// computer. Online or not does not matter: a Box goes online before its runtime is listed (#4839).
+    private static func aBoxThatBringsItsRuntimeIsStarting() {
+        for state in ["creating", "connecting", "running"] {
+            for online in [true, false, nil] as [Bool?] {
+                precondition(device(access: "owner", online: online, box: state).isStarting, "A \(state) Box is starting")
+            }
         }
-        for state in ["running", "paused", "stopped", "error"] {
+        for state in ["paused", "error"] {
             precondition(!device(access: "owner", online: false, box: state).isStarting, "A \(state) Box is not starting")
         }
-        precondition(!device(access: "owner", online: false).isStarting, "A computer is never starting")
+        precondition(!device(access: "owner", online: true).isStarting, "A computer is never starting")
     }
 
     // MARK: - Fixtures

@@ -25,8 +25,10 @@ struct AgentDevice: Decodable, Sendable {
     var desktopRuntimeId: String? = nil
     /// Whether its host is connected now; nil from older backends.
     var online: Bool? = nil
-    /// A Box still coming up, as a new account's free one is at first: it goes online by itself (Android's `Starting`).
-    var isStarting: Bool { online != true && (box?.state == "creating" || box?.state == "connecting") }
+    /// A Box that brings its runtime by itself, as a new account's free one does: one coming up, or
+    /// one already up whose runtime is not listed yet. Being online says nothing here, as a Box goes
+    /// online before its runtime is listed (#4839).
+    var isStarting: Bool { ["creating", "connecting", "running"].contains(box?.state) }
     /// A live, sane reading, or nil: the picker then shows no meters at all.
     var liveMetrics: Metrics? {
         guard metricsStatus == "live", let metrics, metrics.cpuPercent.isFinite, (0...100).contains(metrics.cpuPercent),

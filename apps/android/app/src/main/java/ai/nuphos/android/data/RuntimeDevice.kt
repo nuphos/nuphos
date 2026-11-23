@@ -23,9 +23,13 @@ sealed interface ComputerPresence {
             }
         }
 
-        /** The workspace's Box that is still coming up, while it has no runtime yet. */
+        /**
+         * The workspace's Box that brings its runtime by itself, while it has no runtime yet: one coming
+         * up, or one already up whose runtime is not listed yet. Being online says nothing here, as a Box
+         * goes online before its runtime is listed (#4839).
+         */
         fun starting(devices: List<RuntimeDevice>): Starting? =
-            devices.firstNotNullOfOrNull { of(RuntimeHost(it.id, it.label, it.online), devices) as? Starting }
+            devices.firstOrNull { it.box?.state in listOf("creating", "connecting", "running") }?.let { Starting(it.label) }
     }
 }
 

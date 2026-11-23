@@ -663,8 +663,7 @@ private struct BoxStartingState: View {
         .task {
             while true {
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                // Runtimes first: the Box read as up before its runtime is listed would end this loop early.
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
                 await store.loadAgentDevices(metrics: false)
             }
         }

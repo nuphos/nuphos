@@ -39,7 +39,11 @@ final class BoxStartingUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts[starting].waitForExistence(timeout: 12), "No getting-ready state")
         XCTAssertFalse(app.staticTexts["Connect your first runtime"].exists, "Asked for a computer while the Box comes up")
 
-        // Only the runtime list changes, so the test never lands between the page's two reads.
+        // The Box goes online before its runtime is listed (#4839): Home keeps waiting through it.
+        responses[devices] = box(state: "running", online: true)
+        try write()
+        XCTAssertFalse(app.staticTexts[starting].waitForNonExistence(timeout: 12), "Stopped waiting once the Box was online")
+
         responses[runtimes] = ["status": 200, "body": ["runtimes": [[
             "id": "22222222-2222-4222-8222-222222222222", "provider": "opencode", "label": "OpenCode on Free Box",
             "status": "active", "kind": "local",
