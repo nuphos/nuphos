@@ -153,13 +153,8 @@ export type TrelloIntegration = {
 }
 
 // A team's own instabox account: Boxes on it are billed to the team, outside the vCPU limit.
-// keyRejectedAt: when instabox last refused its API key; absent while instabox takes it.
-export type InstaboxAccount = {
-  id: string
-  label: string
-  createdAt?: string
-  keyRejectedAt?: string
-}
+// keyRejectedAt is when instabox last refused its API key.
+export type InstaboxAccount = { id: string; label: string; keyRejectedAt?: string }
 
 // Tencent Cloud has two isolated partitions (like AWS aws vs aws-cn):
 //  - 'china'         — cloud.tencent.com (mainland China)
