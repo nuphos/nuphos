@@ -240,7 +240,7 @@ struct AgentPage: View {
     private var status: some View {
         switch store.phase {
         case .loaded where store.selectedTeam == nil:
-            SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a workspace to start working with your team.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+            SetupEmptyState(title: "Welcome to Nuphos", message: "Create or join a team to get started.", actionTitle: "Set up a team") { showWorkspaceSetup = true }
         case .loaded where store.runtimesLoaded && store.runtimes.isEmpty:
             if let box = store.agentDevices.first(where: \.isStarting) {
                 BoxStartingState(label: box.label)

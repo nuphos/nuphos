@@ -58,7 +58,7 @@ struct ComputerNotificationsView: View {
                     .overlay(RoundedRectangle(cornerRadius: Theme.Radius.card).stroke(Theme.outline, lineWidth: 0.5))
                 }
                 if !loading && computers.isEmpty {
-                    Text("No computers in this workspace.").foregroundStyle(Theme.muted)
+                    Text("No computers in this team.").foregroundStyle(Theme.muted)
                         .padding(Theme.Space.large)
                 }
                 HStack(alignment: .top, spacing: Theme.Space.small) {

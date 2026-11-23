@@ -34,7 +34,7 @@ struct RuntimesPage: View {
         let store = store
         return Group {
             if store.phase == .loaded, store.selectedTeam == nil {
-                SetupEmptyState(title: "No workspace yet", message: "Create or join a workspace before connecting a computer.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+                SetupEmptyState(title: "No team yet", message: "Create or join a team before connecting a computer.", actionTitle: "Set up a team") { showWorkspaceSetup = true }
             } else if !store.runtimesLoaded, let error = store.runtimesError {
                 ContentUnavailableView {
                     Label("Couldn't load runtimes", image: "lucide-wifi-off")
@@ -237,7 +237,7 @@ private struct AgentSignInInstructions: View {
     /// The Runtimes page is in Nuphos on a computer, not in this app.
     private var steps: String {
         guard let local = runtime.local else {
-            return String(localized: "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.")
+            return String(localized: "A team administrator can sign it in from the Runtimes page in Nuphos on their computer.")
         }
         return teammate
             ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")

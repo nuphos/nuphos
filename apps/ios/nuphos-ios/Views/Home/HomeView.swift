@@ -135,7 +135,7 @@ struct HomeView: View {
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
                                 Button { workspacePage = nil } label: { LucideIcon("x") }
-                                    .accessibilityLabel("Close workspace")
+                                    .accessibilityLabel("Close")
                             }
                         }
                 }

@@ -6,7 +6,7 @@ struct WorkspaceSetupSheet: View {
     @Environment(AgentStore.self) private var store
     @Environment(\.dismiss) private var dismiss
     // Stored as the workspace name, so it stays English like Desktop's default.
-    @State private var name = "My workspace"
+    @State private var name = "My team"
     @State private var discoverable: [Team] = []
     @State private var busy = false
     @State private var error: String?
@@ -15,19 +15,19 @@ struct WorkspaceSetupSheet: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    Text("Create a workspace for your agents and runtimes, or join one your organization has made available.")
+                    Text("Create a team for your Bots and runtimes, or join one your organization has made available.")
                         .font(.callout).foregroundStyle(Theme.body)
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("Workspace name").font(.footnote.weight(.medium)).foregroundStyle(Theme.body)
-                        TextField("Workspace name", text: $name)
+                        Text("Team name").font(.footnote.weight(.medium)).foregroundStyle(Theme.body)
+                        TextField("Team name", text: $name)
                             .font(.callout).padding(14).background(Theme.surface, in: RoundedRectangle(cornerRadius: 10))
-                        Button { create() } label: { Text("Create workspace").frame(maxWidth: .infinity) }
+                        Button { create() } label: { Text("Create team").frame(maxWidth: .infinity) }
                             .prominentButton()
                             .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || name.count > 80)
                     }
                     if !discoverable.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Available workspaces").font(.footnote.weight(.medium)).foregroundStyle(Theme.muted)
+                            Text("Available teams").font(.footnote.weight(.medium)).foregroundStyle(Theme.muted)
                             VStack(spacing: 4) {
                                 ForEach(discoverable) { team in
                                     Button { join(team) } label: {
@@ -43,8 +43,8 @@ struct WorkspaceSetupSheet: View {
                         }
                     }
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Already invited? Accept the invitation from your email, then refresh your workspaces.").font(.footnote).foregroundStyle(Theme.body)
-                        Button("Refresh workspaces") { Task { await store.loadTeams(); if store.selectedTeam != nil { dismiss() } } }
+                        Text("Already invited? Accept the invitation from your email, then refresh your teams.").font(.footnote).foregroundStyle(Theme.body)
+                        Button("Refresh teams") { Task { await store.loadTeams(); if store.selectedTeam != nil { dismiss() } } }
                             .font(.callout.weight(.medium)).foregroundStyle(Theme.link).frame(minHeight: 44)
                     }
                     if let error { Text(error).font(.footnote).foregroundStyle(Theme.attention) }
@@ -53,7 +53,7 @@ struct WorkspaceSetupSheet: View {
             }
             .background(Theme.canvas)
             .disabled(busy)
-            .navigationTitle("Set up workspace")
+            .navigationTitle("Set up a team")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button { dismiss() } label: { LucideIcon("x") }.accessibilityLabel("Close").disabled(busy) } }
             .task {
