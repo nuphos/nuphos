@@ -171,4 +171,8 @@
     <string name="shell_desktop_type">輸入</string>
     <string name="shell_inbox_snoozed">已延後</string>
     <string name="shell_inbox_unsnooze">取消延後</string>
+    <string name="shell_terms_agreement">繼續即表示你同意我們的%1$s與%2$s。</string>
+    <string name="shell_terms_of_service">服務條款</string>
+    <string name="shell_privacy_policy">隱私權政策</string>
+    <string name="shell_voice_prompt_help">提示詞會引導拼寫與書寫風格。錄音會透過 Nuphos 由 OpenAI 轉寫。</string>
 </resources>
