@@ -170,6 +170,21 @@ function versionOf(output: string): string | undefined {
     ?.replace(/^v/u, '')
 }
 
+/** False when either version is unreadable: only a version known to be older blocks a runtime. */
+function olderThan(version: string, minimum: string): boolean {
+  const have = version.split('.').map(Number)
+  const need = minimum.split('.').map(Number)
+  const index = need.findIndex((part, i) => have[i] !== part)
+
+  return index !== -1 && have[index] < need[index]
+}
+
+/**
+ * Older Codex CLIs list models OpenAI no longer serves to ChatGPT sign-ins, so every turn on
+ * them fails. 0.155.0 is the first release whose list has none of the models seen rejected.
+ */
+const CODEX_MIN_VERSION = '0.155.0'
+
 export async function readJson(file: string): Promise<Record<string, unknown> | null> {
   try {
     return JSON.parse(await readFile(file, 'utf8')) as Record<string, unknown>
@@ -259,14 +274,7 @@ export async function probeAgentCli(
         () => 'unavailable',
       )
 
-      const [major = Number.NaN, minor = Number.NaN] = node
-        .replace(/^v/u, '')
-        .split('.')
-        .map(Number)
-      const outdated =
-        Number.isFinite(major) &&
-        Number.isFinite(minor) &&
-        (major < 24 || (major === 24 && minor < 9))
+      const outdated = olderThan(node.replace(/^v/u, ''), '24.9')
 
       return {
         installed: false,
@@ -283,6 +291,12 @@ export async function probeAgentCli(
     loginOf(provider, file, runtimeEnv, agentHome),
     runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])
+
+  if (provider === 'codex' && version && olderThan(version, CODEX_MIN_VERSION))
+    return {
+      installed: false,
+      error: `Codex ${version} is too old to run here. Update Codex to ${CODEX_MIN_VERSION} or newer, then try again.`,
+    }
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
   // startup, and a provider that hangs must not hold an agent back.

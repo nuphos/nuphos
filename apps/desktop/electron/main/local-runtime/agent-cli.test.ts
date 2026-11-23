@@ -291,6 +291,33 @@ test(
   },
 )
 
+test(
+  'a Codex CLI too old to list working models asks for an update instead of starting',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'nuphos-codex-version-'))
+    const file = path.join(dir, 'codex')
+
+    t.after(() => rmSync(dir, { recursive: true, force: true }))
+    const probe = (version: string) => {
+      writeFileSync(
+        file,
+        `#!/bin/sh\nif [ "$1" = "--version" ]; then echo "codex-cli ${version}"; else echo "Logged in using ChatGPT"; fi\n`,
+        { mode: 0o700 },
+      )
+
+      return probeAgentCli('codex', { HOME: dir, PATH: dir }, path.join(dir, 'home'))
+    }
+
+    assert.deepEqual(await probe('0.120.0'), {
+      installed: false,
+      error: 'Codex 0.120.0 is too old to run here. Update Codex to 0.155.0 or newer, then try again.',
+    })
+    assert.equal((await probe('0.155.0')).installed, true)
+    assert.equal((await probe('0.171.0')).installed, true)
+  },
+)
+
 test('a Codex API key login says so without the part of the key Codex prints', () => {
   assert.deepEqual(parseCodexLoginStatus('Logged in using an API key - sk-proj-***67890\n'), {
     loggedIn: true,
