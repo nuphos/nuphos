@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { accessFor, accessMode, accessSaveSteps } from './boxAccessPresentation.ts'
+import { accessFor, accessMode } from './boxAccessPresentation.ts'
 
 test('accessMode reads everyone, named members, or private', () => {
   assert.equal(accessMode(undefined), 'private')
@@ -17,12 +17,4 @@ test('accessFor stores only what the mode means', () => {
     everyone: false,
     userIds: ['alice', 'bob'],
   })
-})
-
-test('a save that fails halfway never leaves a Box more open than either state asked for', () => {
-  assert.deepEqual(accessSaveSteps(undefined), ['access'])
-  // Turning terminals off goes first: new members never get one if the second save fails.
-  assert.deepEqual(accessSaveSteps(false), ['terminal', 'access'])
-  // Turning them on goes last: people who lose access never keep one.
-  assert.deepEqual(accessSaveSteps(true), ['access', 'terminal'])
 })

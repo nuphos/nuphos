@@ -112,8 +112,6 @@ export const deviceApi = {
     teamId: string,
     access: { everyone: boolean; userIds: string[] },
   ) => ipcRenderer.invoke('box:setAccess', deviceId, teamId, access),
-  boxSetTerminalAccess: (deviceId: string, teamId: string, useTerminal: boolean) =>
-    ipcRenderer.invoke('box:setTerminalAccess', deviceId, teamId, useTerminal),
   localShareGet: (deviceId: string, teamId: string) =>
     ipcRenderer.invoke('localShare:get', deviceId, teamId),
   deviceAccessHistory: (deviceId: string, teamId: string, before?: string) =>

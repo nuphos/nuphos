@@ -7,9 +7,8 @@ export type BoxAccess = { everyone: boolean; userIds: string[] }
 
 export type BoxStatus = {
   provider: 'instabox'
-  /** Only for those who manage the Box; useTerminal lets those who only use it open a terminal. */
+  /** Only for those who manage the Box. */
   access?: BoxAccess
-  useTerminal?: boolean
   /** Set once the machine exists. */
   sandboxId?: string
   state: BoxState

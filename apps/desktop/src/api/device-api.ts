@@ -86,8 +86,6 @@ export const deviceApi = {
     window.api.boxRename(deviceId, teamId, label),
   boxSetAccess: (deviceId: string, teamId: string, access: BoxAccess) =>
     window.api.boxSetAccess(deviceId, teamId, access),
-  boxSetTerminalAccess: (deviceId: string, teamId: string, useTerminal: boolean) =>
-    window.api.boxSetTerminalAccess(deviceId, teamId, useTerminal),
   localShareGet: (deviceId: string, teamId: string) => window.api.localShareGet(deviceId, teamId),
   deviceAccessHistory: (deviceId: string, teamId: string, before?: string) =>
     window.api.deviceAccessHistory(deviceId, teamId, before),
