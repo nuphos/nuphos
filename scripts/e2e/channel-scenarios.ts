@@ -228,19 +228,14 @@ export const channelScenarios: Scenario[] = [
   },
   ...botAccessScenarios,
   {
-    // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
-    name: 'the Bot composer and the Task composer both show the runtime usage bar',
+    // #3252: the Task composer's runtime line shows the usage bar. A Bot chat's composer has
+    // no runtime line since its runtime moved to Bot details (#4766).
+    name: 'the Task composer shows the runtime usage bar',
     run: async (page, stack) => {
       const computer = 'E2E usage computer'
-      const fixture = 'E2E fixture agent'
       const forget = await computerWithUsage(stack, computer)
 
       try {
-        // Still in the Bot chat the scenarios before opened.
-        await pickRuntime(page, computer, /^Claude Code/)
-        const bot = await shootRuntimeLine(page, 'bot')
-
-        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         await newTask(page)
         await pickRuntime(page, computer, /^Claude Code/)
         const task = await shootRuntimeLine(page, 'task')
@@ -248,8 +243,8 @@ export const channelScenarios: Scenario[] = [
         // #3732: the chip names when its tightest window, the 5-hour one, resets.
         await shootChipResets(page)
 
-        await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
-        if (!bot || !task) throw new Error(`Usage bar: Bot ${String(bot)}, Task ${String(task)}`)
+        await pickRuntime(page, 'E2E fixture agent', /^E2E fixture agent.*Claude Code/)
+        if (!task) throw new Error('The Task composer shows no usage bar')
         await shootUsageResets(page, computer)
       } finally {
         forget()
