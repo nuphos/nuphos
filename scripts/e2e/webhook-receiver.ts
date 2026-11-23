@@ -14,7 +14,7 @@ export type WebhookRequest = {
   body: {
     id: string
     type: string
-    data: { session_id?: string; task_report?: { status: string } }
+    data: { session_id?: string; task_report?: { status: string; data?: unknown } }
   }
   status: number
 }
