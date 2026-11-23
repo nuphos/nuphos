@@ -21,19 +21,6 @@ export const turnScenarios: Scenario[] = [
       await until('the agent to start the held turn', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:held'),
       )
-      const runtime = page.getByRole('button', { name: /^Runtime:/ })
-
-      await until(
-        'runtime switching to be disabled during the turn',
-        async () => (await runtime.getAttribute('aria-disabled')) === 'true',
-      )
-      await runtime.hover()
-      await page.getByText('Wait for the reply to finish before switching runtimes.').waitFor()
-      await page.screenshot({ path: `${artifacts}/runtime-switch-blocked.png` })
-      await runtime.focus()
-      await page.keyboard.press('Enter')
-      if (await page.getByRole('menu').isVisible())
-        throw new Error('The runtime menu opened while replying')
       await send(page, 'Then this E2E_DELIVERY:queued')
       await page.getByText('Queued messages').waitFor()
       await page.locator('button[title="Stop"]:visible').click()
