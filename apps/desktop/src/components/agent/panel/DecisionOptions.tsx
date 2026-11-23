@@ -161,7 +161,7 @@ export function DecisionOptions({
  * wraps: `!` because Button's `whitespace-nowrap` comes later in the stylesheet and would win.
  */
 export const PILL =
-  'h-auto min-h-8 gap-1.5 !whitespace-normal rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
+  '!h-auto min-h-8 min-w-0 max-w-full gap-1.5 !whitespace-normal [overflow-wrap:anywhere] rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
 
 /**
  * "Other…" ("Reply…" with nothing to click) opens a question's field; once its
