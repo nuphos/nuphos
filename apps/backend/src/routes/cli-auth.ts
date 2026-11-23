@@ -19,7 +19,7 @@ import {
   pollDeviceLogin,
   startDeviceLogin,
 } from '@/lib/identity/device-login'
-import { deviceGuessQuota, redisQuota } from '@/lib/identity/device-login-quota'
+import { deviceGuessQuota, quotaRefusal, redisQuota } from '@/lib/identity/device-login-quota'
 import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
@@ -72,8 +72,15 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
   routes.post('/device', async (c) => {
     const ip = ipOf(c)
 
-    if (!(await quota(`device-login:ip:${hashed(ip ?? 'unknown')}`, 20, 3600))) {
-      throw new AppError(429, 'rate_limited', 'Too many sign-in requests; try again later')
+    // Without a usable client IP there is no honest key, so skip the quota: a
+    // shared "unknown" bucket would throttle every such caller together.
+    if (ip) {
+      const refusal = quotaRefusal(
+        await quota(`device-login:ip:${hashed(ip)}`, 20, 3600),
+        'Too many sign-in requests; try again later',
+      )
+
+      if (refusal) throw refusal
     }
     const body = (await c.req.json().catch(() => ({}))) as { clientName?: unknown }
     const started = await startDeviceLogin({ clientName: body.clientName, requesterIp: ip })
