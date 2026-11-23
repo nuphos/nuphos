@@ -7,6 +7,9 @@
     " " : {
       "shouldTranslate" : false
     },
+    "#" : {
+
+    },
     "#%@" : {
       "shouldTranslate" : false
     },
@@ -2037,6 +2040,12 @@
         }
       }
     },
+    "9:41" : {
+
+    },
+    "A" : {
+
+    },
     "A Linux computer Nuphos runs, with Claude Code, Codex, OpenCode and more on it. Running computers count against your plan's vCPU; paused ones do not." : {
       "localizations" : {
         "es" : {
@@ -2128,6 +2137,12 @@
           }
         }
       }
+    },
+    "A computer for your Bots" : {
+
+    },
+    "A free cloud computer from us, or your own Mac or PC. Either way they keep working when your phone is locked, and you can open the Dock anytime to see what they’re doing." : {
+
     },
     "A new runtime takes a moment to start." : {
       "localizations" : {
@@ -2358,6 +2373,9 @@
           }
         }
       }
+    },
+    "AWS, Grafana, databases, and 20+ more connect from Nuphos on your computer." : {
+
     },
     "Account" : {
       "localizations" : {
@@ -2726,6 +2744,9 @@
           }
         }
       }
+    },
+    "Add a runtime" : {
+
     },
     "Add account" : {
       "localizations" : {
@@ -3278,6 +3299,9 @@
           }
         }
       }
+    },
+    "Allocating your computer" : {
+
     },
     "Already invited? Accept the invitation from your email, then refresh your workspaces." : {
       "localizations" : {
@@ -5219,6 +5243,9 @@
         }
       }
     },
+    "Bot name" : {
+
+    },
     "Bots" : {
       "localizations" : {
         "es" : {
@@ -5264,6 +5291,15 @@
           }
         }
       }
+    },
+    "Bots are teammates that remember your work, alone or with your team in a channel. Tasks take one-off jobs to Claude Code, Codex, or Grok Build. Anything that needs you lands in your Inbox." : {
+
+    },
+    "Bots, Tasks, and your Inbox" : {
+
+    },
+    "Bring your AI subscriptions to one table,\nand work with your Bots." : {
+
     },
     "Busy" : {
       "localizations" : {
@@ -5776,6 +5812,9 @@
         }
       }
     },
+    "Check again" : {
+
+    },
     "Check your email" : {
       "localizations" : {
         "es" : {
@@ -5821,6 +5860,12 @@
           }
         }
       }
+    },
+    "Checking your Cloud Box access…" : {
+
+    },
+    "Checking your account…" : {
+
     },
     "Choose" : {
       "localizations" : {
@@ -6006,6 +6051,9 @@
         }
       }
     },
+    "Choose a model first" : {
+
+    },
     "Choose a plan in Nuphos on your computer." : {
       "localizations" : {
         "es" : {
@@ -6189,6 +6237,9 @@
           }
         }
       }
+    },
+    "Choose how your Bots use AI" : {
+
     },
     "Choose photo" : {
       "localizations" : {
@@ -6419,6 +6470,9 @@
           }
         }
       }
+    },
+    "Claim my computer" : {
+
     },
     "Clear all" : {
       "localizations" : {
@@ -7022,6 +7076,9 @@
         }
       }
     },
+    "Code" : {
+
+    },
     "Code sent — check your inbox" : {
       "localizations" : {
         "es" : {
@@ -7252,6 +7309,9 @@
         }
       }
     },
+    "Communication" : {
+
+    },
     "Complete by" : {
       "localizations" : {
         "es" : {
@@ -7481,6 +7541,18 @@
           }
         }
       }
+    },
+    "Computers found: %lld. A model is signed in." : {
+
+    },
+    "Computers found: %lld. Check runtime and model setup." : {
+
+    },
+    "Computers found: %lld. OpenCode is available." : {
+
+    },
+    "Computers found: %lld. Sign in to a model or use OpenCode." : {
+
     },
     "Computers going offline" : {
       "extractionState" : "stale",
@@ -7805,6 +7877,12 @@
         }
       }
     },
+    "Connect ChatGPT or Claude" : {
+
+    },
+    "Connect a Mac, PC, or server in Nuphos Desktop." : {
+
+    },
     "Connect a cloud account or an integration to let the agent work in it." : {
       "localizations" : {
         "es" : {
@@ -7896,6 +7974,9 @@
           }
         }
       }
+    },
+    "Connect a computer first. You can come back to this after its runtime is ready." : {
+
     },
     "Connect a computer so your Bots and tasks have a place to work." : {
       "localizations" : {
@@ -8218,6 +8299,9 @@
           }
         }
       }
+    },
+    "Connecting to Nuphos" : {
+
     },
     "Connecting…" : {
       "localizations" : {
@@ -8633,6 +8717,12 @@
           }
         }
       }
+    },
+    "Continue with new workspace" : {
+
+    },
+    "Continue with this account" : {
+
     },
     "Continuing sign-in…" : {
       "localizations" : {
@@ -10752,6 +10842,9 @@
         }
       }
     },
+    "Create %@ first so you can select it on your computer." : {
+
+    },
     "Create a workspace for your agents and runtimes, or join one your organization has made available." : {
       "localizations" : {
         "es" : {
@@ -11074,6 +11167,9 @@
           }
         }
       }
+    },
+    "Creating your Cloud Box…" : {
+
     },
     "Creating…" : {
       "localizations" : {
@@ -11952,6 +12048,9 @@
           }
         }
       }
+    },
+    "Docs & knowledge" : {
+
     },
     "Done" : {
       "localizations" : {
@@ -13150,6 +13249,9 @@
         }
       }
     },
+    "Find a time with Dana next week and reply to her email." : {
+
+    },
     "Finish voice input" : {
       "localizations" : {
         "es" : {
@@ -13241,6 +13343,9 @@
           }
         }
       }
+    },
+    "Follow running work on your Lock Screen, and get a notification when it’s done or needs an answer." : {
+
     },
     "Follow the computers you rely on. Everything else stays quiet." : {
       "localizations" : {
@@ -13426,6 +13531,12 @@
           }
         }
       }
+    },
+    "Frida" : {
+
+    },
+    "Friday, November 20" : {
+
     },
     "General access" : {
       "localizations" : {
@@ -13796,6 +13907,12 @@
           }
         }
       }
+    },
+    "Hi Dana," : {
+
+    },
+    "Hi! I’m %@. I can read your email, keep your calendar, and take notes in meetings. What should we start with?" : {
+
     },
     "Hide" : {
       "extractionState" : "stale",
@@ -14396,6 +14513,18 @@
         }
       }
     },
+    "InstaBox" : {
+
+    },
+    "InstaBox runs cloud computers for AI agents. Your Nuphos computer is one of them, so your Bots keep their files and tools in one place and keep working when your phone is locked." : {
+
+    },
+    "Install Nuphos Desktop" : {
+
+    },
+    "Installing OpenCode" : {
+
+    },
     "Integrations" : {
       "localizations" : {
         "es" : {
@@ -14533,6 +14662,12 @@
           }
         }
       }
+    },
+    "It’s yours" : {
+
+    },
+    "I’ll use my own computer" : {
+
     },
     "Join" : {
       "localizations" : {
@@ -14674,6 +14809,9 @@
         }
       }
     },
+    "Know when your Bot needs you" : {
+
+    },
     "Last active %@" : {
       "localizations" : {
         "es" : {
@@ -14765,6 +14903,9 @@
           }
         }
       }
+    },
+    "Later" : {
+
     },
     "Leave it empty to call it %@." : {
       "localizations" : {
@@ -15320,6 +15461,9 @@
         }
       }
     },
+    "M" : {
+
+    },
     "Make this a Bot" : {
       "localizations" : {
         "es" : {
@@ -15365,6 +15509,9 @@
           }
         }
       }
+    },
+    "Manage AI data sharing" : {
+
     },
     "Manage computers and runtimes" : {
       "localizations" : {
@@ -15786,6 +15933,9 @@
         }
       }
     },
+    "Message Frida" : {
+
+    },
     "Messaged" : {
       "localizations" : {
         "es" : {
@@ -16016,6 +16166,9 @@
         }
       }
     },
+    "Monitoring" : {
+
+    },
     "Monthly" : {
       "localizations" : {
         "es" : {
@@ -16061,6 +16214,9 @@
           }
         }
       }
+    },
+    "More" : {
+
     },
     "Move" : {
       "localizations" : {
@@ -16292,6 +16448,12 @@
           }
         }
       }
+    },
+    "Name your Bot" : {
+
+    },
+    "Name your first Bot" : {
+
     },
     "Needs approval" : {
       "localizations" : {
@@ -16892,6 +17054,9 @@
         }
       }
     },
+    "Next" : {
+
+    },
     "Next Monday, 9:00" : {
       "localizations" : {
         "es" : {
@@ -16937,6 +17102,9 @@
           }
         }
       }
+    },
+    "Next, give your first Bot a name." : {
+
     },
     "Next: %@" : {
       "localizations" : {
@@ -17259,6 +17427,9 @@
           }
         }
       }
+    },
+    "No other workspaces are available to join." : {
+
     },
     "No questions waiting for you." : {
       "localizations" : {
@@ -17904,8 +18075,23 @@
         }
       }
     },
+    "Notifications are off for Nuphos. Turn them on in Settings." : {
+
+    },
+    "Notifications are on" : {
+
+    },
     "Nuphos" : {
       "shouldTranslate" : false
+    },
+    "Nuphos %@" : {
+
+    },
+    "Nuphos Bots working together along a long stone table" : {
+
+    },
+    "Nuphos Cloud" : {
+
     },
     "Nuphos encrypts it on its way to the runtime, which keeps it; Nuphos does not keep a copy." : {
       "localizations" : {
@@ -19338,6 +19524,9 @@
         }
       }
     },
+    "Open Settings" : {
+
+    },
     "Open Sign-In Page" : {
       "localizations" : {
         "es" : {
@@ -19521,6 +19710,15 @@
           }
         }
       }
+    },
+    "Open your workspace" : {
+
+    },
+    "OpenCode can be set up after your computer connects." : {
+
+    },
+    "OpenCode is ready on it, so your Bots can start right away. You can also connect your own computer anytime." : {
+
     },
     "Opens the channel" : {
       "localizations" : {
@@ -20306,6 +20504,9 @@
         }
       }
     },
+    "Personal" : {
+
+    },
     "Photos" : {
       "localizations" : {
         "es" : {
@@ -20351,6 +20552,9 @@
           }
         }
       }
+    },
+    "Pick the tools you use. Your Bot will help you connect them in your first chat." : {
+
     },
     "Pin" : {
       "localizations" : {
@@ -20766,6 +20970,9 @@
         }
       }
     },
+    "Powered by [InstaBox](https://instabox.sh)" : {
+
+    },
     "Preparing command…" : {
       "localizations" : {
         "es" : {
@@ -21088,6 +21295,9 @@
         }
       }
     },
+    "Projects & tasks" : {
+
+    },
     "Proposed" : {
       "localizations" : {
         "es" : {
@@ -21133,6 +21343,9 @@
           }
         }
       }
+    },
+    "Purchases are unavailable in this preview." : {
+
     },
     "QR code for your authenticator app" : {
       "localizations" : {
@@ -21462,6 +21675,9 @@
         }
       }
     },
+    "Re: Q3 kickoff" : {
+
+    },
     "Read file" : {
       "localizations" : {
         "es" : {
@@ -21553,6 +21769,9 @@
           }
         }
       }
+    },
+    "Ready" : {
+
     },
     "Reason (optional)" : {
       "localizations" : {
@@ -23216,6 +23435,9 @@
         }
       }
     },
+    "Restart" : {
+
+    },
     "Restore from archive" : {
       "localizations" : {
         "es" : {
@@ -23261,6 +23483,9 @@
           }
         }
       }
+    },
+    "Restore purchases" : {
+
     },
     "Result" : {
       "localizations" : {
@@ -24227,6 +24452,9 @@
           }
         }
       }
+    },
+    "Say hi to %@" : {
+
     },
     "Schedule: %@ (UTC)" : {
       "localizations" : {
@@ -25519,6 +25747,9 @@
         }
       }
     },
+    "Set up later" : {
+
+    },
     "Set up workspace" : {
       "localizations" : {
         "es" : {
@@ -26577,6 +26808,9 @@
         }
       }
     },
+    "Sign in or create an account" : {
+
+    },
     "Sign in or create an account." : {
       "localizations" : {
         "es" : {
@@ -27360,6 +27594,9 @@
         }
       }
     },
+    "Skip" : {
+
+    },
     "Snooze" : {
       "localizations" : {
         "es" : {
@@ -27451,6 +27688,12 @@
           }
         }
       }
+    },
+    "Start chatting" : {
+
+    },
+    "Start with a free cloud computer" : {
+
     },
     "Started" : {
       "localizations" : {
@@ -27589,6 +27832,9 @@
           }
         }
       }
+    },
+    "Starting your computer" : {
+
     },
     "Starting your runtime…" : {
       "localizations" : {
@@ -28049,6 +28295,9 @@
           }
         }
       }
+    },
+    "Switch account" : {
+
     },
     "Switch page" : {
       "localizations" : {
@@ -31561,6 +31810,9 @@
         }
       }
     },
+    "To: Dana Chen" : {
+
+    },
     "Tomorrow, 9:00" : {
       "localizations" : {
         "es" : {
@@ -31882,6 +32134,9 @@
           }
         }
       }
+    },
+    "Turn On" : {
+
     },
     "Turn failed." : {
       "localizations" : {
@@ -32296,6 +32551,9 @@
           }
         }
       }
+    },
+    "Unboxing your computer…" : {
+
     },
     "Unexpected GitHub setup action: %@." : {
       "localizations" : {
@@ -33171,6 +33429,9 @@
         }
       }
     },
+    "Use OpenCode" : {
+
+    },
     "Use a different email" : {
       "localizations" : {
         "es" : {
@@ -33401,6 +33662,9 @@
         }
       }
     },
+    "Use my own computer" : {
+
+    },
     "Use suggestion: %@" : {
       "localizations" : {
         "es" : {
@@ -33584,6 +33848,9 @@
           }
         }
       }
+    },
+    "Use your own server" : {
+
     },
     "User" : {
       "localizations" : {
@@ -34003,6 +34270,9 @@
           }
         }
       }
+    },
+    "Visit instabox.sh" : {
+
     },
     "Voice input" : {
       "localizations" : {
@@ -34928,6 +35198,9 @@
         }
       }
     },
+    "What should your Bot be able to reach?" : {
+
+    },
     "What's up next, %@?" : {
       "localizations" : {
         "es" : {
@@ -35157,6 +35430,9 @@
           }
         }
       }
+    },
+    "While it starts, pick a face for your first Bot." : {
+
     },
     "Who receives this data" : {
       "comment" : "Legal text",
@@ -35715,6 +35991,9 @@
         }
       }
     },
+    "You can change its face and name anytime." : {
+
+    },
     "You can start by telling %@ what you would like to do." : {
       "localizations" : {
         "es" : {
@@ -35945,6 +36224,9 @@
         }
       }
     },
+    "Your Bots have their own computer" : {
+
+    },
     "Your Inbox will show requests from your team once you join a workspace." : {
       "localizations" : {
         "es" : {
@@ -35990,6 +36272,9 @@
           }
         }
       }
+    },
+    "Your Nuphos computer" : {
+
     },
     "Your account or workspace changed. Cancel this share and share again. Nothing else will be sent." : {
       "localizations" : {
@@ -36133,6 +36418,9 @@
       "comment" : "Legal text",
       "shouldTranslate" : false
     },
+    "Your computer is ready" : {
+
+    },
     "Your computer is running. Choose a runtime to sign in." : {
       "localizations" : {
         "es" : {
@@ -36224,6 +36512,15 @@
           }
         }
       }
+    },
+    "Your first Bot is on your computer, ready to work." : {
+
+    },
+    "Your first Bot’s face" : {
+
+    },
+    "Your free computer didn’t start. You can use your own computer instead." : {
+
     },
     "Your message waits for the turn ahead." : {
       "localizations" : {
@@ -36320,6 +36617,9 @@
           }
         }
       }
+    },
+    "Your workspaces" : {
+
     },
     "http://127.0.0.1…" : {
       "shouldTranslate" : false
@@ -36421,6 +36721,9 @@
           }
         }
       }
+    },
+    "now" : {
+
     },
     "optional" : {
       "localizations" : {
