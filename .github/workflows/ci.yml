@@ -530,11 +530,13 @@ jobs:
       - name: Typecheck the scenarios
         run: ./node_modules/.bin/tsc -p scripts/tsconfig.json
       # The scenarios' 60 s wait for MongoDB must not include a cold image pull (#3102).
-      # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts and STORAGE_IMAGE in storage.ts.
-      - name: Pull the MongoDB and file store images
+      # Keep the tags in step with MONGO_IMAGE in scripts/e2e/stack.ts, STORAGE_IMAGE in storage.ts
+      # and REDIS_IMAGE in replicas.ts.
+      - name: Pull the MongoDB, file store and Redis images
         run: |
           docker pull mongo:8.0.32
           docker pull rustfs/rustfs:1.0.0
+          docker pull redis:7.4-alpine
       - name: Run isolated real-disk Desktop evidence
         if: matrix.part == '1' && github.event_name == 'workflow_dispatch' && inputs.real_disk
         env:
@@ -609,6 +611,14 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           bun run e2e:session-homes
+      # Resetting an added agent's sign-in (#2648), asked for through Redis as a replica does.
+      - name: Reset an added agent's sign-in
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-agent-reset
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          bun run e2e:agent-reset
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -630,6 +640,9 @@ jobs:
             ${{ runner.temp }}/e2e-session-homes
             !${{ runner.temp }}/e2e-session-homes/mongo
             !${{ runner.temp }}/e2e-session-homes/sign-in
+            ${{ runner.temp }}/e2e-agent-reset
+            !${{ runner.temp }}/e2e-agent-reset/mongo
+            !${{ runner.temp }}/e2e-agent-reset/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
