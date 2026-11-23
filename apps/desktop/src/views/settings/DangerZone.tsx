@@ -35,10 +35,7 @@ export function DangerZone({
       onTeamRemoved(team.id)
     } catch (err) {
       setConfirmOpen(false)
-      toast.apiError(
-        canDelete ? t('Could not delete team') : t('Could not leave team'),
-        err,
-      )
+      toast.apiError(canDelete ? t('Could not delete team') : t('Could not leave team'), err)
     }
   }
 

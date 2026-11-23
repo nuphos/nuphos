@@ -39,13 +39,9 @@ export function UnknownTeamGate({
         <div className="my-auto flex w-full max-w-[420px] flex-col items-center gap-5 py-10">
           <TriangleAlert className="h-6 w-6 text-error" strokeWidth={1.8} />
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-[15px] font-medium text-main">
-              {t('This team is unavailable')}
-            </h1>
+            <h1 className="text-[15px] font-medium text-main">{t('This team is unavailable')}</h1>
             <p className="text-[13px] text-tertiary">
-              {t(
-                'A tab is open on a team this account can’t access. Pick one below to continue.',
-              )}
+              {t('A tab is open on a team this account can’t access. Pick one below to continue.')}
             </p>
           </div>
 

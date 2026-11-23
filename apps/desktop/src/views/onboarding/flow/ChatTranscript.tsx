@@ -66,9 +66,7 @@ export function ChatTranscript({
         <StreamText
           reduce={reduce}
           startDelay={200}
-          segments={[
-            t('What would you like to call your team? You can always rename it later.'),
-          ]}
+          segments={[t('What would you like to call your team? You can always rename it later.')]}
         />
       )}
 
@@ -76,9 +74,7 @@ export function ChatTranscript({
         <>
           <UserMsg>{workspaceName}</UserMsg>
           <div className="flex items-center gap-2 text-[13.5px]">
-            <span className="codex-shimmer-text t-text-swap">
-              {t('Setting up your team…')}
-            </span>
+            <span className="codex-shimmer-text t-text-swap">{t('Setting up your team…')}</span>
           </div>
         </>
       )}

@@ -96,10 +96,7 @@ export function GeneralSection({
 
   return (
     <div>
-      <SectionHeader
-        title={t('General')}
-        description={t("Manage your team's name and icon.")}
-      />
+      <SectionHeader title={t('General')} description={t("Manage your team's name and icon.")} />
       {team ? (
         <>
           <form onSubmit={(e) => void submit(e)} className="space-y-5">
