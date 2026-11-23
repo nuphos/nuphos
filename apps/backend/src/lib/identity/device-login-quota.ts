@@ -1,19 +1,51 @@
+import { consumeQuota } from '@/lib/download-handoff-rate-limit'
 import { AppError } from '@/lib/errors'
-import { redisEnabled, withRedis } from '@/lib/redis'
+import { redisEnabled } from '@/lib/redis'
 
-export type Quota = (key: string, limit: number, windowSec: number) => Promise<boolean>
+/**
+ * `true` allows the call, `false` refuses it, and `'unavailable'` says no
+ * verdict could be reached at all. A caller must never read the third case as
+ * a refusal: nothing was counted, so a client that retries is not at fault.
+ */
+export type QuotaVerdict = boolean | 'unavailable'
 
-/** Fixed-window counter in Redis. Without Redis configured (local dev) it never limits. */
+export type Quota = (key: string, limit: number, windowSec: number) => Promise<QuotaVerdict>
+
+/**
+ * Fixed-window counter in Redis, through the same Lua script the email-otp and
+ * password paths use (`consumeQuota`): the increment and the expiry happen in
+ * one atomic step, so a failover between them cannot leave a key that never
+ * resets and permanently locks a user or IP out. A refused request increments
+ * nothing either, so retries cannot exhaust the window early.
+ *
+ * Without Redis configured (local dev) it never limits.
+ */
 export const redisQuota: Quota = async (key, limit, windowSec) => {
-  const count = await withRedis(async (client) => {
-    const n = await client.incr(key)
+  const result = await consumeQuota({ key, limit, windowSeconds: windowSec })
 
-    if (n === 1) await client.expire(key, windowSec)
+  if (result === 'allowed') return true
+  if (result === 'limited') return false
 
-    return n
-  })
+  // Redis is shared by every replica, so with it configured but unreachable the
+  // verdict is unknown and must not be read as permission. Unconfigured there
+  // is no shared counter to consult — the local-dev case — so allow.
+  return redisEnabled() ? 'unavailable' : true
+}
 
-  return count === null ? !redisEnabled() : count <= limit
+/**
+ * The refusal a verdict asks for, or `undefined` to continue. `'unavailable'`
+ * is a 503 rather than a 429: the quota backend is down, which is not the
+ * caller's doing, and telling them to back off would be a lie.
+ */
+export function quotaRefusal(verdict: QuotaVerdict, limited: string): AppError | undefined {
+  if (verdict === true) return undefined
+  if (verdict === false) return new AppError(429, 'rate_limited', limited)
+
+  return new AppError(
+    503,
+    'quota_unavailable',
+    'Sign-in is temporarily unavailable; try again shortly',
+  )
 }
 
 /**
@@ -21,7 +53,10 @@ export const redisQuota: Quota = async (key, limit, windowSec) => {
  * decides a user code shares this key, so a second page is not a second budget.
  */
 export async function deviceGuessQuota(userId: string, quota: Quota) {
-  if (!(await quota(`device-login:approve:${userId}`, 30, 600))) {
-    throw new AppError(429, 'rate_limited', 'Too many attempts; wait a few minutes')
-  }
+  const refusal = quotaRefusal(
+    await quota(`device-login:approve:${userId}`, 30, 600),
+    'Too many attempts; wait a few minutes',
+  )
+
+  if (refusal) throw refusal
 }
