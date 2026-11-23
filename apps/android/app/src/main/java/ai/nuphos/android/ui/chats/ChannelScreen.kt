@@ -38,7 +38,6 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
-import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Memory
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
@@ -325,10 +324,10 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
     val owns = bot.loaded && bot.isOwner && auth.aiAllowed
     ai.nuphos.android.ui.chat.SummaryCard {
         Text(stringResource(R.string.agent_runtime), style = MaterialTheme.typography.titleSmall)
-        BotRuntimeRow(Icons.Outlined.Computer, stringResource(R.string.agent_runtime),
+        BotRuntimeRow({ ai.nuphos.android.ui.components.RuntimeMark(bot.agentRuntime, 18.dp) }, stringResource(R.string.agent_runtime),
             if (bot.loaded) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
             onClick = if (owns) onSwitchAgent else null, tag = "bot-details-runtime")
-        BotRuntimeRow(Icons.Outlined.Memory, stringResource(R.string.composer_model),
+        BotRuntimeRow({ Icon(Icons.Outlined.Memory, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }, stringResource(R.string.composer_model),
             models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
         if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -336,16 +335,16 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
 }
 
 @Composable
-private fun BotRuntimeRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String, onClick: (() -> Unit)?, tag: String) {
+private fun BotRuntimeRow(icon: @Composable () -> Unit, label: String, value: String, onClick: (() -> Unit)?, tag: String) {
     Row(
         Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 6.dp).testTag(tag),
         horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        icon()
         Text(label, style = MaterialTheme.typography.bodyLarge)
-        Spacer(Modifier.weight(1f))
-        Text(value, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f, fill = false))
+        // The value takes the rest of the row and wraps, so a long runtime name is read in full.
+        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
         if (onClick != null) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

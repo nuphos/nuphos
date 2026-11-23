@@ -326,6 +326,8 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-details-runtime").assertHasClickAction()
+        // The runtime's full name wraps rather than being cut short, even at 320 dp.
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
         captureComposer("bot-details-android-owner")
         compose.onNodeWithTag("bot-details-model").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithText("Opus").fetchSemanticsNodes().isNotEmpty() }
@@ -340,6 +342,7 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-details-entry").performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-details-runtime").assertHasNoClickAction()
+        compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
         compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
         captureComposer("bot-details-android-member")
     }

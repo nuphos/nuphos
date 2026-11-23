@@ -38,15 +38,15 @@ struct BotRuntimeCard: View {
             if bot.ownsChat {
                 NavigationLink {
                     RuntimePicker(session: bot, onMove: onMove, detent: .constant(.large), pushed: true)
-                } label: { row("Runtime", bot.runtimeName(in: store), icon: "monitor", opens: true) }
+                } label: { row("Runtime", bot.runtimeName(in: store), opens: true) { runtimeMark } }
                 .accessibilityIdentifier("bot-details-runtime")
             } else {
-                row("Runtime", bot.runtimeName(in: store), icon: "monitor", opens: false)
+                row("Runtime", bot.runtimeName(in: store), opens: false) { runtimeMark }
                     .accessibilityIdentifier("bot-details-runtime")
             }
             NavigationLink {
                 ModelSettingsSheet(session: bot, pushed: true)
-            } label: { row("Model", bot.modelTitle, icon: "cpu", opens: true) }
+            } label: { row("Model", bot.modelTitle, opens: true) { LucideIcon("cpu", size: 14).foregroundStyle(Theme.body) } }
             .accessibilityIdentifier("bot-details-model")
         }
         .buttonStyle(.plain)
@@ -56,9 +56,14 @@ struct BotRuntimeCard: View {
         }
     }
 
-    private func row(_ title: LocalizedStringKey, _ value: String, icon: String, opens: Bool) -> some View {
+    /// The runtime's own mark, as Desktop and the Task list point to a runtime.
+    private var runtimeMark: some View {
+        RuntimeMark(runtime: (bot.runtime ?? store.runtimes.first { $0.id == bot.runtimeId })?.provider.rawValue ?? bot.agentRuntime, size: 14).frame(width: 14, height: 14)
+    }
+
+    private func row(_ title: LocalizedStringKey, _ value: String, opens: Bool, @ViewBuilder icon: () -> some View) -> some View {
         HStack(spacing: 12) {
-            LucideIcon(icon, size: 14).foregroundStyle(Theme.body)
+            icon()
             Text(title).font(.system(.subheadline, weight: .medium)).foregroundStyle(Theme.heading)
             Spacer(minLength: 8)
             Text(value).font(.subheadline).foregroundStyle(Theme.muted).lineLimit(1)

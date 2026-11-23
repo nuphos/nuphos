@@ -198,10 +198,13 @@ export function RuntimeSelector({
             icon={<AgentProviderIcon provider={value?.provider} className="size-3.5" />}
             label={t('Runtime')}
             note={
-              <SummaryMenuNote>
-                {(value && threadRuntimeName(value.provider, label)) ?? label}
-                {unavailable && ` · ${t('Unavailable')}`}
-              </SummaryMenuNote>
+              <span className="flex items-center gap-2">
+                {value?.id && <RuntimeUsageBar quota={quotas?.get(value.id)} chip />}
+                <SummaryMenuNote>
+                  {(value && threadRuntimeName(value.provider, label)) ?? label}
+                  {unavailable && ` · ${t('Unavailable')}`}
+                </SummaryMenuNote>
+              </span>
             }
           />
         ) : (
