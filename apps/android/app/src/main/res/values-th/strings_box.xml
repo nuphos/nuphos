@@ -14,8 +14,8 @@
     <string name="box_creating">กำลังสร้าง…</string>
     <string name="box_starting">กำลังเริ่มคอมพิวเตอร์และรันไทม์ โดยปกติใช้เวลา 10 ถึง 30 วินาที…</string>
     <string name="box_ready">คอมพิวเตอร์ของคุณทำงานแล้ว เลือกรันไทม์เพื่อลงชื่อเข้าใช้</string>
-    <string name="box_failed">คอมพิวเตอร์เริ่มทำงานไม่ได้ ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง</string>
-    <string name="box_timeout">คอมพิวเตอร์ยังไม่เริ่มทำงานหลังผ่านไป 5 นาที ลบเครื่องนี้ที่หน้ารันไทม์ แล้วลองอีกครั้ง</string>
+    <string name="box_failed">คอมพิวเตอร์เริ่มทำงานไม่ได้</string>
+    <string name="box_timeout">คอมพิวเตอร์ยังไม่เริ่มทำงานหลังผ่านไป 5 นาที</string>
     <string name="box_plan">เลือกแพ็กเกจใน Nuphos บนคอมพิวเตอร์ของคุณ</string>
     <string name="box_state_starting">กำลังเริ่ม</string>
     <string name="box_state_connecting">กำลังเชื่อมต่อ</string>

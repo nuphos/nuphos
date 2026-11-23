@@ -14,8 +14,8 @@
     <string name="box_creating">Membuat…</string>
     <string name="box_starting">Memulai komputer dan runtime-nya, biasanya 10 hingga 30 detik…</string>
     <string name="box_ready">Komputer Anda sedang berjalan. Pilih runtime untuk masuk.</string>
-    <string name="box_failed">Komputer tidak dapat dimulai. Hapus di halaman Runtime lalu coba lagi.</string>
-    <string name="box_timeout">Komputer belum dimulai setelah 5 menit. Hapus di halaman Runtime lalu coba lagi.</string>
+    <string name="box_failed">Komputer tidak dapat dimulai.</string>
+    <string name="box_timeout">Komputer belum dimulai setelah 5 menit.</string>
     <string name="box_plan">Pilih paket di Nuphos pada komputer Anda.</string>
     <string name="box_state_starting">Memulai</string>
     <string name="box_state_connecting">Menghubungkan</string>

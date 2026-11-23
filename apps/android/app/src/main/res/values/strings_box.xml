@@ -14,8 +14,8 @@
     <string name="box_creating">Creating…</string>
     <string name="box_starting">Starting the computer and its runtimes, usually 10 to 30 seconds…</string>
     <string name="box_ready">Your computer is running. Choose a runtime to sign in.</string>
-    <string name="box_failed">The computer could not start. Delete it on the Runtimes page and try again.</string>
-    <string name="box_timeout">The computer has not started after 5 minutes. Delete it on the Runtimes page and try again.</string>
+    <string name="box_failed">The computer could not start.</string>
+    <string name="box_timeout">The computer has not started after 5 minutes.</string>
     <string name="box_plan">Choose a plan in Nuphos on your computer.</string>
     <string name="box_state_starting">Starting</string>
     <string name="box_state_connecting">Connecting</string>

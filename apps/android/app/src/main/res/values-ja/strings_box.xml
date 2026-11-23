@@ -14,8 +14,8 @@
     <string name="box_creating">作成中…</string>
     <string name="box_starting">コンピュータとランタイムを起動中です。通常 10〜30 秒かかります…</string>
     <string name="box_ready">コンピュータが実行中です。サインインするランタイムを選択してください。</string>
-    <string name="box_failed">コンピュータを起動できませんでした。［ランタイム］ページで削除してから、もう一度お試しください。</string>
-    <string name="box_timeout">5 分経ってもコンピュータが起動しません。［ランタイム］ページで削除してから、もう一度お試しください。</string>
+    <string name="box_failed">コンピュータを起動できませんでした。</string>
+    <string name="box_timeout">5 分経ってもコンピュータが起動しません。</string>
     <string name="box_plan">お使いのコンピューターの Nuphos でプランを選択してください。</string>
     <string name="box_state_starting">起動中</string>
     <string name="box_state_connecting">接続中</string>

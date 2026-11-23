@@ -14,8 +14,8 @@
     <string name="box_creating">Creando…</string>
     <string name="box_starting">Iniciando la computadora y sus entornos de ejecución; suele tardar entre 10 y 30 segundos…</string>
     <string name="box_ready">Tu computadora está en ejecución. Elige un entorno de ejecución para iniciar sesión.</string>
-    <string name="box_failed">No se pudo iniciar la computadora. Elimínala en la página Entornos de ejecución y vuelve a intentarlo.</string>
-    <string name="box_timeout">La computadora no se inició tras 5 minutos. Elimínala en la página Entornos de ejecución y vuelve a intentarlo.</string>
+    <string name="box_failed">No se pudo iniciar la computadora.</string>
+    <string name="box_timeout">La computadora no se inició tras 5 minutos.</string>
     <string name="box_plan">Elige un plan en Nuphos en tu computadora.</string>
     <string name="box_state_starting">Iniciando</string>
     <string name="box_state_connecting">Conectando</string>

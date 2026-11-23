@@ -14,8 +14,8 @@
     <string name="box_creating">正在建立…</string>
     <string name="box_starting">正在啟動電腦及其執行環境，通常需要 10 到 30 秒…</string>
     <string name="box_ready">你的電腦正在執行。請選擇要登入的執行環境。</string>
-    <string name="box_failed">電腦無法啟動。請在「執行環境」頁面中刪除後再試一次。</string>
-    <string name="box_timeout">電腦在 5 分鐘後仍未啟動。請在「執行環境」頁面中刪除後再試一次。</string>
+    <string name="box_failed">電腦無法啟動。</string>
+    <string name="box_timeout">電腦在 5 分鐘後仍未啟動。</string>
     <string name="box_plan">請在電腦上的 Nuphos 選擇方案。</string>
     <string name="box_state_starting">啟動中</string>
     <string name="box_state_connecting">連接中</string>
