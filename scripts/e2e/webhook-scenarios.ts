@@ -97,6 +97,22 @@ async function delegate(ask: (prompt: string) => Promise<string>) {
   const reported = await received('the Task’s report', (r) => r.body.type === 'task.reported')
 
   must(reported.body.data.session_id !== parent, 'task.reported to name the Task')
+  // #4749: a session with no parent reports too, and only the webhook hears it.
+  const report = {
+    label: 'Report',
+    report_id: 'top-1',
+    status: 'done',
+    summary: 'Top-level work finished.',
+  }
+  const top = await ask(
+    `Finish E2E_CALL report_task ${JSON.stringify(report)} E2E_DELIVERY:webhook-top`,
+  )
+  const own = await received(
+    'the top-level session’s report',
+    (r) => r.body.type === 'task.reported' && r.body.data.session_id === top,
+  )
+
+  must(own.body.data.task_report?.status === 'done', 'task.reported to carry the report')
 }
 
 /** A 503 is retried with the same event; 410 switches the endpoint off. */

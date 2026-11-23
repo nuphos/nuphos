@@ -54,8 +54,8 @@ export type SlackAgentThread = {
   sessionId: string
   createdBySlackUserId: string
   // Older rows predate this field and are Slack-originated by definition.
-  // Proactive notification rows bind an already-running desktop/trigger
-  // conversation to the root message posted by slack_post. User-pickup rows
+  // Proactive notification rows bind the conversation slack_post forks for a
+  // replyThread to the root message it posted. User-pickup rows
   // bind a desktop conversation to a DM root the user explicitly asked for
   // ("pick up this session in Slack"), so they carry no reply gate.
   origin?: 'slack' | 'agent_notification' | 'user_pickup'
@@ -131,6 +131,19 @@ export const slackUserMappings = (): Collection<SlackUserMapping> =>
 
 export const slackAgentThreads = (): Collection<SlackAgentThread> =>
   db().collection<SlackAgentThread>(AGENT_THREADS)
+
+/**
+ * slack_post's removed bindConversation option bound the posting conversation
+ * itself to its root. Those rows are notification rows without the
+ * notificationContext every fork row carries. They are left in place and
+ * ignored, so they route, mirror and block nothing.
+ */
+export const LEGACY_SELF_BINDING = {
+  origin: 'agent_notification',
+  notificationContext: { $exists: false },
+} as const
+
+export const LIVE_SLACK_THREAD = { $nor: [LEGACY_SELF_BINDING] }
 
 export const slackProcessedEvents = (): Collection<SlackProcessedEvent> =>
   db().collection<SlackProcessedEvent>(PROCESSED_EVENTS)
