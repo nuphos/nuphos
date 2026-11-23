@@ -34,7 +34,7 @@ struct BotRuntimeCard: View {
     @Environment(AgentStore.self) private var store
 
     var body: some View {
-        SummaryCard(String(localized: "Runtime")) {
+        SummaryCard("Runtime") {
             if bot.ownsChat {
                 NavigationLink {
                     RuntimePicker(session: bot, onMove: onMove, detent: .constant(.large), pushed: true)

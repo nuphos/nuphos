@@ -252,7 +252,7 @@ struct AgentSummaryPanel: View {
     }
 }
 
-private struct SummaryCard<Content: View>: View {
+struct SummaryCard<Content: View>: View {
     let title: LocalizedStringKey
     @ViewBuilder var content: Content
     init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
