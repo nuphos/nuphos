@@ -173,10 +173,11 @@ function versionOf(output: string): string | undefined {
 /** False when either version is unreadable: only a version known to be older blocks a runtime. */
 function olderThan(version: string, minimum: string): boolean {
   const have = version.split('.').map(Number)
-  const need = minimum.split('.').map(Number)
-  const index = need.findIndex((part, i) => have[i] !== part)
 
-  return index !== -1 && have[index] < need[index]
+  for (const [i, part] of minimum.split('.').map(Number).entries())
+    if (have[i] !== part) return Number(have[i]) < part
+
+  return false
 }
 
 /**
