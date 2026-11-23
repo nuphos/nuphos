@@ -16,7 +16,7 @@ struct NewBoxView: View {
 
     private var agents: [RuntimeInstance] {
         guard let made else { return [] }
-        return store.runtimes.filter { $0.local?.deviceId == made.deviceId }
+        return NewRuntime.ordered(store.runtimes.filter { $0.local?.deviceId == made.deviceId })
     }
 
     private var phase: NewBox.Phase {
