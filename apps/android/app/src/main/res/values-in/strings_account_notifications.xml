@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">Notifikasi komputer</string>
+    <string name="computer_notifications_intro_title">Pilih yang penting</string>
+    <string name="computer_notifications_intro">Ikuti komputer yang Anda andalkan. Komputer lainnya tidak akan mengirim notifikasi.</string>
+    <string name="computer_notifications_empty">Tidak ada komputer di ruang kerja ini.</string>
+    <string name="computer_notifications_help">Nonaktif secara default. Komputer yang dipilih akan memberi tahu setelah offline selama 2 menit dan saat terhubung kembali. Hanya berlaku untuk akun Anda.</string>
+    <string name="computer_notifications_online">Online</string>
+    <string name="computer_notifications_offline">Offline</string>
+    <string name="account_notifications">Notifikasi</string>
+    <string name="computer_notifications_load_failed">Tidak dapat memuat komputer.</string>
+</resources>
