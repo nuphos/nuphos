@@ -5,6 +5,7 @@ import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { useThreadQueue } from '@/lib/test/doubles/thread-queue'
+import { useWebhooksStore } from '@/lib/test/doubles/webhooks-store'
 import { FakeCoordinationStore } from '@/lib/test/fake-coordination-store'
 
 import { enqueueReport } from './task-report-queue'
@@ -40,6 +41,7 @@ const fakeQueue = {
   },
 }
 const deliveries: { id: string; metadata: unknown }[] = []
+const webhookEvents: string[] = []
 
 useDb({ db: () => ({ collection: store.collection }) })
 useAgentDb({
@@ -54,6 +56,11 @@ useThreadQueue({
     await enqueueReport(fakeQueue, id)
   },
 })
+useWebhooksStore({
+  queueWebhookEvents: (sessionId, hint) => {
+    webhookEvents.push(`${sessionId}:${String(hint)}`)
+  },
+})
 useConversationTurn({
   executeConversationTurn: async (data, _target, _text, _source, metadata) => {
     deliveries.push({ id: data.messageId, metadata })
@@ -66,6 +73,7 @@ beforeEach(() => {
   queued.length = 0
   jobs.clear()
   deliveries.length = 0
+  webhookEvents.length = 0
   store.rows = {
     agent_conversations: [
       { sessionId: 'parent', title: 'Coordinator', userId: 'u', teamId: 't' },
@@ -140,8 +148,33 @@ test('delivery rechecks parent, owner, team, membership and archive state', asyn
 
 test('a worker cannot report across ownership or team boundaries', async () => {
   store.rows.agent_conversations![0]!.userId = 'v'
-  await expect(update()).rejects.toThrow('active Task')
+  await expect(update()).rejects.toThrow('active session')
   expect(queued).toHaveLength(0)
+})
+
+test('a top-level session reports to task.reported webhooks only, once per report id', async () => {
+  const report = { reportId: 'done-1', status: 'done', summary: 'Shipped.' } as const
+
+  expect(await reportTask('u', 't', 'parent', report)).toEqual({
+    report_id: 'done-1',
+    status: 'done',
+    delivery: 'recorded',
+  })
+  await reportTask('u', 't', 'parent', report)
+  expect(store.rows.agent_conversations![0]!.taskReport).toMatchObject({
+    status: 'done',
+    summary: 'Shipped.',
+  })
+  expect(webhookEvents).toEqual(['parent:task.reported'])
+  expect(queued).toHaveLength(0)
+  expect(store.rows.agent_task_reports ?? []).toHaveLength(0)
+  await expect(reportTask('v', 't', 'parent', report)).rejects.toThrow('active session')
+})
+
+test('a Task whose parent is gone cannot report', async () => {
+  store.rows.agent_conversations!.shift()
+  await expect(update()).rejects.toThrow('active session')
+  expect(webhookEvents).toHaveLength(0)
 })
 
 test('retrying an old report cannot overwrite a newer task state', async () => {

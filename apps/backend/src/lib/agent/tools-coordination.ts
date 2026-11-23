@@ -97,6 +97,7 @@ export function createCoordinationTools(userId: string, sessionId: string, teamI
       tool({
         description:
           'Record a structured update on this Task and reliably notify its current parent. ' +
+          'In a session with no parent, the report goes to task.reported webhooks only. ' +
           'Use for a useful result, a material blocker, or when handing off for review. Keep routine progress quiet. ' +
           'Use ready when review is pending; done only after verification. waiting means waiting for an external event. ' +
           'For a human question use request_user_decision; this report cannot approve anything or answer a question. ' +

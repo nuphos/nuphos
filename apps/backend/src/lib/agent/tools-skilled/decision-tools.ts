@@ -267,6 +267,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
     userDecisionTools.withdraw_user_decision = tool({
       description:
         'Withdraw a question you asked with request_user_decision that no longer needs an answer, so it leaves the Inbox. ' +
+        'You may also withdraw one another conversation asked `about` this one, when your plan no longer matches what it asks the user to approve; ask again with the corrected plan. Only its asker can update it. ' +
         'Once the user has answered or dismissed it nothing is withdrawn: when the answer has not reached you yet, the result gives it as `notice`. Never ask a closed question again.',
       inputSchema: z.object({ label: labelField, requestId: requestIdField }),
     })

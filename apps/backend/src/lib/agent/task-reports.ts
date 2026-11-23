@@ -61,20 +61,36 @@ export async function reportTask(
 
   if (
     !child ||
-    !parent ||
+    (child.parentSessionId && !parent) ||
     child.userId !== userId ||
-    parent.userId !== userId ||
+    (parent && parent.userId !== userId) ||
     child.teamId !== teamId ||
-    parent.teamId !== teamId ||
+    (parent && parent.teamId !== teamId) ||
     child.kind === 'channel' ||
-    parent.kind === 'channel' ||
+    parent?.kind === 'channel' ||
     child.archivedAt ||
-    parent.archivedAt ||
+    parent?.archivedAt ||
     !(await getTeamMembership(userId, teamId))
   )
-    throw new Error('Report only from an active Task to its parent owned by you in this team.')
+    throw new Error('Report only from an active session owned by you in this team.')
 
   const id = taskReportKey(userId, teamId, sessionId, report.reportId)
+
+  // No parent to wake: the report reaches task.reported webhooks only, once per report id.
+  if (!parent) {
+    const recorded = await agentConversations().updateOne(
+      { sessionId, userId, teamId, 'taskReport.id': { $ne: id } },
+      {
+        $set: {
+          taskReport: { id, status: report.status, summary: report.summary, at: new Date() },
+        },
+      },
+    )
+
+    if (recorded.matchedCount) queueWebhookEvents(sessionId, 'task.reported')
+
+    return { report_id: report.reportId, status: report.status, delivery: 'recorded' }
+  }
   const entry: TaskReport = {
     _id: id,
     userId,
