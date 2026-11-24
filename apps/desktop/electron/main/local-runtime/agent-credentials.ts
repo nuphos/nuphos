@@ -83,12 +83,13 @@ export function deleteAgentCredentials(provider: LocalAgentProvider, home: strin
   for (const at of homes) for (const file of files) rmSync(path.join(at, file), { force: true })
   if (provider === 'claude-code')
     dropJsonKeys(path.join(home, 'settings.json'), ['env'], ['ANTHROPIC_API_KEY'])
-  if (provider === 'opencode')
-    dropJsonKeys(
-      path.join(home, '.config', 'opencode', 'opencode.json'),
-      ['provider', 'amazon-bedrock', 'options'],
-      BEDROCK_SECRETS,
-    )
+  if (provider === 'opencode') {
+    const config = path.join(home, '.config', 'opencode', 'opencode.json')
+
+    dropJsonKeys(config, ['provider', 'amazon-bedrock', 'options'], BEDROCK_SECRETS)
+    // The OpenRouter key a new account's free Box comes with (box-openrouter.ts in the backend).
+    dropJsonKeys(config, ['provider', 'openrouter', 'options'], ['apiKey'])
+  }
 }
 
 /** A Box's default agent: also the Codex login its home links to, which a launch would link again. */

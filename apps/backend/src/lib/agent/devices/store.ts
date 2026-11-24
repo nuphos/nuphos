@@ -27,9 +27,10 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+  /** The OpenRouter key Nuphos gave its OpenCode, revoked with the Box; see box-openrouter. */
+  openRouterKeyHash?: string
 }
 
-/** In one team: who may use a computer and who may also manage it. */
 export type DeviceGrant = {
   teamId: string
   everyone: boolean
@@ -58,7 +59,6 @@ export type AgentDevice = DeviceAgentRecords & {
    * list changes. Absent means it has never joined; a Box is still starting until then.
    */
   lastSeenAt?: Date
-  /** Where the host connected from when it last reported in. */
   lastSeen?: RequestOrigin
   createdAt: Date
   updatedAt: Date

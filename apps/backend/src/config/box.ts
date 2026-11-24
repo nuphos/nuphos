@@ -20,6 +20,8 @@ export type BoxConfig = {
   billingUrl?: string
   /** Whether the backend updates idle Boxes whose CLI does not update itself between turns (#2104). */
   autoUpdate: boolean
+  /** Makes each new account's free Box an OpenRouter key for its OpenCode; unset makes none. */
+  openRouterManagementKey?: string
 }
 
 export function boxConfig(): BoxConfig {
@@ -34,6 +36,9 @@ export function boxConfig(): BoxConfig {
       : {}),
     ...(optional('BOX_DEFAULT_MONTHLY_HOURS')
       ? { defaultMonthlyHours: boundedInt('BOX_DEFAULT_MONTHLY_HOURS', 0, { min: 0, max: 744 }) }
+      : {}),
+    ...(optional('OPENROUTER_MANAGEMENT_KEY')
+      ? { openRouterManagementKey: optional('OPENROUTER_MANAGEMENT_KEY') }
       : {}),
     ...(optional('NUPHOS_BILLING_URL') ? { billingUrl: optional('NUPHOS_BILLING_URL') } : {}),
     instabox: apiKey
