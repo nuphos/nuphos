@@ -105,6 +105,7 @@ export type PreviewSessionAccessOptions = {
   /** A Bot's own session, which it resumes for weeks. */
   bot?: boolean
   agentRuntime?: string // Antigravity is held to the tool-declaration budget
+  includeCustomMcp?: boolean
 }
 
 export async function previewSessionAccess(
@@ -140,11 +141,14 @@ export async function previewSessionAccess(
     },
     teamId,
   ).catch(() => [])
-  const custom = await selectedConversationMcpServers({
-    conversationId,
-    teamId,
-    agentRuntime: options?.agentRuntime,
-  })
+  const custom =
+    options?.includeCustomMcp === false
+      ? { servers: [], notices: [] }
+      : await selectedConversationMcpServers({
+          conversationId,
+          teamId,
+          agentRuntime: options?.agentRuntime,
+        })
 
   return {
     mcpServers: [

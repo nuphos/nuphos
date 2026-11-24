@@ -80,6 +80,8 @@ export function credentialScopeCoversAll(
   scope: AgentCredentialAccess,
   current: AgentCredentialAccess,
 ): boolean {
+  if ((scope.mcpServerIds?.length ?? 0) > 0) return false
+
   return CREDENTIAL_ARRAY_KEYS.every((key) => {
     const currentValues = current[key] ?? []
 

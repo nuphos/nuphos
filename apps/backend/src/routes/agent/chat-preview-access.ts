@@ -39,6 +39,7 @@ export function renewPreviewTurnEnv(args: PreviewChatTurnArgs, prepared: Prepare
       await previewSessionAccess(sessionId, teamId, args.actorUserId ?? userId, userId, {
         ...args.endpoint,
         ...prepared.accessOptions,
+        includeCustomMcp: false,
       })
     ).runtimeEnv
 }

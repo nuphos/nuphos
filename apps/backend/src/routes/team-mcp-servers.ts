@@ -4,8 +4,7 @@ import { z } from 'zod'
 
 import { encryptCustomMcpSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
-import { teamMcpServers } from '@/lib/mcp/team-servers'
-import { blockedUrlReason, privateHostReason } from '@/lib/net/safe-outbound'
+import { mcpServerUrlReason, teamMcpServers } from '@/lib/mcp/team-servers'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -22,20 +21,6 @@ const RESERVED_HEADER =
   /^(host|content-length|content-type|transfer-encoding|connection|user-agent|accept-encoding)$/i
 // These names already identify the ACP servers Nuphos sends itself.
 const RESERVED_SERVER_NAME = new Set(['nuphos-credentials', 'nuphos-tools'])
-
-// Headers are secrets: a public URL is https, with no query or fragment.
-// http is only for a private host when the deployment allows private hosts.
-function mcpServerUrlReason(raw: string): string | null {
-  const blocked = blockedUrlReason(raw)
-
-  if (blocked) return blocked
-  const url = new URL(raw)
-
-  if (url.search || url.hash) return 'URL must not contain a query or fragment'
-  if (url.protocol === 'http:' && !privateHostReason(url)) return 'URL must be https://'
-
-  return null
-}
 
 const url = z
   .string()

@@ -231,7 +231,34 @@ describe('assembleConversationMcpServers', () => {
     expect(built.notices[0]).toContain('could not be read')
     expect(built.notices.join('\n')).not.toContain(SECRET)
   })
-})
+
+  test('matches uppercase selectedIds and keeps the 512-byte Antigravity buffer', async () => {
+    const chosen = stored({ _id: new ObjectId(), name: 'Edge' })
+    const upper = await assembleConversationMcpServers({
+      selectedIds: [chosen._id.toHexString().toUpperCase()],
+      servers: [chosen],
+      agentRuntime: 'codex',
+      checkEgress: open,
+    })
+
+    expect(upper.servers.map((server) => server.name)).toEqual(['Edge'])
+    expect(upper.notices).toEqual([])
+
+    const overReserve = await assembleConversationMcpServers({
+      selectedIds: [chosen._id.toHexString()],
+      servers: [chosen],
+      agentRuntime: 'antigravity',
+      reservedBytes: 32_200,
+      checkEgress: open,
+      listDeclaration: async () => ({
+        tools: [{ name: 'ping', description: 'ok', inputSchema: { type: 'object' } }],
+        instructions: '',
+      }),
+    })
+
+    expect(overReserve.servers).toEqual([])
+    expect(overReserve.notices[0]).toContain('32768-byte')
+  })})
 
 describe('selectedConversationMcpServers', () => {
   test('a conversation gets only its selected server, and a task uses its parent', async () => {
@@ -391,6 +418,118 @@ describe('listRemoteMcpDeclaration', () => {
       })),
     ).rejects.toThrow('MCP tool list failed')
     expect(toolsOf(mcpMessageFromHttp('application/json', '{"result":{"tools":[]}}'))).toEqual([])
+  })
+
+  test('paginates nextCursor and omits a server whose later page exceeds the budget', async () => {
+    const chosen = stored({ _id: new ObjectId(), name: 'Paged' })
+    const post = async (_url: string, _headers: Record<string, string>, body: unknown) => {
+      const req = body as { id?: number; method?: string; params?: { cursor?: string } }
+
+      if (req.method === 'initialize') {
+        return {
+          status: 200,
+          contentType: 'application/json',
+          text: JSON.stringify({ jsonrpc: '2.0', id: req.id, result: { instructions: '' } }),
+        }
+      }
+      if (req.method === 'tools/list' && !req.params?.cursor) {
+        return {
+          status: 200,
+          contentType: 'application/json',
+          text: JSON.stringify({
+            jsonrpc: '2.0',
+            id: req.id,
+            result: { tools: [{ name: 'tiny' }], nextCursor: 'page-2' },
+          }),
+        }
+      }
+      if (req.method === 'tools/list' && req.params?.cursor === 'page-2') {
+        return {
+          status: 200,
+          contentType: 'application/json',
+          text: JSON.stringify({
+            jsonrpc: '2.0',
+            id: req.id,
+            result: {
+              tools: [{ name: 'huge', inputSchema: { blob: 'x'.repeat(20_000) } }],
+            },
+          }),
+        }
+      }
+
+      return { status: 202, contentType: '', text: '' }
+    }
+
+    const built = await assembleConversationMcpServers({
+      selectedIds: [chosen._id.toHexString()],
+      servers: [chosen],
+      agentRuntime: 'antigravity',
+      reservedBytes: 20_000,
+      checkEgress: open,
+      listDeclaration: ({ url, headers, maxBytes }) =>
+        listRemoteMcpDeclaration(url, headers, post, maxBytes),
+    })
+
+    expect(built.servers).toEqual([])
+    expect(built.notices[0]).toContain('32768-byte')
+  })
+
+  test('matches JSON-RPC id in SSE streams even when notifications follow the result', async () => {
+    const post = async (_url: string, _headers: Record<string, string>, body: unknown) => {
+      const req = body as { id?: number; method?: string }
+
+      if (req.method === 'initialize') {
+        return {
+          status: 200,
+          contentType: 'application/json',
+          text: JSON.stringify({ jsonrpc: '2.0', id: req.id, result: {} }),
+        }
+      }
+      if (req.method === 'tools/list') {
+        return {
+          status: 200,
+          contentType: 'text/event-stream',
+          text: [
+            `data: ${JSON.stringify({
+              jsonrpc: '2.0',
+              id: req.id,
+              result: { tools: [{ name: 'real_tool', description: 'kept' }] },
+            })}`,
+            `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/progress' })}`,
+            '',
+          ].join('\n\n'),
+        }
+      }
+
+      return { status: 202, contentType: '', text: '' }
+    }
+
+    const declared = await listRemoteMcpDeclaration('https://1.1.1.1/mcp', [], post)
+
+    expect(declared.tools).toEqual([{ name: 'real_tool', description: 'kept' }])
+
+    await expect(
+      listRemoteMcpDeclaration('https://1.1.1.1/mcp', [], async (_u, _h, body) => {
+        const req = body as { id?: number; method?: string }
+
+        if (req.method === 'initialize') {
+          return {
+            status: 200,
+            contentType: 'application/json',
+            text: JSON.stringify({ jsonrpc: '2.0', id: req.id, result: {} }),
+          }
+        }
+        if (req.method === 'tools/list') {
+          return {
+            status: 200,
+            contentType: 'text/event-stream',
+            text: `data: ${JSON.stringify({ jsonrpc: '2.0', method: 'notifications/progress' })}\n\n`,
+          }
+        }
+
+        return { status: 202, contentType: '', text: '' }
+      }),
+    ).rejects.toThrow('MCP tool list failed')
   })
 })
 

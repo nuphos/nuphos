@@ -38,7 +38,7 @@ export function declarationBytes(tools: readonly McpToolDeclaration[], instructi
 
 /** True when `extraBytes` still fits beside the bytes the nuphos servers already occupy. */
 export function customDeclarationFits(nuphosBytes: number, extraBytes: number): boolean {
-  return nuphosBytes + extraBytes <= ANTIGRAVITY_DECLARATION_BUDGET
+  return nuphosBytes + extraBytes <= ANTIGRAVITY_NUPHOS_RESERVE
 }
 
 /** The notice block appended to a turn's system prompt. Empty when nothing was skipped. */

@@ -12,7 +12,7 @@ import {
   declarationBytes,
 } from './declaration-budget'
 import { listRemoteMcpDeclaration } from './remote-declaration'
-import { teamMcpServers } from './team-servers'
+import { mcpServerUrlReason, teamMcpServers } from './team-servers'
 
 import type { McpToolDeclaration } from './declaration-budget'
 import type { TeamMcpServer } from './team-servers'
@@ -42,6 +42,7 @@ export type AssembleMcpServersArgs = {
   listDeclaration?: (input: {
     url: string
     headers: { name: string; value: string }[]
+    maxBytes?: number
   }) => Promise<Declaration>
   /** Bytes the nuphos servers already occupy. Measured when omitted on Antigravity. */
   reservedBytes?: number
@@ -83,6 +84,9 @@ function objectIds(ids: readonly string[]): ObjectId[] {
 }
 
 async function defaultEgress(url: string): Promise<void> {
+  const reason = mcpServerUrlReason(url)
+
+  if (reason) throw new OutboundBlockedError(reason)
   await resolvePublicTarget(url)
 }
 
@@ -131,7 +135,11 @@ async function antigravityRoom(
   let declared: Declaration
 
   try {
-    declared = await listDeclaration({ url: server.url, headers })
+    declared = await listDeclaration({
+      url: server.url,
+      headers,
+      maxBytes: Math.max(0, ANTIGRAVITY_NUPHOS_RESERVE - used),
+    })
   } catch {
     return { used, notice: unreadNotice(server.name) }
   }
@@ -158,15 +166,15 @@ export async function assembleConversationMcpServers(
   const checkEgress = args.checkEgress ?? defaultEgress
   const listDeclaration =
     args.listDeclaration ??
-    ((input: { url: string; headers: { name: string; value: string }[] }) =>
-      listRemoteMcpDeclaration(input.url, input.headers))
+    ((input: { url: string; headers: { name: string; value: string }[]; maxBytes?: number }) =>
+      listRemoteMcpDeclaration(input.url, input.headers, undefined, input.maxBytes))
   const byId = new Map(args.servers.map((server) => [server._id.toHexString(), server]))
   const notices: string[] = []
   const servers: AcpHttpMcpServer[] = []
   let used = antigravity ? (args.reservedBytes ?? ANTIGRAVITY_NUPHOS_RESERVE) : args.reservedBytes
 
   for (const id of args.selectedIds) {
-    const server = byId.get(id)
+    const server = byId.get(id.toLowerCase())
 
     if (!server) {
       notices.push(`MCP server ${id} is selected but is not registered for this team.`)
