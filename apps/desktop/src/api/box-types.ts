@@ -16,4 +16,6 @@ export type BoxStatus = {
   pausedBy?: string
   /** While an update restarts its host: when it began. Absent from older backends. */
   updateStartedAt?: string
+  /** When a resume last found it out of CPU or memory, not answering. Absent from older backends. */
+  pressure?: { at: string; cpu: boolean; memory: boolean }
 }

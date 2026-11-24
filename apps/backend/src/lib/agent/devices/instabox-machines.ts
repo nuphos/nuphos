@@ -40,6 +40,19 @@ export async function runOnRunningMachine(
   return (await sandbox.commands.run(cmd, { envs, timeoutMs: 60_000 })).stdout
 }
 
+/** A read of instabox's API that the SDK has no call for. */
+async function instaboxGet<T>(conn: ConnectionOptions, path: string): Promise<T> {
+  const url = `${conn.apiUrl ?? DEFAULT_API_URL}${path}`
+  const response = await (conn.fetch ?? fetch)(url, {
+    headers: { 'X-API-Key': conn.apiKey ?? '' },
+    signal: AbortSignal.timeout(conn.requestTimeoutMs ?? 10_000),
+  })
+
+  if (!response.ok) throw new Error(`instabox answered ${String(response.status)} for ${url}`)
+
+  return (await response.json()) as T
+}
+
 /**
  * Why instabox itself paused or stopped the machine last (`memory_pressure`, `idle`, …), from
  * its operation log; undefined when a client asked for it or it ran again since.
@@ -48,19 +61,36 @@ export async function lastPausedBy(
   conn: ConnectionOptions,
   sandboxId: string,
 ): Promise<string | undefined> {
-  const url = `${conn.apiUrl ?? DEFAULT_API_URL}/v1/machines/${encodeURIComponent(sandboxId)}/logs?tail=1`
-  const response = await (conn.fetch ?? fetch)(url, {
-    headers: { 'X-API-Key': conn.apiKey ?? '' },
-    signal: AbortSignal.timeout(conn.requestTimeoutMs ?? 10_000),
-  })
-
-  if (!response.ok) throw new Error(`instabox answered ${String(response.status)} for ${url}`)
-  const { operations } = (await response.json()) as {
+  const { operations } = await instaboxGet<{
     operations?: { type: string; state: string; trigger?: string | null }[]
-  }
+  }>(conn, `/v1/machines/${encodeURIComponent(sandboxId)}/logs?tail=1`)
   const last = operations?.at(-1)
 
   return (last?.type === 'suspend' || last?.type === 'stop') && last.state === 'succeeded'
     ? (last.trigger ?? undefined)
     : undefined
+}
+
+/** A machine using this share of its CPU or memory has none left for its host to answer with. */
+const FULL = 0.95
+
+/**
+ * What the machine has run out of, from the latest of the samples instabox keeps (about five
+ * minutes, taken outside the machine, so they go on while its own tunnel is down). Undefined
+ * when it has headroom or there is no sample.
+ */
+export async function machinePressure(
+  conn: ConnectionOptions,
+  sandboxId: string,
+): Promise<{ cpu: boolean; memory: boolean } | undefined> {
+  const { metrics } = await instaboxGet<{
+    metrics?: { cpuUsedPct?: number; memUsed?: number; memTotal?: number }[]
+  }>(conn, `/v1/machines/${encodeURIComponent(sandboxId)}/metrics`)
+  const last = metrics?.at(-1)
+
+  if (!last) return undefined
+  const cpu = (last.cpuUsedPct ?? 0) >= FULL * 100
+  const memory = Boolean(last.memTotal) && (last.memUsed ?? 0) / (last.memTotal ?? 1) >= FULL
+
+  return cpu || memory ? { cpu, memory } : undefined
 }

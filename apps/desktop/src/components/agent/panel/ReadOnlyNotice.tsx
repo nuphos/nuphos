@@ -7,6 +7,8 @@ import { useCallback, useState } from 'react'
 import { api } from '../../../api'
 import { t } from '../../../i18n'
 import { conversationReadOnlyLabel } from '../../../lib/conversationActivityBadges'
+import { canManage } from '../../../views/settings/agentPresentation'
+import { boxRestarts } from '../../../views/settings/boxRestartStore'
 import { Button } from '../../ui/button'
 import { toast } from '../../ui/toast'
 
@@ -110,6 +112,14 @@ export function OpenSlackThreadButton({ thread }: { thread: AgentSlackThread }) 
   )
 }
 
+/** Starts a Box's host again, as its card's Resume does. */
+function restart(teamId: string, deviceId: string) {
+  api
+    .boxResume(deviceId, teamId)
+    .then(() => boxRestarts.start(deviceId, teamId, 'resume'))
+    .catch((error: unknown) => toast.apiError(t('Could not resume computer'), error))
+}
+
 /**
  * Said before the message goes, not after it fails. A slim tab on the composer's
  * top edge: positioned out of flow, so showing or hiding it never moves the input.
@@ -163,8 +173,15 @@ export function AgentStatusBanner({
   const variant = shown ? BANNER[shown] : null
   let copy: BannerCopy = { text: '', action: null }
 
-  if (shown === 'disk' || shown === 'outdated' || shown === 'paused')
-    copy = noticeCopy(noticed, { ...outdatedFix, clear: clearFix.clear })
+  if (shown === 'disk' || shown === 'outdated' || shown === 'paused' || shown === 'pressure')
+    copy = noticeCopy(noticed, {
+      ...outdatedFix,
+      clear: clearFix.clear,
+      restart:
+        device && canManage(device)
+          ? () => restart(control.teamId ?? '', device.deviceId)
+          : undefined,
+    })
   else if (shown)
     copy = bannerCopy(
       shown,

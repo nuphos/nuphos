@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 
+import { offlineFromPressure } from '../../../views/settings/boxMetricsPresentation'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 
 import { computerNotice } from './computerNotice'
@@ -10,8 +11,11 @@ import type { ComputerNotice as DeviceNotice } from './computerNotice'
 import type { RuntimeControl } from './RuntimeSelector'
 import type { AgentDevice } from '../../../api'
 
-/** A paused Box, which the send resumes, and what the device list says about the computer. */
-export type ComputerNotice = DeviceNotice | { kind: 'paused'; label: string }
+/**
+ * A paused Box, which the send resumes, or one away because its own load filled it moments ago;
+ * then what the device list says about the computer.
+ */
+export type ComputerNotice = DeviceNotice | { kind: 'paused' | 'pressure'; label: string }
 
 /**
  * The selected agent's computer and what the composer says about it while it still takes the
@@ -31,8 +35,8 @@ export function useComputerNotice({
   const paused = pausedBoxLabel(local)
   // Neither changes within seconds, so a reading a minute old is current enough for a warning.
   const devices = useAgentDevices(() => 60_000, teamId, {
-    metrics: true,
-    enabled: Boolean(teamId && local?.deviceId) && paused === null,
+    metrics: paused === null,
+    enabled: Boolean(teamId && local?.deviceId),
     teamId,
   })
   const device = devices.list?.devices.find((candidate) => candidate.deviceId === local?.deviceId)
@@ -41,7 +45,12 @@ export function useComputerNotice({
   useSyncExternalStore(subscribeDiskSnooze, diskSnoozeRevision, diskSnoozeRevision)
   // The runtime list already carries the Box's state, so this is said without the device read.
   const notice: ComputerNotice | null =
-    paused !== null ? { kind: 'paused', label: paused } : computerNotice(device)
+    paused === null ? computerNotice(device) : { kind: awayKind(device), label: paused }
 
   return { notice, device, reload: devices.reload }
+}
+
+/** Why a Box is away: paused, or filled by its own load moments ago, which a resume cannot fix. */
+function awayKind(device: AgentDevice | undefined): 'paused' | 'pressure' {
+  return device && offlineFromPressure(device) ? 'pressure' : 'paused'
 }

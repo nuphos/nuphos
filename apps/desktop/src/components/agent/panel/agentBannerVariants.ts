@@ -1,4 +1,4 @@
-import { Ban, HardDrive, Hourglass, KeyRound, Pause, RefreshCw, WifiOff } from 'lucide-react'
+import { Ban, Cpu, HardDrive, Hourglass, KeyRound, Pause, RefreshCw, WifiOff } from 'lucide-react'
 
 import { t } from '../../../i18n'
 
@@ -47,6 +47,13 @@ export const BANNER = {
     icon: 'text-tertiary',
     border: 'border-line-control',
     tint: 'bg-state-hover',
+  },
+  // A Box away because its own load filled it: a resume will not help until the load drops.
+  pressure: {
+    Icon: Cpu,
+    icon: 'text-warning',
+    border: 'border-warning/35',
+    tint: 'bg-warning/10',
   },
 } as const
 

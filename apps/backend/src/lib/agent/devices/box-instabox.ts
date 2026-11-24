@@ -26,9 +26,10 @@ import {
 import { startBox } from './box-instabox-start'
 import { boxUpdatingSince, clearBoxUpdateStarted } from './box-updating'
 import { noteBoxUsage } from './box-usage-history'
+import { machinePressure } from './instabox-machines'
 import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
-import { getAgentDevice } from './store'
+import { agentDevices, getAgentDevice } from './store'
 
 import type { createBox } from './box-instabox-create'
 import type { BoxState } from './box-instabox-state'
@@ -139,10 +140,52 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
     })
   } catch (error) {
     if (error instanceof AppError) throw error
-    throw unavailable('Could not resume the computer', error)
+    const pressure = await notePressure(device)
+
+    throw unavailable(
+      pressure
+        ? `${pressureText(pressure)} and stopped answering`
+        : 'Could not resume the computer',
+      error,
+    )
   }
 
   return device
+}
+
+function pressureText({ cpu, memory }: { cpu: boolean; memory: boolean }): string {
+  const what = [cpu && 'CPU', memory && 'memory'].filter(Boolean).join(' and ')
+
+  return `The computer ran out of ${what}`
+}
+
+/**
+ * A running machine whose host does not answer is often one its own workload has filled up.
+ * instabox still has its samples, so a failed resume reads them and notes on the Box what ran
+ * out, for its card and the turn that failed. A failed read says nothing rather than guess.
+ */
+async function notePressure(device: BoxDevice) {
+  try {
+    const found = await machinePressure(
+      await boxConnection(device.box, QUICK_TIMEOUT_MS),
+      requireMachine(device),
+    )
+
+    if (!found) return
+    const pressure = { at: new Date(), ...found }
+
+    await agentDevices().updateOne(
+      { userId: device.userId, deviceId: device.deviceId, box: { $exists: true } },
+      { $set: { 'box.pressure': pressure } },
+    )
+
+    return pressure
+  } catch (error) {
+    logError('agent.box.pressure_read_failed', error, {
+      user_id: device.userId,
+      device_id: device.deviceId,
+    })
+  }
 }
 
 /** Runs a command on a Box that is running. A paused machine stays paused: the command fails. */

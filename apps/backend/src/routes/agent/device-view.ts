@@ -53,6 +53,10 @@ export async function deviceView(
             ...(pausedBy ? { pausedBy } : {}),
             // Its host restarting for an update: offline on purpose, and back on its own.
             ...(updating ? { updateStartedAt: updating.toISOString() } : {}),
+            // When it last ran out of CPU or memory and stopped answering.
+            ...(device.box.pressure
+              ? { pressure: { ...device.box.pressure, at: device.box.pressure.at.toISOString() } }
+              : {}),
           },
         }
       : {}),

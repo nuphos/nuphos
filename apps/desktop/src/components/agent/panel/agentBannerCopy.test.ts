@@ -198,3 +198,17 @@ test('a nearly full computer with nothing to clear from here says so, with no bu
   assert.equal(copy.text, 'Studio Mac’s disk is almost full (93%). Bots and tasks on it may fail.')
   assert.equal(copy.action, null)
 })
+
+test('a Box that ran out of CPU or memory says so, and its owner can restart it in place', () => {
+  let restarted = 0
+  const copy = noticeCopy({ kind: 'pressure', label: 'Build Box' }, { restart: () => restarted++ })
+
+  assert.equal(
+    copy.text,
+    'Build Box ran out of CPU or memory and stopped answering. It answers again once the load drops.',
+  )
+  assert.equal(copy.action?.label, 'Restart')
+  copy.action?.run()
+  assert.equal(restarted, 1)
+  assert.equal(noticeCopy({ kind: 'pressure', label: 'Build Box' }, {}).action, null)
+})

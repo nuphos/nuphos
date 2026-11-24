@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-import { lastPausedBy } from './instabox-machines'
+import { lastPausedBy, machinePressure } from './instabox-machines'
 
 /** A connection whose instabox answers the machine's operation log with these operations. */
 const answering = (operations: unknown[], seen: string[] = []) => ({
@@ -43,5 +43,57 @@ describe("the reason instabox gives for a machine's last pause", () => {
     expect(
       await lastPausedBy(answering([op('suspend', 'memory_pressure', 'failed')]), 'm1'),
     ).toBeUndefined()
+  })
+})
+
+/** A connection whose instabox answers the machine's metrics with these samples. */
+const sampling = (metrics: unknown[], seen: string[] = []) => ({
+  apiKey: 'k',
+  apiUrl: 'https://instabox.test',
+  fetch: ((url: string) => {
+    seen.push(url)
+
+    return Promise.resolve(Response.json({ metrics }))
+  }) as typeof fetch,
+})
+
+const GiB = 1024 ** 3
+const sample = (cpuUsedPct: number, memUsedGiB: number) => ({
+  timestamp: '2026-11-24T00:30:00Z',
+  cpuUsedPct,
+  cpuCount: 8,
+  memUsed: memUsedGiB * GiB,
+  memTotal: 16 * GiB,
+})
+
+describe('what a machine has run out of, from its latest instabox sample', () => {
+  test('is CPU and memory when both are full', async () => {
+    const seen: string[] = []
+
+    expect(
+      await machinePressure(sampling([sample(50, 12), sample(100, 15.6)], seen), 'm1'),
+    ).toEqual({ cpu: true, memory: true })
+    expect(seen).toEqual(['https://instabox.test/v1/machines/m1/metrics'])
+  })
+
+  test('is only the resource that is full', async () => {
+    expect(await machinePressure(sampling([sample(97, 8)]), 'm1')).toEqual({
+      cpu: true,
+      memory: false,
+    })
+    expect(await machinePressure(sampling([sample(20, 15.5)]), 'm1')).toEqual({
+      cpu: false,
+      memory: true,
+    })
+  })
+
+  test('is nothing when the latest sample has headroom, even after a full one', async () => {
+    expect(
+      await machinePressure(sampling([sample(100, 15.8), sample(70, 12.3)]), 'm1'),
+    ).toBeUndefined()
+  })
+
+  test('is nothing without samples', async () => {
+    expect(await machinePressure(sampling([]), 'm1')).toBeUndefined()
   })
 })

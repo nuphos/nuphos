@@ -138,13 +138,30 @@ export function outdatedCopy(box: string, fix: { update?: () => void; hint?: str
   return { text: fix.hint ? `${text} ${fix.hint}` : text, action: null }
 }
 
+/**
+ * A Box that went offline because its own workload filled its CPU or memory: says so instead of
+ * a bare offline, since the fix is the person's. Restart starts its host again, as Resume does.
+ */
+export function pressureCopy(box: string, restart?: () => void): BannerCopy {
+  return {
+    text: t(
+      '{box} ran out of CPU or memory and stopped answering. It answers again once the load drops.',
+      {
+        box,
+      },
+    ),
+    action: restart ? { label: t('Restart'), run: restart } : null,
+  }
+}
+
 /** The banner for what is wrong with the agent's computer, which still takes the message. */
 export function noticeCopy(
   notice: ComputerNotice | null,
-  fix: Parameters<typeof outdatedCopy>[1] & { clear?: () => void },
+  fix: Parameters<typeof outdatedCopy>[1] & { clear?: () => void; restart?: () => void },
 ): BannerCopy {
   if (!notice) return { text: '', action: null }
   if (notice.kind === 'paused') return pausedCopy(notice.label)
+  if (notice.kind === 'pressure') return pressureCopy(notice.label, fix.restart)
 
   return notice.kind === 'disk' ? diskFullCopy(notice, fix.clear) : outdatedCopy(notice.label, fix)
 }

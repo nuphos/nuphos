@@ -8,7 +8,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { canManage } from './agentPresentation'
-import { diskWarning, memoryWarning } from './boxMetricsPresentation'
+import { diskWarning, memoryWarning, pressureWarning } from './boxMetricsPresentation'
 import { providerPause } from './boxPresentation'
 import { outdatedNotice } from './computerOutdated'
 
@@ -30,6 +30,7 @@ export function ComputerNotices({
   const outdated = outdatedNotice(device, here)
   const paused = providerPause(device)
   const memory = memoryWarning(device)
+  const pressure = pressureWarning(device)
 
   return (
     <>
@@ -38,7 +39,7 @@ export function ComputerNotices({
           {paused}
         </p>
       )}
-      {[outdated, memory].map(
+      {[outdated, pressure, memory].map(
         (notice) =>
           notice && (
             <div key={notice.text} role="status" className="mt-2 text-[11.5px] leading-4">

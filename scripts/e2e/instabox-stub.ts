@@ -12,6 +12,8 @@ export type StubMachine = {
   /** Its suspend is still uploading: instabox refuses every other operation on it. */
   pausing?: boolean
   metadata?: Record<string, string>
+  /** Its usage samples, oldest first, as instabox reads them from outside the machine. */
+  metrics?: { timestamp: string; cpuUsedPct: number; memUsed: number; memTotal: number }[]
 }
 
 const machineView = (machine: StubMachine) => ({
@@ -112,6 +114,7 @@ export async function startInstaboxStub(): Promise<Record<string, string>> {
       return send(200, { machines: matching.map(machineView), nextCursor: null })
     }
     if (machine && !part) return send(200, machineView(machine))
+    if (machine && part === 'metrics') return send(200, { metrics: machine.metrics ?? [] })
     if (machine && part === 'logs')
       return send(200, {
         machineId: machine.id,
