@@ -261,9 +261,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         view.setNeedsLayout()
     }
 
+    /// The composer animates its own resizing (a paste, a cleared draft) from
+    /// its top edge, so its host resizes with the same spring: the bottom edge
+    /// stays on the keyboard instead of jumping and sliding back. Inside the
+    /// keyboard's animation, the host follows that animation instead.
     override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {
         super.preferredContentSizeDidChange(forChildContentContainer: container)
         view.setNeedsLayout()
+        guard container === composer, UIView.inheritedAnimationDuration == 0, view.window != nil else { return }
+        UIView.animate(springDuration: 0.25, bounce: 0.15) { self.view.layoutIfNeeded() }
     }
 
     /// Before layout, so the transcript is sized and positioned against the
