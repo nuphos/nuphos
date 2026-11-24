@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">ว่าง · %1$s</string>
     <string name="chat_bot_details_no_triggers">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
     <string name="chat_summary_paused">หยุดชั่วคราว</string>
+    <string name="chat_bot_instructions">คำสั่งของบอท</string>
+    <string name="chat_bot_instructions_edit">แก้ไขคำสั่ง</string>
+    <string name="chat_bot_instructions_none">ยังไม่มี</string>
 </resources>

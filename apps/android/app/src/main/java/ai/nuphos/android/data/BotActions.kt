@@ -39,6 +39,15 @@ object BotActions {
         else request("PATCH", "$conversation/avatar", token, query, JsonValue.obj("avatar" to JsonValue.Null))
     }
 
+    /** `PATCH …/instructions`: the owner rewrites a Bot's standing instructions; returns them as saved. */
+    suspend fun setInstructions(token: String, team: String, session: String, instructions: String,
+        request: Request = AgentChatApi::send,
+    ): String {
+        val response = request("PATCH", "agent/conversations/${ConversationActions.segment(session)}/instructions", token,
+            listOf("teamId" to team), JsonValue.obj("instructions" to JsonValue.Str(instructions)))
+        return JsonValue.parse(response)?.get("instructions")?.stringValue ?: throw NuphosApi.Failure.InvalidResponse
+    }
+
     private fun sessionId(response: String): String =
         JsonValue.parse(response)?.get("sessionId")?.stringValue?.takeIf { it.isNotEmpty() } ?: throw NuphosApi.Failure.InvalidResponse
 }

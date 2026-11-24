@@ -188,6 +188,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             lead = {
                 BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
                 BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
+                BotInstructionsCard(bot.sessionId)
             },
             canManage = bot.canManage)
     }
@@ -331,6 +332,66 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
             models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
         if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A Bot's standing instructions in full, as on Desktop and iOS (#4084). Only the owner sees them,
+ *  and rewrites them in place; the server's refusal shows under the field. */
+@Composable
+private fun BotInstructionsCard(botId: String) {
+    val store = LocalAgentStore.current
+    if (!store.ownsBot(botId)) return
+    val instructions = store.botRow(botId)?.instructions.orEmpty()
+    var draft by remember(botId) { mutableStateOf<String?>(null) }
+    var saving by remember(botId) { mutableStateOf(false) }
+    var error by remember(botId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.chat_bot_instructions), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (draft == null) IconButton(onClick = { draft = instructions; error = null }, modifier = Modifier.size(32.dp).testTag("bot-instructions-edit")) {
+                Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_instructions_edit), stringResource(R.string.chat_bot_instructions_edit), Modifier.size(16.dp))
+            }
+        }
+        val text = draft
+        when {
+            text != null -> {
+                OutlinedTextField(text, { draft = it; error = null },
+                    Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
+                    enabled = !saving, isError = error != null,
+                    supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
+                    Button(onClick = {
+                        saving = true
+                        error = null
+                        scope.launch {
+                            try {
+                                store.setBotInstructions(botId, text)
+                                draft = null
+                            } catch (e: kotlinx.coroutines.CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                error = e.message ?: e.toString()
+                            } finally {
+                                saving = false
+                            }
+                        }
+                    }, enabled = text != instructions && !saving, modifier = Modifier.testTag("bot-instructions-save")) {
+                        if (saving) {
+                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(6.dp))
+                        }
+                        Text(stringResource(R.string.chat_save))
+                    }
+                }
+            }
+            instructions.isEmpty() -> Text(stringResource(R.string.chat_bot_instructions_none),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(instructions, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("bot-instructions-text"))
+            }
+        }
     }
 }
 
