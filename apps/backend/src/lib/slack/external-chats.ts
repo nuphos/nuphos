@@ -86,6 +86,17 @@ export async function bringExternalChatBot(
   return matchedCount > 0
 }
 
+/**
+ * Before #4936 a startup backfill made the connecting admin a watcher of each
+ * hidden record, so its posts pushed to them and counted as unread.
+ */
+export async function unwatchExternalChats(): Promise<void> {
+  await agentConversations().updateMany(
+    { external: 'slack', watcherIds: { $exists: true } },
+    { $unset: { watcherIds: '' } },
+  )
+}
+
 /** A disconnected channel's record goes, with the Slack messages it held. */
 export async function removeExternalChat(externalChatId: string): Promise<void> {
   await agentMessages().deleteMany({ sessionId: externalChatId })
