@@ -1,6 +1,6 @@
 {
   "name": "nuphos-backend",
-  "version": "0.150.2",
+  "version": "0.150.3",
   "private": true,
   "type": "module",
   "scripts": {
