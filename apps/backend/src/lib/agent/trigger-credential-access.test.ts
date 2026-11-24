@@ -178,4 +178,11 @@ describe('credentialScopeCoversAll', () => {
 
     expect(credentialScopeCoversAll(scope, current)).toBe(false)
   })
+
+  test('a session with selected custom MCP servers is a narrowing', () => {
+    const current = access({ awsRoleIds: ['prod'] })
+    const scope = { ...current, mcpServerIds: ['65f000000000000000000001'] }
+
+    expect(credentialScopeCoversAll(scope, current)).toBe(false)
+  })
 })

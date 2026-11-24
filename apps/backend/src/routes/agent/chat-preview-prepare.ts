@@ -167,7 +167,6 @@ export async function persistPreviewTurnContext(
 export type PreparedPreviewTurn = {
   memory: PreviewTurnMemory | null
   systemPrompt: string | undefined
-  /** This turn's options for `previewSessionAccess`. */
   accessOptions: PreviewSessionAccessOptions
   /** Everything but the user's own words, prompted ahead of them. */
   message: string
@@ -260,6 +259,7 @@ export async function preparePreviewTurn(
       parentSessionId: conversation?.parentSessionId,
       sessionHomeEpoch: conversation?.sessionHomeEpoch,
       bot: isBot(conversation),
+      agentRuntime: args.endpoint.provider, // holds Antigravity to the tool budget
     },
     message: lead(),
     text,

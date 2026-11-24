@@ -68,6 +68,15 @@ export function byosIntegrationsConfig() {
           'account-settings.read user-details.read memberships.read zone.read dns.write workers-scripts.write workers-routes.write workers-kv-storage.write d1.write page.write workers-r2.write offline_access',
       },
     },
+    customMcp: {
+      // Header values on a team's remote MCP servers. Falls back so an existing
+      // deployment can store them without a dedicated key.
+      encryptionKey:
+        optional('CUSTOM_MCP_BYOK_ENCRYPTION_KEY') ??
+        optional('LINODE_BYOK_ENCRYPTION_KEY') ??
+        optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),
+      encryptionKeyId: 'default',
+    },
     linode: {
       encryptionKey:
         optional('LINODE_BYOK_ENCRYPTION_KEY') ?? optional('CLOUDFLARE_BYOK_ENCRYPTION_KEY'),

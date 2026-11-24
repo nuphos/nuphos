@@ -47,6 +47,7 @@ export function normalizeCredentialAccess(
     cloudflareAccountIds: value?.cloudflareAccountIds ?? [],
     instaboxAccountIds: value?.instaboxAccountIds ?? [],
     deviceIds: value?.deviceIds ?? [],
+    mcpServerIds: value?.mcpServerIds ?? [],
     ...teamIdentityOf(value),
   }
 }
@@ -89,6 +90,7 @@ export function normalizeCredentialOptions(
     instaboxAccounts: value?.instaboxAccounts ?? [],
     personalCredentials: value?.personalCredentials ?? [],
     devices: value?.devices ?? [],
+    mcpServers: value?.mcpServers ?? [],
   }
 }
 
@@ -131,6 +133,7 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     cloudflareAccountIds: sortedIds(value.cloudflareAccountIds),
     instaboxAccountIds: sortedIds(value.instaboxAccountIds),
     deviceIds: sortedIds(value.deviceIds),
+    mcpServerIds: sortedIds(value.mcpServerIds),
     teamIdentity: sortedIds(value.teamIdentity ?? []),
     personalCredentialIds: sortedIds(value.personalCredentialIds ?? []),
   })
@@ -193,7 +196,19 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
     cloudflareAccountIds: (options.cloudflareAccounts ?? []).map((account) => account.accountId),
     instaboxAccountIds: (options.instaboxAccounts ?? []).map((account) => account.accountId),
     deviceIds: (options.devices ?? []).map((device) => device.deviceId),
+    // Custom remote MCP servers are opt-in and carry team secrets: never included in select-all.
+    mcpServerIds: [],
     personalCredentialIds: (options.personalCredentials ?? []).map((own) => own.provider),
+  }
+}
+
+/** Every credential id currently offered by `options`, including opt-in custom MCP servers. */
+export function availableCredentialAccess(
+  options: AgentCredentialOptions,
+): AgentCredentialSelection {
+  return {
+    ...allCredentialAccess(options),
+    mcpServerIds: (options.mcpServers ?? []).map((server) => server.id),
   }
 }
 
@@ -210,19 +225,20 @@ export function defaultCredentialAccess(options: AgentCredentialOptions): AgentC
     ...allCredentialAccess(options),
     resendIntegrationIds: [],
     trelloIntegrationIds: [],
+    mcpServerIds: [],
     deviceIds: usableDeviceIds(options.devices),
   }
 }
 
 // Drop selected ids no longer in the options (e.g. a connector deleted since
-// this conversation last ran). `allCredentialAccess`, not the default, is the
-// source of valid ids, so an explicitly-enabled Resend binding survives a
-// refresh. teamIdentity is identity, not access, and is kept as is.
+// this conversation last ran). `availableCredentialAccess`, not the default, is the
+// source of valid ids, so an explicitly-enabled Resend binding or custom MCP server
+// survives a refresh. teamIdentity is identity, not access, and is kept as is.
 export function pruneCredentialAccessToOptions(
   access: AgentCredentialSelection,
   options: AgentCredentialOptions,
 ): AgentCredentialSelection {
-  const pruned = pruneSelectionToAvailable<AccessKey>(access, allCredentialAccess(options))
+  const pruned = pruneSelectionToAvailable<AccessKey>(access, availableCredentialAccess(options))
 
   return keepTeamIdentity(pruned, access)
 }
@@ -284,6 +300,7 @@ export function emptyCredentialAccess(): AgentCredentialSelection {
     cloudflareAccountIds: [],
     instaboxAccountIds: [],
     deviceIds: [],
+    mcpServerIds: [],
   }
 }
 

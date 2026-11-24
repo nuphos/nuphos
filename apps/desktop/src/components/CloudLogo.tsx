@@ -1,6 +1,7 @@
 import { faKubernetes } from '@fortawesome/free-brands-svg-icons'
 import { faLaptop } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Plug } from 'lucide-react'
 
 import { t } from '../i18n'
 
@@ -48,6 +49,7 @@ type Props = {
     | 'onprem-k8s'
     | 'mongodb'
     | 'device'
+    | 'mcp'
   size?: number
   className?: string
 }
@@ -117,6 +119,16 @@ const THEMED_SRC = {
 } as const
 
 export function CloudLogo({ provider, size = 14, className = '' }: Props) {
+  if (provider === 'mcp')
+    return (
+      <span
+        className={`flex flex-shrink-0 items-center justify-center text-secondary ${className}`}
+        style={{ width: size, height: size }}
+      >
+        <Plug size={size} strokeWidth={1.75} />
+      </span>
+    )
+
   if (provider === 'mongodb') {
     return (
       <span

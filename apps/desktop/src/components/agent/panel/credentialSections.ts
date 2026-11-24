@@ -49,6 +49,7 @@ export type CredentialSection = {
     | 'upstash'
     | 'cloudflare'
     | 'device'
+    | 'mcp'
   title: string
   subtitle?: string
   items: { id: string; label: string; sublabel: string }[]

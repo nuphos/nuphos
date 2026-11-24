@@ -1,5 +1,6 @@
 import { sealers } from '@/lib/byos/secrets'
 import { users } from '@/lib/identity/shared'
+import { teamMcpServers } from '@/lib/mcp/team-servers'
 import { sealerOf } from '@/lib/personal-credentials/seal'
 import { teamWebhooks } from '@/lib/webhooks/store'
 import { personalCredentials, teamByosBindings } from '@/models'
@@ -133,6 +134,10 @@ async function rewrapCollection(
   return total
 }
 
+function sealerForFields(name: SealerName, fields: readonly string[]) {
+  return () => (field: string) => (fields.includes(field) ? name : undefined)
+}
+
 /**
  * Re-seals every stored BYOK envelope that only a `<KEY>_PREVIOUS` key opens.
  * Covers the durable stores; the TTL-reaped OAuth pending collections are left
@@ -157,12 +162,17 @@ export async function rewrapByokSecrets(options: {
     ),
     users: await rewrapCollection(
       users() as unknown as Collection,
-      () => (field) => (field === 'mfa' || field === 'mfaPending' ? 'mfa' : undefined),
+      sealerForFields('mfa', ['mfa', 'mfaPending']),
+      options.dryRun,
+    ),
+    team_mcp_servers: await rewrapCollection(
+      teamMcpServers() as unknown as Collection,
+      sealerForFields('customMcp', ['headers']),
       options.dryRun,
     ),
     team_webhooks: await rewrapCollection(
       teamWebhooks() as unknown as Collection,
-      () => (field) => (field === 'headers' ? 'webhooks' : undefined),
+      sealerForFields('webhooks', ['headers']),
       options.dryRun,
     ),
   }

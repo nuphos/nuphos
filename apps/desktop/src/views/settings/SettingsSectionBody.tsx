@@ -3,6 +3,7 @@ import { InstructionsSection } from './InstructionsSection'
 import { LocalExecSection } from './LocalExecSection'
 import { LocalRuntimeSection } from './LocalRuntimeSection'
 import { LocalSetupSection } from './LocalSetupSection'
+import { McpServersSection } from './McpServersSection'
 import { AppearanceSection } from './personalSections'
 import { PrivacySection } from './PrivacySection'
 import { ProfileSection } from './ProfileSection'
@@ -36,6 +37,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   ),
   'workspace.instructions': ({ team }) => <InstructionsSection team={team} scope="team" />,
   'workspace.webhooks': ({ team }) => <WebhooksSection team={team} />,
+  'workspace.mcpServers': ({ team }) => <McpServersSection team={team} />,
   'preferences.instructions': ({ team }) => <InstructionsSection team={team} scope="personal" />,
   'preferences.localSetup': ({ team }) => <LocalSetupSection team={team} />,
   'account.profile': ({ user, onSignOut, onUserUpdated }) => (

@@ -3,7 +3,8 @@ import { agentConversations, withTeamScope } from './shared'
 import type { AgentConversation } from './shared'
 
 type Link = Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId' | 'parentSessionId'>
-export type CredentialSource = Link & Pick<AgentConversation, 'credentialAccess' | 'metadata'>
+export type CredentialSource = Link &
+  Pick<AgentConversation, 'credentialAccess' | 'metadata' | 'agentRuntime'>
 
 const projection = {
   sessionId: 1,
@@ -11,6 +12,7 @@ const projection = {
   teamId: 1,
   parentSessionId: 1,
   credentialAccess: 1,
+  agentRuntime: 1,
   'metadata.source': 1,
 }
 

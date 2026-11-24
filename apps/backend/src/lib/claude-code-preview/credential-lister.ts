@@ -36,8 +36,9 @@ export type SessionCredentials = {
 
 export type EntryDetails = Omit<ClaudeCodeCredentialEntry, 'provider' | 'id'>
 
-// teamIdentity chooses who a credential acts as; it is not a credential to list.
-export type SelectionKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
+// teamIdentity chooses who a credential acts as. mcpServerIds selects remote MCP
+// servers, which are attached to the session rather than vended as credentials.
+export type SelectionKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity' | 'mcpServerIds'>
 
 export type Lister = (
   selectedIds: string[] | undefined,

@@ -70,6 +70,7 @@ export const EMPTY_CREDENTIAL_ACCESS: AgentCredentialSelection = {
   cloudflareAccountIds: [],
   instaboxAccountIds: [],
   deviceIds: [],
+  mcpServerIds: [],
 }
 
 export const EMPTY_CREDENTIAL_OPTIONS: AgentCredentialOptions = {
@@ -107,6 +108,7 @@ export const EMPTY_CREDENTIAL_OPTIONS: AgentCredentialOptions = {
   instaboxAccounts: [],
   personalCredentials: [],
   devices: [],
+  mcpServers: [],
 }
 
 export const CONVERSATION_SWITCHER_LIMIT = 15

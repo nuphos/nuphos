@@ -50,6 +50,7 @@ import { posthogChannels } from './main/channels-posthog'
 import { teamChannels } from './main/channels-team'
 import { vaultChannels } from './main/channels-vault'
 import { webhooksChannels } from './main/channels-webhooks'
+import { mcpServersChannels } from './main/channels-mcp-servers'
 import {
   findDeepLinkInArgv,
   flushPendingDeepLinks,
@@ -288,6 +289,7 @@ const channels = {
   ...agentChannelChannels,
   ...instructionsChannels,
   ...webhooksChannels,
+  ...mcpServersChannels,
   ...deviceChannels,
   ...boxChannels,
   ...vaultChannels,

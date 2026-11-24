@@ -5,6 +5,8 @@ import { canUseAllowList } from '@/lib/byos/access'
 import { extractAwsAccountId } from '@/lib/byos/account'
 import { cachedAwsAccountAlias } from '@/lib/byos/aws'
 import { publicZeaburProviders } from '@/lib/byos/zeabur-provider-view'
+import { getTeamMembership } from '@/lib/identity'
+import { teamMcpServers } from '@/lib/mcp/team-servers'
 import { parseObjectId } from '@/lib/objectid'
 import { ownPersonalCredentialOptions } from '@/lib/personal-credentials/handout'
 import { teamByosBindings } from '@/models'
@@ -39,6 +41,29 @@ export async function resolveDeviceOptions(
   )
 }
 
+// Team remote MCP servers carry admin-configured secrets and internal URLs:
+// selection is restricted to team administrators, matching registration.
+// Non-admins receive an empty list (never server URLs) and cannot select any.
+export async function resolveMcpServerOptions(
+  teamId: string | undefined,
+  userId: string,
+): Promise<NonNullable<AgentCredentialOptions['mcpServers']>> {
+  if (!teamId) return []
+  const membership = await getTeamMembership(userId, teamId)
+
+  if (membership?.role !== 'ADMINISTRATOR') return []
+  const servers = await teamMcpServers()
+    .find({ teamId }, { projection: { _id: 1, name: 1, url: 1 } })
+    .sort({ createdAt: 1 })
+    .toArray()
+
+  return servers.map((server) => ({
+    id: server._id.toHexString(),
+    name: server.name,
+    url: server.url,
+  }))
+}
+
 export async function getAgentCredentialOptions(
   teamId: string | undefined,
   userId: string,
@@ -68,6 +93,7 @@ export async function getAgentCredentialOptions(
       resendIntegrations: [],
       personalCredentials: [],
       devices: [],
+      mcpServers: [],
       ...emptyConnectorCredentialOptions(),
     }
   const teamObjectId = parseObjectId(teamId, 'teamId')
@@ -260,9 +286,10 @@ export async function getAgentCredentialOptions(
       label: binding.label,
       permission: binding.permission,
     }))
-  const [devices, personalCredentials] = await Promise.all([
+  const [devices, personalCredentials, mcpServers] = await Promise.all([
     resolveDeviceOptions(userId, teamId),
     ownPersonalCredentialOptions(userId, teamId),
+    resolveMcpServerOptions(teamId, userId),
   ])
 
   return {
@@ -289,6 +316,7 @@ export async function getAgentCredentialOptions(
     resendIntegrations,
     personalCredentials,
     devices,
+    mcpServers,
     ...connectorCredentialOptions(doc, userId),
   }
 }

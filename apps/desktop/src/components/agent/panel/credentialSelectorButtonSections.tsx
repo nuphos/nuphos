@@ -259,6 +259,12 @@ export function CredentialSelectorSectionList({
         newIds={unseen?.instaboxAccountIds}
         onChangeIds={(ids) => onChange({ ...value, instaboxAccountIds: ids })}
       />
+      <CredentialSectionGroup
+        sections={sections.mcpServerSections}
+        selectedIds={value.mcpServerIds}
+        newIds={unseen?.mcpServerIds}
+        onChangeIds={(ids) => onChange({ ...value, mcpServerIds: ids })}
+      />
       {GOOGLE_PROVIDERS.map(ownRow)}
     </>
   )

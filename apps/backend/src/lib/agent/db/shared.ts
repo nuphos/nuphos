@@ -215,8 +215,8 @@ export type AgentCredentialAccess = {
   upstashAccountIds?: string[]
   cloudflareAccountIds?: string[]
   instaboxAccountIds?: string[]
-  // Optional for docs older than device selection; devices are user-owned, never team-shared.
-  deviceIds?: string[]
+  deviceIds?: string[] // user-owned; absent on docs from before device selection
+  mcpServerIds?: string[] // remote MCP servers ticked here; absent or empty selects none
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date

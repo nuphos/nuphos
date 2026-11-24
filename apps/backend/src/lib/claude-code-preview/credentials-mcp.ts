@@ -5,6 +5,8 @@
 // is the gate.
 import { waitPastSessionCutoffs } from '@/lib/internal-token/revocation'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
+import { selectedConversationMcpServers } from '@/lib/mcp/session-servers'
+import type { PreviewSessionAccess } from '@/lib/mcp/session-servers'
 
 import { listSelectedCredentials, listSessionCredentials } from './credential-listing'
 import { mintPreviewMcpToken } from './mcp-token'
@@ -102,6 +104,8 @@ export type PreviewSessionAccessOptions = {
   sessionHomeEpoch?: number
   /** A Bot's own session, which it resumes for weeks. */
   bot?: boolean
+  agentRuntime?: string // Antigravity is held to the tool-declaration budget
+  includeCustomMcp?: boolean
 }
 
 export async function previewSessionAccess(
@@ -110,10 +114,10 @@ export async function previewSessionAccess(
   userId: string,
   conversationOwnerUserId = userId,
   options?: PreviewSessionAccessOptions,
-): Promise<{ mcpServers: AcpHttpMcpServer[]; runtimeEnv?: Record<string, string> }> {
+): Promise<PreviewSessionAccess> {
   const base = previewMcpBaseUrl(options?.external, options?.backendUrl)
 
-  if (!base || !userId) return { mcpServers: [] }
+  if (!base || !userId) return { mcpServers: [], notices: [] }
   const mount = `${base.endsWith('/') ? base.slice(0, -1) : base}/agent-sessions/${conversationId}/teams/${teamId}`
 
   // Cutoffs only move up, so a token minted in the second the session was
@@ -137,6 +141,18 @@ export async function previewSessionAccess(
     },
     teamId,
   ).catch(() => [])
+  const custom =
+    options?.includeCustomMcp === false
+      ? { servers: [], notices: [] }
+      : await selectedConversationMcpServers({
+          conversationId,
+          teamId,
+          agentRuntime: options?.agentRuntime,
+          proxy: {
+            baseUrl: `${mount}/mcp-servers`,
+            authorization: `Bearer ${token}`,
+          },
+        })
 
   return {
     mcpServers: [
@@ -149,7 +165,9 @@ export async function previewSessionAccess(
           : `${mount}/mcp-tools`,
         headers,
       },
+      ...custom.servers,
     ],
+    notices: custom.notices,
     runtimeEnv: {
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', // Nuphos memory replaces Claude Code's own
       ...connectorEnv(selected.map((entry) => entry.provider)),

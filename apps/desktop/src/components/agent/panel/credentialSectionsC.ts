@@ -154,3 +154,22 @@ export function buildInstaboxCredentialSections(
     },
   ]
 }
+
+export function buildMcpServerCredentialSections(
+  servers: AgentCredentialOptions['mcpServers'],
+): CredentialSection[] {
+  if (!servers || servers.length === 0) return []
+
+  return [
+    {
+      id: 'mcp',
+      provider: 'mcp' as const,
+      title: t('MCP servers'),
+      items: servers.map((server) => ({
+        id: server.id,
+        label: server.name,
+        sublabel: server.url ?? '',
+      })),
+    },
+  ]
+}
