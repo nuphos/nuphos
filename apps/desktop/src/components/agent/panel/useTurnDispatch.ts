@@ -119,7 +119,7 @@ export function useTurnDispatch(acc: Acc) {
         else
           toast.error(
             t('The local runtime is still starting'),
-            t('Try again in a moment, or check User settings › This computer › Local runtime.'),
+            t('Try again in a moment, or check this computer’s runtime in Settings → Computers.'),
           )
       })
 
