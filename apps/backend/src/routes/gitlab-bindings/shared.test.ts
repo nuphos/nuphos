@@ -27,6 +27,7 @@ describe('a GitLab host URL the outbound guard refuses', () => {
 
       expect(answer).toMatchObject({ status: 400, code: 'gitlab_host_refused' })
       expect(answer.message).toContain('not allowed')
+      expect(answer.message).toContain('reachable from the internet')
     }
   })
 

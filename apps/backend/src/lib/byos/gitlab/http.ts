@@ -56,7 +56,7 @@ function refusedHost(reason: string): AppError {
   return new AppError(
     400,
     'gitlab_host_refused',
-    `Nuphos can't connect to this GitLab host: ${reason}`,
+    `Nuphos can't connect to this GitLab host (${reason}). Use a GitLab URL that is reachable from the internet.`,
   )
 }
 
