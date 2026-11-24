@@ -162,7 +162,6 @@ struct ChatComposerBar<Controls: View>: View {
         .glass(interactive: true, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
-        .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
