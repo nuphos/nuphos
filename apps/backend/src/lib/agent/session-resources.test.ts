@@ -80,7 +80,12 @@ useGithubHttp({
       return Response.json({ token: 'test-token', expires_at: '2099-01-01T00:00:00Z' })
 
     if (url.includes('/check-runs'))
-      return Response.json({ check_runs: [{ conclusion: 'success' }, { conclusion: 'failure' }] })
+      return Response.json({
+        check_runs: [
+          { id: 1, name: 'build', conclusion: 'success' },
+          { id: 2, name: 'test', conclusion: 'failure' },
+        ],
+      })
     if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
     if (url.includes('/reviews')) return Response.json([])
     if (url.endsWith('/pulls/78')) return new Response('Not Found', { status: 404 })

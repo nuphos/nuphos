@@ -501,6 +501,19 @@ class BotsPageFixtureDeviceTest {
         gone(prompt)
     }
 
+    @Test fun aRuntimeAddedElsewhereReplacesThePromptOnReturn() {
+        noRuntimes = true
+        render()
+        waitText(prompt)
+        compose.waitUntil(8_000) { !store.isRefreshing }
+        noRuntimes = false
+        // No refresh here: leaving the app and coming back is what must read the runtimes again.
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        gone(prompt)
+    }
+
     @Test fun anotherWorkspaceAsksAgain() {
         noRuntimes = true
         render()

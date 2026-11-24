@@ -101,17 +101,27 @@ async function endSignIns(
   }
 }
 
-/** Ends this person's sign-in of the agent, for one who lost managing it while signing in. */
+/**
+ * Ends the sign-in that was checked, for one who lost managing it while signing in. A newer
+ * sign-in recorded since, even by the same person from another team, is checked on its own.
+ */
 export async function endAgentSignIn(
   { userId, deviceId }: DeviceRef,
   agent: AgentRef,
-  signer: { userId: string; teamId: string },
+  signer: Pick<AgentSignIn, 'userId' | 'teamId' | 'at'>,
   reset: Reset = requestAgentReset,
 ): Promise<void> {
   const device = await agentDevices().findOne({ userId, deviceId })
   const signIn = device ? agentSignIn(device, agent) : undefined
 
-  if (device && signIn && !signIn.endedAt && signIn.userId === signer.userId)
+  if (
+    device &&
+    signIn &&
+    !signIn.endedAt &&
+    signIn.userId === signer.userId &&
+    signIn.teamId === signer.teamId &&
+    signIn.at.getTime() === signer.at.getTime()
+  )
     await endSignIns(
       device,
       [signIn],
@@ -183,4 +193,21 @@ export async function endSignInsOnLeave(
       endSignIns(device, current(device), { actorId: by.actorUserId, teamId }, reset),
     ),
   )
+}
+
+/**
+ * Forgets who signed a default agent in on a person's own computer, once its owner signed it in
+ * there with the agent's own CLI: it runs as them now. False when no such computer of theirs.
+ */
+export async function forgetOwnSignIn(
+  userId: string,
+  deviceId: string,
+  provider: 'claude-code' | 'codex',
+): Promise<boolean> {
+  const { matchedCount } = await agentDevices().updateOne(
+    { userId, deviceId, box: { $exists: false } },
+    { $pull: { signIns: { agent: provider } } },
+  )
+
+  return matchedCount > 0
 }

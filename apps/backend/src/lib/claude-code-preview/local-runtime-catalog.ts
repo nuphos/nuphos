@@ -190,8 +190,9 @@ export async function resolveLocalRuntimeEndpoint(
   teamId: string,
   runtimeId: string,
   userId: string,
-  /** `login` is the control channel for the agent's own sign-in, so signed out is fine. */
-  purpose: 'transport' | 'control' | 'login',
+  /** `login` and `steer` use the control channel: `login` for the agent's own sign-in, so signed
+   * out is fine; `steer` for new input to a running turn, so its sign-in must still be current. */
+  purpose: 'transport' | 'steer' | 'control' | 'login',
   deps: LocalRuntimeCatalogDeps = defaultDeps,
 ): Promise<TeamRuntimeEndpoint & { runtimeId: string }> {
   const ref = parseLocalRuntimeId(runtimeId)
@@ -240,7 +241,7 @@ export async function resolveLocalRuntimeEndpoint(
 
   return {
     url: localRuntimeUrl(ref, teamId, userId),
-    authKey: purpose === 'login' ? 'control' : purpose,
+    authKey: purpose === 'transport' ? 'transport' : 'control',
     runtimeId,
     external: true,
     local: { userId: ref.userId, deviceId: ref.deviceId },

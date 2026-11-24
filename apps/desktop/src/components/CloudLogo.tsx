@@ -1,10 +1,11 @@
 import { faKubernetes } from '@fortawesome/free-brands-svg-icons'
-import { faLaptop } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Laptop as LaptopIcon } from 'lucide-react'
 
 import { t } from '../i18n'
 
 import { DatabaseEngineGlyph } from './DatabaseEngineIcon'
+import { UiIcon } from './ui/ui-icon'
 
 type Props = {
   provider:
@@ -191,8 +192,9 @@ export function CloudLogo({ provider, size = 14, className = '' }: Props) {
 
   if (provider === 'device') {
     return (
-      <FontAwesomeIcon
-        icon={faLaptop}
+      <UiIcon
+        size={14}
+        icon={LaptopIcon}
         aria-label={t('Computer')}
         className={`flex-shrink-0 text-tertiary ${className}`}
         style={{ width: size, height: size }}

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createTeamMemoryTools } from '@/lib/agent/memory-native/tools'
+import { createTodoTools } from '@/lib/agent/todos'
 import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 
@@ -31,6 +32,7 @@ function modules() {
       createTeamMemoryTools({ userId: 'u', teamId: 't', conversationId: 's' }),
     ),
     toolModuleFromAiSdkTools(createSessionTools('u', 's', 't')),
+    toolModuleFromAiSdkTools(createTodoTools('u', 's', 't')),
     toolModuleFromAiSdkTools({
       local_exec: createLocalExecTool(
         [{ deviceId: 'mac', label: 'MacBook', ownerUserId: 'u' }],

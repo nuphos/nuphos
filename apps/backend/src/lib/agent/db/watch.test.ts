@@ -21,11 +21,14 @@ function field(doc: Doc, path: string): unknown {
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, value]) => {
+    if (key === '$nor') return !(value as Doc[]).some((one) => matches(doc, one))
     const actual = field(doc, key)
 
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const op = value as { $in?: unknown[]; $exists?: boolean }
+      const op = value as { $ne?: unknown; $type?: string; $in?: unknown[]; $exists?: boolean }
 
+      if (op.$ne !== undefined) return actual !== op.$ne
+      if (op.$type) return typeof actual === op.$type
       if (op.$in) return op.$in.includes(actual)
       if (op.$exists !== undefined) return (actual !== undefined) === op.$exists
     }
