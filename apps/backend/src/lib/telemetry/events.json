@@ -152,7 +152,6 @@
   "backend.migration.agent_plans_cancelled",
   "backend.migration.aliyun_legacy_bindings_removed",
   "backend.migration.cli_token_expiry_backfilled",
-  "backend.migration.conversation_watchers_backfilled",
   "backend.migration.device_access_grants",
   "backend.migration.tencent_legacy_bindings_removed",
   "backend.mongodb.connected",

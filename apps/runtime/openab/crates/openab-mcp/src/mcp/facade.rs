@@ -24,7 +24,7 @@ use std::sync::Arc;
 use anyhow::{Context as _, Result};
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, Implementation, ListToolsResult,
+    CallToolRequestParams, CallToolResult, ContentBlock, Implementation, ListToolsResult,
     PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool,
 };
 use rmcp::service::{RequestContext, RoleServer};
@@ -387,9 +387,9 @@ fn facade_tools() -> Vec<Tool> {
 fn text_result(value: &Value, is_error: bool) -> CallToolResult {
     let text = serde_json::to_string(value).unwrap_or_else(|_| value.to_string());
     if is_error {
-        CallToolResult::error(vec![Content::text(text)])
+        CallToolResult::error(vec![ContentBlock::text(text)])
     } else {
-        CallToolResult::success(vec![Content::text(text)])
+        CallToolResult::success(vec![ContentBlock::text(text)])
     }
 }
 
@@ -433,13 +433,13 @@ impl ServerHandler for McpFacade {
         match request.name.as_ref() {
             "search_capabilities" => match self.search_capabilities(args, ctx.as_ref()).await {
                 Ok(v) => Ok(text_result(&v, false)),
-                Err(e) => Ok(CallToolResult::error(vec![Content::text(
+                Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(
                     super::redact_secrets(&format!("{e:#}")),
                 )])),
             },
             "execute_capability" => match self.execute_capability(args, ctx.as_ref()).await {
                 Ok((v, is_error)) => Ok(text_result(&v, is_error)),
-                Err(e) => Ok(CallToolResult::error(vec![Content::text(
+                Err(e) => Ok(CallToolResult::error(vec![ContentBlock::text(
                     super::redact_secrets(&format!("{e:#}")),
                 )])),
             },
