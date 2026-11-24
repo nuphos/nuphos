@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { config } from '@/config'
@@ -9,6 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { teamMcpServersRoutes } from './team-mcp-servers'
 
+import type { NuphosTeamRole } from '@/lib/identity/types'
 import type { TeamMcpServer } from '@/lib/mcp/team-servers'
 
 process.env.CUSTOM_MCP_BYOK_ENCRYPTION_KEY = 'b'.repeat(64)
@@ -74,7 +75,7 @@ function collection(name: string) {
 
 useDb({ db: () => ({ collection }) })
 
-let role = 'ADMINISTRATOR'
+let role: NuphosTeamRole = 'ADMINISTRATOR'
 
 useIdentity({
   getTeamMembership: () => ({ role, team: {} }),
@@ -98,9 +99,10 @@ const call = (method: string, path: string, body?: unknown) =>
   })
 
 const SECRET = 'Bearer s3cret-value'
-// Remote MCP servers may use http when the egress policy allows the host.
 // eslint-disable-next-line sonarjs/no-clear-text-protocols -- fixture URL, never requested
 const PRIVATE_HTTP = 'http://10.1.2.3/mcp'
+const PUBLIC_HTTP = 'http://mcp.example.com/mcp'
+const allowPrivateHosts = config.byos.outbound.allowPrivateHosts
 const valid = {
   name: 'Homelab',
   url: 'https://mcp.example.com/mcp',
@@ -125,9 +127,13 @@ beforeEach(() => {
   config.byos.outbound.allowPrivateHosts = false
 })
 
+afterAll(() => {
+  config.byos.outbound.allowPrivateHosts = allowPrivateHosts
+})
+
 describe('team MCP server routes', () => {
   test('only administrators can manage MCP servers', async () => {
-    for (const denied of ['MEMBER', 'EDITOR']) {
+    for (const denied of ['VIEWER', 'EDITOR'] as const) {
       role = denied
       expect((await call('GET', '')).status).toBe(403)
       expect((await call('POST', '', valid)).status).toBe(403)
@@ -211,6 +217,9 @@ describe('team MCP server routes', () => {
     ['a blocked service address', 'https://34.118.230.5/mcp'],
     ['a non-http URL', 'file:///tmp/mcp'],
     ['embedded credentials', 'https://user:s3cret-value@mcp.example.com/mcp'],
+    ['a public http URL', PUBLIC_HTTP],
+    ['a query token', 'https://mcp.example.com/mcp?access_token=query-token'],
+    ['a fragment token', 'https://mcp.example.com/mcp#query-token'],
   ])('rejects %s', async (_label, url) => {
     const res = await call('POST', '', { ...valid, url })
     const raw = await bodyOf(res)
@@ -218,6 +227,7 @@ describe('team MCP server routes', () => {
     expect(res.status).toBe(400)
     expect(raw).not.toContain(SECRET)
     expect(raw).not.toContain('s3cret-value')
+    expect(raw).not.toContain('query-token')
     expect(table('team_mcp_servers')).toHaveLength(0)
   })
 
@@ -232,6 +242,12 @@ describe('team MCP server routes', () => {
     expect(stored().url).toBe(valid.url)
 
     config.byos.outbound.allowPrivateHosts = true
+    const publicHttp = await call('POST', '', { ...valid, name: 'Cleartext', url: PUBLIC_HTTP })
+
+    expect(publicHttp.status).toBe(400)
+    expect(await bodyOf(publicHttp)).not.toContain(SECRET)
+    expect(table('team_mcp_servers')).toHaveLength(1)
+
     const allowed = await call('POST', '', {
       ...valid,
       name: 'Tailnet',
@@ -263,6 +279,52 @@ describe('team MCP server routes', () => {
     expect(res.status).toBe(400)
     expect(await bodyOf(res)).not.toContain(SECRET)
   })
+
+  test('an empty header list clears stored headers', async () => {
+    const { id } = await create()
+    const res = await call('PATCH', `/${id}`, { headers: [] })
+    const raw = await bodyOf(res)
+
+    expect(res.status).toBe(200)
+    expect(stored().headers).toEqual([])
+    expect(JSON.parse(raw)).toMatchObject({ mcpServer: { headers: [] } })
+    expect(raw).not.toContain(SECRET)
+  })
+
+  test('a team can store at most 20 servers', async () => {
+    for (let index = 0; index < 20; index += 1) {
+      const res = await call('POST', '', { ...valid, name: `server-${String(index)}` })
+
+      expect(res.status).toBe(201)
+      expect(await bodyOf(res)).not.toContain(SECRET)
+    }
+    const extra = await call('POST', '', { ...valid, name: 'overflow' })
+    const raw = await bodyOf(extra)
+
+    expect(extra.status).toBe(409)
+    expect(raw).not.toContain(SECRET)
+    expect(table('team_mcp_servers')).toHaveLength(20)
+  })
+
+  test.each(['nuphos-credentials', 'Nuphos-Tools', 'NUPHOS-CREDENTIALS'])(
+    'rejects the built-in server name %s',
+    async (name) => {
+      const created = await call('POST', '', { ...valid, name })
+      const raw = await bodyOf(created)
+
+      expect(created.status).toBe(400)
+      expect(raw).toContain('reserved')
+      expect(raw).not.toContain(SECRET)
+      expect(table('team_mcp_servers')).toHaveLength(0)
+
+      const { id } = await create()
+      const renamed = await call('PATCH', `/${id}`, { name })
+
+      expect(renamed.status).toBe(400)
+      expect(await bodyOf(renamed)).not.toContain(SECRET)
+      expect(stored().name).toBe('Homelab')
+    },
+  )
 
   test('a server from another team is invisible', async () => {
     const { id } = await create()

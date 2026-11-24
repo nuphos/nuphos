@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { encryptCustomMcpSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
 import { teamMcpServers } from '@/lib/mcp/team-servers'
-import { blockedUrlReason } from '@/lib/net/safe-outbound'
+import { blockedUrlReason, privateHostReason } from '@/lib/net/safe-outbound'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -20,15 +20,37 @@ const MAX_MCP_SERVERS = 20
 // Set by the HTTP client or the MCP transport, not by a stored credential.
 const RESERVED_HEADER =
   /^(host|content-length|content-type|transfer-encoding|connection|user-agent|accept-encoding)$/i
+// These names already identify the ACP servers Nuphos sends itself.
+const RESERVED_SERVER_NAME = new Set(['nuphos-credentials', 'nuphos-tools'])
+
+// Headers are secrets: a public URL is https, with no query or fragment.
+// http is only for a private host when the deployment allows private hosts.
+function mcpServerUrlReason(raw: string): string | null {
+  const blocked = blockedUrlReason(raw)
+
+  if (blocked) return blocked
+  const url = new URL(raw)
+
+  if (url.search || url.hash) return 'URL must not contain a query or fragment'
+  if (url.protocol === 'http:' && !privateHostReason(url)) return 'URL must be https://'
+
+  return null
+}
 
 const url = z
   .string()
   .max(2048)
   .superRefine((value, ctx) => {
-    const reason = blockedUrlReason(value)
+    const reason = mcpServerUrlReason(value)
 
     if (reason) ctx.addIssue({ code: z.ZodIssueCode.custom, message: reason })
   })
+const serverName = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .refine((name) => !RESERVED_SERVER_NAME.has(name.toLowerCase()), 'This name is reserved')
 const headerName = z
   .string()
   .regex(/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,64}$/, 'Invalid header name')
@@ -46,13 +68,13 @@ const headerList = z
   .refine(uniqueNames, 'Duplicate header')
 
 const createSchema = z.object({
-  name: z.string().trim().min(1).max(64),
+  name: serverName,
   url,
   headers: headerList.default([]),
 })
 
 const updateSchema = z.object({
-  name: z.string().trim().min(1).max(64).optional(),
+  name: serverName.optional(),
   url: url.optional(),
   /** The full list; a header without a value keeps its stored one. */
   headers: z
