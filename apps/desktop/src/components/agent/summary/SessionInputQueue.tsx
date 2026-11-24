@@ -152,9 +152,7 @@ export function SessionInputReply({
           <span role="status">
             {!stillPending || dismissed
               ? t('This request is no longer pending.')
-              : request.inputRequest.category === 'credential'
-                ? t('Answer in the secure card below. Never paste a secret in a message.')
-                : t('Your reply goes to this task only.')}
+              : pendingHint(request.inputRequest.category)}
           </span>
           {next && (
             <button type="button" onClick={() => onSelect(next)} className="shrink-0 text-primary">
@@ -189,4 +187,14 @@ export function SessionInputReply({
       </div>
     </>
   )
+}
+
+/** Where an open request is answered, under its question. */
+function pendingHint(category: string) {
+  if (category === 'credential')
+    return t('Answer in the secure card below. Never paste a secret in a message.')
+  if (category === 'computer')
+    return t('Take over the desktop in the card below, then press I’m done.')
+
+  return t('Your reply goes to this task only.')
 }

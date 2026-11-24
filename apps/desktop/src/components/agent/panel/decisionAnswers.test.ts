@@ -78,6 +78,7 @@ test("a card shows the answer the server's notice records, by its request id", (
 
   assert.deepEqual(decisionAnswers([asked, notice('nuphos-q1')]).get('call-1'), {
     option: 'Started the download',
+    by: 'Sam',
   })
   // Another request's notice answers nothing here.
   assert.equal(decisionAnswers([asked, notice('nuphos-q9')]).size, 0)

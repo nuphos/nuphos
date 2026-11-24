@@ -1,3 +1,4 @@
+import clsx from 'clsx'
 import { Monitor } from 'lucide-react'
 
 import { PageMeta } from '../app/pageMeta'
@@ -24,13 +25,6 @@ export function DesktopFrame({
   onRetry: () => void
   host: React.RefObject<HTMLDivElement | null>
 }) {
-  const overlay =
-    phase.kind === 'connecting'
-      ? t('Connecting to the desktop…')
-      : phase.kind === 'reconnecting'
-        ? t('Reconnecting…')
-        : undefined
-
   return (
     <PageMeta pageKey="team.desktop" title={title} icon={<Monitor className="h-3.5 w-3.5" />}>
       <div className="flex h-full min-h-0 flex-col">
@@ -42,27 +36,59 @@ export function DesktopFrame({
           <span className="min-w-0 flex-1 truncate">{status}</span>
           {phase.kind === 'connected' && action}
         </div>
-        <div className="relative min-h-0 flex-1">
-          <div ref={host} className="absolute inset-0 flex" />
-          {(overlay || phase.kind === 'stopped') && (
-            <div
-              role="status"
-              className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-state-selected text-sm text-secondary"
-            >
-              {phase.kind === 'stopped' ? phase.message : overlay}
-              {phase.kind === 'stopped' && (
-                <button
-                  type="button"
-                  onClick={onRetry}
-                  className="rounded border border-line-control px-2 py-0.5 text-xs text-main hover:bg-state-hover"
-                >
-                  {phase.reason === 'offline' ? t('Resume') : t('Try again')}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
+        <DesktopScreen phase={phase} onRetry={onRetry} host={host} className="min-h-0 flex-1" />
       </div>
     </PageMeta>
+  )
+}
+
+/**
+ * The live desktop itself, and the one state that stands in for it while it
+ * connects, reconnects, or is offline: the same wherever a desktop is shown.
+ */
+export function DesktopScreen({
+  phase,
+  onRetry,
+  host,
+  className,
+  children,
+}: {
+  phase: DesktopPhase
+  onRetry: () => void
+  host: React.RefObject<HTMLDivElement | null>
+  className?: string
+  /** Drawn over the live picture once it shows. */
+  children?: React.ReactNode
+}) {
+  const overlay =
+    phase.kind === 'connecting'
+      ? t('Connecting to the desktop…')
+      : phase.kind === 'reconnecting'
+        ? t('Reconnecting…')
+        : undefined
+
+  return (
+    <div className={clsx('relative', className)}>
+      <div ref={host} className="absolute inset-0 flex" />
+      {overlay || phase.kind === 'stopped' ? (
+        <div
+          role="status"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-state-selected text-sm text-secondary"
+        >
+          {phase.kind === 'stopped' ? phase.message : overlay}
+          {phase.kind === 'stopped' && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded border border-line-control px-2 py-0.5 text-xs text-main hover:bg-state-hover"
+            >
+              {phase.reason === 'offline' ? t('Resume') : t('Try again')}
+            </button>
+          )}
+        </div>
+      ) : (
+        children
+      )}
+    </div>
   )
 }

@@ -1,3 +1,5 @@
+import { useMemo } from 'react'
+
 import { api } from '../../api'
 import { AnswerFailure } from '../../views/inbox/AnswerFailure'
 import { dismissQuestion, snoozeQuestion } from '../../views/inbox/dismissQuestion'
@@ -5,7 +7,7 @@ import { DismissQuestionButton } from '../../views/inbox/DismissQuestionButton'
 import { QuestionSource } from '../../views/inbox/QuestionRail'
 import { answerQuestion, useAnswerFailure } from '../../views/inbox/useInbox'
 import { DecisionToolPart } from '../agent/panel/ConnectCard'
-import { ConnectCardContext } from '../agent/panel/connectCardContext'
+import { CardConversationContext, ConnectCardContext } from '../agent/panel/connectCardContext'
 import { parseChoiceRequest } from '../agent/panel/connectCardModel'
 
 import { botChatQuestion } from './botChatQuestion'
@@ -45,8 +47,12 @@ export function BotChatQuestion({
     credentials !== undefined,
   )
   const failure = useAnswerFailure(request.inputRequest.id)
+  const conversation = useMemo(
+    () => ({ teamId, sessionId: request.sessionId }),
+    [teamId, request.sessionId],
+  )
   // A question card names who asked and is dismissed inside itself; the other cards keep both outside.
-  const choice = parseChoiceRequest(part.input) !== null
+  const choice = parseChoiceRequest(part.input) !== null && !request.inputRequest.desktop
   // A secure card is dismissed inside itself too, but names no source. One it cannot answer has no Dismiss.
   const dismissedInside = (choice && answerable) || Boolean(request.inputRequest.secretName)
   const source = onOpenSession && (
@@ -84,13 +90,15 @@ export function BotChatQuestion({
           fullBody,
         }}
       >
-        <DecisionToolPart
-          part={part}
-          now={0}
-          teamId={teamId}
-          canAct={answerable}
-          canReply={answerable}
-        />
+        <CardConversationContext.Provider value={conversation}>
+          <DecisionToolPart
+            part={part}
+            now={0}
+            teamId={teamId}
+            canAct={answerable}
+            canReply={answerable}
+          />
+        </CardConversationContext.Provider>
       </ConnectCardContext.Provider>
       {failure && <AnswerFailure message={failure} />}
       {!dismissedInside && dismissible && (

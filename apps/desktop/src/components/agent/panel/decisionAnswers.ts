@@ -5,8 +5,8 @@ import { DECISION_NOTICE, parseDecisionNotice } from './decisionNotice.ts'
 
 import type { Message } from './model'
 
-/** What answered a card: a secure card's saved reply, or the answer the server's notice records. */
-export type DecisionAnswer = { option: string }
+/** What answered a card: a secure card's saved reply, or the answer the server's notice records, and who gave it. */
+export type DecisionAnswer = { option: string; by?: string }
 
 /**
  * Each conversation's card answers, keyed by the card's tool call id: a secure
@@ -55,7 +55,11 @@ function noticeOf(message: Message, text: string, cards: ReadonlyMap<string, Ask
   const card = notice && cards.get(notice.requestId)
 
   return notice && card
-    ? { card: card.toolCallId, option: notice.answers.map(({ answer }) => answer).join('; ') }
+    ? {
+        card: card.toolCallId,
+        option: notice.answers.map(({ answer }) => answer).join('; '),
+        by: notice.answeredBy,
+      }
     : null
 }
 
@@ -84,7 +88,7 @@ export function decisionAnswers(messages: readonly Message[]): Map<string, Decis
       .trim()
     const noticed = noticeOf(message, text, cards)
 
-    if (noticed) answers.set(noticed.card, { option: noticed.option })
+    if (noticed) answers.set(noticed.card, { option: noticed.option, by: noticed.by })
     const index = open.findLastIndex((entry) => entry.matches(text))
 
     if (index < 0) continue
