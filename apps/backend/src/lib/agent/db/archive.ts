@@ -5,6 +5,16 @@ import { agentConversations } from './shared'
 
 import type { AgentConversation } from './shared'
 
+/**
+ * Matches anything but a Bot (a face on anything but a chat, as isBot in
+ * read-state.ts says). A Bot is a tree of its own: nested under another
+ * conversation, it is still never part of that one's subtree, so archiving,
+ * credentials and watching never reach it through its parent.
+ */
+export const NOT_A_BOT = {
+  $nor: [{ kind: { $ne: 'channel' as const }, avatar: { $type: 'string' as const } }],
+}
+
 const restore = () => ({
   $unset: { archivedAt: '' as const },
   $set: { archiveRestoredAt: new Date() },
@@ -118,10 +128,11 @@ async function botUnit(conversation: Archivable, archiving = false): Promise<Arc
 
 /**
  * Who may archive is the route's to check. A Bot goes with its chats (see
- * `botUnit`). Archiving also archives the owner's threads nested below it,
- * stamped with the same `archivedAt`; restoring brings back exactly the
- * descendants carrying that stamp, so a thread archived earlier on its own
- * stays archived. Returns what moved, so a client can follow the server.
+ * `botUnit`). Archiving also archives the owner's threads nested below it, but
+ * never a Bot nested there (NOT_A_BOT), stamped with the same `archivedAt`;
+ * restoring brings back exactly the descendants carrying that stamp, so a
+ * thread archived earlier on its own stays archived. Returns what moved, so a
+ * client can follow the server.
  */
 export async function setConversationArchived(
   sessionId: string,
@@ -225,7 +236,10 @@ export async function archiveConversationAs(
   return { sessionIds: [conversation.sessionId] }
 }
 
-/** Every conversation nested below `rootId` matching `scope`; `seen` stops a loop. */
+/**
+ * Every conversation nested below `rootId` matching `scope`, up to the first Bot
+ * on each branch (see NOT_A_BOT); `seen` stops a loop.
+ */
 export async function descendantSessionIds(
   rootId: string,
   scope: Record<string, unknown>,
@@ -235,7 +249,10 @@ export async function descendantSessionIds(
 
   while (frontier.length > 0) {
     const children = await agentConversations()
-      .find({ ...scope, parentSessionId: { $in: frontier } }, { projection: { sessionId: 1 } })
+      .find(
+        { ...scope, ...NOT_A_BOT, parentSessionId: { $in: frontier } },
+        { projection: { sessionId: 1 } },
+      )
       .toArray()
 
     frontier = children.map((child) => child.sessionId).filter((id) => !seen.has(id))

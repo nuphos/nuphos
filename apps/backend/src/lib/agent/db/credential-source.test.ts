@@ -7,17 +7,25 @@ import { credentialHeirs, credentialSource, credentialSourceOf } from './credent
 import type * as dbActual from '@/lib/db'
 
 type Doc = Record<string, unknown>
-type Condition = { $ne?: unknown; $in?: unknown[]; $nin?: unknown[]; $exists?: boolean }
+type Condition = {
+  $ne?: unknown
+  $type?: string
+  $in?: unknown[]
+  $nin?: unknown[]
+  $exists?: boolean
+}
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, want]) => {
     if (key === '$or') return (want as Doc[]).some((one) => matches(doc, one))
+    if (key === '$nor') return !(want as Doc[]).some((one) => matches(doc, one))
     const value = doc[key]
 
     if (want === null || typeof want !== 'object') return value === want
     const condition = want as Condition
 
     if ('$ne' in condition) return value !== condition.$ne
+    if (condition.$type) return typeof value === condition.$type
     if (condition.$in) return condition.$in.includes(value)
     if (condition.$nin) return !condition.$nin.includes(value)
     if ('$exists' in condition) return (value !== undefined) === condition.$exists
