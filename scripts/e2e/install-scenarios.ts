@@ -20,8 +20,11 @@ async function claudeHere(page: Page) {
 
     if (!agent.cli?.installed) return null
 
-    // Online is what the removed card read as "Ready for your Bots and tasks".
-    return { version: agent.cli.version, ready: agent.online }
+    // What the removed card read as "Ready for your Bots and tasks".
+    return {
+      version: agent.cli.version,
+      ready: agent.available && agent.cli.loggedIn === true && agent.online,
+    }
   })
 }
 
@@ -164,6 +167,25 @@ export const installScenarios: Scenario[] = [
 
           return version === null ? here === null : here?.version === version && here.ready
         })
+
+      // The runtime New runtime added before has a sign-in of its own; this computer's own Claude
+      // Code signs in the way its runtime details do, so the turns below are not refused.
+      await page.evaluate(() => window.api.localRuntimeStartClaudeLogin())
+      await until('the sign-in to take a code', () =>
+        page.evaluate(async () => {
+          try {
+            await window.api.localRuntimeSubmitClaudeLoginCode('e2e-code#e2e-state')
+
+            return true
+          } catch {
+            return false
+          }
+        }),
+      )
+      await until(
+        "this computer's Claude Code to be signed in",
+        async () => (await claudeHere(page))?.ready === true,
+      )
 
       // Only the Claude app's copy is left, and the agent runs it.
       copy('2.1.0', readFileSync(cli, 'utf8'))
