@@ -48,7 +48,7 @@ export function refuse(text, outOfUsage, turn) {
       ),
       { code: 1001 },
     )
-  // A turn that cannot reach the API once; Nuphos resends it with the next turn, which goes through.
+  // A turn that cannot reach the API once; the next turn goes through.
   const once = `${process.env.E2E_ACP_LOG}.failed-once`
 
   if (text.includes('E2E_FAIL_ONCE') && !existsSync(once)) {
