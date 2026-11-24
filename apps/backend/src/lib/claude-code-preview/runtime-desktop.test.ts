@@ -70,7 +70,7 @@ beforeEach(async () => {
   await presence.put('owner', 'box', { conn: 'conn', status, seenAt: Date.now() })
 })
 
-test('only the owner reaches a display the Box reports as this conversation’s', async () => {
+test('without a computer card, only the owner reaches a display the Box reports as this conversation’s', async () => {
   expect(await runtimeDesktopTarget('team', 'owner', 'chat', '2', presence)).toEqual({
     userId: 'owner',
     deviceId: 'box',

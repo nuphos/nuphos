@@ -2,25 +2,24 @@
 // the client's WebSocket carries RFB bytes as base64 text frames, which the
 // device tunnel relays to the host's VNC server for that display: a Box's Xvnc,
 // or a Mac's own screen from the bundle's mac-screen-host (see the host's
-// mac-screen.ts and vnc-stream.ts). The first frame
-// tells the host the session, the display and the viewer; the host connects
-// only if that display's lock is the session's. The viewer only watches until a
-// control frame hands the desktop to them: this route drops their input
-// messages until then, whatever their client does, and on a Box the host turns
-// the frame into the lock that pauses the agent's input tools on that display.
-// The stream closing hands it back. Links carry ids only: the route is the
-// authorization, and it admits only the conversation's owner. That does not
-// isolate desktops on a shared Box: every session there runs as one Unix user
-// against an X server and VNC without authentication, so any agent on the Box
-// can reach another session's display. The team accepts this until each
-// session gets its own Unix user (see the host's desktop-session.mjs). A Mac
-// asks for no account: it shows its screen only to the Nuphos process that
-// started its host, and that process streams it only to the account signed in
-// on the Mac.
-
+// mac-screen.ts and vnc-stream.ts). The first frame tells the host the session,
+// the display and the viewer; the host connects only if that display's lock is
+// the session's. The viewer only watches until a control frame hands the desktop
+// to them: this route drops their input messages until then, whatever their
+// client does, and on a Box the host turns the frame into the lock that pauses
+// the agent's input tools on that display. The stream closing hands it back.
+// Links carry ids only: the route is the authorization. It admits the owner, and
+// a teammate who may reply in it to the display an open `computer` card names.
+// That does not isolate desktops on a shared Box: every session there runs as one
+// Unix user against an X server and VNC without authentication, so any agent on
+// the Box can reach another session's display. The team accepts this until each
+// session gets its own Unix user (see the host's desktop-session.mjs). A Mac asks
+// for no account: it shows its screen only to the Nuphos process that started
+// its host, and that process streams it only to the account signed in on the Mac.
 import { getReadableConversation } from '@/lib/agent/db'
 import { markDesktopTakenOver } from '@/lib/agent/db/desktop-takeover'
 import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
+import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
@@ -32,6 +31,7 @@ import { AppError } from '@/lib/errors'
 import { clientInputFilter } from './rfb-client-input'
 import { requireRuntimeInstance } from './runtime-catalog'
 
+import type { AgentConversation } from '@/lib/agent/db'
 import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 import type { DeviceRuntimeSocketDeps } from '@/lib/agent/devices/local-runtime/socket'
 import type { WSEvents } from 'hono/ws'
@@ -83,12 +83,25 @@ async function desktopHost(
   return { ref, sessionId, desktops: status?.desktops, canOpen: status?.desktopOpen === true }
 }
 
-/** The conversation's Box for its owner, or a computer for the person it belongs to. */
+/** Whether a `computer` card still open in the conversation (answered ones are gone) hands over this display on this computer. */
+const handsOver = (conversation: AgentConversation, ref: LocalRuntimeRef, display: number) =>
+  conversation.inputRequests?.some(
+    (r) =>
+      r.category === 'computer' &&
+      r.desktop?.deviceId === ref.deviceId &&
+      r.desktop.display === display,
+  ) === true
+
+/**
+ * The conversation's Box for its owner, or a computer for the person it belongs to.
+ * With `display`, also for a teammate the conversation's open `computer` card invites to it.
+ */
 async function ownedDesktopHost(
   teamId: string,
   userId: string,
   owner: DesktopOwner,
   presence: ReturnType<typeof runtimePresenceStore>,
+  display?: number,
 ) {
   if (typeof owner !== 'string') {
     const ref = parseLocalRuntimeId(owner.runtimeId)
@@ -110,18 +123,28 @@ async function ownedDesktopHost(
   }
   const conversation = await getReadableConversation(owner, userId, teamId)
 
-  if (!conversation?.runtimeId || conversation.userId !== userId || conversation.teamId !== teamId)
-    throw notFound()
+  if (!conversation?.runtimeId || conversation.teamId !== teamId) throw notFound()
   const ref = parseLocalRuntimeId(conversation.runtimeId)
 
   if (!ref) throw notFound()
+  if (conversation.userId !== userId) {
+    // A conversation shared to read is not an invitation: they must also be able to answer the card.
+    if (
+      display === undefined ||
+      !handsOver(conversation, ref, display) ||
+      !(await canReplyIn(conversation, userId))
+    )
+      throw notFound()
+
+    return desktopHost(ref, owner, presence)
+  }
   // The same access the runtime terminal requires; a local runtime admits only its owner.
   await requireRuntimeInstance(teamId, conversation.runtimeId, userId)
 
   return desktopHost(ref, owner, presence)
 }
 
-/** The owner, for a display the host reports as held by this conversation or computer. */
+/** The owner or an invited teammate, for a display the host reports as held by this conversation or computer. */
 export async function runtimeDesktopTarget(
   teamId: string,
   userId: string,
@@ -130,7 +153,11 @@ export async function runtimeDesktopTarget(
   presence = runtimePresenceStore(),
 ): Promise<RuntimeDesktopTarget> {
   const display = Number(displayParam)
-  const { ref, sessionId, desktops = [] } = await ownedDesktopHost(teamId, userId, owner, presence)
+  const {
+    ref,
+    sessionId,
+    desktops = [],
+  } = await ownedDesktopHost(teamId, userId, owner, presence, display)
 
   if (!desktops.some((desktop) => desktop.display === display && desktop.sessionId === sessionId))
     throw notFound()
