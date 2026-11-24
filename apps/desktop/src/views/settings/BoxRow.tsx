@@ -22,6 +22,7 @@ import { BoxHostUpdate } from './BoxHostUpdate'
 import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { deleteBox } from './boxDelete'
+import { pressureStatus } from './boxMetricsPresentation'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
 import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
@@ -119,6 +120,7 @@ export function BoxRow({
   const settingUp = state === 'creating' || state === 'connecting'
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
+  const pressure = away ? pressureStatus(device) : null
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
   const running = state === 'running' && !restart
   const hostUpdate = useComputerUpdate(teamId, device, { cloud, thisComputer, running, hostAgent })
@@ -223,13 +225,17 @@ export function BoxRow({
         )}
       </div>
       <div className="mt-0.5 flex min-w-0 shrink-0 items-center gap-1.5 text-[11.5px] leading-4 text-tertiary">
-        <span role="status" className="flex items-center gap-1.5">
+        <span
+          role="status"
+          title={pressure?.hint}
+          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
+        >
           {restart ? (
             <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
           ) : (
             badge.tone === 'online' && <LiveDot />
           )}
-          {restart ? boxRestartLabel(restart.kind) : badge.label}
+          {restart ? boxRestartLabel(restart.kind) : (pressure?.label ?? badge.label)}
         </span>
         <MachineLine device={device} dim={dim} live={badge !== BOX_BADGE[state]} />
         <AccessHint device={device} />

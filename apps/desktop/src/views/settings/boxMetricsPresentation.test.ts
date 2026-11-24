@@ -6,7 +6,7 @@ import {
   diskWarning,
   memoryWarning,
   offlineFromPressure,
-  pressureWarning,
+  pressureStatus,
 } from './boxMetricsPresentation.ts'
 
 const GIB = 1024 ** 3
@@ -106,25 +106,20 @@ test('no OOM kill, an old one, or no current reading says nothing about memory',
   assert.equal(memoryWarning(undefined, now), null)
 })
 
-test('a Box that just ran out of CPU or memory says so, when, and what to do', () => {
+test('a Box that just ran out of CPU or memory says so in its status, with what to do on hover', () => {
   const now = Date.parse('2026-11-24T01:00:00Z')
-  const at = '2026-11-24T00:50:00Z'
-  const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const warning = pressureWarning({ box: { pressureAt: at } }, now)
+  const status = pressureStatus({ box: { pressureAt: '2026-11-24T00:50:00Z' } }, now)
 
-  assert.equal(
-    warning?.text,
-    `This computer ran out of CPU or memory at ${time} and stopped answering`,
-  )
-  assert.match(warning?.hint ?? '', /Restart it, then run `top` in its terminal/u)
+  assert.equal(status?.label, 'Out of CPU or memory')
+  assert.match(status?.hint ?? '', /Restart it, then run top in its terminal/u)
 })
 
-test('no note, or one from long enough ago, says nothing about CPU or memory', () => {
+test('no note, or one from long enough ago, leaves the status alone', () => {
   const now = Date.parse('2026-11-24T01:00:00Z')
 
-  assert.equal(pressureWarning({ box: {} }, now), null)
-  assert.equal(pressureWarning({ box: { pressureAt: '2026-11-24T00:30:00Z' } }, now), null)
-  assert.equal(pressureWarning(undefined, now), null)
+  assert.equal(pressureStatus({ box: {} }, now), null)
+  assert.equal(pressureStatus({ box: { pressureAt: '2026-11-24T00:30:00Z' } }, now), null)
+  assert.equal(pressureStatus(undefined, now), null)
 })
 
 test('an offline Box is said to be out of CPU or memory only right after it ran out', () => {

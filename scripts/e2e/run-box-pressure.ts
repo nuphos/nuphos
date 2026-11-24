@@ -18,7 +18,7 @@ const { MongoClient } = (await import(
   resolve(import.meta.dirname, '../../apps/backend/node_modules/mongodb')
 )) as typeof import('mongodb')
 const LABEL = 'Build Box'
-const CARD = /This computer ran out of CPU or memory at .* and stopped answering/u
+const CARD = 'Out of CPU or memory'
 const BANNER = `${LABEL} ran out of CPU or memory and stopped answering. It recovers once the load drops.`
 const GIB = 1024 ** 3
 let desktop: Desktop | undefined
@@ -122,14 +122,20 @@ try {
   console.log('PASS the heal timed out, read the samples and noted the Box ran out')
 
   await openComputers(page)
-  const notice = page.getByRole('status').filter({ hasText: CARD })
+  const status = page.getByRole('status').filter({ hasText: CARD })
+  // The card holds both its status and its Restart, and nothing more is written under it.
+  const card = status.locator('xpath=ancestor::*[.//button[normalize-space()="Restart"]][1]')
 
-  await notice.getByText('in its terminal', { exact: false }).waitFor()
-  await page.getByRole('button', { name: 'Restart', exact: true }).first().waitFor()
-  await notice.scrollIntoViewIfNeeded()
+  await card.waitFor()
+  const hint = await status.getAttribute('title')
+
+  if (!hint?.includes('run top in its terminal')) throw new Error(`the status hint: ${hint}`)
+  await card.scrollIntoViewIfNeeded()
   await page.waitForTimeout(500)
-  await around(notice, 'pressure-card', { up: 290, down: 60 })
-  console.log('PASS the card says the Box ran out of CPU or memory, what to do, and offers Restart')
+  await around(card, 'pressure-card', { up: 16, down: 16 })
+  console.log(
+    'PASS the status says the Box is out of CPU or memory, with what to do on hover and Restart',
+  )
 
   await page.getByRole('button', { name: 'Back to app', exact: true }).click()
   await page.locator('[data-sidebar-row]').filter({ hasText: title }).first().click()

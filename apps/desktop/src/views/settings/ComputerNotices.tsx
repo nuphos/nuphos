@@ -8,7 +8,7 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
 import { canManage } from './agentPresentation'
-import { diskWarning, memoryWarning, pressureWarning } from './boxMetricsPresentation'
+import { diskWarning, memoryWarning } from './boxMetricsPresentation'
 import { providerPause } from './boxPresentation'
 import { outdatedNotice } from './computerOutdated'
 
@@ -30,7 +30,6 @@ export function ComputerNotices({
   const outdated = outdatedNotice(device, here)
   const paused = providerPause(device)
   const memory = memoryWarning(device)
-  const pressure = pressureWarning(device)
 
   return (
     <>
@@ -39,7 +38,7 @@ export function ComputerNotices({
           {paused}
         </p>
       )}
-      {[outdated, pressure, memory].map(
+      {[outdated, memory].map(
         (notice) =>
           notice && (
             <div key={notice.text} role="status" className="mt-2 text-[11.5px] leading-4">
@@ -47,18 +46,7 @@ export function ComputerNotices({
                 <TriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
                 {notice.text}
               </p>
-              <p className="mt-0.5 text-tertiary">
-                {/* `code` in a hint is a command to type. */}
-                {notice.hint.split('`').map((part, i) =>
-                  i % 2 ? (
-                    <code key={i} className="font-mono">
-                      {part}
-                    </code>
-                  ) : (
-                    part
-                  ),
-                )}
-              </p>
+              <p className="mt-0.5 text-tertiary">{notice.hint}</p>
             </div>
           ),
       )}

@@ -155,22 +155,20 @@ export function offlineFromPressure(
 }
 
 /**
- * What to say after a resume or heal found the Box out of CPU or memory, from instabox's samples
- * taken outside the machine: its own workload filled it, so it stopped answering.
+ * The status a Box shows when a resume or heal found it out of CPU or memory, from instabox's
+ * samples taken outside the machine: its own workload filled it, so it stopped answering. The
+ * hint, shown on hover, says what to do.
  */
-export function pressureWarning(
+export function pressureStatus(
   device: { box?: { pressureAt?: string } } | undefined,
   now = Date.now(),
-): { text: string; hint: string } | null {
-  const at = device?.box?.pressureAt
-
-  if (!at || !offlineFromPressure(device, now)) return null
-  const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+): { label: string; hint: string } | null {
+  if (!offlineFromPressure(device, now)) return null
 
   return {
-    text: t('This computer ran out of CPU or memory at {time} and stopped answering', { time }),
+    label: t('Out of CPU or memory'),
     hint: t(
-      "Something on it used all its CPU or memory. Restart it, then run `top` in its terminal to find what's using it, or move the work to a larger Box.",
+      "Something on it used all its CPU or memory. Restart it, then run top in its terminal to find what's using it, or move the work to a larger Box.",
     ),
   }
 }
