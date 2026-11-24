@@ -1,7 +1,7 @@
-import { faServer } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import { Server as ServerIcon } from 'lucide-react'
 
 import { t } from '../../i18n'
+import { UiIcon } from '../ui/ui-icon'
 
 import {
   aliyunSections,
@@ -105,8 +105,9 @@ export function sectionsFor(
               key: 'tailscale.devices',
               label: t('Devices'),
               iconNode: (
-                <FontAwesomeIcon
-                  icon={faServer}
+                <UiIcon
+                  size={14}
+                  icon={ServerIcon}
                   className="w-3.5 h-3.5 flex-shrink-0 text-tertiary"
                 />
               ),
