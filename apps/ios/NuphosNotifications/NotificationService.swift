@@ -2,8 +2,8 @@ import Intents
 import UIKit
 import UserNotifications
 
-/// Uses only the original Bot identity supplied by the server. Legacy and Task
-/// payloads stay ordinary notifications; the system keeps its app-icon presentation.
+/// Uses only the identity the server supplies: a Bot's face, or a Task's runtime mark.
+/// Legacy payloads stay ordinary notifications; the system keeps its app-icon presentation.
 final class NotificationService: UNNotificationServiceExtension {
     override func didReceive(
         _ request: UNNotificationRequest, withContentHandler contentHandler: @escaping (UNNotificationContent) -> Void
@@ -15,7 +15,8 @@ final class NotificationService: UNNotificationServiceExtension {
         guard BotAvatars.enabled,
               let sessionId = content.userInfo["sessionId"] as? String, !sessionId.isEmpty,
               let identity = BotAvatars.notificationIdentity(content.userInfo),
-              let png = BotAvatars.notificationPNG(avatar: identity.avatar, provider: identity.provider) else { return nil }
+              let png = BotAvatars.notificationPNG(
+                avatar: identity.avatar, provider: identity.provider, background: identity.background) else { return nil }
         let agent = INPerson(
             personHandle: INPersonHandle(value: sessionId, type: .unknown), nameComponents: nil,
             displayName: content.title, image: INImage(imageData: png), contactIdentifier: nil, customIdentifier: sessionId)

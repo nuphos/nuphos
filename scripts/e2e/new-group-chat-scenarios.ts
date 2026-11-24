@@ -1,4 +1,5 @@
 // #3009: New Group Chat asks for a name and members first; nothing exists until Create.
+// Its owner then renames it from the chat's header.
 import { joinTeam } from './dashboard-scenarios.ts'
 import { listed, rest, rowOf } from './leave-helpers.ts'
 import { artifacts, until } from './processes.ts'
@@ -7,6 +8,7 @@ import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
 const NAME = 'E2E launch room'
+const RENAMED = 'E2E Q4 launch'
 
 async function openDialog(page: Page) {
   await page.getByRole('tab', { name: 'Bots' }).click()
@@ -66,6 +68,35 @@ export const newGroupChatScenarios: Scenario[] = [
       if (!people.participants.some((person) => person.id === mate.id))
         throw new Error('The picked teammate is not a participant of the new chat')
       await page.screenshot({ path: `${artifacts}/new-group-chat-created.png` })
+
+      // The owner renames it in place: the header's name opens the rename dialog.
+      const title = page.getByRole('button', { name: `Rename chat: ${NAME}` })
+
+      await title.hover()
+      await page.getByText('Rename chat', { exact: true }).waitFor()
+      await page.screenshot({ path: `${artifacts}/group-chat-rename-hover.png` })
+      await title.click()
+      const renaming = page.getByRole('dialog', { name: 'Rename chat' })
+
+      await renaming.getByRole('textbox', { name: 'Name' }).fill(RENAMED)
+      // The dialog fades in; shoot it once it has settled.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/group-chat-rename-dialog.png` })
+      await renaming.getByRole('button', { name: 'Save' }).click()
+      await renaming.waitFor({ state: 'detached' })
+      await page.getByRole('button', { name: `Rename chat: ${RENAMED}` }).waitFor()
+      await rowOf(page, RENAMED).waitFor({ timeout: 30_000 })
+      await until('the teammate to see the new name', async () => {
+        const shared = await rest(stack, mate.token)<{
+          conversations?: { sessionId: string; title: string }[]
+        }>('GET', `/agent/conversations?teamId=${stack.teamId}&scope=shared&kind=channel`)
+
+        return shared.conversations?.find((chat) => chat.sessionId === made[0])?.title === RENAMED
+      })
+      await page.mouse.move(0, 0)
+      // The tooltip and composer placeholder fade; shoot once they have settled.
+      await page.waitForTimeout(1_000)
+      await page.screenshot({ path: `${artifacts}/group-chat-renamed.png` })
     },
   },
 ]

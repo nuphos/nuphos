@@ -98,3 +98,43 @@ test('template apply forces inactive routines and retries the same destination w
   expect(copy.id).not.toBe(batch.id)
   expect(copy.items[0]!.sessionId).not.toBe(batch.items[0]!.sessionId)
 })
+
+test('template greeting is optional, bounded, and posted under a retry-stable id', async () => {
+  const { greetingPost } = await import('./greeting')
+  const value = template()
+  const greeting = 'Which repository should I summarize?'
+
+  expect(
+    botBundleSchema.parse({ ...value, bots: [{ ...value.bots[0], greeting }] }).bots[0]?.greeting,
+  ).toBe(greeting)
+  expect(
+    botBundleSchema.safeParse({ ...value, bots: [{ ...value.bots[0], greeting: '  ' }] }).success,
+  ).toBe(false)
+
+  const item = { sessionId: 'bot-session', privateChatId: 'private-chat' }
+  const first = greetingPost(item, 'Research', 'claude-code', greeting)
+
+  expect(greetingPost(item, 'Research', 'claude-code', greeting).id).toBe(first.id)
+  expect(first.metadata.sender).toEqual({
+    type: 'agent',
+    id: 'bot-session',
+    displayName: 'Research',
+    agentRuntime: 'claude-code',
+  })
+})
+
+test('the greeting carries the Triggers it created through metadata parsing', async () => {
+  const { greetingPost } = await import('./greeting')
+  const { parseMessageMetadata } = await import('@/lib/agent/message-metadata')
+  const item = { sessionId: 'bot-session', privateChatId: 'private-chat' }
+  const created = [{ id: 'trigger-1', name: 'weekly-draft' }]
+  const post = greetingPost(item, 'Release Notes', 'claude-code', 'Hi', [
+    ...created,
+    { id: '', name: 'dropped' },
+  ])
+
+  expect(parseMessageMetadata(post.metadata)?.createdTriggers).toEqual(created)
+  expect(greetingPost(item, 'Release Notes', 'claude-code', 'Hi').metadata).not.toHaveProperty(
+    'createdTriggers',
+  )
+})

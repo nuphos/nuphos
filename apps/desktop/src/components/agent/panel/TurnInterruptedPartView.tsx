@@ -3,7 +3,7 @@ import { useContext } from 'react'
 
 import { t } from '../../../i18n'
 
-import { InstallButton } from '../../../views/settings/LocalAgentCard'
+import { InstallButton } from '../../../views/settings/InstallAgentButton'
 
 import { FailureRow } from './FailureRow'
 import { CopyMessageButton } from './messageActions'

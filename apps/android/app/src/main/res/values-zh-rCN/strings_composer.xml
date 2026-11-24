@@ -86,6 +86,10 @@
     <string name="composer_opening_draft">正在打开你的新草稿。尚未发送任何内容。</string>
     <string name="composer_cancel_share">取消分享</string>
     <string name="composer_queued_messages">排队中的消息</string>
+    <string name="composer_queue_usage_held">用量已用完。将在用量重置后执行。</string>
+    <string name="composer_queue_usage_held_days">用量已用完。将在 %1$d 天 %2$d 小时后用量重置时执行。</string>
+    <string name="composer_queue_usage_held_hours">用量已用完。将在 %1$d 小时 %2$d 分后用量重置时执行。</string>
+    <string name="composer_queue_usage_held_minutes">用量已用完。将在 %1$d 分钟后用量重置时执行。</string>
     <string name="composer_refresh_queue">刷新队列</string>
     <string name="composer_taken_back">已取回。离开此任务前请恢复这段文字。</string>
     <string name="composer_queued_attachment">排队中的附件</string>

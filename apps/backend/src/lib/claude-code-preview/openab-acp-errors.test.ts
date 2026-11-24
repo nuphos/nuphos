@@ -159,6 +159,23 @@ describe('turnFailureCause', () => {
     expect(isRuntimeAuthRequired(refused)).toBe(false)
   })
 
+  test('a model the subscription only serves with usage credits is the agent out of usage', () => {
+    // Claude Code 2.1.330's two wordings for one refusal, as the runtime relays them.
+    for (const notice of [
+      "You're out of usage credits. Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.",
+      'Fable 5.2 requires usage credits. Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.',
+    ]) {
+      const refused = new OpenAbRpcError(
+        `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"rate_limit"}`,
+        -32603,
+        { code: -32603, message: `Internal error: ${notice}` },
+      )
+
+      expect(turnFailureCause(refused)).toBe('usage_limit')
+      expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    }
+  })
+
   test('OpenCode’s free usage limit, as the runtime relays it, is the agent out of usage', () => {
     const notice =
       'The model provider refused the request: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'

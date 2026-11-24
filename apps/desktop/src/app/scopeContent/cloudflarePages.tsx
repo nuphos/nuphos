@@ -1,14 +1,15 @@
 import {
-  faBolt,
-  faDatabase,
-  faHardDrive,
-  faKey,
-  faLayerGroup,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Cloud, Globe, KeyRound } from 'lucide-react'
+  Zap as ZapIcon,
+  Database as DatabaseIcon,
+  HardDrive as HardDriveIcon,
+  Layers as LayersIcon,
+  Cloud,
+  Globe,
+  KeyRound,
+} from 'lucide-react'
 
 import { api } from '../../api'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
@@ -55,7 +56,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     if (active === 'cloudflare.workers') {
       return renderActiveNavPage(
         'Workers',
-        <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
         <CloudflareWorkersView
           teamId={scope.teamId}
           accountId={scope.accountId}
@@ -71,7 +72,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     if (active === 'cloudflare.r2') {
       return renderActiveNavPage(
         'R2',
-        <FontAwesomeIcon icon={faHardDrive} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={HardDriveIcon} className="w-3.5 h-3.5 text-tertiary" />,
         <CloudflareR2View
           teamId={scope.teamId}
           accountId={scope.accountId}
@@ -87,7 +88,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     if (active === 'cloudflare.pages') {
       return renderActiveNavPage(
         'Pages',
-        <FontAwesomeIcon icon={faLayerGroup} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={LayersIcon} className="w-3.5 h-3.5 text-tertiary" />,
         <CloudflarePagesView
           teamId={scope.teamId}
           accountId={scope.accountId}
@@ -103,7 +104,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     if (active === 'cloudflare.d1') {
       return renderActiveNavPage(
         'D1',
-        <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={DatabaseIcon} className="w-3.5 h-3.5 text-tertiary" />,
         <CloudflareD1View
           teamId={scope.teamId}
           accountId={scope.accountId}
@@ -119,7 +120,7 @@ export function renderCloudflarePages(ctx: ScopeRenderContext): React.ReactNode 
     if (active === 'cloudflare.kv') {
       return renderActiveNavPage(
         'KV',
-        <FontAwesomeIcon icon={faKey} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={KeyRound} className="w-3.5 h-3.5 text-tertiary" />,
         <CloudflareKvView
           teamId={scope.teamId}
           accountId={scope.accountId}

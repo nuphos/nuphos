@@ -1,10 +1,9 @@
-import { faXmark } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import clsx from 'clsx'
-import { Smartphone, Star } from 'lucide-react'
+import { X as XIcon, Smartphone, Star } from 'lucide-react'
 
 import { api } from '../../../api'
 import { Tooltip } from '../../../components/ui/tooltip'
+import { UiIcon } from '../../../components/ui/ui-icon'
 import { t } from '../../../i18n'
 import { logTabClicked } from '../../../lib/tabSwitchLog'
 import { toAbsoluteAtlasUrl } from '../../../lib/webBaseUrl'
@@ -278,7 +277,7 @@ export function WorkspaceTabItem({
             aria-label={t('Close tab {title}', { title: meta.title })}
             title={t('Close tab')}
           >
-            <FontAwesomeIcon icon={faXmark} className="w-3 h-3" />
+            <UiIcon size={16} icon={XIcon} className="w-4 h-4" />
           </button>
         )}
       </div>

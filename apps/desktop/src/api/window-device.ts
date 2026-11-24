@@ -19,7 +19,6 @@ import type {
   LocalAgentLoginState,
   LocalAgentProvider,
   DeviceIdentity,
-  LocalRuntimeActivityPage,
   LocalRuntimeState,
   LocalAgentShareState,
   LocalShareApproval,
@@ -57,7 +56,6 @@ export type WindowDeviceApi = {
   localRuntimeInstallAgent(provider: LocalAgentProvider): Promise<LocalRuntimeState>
   localRuntimeLatestAgentVersions(): Promise<Partial<Record<LocalAgentProvider, string>>>
   localRuntimeOpenWorkspace(): Promise<void>
-  localRuntimeListActivity(before?: string): Promise<LocalRuntimeActivityPage>
   boxListDevices(options?: AgentDeviceListOptions): Promise<AgentDeviceList>
   boxCreate(
     label?: string,

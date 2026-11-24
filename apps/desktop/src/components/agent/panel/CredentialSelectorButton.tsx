@@ -4,8 +4,10 @@ import { useState } from 'react'
 
 import { t } from '../../../i18n'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
+import { Switch } from '../../ui/Switch'
 import { SummaryMenuRow } from '../summary/ChatSummaryRows'
 
+import { expandAll, setAll, withoutAll } from './allSelection'
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
 import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
@@ -35,11 +37,11 @@ export function CredentialSelectorButton(props: SelectorProps) {
 
 function SelectionButton({
   options,
-  value,
+  value: stored,
   saving,
   unseen,
   onOpen,
-  onChange,
+  onChange: save,
   hero,
   positionerClassName,
   personalIdentity,
@@ -47,6 +49,10 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const flag = devices ? 'allDevices' : 'allCredentials'
+  const all = Boolean(stored[flag])
+  const value = expandAll(stored, options)
+  const onChange = (next: typeof value) => save(withoutAll(next, flag))
   const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   // The member's own GitHub / Linear rows count like the credentials beside them.
@@ -56,12 +62,15 @@ function SelectionButton({
     : countSelectedCredentials(value, options) + rows.filter((row) => row.checked).length
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + rows.length
   const sections = useCredentialSections(options)
+  // Under "All" a new option is already in.
   const hasNew =
+    !all &&
     unseen !== undefined &&
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
   const title = devices ? t('Computers') : t('Credentials')
+  const shownCount = all ? t('All') : selectedCount
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const hint = hasNew
@@ -110,7 +119,7 @@ function SelectionButton({
           label={title}
           note={
             <span className="flex items-center gap-0.5 tabular-nums">
-              {selectedCount}
+              {shownCount}
               <ChevronRight className="size-3.5" strokeWidth={1.8} />
             </span>
           }
@@ -128,7 +137,7 @@ function SelectionButton({
           {/* A plain count, not a badge: nothing here waits on the person.
               Nothing to pick yet: a "0" reads as a warning, not a count. */}
           {totalCount > 0 && (
-            <span className="text-[11.5px] leading-none tabular-nums">{selectedCount}</span>
+            <span className="text-[11.5px] leading-none tabular-nums">{shownCount}</span>
           )}
           {hasNew && (
             <span
@@ -149,7 +158,9 @@ function SelectionButton({
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
             <div className="text-[11.5px] text-tertiary">
-              {t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
+              {all
+                ? t('All, including ones added later')
+                : t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
             </div>
           </div>
           {saving && (
@@ -175,6 +186,13 @@ function SelectionButton({
           </div>
         )}
         {totalCount > 0 && (
+          <label className="px-2 pb-1.5 flex items-center gap-2 text-[12px] text-main">
+            <span className="flex-1">{t('Include ones added later')}</span>
+            <Switch checked={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
+          </label>
+        )}
+        {/* All has nothing to pick: the list shows once the switch is off. */}
+        {totalCount > 0 && !all && (
           <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
             <button
               type="button"
@@ -195,9 +213,10 @@ function SelectionButton({
             </button>
           </div>
         )}
-        {devices ? (
+        {devices && !all && (
           <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
-        ) : (
+        )}
+        {!devices && !all && (
           <CredentialSelectorSectionList
             sections={sections}
             value={value}

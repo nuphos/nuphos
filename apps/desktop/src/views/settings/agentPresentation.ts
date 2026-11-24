@@ -164,12 +164,22 @@ export function localSignIn(
 
   if (!local || local.signedIn === true) return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
-  // An ended sign-in is renewed only through Nuphos, not by the CLI's own login.
-  if (local.signInEnded) return 'runtime'
 
+  // An ended sign-in too: the CLI's login here tells the backend it runs as this person now.
   return !local.instanceId && isThisComputer(thisComputer, computerOf(local))
     ? instance.provider
     : 'runtime'
+}
+
+/** This Desktop's own Claude Code or Codex: settings saved on this computer, such as its custom provider. */
+export function ownCliProvider(
+  instance: RuntimeInstance,
+  thisComputer: ThisComputer,
+): 'claude-code' | 'codex' | undefined {
+  const local = instance.local
+
+  if (!local || local.instanceId || !isThisComputer(thisComputer, computerOf(local))) return
+  if (instance.provider === 'claude-code' || instance.provider === 'codex') return instance.provider
 }
 
 /**

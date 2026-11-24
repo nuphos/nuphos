@@ -299,7 +299,12 @@ describe('runAgentForTrigger on the Claude Code runtime', () => {
     expect(credentialUpdates).toHaveLength(1)
     expect(credentialUpdates[0]).toMatchObject({
       sessionId: 'mcp-new',
-      access: { awsRoleIds: ['role-1'], resendIntegrationIds: [], updatedBy: 'caller' },
+      access: {
+        awsRoleIds: ['role-1'],
+        allCredentials: true,
+        allDevices: true,
+        updatedBy: 'caller',
+      },
     })
   })
 

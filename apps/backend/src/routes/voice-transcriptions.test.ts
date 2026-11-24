@@ -28,13 +28,16 @@ const realFetch = globalThis.fetch
 const realVoice = config.voice
 const realBillingUrl = config.box.billingUrl
 let sent: FormData | null = null
+let sentTo = ''
 
 beforeEach(() => {
   subscribed = true
   sent = null
-  config.voice = { openaiApiKey: 'sk-test' }
+  sentTo = ''
+  config.voice = { openaiApiKey: 'sk-test', openaiBaseUrl: 'https://api.openai.com/v1' }
   config.box.billingUrl = 'https://billing.example.com'
-  globalThis.fetch = (async (_url: string, init: RequestInit) => {
+  globalThis.fetch = (async (url: string, init: RequestInit) => {
+    sentTo = url
     sent = init.body as FormData
 
     return Response.json({ text: '你好', language: 'chinese' })
@@ -66,6 +69,14 @@ describe('POST /teams/:teamId/voice-transcriptions', () => {
     expect(sent?.get('model')).toBe('whisper-1')
     expect(sent?.get('prompt')).toBe('Nuphos')
     expect(sent?.get('file')).toBeInstanceOf(File)
+    expect(sentTo).toBe('https://api.openai.com/v1/audio/transcriptions')
+  })
+
+  test('sends the recording to OPENAI_BASE_URL when it is set', async () => {
+    config.voice = { openaiApiKey: 'sk-test', openaiBaseUrl: 'http://127.0.0.1:4010/v1' }
+
+    expect((await transcribe({ file: audio })).status).toBe(200)
+    expect(sentTo).toBe('http://127.0.0.1:4010/v1/audio/transcriptions')
   })
 
   test('refuses a team without a subscription', async () => {
@@ -87,7 +98,7 @@ describe('POST /teams/:teamId/voice-transcriptions', () => {
   })
 
   test('is unavailable without a server key', async () => {
-    config.voice = {}
+    config.voice = { openaiBaseUrl: 'https://api.openai.com/v1' }
 
     expect((await transcribe({ file: audio })).status).toBe(503)
   })
