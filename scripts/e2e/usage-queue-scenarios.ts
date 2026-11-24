@@ -143,4 +143,45 @@ export const usageQueueScenarios: Scenario[] = [
       }
     },
   },
+  {
+    // #4873: a usage limit that stopped automatic compaction failed the turn instead of holding it.
+    name: 'a usage limit that stops automatic compaction holds the queue until usage resets',
+    run: async (page, stack) => {
+      const release = join(artifacts, 'release')
+
+      rmSync(release, { force: true })
+      await newTask(page)
+      await pickAgent(page, 'E2E fixture agent')
+      await send(page, 'Work until released E2E_WAIT_RELEASE E2E_DELIVERY:compact-ahead')
+      await until('the agent to start the turn ahead', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:compact-ahead'),
+      )
+      await send(page, 'Compact first E2E_COMPACTION_LIMIT E2E_DELIVERY:compact-held')
+      await page.getByText('Runs after the turn ahead').waitFor()
+      writeFileSync(release, '')
+      await until('the agent to be refused while compacting', async () =>
+        agentEvents(stack).includes('start E2E_DELIVERY:compact-held'),
+      )
+      rmSync(release, { force: true })
+      await page.getByText(/^Out of usage\. These run when usage resets/).waitFor()
+      await send(page, 'Then this E2E_DELIVERY:compact-next')
+      await new Promise((resolve) => setTimeout(resolve, 8_000))
+      await page.screenshot({ path: `${artifacts}/usage-compaction-held.png` })
+      if (agentEvents(stack).includes('start E2E_DELIVERY:compact-next'))
+        throw new Error('The turn queued behind a usage limit ran before usage reset')
+      const sessionId = await taskWith(stack, 'E2E_DELIVERY:compact-ahead')
+      const { messages } = await client(stack)<{ messages: unknown[] }>(
+        'GET',
+        `/agent/conversations/${sessionId}?teamId=${stack.teamId}`,
+      )
+
+      if (/compact-held|turn-interrupted/.test(JSON.stringify(messages)))
+        throw new Error('A turn the usage limit stopped while compacting was recorded as failed')
+      if (await page.getByText('Request failed').isVisible())
+        throw new Error('A turn the usage limit stopped while compacting shows as a failed request')
+      const takeBack = page.getByRole('button', { name: 'Take back' })
+
+      while ((await takeBack.count()) > 0) await takeBack.first().click()
+    },
+  },
 ]

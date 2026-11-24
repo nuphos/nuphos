@@ -28,6 +28,14 @@ export function refuse(text, outOfUsage, turn) {
       new Error(`Internal error: ${VERIFICATION_HOLD}\n> {"errorKind":"verification_required"}`),
       { code: -32603 },
     )
+  // #4873: the usage limit stopping Claude Code's automatic compaction, as production logged it.
+  if (text.includes('E2E_COMPACTION_LIMIT'))
+    throw Object.assign(
+      new Error(
+        `Internal error: Prompt is too long · automatic compaction failed: You've hit your weekly limit · resets Nov 25, 3am (UTC)\n> {"errorKind":"invalid_request"}`,
+      ),
+      { code: -32603 },
+    )
   // A computer's own Codex, a broken npm install: codex-acp's startup error, its CLI's stderr.
   if (
     text.includes('E2E_CODEX_BROKEN') ||
