@@ -150,6 +150,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var faces: [ChatFace]?
     /// A chat's agent members, all of them; a Bot in any chat needs no row of its own.
     var agentSessionIds: [String]?
+    /// The folder a Task works in; Tasks group under it as projects, as on Desktop.
+    var workspace: Workspace?
+    struct Workspace: Codable, Equatable, Hashable, Sendable { var path: String? }
     /// A Bot's face, e.g. `05-rembrandt`; nil for a Task (#1691).
     var avatar: String?
     /// The tint a Bot's face sits on, e.g. `sky`; nil for none (#3504).
@@ -197,6 +200,9 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         return isChannel ? String(localized: "New Group Chat") : String(localized: "Untitled task")
     }
 
+    /// A project row on Tasks, which stands for a folder rather than a conversation.
+    var isProject: Bool { sessionId.hasPrefix(ConversationNesting.projectPrefix) }
+
     /// An open question waits on the viewer.
     var attentionInputRequests: [InputRequest] { (inputRequests ?? []).filter { !["pending", "active"].contains(botOnboarding ?? "") || $0.category != "preference" } }
     var isWaiting: Bool { !attentionInputRequests.isEmpty }
@@ -232,6 +238,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         faces = try? c.decodeIfPresent([ChatFace].self, forKey: .faces)
         agentSessionIds = try? c.decodeIfPresent([String].self, forKey: .agentSessionIds)
+        workspace = try? c.decodeIfPresent(Workspace.self, forKey: .workspace)
         avatar = try? c.decodeIfPresent(String.self, forKey: .avatar)
         avatarBackground = try? c.decodeIfPresent(String.self, forKey: .avatarBackground)
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
