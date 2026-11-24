@@ -6,7 +6,7 @@ import type { MiddlewareHandler } from 'hono'
 
 import { AppError } from '@/lib/errors'
 import { authenticateToken, getTeamMembership } from '@/lib/identity'
-import { AI_CONSENT_VERSION, readAIConsent } from '@/lib/identity/ai-consent'
+import { readAIConsent, shownConsentVersion } from '@/lib/identity/ai-consent'
 import { authenticateCliToken, cliTokenDenied, isCliToken } from '@/lib/identity/cli-tokens'
 import { isStepUpRoute, requireRecentVerification } from '@/lib/identity/step-up'
 import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
@@ -51,7 +51,9 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
     !c.req.path.startsWith('/push/devices') &&
     !/\/(abort|cancel|cancel-runtime)$/.test(c.req.path)
   ) {
-    if (consentVersion !== AI_CONSENT_VERSION || !(await readAIConsent(user.id)).accepted) {
+    const shown = shownConsentVersion(consentVersion)
+
+    if (!shown || !(await readAIConsent(user.id, shown)).accepted) {
       throw new AppError(
         403,
         'ai_consent_required',

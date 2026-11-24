@@ -8,7 +8,7 @@ import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
-import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
+import { readAIConsent, saveAIConsent, shownConsentVersion } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { setPasswordWithEmailCode, signInFromRequest } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
@@ -54,7 +54,15 @@ auth.post('/account-deletion', requireAuth, async (c) =>
   c.json(await requestAccountDeletion(c.get('user'), await c.req.json().catch(() => null)), 202),
 )
 
-auth.get('/ai-consent', requireAuth, async (c) => c.json(await readAIConsent(c.get('userId'))))
+// Answers for the notice the client shows; clients that send no known version get AI_CONSENT_VERSION.
+auth.get('/ai-consent', requireAuth, async (c) =>
+  c.json(
+    await readAIConsent(
+      c.get('userId'),
+      shownConsentVersion(c.req.header('x-nuphos-ai-consent-version')),
+    ),
+  ),
+)
 
 auth.put('/ai-consent', requireAuth, async (c) =>
   c.json(await saveAIConsent(c.get('userId'), await c.req.json().catch(() => null))),

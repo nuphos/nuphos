@@ -176,6 +176,8 @@ class AccountApi internal constructor(private val token: String, private val cli
         val request = Request.Builder().url("${origin}/auth/$path")
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
+            // GET ai-consent answers for the notice this build shows.
+            .header("x-nuphos-ai-consent-version", AI_CONSENT_VERSION)
             .apply { if (authenticated) header("Authorization", "Bearer $token") }
             // OkHttp refuses a POST without a body, so one without arguments sends `{}`.
             .method(method, upload?.toRequestBody("application/octet-stream".toMediaType())
