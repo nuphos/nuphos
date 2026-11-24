@@ -119,7 +119,7 @@ test('a Bot Task exposes its summary without changing the underlying conversatio
     assert.equal(container.querySelector('aside'), null)
     assert.equal(isChatSummaryOpen('bot-pane'), true)
     const back = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
-      b.textContent?.includes('Back to conversation'),
+      b.textContent?.includes('Back to chat'),
     )
 
     await act(() => back?.click())

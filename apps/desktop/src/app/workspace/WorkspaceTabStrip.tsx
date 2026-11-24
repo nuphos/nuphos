@@ -63,7 +63,7 @@ export function WorkspaceTabStrip({ ws, userId }: { ws: WorkspaceController; use
               className="titlebar-no-drag ml-2 flex h-7 flex-shrink-0 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-secondary outline-none transition-colors hover:bg-state-hover hover:text-primary focus-visible:ring-2 focus-visible:ring-line-focus"
             >
               <ArrowLeft className="size-4" strokeWidth={1.7} />
-              {t('Back to conversation')}
+              {t('Back to chat')}
             </button>
           )
         }
