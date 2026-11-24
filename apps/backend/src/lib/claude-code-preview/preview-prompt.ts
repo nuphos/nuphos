@@ -9,6 +9,7 @@ import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
+import { COMPUTER_CARDS } from '@/lib/agent/tools-skilled/decision-tools'
 import { isUnnamedTask } from '@/lib/agent/title-fallback'
 import { turnPending } from '@/lib/agent/todos'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
@@ -73,7 +74,7 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   if (!device) return 'inside the team sandbox'
 
-  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
+  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run' + (COMPUTER_CARDS ? '; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card' : '') + '; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
 
 const DASHBOARDS_RUNTIME_NOTE =

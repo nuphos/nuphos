@@ -36,6 +36,9 @@ export const agentCredentialSelectionSchema = z.object({
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
   deviceIds: z.array(z.string().min(1)).default([]),
+  // Everything the owner can use when read, including what is added later.
+  allCredentials: z.boolean().optional(),
+  allDevices: z.boolean().optional(),
 })
 
 const agentCredentialAccessSchema = z.object({
@@ -68,6 +71,8 @@ const agentCredentialAccessSchema = z.object({
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
+  allCredentials: z.boolean().optional(),
+  allDevices: z.boolean().optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),
 })

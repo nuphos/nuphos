@@ -78,7 +78,7 @@ describe('ensurePreviewChannelCredentials', () => {
     expect(updated?.updatedBy).toBe('user-1')
   })
 
-  test('MCP first turn selects app defaults and leaves opt-in integrations off', async () => {
+  test('MCP first turn selects the app default, All', async () => {
     let updated: AgentCredentialAccess | undefined
     const options = credentialOptions()
 
@@ -111,8 +111,9 @@ describe('ensurePreviewChannelCredentials', () => {
     expect(updated?.awsRoleIds).toEqual(['role-1'])
     expect(updated?.githubInstallationIds).toEqual(['github'])
     expect(updated?.grafanaInstanceIds).toEqual(['grafana'])
-    expect(updated?.resendIntegrationIds).toEqual([])
-    expect(updated?.trelloIntegrationIds).toEqual([])
+    expect(updated?.resendIntegrationIds).toEqual(['mail'])
+    expect(updated?.trelloIntegrationIds).toEqual(['trello'])
+    expect(updated).toMatchObject({ allCredentials: true, allDevices: true })
   })
 
   test('explicit channel defaults select every available connector, including Resend', async () => {

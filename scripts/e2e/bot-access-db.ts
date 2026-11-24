@@ -20,6 +20,8 @@ type StoredAccess = {
   awsRoleIds?: string[]
   deviceIds?: string[]
   resendIntegrationIds?: string[]
+  allCredentials?: boolean
+  allDevices?: boolean
 } | null
 
 /** A Bot's stored credentialAccess, by its name; null until there is one. */

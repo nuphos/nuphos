@@ -40,6 +40,9 @@ export type AgentCredentialSelection = {
   teamIdentity?: PersonalCredentialProvider[]
   /** The member's own Personal Credentials this conversation may use, binding or not. */
   personalCredentialIds?: PersonalCredentialProvider[]
+  /** "All": every credential (or computer) the owner can use when read, including ones added later. */
+  allCredentials?: boolean
+  allDevices?: boolean
 }
 
 export type AgentCredentialAccess = AgentCredentialSelection & {
