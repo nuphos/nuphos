@@ -70,6 +70,9 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     LaunchedEffect(store, team, store.workspaceRevision, lifecycle, active) {
         if (!active) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            // The poll does not read the runtimes, so read them once on opening and on each return,
+            // as the Tasks page does: a runtime added elsewhere then replaces the first-runtime prompt.
+            store.refreshRuntimes()
             while (true) {
                 store.loadChannels()
                 // The agent list too, as iOS polls it: its runtime states are what a Bot's row reads for its dots.
