@@ -246,7 +246,7 @@ export function BoxRow({
       </div>
       <OwnerLine device={device} owner={owner} />
       <ComputerNotices teamId={teamId} device={device} here={thisComputer} running={running} />
-      {manage && away && <ResumeButton busy={busy} onClick={() => void resume()} />}
+      {manage && away && <ResumeButton busy={busy} device={device} onClick={() => void resume()} />}
       {adding && (
         <BoxAgentSetup
           teamId={teamId}

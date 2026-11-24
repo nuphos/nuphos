@@ -26,7 +26,7 @@ import {
 import { startBox } from './box-instabox-start'
 import { boxUpdatingSince, clearBoxUpdateStarted } from './box-updating'
 import { noteBoxUsage } from './box-usage-history'
-import { machinePressure } from './instabox-machines'
+import { machineFull } from './instabox-machines'
 import { deleteDeviceJoinTokens } from './join-tokens'
 import { isDevicePresent, waitForPresence } from './presence'
 import { agentDevices, getAgentDevice } from './store'
@@ -140,11 +140,9 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
     })
   } catch (error) {
     if (error instanceof AppError) throw error
-    const pressure = await notePressure(device)
-
     throw unavailable(
-      pressure
-        ? `${pressureText(pressure)} and stopped answering`
+      (await notePressure(device))
+        ? 'The computer ran out of CPU or memory and stopped answering'
         : 'Could not resume the computer',
       error,
     )
@@ -153,38 +151,30 @@ export async function resumeBox(userId: string, deviceId: string, command = AGEN
   return device
 }
 
-function pressureText({ cpu, memory }: { cpu: boolean; memory: boolean }): string {
-  const what = [cpu && 'CPU', memory && 'memory'].filter(Boolean).join(' and ')
-
-  return `The computer ran out of ${what}`
-}
-
 /**
  * A running machine whose host does not answer is often one its own workload has filled up.
- * instabox still has its samples, so a failed resume reads them and notes on the Box what ran
- * out, for its card and the turn that failed. A failed read says nothing rather than guess.
+ * instabox still has its samples, so a failed resume or heal reads them and notes on the Box
+ * when it ran out, for its card and its conversations. A failed read says nothing rather than
+ * guess. True when it ran out.
  */
-async function notePressure(device: BoxDevice) {
+async function notePressure(device: BoxDevice): Promise<boolean> {
   try {
-    const found = await machinePressure(
-      await boxConnection(device.box, QUICK_TIMEOUT_MS),
-      requireMachine(device),
-    )
+    const conn = await boxConnection(device.box, QUICK_TIMEOUT_MS)
 
-    if (!found) return
-    const pressure = { at: new Date(), ...found }
-
+    if (!(await machineFull(conn, requireMachine(device)))) return false
     await agentDevices().updateOne(
       { userId: device.userId, deviceId: device.deviceId, box: { $exists: true } },
-      { $set: { 'box.pressure': pressure } },
+      { $set: { 'box.pressureAt': new Date() } },
     )
 
-    return pressure
+    return true
   } catch (error) {
     logError('agent.box.pressure_read_failed', error, {
       user_id: device.userId,
       device_id: device.deviceId,
     })
+
+    return false
   }
 }
 

@@ -106,46 +106,31 @@ test('no OOM kill, an old one, or no current reading says nothing about memory',
   assert.equal(memoryWarning(undefined, now), null)
 })
 
-test('a Box that ran out of CPU or memory says what ran out, when, and what to do', () => {
+test('a Box that just ran out of CPU or memory says so, when, and what to do', () => {
   const now = Date.parse('2026-11-24T01:00:00Z')
-  const at = '2026-11-24T00:29:00Z'
+  const at = '2026-11-24T00:50:00Z'
   const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const both = pressureWarning({ box: { pressure: { at, cpu: true, memory: true } } }, now)
+  const warning = pressureWarning({ box: { pressureAt: at } }, now)
 
   assert.equal(
-    both?.text,
-    `This computer ran out of CPU and memory at ${time} and stopped answering`,
+    warning?.text,
+    `This computer ran out of CPU or memory at ${time} and stopped answering`,
   )
-  assert.match(both?.hint ?? '', /Run top in its terminal/u)
-  assert.equal(
-    pressureWarning({ box: { pressure: { at, cpu: true, memory: false } } }, now)?.text,
-    `This computer ran out of CPU at ${time} and stopped answering`,
-  )
-  assert.equal(
-    pressureWarning({ box: { pressure: { at, cpu: false, memory: true } } }, now)?.text,
-    `This computer ran out of memory at ${time} and stopped answering`,
-  )
+  assert.match(warning?.hint ?? '', /Restart it, then run `top` in its terminal/u)
 })
 
-test('no note, or one older than a day, says nothing about CPU or memory', () => {
+test('no note, or one from long enough ago, says nothing about CPU or memory', () => {
   const now = Date.parse('2026-11-24T01:00:00Z')
-  const old = { at: '2026-11-22T23:00:00Z', cpu: true, memory: true }
 
   assert.equal(pressureWarning({ box: {} }, now), null)
-  assert.equal(pressureWarning({ box: { pressure: old } }, now), null)
+  assert.equal(pressureWarning({ box: { pressureAt: '2026-11-24T00:30:00Z' } }, now), null)
   assert.equal(pressureWarning(undefined, now), null)
 })
 
 test('an offline Box is said to be out of CPU or memory only right after it ran out', () => {
   const now = Date.parse('2026-11-24T01:00:00Z')
 
-  assert.equal(
-    offlineFromPressure({ box: { pressure: { at: '2026-11-24T00:50:00Z' } } }, now),
-    true,
-  )
-  assert.equal(
-    offlineFromPressure({ box: { pressure: { at: '2026-11-24T00:30:00Z' } } }, now),
-    false,
-  )
+  assert.equal(offlineFromPressure({ box: { pressureAt: '2026-11-24T00:50:00Z' } }, now), true)
+  assert.equal(offlineFromPressure({ box: { pressureAt: '2026-11-24T00:30:00Z' } }, now), false)
   assert.equal(offlineFromPressure({ box: {} }, now), false)
 })

@@ -17,7 +17,7 @@ const box = {
   deviceId: 'd1',
   box: { provider: 'instabox', teamId: '65f000000000000000000001', sandboxId: 'm_full' },
 } as unknown as AgentDevice
-let pressure: { cpu: boolean; memory: boolean } | undefined | Error
+let full: boolean | Error
 const writes: unknown[] = []
 
 useAgentDevicePresence({ isDevicePresent: () => Promise.resolve(false) })
@@ -33,8 +33,7 @@ useAgentDeviceStore({
   }),
 })
 useInstaboxMachines({
-  machinePressure: () =>
-    pressure instanceof Error ? Promise.reject(pressure) : Promise.resolve(pressure),
+  machineFull: () => (full instanceof Error ? Promise.reject(full) : Promise.resolve(full)),
 })
 
 const saved = { url: config.agent.publicBackendUrl, instabox: config.box.instabox }
@@ -55,30 +54,23 @@ afterEach(() => {
   config.box.instabox = saved.instabox
 })
 
-test('a resume that fails on a Box out of CPU and memory says so, and notes it on the Box', async () => {
-  pressure = { cpu: true, memory: true }
+test('a resume that fails on a Box out of CPU or memory says so, and notes it on the Box', async () => {
+  full = true
   await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({
     status: 503,
     message:
-      'The computer ran out of CPU and memory and stopped answering. Try again in a few minutes.',
+      'The computer ran out of CPU or memory and stopped answering. Try again in a few minutes.',
   })
   expect(writes).toEqual([
     [
       { userId: 'u1', deviceId: 'd1', box: { $exists: true } },
-      { $set: { 'box.pressure': { at: expect.any(Date), cpu: true, memory: true } } },
+      { $set: { 'box.pressureAt': expect.any(Date) } },
     ],
   ])
 })
 
-test('names only the resource that ran out', async () => {
-  pressure = { cpu: false, memory: true }
-  await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({
-    message: 'The computer ran out of memory and stopped answering. Try again in a few minutes.',
-  })
-})
-
 test('a Box with headroom keeps the message it had, and nothing is noted', async () => {
-  pressure = undefined
+  full = false
   await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({
     message: 'Could not resume the computer. Try again in a few minutes.',
   })
@@ -86,7 +78,7 @@ test('a Box with headroom keeps the message it had, and nothing is noted', async
 })
 
 test('a metrics read that fails does not guess', async () => {
-  pressure = new Error('instabox answered 502')
+  full = new Error('instabox answered 502')
   await expect(resumeBox('u1', 'd1')).rejects.toMatchObject({
     message: 'Could not resume the computer. Try again in a few minutes.',
   })

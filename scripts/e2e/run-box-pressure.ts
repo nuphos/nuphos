@@ -1,6 +1,6 @@
 // `bun scripts/e2e/run-box-pressure.ts` (#4877): a Box whose own load filled its CPU and memory
-// never answers the exec that starts its host. Resume times out, reads instabox's samples, and the
-// card and a conversation on the Box say what ran out. Every name here is made up.
+// never answers the exec that starts its host. A send heals it, the heal times out and reads
+// instabox's samples, and the card and the conversation say it ran out. Every name is made up.
 import { createHash, randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 
@@ -9,7 +9,7 @@ import { startDesktop } from './desktop.ts'
 import { instaboxExec, instaboxMachines } from './instabox-stub.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { startStack } from './stack.ts'
-import { openComputers } from './ui.ts'
+import { openComputers, send } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
 import type { Locator } from 'playwright-core'
@@ -18,8 +18,8 @@ const { MongoClient } = (await import(
   resolve(import.meta.dirname, '../../apps/backend/node_modules/mongodb')
 )) as typeof import('mongodb')
 const LABEL = 'Build Box'
-const CARD = /This computer ran out of CPU and memory at .* and stopped answering/u
-const BANNER = `${LABEL} ran out of CPU or memory and stopped answering. It answers again once the load drops.`
+const CARD = /This computer ran out of CPU or memory at .* and stopped answering/u
+const BANNER = `${LABEL} ran out of CPU or memory and stopped answering. It recovers once the load drops.`
 const GIB = 1024 ** 3
 let desktop: Desktop | undefined
 let failed = false
@@ -59,21 +59,18 @@ try {
   })
   const title = 'Nightly build'
   const mongo = await new MongoClient(stack.mongoUri).connect()
+  const db = mongo.db('nuphos_e2e')
 
-  await mongo
-    .db('nuphos_e2e')
-    .collection('agent_conversations')
-    .insertOne({
-      sessionId: `e2e-pressure-${randomUUID()}`,
-      teamId: stack.teamId,
-      userId,
-      runtimeId: `local_${userId}_${deviceId}`,
-      runtimeLabel: 'Claude Code',
-      title,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    })
-  await mongo.close()
+  await db.collection('agent_conversations').insertOne({
+    sessionId: `e2e-pressure-${randomUUID()}`,
+    teamId: stack.teamId,
+    userId,
+    runtimeId: `local_${userId}_${deviceId}`,
+    runtimeLabel: 'Claude Code',
+    title,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  })
 
   desktop = await startDesktop(stack.apiUrl)
   const { page } = desktop
@@ -107,30 +104,43 @@ try {
     })
   }
 
-  await openComputers(page)
-  const label = page.getByText(LABEL, { exact: true }).first()
+  // A send to the Box that is away heals it: its host is started again, and never answers.
+  await page.getByRole('tab', { name: 'Tasks' }).click()
+  await page.locator('[data-sidebar-row]').filter({ hasText: title }).first().click()
+  await send(page, 'Run the nightly build')
+  const noted = Date.now() + 60_000
 
-  await label.scrollIntoViewIfNeeded()
-  await page.getByRole('button', { name: 'Resume', exact: true }).first().click()
-  // The resume gives up on the exec, reads the samples and notes what ran out on the card.
+  while (
+    !(await db
+      .collection('agent_devices')
+      .findOne({ deviceId, 'box.pressureAt': { $exists: true } }))
+  ) {
+    if (Date.now() > noted) throw new Error('the heal to note that the Box ran out')
+    await page.waitForTimeout(1_000)
+  }
+  await mongo.close()
+  console.log('PASS the heal timed out, read the samples and noted the Box ran out')
+
+  await openComputers(page)
   const notice = page.getByRole('status').filter({ hasText: CARD })
 
-  await notice.getByText('Run top in its terminal', { exact: false }).waitFor({ timeout: 60_000 })
+  await notice.getByText('in its terminal', { exact: false }).waitFor()
+  await page.getByRole('button', { name: 'Restart', exact: true }).first().waitFor()
   await notice.scrollIntoViewIfNeeded()
   await page.waitForTimeout(500)
   await around(notice, 'pressure-card', { up: 290, down: 60 })
-  console.log('PASS the card says the Box ran out of CPU and memory, and what to do')
+  console.log('PASS the card says the Box ran out of CPU or memory, what to do, and offers Restart')
 
   await page.getByRole('button', { name: 'Back to app', exact: true }).click()
-  await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.locator('[data-sidebar-row]').filter({ hasText: title }).first().click()
   const banner = page.getByRole('status').filter({ hasText: BANNER })
 
-  await banner.waitFor({ timeout: 30_000 })
+  // The open conversation reads its Box again within a minute.
+  await banner.waitFor({ timeout: 90_000 })
   await banner.getByRole('button', { name: 'Restart' }).waitFor()
   await page.waitForTimeout(500)
   await around(banner, 'pressure-banner', { up: 40, down: 140 })
-  console.log('PASS a conversation on the Box says it ran out of CPU or memory, with Restart')
+  console.log('PASS the conversation says the Box ran out of CPU or memory, with Restart')
 } catch (error) {
   failed = true
   console.error(error)

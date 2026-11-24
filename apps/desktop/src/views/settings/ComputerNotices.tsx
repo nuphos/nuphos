@@ -47,7 +47,18 @@ export function ComputerNotices({
                 <TriangleAlert aria-hidden className="h-3 w-3 shrink-0" />
                 {notice.text}
               </p>
-              <p className="mt-0.5 text-tertiary">{notice.hint}</p>
+              <p className="mt-0.5 text-tertiary">
+                {/* `code` in a hint is a command to type. */}
+                {notice.hint.split('`').map((part, i) =>
+                  i % 2 ? (
+                    <code key={i} className="font-mono">
+                      {part}
+                    </code>
+                  ) : (
+                    part
+                  ),
+                )}
+              </p>
             </div>
           ),
       )}

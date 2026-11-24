@@ -75,22 +75,20 @@ export async function lastPausedBy(
 const FULL = 0.95
 
 /**
- * What the machine has run out of, from the latest of the samples instabox keeps (about five
- * minutes, taken outside the machine, so they go on while its own tunnel is down). Undefined
- * when it has headroom or there is no sample.
+ * Whether the machine has run out of CPU or memory, from the latest of the samples instabox
+ * keeps (about five minutes, taken outside the machine, so they go on while its own tunnel is
+ * down). False when it has headroom or there is no sample.
  */
-export async function machinePressure(
-  conn: ConnectionOptions,
-  sandboxId: string,
-): Promise<{ cpu: boolean; memory: boolean } | undefined> {
+export async function machineFull(conn: ConnectionOptions, sandboxId: string): Promise<boolean> {
   const { metrics } = await instaboxGet<{
     metrics?: { cpuUsedPct?: number; memUsed?: number; memTotal?: number }[]
   }>(conn, `/v1/machines/${encodeURIComponent(sandboxId)}/metrics`)
   const last = metrics?.at(-1)
 
-  if (!last) return undefined
-  const cpu = (last.cpuUsedPct ?? 0) >= FULL * 100
-  const memory = Boolean(last.memTotal) && (last.memUsed ?? 0) / (last.memTotal ?? 1) >= FULL
+  if (!last) return false
 
-  return cpu || memory ? { cpu, memory } : undefined
+  return (
+    (last.cpuUsedPct ?? 0) >= FULL * 100 ||
+    (Boolean(last.memTotal) && (last.memUsed ?? 0) / (last.memTotal ?? 1) >= FULL)
+  )
 }

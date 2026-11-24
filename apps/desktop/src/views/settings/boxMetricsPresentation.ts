@@ -140,45 +140,37 @@ export function memoryWarning(
   }
 }
 
-/**
- * What to say after a resume found the Box out of CPU or memory, from instabox's samples taken
- * outside the machine: its own workload filled it, so it stopped answering until the load
- * dropped. Said for as long as an OOM kill is, with what the person can do about it.
- */
-export function pressureWarning(
-  device: { box?: { pressure?: { at: string; cpu: boolean; memory: boolean } } } | undefined,
-  now = Date.now(),
-): { text: string; hint: string } | null {
-  const pressure = device?.box?.pressure
-  const age = pressure ? now - Date.parse(pressure.at) : Number.NaN
+/** How long after it ran out of CPU or memory a Box that is away is said to be away for that. */
+const PRESSURE_MS = 15 * 60 * 1000
 
-  if (!pressure || !(age >= 0 && age < OOM_NOTICE_MS)) return null
-  const time = new Date(pressure.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  let text = t('This computer ran out of memory at {time} and stopped answering', { time })
-
-  if (pressure.cpu)
-    text = pressure.memory
-      ? t('This computer ran out of CPU and memory at {time} and stopped answering', { time })
-      : t('This computer ran out of CPU at {time} and stopped answering', { time })
-
-  return {
-    text,
-    hint: t(
-      'Something running on it used all it had. Run top in its terminal to see what and stop it, restart the computer, or move the work to a larger Box.',
-    ),
-  }
-}
-
-/** A Box that ran out of CPU or memory this recently is likely why it is offline now. */
-const PRESSURE_OFFLINE_MS = 15 * 60 * 1000
-
-/** Whether an offline Box is offline because it ran out of CPU or memory moments ago. */
+/** Whether the Box ran out of CPU or memory moments ago, which is likely why it is away now. */
 export function offlineFromPressure(
-  device: { box?: { pressure?: { at: string } } } | undefined,
+  device: { box?: { pressureAt?: string } } | undefined,
   now = Date.now(),
 ): boolean {
-  const at = device?.box?.pressure?.at
+  const at = device?.box?.pressureAt
   const age = at ? now - Date.parse(at) : Number.NaN
 
-  return age >= 0 && age < PRESSURE_OFFLINE_MS
+  return age >= 0 && age < PRESSURE_MS
+}
+
+/**
+ * What to say after a resume or heal found the Box out of CPU or memory, from instabox's samples
+ * taken outside the machine: its own workload filled it, so it stopped answering.
+ */
+export function pressureWarning(
+  device: { box?: { pressureAt?: string } } | undefined,
+  now = Date.now(),
+): { text: string; hint: string } | null {
+  const at = device?.box?.pressureAt
+
+  if (!at || !offlineFromPressure(device, now)) return null
+  const time = new Date(at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+  return {
+    text: t('This computer ran out of CPU or memory at {time} and stopped answering', { time }),
+    hint: t(
+      "Something on it used all its CPU or memory. Restart it, then run `top` in its terminal to find what's using it, or move the work to a larger Box.",
+    ),
+  }
 }

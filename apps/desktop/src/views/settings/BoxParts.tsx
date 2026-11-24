@@ -10,6 +10,7 @@ import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
+import { offlineFromPressure } from './boxMetricsPresentation'
 import { accessHint, machineLine, seenFrom } from './boxPresentation'
 import { PreviewTag } from './PreviewTag'
 import { STATUS_DOT } from './runtimePresentation'
@@ -172,12 +173,23 @@ export function ShareButton({ disabled, onClick }: { disabled: boolean; onClick:
 }
 
 /** Wakes a paused or stopped cloud computer, for those who manage it. */
-export function ResumeButton({ busy, onClick }: { busy: boolean; onClick: () => void }) {
+/** Starts its host again; a Box that ran out of CPU or memory is restarted, not resumed. */
+export function ResumeButton({
+  busy,
+  device,
+  onClick,
+}: {
+  busy: boolean
+  device: AgentDevice
+  onClick: () => void
+}) {
+  const label = offlineFromPressure(device) ? t('Restart') : t('Resume')
+
   return (
     <div className="mt-2">
       <Button size="sm" variant="secondary" disabled={busy} onClick={onClick}>
         {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
-        {busy ? t('Resuming…') : t('Resume')}
+        {busy ? t('Resuming…') : label}
       </Button>
     </div>
   )

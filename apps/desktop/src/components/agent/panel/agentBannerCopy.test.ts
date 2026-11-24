@@ -205,7 +205,7 @@ test('a Box that ran out of CPU or memory says so, and its owner can restart it 
 
   assert.equal(
     copy.text,
-    'Build Box ran out of CPU or memory and stopped answering. It answers again once the load drops.',
+    'Build Box ran out of CPU or memory and stopped answering. It recovers once the load drops.',
   )
   assert.equal(copy.action?.label, 'Restart')
   copy.action?.run()

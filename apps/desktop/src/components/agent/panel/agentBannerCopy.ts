@@ -145,10 +145,8 @@ export function outdatedCopy(box: string, fix: { update?: () => void; hint?: str
 export function pressureCopy(box: string, restart?: () => void): BannerCopy {
   return {
     text: t(
-      '{box} ran out of CPU or memory and stopped answering. It answers again once the load drops.',
-      {
-        box,
-      },
+      '{box} ran out of CPU or memory and stopped answering. It recovers once the load drops.',
+      { box },
     ),
     action: restart ? { label: t('Restart'), run: restart } : null,
   }
