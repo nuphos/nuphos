@@ -16,6 +16,9 @@ private nonisolated final class StalledStore: @unchecked Sendable {
     private var head: Data?
     private let headStart = 64 * 1024
     private var released = false
+    private var connections = 0
+    /// Lets every connection after the first through at once, with this many body bytes.
+    var passAfterFirst: Int?
 
     var port: UInt16 { listener.port!.rawValue }
 
@@ -27,8 +30,9 @@ private nonisolated final class StalledStore: @unchecked Sendable {
                 received = 0
                 head = Data()
                 released = false
+                connections += 1
                 connection.start(queue: queue)
-                read()
+                if let bytes = passAfterFirst, connections > 1 { released = true; read(until: bytes) } else { read() }
             }
             listener.start(queue: queue)
         }
@@ -96,5 +100,23 @@ enum UploadProgressTests {
         check(progress.completedUnitCount == progress.totalUnitCount,
               "every byte is out but the message reports \(progress.completedUnitCount) of \(progress.totalUnitCount)")
         print("Upload progress passed")
+
+        // A store that takes the start of the body and then nothing more: the
+        // send times out on the idle limit and goes again, and the second try lands.
+        let stalled = StalledStore()
+        let size = 8 * 1024 * 1024
+        stalled.passAfterFirst = size
+        await stalled.start()
+        var request = URLRequest(url: URL(string: "http://127.0.0.1:\(stalled.port)/upload")!)
+        request.httpMethod = "PUT"
+        let again = Progress()
+        again.totalUnitCount = Int64(size)
+        let started = Date()
+        guard let response = try? await WorkspaceAPI.put(request, .image(Data(count: size)), progress: again, offset: 0, idle: 1),
+              (response as? HTTPURLResponse)?.statusCode == 200 else {
+            check(false, "a stalled upload did not go again and land"); return
+        }
+        print("stalled upload landed on a retry after \(String(format: "%.1f", Date().timeIntervalSince(started)))s")
+        print("Upload retry passed")
     }
 }
