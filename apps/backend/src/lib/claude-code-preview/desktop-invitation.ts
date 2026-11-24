@@ -31,3 +31,27 @@ export async function desktopInvitation(
     ? 'control'
     : 'view'
 }
+
+/**
+ * Asks `invitedNow` every `ms` and hands the answer to `apply`; a refusal or failure is no
+ * invitation. One check at a time, so an older answer never overwrites a newer one.
+ */
+export function recheckInvitation(
+  invitedNow: () => Promise<Invited | undefined>,
+  ms: number,
+  apply: (now: Invited | undefined) => void,
+): () => void {
+  let checking = false
+  const timer = setInterval(() => {
+    if (checking) return
+    checking = true
+    void invitedNow()
+      .catch(() => undefined)
+      .then(apply)
+      .finally(() => {
+        checking = false
+      })
+  }, ms)
+
+  return () => clearInterval(timer)
+}

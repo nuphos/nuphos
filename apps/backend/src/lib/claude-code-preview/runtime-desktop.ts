@@ -27,7 +27,7 @@ import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
-import { desktopInvitation, INVITE_RECHECK_MS } from './desktop-invitation'
+import { desktopInvitation, INVITE_RECHECK_MS, recheckInvitation } from './desktop-invitation'
 import { clientInputFilter } from './rfb-client-input'
 import { requireRuntimeInstance } from './runtime-catalog'
 
@@ -217,13 +217,10 @@ export function runtimeDesktopEvents(
   const invitedNow =
     deps.invitedNow ??
     (async () =>
-      (
-        await runtimeDesktopTarget(device.teamId, viewer, sessionId, `${display}`).catch(
-          () => undefined,
-        )
-      )?.invited)
+      (await runtimeDesktopTarget(device.teamId, viewer, sessionId, `${display}`, deps.presence))
+        .invited)
   let may = invited
-  let recheck: ReturnType<typeof setInterval> | undefined
+  let stopRecheck = () => {}
   // The viewer is the actor: revoking them closes this stream and nobody else's.
   const stream = new DeviceRuntimeSocket(
     { ...device, actorId: viewer, purpose: tab ? 'browserView' : 'vnc' },
@@ -232,7 +229,7 @@ export function runtimeDesktopEvents(
   const input = clientInputFilter()
   let holding = false
   const close = () => {
-    clearInterval(recheck)
+    stopRecheck()
     stream.close()
   }
   /** What goes on to the host: control frames as they are, RFB bytes minus input the viewer may not send yet. */
@@ -272,16 +269,18 @@ export function runtimeDesktopEvents(
       })
       void stream.connect()
       if (invited)
-        recheck = setInterval(() => {
-          void invitedNow().then((now) => {
-            may = now
+        stopRecheck = recheckInvitation(invitedNow, deps.recheckMs ?? INVITE_RECHECK_MS, (now) => {
+          may = now
+          try {
             // The card answered or withdrawn: the Box goes back to the agent; they keep watching.
             if (may === 'view' && holding) forward('{"owner":"agent"}')
-            if (may) return
-            ws.close(1008, 'The invitation ended')
-            close()
-          })
-        }, deps.recheckMs ?? INVITE_RECHECK_MS)
+          } catch {
+            may = undefined
+          }
+          if (may) return
+          ws.close(1008, 'The invitation ended')
+          close()
+        })
     },
     onMessage(event, ws) {
       try {

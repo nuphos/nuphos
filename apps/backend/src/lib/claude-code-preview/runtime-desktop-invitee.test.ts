@@ -181,8 +181,11 @@ test('a teammate cannot open a display; only the owner does', async () => {
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30))
 
-/** A teammate's stream whose rechecks answer `now()`, recording the control frames that reach the Box. */
-const watch = async (user: string, now: () => 'view' | 'control' | undefined) => {
+/**
+ * A teammate's stream whose rechecks answer `now()` (without it, the route's own check),
+ * recording the control frames that reach the Box.
+ */
+const watch = async (user: string, now?: () => Promise<'view' | 'control' | undefined>) => {
   const bus = createLocalTunnelBus()
   const toHost: string[] = []
   const state = { checks: 0, closed: undefined as unknown[] | undefined, toHost }
@@ -190,11 +193,13 @@ const watch = async (user: string, now: () => 'view' | 'control' | undefined) =>
     bus,
     presence,
     recheckMs: 5,
-    invitedNow: async () => {
-      state.checks++
+    ...(now && {
+      invitedNow: () => {
+        state.checks++
 
-      return now()
-    },
+        return now()
+      },
+    }),
   }) as Required<WSEvents>
   const ws = {
     send: () => {},
@@ -222,7 +227,7 @@ const agent = '{"t":"control","owner":"agent"}'
 
 test('once the card is answered, the Box goes back to the agent and the teammate keeps watching', async () => {
   let now: 'view' | 'control' = 'control'
-  const { state, send, end } = await watch('mate', () => now)
+  const { state, send, end } = await watch('mate', async () => now)
 
   send(human)
   await settle()
@@ -240,16 +245,51 @@ test('once the card is answered, the Box goes back to the agent and the teammate
 
 test("no longer able to reply, the teammate's stream ends; the owner's never rechecks", async () => {
   let now: 'view' | undefined = 'view'
-  const mate = await watch('mate', () => now)
+  const mate = await watch('mate', async () => now)
 
   expect(mate.state.closed).toBeUndefined()
   now = undefined
   await settle()
   expect(mate.state.closed).toEqual([1008, 'The invitation ended'])
   mate.end()
-  const owner = await watch('owner', () => undefined)
+  const owner = await watch('owner', async () => undefined)
 
   await settle()
   expect(owner.state).toMatchObject({ checks: 0, closed: undefined })
   owner.end()
+})
+
+test('the route rechecks the conversation itself: answered, they watch; unable to reply, it ends', async () => {
+  const { state, send, end } = await watch('mate')
+
+  send(human)
+  await settle()
+  conversations.chat = conversation('chat', [])
+  await settle()
+  expect(state.toHost).toEqual([human, agent])
+  expect(state.closed).toBeUndefined()
+  boxUsers = new Set()
+  await settle()
+  expect(state.closed).toEqual([1008, 'The invitation ended'])
+  end()
+})
+
+test('one recheck at a time, and one that fails ends the stream', async () => {
+  let fail: (error: Error) => void = () => {}
+  const { state, end } = await watch(
+    'mate',
+    () =>
+      new Promise((_resolve, reject) => {
+        fail = reject
+      }),
+  )
+
+  // Many intervals pass while the first check is still out.
+  await settle()
+  expect(state.checks).toBe(1)
+  expect(state.closed).toBeUndefined()
+  fail(new Error('the database is down'))
+  await settle()
+  expect(state.closed).toEqual([1008, 'The invitation ended'])
+  end()
 })
