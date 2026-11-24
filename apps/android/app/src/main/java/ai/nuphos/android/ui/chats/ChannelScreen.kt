@@ -348,14 +348,10 @@ private fun BotInstructionsCard(botId: String) {
     var error by remember(botId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     // Cancel and Save stay above the keyboard as it opens, and when a refusal adds a line under the field.
-    // The request waits a frame, so it runs once the sheet is laid out with the new keyboard padding.
-    val actions = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val editor = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
     val keyboard = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
     LaunchedEffect(draft != null, keyboard, error) {
-        if (draft != null) {
-            androidx.compose.runtime.withFrameNanos { }
-            actions.bringIntoView()
-        }
+        if (draft != null) editor.bringIntoView()
     }
     ai.nuphos.android.ui.chat.SummaryCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -367,34 +363,38 @@ private fun BotInstructionsCard(botId: String) {
         val text = draft
         when {
             text != null -> {
-                OutlinedTextField(text, { draft = it; error = null },
-                    Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
-                    enabled = !saving, isError = error != null,
-                    supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
-                Row(Modifier.fillMaxWidth().bringIntoViewRequester(actions).testTag("bot-instructions-actions"),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
-                    Button(onClick = {
-                        saving = true
-                        error = null
-                        scope.launch {
-                            try {
-                                store.setBotInstructions(botId, text)
-                                draft = null
-                            } catch (e: kotlinx.coroutines.CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                error = e.message ?: e.toString()
-                            } finally {
-                                saving = false
+                // One target for the field and its buttons, so the field's own scroll into view on focus
+                // falls inside this request instead of cancelling it.
+                Column(Modifier.bringIntoViewRequester(editor), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(text, { draft = it; error = null },
+                        Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
+                        enabled = !saving, isError = error != null,
+                        supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
+                    Row(Modifier.fillMaxWidth().testTag("bot-instructions-actions"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
+                        Button(onClick = {
+                            saving = true
+                            error = null
+                            scope.launch {
+                                try {
+                                    store.setBotInstructions(botId, text)
+                                    draft = null
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    error = e.message ?: e.toString()
+                                } finally {
+                                    saving = false
+                                }
                             }
+                        }, enabled = text != instructions && !saving, modifier = Modifier.testTag("bot-instructions-save")) {
+                            if (saving) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(stringResource(R.string.chat_save))
                         }
-                    }, enabled = text != instructions && !saving, modifier = Modifier.testTag("bot-instructions-save")) {
-                        if (saving) {
-                            CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(6.dp))
-                        }
-                        Text(stringResource(R.string.chat_save))
                     }
                 }
             }
