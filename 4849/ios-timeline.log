@@ -1,0 +1,21 @@
+2026-11-24T15:03:17Z ios: signed in as e2e-ios-a-1795532587@example.com
+2026-11-24T15:03:19Z ios: agreed to AI data sharing
+2026-11-24T15:03:26Z ios: created team
+2026-11-24T15:03:29.860Z watching e2e-ios-a-1795532587@example.com in team 6b05a73e63f5a38356c8cfdf
+2026-11-24T15:03:30.085Z {"boxes":["Computer 1 state=connecting online=false"],"runtimes":[]}
+2026-11-24T15:03:30Z ios: Home: Computer 1 is getting ready
+2026-11-24T15:03:33Z ios: shot 1-getting-ready
+2026-11-24T15:04:28.168Z instabox: told to start ~/nuphos-agent-work/e4849/art/box-10's host; waiting for a cmd
+2026-11-24T15:04:28Z ios: Box ordered
+2026-11-24T15:04:29.736Z host started with OpenCode
+2026-11-24T15:04:30.965Z {"boxes":["Computer 1 state=running online=true"],"runtimes":[]}
+2026-11-24T15:04:32.180Z {"boxes":["Computer 1 state=running online=true"],"runtimes":["opencode on Computer 1","codex on Computer 1"]}
+2026-11-24T15:04:32Z ios: OpenCode listed
+2026-11-24T15:04:36Z ios: Home moved on from getting ready
+2026-11-24T15:04:39Z ios: shot 2-runtime-listed
+2026-11-24T15:04:39Z ios: Create enabled
+2026-11-24T15:04:54Z ios: created Phone Bot
+2026-11-24T15:04:57Z ios: shot 4-bot-made
+2026-11-24T15:05:02Z ios: shot 5-typed
+2026-11-24T15:05:05Z ios: sent IOSBOX1795532699
+2026-11-24T15:05:20.455Z backend: Phone Bot (opencode) message "IOSBOX1795532699", shown in the app (ios-4-bot-answered.png; the test matcher required an exact label and timed out at 15:11:06)

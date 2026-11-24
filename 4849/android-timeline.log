@@ -1,0 +1,27 @@
+2026-11-24T15:22:55Z android: signed in as e2e-android-1795533747@example.com
+2026-11-24T15:23:24Z android: agreed to AI data sharing
+2026-11-24T15:24:22Z android: created team
+2026-11-24T15:24:24.711Z watching e2e-android-1795533747@example.com in team 6b05ac2663f5a38356c8cfed
+2026-11-24T15:24:24.726Z {"boxes":["Computer 1 state=connecting online=false"],"runtimes":[]}
+2026-11-24T15:24:39Z android: Home: Computer 1 is getting ready
+2026-11-24T15:24:39Z android: shot 1-getting-ready
+2026-11-24T15:25:24.208Z instabox: told to start ~/nuphos-agent-work/e4849/art/box-12's host; waiting for a cmd
+2026-11-24T15:26:00Z android: Box ordered (15:25:24)
+2026-11-24T15:26:01.140Z host started with OpenCode
+2026-11-24T15:26:02.171Z {"boxes":["Computer 1 state=running online=true"],"runtimes":["codex on Computer 1"]}
+2026-11-24T15:26:03.191Z {"boxes":["Computer 1 state=running online=true"],"runtimes":["opencode on Computer 1","codex on Computer 1"]}
+2026-11-24T15:26:03Z android: OpenCode listed
+2026-11-24T15:26:05Z android: Home moved on from getting ready
+2026-11-24T15:26:07Z android: shot 2-runtime-listed
+2026-11-24T15:27:50Z android: created Phone Bot
+2026-11-24T15:27:51Z android: shot 4-bot-made
+2026-11-24T15:27:57Z android: shot 5-typed
+2026-11-24T15:27:58Z android: sent ANDBOX1795534071
+2026-11-24T15:28:35Z android: shot 5-typed
+2026-11-24T15:28:37Z android: sent ANDBOX1795534071
+2026-11-24T15:29:13Z android: shot 6-free-limit
+2026-11-24T15:29:13Z android: Bot could not reply: OpenCode Zen free usage exceeded
+2026-11-24T15:30:04Z android: sent ANDBOX1795534196
+2026-11-24T15:30:46Z android: Bot answered ANDBOX1795534196
+2026-11-24T15:30:46Z android: shot 7-bot-answered
+2026-11-24T15:30:24.037Z box opencode: run for ANDBOX1795534196 finished after posting the reply (opencode.log)

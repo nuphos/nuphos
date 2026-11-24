@@ -1,0 +1,17 @@
+2026-11-24T14:58:49Z ios: signed in as e2e-ios-a-1795532318@example.com
+2026-11-24T14:58:50Z ios: agreed to AI data sharing
+2026-11-24T14:58:56Z ios: created team
+2026-11-24T14:58:59Z ios: Home: Computer 1 is getting ready
+2026-11-24T14:59:00Z ios: shot 1-getting-ready
+2026-11-24T14:59:00.510Z watching e2e-ios-a-1795532318@example.com in team 6b05a63063f5a38356c8cfda
+2026-11-24T14:59:00.830Z {"boxes":["Computer 1 state=connecting online=false"],"runtimes":[]}
+2026-11-24T14:59:57.981Z instabox: told to start ~/nuphos-agent-work/e4849/art/box-9's host; waiting for a cmd
+2026-11-24T14:59:58Z ios: Box ordered
+2026-11-24T14:59:59.604Z host started with OpenCode
+2026-11-24T15:00:00.893Z {"boxes":["Computer 1 state=running online=true"],"runtimes":[]}
+2026-11-24T15:00:01.971Z {"boxes":["Computer 1 state=running online=true"],"runtimes":["codex on Computer 1"]}
+2026-11-24T15:00:03.060Z {"boxes":["Computer 1 state=running online=true"],"runtimes":["opencode on Computer 1","codex on Computer 1"]}
+2026-11-24T15:00:03Z ios: OpenCode listed
+2026-11-24T15:00:04Z ios: Home moved on from getting ready
+2026-11-24T15:00:06Z ios: shot 2-runtime-listed
+2026-11-24T15:00:37Z ios: shot timeout
