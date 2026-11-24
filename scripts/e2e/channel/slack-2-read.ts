@@ -15,6 +15,7 @@ import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../../apps/backend')
 const WORKSPACE = 'TE2EREAD'
+const PANEL_JOB = resolve(import.meta.dirname, '../../../apps/runtime/image/panel-job.mjs')
 
 /** Runs `body` against the e2e database with `args`; prints what it returns. */
 function mongo(stack: Stack, body: string, args: unknown): unknown {
@@ -126,6 +127,8 @@ export default {
     ) as boolean
 
     try {
+      // The runtime's `panel` job puts files on it, as the cloud image offers; restored below.
+      await stack.restartAgentHost(undefined, `panel=${process.execPath} ${PANEL_JOB}`)
       await newTask(page)
       // The channel's top-level messages, newest first; the thread reply stays in its thread.
       expectIn(
@@ -177,13 +180,19 @@ export default {
         files: true,
       })
 
-      expectIn(withFiles, ['"name":"error.png"', '"path":'], [screenshot.url_private, '"error"'])
-      const path = (JSON.parse(withFiles) as { messages: { files: { path: string }[] }[] })
-        .messages[0]!.files[0]!.path
+      const { structuredContent } = JSON.parse(withFiles) as {
+        structuredContent: { messages: { files: { name: string; path?: string }[] }[] }
+      }
+      const file = structuredContent.messages[0]!.files[0]!
+
+      expectIn(JSON.stringify(file), ['"name":"error.png"', '"path":'], ['"error"'])
+      expectIn(withFiles, [], [screenshot.url_private])
+      const path = file.path!
 
       if (!readFileSync(path).equals(SLACK_SCREENSHOT))
         throw new Error(`The runtime's ${path} is not the screenshot posted in Slack`)
     } finally {
+      await stack.restartAgentHost()
       mongo(
         stack,
         `const team = { _id: new ObjectId(args.teamId) }
