@@ -99,6 +99,22 @@ describe('decision tool module', () => {
     expect(names).not.toContain('check_decision')
   })
 
+  test('a computer card needs a desktop to hand over, and opens no card without one', async () => {
+    const tools = decisionToolModule({ publish: async () => undefined }).handlers(ctx)
+    const result = await tools.request_user_decision!({
+      label: 'Hand over the sign-in',
+      category: 'computer',
+      question: 'Sign in to the console',
+      body: 'Type your password on the open page.',
+    })
+
+    expect(result.isError).toBe(true)
+    expect(JSON.stringify(result.content)).toContain('no desktop to hand over')
+    expect(conversationUpdates.flat().some((arg) => JSON.stringify(arg).includes('computer'))).toBe(
+      false,
+    )
+  })
+
   test('request_user_decision returns at once; the answer arrives as a new message', async () => {
     const frames: Record<string, unknown>[] = []
     const tools = decisionToolModule({

@@ -403,3 +403,43 @@ test('a masked secret card cannot be answered by selecting a status option', asy
   ).rejects.toThrow('its own card')
   expect(turns).toHaveLength(0)
 })
+
+test("a computer card's I'm done says how long the desktop was held", async () => {
+  const takenOverAt = new Date(Date.now() - 185_000)
+
+  await answerDecision({
+    conversation: ask({ category: 'computer', options: ["I'm done", 'Skip'], takenOverAt }),
+    requestId: 'q1',
+    answer: { choices: ["I'm done"] },
+    actor,
+    teamId: 't1',
+  })
+
+  expect(turns[0]!.text).toContain("- Which regions? → I'm done (handed back after 3m 5s)")
+})
+
+test('a skipped computer card, or one nobody took over, is told as answered', async () => {
+  const { withHandBack } = await import('./decision-answer')
+  const request = { category: 'computer', takenOverAt: new Date(0) } as never
+
+  expect(withHandBack(request, { choices: ['Skip'] }, new Date(5_000))).toEqual({
+    choices: ['Skip'],
+  })
+  expect(
+    withHandBack({ category: 'computer' } as never, { choices: ["I'm done"] }, new Date(5_000)),
+  ).toEqual({ choices: ["I'm done"] })
+  expect(
+    withHandBack({ category: 'approval', takenOverAt: new Date(0) } as never, {
+      choices: ["I'm done"],
+    }),
+  ).toEqual({ choices: ["I'm done"] })
+})
+
+test('a hold reads in seconds, minutes or hours', async () => {
+  const { heldFor } = await import('./decision-answer')
+
+  expect(heldFor(45_400)).toBe('45s')
+  expect(heldFor(185_000)).toBe('3m 5s')
+  expect(heldFor(3_725_000)).toBe('1h 2m')
+  expect(heldFor(-10)).toBe('0s')
+})

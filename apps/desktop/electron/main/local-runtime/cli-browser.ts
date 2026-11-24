@@ -7,6 +7,7 @@ import { startRecording, stopRecording } from './browser-recording.ts'
 import { LocalBrowserStream } from './browser-stream.ts'
 import { Cdp, helperPage, launchChromium, recorder } from './cli-chromium.ts'
 import { failed } from './cua-host.ts'
+import { HELD, humanHolds } from './desktop-pool.ts'
 
 import type { RecordedTab } from './browser-recording.ts'
 import type { BrowserCall } from './browser-stream.ts'
@@ -64,7 +65,7 @@ function within<T>(work: Promise<T>, ms = CALL_TIMEOUT_MS): Promise<T> {
 }
 
 /** Runs `local_browser` calls on one browser, started on the first and again after it exits. */
-export function createCliBrowser(launch: () => Browser, harDir: string) {
+export function createCliBrowser(launch: () => Browser, harDir: string, pool?: string | null) {
   let connection: Cdp | undefined
   const tabs = new Map<number, Tab>()
   // Each conversation's tabs share a browser context of their own, so a sign-in or cookie in
@@ -203,6 +204,7 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
 
   return async function run(call: BrowserCall): Promise<CuaToolResult> {
     if (!call.session) return failed('session is required.')
+    if (pool && humanHolds(pool, call.session)) return failed(HELD)
     const mine = [...tabs.values()].filter((t) => t.conversation === call.session)
 
     if (call.action === 'tabs')
@@ -286,11 +288,12 @@ export function createCliBrowser(launch: () => Browser, harDir: string) {
 }
 
 /** The CLI host's `local_browser`, offered only when the computer has a Chromium to run it on. */
-export function cliBrowser(dataDir: string, executable: string | undefined) {
+export function cliBrowser(dataDir: string, executable: string | undefined, pool?: string | null) {
   if (!executable) return {}
   const run = createCliBrowser(
     () => launchChromium(executable, join(dataDir, 'browser')),
     join(dataDir, 'har'),
+    pool,
   )
 
   return { connectBrowser: () => new LocalBrowserStream(run) }
