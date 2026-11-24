@@ -52,7 +52,9 @@ export function recheckInvitation(
     void Promise.race([
       invitedNow(),
       new Promise<undefined>((resolve) => {
-        late = setTimeout(resolve, ms)
+        late = setTimeout(() => {
+          resolve(undefined)
+        }, ms)
       }),
     ])
       .catch(() => undefined)
