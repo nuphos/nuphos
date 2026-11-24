@@ -16,6 +16,9 @@ struct TranscriptList: UIViewControllerRepresentable {
     /// New rows slide in, rows that leave fade, and the rows on screen glide
     /// to make room, as in Messages. Off, only a sent row comes in this way.
     var animatesArrivals = false
+    /// Rows run on under the floating header and blur out there, as under
+    /// any iOS 26 bar, instead of fading into a canvas band.
+    var softTopEdge = false
     /// Scrolls to a row, such as the post a reply quotes.
     var jump: TranscriptJump? = nil
     /// What swiping a row right does, as replying in Messages; nil for a row that can't be swiped.
@@ -28,6 +31,7 @@ struct TranscriptList: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
         controller.setComposer(composer)
+        controller.setSoftTopEdge(softTopEdge)
         controller.swipeAction = swipeAction
         controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
@@ -61,6 +65,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
     private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
     private let latestButton = UIButton(type: .system)
+    private let topFade = CanvasFade(edge: .top)
     var swipeAction: ((ChatRow) -> (() -> Void)?)? {
         didSet { swipe.isEnabled = swipeAction != nil }
     }
@@ -115,7 +120,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         // gets the same at the top. One keyboard source moves the composer
         // and the collection, inside the keyboard's own animation and
         // interactive drag, and nothing else moves them.
-        let topFade = CanvasFade(edge: .top), bottomFade = CanvasFade(edge: .bottom)
+        let bottomFade = CanvasFade(edge: .bottom)
         view.addSubview(topFade)
         view.addSubview(bottomFade)
         addChild(composer)
@@ -179,6 +184,12 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             latestButton.bottomAnchor.constraint(equalTo: composer.view.topAnchor, constant: -12),
         ])
         latestButton.isHidden = true
+    }
+
+    func setSoftTopEdge(_ soft: Bool) {
+        guard #available(iOS 26, *) else { return }
+        topFade.isHidden = soft
+        collection.topEdgeEffect.style = soft ? .soft : .automatic
     }
 
     func update(rows transcript: [ChatRow], submittedRowID: String?, sessionID: String, animatesArrivals: Bool = false,

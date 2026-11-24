@@ -15,7 +15,10 @@ final class DesktopPanelContrastUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
         app.staticTexts["Sign-in helper"].firstMatch.tap()
-        let button = app.buttons["chat.desktop"]
+        let more = app.buttons["chat.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot's chat has no More button")
+        more.tap()
+        let button = app.buttons["Desktop"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "The Bot's chat has no desktop button")
         button.tap()
         XCTAssertTrue(app.buttons["Close desktop"].waitForExistence(timeout: 10), "The desktop viewer did not open")
