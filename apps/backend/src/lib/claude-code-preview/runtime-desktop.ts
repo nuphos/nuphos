@@ -19,6 +19,7 @@
 // on the Mac.
 
 import { getReadableConversation } from '@/lib/agent/db'
+import { markDesktopTakenOver } from '@/lib/agent/db/desktop-takeover'
 import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
@@ -186,6 +187,8 @@ export function runtimeDesktopEvents(
     if (data.startsWith('{')) {
       holding = (JSON.parse(data) as { owner?: string }).owner === 'human'
       stream.send(JSON.stringify({ t: 'control', owner: holding ? 'human' : 'agent' }))
+      // A `computer` card for this display counts how long it was held.
+      if (holding) void markDesktopTakenOver(sessionId, display).catch(() => {})
 
       return
     }
