@@ -1,0 +1,2 @@
+$ nuphos vault get e2e-deploy-token --computer --user <owner>
+fictional-value-5016
