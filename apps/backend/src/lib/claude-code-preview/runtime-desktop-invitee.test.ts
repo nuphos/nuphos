@@ -1,4 +1,4 @@
-import { beforeEach, expect, jest, test } from 'bun:test'
+import { beforeEach, expect, test } from 'bun:test'
 
 import { canReply, conversationAccess } from '@/lib/agent/db/access'
 
@@ -9,12 +9,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
-import {
-  INVITE_RECHECK_MS,
-  openRuntimeDesktop,
-  runtimeDesktopEvents,
-  runtimeDesktopTarget,
-} from './runtime-desktop'
+import { openRuntimeDesktop, runtimeDesktopEvents, runtimeDesktopTarget } from './runtime-desktop'
 
 import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { WSContext, WSEvents } from 'hono/ws'
@@ -170,48 +165,48 @@ test('an invited teammate cannot open a display; only the owner does', async () 
 })
 
 test("a teammate's stream ends once the card no longer lets them in; the owner's never rechecks", async () => {
-  jest.useFakeTimers()
-  try {
-    const run = async (user: string) => {
-      let checks = 0
-      let closed: unknown[] | undefined
-      let invited = true
-      const events = runtimeDesktopEvents(await reach(user, 'chat', '2'), {
-        bus: createLocalTunnelBus(),
-        presence,
-        stillInvited: async () => {
-          checks++
+  const run = async (user: string) => {
+    let checks = 0
+    let closed: unknown[] | undefined
+    let invited = true
+    const events = runtimeDesktopEvents(await reach(user, 'chat', '2'), {
+      bus: createLocalTunnelBus(),
+      presence,
+      recheckMs: 5,
+      stillInvited: async () => {
+        checks++
 
-          return invited
-        },
-      }) as Required<WSEvents>
-      const ws = {
-        send: () => {},
-        close: (...args: unknown[]) => {
-          // The first close is the one the client sees.
-          closed ??= args
-        },
-      }
-
-      events.onOpen(new Event('open'), ws as unknown as WSContext)
-      jest.advanceTimersByTime(INVITE_RECHECK_MS)
-      await Promise.resolve()
-      expect(closed).toBeUndefined()
-      // Answered, withdrawn or archived: the next check closes it.
-      invited = false
-      jest.advanceTimersByTime(INVITE_RECHECK_MS)
-      await Promise.resolve()
-      await Promise.resolve()
-      const result = { checks, closed }
-
-      events.onClose(new CloseEvent('close'), ws as unknown as WSContext)
-
-      return result
+        return invited
+      },
+    }) as Required<WSEvents>
+    const ws = {
+      send: () => {},
+      close: (...args: unknown[]) => {
+        // The first close is the one the client sees.
+        closed ??= args
+      },
     }
+    const after = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-    expect(await run('mate')).toEqual({ checks: 2, closed: [1008, 'The invitation ended'] })
-    expect(await run('owner')).toEqual({ checks: 0, closed: undefined })
-  } finally {
-    jest.useRealTimers()
+    events.onOpen(new Event('open'), ws as unknown as WSContext)
+    await after(30)
+    expect(closed).toBeUndefined()
+    const before = checks
+
+    // Answered, withdrawn or archived: the next check closes it.
+    invited = false
+    await after(30)
+    const result = { rechecked: checks > 0, stopped: checks - before <= 1, closed }
+
+    events.onClose(new CloseEvent('close'), ws as unknown as WSContext)
+
+    return result
   }
+
+  expect(await run('mate')).toEqual({
+    rechecked: true,
+    stopped: true,
+    closed: [1008, 'The invitation ended'],
+  })
+  expect(await run('owner')).toEqual({ rechecked: false, stopped: true, closed: undefined })
 })

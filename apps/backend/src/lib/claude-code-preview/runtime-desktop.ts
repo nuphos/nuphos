@@ -213,13 +213,13 @@ export async function openRuntimeDesktop(
   return { display: await (deps.open ?? openLocalDesktop)(target, sessionId) }
 }
 
-/** How often an invited teammate's stream re-runs the check that let them in; a card answered, withdrawn or archived ends it. */
-export const INVITE_RECHECK_MS = 5_000
+/** An invited teammate's stream re-runs the check that let them in every `recheckMs` (5 s); a card answered, withdrawn or archived ends it. */
+type Invitation = { stillInvited?: () => Promise<boolean>; recheckMs?: number }
 
 /** Relays the client's frames to one `vnc` stream on the Box's tunnel and back. */
 export function runtimeDesktopEvents(
   target: RuntimeDesktopTarget,
-  deps: DeviceRuntimeSocketDeps & { stillInvited?: () => Promise<boolean> } = {
+  deps: DeviceRuntimeSocketDeps & Invitation = {
     bus: tunnelBus(),
     presence: runtimePresenceStore(),
   },
@@ -282,7 +282,7 @@ export function runtimeDesktopEvents(
             ws.close(1008, 'The invitation ended')
             close()
           })
-        }, INVITE_RECHECK_MS)
+        }, deps.recheckMs ?? 5_000)
     },
     onMessage(event, ws) {
       try {
