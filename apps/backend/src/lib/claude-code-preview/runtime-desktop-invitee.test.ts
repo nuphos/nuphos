@@ -31,22 +31,27 @@ const card = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 })
 // Two conversations of the same owner on one shared Box: `chat` holds :2, `other` holds :4.
-// The teammate is in `chat` only.
+// The teammate is invited to `chat` only; using the Box lets them reply in both.
 const conversations: Record<string, Record<string, unknown>> = {}
 // Who may use the Box. Whether that lets them reply is the real rule (conversationAccess).
 let boxUsers: Set<string>
 
-// As the database reads it: only for someone the conversation is shared with.
+const replies = (found: Record<string, unknown>, viewer: string) =>
+  canReply(conversationAccess(found as never, viewer, boxUsers.has(viewer)))
+
+// As the database reads it: shared with them, or one they may reply in.
 useAgentDb({
   getReadableConversation: (sessionId: string, viewer: string) => {
     const found = conversations[sessionId]
 
-    return found && readsConversation(found as never, viewer) ? found : null
+    return found && (readsConversation(found as never, viewer) || replies(found, viewer))
+      ? found
+      : null
   },
 })
 useConversationComputer({
-  canReplyIn: (async (conversation: Parameters<typeof conversationAccess>[0], viewer: string) =>
-    canReply(conversationAccess(conversation, viewer, boxUsers.has(viewer)))) as never,
+  canReplyIn: (async (found: Record<string, unknown>, viewer: string) =>
+    replies(found, viewer)) as never,
 })
 useRuntimeCatalog({
   // The Box's runtime admits only its owner, as a local runtime does.
@@ -147,13 +152,15 @@ test('an archived conversation, or one of another team, lets nobody watch', asyn
   await expect(reach('mate', 'chat', '2')).rejects.toThrow('not found')
 })
 
-test("on a shared Box, a teammate reaches no other session's display", async () => {
+test("on a shared Box, a teammate reaches a session's display only through that session", async () => {
   // The other session's display through this conversation: the Box reports it as not this one's.
   await expect(reach('mate', 'chat', '4')).rejects.toThrow('not found')
   // A card naming the other session's display still does not make it this conversation's.
   conversations.chat = conversation('chat', [card({ desktop: { deviceId: 'box', display: 4 } })])
   await expect(reach('mate', 'chat', '4')).rejects.toThrow('not found')
-  // The other conversation itself, with its own open card: it is not shared with them.
+  // The other conversation itself: using the Box, they reply there too, so through it they do.
+  expect((await reach('mate', 'other', '4')).invited).toBe('control')
+  boxUsers = new Set()
   await expect(reach('mate', 'other', '4')).rejects.toThrow('not found')
   // A display nobody holds.
   await expect(reach('mate', 'chat', '9')).rejects.toThrow('not found')
