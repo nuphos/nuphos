@@ -8,6 +8,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -82,7 +83,7 @@ class NewRuntimeFixtureDeviceTest {
                 override suspend fun cancel(runtimeId: String, attemptId: String) = Unit
             }, scope, { true }, { false }, RuntimeSelections.Selection("synthetic", "507f1f77bcf86cd799439011"), {},
                 loginAllowed = { true }, useSelectedRuntime = false) }
-            CompositionLocalProvider(LocalContext provides zh, LocalConfiguration provides zh.resources.configuration) {
+            CompositionLocalProvider(LocalContext provides zh, LocalConfiguration provides zh.resources.configuration, LocalResources provides zh.resources) {
                 NuphosTheme(darkTheme = false) { Surface(Modifier.fillMaxSize()) { NewRuntimeSheet(sheet, setup) } }
             }
         }
