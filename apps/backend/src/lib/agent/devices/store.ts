@@ -25,6 +25,8 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
+  /** The OpenRouter key Nuphos gave its OpenCode, revoked with the Box; see box-openrouter. */
+  openRouterKeyHash?: string
 }
 
 /** In one team: who may use a computer and who may also manage it. */

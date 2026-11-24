@@ -43,13 +43,13 @@ const identity = useIdentity({
 
 // The free Box a first team starts (#4186): every `createBox` call, and the events logged.
 const boxes: string[][] = []
-// The OpenRouter key each of them was given.
-const keys: (string | undefined)[] = []
+// Whether each of them was to get an OpenRouter key.
+const gifts: (boolean | undefined)[] = []
 const events: string[] = []
 const boxCreate = useBoxInstaboxCreate({
   createBox: (...args) => {
     boxes.push(args.slice(0, 3) as string[])
-    keys.push(args[3]?.openRouterKey)
+    gifts.push(args[3]?.openRouterGift)
 
     return Promise.resolve({})
   },
@@ -66,11 +66,10 @@ useObservability({
 
 const savedBox = { ...config.box }
 const savedUrl = config.agent.publicBackendUrl
-const savedFetch = globalThis.fetch
 
 beforeEach(() => {
   boxes.length = 0
-  keys.length = 0
+  gifts.length = 0
   events.length = 0
   config.box.instabox = { apiKey: 'ibk_test' }
   config.box.defaultVcpuLimit = 2
@@ -81,9 +80,7 @@ beforeEach(() => {
 afterEach(() => {
   Object.assign(config.box, savedBox)
   delete config.box.defaultMonthlyHours
-  delete config.box.openRouterManagementKey
   config.agent.publicBackendUrl = savedUrl
-  globalThis.fetch = savedFetch
 })
 
 /** Lets the Box start that `POST /teams` does not wait for run to its end. */
@@ -154,45 +151,11 @@ describe('POST /teams starts the free Box of a first team', () => {
     expect(events).toContain('agent.box.first_team_started')
   })
 
-  test('its OpenCode gets an OpenRouter key capped at 1 USD where the deployment gives one', async () => {
-    config.box.openRouterManagementKey = 'mgmt'
-    const asked: { url: string; init?: RequestInit }[] = []
-
-    globalThis.fetch = Object.assign(
-      (input: string | URL | Request, init?: RequestInit) => {
-        asked.push({ url: input instanceof Request ? input.url : input.toString(), init })
-
-        return Promise.resolve(Response.json({ data: { hash: 'h' }, key: 'sk-or-v1-gift' }))
-      },
-      { preconnect: savedFetch.preconnect },
-    )
+  test('its OpenCode is to get an OpenRouter key', async () => {
     expect((await createTeam()).status).toBe(201)
     await settle()
 
-    expect(asked.map(({ url }) => url)).toEqual(['https://openrouter.ai/api/v1/keys'])
-    expect(new Headers(asked[0]?.init?.headers).get('authorization')).toBe('Bearer mgmt')
-    expect(JSON.parse(asked[0]?.init?.body as string)).toMatchObject({ limit: 1 })
-    expect(keys).toEqual(['sk-or-v1-gift'])
-  })
-
-  test('the Box still starts, without a key, when OpenRouter refuses one', async () => {
-    config.box.openRouterManagementKey = 'mgmt'
-    globalThis.fetch = Object.assign(() => Promise.resolve(new Response('no', { status: 401 })), {
-      preconnect: savedFetch.preconnect,
-    })
-    expect((await createTeam()).status).toBe(201)
-    await settle()
-
-    expect(boxes).toEqual([[USER, TEAM, 'Computer 1']])
-    expect(keys).toEqual([undefined])
-    expect(events).toContain('agent.box.openrouter_gift_failed')
-  })
-
-  test('a deployment without an OpenRouter key gives none', async () => {
-    expect((await createTeam()).status).toBe(201)
-    await settle()
-
-    expect(keys).toEqual([undefined])
+    expect(gifts).toEqual([true])
   })
 
   test('a second team the user owns starts none', async () => {

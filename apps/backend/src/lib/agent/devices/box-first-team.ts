@@ -9,7 +9,6 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { freeAllowance } from './box-free'
 import { boxesAvailable } from './box-instabox-client'
-import { giftOpenRouterKey } from './box-openrouter'
 
 /**
  * Starts the free Box of `teamId` when it is the only team `userId` owns and the deployment
@@ -21,14 +20,7 @@ export async function startFirstTeamBox(userId: string, teamId: string): Promise
     const owned = (await getMyTeams(userId)).filter((team) => team.ownerID === userId)
 
     if (owned.length !== 1) return
-    // Without the key the Box still starts: OpenCode then offers its free models.
-    const openRouterKey = await giftOpenRouterKey(teamId).catch((error: unknown) => {
-      logError('agent.box.openrouter_gift_failed', error, { user_id: userId, team_id: teamId })
-
-      return undefined
-    })
-
-    await createBox(userId, teamId, 'Computer 1', { openRouterKey })
+    await createBox(userId, teamId, 'Computer 1', { openRouterGift: true })
     logEvent('info', 'agent.box.first_team_started', { user_id: userId, team_id: teamId })
   } catch (error) {
     logError('agent.box.first_team_failed', error, { user_id: userId, team_id: teamId })
