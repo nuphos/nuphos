@@ -214,6 +214,15 @@ export const agentCredentialOptionsSchema = z.object({
       available: z.boolean(),
     }),
   ),
+  mcpServers: z
+    .array(
+      z.object({
+        id: objectIdStringSchema,
+        name: z.string().min(1),
+        url: z.string().url().optional(),
+      }),
+    )
+    .default([]),
 })
 
 export const agentCredentialOptionsQuerySchema = z.object({

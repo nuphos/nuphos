@@ -34,6 +34,17 @@ export type TeamMcpServer = {
 export const teamMcpServers = (): Collection<TeamMcpServer> =>
   db().collection<TeamMcpServer>('team_mcp_servers')
 
+/** Conservative identifier pattern so names stay safe for ACP/CLI tool namespacing. */
+export const MCP_SERVER_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/
+
 export async function setupTeamMcpServerIndexes(): Promise<void> {
   await teamMcpServers().createIndex({ teamId: 1, createdAt: 1 }, { name: 'team_mcp_servers_team' })
+  await teamMcpServers().createIndex(
+    { teamId: 1, name: 1 },
+    {
+      name: 'team_mcp_servers_team_name_unique',
+      unique: true,
+      collation: { locale: 'en', strength: 2 },
+    },
+  )
 }

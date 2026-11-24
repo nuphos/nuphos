@@ -19,6 +19,7 @@ import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { answerMcp } from '@/lib/mcp/http-answer'
 import { calledToolName, fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
+import { createTeamMcpProxyHandler } from '@/lib/mcp/proxy'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
 import { betterStackScoped } from '@/routes/agent-sessions/betterstack'
@@ -204,6 +205,14 @@ const sseUnsupported = (c: Context) =>
 
 teamScoped.get('/mcp', sseUnsupported)
 teamScoped.get('/mcp-tools', sseUnsupported)
+
+// Team-registered remote MCP servers are proxied here over `pinnedFetch` so
+// decrypted header secrets never leave the backend and every request is DNS-pinned.
+const teamMcpProxy = createTeamMcpProxyHandler()
+
+teamScoped.post('/mcp-servers/:serverId', teamMcpProxy)
+teamScoped.get('/mcp-servers/:serverId', teamMcpProxy)
+teamScoped.delete('/mcp-servers/:serverId', teamMcpProxy)
 
 // Script-backed native Claude Code skill. The same conversation-scoped bearer
 // as the MCP mounts authenticates these REST calls; Plan itself is not an MCP.

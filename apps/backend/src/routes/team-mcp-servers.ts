@@ -4,7 +4,7 @@ import { z } from 'zod'
 
 import { encryptCustomMcpSecret } from '@/lib/byos/secrets'
 import { AppError } from '@/lib/errors'
-import { mcpServerUrlReason, teamMcpServers } from '@/lib/mcp/team-servers'
+import { MCP_SERVER_NAME_PATTERN, mcpServerUrlReason, teamMcpServers } from '@/lib/mcp/team-servers'
 import { parseObjectId } from '@/lib/objectid'
 import { zv } from '@/lib/validate'
 import { requireTeamRole } from '@/middleware/auth'
@@ -35,6 +35,10 @@ const serverName = z
   .trim()
   .min(1)
   .max(64)
+  .regex(
+    MCP_SERVER_NAME_PATTERN,
+    'Name must start with a letter or digit and use only letters, digits, hyphens, and underscores',
+  )
   .refine((name) => !RESERVED_SERVER_NAME.has(name.toLowerCase()), 'This name is reserved')
 const headerName = z
   .string()
@@ -99,6 +103,26 @@ function sealHeaders(
   })
 }
 
+function isDuplicateKeyError(err: unknown): boolean {
+  return typeof err === 'object' && err !== null && 'code' in err && err.code === 11000
+}
+
+async function assertNameAvailable(
+  teamId: string,
+  name: string,
+  excludeId?: ObjectId,
+): Promise<void> {
+  const existing = await teamMcpServers().find({ teamId }).toArray()
+  const lower = name.toLowerCase()
+  const taken = existing.some(
+    (doc) => doc.name.toLowerCase() === lower && (!excludeId || !doc._id.equals(excludeId)),
+  )
+
+  if (taken) {
+    throw new AppError(409, 'mcp_server_name_taken', 'An MCP server with this name already exists.')
+  }
+}
+
 async function findServer(teamId: string, id: string): Promise<TeamMcpServer> {
   const server = await teamMcpServers().findOne({
     _id: parseObjectId(id, 'mcpServerId'),
@@ -133,6 +157,7 @@ teamMcpServersRoutes.post('/', zv('json', createSchema), async (c) => {
       `A team can have up to ${String(MAX_MCP_SERVERS)} MCP servers.`,
     )
   }
+  await assertNameAvailable(teamId, input.name)
   const now = new Date()
   const server: TeamMcpServer = {
     _id: new ObjectId(),
@@ -145,7 +170,18 @@ teamMcpServersRoutes.post('/', zv('json', createSchema), async (c) => {
     updatedAt: now,
   }
 
-  await teamMcpServers().insertOne(server)
+  try {
+    await teamMcpServers().insertOne(server)
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      throw new AppError(
+        409,
+        'mcp_server_name_taken',
+        'An MCP server with this name already exists.',
+      )
+    }
+    throw err
+  }
 
   return c.json({ mcpServer: view(server) }, 201)
 })
@@ -153,12 +189,45 @@ teamMcpServersRoutes.post('/', zv('json', createSchema), async (c) => {
 teamMcpServersRoutes.patch('/:id', zv('json', updateSchema), async (c) => {
   const { headers, ...rest } = c.req.valid('json')
   const server = await findServer(c.get('teamId'), c.req.param('id'))
-  const nextHeaders = headers ? sealHeaders(server.headers, headers) : undefined
-  const updated = await teamMcpServers().findOneAndUpdate(
-    { _id: server._id, teamId: server.teamId },
-    { $set: { ...rest, ...(nextHeaders ? { headers: nextHeaders } : {}), updatedAt: new Date() } },
-    { returnDocument: 'after' },
-  )
+
+  if (rest.name !== undefined) {
+    await assertNameAvailable(server.teamId, rest.name, server._id)
+  }
+  const urlChanged = rest.url !== undefined && rest.url !== server.url
+  // Changing the URL must never carry over stored secrets to a different destination:
+  // re-entered header values are accepted, omitted values are refused, and omitting
+  // `headers` drops the stored ones.
+  const nextHeaders = urlChanged
+    ? headers
+      ? sealHeaders([], headers)
+      : []
+    : headers
+      ? sealHeaders(server.headers, headers)
+      : undefined
+  let updated: TeamMcpServer | null
+
+  try {
+    updated = await teamMcpServers().findOneAndUpdate(
+      { _id: server._id, teamId: server.teamId },
+      {
+        $set: {
+          ...rest,
+          ...(nextHeaders !== undefined ? { headers: nextHeaders } : {}),
+          updatedAt: new Date(),
+        },
+      },
+      { returnDocument: 'after' },
+    )
+  } catch (err) {
+    if (isDuplicateKeyError(err)) {
+      throw new AppError(
+        409,
+        'mcp_server_name_taken',
+        'An MCP server with this name already exists.',
+      )
+    }
+    throw err
+  }
 
   return c.json({ mcpServer: view(updated ?? server) })
 })

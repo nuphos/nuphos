@@ -31,11 +31,24 @@ export type PreviewSessionAccess = {
 
 type Declaration = { tools: McpToolDeclaration[]; instructions: string }
 
+export type CustomMcpProxyTarget = {
+  /** Backend mount prefix ending in `/mcp-servers` (e.g. `${mount}/mcp-servers`). */
+  baseUrl: string
+  /** Conversation-scoped Authorization header value (`Bearer <token>`). */
+  authorization: string
+}
+
 export type AssembleMcpServersArgs = {
   selectedIds: readonly string[]
   servers: readonly TeamMcpServer[]
   /** Antigravity is the runtime that drops tools past the shared budget with no error. */
   agentRuntime?: string
+  /**
+   * When set, hand the runtime a backend proxy URL and the conversation bearer
+   * instead of the upstream URL and decrypted secrets. Every proxied request
+   * is then authorized live and dialed via `pinnedFetch` on the backend.
+   */
+  proxy?: CustomMcpProxyTarget
   /** Classifies the host the way a dial would. Defaults to `resolvePublicTarget`. */
   checkEgress?: (url: string) => Promise<void>
   /** Reads the server's tool declaration. Defaults to a streamable-HTTP `tools/list`. */
@@ -153,11 +166,13 @@ async function antigravityRoom(
 /**
  * Selected servers as ACP HTTP entries, in selection order.
  *
- * The runtime dials `url` itself. `OUTBOUND_*` applies here, when the URL is handed
- * over: `resolvePublicTarget` refuses a blocked or private host unless
- * `OUTBOUND_ALLOW_PRIVATE_HOSTS` is set, and a refused server is omitted. The runtime's
- * later connection is not pinned. On Antigravity, `tools/list` goes through `pinnedFetch`.
- * Header values are decrypted only into the ACP entry.
+ * `OUTBOUND_*` applies at handoff (`resolvePublicTarget` refuses a blocked or private
+ * host unless `OUTBOUND_ALLOW_PRIVATE_HOSTS` is set, omitting the server with a notice).
+ * When `proxy` is set (always in `previewSessionAccess`), the runtime receives a backend
+ * proxy URL and the conversation bearer rather than the upstream URL and decrypted
+ * headers; the backend injects the decrypted headers and dials the upstream via
+ * `pinnedFetch` on every call (DNS-pinned, redirects blocked). On Antigravity,
+ * `tools/list` also goes through `pinnedFetch`.
  */
 export async function assembleConversationMcpServers(
   args: AssembleMcpServersArgs,
@@ -203,7 +218,20 @@ export async function assembleConversationMcpServers(
       }
       used = room.used
     }
-    servers.push({ name: server.name, type: 'http', url: server.url, headers })
+    if (args.proxy) {
+      const base = args.proxy.baseUrl.endsWith('/')
+        ? args.proxy.baseUrl.slice(0, -1)
+        : args.proxy.baseUrl
+
+      servers.push({
+        name: server.name,
+        type: 'http',
+        url: `${base}/${server._id.toHexString()}`,
+        headers: [{ name: 'Authorization', value: args.proxy.authorization }],
+      })
+    } else {
+      servers.push({ name: server.name, type: 'http', url: server.url, headers })
+    }
   }
   args.log?.(customMcpLogFields(servers, notices))
 
@@ -218,6 +246,7 @@ export async function selectedConversationMcpServers(args: {
   conversationId: string
   teamId: string
   agentRuntime?: string
+  proxy?: CustomMcpProxyTarget
 }): Promise<ConversationMcpServers> {
   const empty: ConversationMcpServers = { servers: [], notices: [] }
   let source: Awaited<ReturnType<typeof credentialSourceOf>>
@@ -248,6 +277,7 @@ export async function selectedConversationMcpServers(args: {
     selectedIds,
     servers: found,
     agentRuntime: args.agentRuntime ?? source.agentRuntime,
+    proxy: args.proxy,
   })
 
   logEvent('info', 'agent.mcp.custom_servers', {

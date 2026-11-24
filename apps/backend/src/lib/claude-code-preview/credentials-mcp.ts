@@ -148,6 +148,10 @@ export async function previewSessionAccess(
           conversationId,
           teamId,
           agentRuntime: options?.agentRuntime,
+          proxy: {
+            baseUrl: `${mount}/mcp-servers`,
+            authorization: `Bearer ${token}`,
+          },
         })
 
   return {

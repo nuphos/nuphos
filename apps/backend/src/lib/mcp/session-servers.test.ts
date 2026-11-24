@@ -258,7 +258,8 @@ describe('assembleConversationMcpServers', () => {
 
     expect(overReserve.servers).toEqual([])
     expect(overReserve.notices[0]).toContain('32768-byte')
-  })})
+  })
+})
 
 describe('selectedConversationMcpServers', () => {
   test('a conversation gets only its selected server, and a task uses its parent', async () => {
@@ -342,7 +343,13 @@ describe('selectedConversationMcpServers', () => {
       'nuphos-tools',
       'Homelab',
     ])
-    expect(access.mcpServers[2]?.headers).toEqual([{ name: 'Authorization', value: SECRET }])
+    // Custom MCP servers are handed to the runtime as backend proxy URLs with the
+    // conversation bearer token; decrypted stored headers never leave the backend.
+    expect(access.mcpServers[2]?.url).toBe(
+      `https://backend.example/agent-sessions/conv-1/teams/team-1/mcp-servers/${chosen._id.toHexString()}`,
+    )
+    expect(access.mcpServers[2]?.headers).toEqual(access.mcpServers[0]?.headers)
+    expect(JSON.stringify(access)).not.toContain(SECRET)
     expect(access.notices).toEqual([])
     expect(JSON.stringify(customMcpLogFields(access.mcpServers, access.notices))).not.toContain(
       SECRET,

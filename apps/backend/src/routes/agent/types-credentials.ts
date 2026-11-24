@@ -217,4 +217,13 @@ export type AgentCredentialOptions = {
     /** Present for a Box (a cloud machine Nuphos made); `ready` once its machine exists, so it can be woken while offline. */
     box?: { ready: boolean }
   }[]
+  /**
+   * Team remote MCP servers this caller may select on a conversation.
+   * Opt-in and administrator-only; non-admins receive no servers (and never URLs).
+   */
+  mcpServers?: {
+    id: string
+    name: string
+    url?: string
+  }[]
 }

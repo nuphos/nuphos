@@ -1,9 +1,9 @@
 // MCP clients fix HTTP headers when they connect, so a bearer-only Nuphos MCP
 // server is run through the stdio bridge, which reads the current token from
 // OPENAB_CREDENTIALS_DIR on every request. Input and output are ACP shapes.
-// Only these two rotate a Nuphos bearer. A team's own server keeps the headers it was
-// given — including a single Bearer — and the agent dials that URL itself. The backend
-// checked OUTBOUND_* before handing the URL over; this process does not.
+// Only these two rotate a Nuphos bearer via the JSON-only stdio bridge. A team's own
+// server is proxied by the backend over `pinnedFetch` (which supports SSE and keeps
+// decrypted headers server-side), so the agent dials the backend proxy URL directly.
 const NUPHOS_MCP_SERVERS = new Set(['nuphos-credentials', 'nuphos-tools'])
 
 export function nuphosBridgeMcpServers(servers, env = process.env, execPath = process.execPath) {

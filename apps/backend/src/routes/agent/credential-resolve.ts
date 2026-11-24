@@ -143,9 +143,13 @@ export function availableCredentialAccess(
     // Any of the user's own devices, online or not; whether one is usable is
     // checked each time a tool uses it.
     deviceIds: keep(selection.deviceIds, options.devices, (device) => device.deviceId),
-    // Not narrowed against credential options: the team MCP catalog is checked when the
-    // session config is built, and an unknown id is omitted there.
-    mcpServerIds: selection.mcpServerIds ?? [],
+    // Validated against the caller's authorized team MCP server catalog (admin-only):
+    // ids from another team or requested by a non-admin are dropped here.
+    mcpServerIds: keep(
+      selection.mcpServerIds?.map((id) => id.toLowerCase()),
+      options.mcpServers ?? [],
+      (server) => server.id.toLowerCase(),
+    ),
     ...(selection.teamIdentity ? { teamIdentity: selection.teamIdentity } : {}),
     ...resolveConnectorCredentialAccess(selection, options),
   }

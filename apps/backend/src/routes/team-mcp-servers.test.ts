@@ -4,6 +4,7 @@ import { Hono } from 'hono'
 import { config } from '@/config'
 import { decryptCustomMcpSecret } from '@/lib/byos/secrets'
 import { errorHandler } from '@/lib/errors'
+import { setupTeamMcpServerIndexes } from '@/lib/mcp/team-servers'
 import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
@@ -16,6 +17,7 @@ process.env.CUSTOM_MCP_BYOK_ENCRYPTION_KEY = 'b'.repeat(64)
 
 type Doc = Record<string, unknown>
 const tables = new Map<string, Doc[]>()
+const createdIndexes: { spec: Doc; options: Doc }[] = []
 const table = (name: string) => {
   const rows = tables.get(name) ?? []
 
@@ -70,6 +72,9 @@ function collection(name: string) {
 
       if (index >= 0) rows.splice(index, 1)
     },
+    createIndex: async (spec: Doc, options: Doc) => {
+      createdIndexes.push({ spec, options })
+    },
   }
 }
 
@@ -123,6 +128,7 @@ async function create(body: unknown = valid): Promise<{ id: string; raw: string 
 
 beforeEach(() => {
   tables.clear()
+  createdIndexes.length = 0
   role = 'ADMINISTRATOR'
   config.byos.outbound.allowPrivateHosts = false
 })
@@ -343,5 +349,97 @@ describe('team MCP server routes', () => {
     expect((await call('DELETE', `/${id}`)).status).toBe(200)
     expect(table('team_mcp_servers')).toHaveLength(1)
     expect(table('team_mcp_servers')[0]).toMatchObject({ teamId: 'team-2' })
+  })
+
+  test('changing url on PATCH drops stored headers or requires new values', async () => {
+    const { id } = await create()
+    const originalHeader = stored().headers[0]!.value
+
+    // Same URL keeps stored headers when omitted or sent without a value.
+    const sameUrl = await call('PATCH', `/${id}`, {
+      url: valid.url,
+      headers: [{ name: 'Authorization' }],
+    })
+
+    expect(sameUrl.status).toBe(200)
+    expect(stored().headers[0]!.value).toEqual(originalHeader)
+
+    // New URL + header without a value is rejected and leaves stored server intact.
+    const missingValue = await call('PATCH', `/${id}`, {
+      url: 'https://other.example.com/mcp',
+      headers: [{ name: 'Authorization' }],
+    })
+
+    expect(missingValue.status).toBe(400)
+    expect(await bodyOf(missingValue)).not.toContain(SECRET)
+    expect(stored().url).toBe(valid.url)
+    expect(stored().headers[0]!.value).toEqual(originalHeader)
+
+    // New URL without headers drops stored headers so secrets are never sent to a new host.
+    const dropped = await call('PATCH', `/${id}`, {
+      url: 'https://other.example.com/mcp',
+    })
+
+    expect(dropped.status).toBe(200)
+    expect(stored().url).toBe('https://other.example.com/mcp')
+    expect(stored().headers).toEqual([])
+
+    // New URL with explicit new header value stores the new secret.
+    const reentered = await call('PATCH', `/${id}`, {
+      url: 'https://third.example.com/mcp',
+      headers: [{ name: 'Authorization', value: 'Bearer fresh-secret' }],
+    })
+
+    expect(reentered.status).toBe(200)
+    expect(stored().url).toBe('https://third.example.com/mcp')
+    expect(decryptCustomMcpSecret(stored().headers[0]!.value)).toBe('Bearer fresh-secret')
+  })
+
+  test.each(['my server', 'a.b', 'a/b', '-leading-dash', '_leading_under', 'foo:bar'])(
+    'rejects invalid server name %s',
+    async (name) => {
+      const res = await call('POST', '', { ...valid, name })
+
+      expect(res.status).toBe(400)
+      expect(await bodyOf(res)).not.toContain(SECRET)
+      expect(table('team_mcp_servers')).toHaveLength(0)
+    },
+  )
+
+  test('enforces case-insensitive unique server names per team and registers unique index', async () => {
+    await setupTeamMcpServerIndexes()
+    expect(createdIndexes).toContainEqual({
+      spec: { teamId: 1, name: 1 },
+      options: {
+        name: 'team_mcp_servers_team_name_unique',
+        unique: true,
+        collation: { locale: 'en', strength: 2 },
+      },
+    })
+
+    const first = await create({ ...valid, name: 'Homelab' })
+    const dupCreate = await call('POST', '', { ...valid, name: 'homelab' })
+
+    expect(dupCreate.status).toBe(409)
+    expect(await bodyOf(dupCreate)).toContain('mcp_server_name_taken')
+
+    // Another team may use the same name.
+    table('team_mcp_servers').push({
+      ...(stored() as unknown as Doc),
+      _id: 'other-team-doc',
+      teamId: 'team-2',
+      name: 'Ops',
+    })
+    const second = await create({ ...valid, name: 'Ops' })
+
+    // Renaming second to collide with first (different case) fails with 409.
+    const dupPatch = await call('PATCH', `/${second.id}`, { name: 'HOMELAB' })
+
+    expect(dupPatch.status).toBe(409)
+
+    // Renaming first to a different casing of its own name succeeds.
+    const selfCase = await call('PATCH', `/${first.id}`, { name: 'homelab' })
+
+    expect(selfCase.status).toBe(200)
   })
 })
