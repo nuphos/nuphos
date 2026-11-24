@@ -3291,7 +3291,6 @@
   "Only {name} can change the plan.": "只有 {name} 可以變更方案。",
   "Only {name} can change this.": "只有 {name} 可以變更此項。",
   "Open": "開啟",
-  "Open Bot": "開啟 Bot",
   "Open Connectors": "開啟連接器",
   "Open IAM in Google Cloud Console": "在 Google Cloud 主控台中開啟 IAM",
   "Open Nuphos at login": "登入時開啟 Nuphos",
