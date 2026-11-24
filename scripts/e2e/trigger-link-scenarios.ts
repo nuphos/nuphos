@@ -1,8 +1,8 @@
 // #4304: a link to another chat shows what it opens, a Task's Runtime icon and title or a
-// Bot's face and name, and reads Open when the sidebar has not listed it.
+// Bot's face and name. (Open, for a chat the sidebar has not listed, is a renderer test: archiving
+// a Task deletes its Triggers, so no Trigger here can run in one.)
 import { join } from 'node:path'
 
-import { archivedTask } from './archive-popover-scenarios.ts'
 import { artifacts } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
@@ -70,11 +70,6 @@ export const triggerLinkScenarios: Scenario[] = [
         agentRuntime: 'claude-code',
       })
       const forBot = await trigger(stack, 'Bot digest', bot.sessionId)
-      const archived = await trigger(
-        stack,
-        'Archived digest',
-        await archivedTask(stack, 'E2E archived metrics'),
-      )
 
       // In the Task it runs in, the card has nowhere else to open.
       const own = await showCard(page, here.id, 'Metrics digest', 'link-card')
@@ -89,12 +84,7 @@ export const triggerLinkScenarios: Scenario[] = [
       await botCard.getByRole('link', { name: 'Metrics Bot', exact: true }).waitFor()
       if ((await botCard.locator('footer img').count()) !== 1)
         throw new Error("The Bot's link does not show its face")
-
-      // An archived Task is not in the sidebar's list: Open.
-      const archivedCard = await showCard(page, archived.id, 'Archived digest', 'link-archived')
-
-      await archivedCard.getByRole('link', { name: 'Open', exact: true }).waitFor()
-      await archivedCard.scrollIntoViewIfNeeded()
+      await botCard.scrollIntoViewIfNeeded()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'trigger-card-links-in-task.png') })
 
