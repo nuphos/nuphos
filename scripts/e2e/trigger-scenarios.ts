@@ -176,14 +176,18 @@ export const triggerScenarios: Scenario[] = [
       )
       // Seconds later, while it runs: each is accepted, not acknowledged and dropped.
       const resolved = await deliver(stack, hook, { state: 'resolved', id: 'hook-resolved' })
-      const again = await deliver(stack, hook, { state: 'firing again', id: 'hook-again' })
+      const again = await deliver(stack, hook, {
+        state: 'firing again',
+        hold: 'E2E_HOLD',
+        id: 'hook-again',
+      })
 
       console.log(`Deliveries: ${JSON.stringify([firing, resolved, again])}`)
       for (const answer of [firing, resolved, again])
         if (answer.status !== 200 || !answer.body.ok)
           throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
-      // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
-      // E2E_HOLD: that turn keeps running too, so its start is what shows it.
+      // Stopped without a reply, the first alert's turn still ends (#4944): the next turn
+      // carries only the later alerts, and the last one holds it so it can be stopped too.
       await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
