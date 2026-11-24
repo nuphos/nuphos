@@ -64,16 +64,35 @@ export async function addComputerToVault(
       'The computer could not make a vault key. Update Nuphos on it, then retry.',
     )
 
-  // A device name is 1 to 64 characters, as `POST /vault/devices` takes it.
-  return deps.addVaultDevice(
-    actorId,
-    (computer.label.trim() || computer.deviceId).slice(0, 64),
-    publicKey,
-    {
-      userId: computer.userId,
-      deviceId: computer.deviceId,
-    },
-  )
+  return deps.addVaultDevice(actorId, deviceName(computer), publicKey, linkOf(computer))
+}
+
+// A device name is 1 to 64 characters, as `POST /vault/devices` takes it.
+const deviceName = (computer: Computer & { label: string }) =>
+  (computer.label.trim() || computer.deviceId).slice(0, 64)
+// Always in this field order: the link is matched as a whole.
+const linkOf = ({ userId, deviceId }: Computer): Computer => ({ userId, deviceId })
+
+/**
+ * A computer that just joined offers its own key to its owner's vault: it made the
+ * key with `nuphos vault keygen`, so only the public key comes here, and it waits for
+ * the owner's approval like any other device. One key per computer, so its device
+ * credential cannot fill the vault with pending devices.
+ */
+export async function offerComputerKey(
+  computer: Computer & { label: string },
+  publicKey: string,
+  deps = {
+    linked: (link: Computer) => devices().findOne({ userId: link.userId, computer: link }),
+    addVaultDevice,
+  },
+) {
+  const linked = await deps.linked(linkOf(computer))
+
+  if (linked && linked.publicKey !== publicKey)
+    throw new AppError(409, 'vault_computer_exists', 'This computer is already in the vault')
+
+  return deps.addVaultDevice(computer.userId, deviceName(computer), publicKey, linkOf(computer))
 }
 
 /**

@@ -15,7 +15,7 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
-import { getVaultItemForComputer } from '@/lib/vault-computer'
+import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
 import { liveDevice } from '@/routes/agent/router'
 
@@ -28,10 +28,36 @@ import type { Context } from 'hono'
 // read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
 
-// A computer added from afar (POST /teams/:teamId/computers/:deviceId/vault) reads an
-// item with its own device credential, and only with the key of the approved device
-// linked to it. Registered before requireAuth, which refuses device credentials.
+// A computer reaches two routes with its own device credential, registered before
+// requireAuth, which refuses one. When it joins, it offers its own key to its
+// owner's vault; once a device linked to it is approved, it reads an item with that
+// device's key only.
+vaultRoutes.post('/computer/devices', (c) => offerKeyFromComputer(c))
 vaultRoutes.get('/computer/items/:name', (c) => readComputerItem(c))
+
+async function computerOf(c: Context, live: typeof liveDevice) {
+  const found = await live(c.req.header('Authorization'))
+
+  if (!found) throw new AppError(401, 'unauthorized', 'Invalid device credential')
+
+  return found.device
+}
+
+/** Separate from the route so its credential check can be tested without a database. */
+export async function offerKeyFromComputer(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; offer: typeof offerComputerKey } = {
+    liveDevice,
+    offer: offerComputerKey,
+  },
+) {
+  const device = await computerOf(c, deps.liveDevice)
+  const body = z.object({ publicKey: x25519Key }).safeParse(await c.req.json().catch(() => null))
+
+  if (!body.success) throw new AppError(400, 'bad_request', 'Invalid public key')
+
+  return c.json({ device: await deps.offer(device, body.data.publicKey) }, 201)
+}
 
 /** Separate from the route so its credential check can be tested without a database. */
 export async function readComputerItem(
@@ -41,10 +67,7 @@ export async function readComputerItem(
     getItem: getVaultItemForComputer,
   },
 ) {
-  const live = await deps.liveDevice(c.req.header('Authorization'))
-
-  if (!live) throw new AppError(401, 'unauthorized', 'Invalid device credential')
-  const { userId, deviceId } = live.device
+  const { userId, deviceId } = await computerOf(c, deps.liveDevice)
 
   return c.json(
     await deps.getItem(

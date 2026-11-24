@@ -2,8 +2,10 @@
 // which opens only its runtime tunnel and is revoked on its own, so a server
 // never has to hold a person's session.
 
+import { execFile } from 'node:child_process'
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { machineModel } from '../device-identity-core.ts'
 
@@ -123,6 +125,8 @@ export async function deviceCredentialFor(options: {
   label: string
   joinToken?: string
   headers: Record<string, string>
+  /** The CLI that makes this computer's vault key once it joins. */
+  vaultCli?: string
 }): Promise<DeviceCredential | null> {
   const store = deviceCredentialStore(options.dataDir)
   const saved = store.read(options.apiUrl)
@@ -158,6 +162,40 @@ export async function deviceCredentialFor(options: {
     process.exit(EXIT_REVOKED)
   }
   store.write(joined)
+  if (options.vaultCli) await offerVaultKey(joined, options.headers, options.vaultCli)
 
   return joined
+}
+
+/**
+ * A computer that just joined offers its own key to its owner's vault (nuphos/nuphos#5016).
+ * `nuphos vault keygen` keeps the private key here and prints only the public key; the
+ * owner approves it on the Vault page after comparing its fingerprint. Best effort:
+ * without the CLI, or before the owner has a vault, Computers > Add to Vault adds it later.
+ */
+export async function offerVaultKey(
+  joined: DeviceCredential,
+  headers: Record<string, string>,
+  cli: string,
+): Promise<void> {
+  try {
+    const { stdout } = await promisify(execFile)(
+      cli,
+      ['vault', 'keygen', '--user', joined.userId],
+      { timeout: 30_000 },
+    )
+    const response = await fetch(`${joined.apiUrl}/vault/computer/devices`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        authorization: `Bearer ${joined.credential}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ publicKey: stdout.trim() }),
+    })
+
+    if (response.ok) console.log('This computer waits for approval on the Vault page.')
+  } catch {
+    // Not offered: Computers > Add to Vault still adds it.
+  }
 }

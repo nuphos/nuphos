@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readdirSync, statSync } from 'node:fs'
+import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -10,6 +10,7 @@ import {
   credentialRevoked,
   deviceCredentialFor,
   deviceCredentialStore,
+  offerVaultKey,
 } from './device-credential.ts'
 
 const API = 'http://backend.test'
@@ -118,4 +119,57 @@ test('only a 401 counts as revoked, not a missing route or an unreachable backen
   assert.equal(await revoked(), false)
   assert.equal(await revoked(), false)
   assert.equal(await revoked(), false)
+})
+
+test('only a fresh join offers a vault key, once', async (t) => {
+  const dataDir = mkdtempSync(path.join(os.tmpdir(), 'device-credential-'))
+  const cli = path.join(dataDir, 'nuphos')
+  const urls: string[] = []
+
+  writeFileSync(cli, '#!/bin/sh\necho PUBLICKEY=\n', { mode: 0o755 })
+  t.mock.method(globalThis, 'fetch', async (url: string) => {
+    urls.push(url)
+
+    return Response.json({ userId: 'u1', deviceId: 'd1', credential: 'nbx_1' }, { status: 201 })
+  })
+  await deviceCredentialFor({ ...options(dataDir, 'nbj_1'), vaultCli: cli })
+  // A later start finds the saved credential still accepted and offers nothing.
+  await deviceCredentialFor({ ...options(dataDir, 'nbj_1'), vaultCli: cli })
+  assert.deepEqual(urls, [
+    `${API}/auth/devices/join`,
+    `${API}/vault/computer/devices`,
+    `${API}/agent/devices/d1/runtime-tunnel`,
+  ])
+})
+
+test('the vault key comes from the CLI on this computer; only its public key is sent', async (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'vault-keygen-'))
+  const cli = path.join(dir, 'nuphos')
+  const requests: { url: string; auth: unknown; body: unknown }[] = []
+
+  writeFileSync(cli, '#!/bin/sh\n[ "$*" = "vault keygen --user u1" ] && echo PUBLICKEY=\n', {
+    mode: 0o755,
+  })
+  t.mock.method(globalThis, 'fetch', async (url: string, init: RequestInit) => {
+    requests.push({
+      url,
+      auth: (init.headers as Record<string, string>).authorization,
+      body: JSON.parse(String(init.body)),
+    })
+
+    return Response.json({ device: {} }, { status: 201 })
+  })
+  const joined = { apiUrl: API, userId: 'u1', deviceId: 'd1', credential: 'nbx_1' }
+
+  await offerVaultKey(joined, {}, cli)
+  assert.deepEqual(requests, [
+    {
+      url: `${API}/vault/computer/devices`,
+      auth: 'Bearer nbx_1',
+      body: { publicKey: 'PUBLICKEY=' },
+    },
+  ])
+  // Without the CLI nothing is sent, and the join still goes on.
+  await offerVaultKey(joined, {}, path.join(dir, 'missing'))
+  assert.equal(requests.length, 1)
 })

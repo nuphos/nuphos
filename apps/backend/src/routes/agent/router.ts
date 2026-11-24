@@ -46,8 +46,8 @@ export async function liveDevice(
 
 /**
  * A device credential opens that device's own runtime tunnel here; its only other
- * use is a vault read (`GET /vault/computer/items/:name`). Every other credential
- * goes through the ordinary session check.
+ * use is its owner's vault (`/vault/computer/...`): offering its key once and reading
+ * an item. Every other credential goes through the ordinary session check.
  */
 export function requireAuthOrDeviceCredential(
   deps = liveDeviceDeps,
