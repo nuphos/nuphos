@@ -8,8 +8,14 @@ import type { Part, ToolPart } from './parts.ts'
 let applyEvent: (parts: Part[], event: Record<string, unknown>) => Part[]
 
 before(async () => {
-  mock.module('./stall.ts', {
-    namedExports: { normalizeAgentError: (text: string) => text, uid: () => 'uid' },
+  // stall.ts stays real: mocking it hid the crash of #4887 from these tests.
+  mock.module('../../../api.ts', { namedExports: { isNetworkError: () => false } })
+  mock.module('../../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
+  mock.module('../../../lib/frontendErrorReporter.ts', {
+    namedExports: { reportFrontendError: () => {} },
+  })
+  mock.module('../../../lib/ownedAgentStreams.ts', {
+    namedExports: { markOwnedAgentStream: () => {} },
   })
   mock.module('./streamText.ts', { namedExports: { appendTextDelta: (parts: Part[]) => parts } })
   ;({ applyEvent } = await import('./applyEvent.ts'))
@@ -341,4 +347,29 @@ test('an artifact card is lifted out of a folded turn to sit under the answer', 
   const parts = [text('Making it.'), tool(), tool('render_artifact'), text('Here it is.')]
 
   assert.deepEqual(foldedTurnLayout(parts, 0, 3), { planIndices: [2], foldHasWork: true })
+})
+
+// #4887: a tool-output-error frame whose errorText was not a string crashed the chat
+// window, and every Reload replayed the same frame into the same crash.
+test('a tool error whose text is not a string marks the call failed instead of throwing', () => {
+  const started = applyEvent([], {
+    type: 'tool-input-available',
+    toolCallId: 'call-1',
+    toolName: 'bash',
+    input: { command: 'cat missing.txt' },
+  })
+
+  for (const errorText of [{ message: 'no such file', code: 2 }, 404, false, ['a', 'b']]) {
+    const [part] = applyEvent(started, {
+      type: 'tool-output-error',
+      toolCallId: 'call-1',
+      errorText,
+    })
+
+    assert.equal(part.type === 'tool' && part.state, 'output-error')
+    assert.equal(part.type === 'tool' && part.errorText, JSON.stringify(errorText))
+  }
+  const [missing] = applyEvent(started, { type: 'tool-output-error', toolCallId: 'call-1' })
+
+  assert.equal(missing.type === 'tool' && missing.errorText, 'Tool error')
 })
