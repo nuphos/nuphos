@@ -74,18 +74,25 @@ export async function lastPausedBy(
 /** A machine using this share of its CPU or memory has none left for its host to answer with. */
 const FULL = 0.95
 
+/** A sample older than this says how the machine was before, not why it does not answer now. */
+const FRESH_MS = 2 * 60_000
+
 /**
- * Whether the machine has run out of CPU or memory, from the latest of the samples instabox
+ * Whether the machine has run out of CPU or memory, from the newest of the samples instabox
  * keeps (about five minutes, taken outside the machine, so they go on while its own tunnel is
- * down). False when it has headroom or there is no sample.
+ * down). False when it has headroom or no sample is fresh: a machine paused after a busy spell
+ * keeps its last full sample.
  */
 export async function machineFull(conn: ConnectionOptions, sandboxId: string): Promise<boolean> {
-  const { metrics } = await instaboxGet<{
-    metrics?: { cpuUsedPct?: number; memUsed?: number; memTotal?: number }[]
+  const { metrics = [] } = await instaboxGet<{
+    metrics?: { timestamp: string; cpuUsedPct?: number; memUsed?: number; memTotal?: number }[]
   }>(conn, `/v1/machines/${encodeURIComponent(sandboxId)}/metrics`)
-  const last = metrics?.at(-1)
+  const last = metrics.reduce<(typeof metrics)[number] | undefined>(
+    (newest, m) => (!newest || Date.parse(m.timestamp) > Date.parse(newest.timestamp) ? m : newest),
+    undefined,
+  )
 
-  if (!last) return false
+  if (!last || Date.now() - Date.parse(last.timestamp) >= FRESH_MS) return false
 
   return (
     (last.cpuUsedPct ?? 0) >= FULL * 100 ||

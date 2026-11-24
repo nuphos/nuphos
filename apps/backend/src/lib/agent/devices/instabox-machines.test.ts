@@ -58,8 +58,8 @@ const sampling = (metrics: unknown[], seen: string[] = []) => ({
 })
 
 const GiB = 1024 ** 3
-const sample = (cpuUsedPct: number, memUsedGiB: number) => ({
-  timestamp: '2026-11-24T00:30:00Z',
+const sample = (cpuUsedPct: number, memUsedGiB: number, secondsAgo = 30) => ({
+  timestamp: new Date(Date.now() - secondsAgo * 1000).toISOString(),
   cpuUsedPct,
   cpuCount: 8,
   memUsed: memUsedGiB * GiB,
@@ -70,7 +70,9 @@ describe('whether a machine has run out of CPU or memory, from its latest instab
   test('is full when both are', async () => {
     const seen: string[] = []
 
-    expect(await machineFull(sampling([sample(50, 12), sample(100, 15.6)], seen), 'm1')).toBe(true)
+    expect(await machineFull(sampling([sample(50, 12, 60), sample(100, 15.6)], seen), 'm1')).toBe(
+      true,
+    )
     expect(seen).toEqual(['https://instabox.test/v1/machines/m1/metrics'])
   })
 
@@ -80,7 +82,16 @@ describe('whether a machine has run out of CPU or memory, from its latest instab
   })
 
   test('is not full when the latest sample has headroom, even after a full one', async () => {
-    expect(await machineFull(sampling([sample(100, 15.8), sample(70, 12.3)]), 'm1')).toBe(false)
+    expect(await machineFull(sampling([sample(100, 15.8, 60), sample(70, 12.3)]), 'm1')).toBe(false)
+  })
+
+  test('goes by the newest sample, whatever order they come in', async () => {
+    expect(await machineFull(sampling([sample(70, 12.3), sample(100, 15.8, 60)]), 'm1')).toBe(false)
+    expect(await machineFull(sampling([sample(100, 15.8), sample(70, 12.3, 60)]), 'm1')).toBe(true)
+  })
+
+  test('is not full when its newest sample is stale: a machine paused after a busy spell', async () => {
+    expect(await machineFull(sampling([sample(100, 15.9, 600)]), 'm1')).toBe(false)
   })
 
   test('is not full without samples', async () => {

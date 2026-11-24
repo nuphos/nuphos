@@ -44,7 +44,7 @@ try {
     id: sandboxId,
     state: 'running',
     operations: [],
-    metrics: [sample(3, 41, 6.2), sample(2, 97, 14.8), sample(1, 100, 15.9)],
+    metrics: [sample(2, 41, 6.2), sample(1, 97, 14.8), sample(0, 100, 15.9)],
   })
   boxRow(stack.mongoUri, {
     userId,
