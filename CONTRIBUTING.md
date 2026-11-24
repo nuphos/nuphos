@@ -183,7 +183,8 @@ Dependabot security updates are the only automated dependency updater. When an
 advisory affects a locked dependency, Dependabot opens a pull request with the
 patched version. `.github/dependabot.yml` only declares the Bun projects, which
 Dependabot would otherwise treat as npm, and sets `open-pull-requests-limit: 0`
-so it opens no routine version updates.
+so it opens no routine version updates. Security updates still cover every
+project with a supported lockfile; routine version updates are made by hand.
 
 Dependabot cannot update a dependency that a parent package pins below the
 patched version, or a crate in a Cargo workspace member; its run then fails
