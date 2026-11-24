@@ -79,7 +79,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a Bot nested under another Bot',
   })
 
   test('stays, with its Tasks, Triggers and home, when the other Bot is archived', async () => {
-    const { sessionIds } = await setConversationArchived(id('lead'), true, { source: 'user', userId: owner })
+    const { sessionIds } = await setConversationArchived(id('lead'), true, {
+      source: 'user',
+      userId: owner,
+    })
 
     await cleanUpArchived(sessionIds)
     expect((await read('lead'))?.archivedAt).toBeDefined()
