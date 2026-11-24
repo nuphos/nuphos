@@ -72,10 +72,10 @@ describe('buildPreviewSystemPrompt', () => {
     expect(prompt).toContain('the kernel kills one process rather than the whole container')
     expect(prompt).toContain('## Credential handling')
     expect(prompt).toContain('`~/.aws/credentials`')
-    // A throwaway checkout goes with the conversation's home when it is archived (#3939).
+    // A throwaway checkout goes with the conversation's home when it is archived (#3939, #4988).
     expect(prompt).toContain('Make a throwaway clone or worktree for this conversation under `~`')
     expect(prompt).toContain(
-      'Never `git clone` or `git worktree add` into the working directory or next to a repository in it (`../<name>`)',
+      'Never `git clone` or `git worktree add` into `/tmp` or any other path outside `~`, into the working directory, or next to a repository in it (`../<name>`)',
     )
     expect(prompt).toContain('## Memory scope')
     expect(prompt).toContain('always pass `scope` explicitly')
