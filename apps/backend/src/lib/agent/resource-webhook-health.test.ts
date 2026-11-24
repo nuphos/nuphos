@@ -64,7 +64,10 @@ useGithubHttp({
       return Response.json({ token: 'test-token', expires_at: '2099-01-01T00:00:00Z' })
     if (url.includes('/check-runs'))
       return Response.json({
-        check_runs: [{ conclusion: 'success' }, { conclusion: checkConclusion }],
+        check_runs: [
+          { id: 1, name: 'build', status: 'completed', conclusion: 'success' },
+          { id: 2, name: 'test', status: 'completed', conclusion: checkConclusion },
+        ],
       })
     if (url.endsWith('/status')) return Response.json({ state: 'pending', total_count: 0 })
     if (url.includes('/reviews'))
