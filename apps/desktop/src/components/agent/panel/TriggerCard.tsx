@@ -1,9 +1,8 @@
 import clsx from 'clsx'
-import { AlarmClock, ArrowUpRight } from 'lucide-react'
+import { AlarmClock } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../../api'
-import { useOpenChatLabel } from '../../../hooks/useOpenChatLabel'
 import { t } from '../../../i18n'
 import { scheduleSummary } from '../../../views/triggers/cron'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
@@ -11,6 +10,7 @@ import { ConfirmDialog } from '../../ConfirmDialog'
 import { Switch } from '../../ui/Switch'
 import { toast } from '../../ui/toast'
 import { ChatLink } from '../MessageResponse'
+import { SessionLinkLabel } from '../SessionLinkLabel'
 
 import { NextRuns } from './TriggerCardBody'
 import { triggerCardInfo } from './triggerCards'
@@ -56,10 +56,13 @@ function Placeholder({ missing }: { missing: boolean }) {
 export function TriggerCard({
   part,
   teamId,
+  sessionId,
   onOpen,
 }: {
   part: ToolPart
   teamId?: string
+  /** The chat the card is shown in: a Trigger that runs here has nowhere else to open. */
+  sessionId?: string
   onOpen?: OpenLink
 }) {
   const info = triggerCardInfo(part)
@@ -67,7 +70,6 @@ export function TriggerCard({
   const [busy, setBusy] = useState(false)
   // The transcript is shared, so turning a live trigger on or off asks first.
   const [switching, setSwitching] = useState<boolean | null>(null)
-  const openLabel = useOpenChatLabel(teamId, trigger?.targetSessionId)
 
   if (!info) return null
   if (!trigger) return <Placeholder missing={missing} />
@@ -143,18 +145,17 @@ export function TriggerCard({
       <div className="border-t border-line-control px-3.5 py-2.5">
         <NextRuns trigger={trigger} />
       </div>
-      <footer className="flex items-center justify-end gap-1 border-t border-line-control px-2 py-1.5">
-        {teamId && trigger.targetSessionId && (
+      {teamId && trigger.targetSessionId && trigger.targetSessionId !== sessionId && (
+        <footer className="flex items-center justify-end gap-1 border-t border-line-control px-2 py-1.5">
           <ChatLink
             link={`/teams/${teamId}/agent/${trigger.targetSessionId}`}
             onLinkClick={onOpen}
-            className="inline-flex h-8 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline hover:bg-state-hover"
+            className="inline-flex h-8 min-w-0 max-w-full items-center gap-2 rounded-md px-2.5 text-[13px] font-medium text-secondary no-underline hover:bg-state-hover"
           >
-            {openLabel}
-            <ArrowUpRight aria-hidden className="size-3.5" />
+            <SessionLinkLabel teamId={teamId} sessionId={trigger.targetSessionId} />
           </ChatLink>
-        )}
-      </footer>
+        </footer>
+      )}
     </section>
   )
 }
