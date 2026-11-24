@@ -128,49 +128,10 @@ struct ChannelView: View {
             .keepsNavigationBar()
             #endif
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Button(action: openDetails) {
-                        HStack(spacing: 8) {
-                            ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(channel.title)
-                                    .font(Theme.Text.label.weight(.semibold))
-                                    .foregroundStyle(Theme.heading)
-                                    .lineLimit(1)
-                                if let state {
-                                    Text(state.text)
-                                        .font(.caption2)
-                                        .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
-                                        .lineLimit(1)
-                                }
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(channel.botId == nil && channel.agents.isEmpty)
-                    .accessibilityIdentifier("bot-details-entry")
-                }
-                // One tap to the Bot's own Task, where its runtime and model are switched.
-                if let bot = channel.botId, canOpenTask {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            open(bot, title: channel.title)
-                        } label: {
-                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
-                        }
-                        .accessibilityIdentifier("chat.botTask")
-                    }
-                }
-                if let bot = desktopBot {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
-                        } label: {
-                            LucideIcon("monitor")
-                        }
-                        .accessibilityLabel("Desktop")
-                        .accessibilityIdentifier("chat.desktop")
-                    }
+                ToolbarItem(placement: .principal) { header }
+                    .sharedBackgroundHidden()
+                if (channel.botId != nil && canOpenTask) || desktopBot != nil {
+                    ToolbarItem(placement: .topBarTrailing) { more }
                 }
             }
             .task(id: channel.botId) {
@@ -239,6 +200,53 @@ struct ChannelView: View {
                 channel.send(ComposerSubmission(text: args[i + 1], attachments: []))
             }
             #endif
+    }
+
+    /// The chat's face and name on a floating capsule: a Bot's opens its
+    /// details, a group chat's lists its Bots.
+    private var header: some View {
+        Button(action: openDetails) {
+            HStack(spacing: 8) {
+                ChatIcon(faces: channel.faces, title: channel.title, size: 32)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(channel.title)
+                        .font(Theme.Text.label.weight(.semibold))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    if let state {
+                        Text(state.text)
+                            .font(.caption2)
+                            .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.leading, 6)
+            .padding(.trailing, 16)
+            .frame(height: 44)
+            .glass(interactive: true, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(channel.botId == nil && channel.agents.isEmpty)
+        .accessibilityIdentifier("bot-details-entry")
+    }
+
+    /// The Bot's Task, where its runtime and model are switched, and its desktop.
+    private var more: some View {
+        Menu {
+            if let bot = channel.botId, canOpenTask {
+                Button { open(bot, title: channel.title) } label: { Label("Task", image: "lucide-clipboard-list") }
+            }
+            if let bot = desktopBot {
+                Button {
+                    desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
+                } label: { Label("Desktop", image: "lucide-monitor") }
+            }
+        } label: {
+            Label("More", image: "lucide-ellipsis")
+        }
+        .accessibilityIdentifier("chat.more")
     }
 
     @ViewBuilder
@@ -330,10 +338,10 @@ struct ChannelView: View {
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
                        composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
-                       animatesArrivals: true, jump: jump, swipeAction: replyAction) { row in
+                       animatesArrivals: true, softTopEdge: true, jump: jump, swipeAction: replyAction) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, channel.botId == nil ? 12 : 16)
                 .readableWidth())
         }
         .ignoresSafeArea(.all, edges: .bottom)
@@ -360,7 +368,8 @@ struct ChannelView: View {
             case .time(let date):
                 TimestampLabel(date: date)
             case .post(let post, let first):
-                ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
+                // A Bot's 1:1 chat names nobody: the header already says who answers.
+                ChannelPostRow(post: post, first: first && post.senderId != channel.botId, mine: post.isMine(viewerId: channel.viewerId),
                                attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
                                onLink: open(link:),
                                flashed: flashed == post.id,

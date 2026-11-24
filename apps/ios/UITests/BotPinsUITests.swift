@@ -113,8 +113,11 @@ final class BotPinsUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
-        let entry = app.navigationBars.buttons["chat.botTask"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's header has no Task button")
+        let more = app.buttons["chat.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot chat's header has no More button")
+        more.tap()
+        let entry = app.buttons["Task"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's More has no Task")
         shot("bot-header-task")
         entry.tap()
         XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The header's Task button did not open the Bot's Task")
