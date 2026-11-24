@@ -84,6 +84,7 @@ enum WorkspaceAPI {
         ]))
         guard intent.files.count == files.count else { throw NuphosAPI.Failure.invalidResponse }
         progress.totalUnitCount = Int64(files.reduce(0) { $0 + $1.size })
+        var sent: Int64 = 0
         for item in intent.files {
             guard let index = files.firstIndex(where: { $0.relPath == item.relPath }), let url = URL(string: item.uploadUrl), url.scheme == "https" else { throw NuphosAPI.Failure.invalidResponse }
             var request = URLRequest(url: url)
@@ -92,7 +93,7 @@ enum WorkspaceAPI {
             request.setValue(files[index].type, forHTTPHeaderField: "Content-Type")
             // Presigned storage requests never receive the Nuphos bearer token.
             let response: URLResponse
-            let tracker = UploadProgress(parent: progress, units: Int64(files[index].size))
+            let tracker = UploadProgress(progress: progress, offset: sent)
             switch attachments[index].kind {
             case .image(let data): (_, response) = try await URLSession.shared.upload(for: request, from: data, delegate: tracker)
             case .file(let file): (_, response) = try await URLSession.shared.upload(for: request, fromFile: file, delegate: tracker)
@@ -100,6 +101,7 @@ enum WorkspaceAPI {
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(files[index].name). Your message has not been sent; try again.")
             }
+            sent += Int64(files[index].size)
         }
         let ready: Ready = try await request(path + "/\(intent.groupId)/finalize", token: token, method: "POST")
         guard ready.status == "ready" else { throw NuphosAPI.Failure.http(409, message: "Files are not ready yet. Please retry.") }
@@ -107,15 +109,20 @@ enum WorkspaceAPI {
     }
 }
 
-/// Counts one upload's sent bytes into the message's overall progress.
+/// Counts one upload's sent bytes into the message's overall progress, after
+/// the files already sent. It writes the count itself: a child Progress only
+/// raises its parent's completedUnitCount once the child finishes, so the
+/// bubble would read "Uploading Zero kB" for the whole of a single file.
 private nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let progress: Progress
+    let offset: Int64
 
-    init(parent: Progress, units: Int64) {
-        progress = Progress(totalUnitCount: units, parent: parent, pendingUnitCount: units)
+    init(progress: Progress, offset: Int64) {
+        self.progress = progress
+        self.offset = offset
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didSendBodyData bytesSent: Int64, totalBytesSent: Int64, totalBytesExpectedToSend: Int64) {
-        progress.completedUnitCount = totalBytesSent
+        progress.completedUnitCount = offset + totalBytesSent
     }
 }
