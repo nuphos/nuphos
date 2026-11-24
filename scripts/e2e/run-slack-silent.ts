@@ -28,24 +28,16 @@ try {
       env: { E2E_PUSH_CAPTURE: capture },
     },
   })
-  const request = async (method: string, path: string, body?: object) => {
+  const api = async <T = unknown>(method: string, path: string, body?: object): Promise<T> => {
     const response = await fetch(stack.apiUrl + path, {
       method,
       headers: { authorization: `Bearer ${stack.token}`, 'content-type': 'application/json' },
       ...(body ? { body: JSON.stringify({ teamId: stack.teamId, ...body }) } : {}),
     })
 
-    return { status: response.status, body: (await response.json().catch(() => null)) as never }
-  }
-  const ok = async (method: string, path: string, body?: object) => {
-    const answer = await request(method, path, body)
+    assert(response.ok, `${method} ${path}: ${response.status} ${await response.clone().text()}`)
 
-    assert(
-      answer.status < 300,
-      `${method} ${path}: ${answer.status} ${JSON.stringify(answer.body)}`,
-    )
-
-    return answer.body
+    return (await response.json()) as T
   }
   const { MongoClient, ObjectId } = await import(
     resolve(import.meta.dirname, '../../apps/backend/node_modules/mongodb/lib/index.js')
@@ -73,22 +65,25 @@ try {
     },
     { upsert: true },
   )
-  const bot = await ok('POST', '/agent/bots', { title: 'E2E Bot', avatar: '02-leonardo' })
-  const { mapping } = await ok('PUT', '/slack/mappings', {
+  const bot = await api<{ sessionId: string }>('POST', '/agent/bots', {
+    title: 'E2E Bot',
+    avatar: '02-leonardo',
+  })
+  const { mapping } = await api<{ mapping: { externalChatId: string } }>('PUT', '/slack/mappings', {
     slackWorkspaceId: WORKSPACE,
     slackChannelId: CHANNEL,
   })
   const chatId: string = mapping.externalChatId
 
-  await ok('POST', `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`, { botSessionId: bot.sessionId })
-  await ok('PUT', '/push/devices', {
+  await api('POST', `/slack/mappings/${WORKSPACE}/${CHANNEL}/bots`, { botSessionId: bot.sessionId })
+  await api('PUT', '/push/devices', {
     token: 'ab'.repeat(32),
     deviceId: 'e2e-phone',
     platform: 'ios',
     environment: 'sandbox',
   })
   // As the startup backfill before #4936 left it: the connecting admin watching it.
-  const me = (await ok('GET', '/auth/me')).id as string
+  const me = (await api<{ id: string }>('GET', '/auth/me')).id
 
   await db
     .collection('agent_conversations')
@@ -129,8 +124,8 @@ try {
   const chatPushes = pushes()
     .slice(before)
     .filter((push) => JSON.stringify(push).includes(chatId))
-  const unread = await ok('GET', `/agent/unread-count?teamId=${stack.teamId}`)
-  const listed = await ok(
+  const unread = await api<{ count: number }>('GET', `/agent/unread-count?teamId=${stack.teamId}`)
+  const listed = await api<{ conversations: { sessionId: string }[] }>(
     'GET',
     `/agent/conversations?teamId=${stack.teamId}&scope=team&kind=channel`,
   )
@@ -140,7 +135,7 @@ try {
     watcherIdsAfterRestart: record?.watcherIds ?? null,
     chatPushes,
     unread,
-    listed: listed.conversations.some((row: { sessionId: string }) => row.sessionId === chatId),
+    listed: listed.conversations.some((row) => row.sessionId === chatId),
   }
 
   writeFileSync(join(artifacts, 'slack-silent.json'), JSON.stringify(evidence, null, 2))
