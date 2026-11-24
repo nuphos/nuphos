@@ -109,6 +109,10 @@ type OtlpBody = {
   }[]
 }
 
+function service(resource?: OtlpResource): string | undefined {
+  return resource?.attributes?.find((a) => a.key === 'service.name')?.value.stringValue
+}
+
 test('the backend telemetry exports traces, metrics and logs to an OTLP collector', async () => {
   const bodies = new Map<string, OtlpBody[]>()
   const collector = await listen((req, res) => {
@@ -132,7 +136,7 @@ test('the backend telemetry exports traces, metrics and logs to an OTLP collecto
     [
       process.execPath,
       '-e',
-      `const { setupTelemetry } = await import(${JSON.stringify(`${import.meta.dir}/index.ts`)})
+      `const { setupTelemetry } = await import(${JSON.stringify(new URL('index.ts', import.meta.url).href)})
       const { logs } = await import('@opentelemetry/api-logs')
       const { shutdown } = await setupTelemetry()
       await fetch('http://127.0.0.1:${String(upstream)}/ping')
@@ -158,8 +162,6 @@ test('the backend telemetry exports traces, metrics and logs to an OTLP collecto
   const traces = bodies.get('/v1/traces')?.flatMap((b) => b.resourceSpans ?? []) ?? []
   const metrics = bodies.get('/v1/metrics')?.flatMap((b) => b.resourceMetrics ?? []) ?? []
   const logRecords = bodies.get('/v1/logs')?.flatMap((b) => b.resourceLogs ?? []) ?? []
-  const service = (resource?: OtlpResource) =>
-    resource?.attributes?.find((a) => a.key === 'service.name')?.value.stringValue
 
   expect(traces.map((r) => service(r.resource))).toContain('otel-export-test')
   expect(
