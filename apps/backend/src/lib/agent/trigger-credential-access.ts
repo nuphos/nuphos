@@ -80,6 +80,8 @@ export function credentialScopeCoversAll(
   scope: AgentCredentialAccess,
   current: AgentCredentialAccess,
 ): boolean {
+  if ((scope.mcpServerIds?.length ?? 0) > 0) return false
+
   return CREDENTIAL_ARRAY_KEYS.every((key) => {
     const currentValues = current[key] ?? []
 
@@ -130,6 +132,9 @@ export function intersectTriggerCredentialAccess(
       (value) => currentValues.has(value),
     )
   }
+  // Not one of the catalog keys: `current` does not enumerate MCP servers, and a
+  // selected trigger keeps the ids the user ticked. Injection drops one the team no longer has.
+  if (approved.mcpServerIds) result.mcpServerIds = [...approved.mcpServerIds]
 
   return result
 }

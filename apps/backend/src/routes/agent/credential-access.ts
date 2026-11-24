@@ -47,6 +47,9 @@ export function allCredentialAccessFromOptions(
     deviceIds: options.devices
       .filter((device) => device.available)
       .map((device) => device.deviceId),
+    // Custom remote MCP servers are opt-in and carry team secrets: never included in
+    // defaults or select-all.
+    mcpServerIds: [],
     ...(selectAll
       ? {
           githubInstallationIds: options.githubInstallations.map((entry) => entry.installationId),
@@ -87,7 +90,7 @@ export async function resolveTriggerCredentialAccess(
 
 /**
  * What a new Bot may use: everything its owner may use right now, as Desktop's new chat
- * selects it. Sending mail (Resend) and Trello stay opt-in.
+ * selects it. Sending mail (Resend), Trello, and custom MCP servers stay opt-in.
  */
 export async function defaultCredentialAccess(
   teamId: string,
@@ -143,7 +146,8 @@ export function hasCredentialOptions(options: AgentCredentialOptions): boolean {
       options.upstashAccounts.length +
       options.cloudflareAccounts.length +
       options.instaboxAccounts.length +
-      options.devices.length >
+      options.devices.length +
+      (options.mcpServers?.length ?? 0) >
     0
   )
 }
@@ -184,7 +188,8 @@ export function isEmptyCredentialAccess(access: AgentCredentialAccess | undefine
       (access.upstashAccountIds?.length ?? 0) +
       (access.cloudflareAccountIds?.length ?? 0) +
       (access.instaboxAccountIds?.length ?? 0) +
-      (access.deviceIds?.length ?? 0) ===
+      (access.deviceIds?.length ?? 0) +
+      (access.mcpServerIds?.length ?? 0) ===
     0
   )
 }
@@ -199,6 +204,7 @@ export function credentialAccessResponse(access: AgentCredentialAccess) {
     posthogIntegrationIds: access.posthogIntegrationIds ?? [],
     plaudAccountIds: access.plaudAccountIds ?? [],
     deviceIds: access.deviceIds ?? [],
+    mcpServerIds: access.mcpServerIds ?? [],
     updatedAt: access.updatedAt.toISOString(),
   }
 }

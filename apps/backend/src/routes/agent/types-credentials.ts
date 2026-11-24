@@ -34,6 +34,8 @@ export type AgentCredentialSelection = {
   cloudflareAccountIds?: string[]
   instaboxAccountIds?: string[]
   deviceIds?: string[]
+  /** Team remote MCP servers enabled for this conversation. Absent or empty means none. */
+  mcpServerIds?: string[]
   teamIdentity?: ('github' | 'linear')[]
   /** The owner's own Personal Credentials this conversation may use, without a team binding. */
   personalCredentialIds?: PersonalCredentialProvider[]
@@ -214,5 +216,14 @@ export type AgentCredentialOptions = {
     available: boolean
     /** Present for a Box (a cloud machine Nuphos made); `ready` once its machine exists, so it can be woken while offline. */
     box?: { ready: boolean }
+  }[]
+  /**
+   * Team remote MCP servers this caller may select on a conversation.
+   * Opt-in and administrator-only; non-admins receive no servers (and never URLs).
+   */
+  mcpServers?: {
+    id: string
+    name: string
+    url?: string
   }[]
 }

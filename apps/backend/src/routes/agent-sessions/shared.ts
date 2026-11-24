@@ -253,6 +253,7 @@ export function normalizeCredentialAccess(
         (PERSONAL_CREDENTIAL_PROVIDERS as readonly string[]).includes(id),
     ),
     deviceIds: credentialIds(access?.deviceIds),
+    mcpServerIds: credentialIds(access?.mcpServerIds),
   }
 }
 

@@ -1,5 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 
+import {
+  allCredentialAccessFromOptions,
+  defaultCredentialAccessFromOptions,
+} from './credential-access'
 import { emptyConnectorCredentialOptions } from './credential-options-connectors'
 import { availableCredentialAccess, withOmittedKeysFromStored } from './credential-resolve'
 import { normalizeCredentialSelection } from './team-scope'
@@ -62,6 +66,9 @@ function credentialOptions(): AgentCredentialOptions {
     devices: [
       { deviceId: 'device-1', label: 'MacBook', platform: 'darwin', available: true },
       { deviceId: 'device-asleep', label: 'Asleep', platform: 'darwin', available: false },
+    ],
+    mcpServers: [
+      { id: '66b11a4bd267393baaa22222', name: 'homelab', url: 'https://mcp.example.com/mcp' },
     ],
     ...emptyConnectorCredentialOptions(),
   }
@@ -131,6 +138,31 @@ describe('availableCredentialAccess', () => {
       availableCredentialAccess({ deviceIds: ['someone-elses-device'] }, offered).deviceIds,
     ).toEqual([])
   })
+
+  test('authorizes mcpServerIds against the caller options (drops foreign-team and non-admin ids)', () => {
+    const adminOptions = credentialOptions()
+    const ownId = '66b11a4bd267393baaa22222'
+    const foreignId = '66b11a4bd267393baaa99999'
+
+    // Admin selecting own team server and an id from another team keeps only own team's id.
+    expect(
+      availableCredentialAccess({ mcpServerIds: [ownId, foreignId] }, adminOptions).mcpServerIds,
+    ).toEqual([ownId])
+
+    // Non-admin receives no MCP server options and cannot select any server.
+    const nonAdminOptions = { ...adminOptions, mcpServers: [] }
+
+    expect(
+      availableCredentialAccess({ mcpServerIds: [ownId] }, nonAdminOptions).mcpServerIds,
+    ).toEqual([])
+  })
+
+  test('excludes custom MCP servers from select-all and default credential access', () => {
+    const offered = credentialOptions()
+
+    expect(allCredentialAccessFromOptions(offered, 'u1', true).mcpServerIds).toEqual([])
+    expect(defaultCredentialAccessFromOptions(offered, 'u1').mcpServerIds).toEqual([])
+  })
 })
 
 describe('withOmittedKeysFromStored', () => {
@@ -148,6 +180,7 @@ describe('withOmittedKeysFromStored', () => {
     jiraSiteIds: [],
     asanaAccountIds: [],
     deviceIds: ['device-1'],
+    mcpServerIds: ['66b11a4bd267393baaa22222'],
     updatedAt: new Date(),
     updatedBy: 'u1',
   }
@@ -161,6 +194,7 @@ describe('withOmittedKeysFromStored', () => {
     const access = resolve({ awsRoleIds: [] })
 
     expect(access.deviceIds).toEqual(['device-1'])
+    expect(access.mcpServerIds).toEqual(['66b11a4bd267393baaa22222'])
     expect(access.awsRoleIds).toEqual([])
   })
 

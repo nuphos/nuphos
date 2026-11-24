@@ -63,8 +63,8 @@ import { slackInstallationsRoutes } from '@/routes/slack-installations'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
 import { teamConnectorsRoutes } from '@/routes/team-connectors'
+import { registerTeamRemoteEndpointRoutes } from '@/routes/team-remote-endpoints'
 import { teamSkillsRoutes } from '@/routes/team-skills'
-import { teamWebhooksRoutes } from '@/routes/team-webhooks'
 import { registerAgentRuntimeRoutes } from '@/routes/teams/agent-runtimes'
 import {
   registerClaudeCodeRuntimeRoutes,
@@ -250,7 +250,7 @@ teamScoped.route('/volcengine-accounts', volcengineAccountsRoutes)
 teamScoped.route('/azure-accounts', azureAccountsRoutes)
 teamScoped.route('/huawei-accounts', huaweiAccountsRoutes)
 teamScoped.route('/grafana-instances', grafanaInstancesRoutes)
-teamScoped.route('/webhooks', teamWebhooksRoutes)
+registerTeamRemoteEndpointRoutes(teamScoped)
 teamScoped.route('/architecture-diagrams', architectureDiagramsRoutes)
 teamScoped.route('/designs', designsRoutes)
 teamScoped.route('/dashboards', nuphosDashboardsRoutes)

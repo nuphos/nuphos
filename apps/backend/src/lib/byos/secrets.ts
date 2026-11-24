@@ -36,6 +36,12 @@ export const sealers = {
     keyId: () => config.byos.cloudflare.encryptionKeyId,
     recovery: "Re-bind the Cloudflare account so it's encrypted with the current key.",
   }),
+  customMcp: createSealer({
+    subject: 'custom MCP headers',
+    keyEnvs: byok('CUSTOM_MCP_BYOK_ENCRYPTION_KEY'),
+    keyId: () => config.byos.customMcp.encryptionKeyId,
+    recovery: 'Re-enter the MCP server headers.',
+  }),
   github: createSealer({
     subject: 'GitHub user token',
     keyEnvs: ['GITHUB_TOKEN_ENCRYPTION_KEY'],
@@ -196,6 +202,7 @@ export type SealerName = keyof typeof sealers
 export const { seal: encryptAsanaSecret, open: decryptAsanaSecret } = sealers.asana
 export const { seal: encryptBetterStackToken, open: decryptBetterStackToken } = sealers.betterStack
 export const { seal: encryptCloudflareApiKey, open: decryptCloudflareApiKey } = sealers.cloudflare
+export const { seal: encryptCustomMcpSecret, open: decryptCustomMcpSecret } = sealers.customMcp
 export const { seal: encryptGithubSecret, open: decryptGithubSecret } = sealers.github
 export const { seal: encryptGitlabSecret, open: decryptGitlabSecret } = sealers.gitlab
 export const { seal: encryptGrafanaSecret, open: decryptGrafanaSecret } = sealers.grafana

@@ -59,6 +59,12 @@ export function blockedUrlReason(raw: string): string | null {
     return 'URL must be http:// or https://'
   }
   if (config.byos.outbound.allowPrivateHosts) return null
+
+  return privateHostReason(url)
+}
+
+/** Why a host is private, from the URL alone. Null when it is a public name or address. */
+export function privateHostReason(url: URL): string | null {
   const host = bareHostname(url)
 
   if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local')) {

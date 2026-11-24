@@ -179,6 +179,7 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
       posthogIntegrationIds: [],
       plaudAccountIds: [],
       deviceIds: [],
+      mcpServerIds: [],
     }
   }
   const raw = input as Record<string, unknown>
@@ -221,6 +222,8 @@ export function normalizeCredentialSelection(input: unknown): AgentCredentialSel
     ),
     plaudAccountIds: normalizeObjectIdList(raw.plaudAccountIds, 'plaudAccountIds'),
     deviceIds: normalizeStringList(raw.deviceIds, 'deviceIds'),
+    // Opt-in. Absent and [] both select nothing; this is not a team-wide connector.
+    mcpServerIds: normalizeObjectIdList(raw.mcpServerIds, 'mcpServerIds'),
     // Absent stays absent for these: undefined is team-wide reach, unlike an explicit empty list.
     githubInstallationIds: normalizeOptionalStringList(
       raw.githubInstallationIds,
