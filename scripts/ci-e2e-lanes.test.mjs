@@ -29,5 +29,8 @@ test('e2e on a push to main has a group of its own', () => {
 
 // The merge queue skips e2e, so a merge that lands right after must not cancel main's run.
 test('a push to main does not cancel the run on main before it', () => {
-  assert.match(ci, /^concurrency:\n(?: {2}.*\n)*? {2}cancel-in-progress: \$\{\{ github\.event_name != 'push' \}\}$/mu)
+  assert.match(
+    ci,
+    /^concurrency:\n(?: {2}.*\n)*? {2}cancel-in-progress: \$\{\{ github\.event_name != 'push' \}\}$/mu,
+  )
 })
