@@ -70,7 +70,7 @@ export function fixtureBundle(stack: Stack, name = 'tunnel', release = RELEASE):
 }
 
 /** Adds Claude Code to `label` as a person does (the installer is the fixture's), and starts a Task there. */
-async function newTaskOn(page: Page, label: string) {
+export async function newTaskOn(page: Page, label: string) {
   await openComputers(page)
   await page.getByRole('button', { name: `New runtime on ${label}` }).click()
   await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click()

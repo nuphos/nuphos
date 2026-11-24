@@ -7,7 +7,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { agentNameTaken, defaultAgentName } from './boxPresentation'
 import { RuntimeLoginBody } from './RuntimeLoginBody'
@@ -58,7 +58,7 @@ export function BoxAgentSetup({
   agents: RuntimeInstance[]
   onDone: (runtimeId: string | null) => void
 }) {
-  const { label, account } = AGENT_PROVIDER[provider]
+  const { label, account } = agentProvider(provider)
   const [name, setName] = useState(() => defaultAgentName(agents, provider))
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<DeviceAgentInstance | null>(null)

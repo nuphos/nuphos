@@ -8,7 +8,8 @@ export const QUESTION_MAX_CHARS = 120
 /** The cards that explain themselves: the Connect card and the secure input card. */
 const SELF_EXPLAINING = new Set(['credential', 'integration'])
 
-export const questionField = z
+// Undescribed in a card's `questions`, which says what each one is.
+const question = z
   .string()
   .trim()
   .min(1)
@@ -16,9 +17,10 @@ export const questionField = z
     QUESTION_MAX_CHARS,
     `Keep the question to one short line (at most ${String(QUESTION_MAX_CHARS)} characters) and put the details in \`body\`.`,
   )
-  .describe(
-    `One short question in the user's language, shown as the card's one-line title; at most ${String(QUESTION_MAX_CHARS)} characters. Details go in \`body\`.`,
-  )
+
+export const questionField = question.describe(
+  `One short question in the user's language, shown as the card's one-line title; at most ${String(QUESTION_MAX_CHARS)} characters. Details go in \`body\`.`,
+)
 export const bodyField = z
   .string()
   .trim()
@@ -27,19 +29,19 @@ export const bodyField = z
   .describe(
     'Markdown the user decides from: the relevant findings, what each choice does, and its risk.',
   )
-export const optionsField = z
-  .array(z.string().trim().min(1).max(300))
-  .min(2)
-  .max(5)
-  .describe('Two to five concrete choices when the decision has a finite menu.')
+const options = z.array(z.string().trim().min(1).max(300)).min(2).max(5)
+
+export const optionsField = options.describe(
+  'Two to five concrete choices when the decision has a finite menu.',
+)
 export const multiSelectField = z
   .boolean()
   .describe('The user may pick any number of the options, not just one.')
 const subQuestionField = z
   .object({
-    question: questionField,
-    options: optionsField.optional(),
-    multiSelect: multiSelectField.optional(),
+    question,
+    options: options.optional(),
+    multiSelect: z.boolean().optional(),
   })
   .strict()
 

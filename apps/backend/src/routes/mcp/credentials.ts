@@ -8,6 +8,7 @@ import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { resolveAgentCredentialAccess } from '@/routes/agent'
+import { expandAllCredentialAccess } from '@/routes/agent/credential-access'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { ToolResult } from '@/lib/mcp/protocol'
@@ -100,7 +101,9 @@ export async function nuphosListCredentials(
     const { credentialAccess } = await credentialSource(conversation)
 
     // No stored allowlist means the next run defaults to everything listed.
-    enabled = credentialAccess ? credentialAccessPayload(credentialAccess) : undefined
+    enabled = credentialAccess
+      ? credentialAccessPayload(expandAllCredentialAccess(credentialAccess, options))
+      : undefined
   }
 
   return toolResult({
@@ -178,9 +181,13 @@ export async function nuphosUpdateCredentials(
     })
     // Write only what this tool names; the rest of the selection is not read
     // back and rewritten, so an edit made meanwhile in the picker survives.
-    const fields = Object.fromEntries(
-      Object.keys(named).map((key) => [key, access[key as keyof typeof access]]),
-    )
+    const fields = {
+      ...Object.fromEntries(
+        Object.keys(named).map((key) => [key, access[key as keyof typeof access]]),
+      ),
+      // Naming credentials narrows the selection, so it no longer follows "All".
+      allCredentials: false,
+    }
     const updated = await setConversationCredentialFields(
       source.sessionId,
       ctx.userId,

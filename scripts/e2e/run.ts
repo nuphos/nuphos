@@ -86,6 +86,7 @@ import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
+import { slowPsScenarios } from './slow-ps-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
@@ -225,6 +226,7 @@ const later: Scenario[] = [
   ...modelRecoveryScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  ...slowPsScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
   ...proxyScenarios,
   ...terminalScenarios,

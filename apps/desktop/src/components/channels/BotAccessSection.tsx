@@ -47,12 +47,16 @@ export function BotAccessSection({
           <SummaryRow
             icon={<Shield className="size-3.5" strokeWidth={1.8} />}
             label={t('Credentials')}
-            note={countSelectedCredentials(credentials.value, credentials.options)}
+            note={
+              credentials.value.allCredentials
+                ? t('All')
+                : countSelectedCredentials(credentials.value, credentials.options)
+            }
           />
           <SummaryRow
             icon={<Laptop className="size-3.5" strokeWidth={1.8} />}
             label={t('Computers')}
-            note={credentials.value.deviceIds.length}
+            note={credentials.value.allDevices ? t('All') : credentials.value.deviceIds.length}
           />
           {bypassControl?.active !== undefined && (
             <SummaryRow

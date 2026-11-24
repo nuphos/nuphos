@@ -32,13 +32,13 @@ describe('resolveTriggerCredentialAccess', () => {
   })
 })
 
-test("a new Bot's default is everything its owner may use, but sending mail stays opt-in", async () => {
+test("a new Bot's default is All: everything its owner may use, and ones added later", async () => {
   const access = await defaultCredentialAccess('team-1', 'owner')
 
   expect(access.awsRoleIds).toEqual(['role-1'])
   expect(access.githubInstallationIds).toEqual(['github'])
   expect(access.personalCredentialIds).toEqual(['github', 'gmail', 'google-calendar'])
   expect(access.deviceIds).toEqual(['mac'])
-  expect(access.resendIntegrationIds).toEqual([])
-  expect(access.trelloIntegrationIds).toEqual([])
+  expect(access.resendIntegrationIds).toEqual(['mail'])
+  expect(access).toMatchObject({ allCredentials: true, allDevices: true })
 })
