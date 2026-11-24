@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
+import { expandAllCredentialAccess } from './credential-access'
 import { emptyConnectorCredentialOptions } from './credential-options-connectors'
 import { availableCredentialAccess, withOmittedKeysFromStored } from './credential-resolve'
 import { normalizeCredentialSelection } from './team-scope'
@@ -174,5 +175,58 @@ describe('withOmittedKeysFromStored', () => {
 
   test('a missing selection is left for normalization, not filled from storage', () => {
     expect(withOmittedKeysFromStored(undefined, stored)).toBeUndefined()
+  })
+})
+
+describe('All', () => {
+  const resolve = (selection: unknown, offered = credentialOptions()) =>
+    availableCredentialAccess(normalizeCredentialSelection(selection), offered)
+
+  test('All credentials takes every credential offered now and keeps the choice', () => {
+    const access = resolve({ allCredentials: true, deviceIds: [] })
+
+    expect(access.allCredentials).toBe(true)
+    expect(access.awsRoleIds).toEqual(['aws-1'])
+    expect(access.azureAccountIds).toEqual(['az-1'])
+    expect(access.deviceIds).toEqual([])
+  })
+
+  test('All computers takes the usable computers and keeps the choice', () => {
+    const access = resolve({ allDevices: true })
+
+    expect(access.allDevices).toBe(true)
+    expect(access.deviceIds).toEqual(['device-1'])
+    expect(access.awsRoleIds).toEqual([])
+  })
+
+  test('a stored All covers a credential or computer added later', () => {
+    const stored = resolve({ allCredentials: true, allDevices: true })
+    const later = credentialOptions()
+
+    later.awsRoles.push({
+      roleId: 'aws-2',
+      accountId: '222222222222',
+      accountAlias: null,
+      roleArn: 'arn:aws:iam::2',
+    })
+    later.devices.push({
+      deviceId: 'box-1',
+      label: 'Box',
+      platform: 'linux',
+      available: false,
+      box: { ready: true },
+    })
+
+    const expanded = expandAllCredentialAccess(stored, later)
+
+    expect(expanded.awsRoleIds).toEqual(['aws-1', 'aws-2'])
+    expect(expanded.deviceIds).toEqual(['device-1', 'box-1'])
+  })
+
+  test('without All, a selection is left as stored', () => {
+    const stored = availableCredentialAccess({ awsRoleIds: ['aws-1'] }, credentialOptions())
+
+    expect(stored).not.toHaveProperty('allCredentials')
+    expect(expandAllCredentialAccess(stored, credentialOptions())).toBe(stored)
   })
 })

@@ -6,7 +6,7 @@ import { canMintCredentials, isCloudCredentialPath } from '@/lib/byos/credential
 import { dashboardPanelIdFromSessionId } from '@/lib/dashboards/panel-principal'
 import { AppError } from '@/lib/errors'
 import { PERSONAL_CREDENTIAL_PROVIDERS, dashboardPanels } from '@/models'
-import { allCredentialAccessFromOptions } from '@/routes/agent/credential-access'
+import { allCredentialAccessFromOptions, withAllExpanded } from '@/routes/agent/credential-access'
 import { getAgentCredentialOptions } from '@/routes/agent/credential-options'
 
 import type { AgentRef } from '@/lib/agents/identity'
@@ -177,7 +177,10 @@ async function selectedCredentialAccess(agent: AgentRef, teamId: string) {
     )
   }
 
-  return credentialAccessForExecution(agent, conversation.credentialAccess)
+  return credentialAccessForExecution(
+    agent,
+    await withAllExpanded(conversation.credentialAccess, teamId, conversationOwnerUserId),
+  )
 }
 
 /** Pure policy seam used by the concurrency/security model tests. */

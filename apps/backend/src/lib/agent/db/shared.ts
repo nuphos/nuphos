@@ -191,18 +191,15 @@ export type AgentCredentialAccess = {
   onpremClusterIds?: string[] // optional: older docs predate on-prem relay clusters
   betterStackIntegrationIds: string[]
   uptimeKumaInstanceIds: string[]
-  // Optional for docs written before Linear joined the session-isolation tier.
-  linearWorkspaceIds?: string[]
+  linearWorkspaceIds?: string[] // optional: older docs predate Linear selection
   jiraSiteIds: string[]
   asanaAccountIds: string[]
-  // Optional for docs written before Sentry joined the session-isolation tier.
-  sentryAccountIds?: string[]
+  sentryAccountIds?: string[] // optional: older docs predate Sentry selection
   tailscaleClientIds: string[]
   zeaburIds: string[]
   vantaIntegrationIds: string[]
   secureframeIntegrationIds: string[]
-  // Optional for docs written before Resend joined the session-isolation tier.
-  resendIntegrationIds?: string[]
+  resendIntegrationIds?: string[] // optional: older docs predate Resend selection
   trelloIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
   plaudAccountIds?: string[]
@@ -219,6 +216,9 @@ export type AgentCredentialAccess = {
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
+  // "All": what the owner can use whenever read, including what is added later.
+  allCredentials?: boolean
+  allDevices?: boolean
   updatedAt: Date
   updatedBy: string
 }

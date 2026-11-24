@@ -37,7 +37,10 @@ export type SessionCredentials = {
 export type EntryDetails = Omit<ClaudeCodeCredentialEntry, 'provider' | 'id'>
 
 // teamIdentity chooses who a credential acts as; it is not a credential to list.
-export type SelectionKey = Exclude<keyof AgentCredentialSelection, 'teamIdentity'>
+export type SelectionKey = Exclude<
+  keyof AgentCredentialSelection,
+  'teamIdentity' | 'allCredentials' | 'allDevices'
+>
 
 export type Lister = (
   selectedIds: string[] | undefined,

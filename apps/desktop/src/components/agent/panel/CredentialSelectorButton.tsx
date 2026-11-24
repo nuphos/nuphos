@@ -6,6 +6,7 @@ import { t } from '../../../i18n'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
 import { SummaryMenuRow } from '../summary/ChatSummaryRows'
 
+import { expandAll, setAll, withoutAll } from './allSelection'
 import { allCredentialAccess, emptyCredentialAccess } from './credentialAccess'
 import { buildDeviceCredentialSections, selectAllDevices, shownDevices } from './credentialSections'
 import { countSelectedCredentials, countTotalCredentials } from './credentialSelectorButtonCounts'
@@ -35,11 +36,11 @@ export function CredentialSelectorButton(props: SelectorProps) {
 
 function SelectionButton({
   options,
-  value,
+  value: stored,
   saving,
   unseen,
   onOpen,
-  onChange,
+  onChange: save,
   hero,
   positionerClassName,
   personalIdentity,
@@ -47,6 +48,10 @@ function SelectionButton({
   devices,
 }: SelectorProps & { devices: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const flag = devices ? 'allDevices' : 'allCredentials'
+  const all = Boolean(stored[flag])
+  const value = expandAll(stored, options)
+  const onChange = (next: typeof value) => save(withoutAll(next, flag))
   const personal = usePersonalCredentials(Boolean(personalIdentity) && !devices && menuOpen)
   const listedDevices = shownDevices(options.devices, value.deviceIds)
   // The member's own GitHub / Linear rows count like the credentials beside them.
@@ -56,12 +61,15 @@ function SelectionButton({
     : countSelectedCredentials(value, options) + rows.filter((row) => row.checked).length
   const totalCount = devices ? listedDevices.length : countTotalCredentials(options) + rows.length
   const sections = useCredentialSections(options)
+  // Under "All" a new option is already in.
   const hasNew =
+    !all &&
     unseen !== undefined &&
     (devices
       ? listedDevices.some((device) => unseen.deviceIds.includes(device.deviceId))
       : countSelectedCredentials(unseen) > 0)
   const title = devices ? t('Computers') : t('Credentials')
+  const shownCount = all ? t('All') : selectedCount
   const Icon = devices ? Laptop : Shield
   const iconSize = devices ? 'h-4 w-4' : 'h-3.5 w-3.5'
   const hint = hasNew
@@ -110,7 +118,7 @@ function SelectionButton({
           label={title}
           note={
             <span className="flex items-center gap-0.5 tabular-nums">
-              {selectedCount}
+              {shownCount}
               <ChevronRight className="size-3.5" strokeWidth={1.8} />
             </span>
           }
@@ -128,7 +136,7 @@ function SelectionButton({
           {/* A plain count, not a badge: nothing here waits on the person.
               Nothing to pick yet: a "0" reads as a warning, not a count. */}
           {totalCount > 0 && (
-            <span className="text-[11.5px] leading-none tabular-nums">{selectedCount}</span>
+            <span className="text-[11.5px] leading-none tabular-nums">{shownCount}</span>
           )}
           {hasNew && (
             <span
@@ -149,7 +157,9 @@ function SelectionButton({
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
             <div className="text-[11.5px] text-tertiary">
-              {t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
+              {all
+                ? t('All, including ones added later')
+                : t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
             </div>
           </div>
           {saving && (
@@ -195,6 +205,13 @@ function SelectionButton({
             </button>
           </div>
         )}
+        {totalCount > 0 && (
+          <AllOption
+            devices={devices}
+            checked={all}
+            onCheckedChange={(checked) => save(setAll(stored, options, flag, checked))}
+          />
+        )}
         {devices ? (
           <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
         ) : (
@@ -209,6 +226,28 @@ function SelectionButton({
         )}
       </MenuContent>
     </Menu>
+  )
+}
+
+// Unlike Select all, it also covers what is added later.
+function AllOption({
+  devices,
+  checked,
+  onCheckedChange,
+}: {
+  devices: boolean
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
+}) {
+  return (
+    <MenuCheckboxItem checked={checked} onCheckedChange={onCheckedChange}>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12.5px] text-main">{t('All')}</span>
+        <span className="block text-[11.5px] text-tertiary">
+          {devices ? t('Includes computers added later') : t('Includes credentials added later')}
+        </span>
+      </span>
+    </MenuCheckboxItem>
   )
 }
 

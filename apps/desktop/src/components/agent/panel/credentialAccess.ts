@@ -133,6 +133,8 @@ export function credentialSelectionSignature(value: AgentCredentialSelection): s
     deviceIds: sortedIds(value.deviceIds),
     teamIdentity: sortedIds(value.teamIdentity ?? []),
     personalCredentialIds: sortedIds(value.personalCredentialIds ?? []),
+    allCredentials: Boolean(value.allCredentials),
+    allDevices: Boolean(value.allDevices),
   })
 }
 
