@@ -199,6 +199,7 @@ export const ANTIGRAVITY_TOOLS: ReadonlySet<string> = new Set([
   'save_memory',
   'memory_get',
   'local_exec',
+  'channel_read',
   'channel_post',
 ])
 

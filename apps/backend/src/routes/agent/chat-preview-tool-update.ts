@@ -1,3 +1,4 @@
+import { logNonStringToolError } from '@/lib/claude-code-preview/non-string-tool-error'
 import { isToolSearchTitle, nuphosToolName } from '@/lib/claude-code-preview/preview-agent-update'
 import {
   TOOL_PRESENTATION,
@@ -44,13 +45,25 @@ export function consumePreviewToolPresentation(
     })
     const step = log.list().find((entry) => entry.toolCallId === id)
 
-    if (step?.errorText !== undefined)
-      emit({ type: 'tool-output-error', toolCallId: id, errorText: step.errorText })
+    if (step?.errorText !== undefined) emitToolError(emit, id, state.toolName, step.errorText)
     else if (step?.output !== undefined)
       emit({ type: 'tool-output-available', toolCallId: id, output: step.output })
   }
 
   return true
+}
+
+/** Emits a runtime tool's error, logging the producer if its errorText is not a string (#4920). */
+function emitToolError(
+  emit: (frame: Record<string, unknown>) => void,
+  toolCallId: string,
+  toolName: string | undefined,
+  errorText: unknown,
+): void {
+  const frame = { type: 'tool-output-error', toolCallId, errorText }
+
+  logNonStringToolError(frame, 'runtime', toolName)
+  emit(frame)
 }
 
 export function handlePreviewToolUpdate(
@@ -115,7 +128,7 @@ export function handlePreviewToolUpdate(
         typeof output === 'string' ? output : JSON.stringify(output),
       )
 
-      if (!hidden) emit({ type: 'tool-output-error', toolCallId: update.toolCallId, errorText })
+      if (!hidden) emitToolError(emit, update.toolCallId, displayName, errorText)
 
       return
     }
@@ -129,8 +142,7 @@ export function handlePreviewToolUpdate(
 
     const cause = log.fail(update.toolCallId, errorText)
 
-    if (!hidden)
-      emit({ type: 'tool-output-error', toolCallId: update.toolCallId, errorText: cause })
+    if (!hidden) emitToolError(emit, update.toolCallId, displayName, cause)
   }
 }
 
@@ -162,7 +174,7 @@ export function closeCallsCutOffBySteer(
     if (!open.has(toolCallId) || state?.input !== undefined) continue
     const errorText = log.fail(toolCallId, INTERRUPTED_TOOL_ERROR)
 
-    if (!state?.hidden) emit({ type: 'tool-output-error', toolCallId, errorText })
+    if (!state?.hidden) emitToolError(emit, toolCallId, state?.toolName, errorText)
   }
 }
 

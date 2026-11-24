@@ -6,7 +6,7 @@ import { useAgentUpdates } from '../../../hooks/useAgentUpdates'
 import { useThisComputer } from '../../../hooks/useThisComputer'
 import { t } from '../../../i18n'
 import { agentName } from '../../../lib/agentName'
-import { AGENT_PROVIDER } from '../../../types/runtime'
+import { agentProvider } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { useAgentDevices } from '../../../views/settings/useAgentDevices'
 import { ConfirmDialog } from '../../ConfirmDialog'
@@ -167,7 +167,7 @@ export function RuntimeSelector({
       {unavailable && <span className="shrink-0 text-status-warning">· {t('Unavailable')}</span>}
     </>
   )
-  const title = value ? `${label} · ${AGENT_PROVIDER[value.provider].label}` : label
+  const title = value ? `${label} · ${agentProvider(value.provider).label}` : label
   const classes = clsx(
     hero ? 'h-8 px-2.5' : 'h-7 px-2',
     'flex min-w-0 max-w-fit grow basis-24 items-center gap-1.5 overflow-hidden rounded-full text-[12px] text-secondary',

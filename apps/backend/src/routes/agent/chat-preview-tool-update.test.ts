@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import {
   closeCallsCutOffBySteer,
@@ -279,5 +279,52 @@ describe('oneLineTitle', () => {
 
   test('a short title is unchanged', () => {
     expect(oneLineTitle('Run kubectl get pods')).toBe('Run kubectl get pods')
+  })
+})
+
+describe('a tool error event whose errorText is not a string (#4920)', () => {
+  let warn: ReturnType<typeof spyOn>
+
+  beforeEach(() => {
+    warn = spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  const logged = () => warn.mock.calls.map((call: unknown[]) => String(call[0]))
+
+  afterEach(() => warn.mockRestore())
+
+  test('logs the tool, the type and the runtime path, never the value', () => {
+    const frames: Record<string, unknown>[] = []
+
+    handlePreviewToolUpdate((frame) => frames.push(frame), toolLog(), {
+      kind: 'tool',
+      toolCallId: 'call_obj',
+      title: 'Bash',
+      status: 'failed',
+      contentText: { secret: 'do-not-log' } as never,
+    })
+
+    expect(frames.at(-1)).toMatchObject({ type: 'tool-output-error', toolCallId: 'call_obj' })
+    expect(logged()).toHaveLength(1)
+    const record = JSON.parse(logged()[0] ?? '{}') as Record<string, unknown>
+
+    expect(record).toMatchObject({
+      event: 'agent.tool_error.non_string_error_text',
+      source: 'runtime',
+      tool_name: 'Bash',
+      error_text_type: 'object',
+    })
+    expect(logged()[0]).not.toContain('do-not-log')
+  })
+
+  test('a string errorText writes nothing extra', () => {
+    handlePreviewToolUpdate(() => {}, toolLog(), {
+      kind: 'tool',
+      toolCallId: 'call_str',
+      title: 'Bash',
+      status: 'failed',
+      contentText: 'exit 1',
+    })
+
+    expect(logged()).toEqual([])
   })
 })

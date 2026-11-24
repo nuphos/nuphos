@@ -11,6 +11,8 @@ import {
 
 import type * as dbActual from '@/lib/db'
 
+const by = { source: 'user', userId: 'u' } as const
+
 // The sessions whose tokens each archive revoked.
 const revokedSessions: string[][] = []
 
@@ -135,7 +137,7 @@ beforeEach(() => {
 
 describe('setConversationArchived', () => {
   test('archives the whole tree below the conversation', async () => {
-    await setConversationArchived('root', true)
+    await setConversationArchived('root', true, by)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
     expect(archived('unrelated')).toBe(false)
@@ -159,7 +161,7 @@ describe('setConversationArchived', () => {
       teamId: 't',
       inputRequests: [{ id: 'theirs', about: ['child'] }],
     })
-    await setConversationArchived('child', true)
+    await setConversationArchived('child', true, by)
 
     expect(questions(root).map((question) => question.id)).toEqual([
       'about-pr',
@@ -170,16 +172,16 @@ describe('setConversationArchived', () => {
   })
 
   test("leaves a teammate's conversation alone", async () => {
-    await setConversationArchived('root', true)
+    await setConversationArchived('root', true, by)
 
     expect(archived('teammate')).toBe(false)
   })
 
   test('restores what the cascade archived, not a thread archived on its own earlier', async () => {
-    await setConversationArchived('grandchild', true)
+    await setConversationArchived('grandchild', true, by)
     await new Promise((resolve) => setTimeout(resolve, 2))
-    await setConversationArchived('root', true)
-    await setConversationArchived('root', false)
+    await setConversationArchived('root', true, by)
+    await setConversationArchived('root', false, by)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, true])
     // The thread that stays archived keeps its revoked tokens revoked.
@@ -187,10 +189,10 @@ describe('setConversationArchived', () => {
 
   test('a restore retried after a failed write still restores the tree', async () => {
     for (const method of ['updateMany', 'updateOne'] as const) {
-      await setConversationArchived('root', true)
+      await setConversationArchived('root', true, by)
       conversations.failNext = method
-      await expect(setConversationArchived('root', false)).rejects.toThrow('write failed')
-      await setConversationArchived('root', false)
+      await expect(setConversationArchived('root', false, by)).rejects.toThrow('write failed')
+      await setConversationArchived('root', false, by)
 
       expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
     }
@@ -198,10 +200,10 @@ describe('setConversationArchived', () => {
 
   test('stops at a parentSessionId loop', async () => {
     conversations.docs.find((doc) => doc.sessionId === 'root')!.parentSessionId = 'grandchild'
-    await setConversationArchived('child', true)
+    await setConversationArchived('child', true, by)
 
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
-    await setConversationArchived('child', false)
+    await setConversationArchived('child', false, by)
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
   })
 })
@@ -244,7 +246,7 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
 
   test('archiving the Bot from Tasks archives its chat too, and nothing else', async () => {
     // What moved is returned, so a client closes exactly that.
-    expect(await setConversationArchived('bot', true)).toEqual({
+    expect(await setConversationArchived('bot', true, by)).toEqual({
       sessionIds: ['bot', 'bot-chat'],
       botSessionId: 'bot',
     })
@@ -258,7 +260,7 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
     conversations.docs = conversations.docs.filter(
       (doc) => doc.sessionId !== 'group' && doc.sessionId !== 'two-agents',
     )
-    expect(await setConversationArchived('bot-chat', true)).toEqual({
+    expect(await setConversationArchived('bot-chat', true, by)).toEqual({
       sessionIds: ['bot', 'bot-chat'],
       botSessionId: 'bot',
     })
@@ -268,8 +270,8 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
 
   test('restoring either one restores both', async () => {
     for (const id of ['bot', 'bot-chat']) {
-      await setConversationArchived('bot', true)
-      await setConversationArchived(id, false)
+      await setConversationArchived('bot', true, by)
+      await setConversationArchived(id, false, by)
 
       expect(['bot', 'bot-chat'].map(archived)).toEqual([false, false])
     }
@@ -278,28 +280,30 @@ describe('a Bot is archived and restored as one thing with its chat', () => {
   test('restoring a Bot left half archived brings its chat back too', async () => {
     // Before Bots were one thing, its chat could be archived on its own.
     conversations.docs.find((doc) => doc.sessionId === 'bot-chat')!.archivedAt = new Date(0)
-    await setConversationArchived('bot', false)
+    await setConversationArchived('bot', false, by)
 
     expect(archived('bot-chat')).toBe(false)
   })
 
   test('a turn that brings the Bot back brings its chat back', async () => {
-    await setConversationArchived('bot', true)
+    await setConversationArchived('bot', true, by)
 
-    expect(await restoreArchivedConversation('bot')).toBe(true)
+    expect(await restoreArchivedConversation('bot', by)).toBe(true)
     expect(['bot', 'bot-chat'].map(archived)).toEqual([false, false])
-    expect(await restoreArchivedConversation('bot')).toBe(false)
+    expect(await restoreArchivedConversation('bot', by)).toBe(false)
   })
 
   test("a Task's chat is just a chat", async () => {
-    expect(await setConversationArchived('task-chat', true)).toEqual({ sessionIds: ['task-chat'] })
+    expect(await setConversationArchived('task-chat', true, by)).toEqual({
+      sessionIds: ['task-chat'],
+    })
 
     expect(archived('root')).toBe(false)
   })
 
   test("another person's Bot is not reached", async () => {
     conversations.docs.find((doc) => doc.sessionId === 'bot')!.userId = 'v'
-    await setConversationArchived('bot-chat', true)
+    await setConversationArchived('bot-chat', true, by)
 
     expect(archived('bot')).toBe(false)
   })
@@ -323,20 +327,20 @@ describe('archiving a redundant Bot chat', () => {
   })
 
   test('keeps the Bot, its work and the shared chat active', async () => {
-    expect(await setConversationArchived('empty', true)).toEqual({ sessionIds: ['empty'] })
+    expect(await setConversationArchived('empty', true, by)).toEqual({ sessionIds: ['empty'] })
     expect(['empty', 'bot', 'shared', 'work'].map(archived)).toEqual([true, false, false, false])
     expect(revokedSessions.at(-1)).toEqual(['empty'])
   })
 
   test('also protects a Bot with another one-to-one chat', async () => {
     delete conversations.docs.find((doc) => doc.sessionId === 'shared')!.participantIds
-    await setConversationArchived('empty', true)
+    await setConversationArchived('empty', true, by)
     expect(['empty', 'bot', 'shared'].map(archived)).toEqual([true, false, false])
   })
 
   test('an archived alternative does not keep the Bot alive', async () => {
     conversations.docs.find((doc) => doc.sessionId === 'shared')!.archivedAt = new Date(0)
-    await setConversationArchived('empty', true)
+    await setConversationArchived('empty', true, by)
     expect(['empty', 'bot', 'work'].map(archived)).toEqual([true, true, true])
   })
 })
@@ -346,17 +350,17 @@ describe('archiveConversationAs', () => {
   const as = (sessionId: string) => doc(sessionId) as never
 
   test('the owner archives the conversation with the Tasks below it, then restores it', async () => {
-    expect(await archiveConversationAs(as('root'), 'u', true)).toEqual({ sessionIds: ['root'] })
+    expect(await archiveConversationAs(as('root'), by, true)).toEqual({ sessionIds: ['root'] })
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([true, true, true])
 
-    await archiveConversationAs(as('root'), 'u', false)
+    await archiveConversationAs(as('root'), by, false)
     expect(['root', 'child', 'grandchild'].map(archived)).toEqual([false, false, false])
   })
 
   test('someone else in a Task archives it only for themselves', async () => {
     doc('teammate').participantIds = ['u']
 
-    expect(await archiveConversationAs(as('teammate'), 'u', true)).toEqual({
+    expect(await archiveConversationAs(as('teammate'), by, true)).toEqual({
       sessionIds: ['teammate'],
     })
     expect(archived('teammate')).toBe(false)
@@ -365,9 +369,9 @@ describe('archiveConversationAs', () => {
   })
 
   test('nobody else archives a Task they are not in, or a group chat', async () => {
-    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    expect(await archiveConversationAs(as('teammate'), by, true)).toBeNull()
     Object.assign(doc('teammate'), { participantIds: ['u'], kind: 'channel' })
-    expect(await archiveConversationAs(as('teammate'), 'u', true)).toBeNull()
+    expect(await archiveConversationAs(as('teammate'), by, true)).toBeNull()
     expect(archived('teammate')).toBe(false)
     expect(doc('teammate')['memberArchivedAt.u']).toBeUndefined()
   })

@@ -410,6 +410,7 @@ struct ConversationView: View {
                 QueuedStrip(
                     items: session.queued.enumerated().map { .init(id: "local.\($0.offset)", text: $0.element, steering: false) }
                         + session.serverQueued.map { .init(id: $0.id, text: $0.text, steering: session.steeringQueued.contains($0.id)) },
+                    hold: session.serverQueued.isEmpty ? nil : session.queueHold,
                     canSteer: session.canSteer,
                     onEdit: { id in
                         Task {
@@ -1151,6 +1152,8 @@ struct QueuedStrip: View {
         let steering: Bool
     }
     let items: [Item]
+    /// The usage limit holding the queue: the status line says so in place of the turn ahead.
+    var hold: AgentChatAPI.QueueHold? = nil
     var canSteer = false
     var onEdit: (String) -> Void
     var onSteer: (String) -> Void
@@ -1158,7 +1161,9 @@ struct QueuedStrip: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Queued messages · run after the turn ahead")
+            Group {
+                if let hold { Text(hold.notice()) } else { Text("Queued messages · run after the turn ahead") }
+            }
                 .font(Theme.Text.micro)
                 .foregroundStyle(Theme.muted)
                 .padding(.horizontal, 4)

@@ -14,7 +14,7 @@ import type * as dbActual from '@/lib/db'
 
 let memory = portabilityDb()
 
-useDb({ db: (() => memory) as unknown as typeof dbActual.db })
+useDb({ db: () => memory })
 beforeEach(() => {
   memory = portabilityDb()
 })
@@ -111,7 +111,7 @@ test('a Bot made a Task leaves its group chats and its 1:1 chat is archived with
     },
   )
 
-  await leaveChats('agent-1')
+  await leaveChats('agent-1', 'owner')
 
   const dm = await agentConversations().findOne({ sessionId: 'dm' })
   const group = await agentConversations().findOne({ sessionId: 'group' })
@@ -134,7 +134,7 @@ test('a group chat with only that Bot in it is left, not archived as its 1:1 cha
     agentSessionIds: ['agent-1'],
   })
 
-  await leaveChats('agent-1')
+  await leaveChats('agent-1', 'owner')
 
   const group = await agentConversations().findOne({ sessionId: 'new-group' })
 

@@ -62,6 +62,8 @@ describe('Antigravity tools', () => {
     const kept = nuphosToolsSurface(toolModulesForRuntime(modules(), 'antigravity'))
 
     expect(new Set(names(kept.toolDefinitions))).toEqual(new Set(ANTIGRAVITY_TOOLS))
+    // #5017: a Bot that posts to a channel can also read it.
+    expect(names(kept.toolDefinitions)).toContain('channel_read')
     expect(
       names(nuphosToolsSurface(toolModulesForRuntime(modules(), 'codex')).toolDefinitions),
     ).toEqual(names(all))

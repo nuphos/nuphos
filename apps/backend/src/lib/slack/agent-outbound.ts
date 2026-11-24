@@ -13,6 +13,7 @@ import {
 } from '@/lib/slack/agent-outbound/read'
 
 import type {
+  SlackOutboundArgs,
   SlackOutboundContext,
   SlackOutboundDependencies,
 } from '@/lib/slack/agent-outbound/types'
@@ -33,10 +34,7 @@ export type {
  * and the shared legacy fallback is never an agent capability.
  */
 export async function createSlackOutboundContext(
-  args: {
-    userId: string
-    teamId?: string | null
-  },
+  args: SlackOutboundArgs,
   dependencies: SlackOutboundDependencies = defaultDependencies,
 ): Promise<SlackOutboundContext | null> {
   if (!args.teamId || !ObjectId.isValid(args.teamId)) return null

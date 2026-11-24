@@ -37,6 +37,8 @@ export type AgentCredentialSelection = {
   teamIdentity?: ('github' | 'linear')[]
   /** The owner's own Personal Credentials this conversation may use, without a team binding. */
   personalCredentialIds?: PersonalCredentialProvider[]
+  allCredentials?: boolean
+  allDevices?: boolean
 }
 
 export type AgentCredentialOptions = {

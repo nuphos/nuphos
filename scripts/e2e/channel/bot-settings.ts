@@ -59,15 +59,15 @@ const scenario: Scenario = {
     await setSettings(page, true, true, 'fixture-large')
     // Its setup has finished, so the Bot's page opens from the chat.
     await openBotTask(page)
-    await page.getByText('Back to conversation').waitFor()
+    await page.getByText('Back to chat').waitFor()
     await control(page, false, /^Model settings: fixture-large/).waitFor()
     const onPage = await settings(page, false)
 
     if (!onPage.full) throw new Error(`The Bot's page shows ${JSON.stringify(onPage)}`)
     // From the Bot's page: the chat shows what was picked there.
     await setSettings(page, false, false, 'fixture-small')
-    await page.getByText('Back to conversation').click()
-    await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+    await page.getByText('Back to chat').click()
+    await page.getByText('Back to chat').waitFor({ state: 'hidden' })
     await setBotDetails(page, true)
     await control(page, true, /^Model settings: fixture-small/).waitFor()
     const inChat = await settings(page, true)

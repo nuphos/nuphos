@@ -43,10 +43,13 @@ const identity = useIdentity({
 
 // The free Box a first team starts (#4186): every `createBox` call, and the events logged.
 const boxes: string[][] = []
+// Whether each of them was to get an OpenRouter key.
+const gifts: (boolean | undefined)[] = []
 const events: string[] = []
 const boxCreate = useBoxInstaboxCreate({
   createBox: (...args) => {
     boxes.push(args.slice(0, 3) as string[])
+    gifts.push(args[3]?.openRouterGift)
 
     return Promise.resolve({})
   },
@@ -66,6 +69,7 @@ const savedUrl = config.agent.publicBackendUrl
 
 beforeEach(() => {
   boxes.length = 0
+  gifts.length = 0
   events.length = 0
   config.box.instabox = { apiKey: 'ibk_test' }
   config.box.defaultVcpuLimit = 2
@@ -145,6 +149,13 @@ describe('POST /teams starts the free Box of a first team', () => {
 
     expect(boxes).toEqual([[USER, TEAM, 'Computer 1']])
     expect(events).toContain('agent.box.first_team_started')
+  })
+
+  test('its OpenCode is to get an OpenRouter key', async () => {
+    expect((await createTeam()).status).toBe(201)
+    await settle()
+
+    expect(gifts).toEqual([true])
   })
 
   test('a second team the user owns starts none', async () => {

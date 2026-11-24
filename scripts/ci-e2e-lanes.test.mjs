@@ -26,3 +26,11 @@ test('e2e pull request runs spread over six lanes per part, by run_id modulo 6',
 test('e2e on a push to main has a group of its own', () => {
   assert.match(group, /github\.event_name == 'push' && format\('main-\{0\}', github\.run_id\)/u)
 })
+
+// The merge queue skips e2e, so a merge that lands right after must not cancel main's run.
+test('a push to main does not cancel the run on main before it', () => {
+  assert.match(
+    ci,
+    /^concurrency:\n(?: {2}.*\n)*? {2}cancel-in-progress: \$\{\{ github\.event_name != 'push' \}\}$/mu,
+  )
+})

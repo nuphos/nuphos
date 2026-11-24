@@ -16,6 +16,11 @@ export const BOT_AVATAR_BACKGROUNDS = [
 
 export type BotAvatarBackground = (typeof BOT_AVATAR_BACKGROUNDS)[number]
 
+/** A stored tint as a picker value: unset or unknown to this build is None. */
+export function botAvatarBackground(name: string | null | undefined): BotAvatarBackground {
+  return BOT_AVATAR_BACKGROUNDS.find((known) => known === name) ?? 'none'
+}
+
 /** The theme token a tint paints with; undefined for None or a tint this build doesn't know. */
 export function botAvatarBackgroundColor(name: string | null | undefined): string | undefined {
   return name && name !== 'none' && (BOT_AVATAR_BACKGROUNDS as readonly string[]).includes(name)

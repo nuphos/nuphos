@@ -112,7 +112,6 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'device.appearance', label: t('Appearance'), icon: SunMedium },
       { key: 'device.updates', label: t('Updates'), icon: Download },
       { key: 'device.localExec', label: t('Local exec'), icon: SquareTerminal },
-      { key: 'device.localRuntime', label: t('Local runtime'), icon: Monitor },
       { key: 'device.privacy', label: t('Privacy'), icon: ShieldCheck },
     ],
   },

@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events'
 
-import { afterEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { useRedis } from '@/lib/test/doubles/redis'
 
@@ -190,5 +190,53 @@ describe('run-frame bridge', () => {
     expect(
       await bridge.previewRunStreamId({ userId: 'user-7', sessionId: 'conv-none' }),
     ).toBeUndefined()
+  })
+})
+
+describe('a tool error frame whose errorText is not a string (#4920)', () => {
+  let warn: ReturnType<typeof spyOn>
+
+  beforeEach(() => {
+    warn = spyOn(console, 'warn').mockImplementation(() => {})
+  })
+  const records = () =>
+    warn.mock.calls.map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>)
+
+  afterEach(() => warn.mockRestore())
+
+  test('names the tool, the type and whether it was emitted here or relayed', async () => {
+    const run = fakeRun('user-8', 'conv-8')
+    const unbind = bridge.bindPreviewRunFrameBridge(run, 'user-8', 'conv-8')
+    const frame = { type: 'tool-output-error', toolCallId: 'tc8', toolName: 'local_exec' }
+
+    localRuns.push(run)
+    await bridge.publishPreviewFrame(
+      { userId: 'user-8', sessionId: 'conv-8' },
+      { ...frame, errorText: ['do-not-log'] },
+    )
+    subscriber.emit(
+      'message',
+      previewFrameChannel('user-8', 'conv-8'),
+      JSON.stringify({ ...frame, errorText: null }),
+    )
+    await Bun.sleep(0)
+
+    expect(records()).toMatchObject([
+      { source: 'tool-handler', tool_name: 'local_exec', error_text_type: 'array' },
+      { source: 'relayed', tool_name: 'local_exec', error_text_type: 'null' },
+    ])
+    expect(JSON.stringify(warn.mock.calls)).not.toContain('do-not-log')
+    expect(run.frames).toHaveLength(2)
+    unbind()
+  })
+
+  test('a string errorText writes nothing extra', async () => {
+    localRuns.push(fakeRun('user-9', 'conv-9'))
+    await bridge.publishPreviewFrame(
+      { userId: 'user-9', sessionId: 'conv-9' },
+      { type: 'tool-output-error', toolCallId: 'tc9', toolName: 'local_exec', errorText: 'boom' },
+    )
+
+    expect(records()).toEqual([])
   })
 })
