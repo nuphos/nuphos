@@ -1,5 +1,5 @@
 import { t } from '../../i18n/index.ts'
-import { AGENT_PROVIDER } from '../../types/runtime.ts'
+import { agentProvider } from '../../types/runtime.ts'
 
 import { agentName, canManage } from './agentPresentation.ts'
 
@@ -166,7 +166,7 @@ export function agentNameTaken(agents: RuntimeInstance[], name: string): boolean
 
 /** A new agent's name: its provider's, numbered past the ones this machine already has. */
 export function defaultAgentName(agents: RuntimeInstance[], provider: LocalAgentProvider): string {
-  const base = AGENT_PROVIDER[provider].label
+  const base = agentProvider(provider).label
   const named = (n: number) => (n === 1 ? base : `${base} ${String(n)}`)
   let n = 1
 

@@ -7,7 +7,7 @@ import { relativeTimeFromNow } from '../../components/agent/panel/textUtils'
 import { Button } from '../../components/ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../../components/ui/menu'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
 import { accessHint, machineLine, seenFrom } from './boxPresentation'
@@ -130,7 +130,7 @@ export function NewAgentMenu({
 
           // Nothing to add or sign in: Antigravity is either not on this computer or already signed in.
           if (!action) return null
-          const { label, preview } = AGENT_PROVIDER[provider]
+          const { label, preview } = agentProvider(provider)
 
           return (
             <MenuItem

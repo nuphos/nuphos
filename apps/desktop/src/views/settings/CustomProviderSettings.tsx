@@ -7,7 +7,7 @@ import { toast } from '../../components/ui/toast'
 import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { ownCliProvider } from './agentPresentation'
 import { inputClasses } from './styles'
@@ -39,7 +39,7 @@ function ProviderRow({ provider }: { provider: CliLoginProvider }) {
   const state = useLocalRuntimeState()
   const agent = state?.agents[provider]
   const saved = state?.customProviders?.[provider]
-  const name = AGENT_PROVIDER[provider].label
+  const name = agentProvider(provider).label
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
