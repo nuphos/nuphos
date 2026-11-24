@@ -173,6 +173,8 @@ export type Tab = {
   // cleanly (no error). Optional so older persisted snapshots keep loading;
   // read with `?? []`.
   queued?: QueuedMessage[]
+  // The server queue waits for the agent's usage to reset, at `until` when known.
+  queueHeld?: { until?: string }
   // Deterministic-failure detector: the last normalized error that latched and
   // how many times in a row it did. Deliberately NOT cleared when a new turn
   // dispatches (a retry into the same broken transcript must escalate, not

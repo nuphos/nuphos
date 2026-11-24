@@ -7,5 +7,5 @@
     <string name="home_toolbar_new_bot">บอทใหม่</string>
     <string name="home_toolbar_new_task">งานใหม่</string>
     <string name="home_toolbar_account">บัญชี</string>
-    <string name="home_toolbar_close_workspace">ปิดหน้าเวิร์กสเปซ</string>
+    <string name="home_toolbar_close_workspace">ปิด</string>
 </resources>

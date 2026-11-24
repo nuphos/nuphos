@@ -1,3 +1,4 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
 import { call } from './client'
 
 import type { BindingAccess } from './teams'
@@ -42,6 +43,7 @@ export type PosthogScopeCatalog = {
 }
 
 export type PosthogOAuthInput = {
+  share?: BindingShare
   label?: string
   region?: PosthogRegion
   integrationId?: string

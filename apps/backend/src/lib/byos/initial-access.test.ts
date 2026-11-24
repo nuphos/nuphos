@@ -21,8 +21,8 @@ describe('initialBindingAccess', () => {
     expect(initialBindingAccess({ userId: 'u1', team: undefined }).memberAllowList).toEqual(['u1'])
   })
 
-  test('a team that shares by default opens new bindings to everyone', () => {
-    expect(initialBindingAccess({ userId: 'u1', team: shared }).memberAllowList).toEqual(['*'])
+  test('a legacy team sharing default does not publish a new binding', () => {
+    expect(initialBindingAccess({ userId: 'u1', team: shared }).memberAllowList).toEqual(['u1'])
   })
 
   test('a high-privilege binding stays private despite the team default', () => {

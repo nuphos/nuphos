@@ -1,5 +1,7 @@
 import { shell } from 'electron'
 
+import type { BindingShare } from '../src/lib/bindingShare'
+
 import * as atlas from './atlas'
 import { connectorCallbackError, connectorCallbackParams } from './connector-oauth-callback'
 
@@ -27,8 +29,11 @@ const pending = new Map<string, Pending>()
 /** Whether a callback's state still belongs to an attempt in progress. */
 export const hasPending = (state: string) => pending.has(state)
 
-export async function startInstall(teamId: string): Promise<LinearBindResult> {
-  const { authorizeUrl, state } = await atlas.startLinearOAuth(teamId)
+export async function startInstall(
+  teamId: string,
+  share?: BindingShare,
+): Promise<LinearBindResult> {
+  const { authorizeUrl, state } = await atlas.startLinearOAuth(teamId, share)
 
   return new Promise<LinearBindResult>((resolve, reject) => {
     const timeout = setTimeout(() => {

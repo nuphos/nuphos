@@ -1,3 +1,4 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
 import { ipcRenderer } from 'electron'
 
 import type { BindingAccess } from '../../src/types/k8s-core.ts'
@@ -5,7 +6,8 @@ import type { BindingAccess } from '../../src/types/k8s-core.ts'
 let appShortcutsSuspended = false
 
 export const integrationsApi = {
-  atlasStartTrelloOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startTrelloOAuth', teamId),
+  atlasStartTrelloOAuth: (teamId: string, share?: BindingShare) =>
+    ipcRenderer.invoke('atlas:startTrelloOAuth', teamId, share),
   atlasCancelTrelloOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelTrelloOAuth', teamId),
 
   onAgentPlanUpdated: (cb: (payload: { plan: unknown }) => void) => {

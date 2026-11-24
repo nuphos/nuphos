@@ -62,8 +62,17 @@ struct ChannelView: View {
 
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
-        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
-        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
+        let lead = VStack(spacing: 16) {
+            BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+            BotRuntimeCard(bot: bot) { runtime in
+                Task {
+                    do { try await bot.move(to: runtime); await store.reload() }
+                    catch { switchError = error.localizedDescription }
+                }
+            }
+            BotInstructionsCard(botId: bot.sessionId)
+        }
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(lead)) { task in
             open(task.sessionId, title: task.displayTitle)
         }
         .environment(store)
@@ -282,24 +291,8 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
-                alwaysShowControls: channel.botId != nil,
-                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: {
-                    if let botSession, botSession.loaded {
-                        ComposerControls(
-                            selection: Binding(
-                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
-                                set: { botSession.setCredentials($0) }
-                            ),
-                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
-                            session: botSession,
-                            switchRuntime: { switchingBot = botSession },
-                            botChat: true,
-                            locked: !botSession.isOwner
-                        )
-                    }
-                }
+                controls: { EmptyView() }
             )
         }
     }

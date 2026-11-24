@@ -3,7 +3,7 @@
     <!-- ChatSession -->
     <string name="convtext_downloads_refresh_failed">Could not refresh agent files.</string>
     <string name="convtext_attachment_access_unavailable">Attachment access unavailable</string>
-    <string name="convtext_move_wait">Wait for the current response to finish before switching runtimes.</string>
+    <string name="convtext_move_wait">Wait for the message being sent or the upload to finish, then switch runtimes.</string>
     <string name="convtext_move_choose_runtime">Choose an available runtime.</string>
     <string name="convtext_runtime_status_unavailable">Runtime status unavailable</string>
     <string name="convtext_attachments_after_run">Keep attachments for a new message after the current run.</string>
@@ -64,7 +64,7 @@
     <string name="convtext_conflict_busy">This task is busy with another reply.</string>
     <string name="convtext_runtime_signed_out">This runtime is signed out. Sign it in from Nuphos on the computer it runs on, or switch to another runtime.</string>
     <string name="convtext_runtime_disabled">This task\'s runtime is disabled. Switch to another runtime to continue.</string>
-    <string name="convtext_runtime_not_found">This runtime is no longer available in this workspace. Switch to another runtime to continue.</string>
+    <string name="convtext_runtime_not_found">This runtime is no longer available in this team. Switch to another runtime to continue.</string>
     <string name="convtext_runtime_offline">The computer running this runtime is offline. Open Nuphos on it, or switch to another runtime.</string>
     <string name="convtext_runtime_paused">%1$s is paused. It resumes when you send.</string>
     <string name="convtext_runtime_starting">%1$s is starting. It will be ready in a few seconds.</string>

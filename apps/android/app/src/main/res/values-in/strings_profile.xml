@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">Masuk lagi</string>
     <string name="profile_accounts_active">Akun aktif</string>
     <string name="profile_workspace_back">Kembali ke Akun</string>
-    <string name="profile_workspace">Workspace</string>
-    <string name="profile_workspace_none">Tidak ada workspace yang tersedia</string>
-    <string name="profile_workspace_current">Workspace saat ini</string>
-    <string name="profile_workspace_setup">Siapkan workspace</string>
+    <string name="profile_workspace">Tim</string>
+    <string name="profile_workspace_none">Tidak ada tim yang tersedia</string>
+    <string name="profile_workspace_current">Tim saat ini</string>
+    <string name="profile_workspace_setup">Siapkan tim</string>
     <string name="profile_two_factor">Autentikasi dua faktor</string>
     <string name="profile_two_factor_intro">Minta kode dari aplikasi autentikator setiap kali Anda masuk, sehingga kata sandi atau email yang dicuri tidak cukup.</string>
     <string name="profile_two_factor_load_failed">Tidak dapat memuat autentikasi dua faktor.</string>

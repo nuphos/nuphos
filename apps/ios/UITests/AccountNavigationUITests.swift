@@ -3,17 +3,17 @@ import XCTest
 final class AccountNavigationUITests: XCTestCase {
     func testNoWorkspaceDoesNotLeaveInboxOrComputersLoading() throws {
         let app = try launchFirstUse(hasTeam: false)
-        XCTAssertTrue(app.buttons["Set up workspace"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.buttons["Set up a team"].waitForExistence(timeout: 12))
         XCTAssertFalse(app.buttons["Create"].isEnabled)
         app.tabBars.buttons["Inbox"].tap()
-        XCTAssertTrue(app.staticTexts["No workspace yet"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["No team yet"].waitForExistence(timeout: 5))
         app.buttons["Computers & runtimes"].tap()
-        XCTAssertTrue(app.buttons["Set up workspace"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["Set up a team"].waitForExistence(timeout: 5))
         captureFirstUse("No workspace — computers")
-        let setup = try XCTUnwrap(app.buttons.matching(identifier: "Set up workspace")
+        let setup = try XCTUnwrap(app.buttons.matching(identifier: "Set up a team")
             .allElementsBoundByIndex.first(where: { $0.isHittable }), "The visible workspace setup action must be reachable")
         setup.tap()
-        XCTAssertTrue(app.textFields["Workspace name"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.textFields["Team name"].waitForExistence(timeout: 5))
         captureFirstUse("Workspace setup")
     }
 
@@ -68,7 +68,7 @@ final class AccountNavigationUITests: XCTestCase {
         app.buttons["Computers & runtimes"].tap()
         XCTAssertTrue(app.navigationBars["Computers & runtimes"].waitForExistence(timeout: 5))
         shot("account-external-computers")
-        app.buttons["Close workspace"].tap()
+        app.buttons["Close"].tap()
         app.buttons["Account"].tap()
         XCTAssertTrue(app.buttons["Close account"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Account"].exists)

@@ -55,7 +55,7 @@ export function CloudCliSetupChoice({
     },
     {
       title: t('Verify and connect'),
-      detail: t('Test the connection and save it to your workspace.'),
+      detail: t('Test the connection and save it to your team.'),
     },
   ]
 

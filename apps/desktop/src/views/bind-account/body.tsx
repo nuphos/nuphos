@@ -11,13 +11,17 @@ import { HuaweiBindWizard } from './huawei'
 import { TencentBindWizard } from './tencent'
 import { VolcengineBindWizard } from './volcengine'
 
+import type { ReactNode } from 'react'
+
 import type { BindState } from './use-bind-state'
 
 export function BindDialogBody({
   st,
   teamId,
   onConnectCloudflare,
+  cloudflareShareField,
 }: {
+  cloudflareShareField?: ReactNode
   st: BindState
   teamId: string
   onConnectCloudflare: (scopes: string[]) => void
@@ -45,7 +49,11 @@ export function BindDialogBody({
           onProjectIdChange={st.setProjectId}
         />
       ) : provider === 'cloudflare' ? (
-        <CloudflareConnect st={st} onConnect={onConnectCloudflare} />
+        <CloudflareConnect
+          st={st}
+          onConnect={onConnectCloudflare}
+          shareField={cloudflareShareField}
+        />
       ) : provider === 'linode' ? (
         <LinodeForm st={st} />
       ) : provider === 'hetzner' ? (

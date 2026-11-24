@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">无法刷新 Agent 文件。</string>
     <string name="convtext_attachment_access_unavailable">无法访问附件</string>
-    <string name="convtext_move_wait">请等当前回复完成后再切换运行环境。</string>
+    <string name="convtext_move_wait">请等正在发送的消息或上传完成，再切换运行环境。</string>
     <string name="convtext_move_choose_runtime">请选择可用的运行环境。</string>
     <string name="convtext_runtime_status_unavailable">无法获取运行环境状态</string>
     <string name="convtext_attachments_after_run">请保留附件，等当前运行结束后再用新消息发送。</string>
@@ -56,7 +56,7 @@
     <string name="convtext_conflict_busy">此任务正忙于另一个回复。</string>
     <string name="convtext_runtime_signed_out">此运行环境已退出登录。请在运行它的电脑上从 Nuphos 登录，或切换到其他运行环境。</string>
     <string name="convtext_runtime_disabled">此任务的运行环境已停用。请切换到其他运行环境以继续。</string>
-    <string name="convtext_runtime_not_found">此运行环境在这个工作区中已不可用。请切换到其他运行环境以继续。</string>
+    <string name="convtext_runtime_not_found">此运行环境在这个团队中已不可用。请切换到其他运行环境以继续。</string>
     <string name="convtext_runtime_offline">运行此运行环境的电脑已离线。请在该电脑上打开 Nuphos，或切换到其他运行环境。</string>
     <string name="convtext_runtime_paused">%1$s 已暂停，发送消息后会自动恢复。</string>
     <string name="convtext_runtime_starting">%1$s 正在启动，几秒后即可使用。</string>

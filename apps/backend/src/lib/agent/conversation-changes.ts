@@ -36,17 +36,53 @@ export function seesChange(conversation: ChangedConversation, teamId: string, vi
   )
 }
 
+// A member's name and face, which every chat it is in shows (channelMembers).
+const SHOWN_IN_CHATS = ['title', 'avatar', 'avatarBackground']
 // What a chat on screen shows: its messages, title, members and faces (channelRevision).
 const WATCHED = [
   'transcriptUpdatedAt',
   'messageCount',
-  'title',
   'agentSessionIds',
   'faces',
   'timelineEvents',
+  ...SHOWN_IN_CHATS,
 ]
+const GRANTS = ['sessionId', 'transcriptUpdatedAt', ...Object.keys(ACCESS_PROJECTION)]
 
 type Listener = (conversation: ChangedConversation) => void
+
+/** The chats that have `member` in them, each with its own grants. */
+const chatsWith = (member: ChangedConversation) =>
+  agentConversations()
+    .find({ teamId: member.teamId, kind: 'channel', agentSessionIds: member.sessionId })
+    .project<ChangedConversation>(Object.fromEntries(GRANTS.map((field) => [field, 1])))
+    .toArray()
+
+/**
+ * Publishes one change: the conversation that changed and, when its name or face did, every chat
+ * it is in, so a member who reads a chat but not the Bot in it still sees the rename (#3933).
+ */
+export function relay(
+  event: ChangeStreamDocument<AgentConversation>,
+  publish: Listener,
+  chatsOf: (member: ChangedConversation) => Promise<ChangedConversation[]> = chatsWith,
+) {
+  const conversation = 'fullDocument' in event ? event.fullDocument : undefined
+
+  if (!conversation?.teamId) return
+  publish(conversation)
+  const updated = 'updateDescription' in event ? event.updateDescription.updatedFields : undefined
+
+  if (!SHOWN_IN_CHATS.some((field) => updated && field in updated)) return
+  void chatsOf(conversation).then(
+    (chats) => {
+      chats.forEach(publish)
+    },
+    (error: unknown) => {
+      logEvent('warn', 'agent.conversation_changes.chats_failed', { error: errorMessage(error) })
+    },
+  )
+}
 
 const listeners = new Map<string, Set<Listener>>()
 let stream: ChangeStream<AgentConversation> | null = null
@@ -70,12 +106,12 @@ function watch() {
         },
       },
       {
-        $project: Object.fromEntries(
-          ['sessionId', 'transcriptUpdatedAt', ...Object.keys(ACCESS_PROJECTION)].map((field) => [
-            `fullDocument.${field}`,
-            1,
-          ]),
-        ),
+        $project: Object.fromEntries([
+          ...GRANTS.map((field) => [`fullDocument.${field}`, 1] as const),
+          ...SHOWN_IN_CHATS.map(
+            (field) => [`updateDescription.updatedFields.${field}`, 1] as const,
+          ),
+        ]),
       },
     ],
     { fullDocument: 'updateLookup' },
@@ -83,10 +119,13 @@ function watch() {
 
   stream = opened
   opened.on('change', (event) => {
-    const conversation = 'fullDocument' in event ? event.fullDocument : undefined
+    // A team nobody on this replica follows costs no chat lookup.
+    const team = 'fullDocument' in event ? listeners.get(event.fullDocument?.teamId ?? '') : null
 
-    if (!conversation?.teamId) return
-    for (const listener of listeners.get(conversation.teamId) ?? []) listener(conversation)
+    if (team)
+      relay(event, (conversation) => {
+        for (const listener of team) listener(conversation)
+      })
   })
   opened.on('change', () => {
     failures = 0

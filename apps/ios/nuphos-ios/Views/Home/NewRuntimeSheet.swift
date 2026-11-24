@@ -129,7 +129,7 @@ struct NewRuntimeSheet: View {
             } footer: {
                 Text(box.nameTaken(name)
                     ? "Another runtime on this computer already has this name."
-                    : "How this runtime appears on the computer and when choosing a runtime for an agent.")
+                    : "How this runtime appears on the computer and when choosing a runtime for a Bot or task.")
             }
             if let error {
                 Section { Label(error, image: "lucide-triangle-alert").foregroundStyle(.red).font(.footnote) }
@@ -190,7 +190,7 @@ struct NewRuntimeSheet: View {
                 _ = try? await AgentChatAPI.send(
                     "DELETE", "\(path)/\(created.instanceId)",
                     query: [URLQueryItem(name: "teamId", value: team.id)], token: token, body: JSONValue?.none)
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         dismiss()

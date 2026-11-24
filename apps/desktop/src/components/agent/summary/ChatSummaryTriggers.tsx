@@ -135,7 +135,7 @@ export function ChatSummaryTriggers({
             >
               <span className="block break-words text-[13px] text-main">{trigger.name}</span>
               <span className="mt-1 block text-xs leading-5 text-tertiary">
-                {trigger.scheduleDescription ?? scheduleSummary(trigger)}
+                {scheduleSummary(trigger)}
               </span>
               <span className="block text-xs leading-5 text-tertiary">{nextRunLabel(trigger)}</span>
             </button>

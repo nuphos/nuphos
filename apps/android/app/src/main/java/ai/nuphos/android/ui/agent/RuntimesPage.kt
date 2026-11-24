@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
@@ -27,6 +28,9 @@ import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.session.*
 import ai.nuphos.android.ui.LocalAgentStore
 import ai.nuphos.android.ui.LocalAuthSession
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import androidx.compose.ui.res.painterResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 
@@ -53,6 +57,7 @@ fun RuntimesPage() {
         val observations = remember { RuntimesStore(scope, current, api::catalog, api::quotas, api::devices, expired) }
         val selection = remember { auth.runtimeSelections.bind(account, team.id) }
         val setup = remember { RuntimeSetupStore(api, scope, current, { current() && agents.selectedTeam?.isAdministrator == true }, selection, expired, loginAllowed = { runtime -> current() && inventoryDestination(runtime, agents.selectedTeam?.isAdministrator == true, observations.devices) in setOf(InventoryDestination.CloudDetails, InventoryDestination.ProviderSignIn) }, useSelectedRuntime = false) }
+        var guide by remember { mutableStateOf(false) }
         var adding by remember { mutableStateOf<RuntimeGroup?>(null) }
         var managing by remember { mutableStateOf(false) }
         var runtimeId by remember { mutableStateOf<String?>(null) }
@@ -64,7 +69,17 @@ fun RuntimesPage() {
         }
         if (current()) {
         RuntimeInventory(observations,
-            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it })
+            onRuntime = { setup.clearSignInFocus(); runtimeId = it; managing = true }, onAdd = { adding = it }, onConnect = { guide = true }, resume = { BoxResumeButton(it, observations::refresh) },
+            deleteBox = { device ->
+                if (!current()) throw CancellationException()
+                try {
+                    BoxApi(token, team.id).deleteBox(device.id)
+                } catch (_: NuphosApi.Failure.Unauthorized) {
+                    expired()
+                    throw CancellationException()
+                }
+            })
+        if (guide) ConnectComputerFlow { guide = false; observations.refresh() }
         adding?.let { target ->
             val device = observations.devices.firstOrNull { it.id == target.device?.id }
             if (device?.canAddRuntime == true) key(device.id) {
@@ -107,7 +122,53 @@ fun RuntimesPage() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}) {
+fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (RuntimeGroup) -> Unit = {}, onConnect: (() -> Unit)? = null, resume: (@Composable (RuntimeDevice) -> Unit)? = null,
+    deleteBox: (suspend (RuntimeDevice) -> Unit)? = null,
+) {
+    val deleteScope = rememberCoroutineScope()
+    var confirmingBox by remember { mutableStateOf<RuntimeDevice?>(null) }
+    var deletingBox by remember { mutableStateOf(false) }
+    var deleteFailure by remember { mutableStateOf<String?>(null) }
+    confirmingBox?.let { device ->
+        AlertDialog(
+            onDismissRequest = { confirmingBox = null },
+            title = { Text(stringResource(R.string.box_delete_named, device.label)) },
+            text = { Text(stringResource(R.string.box_delete_body)) },
+            confirmButton = {
+                TextButton(
+                    enabled = !deletingBox && !store.loading,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    onClick = {
+                        confirmingBox = null
+                        if (deleteBox != null && store.devices.any { it.id == device.id && it.box != null && it.access == "owner" }) {
+                            deletingBox = true
+                            deleteScope.launch {
+                                try {
+                                    deleteBox(device)
+                                    store.refreshAfterMutation()
+                                } catch (error: CancellationException) {
+                                    throw error
+                                } catch (error: Exception) {
+                                    deleteFailure = (error as? RuntimeHttpFailure)?.serverMessage ?: ""
+                                } finally {
+                                    deletingBox = false
+                                }
+                            }
+                        }
+                    },
+                ) { Text(stringResource(R.string.box_delete)) }
+            },
+            dismissButton = { TextButton(onClick = { confirmingBox = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    deleteFailure?.let { message ->
+        AlertDialog(
+            onDismissRequest = { deleteFailure = null },
+            title = { Text(stringResource(R.string.box_delete_failed)) },
+            text = if (message.isNotBlank()) ({ Text(message) }) else null,
+            confirmButton = { TextButton(onClick = { deleteFailure = null }) { Text(stringResource(android.R.string.ok)) } },
+        )
+    }
     var userRefreshing by remember(store) { mutableStateOf(false) }
     LaunchedEffect(store.loading) { if (!store.loading) userRefreshing = false }
     androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = userRefreshing && store.loading,
@@ -125,6 +186,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
             }
         } else LazyColumn(Modifier.fillMaxSize().testTag("runtime-inventory"), contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)) {
+            if (onConnect != null) item { TextButton(onClick = onConnect, modifier = Modifier.testTag("connect-computer")) { Icon(Icons.Outlined.Add, null); Spacer(Modifier.width(8.dp)); Text(stringResource(R.string.box_connect)) } }
             if (store.errors.isNotEmpty()) item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     store.errors.forEach { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -143,6 +205,7 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                 Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.surface) {
                     Column {
                         RuntimeInventoryHost(group)
+                        group.device?.let { device -> resume?.let { Column(Modifier.padding(start = 60.dp, end = 20.dp, bottom = 8.dp)) { it(device) } } }
                         group.runtimes.forEach { runtime ->
                             HorizontalDivider(Modifier.padding(start = 60.dp, end = 20.dp), thickness = (1f / androidx.compose.ui.platform.LocalDensity.current.density).dp, color = MaterialTheme.colorScheme.outlineVariant)
                             Surface(onClick = { onRuntime(runtime.id) }, color = MaterialTheme.colorScheme.surface,
@@ -176,6 +239,19 @@ fun RuntimeInventory(store: RuntimesStore, onRuntime: (String) -> Unit, onAdd: (
                             if (group.device?.access == "use") stringResource(R.string.new_runtime_ask_owner)
                             else stringResource(R.string.new_runtime_install, group.title),
                             modifier = Modifier.padding(20.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        val device = group.device
+                        if (deleteBox != null && device?.box != null && device.access == "owner") {
+                            TextButton(
+                                onClick = { confirmingBox = device },
+                                enabled = !deletingBox && !store.loading,
+                                modifier = Modifier.padding(start = 48.dp).testTag("delete-box-${device.id}"),
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            ) {
+                                Icon(painterResource(R.drawable.box_delete_trash), null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(R.string.box_delete))
+                            }
+                        }
                     }
                 }
             }
@@ -199,6 +275,11 @@ private fun RuntimeInventoryHost(group: RuntimeGroup) {
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(group.title, style = MaterialTheme.typography.titleMedium, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+            val boxState = when (group.device?.box?.state) {
+                "creating" -> R.string.box_state_starting; "connecting" -> R.string.box_state_connecting
+                "paused" -> R.string.box_state_paused; "error" -> R.string.box_state_error; else -> null
+            }
+            boxState?.let { Text(stringResource(it), style = MaterialTheme.typography.bodySmall) }
             Text(pluralStringResource(R.plurals.agent_runtime_count, group.runtimes.size, group.runtimes.size),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             group.device?.takeIf { it.online && it.metricsStatus == "live" && it.cpuPercent != null && it.memory != null && it.disk != null }?.let { device ->

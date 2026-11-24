@@ -44,9 +44,13 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
   }
 }
 
+/** The home an agent runs with for Nuphos, under the user's own directory. */
+export const agentHomeName = (provider: LocalAgentProvider) =>
+  provider === 'claude-code' ? 'claude-home' : `${provider}-home`
+
 /** Grok Build, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
  *  their login is this file, as in the cloud runtime. */
-const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
+export const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
   dsh: '.dsh/.credentials.yaml',
   hermes: '.hermes/auth.json',

@@ -181,7 +181,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
         return dialBackend(tunnelUrlFor(apiUrl(), deviceId, reclaim), headers)
       },
       onRevoked: () => {
-        void controller.shutdown().then(exitRevoked)
+        void controller.shutdown().then(() => exitRevoked())
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
@@ -200,7 +200,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       status,
       onChange: (connected, superseded, revoked) => {
         onChange(connected, superseded, revoked)
-        if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
+        if (superseded) void controller.shutdown().then(() => exitRevoked(dataDir))
       },
       ...desktops(status, instances),
     })

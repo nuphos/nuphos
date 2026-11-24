@@ -233,6 +233,7 @@ export async function persistAcceptedConversationTurn(args: {
   runtimeId?: string
   runtimeLabel?: string
   parentSessionId?: string
+  webhookId?: string
 }): Promise<{ isNew: boolean } | null> {
   const transcriptMessages = uiMessagesToTranscript(args.messages)
 
@@ -256,6 +257,7 @@ export async function persistAcceptedConversationTurn(args: {
     runtimeId: args.runtimeId,
     runtimeLabel: args.runtimeLabel,
     parentSessionId: args.parentSessionId,
+    webhookId: args.webhookId,
   })
 }
 

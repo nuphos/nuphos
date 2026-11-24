@@ -58,7 +58,7 @@ export function AllowedEmailDomainCard({
         <h2 className="text-[15px] font-semibold text-main">{t('Allowed email domains')}</h2>
         <p className="mt-1 text-[13px] text-tertiary">
           {t(
-            "Let anyone who signs in with a verified email on your company domain discover and join this workspace. Public email providers (like gmail.com) can't be used.",
+            "Let anyone who signs in with a verified email on your company domain discover and join this team. Public email providers (like gmail.com) can't be used.",
           )}
         </p>
       </div>
@@ -91,7 +91,7 @@ function rowHint(state: {
   publicDomain: boolean
   domain: string
 }) {
-  if (state.enabled) return t('Teammates on this domain can join this workspace.')
+  if (state.enabled) return t('Teammates on this domain can join this team.')
   if (state.publicDomain)
     return t(
       "{domain} is a public email provider, so it can't be used. Sign in with a company email to turn this on.",
@@ -100,5 +100,5 @@ function rowHint(state: {
 
   return state.isAdmin
     ? t('Your email domain, taken from your account.')
-    : t('Disabled for this workspace.')
+    : t('Disabled for this team.')
 }

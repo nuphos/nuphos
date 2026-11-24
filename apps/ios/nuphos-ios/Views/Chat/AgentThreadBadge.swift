@@ -67,7 +67,7 @@ struct AgentThreadBadge: View {
             HStack(spacing: 6) {
                 AgentAvatar(agentId: reference.id, runtime: detail?.agentRuntime, size: 20)
                 Text(reference.verb).foregroundStyle(Theme.muted)
-                Text(detail?.title ?? reference.title ?? String(localized: "Agent"))
+                Text(detail?.title ?? reference.title ?? String(localized: "Task"))
                     .fontWeight(.medium).foregroundStyle(Theme.heading).lineLimit(1)
                 if let status {
                     if status == .running { ProgressView().controlSize(.mini) }

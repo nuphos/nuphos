@@ -13,6 +13,7 @@ import { loadConnectorInfos } from './connector-info/loadConnectorInfo'
 import { hasConnectorManagement } from './connector-info/managementProviders'
 import { useEscapeToExit } from './connector-info/useEscapeToExit'
 import { ManageOnpremCredentialDialog } from './ManageOnpremCredentialDialog'
+import { ReplaceInstaboxKeyDialog } from './ReplaceInstaboxKeyDialog'
 import { useResetOnKey } from './useResetOnKey'
 
 import type { ConnectorInfoProvider } from '../lib/appRoutes'
@@ -129,6 +130,7 @@ export function ConnectorInfoView({
   const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading')
   const [disconnectTarget, setDisconnectTarget] = useState<DisconnectTarget | null>(null)
   const [manageAccess, setManageAccess] = useState<OnpremCluster | null>(null)
+  const [replaceKey, setReplaceKey] = useState<{ id: string; name: string } | null>(null)
 
   useResetOnKey(
     `${teamId}|${provider}|${connectorId}|${String(refreshKey)}|${String(reloadKey)}`,
@@ -200,11 +202,22 @@ export function ConnectorInfoView({
           providerLabel={providerLabel}
           connections={connections.map((connection) => ({
             ...connection,
-            inAppActions: withManageAccess(
-              inAppActionsForConnection(connection.id),
-              provider === 'onprem-k8s' ? onpremCluster?.(connection.id) : undefined,
-              setManageAccess,
-            ),
+            inAppActions: [
+              ...withManageAccess(
+                inAppActionsForConnection(connection.id),
+                provider === 'onprem-k8s' ? onpremCluster?.(connection.id) : undefined,
+                setManageAccess,
+              ),
+              ...(provider === 'instabox'
+                ? [
+                    {
+                      label: t('Replace key'),
+                      onOpen: () =>
+                        setReplaceKey({ id: connection.id, name: connection.info.name }),
+                    },
+                  ]
+                : []),
+            ],
             canDisconnect: Boolean(disconnectActionForConnection(connection.id)),
             attention: attentionForConnection?.(connection.id),
             details:
@@ -253,6 +266,14 @@ export function ConnectorInfoView({
           teamId={teamId}
           cluster={manageAccess}
           onClose={() => setManageAccess(null)}
+          onSaved={onBindingsChanged}
+        />
+      )}
+      {replaceKey && (
+        <ReplaceInstaboxKeyDialog
+          teamId={teamId}
+          account={replaceKey}
+          onClose={() => setReplaceKey(null)}
           onSaved={onBindingsChanged}
         />
       )}

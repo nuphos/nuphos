@@ -81,7 +81,7 @@ export function BindDiscordDialog({
                 'Discord opens in your browser to verify your identity. The bot installation and other team member links are unchanged.',
               )
             : t(
-                'Discord opens in your browser. Choose a server and approve the bot. Your Discord account is linked to this Nuphos workspace automatically.',
+                'Discord opens in your browser. Choose a server and approve the bot. Your Discord account is linked to this Nuphos team automatically.',
               )}
         </p>
       </div>

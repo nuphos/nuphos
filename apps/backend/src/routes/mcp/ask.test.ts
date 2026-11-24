@@ -38,8 +38,13 @@ let lastQuery: Record<string, unknown> | undefined
 
 useIdentity({ getTeamMembership: async () => ({ role: 'MEMBER' }) as never })
 useMessageAttribution({
-  createMessageMetadata: async (userId) =>
-    ({ version: 1, sender: { type: 'user', id: userId, displayName: 'Ada' } }) as never,
+  createMessageMetadata: async (userId, _source, _device, cliToken) =>
+    ({
+      version: 1,
+      sender: cliToken
+        ? { type: 'agent', id: cliToken.id, displayName: cliToken.name }
+        : { type: 'user', id: userId, displayName: 'Ada' },
+    }) as never,
 })
 // The caller's runtimes: r1 is theirs to use, r2 is disabled; any other is gone.
 useRuntimeCatalog({
@@ -200,6 +205,21 @@ describe('nuphos_ask on a teammate’s session', () => {
     participant = true
 
     expect((await nuphosAsk(answer, ctx)).isError).toBe(true)
+  })
+})
+
+describe('nuphos_ask with a Bot’s agent token', () => {
+  test('the message is the Bot’s, and the run keeps the agent token', async () => {
+    const principal = { id: 'bot-1', kind: 'agent', userId: ME, teamId: 't1', name: 'Deploy Bot' }
+    const bot = { userId: ME, cliToken: { principal, token: 'nup_bot' } } as never
+    const sent = nuphosAsk({ prompt: 'Go.', team_id: 't1', session_id: 's1', wait: false }, bot)
+
+    expect(body(await sent).status).toBe('running')
+    expect(runs[0]).toMatchObject({ userId: ME, nuphosToken: 'nup_bot' })
+    expect((runs[0]!.messages as { metadata: unknown }[]).at(-1)!.metadata).toMatchObject({
+      sender: { type: 'agent', id: 'bot-1', displayName: 'Deploy Bot' },
+    })
+    finishRun()
   })
 })
 

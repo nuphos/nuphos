@@ -1,31 +1,15 @@
 import { AppError } from '@/lib/errors'
 
 import { allows, deviceAccess, deviceAccessDeps, requireDeviceAccess } from './box-access'
-import { agentDevices } from './store'
 
 import type { DeviceAccessDeps } from './box-access'
 import type { AgentDevice } from './store'
 
 /**
  * A shell on a computer reads its files, its agents' sign-in among them, and acts as the
- * account signed in there. So running commands on it takes managing it; a terminal also opens
- * for those who use a Box whose owner lets them.
+ * account signed in there. So running commands or opening a terminal on it takes managing it.
  */
 export type ShellPurpose = 'exec' | 'terminal'
-
-export function shellAllowed(
-  device: AgentDevice,
-  actorId: string,
-  teamId: string | undefined,
-  purpose: ShellPurpose,
-): boolean {
-  const access = deviceAccess(device, actorId, teamId)
-
-  return (
-    allows(access, 'manage') ||
-    (purpose === 'terminal' && access === 'use' && device.box?.useTerminal === true)
-  )
-}
 
 /** The computer, when the actor may open this shell on it; 403 for one who only uses it. */
 export async function requireShellAccess(
@@ -37,7 +21,7 @@ export async function requireShellAccess(
 ): Promise<AgentDevice> {
   const device = await requireDeviceAccess(actorId, teamId, deviceId, 'use', deps)
 
-  if (!shellAllowed(device, actorId, teamId, purpose))
+  if (!allows(deviceAccess(device, actorId, teamId), 'manage'))
     throw new AppError(
       403,
       'device_manage_required',
@@ -79,18 +63,4 @@ export async function requireAgentSignInAccess(
     )
 
   return device
-}
-
-/** Whether those who only use this Box may open a terminal on it. */
-export async function setBoxUseTerminal(
-  userId: string,
-  deviceId: string,
-  useTerminal: boolean,
-): Promise<boolean> {
-  const result = await agentDevices().updateOne(
-    { userId, deviceId, box: { $exists: true } },
-    { $set: { 'box.useTerminal': useTerminal, updatedAt: new Date() } },
-  )
-
-  return result.matchedCount > 0
 }

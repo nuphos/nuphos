@@ -8,6 +8,13 @@ enum NewRuntime {
         .claudeCode, .codex, .grok, .antigravity, .opencode, .dsh, .hermes, .pi,
     ]
 
+    /// The runtimes a new Box lists, in this same order, so one that joins later
+    /// never moves the rows already shown. Ties keep a fixed order by id.
+    static func ordered(_ runtimes: [RuntimeInstance]) -> [RuntimeInstance] {
+        let rank = { (runtime: RuntimeInstance) in providers.firstIndex(of: runtime.provider) ?? providers.count }
+        return runtimes.sorted { (rank($0), $0.id) < (rank($1), $1.id) }
+    }
+
     /// Still a preview, as Desktop marks them.
     static let previews: Set<RuntimeInstance.Provider> = [.dsh, .pi]
 

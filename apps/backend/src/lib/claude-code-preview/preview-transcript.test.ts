@@ -323,6 +323,16 @@ describe('interrupted preview turns', () => {
       reason: 'timeout',
       message: 'The agent stopped making progress, so the turn was stopped.',
     })
+    expect(
+      classifyPreviewInterruption(
+        new Error('OpenAB ACP session/prompt timed out: no model output for 900s'),
+        false,
+      ),
+    ).toEqual({
+      reason: 'timeout',
+      message:
+        "The model didn't start answering within 15 minutes. On the computer running this agent, check its sign-in, model provider and network, or switch to another agent.",
+    })
     const failed = classifyPreviewInterruption(
       new Error('ACP session output sink is unavailable'),
       false,

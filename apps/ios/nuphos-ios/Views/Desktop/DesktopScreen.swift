@@ -206,7 +206,7 @@ struct DesktopScreen: View {
                 .font(.system(size: 28, weight: .light))
             Text(desktop.isMacScreen
                  ? "Take over to click, type and scroll on the Mac from here."
-                 : "Take over to click, type and scroll here. The agent waits until you hand the desktop back.")
+                 : "Take over to click, type and scroll here. Work pauses until you hand the desktop back.")
                 .font(Theme.Text.caption)
                 .multilineTextAlignment(.center)
         }

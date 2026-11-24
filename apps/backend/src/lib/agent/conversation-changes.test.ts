@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'bun:test'
 
-import { MEMBERSHIP_RECHECK_MS, conversationChangesBody } from './conversation-changes'
+import { MEMBERSHIP_RECHECK_MS, conversationChangesBody, relay } from './conversation-changes'
 
 import type { ChangedConversation } from './conversation-changes'
+import type { AgentConversation } from './db/shared'
+import type { ChangeStreamDocument } from 'mongodb'
 
 const TEAM = 'team-a'
 const VIEWER = 'viewer'
@@ -46,6 +48,20 @@ function open(options: { isMember?: () => Promise<boolean>; clock?: { at: number
   return {
     change: (conversation: Partial<ChangedConversation>) =>
       listener?.({ sessionId: 's', userId: 'owner', teamId: TEAM, ...conversation }),
+    /** A database change, relayed as the replica's change stream relays it. */
+    update: (
+      conversation: Partial<ChangedConversation>,
+      updatedFields: Partial<AgentConversation>,
+      chats: ChangedConversation[] = [],
+    ) =>
+      relay(
+        {
+          fullDocument: { sessionId: 's', userId: 'owner', teamId: TEAM, ...conversation },
+          updateDescription: { updatedFields },
+        } as unknown as ChangeStreamDocument<AgentConversation>,
+        (changed) => listener?.(changed),
+        () => Promise.resolve(chats),
+      ),
     settle: () => new Promise((resolve) => setTimeout(resolve, 5)),
     heard: () =>
       [...text.matchAll(/^data: (.+)$/gm)].map(
@@ -140,5 +156,55 @@ describe('conversation changes, as one member hears them', () => {
     await stream.settle()
     expect(stream.heard()).toEqual([])
     expect(stream.ended()).toBe(true)
+  })
+
+  describe("a Bot's name and face, shown in every chat it is in (#3933)", () => {
+    // A teammate's private Bot, in a chat shared with the viewer.
+    const bot = { sessionId: 'private-bot', generalAccess: 'none' } as const
+    const chat: ChangedConversation = {
+      sessionId: 'shared-chat',
+      userId: 'owner',
+      teamId: TEAM,
+      kind: 'channel',
+      generalAccess: 'none',
+      participantIds: [VIEWER],
+    }
+
+    test('renaming it is heard as a change to the chat, though not to the Bot', async () => {
+      const stream = open()
+
+      stream.update(bot, { title: 'Renamed' }, [chat])
+      await stream.settle()
+      expect(stream.heard()).toEqual(['shared-chat'])
+      await stream.close()
+    })
+
+    test('a new face is heard the same way', async () => {
+      const stream = open()
+
+      stream.update(bot, { avatar: '05-rembrandt' }, [chat])
+      stream.update(bot, { avatarBackground: 'sky' }, [chat])
+      await stream.settle()
+      expect(stream.heard()).toEqual(['shared-chat', 'shared-chat'])
+      await stream.close()
+    })
+
+    test("a chat the viewer can't read stays unheard of", async () => {
+      const stream = open()
+
+      stream.update(bot, { title: 'Renamed' }, [{ ...chat, participantIds: [] }])
+      await stream.settle()
+      expect(stream.heard()).toEqual([])
+      await stream.close()
+    })
+
+    test('a change chats do not show, such as a new message, reaches no chat', async () => {
+      const stream = open()
+
+      stream.update({ sessionId: 'own-bot', userId: VIEWER }, { messageCount: 3 }, [chat])
+      await stream.settle()
+      expect(stream.heard()).toEqual(['own-bot'])
+      await stream.close()
+    })
   })
 })

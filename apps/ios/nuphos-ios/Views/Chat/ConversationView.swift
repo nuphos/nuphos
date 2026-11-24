@@ -165,13 +165,12 @@ struct ConversationView: View {
             #endif
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .agentSummary(isPresented: $summaryOpen) {
+        .sheet(isPresented: $summaryOpen) {
             AgentSummaryPanel(session: session, close: { summaryOpen = false }, archive: archiveTask) { row in
                 summaryOpen = false
                 summaryTarget = row
             }
             .environment(store)
-            .inspectorColumnWidth(min: 300, ideal: 340, max: 420)
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
@@ -250,7 +249,7 @@ struct ConversationView: View {
             if session.loaded && (initialPrompt == nil || !session.isNew) {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(action: toggleSummary) { LucideIcon("panel-right") }
-                        .accessibilityLabel("Agent summary")
+                        .accessibilityLabel("Task summary")
                         .accessibilityIdentifier("agent-summary-button")
                 }
             }
@@ -272,7 +271,7 @@ struct ConversationView: View {
             Text(archiveError ?? "")
         }
         // Wherever the reader is in the transcript, a refused Stop is answered.
-        .alert("Couldn't stop the agent", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
+        .alert("Could not stop the turn on the server", isPresented: Binding(get: { session.stopRefusal != nil }, set: { if !$0 { session.stopRefusal = nil } })) {
             Button("OK") { session.stopRefusal = nil }
         } message: {
             Text(session.stopRefusal ?? "")
@@ -281,7 +280,8 @@ struct ConversationView: View {
             Button("OK") { session.stopNotice = nil }
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
-        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token).presentationDetents([.large]) }
+        .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token,
+                                 onEdit: { draft = $0 }).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) {
             if session.shareable { ShareSessionSheet(session: session).presentationDetents([.medium, .large]) }
         }
@@ -308,7 +308,7 @@ struct ConversationView: View {
                     await store.loadAgentDevices(metrics: false)
                 }
                 try? await Task.sleep(for: .seconds(15))
-                await store.loadRuntimes(force: true)
+                await store.loadRuntimes()
             }
         }
         .task {

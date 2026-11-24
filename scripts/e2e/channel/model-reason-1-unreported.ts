@@ -4,15 +4,9 @@ import { randomUUID } from 'node:crypto'
 
 import { computerWithUsage, pickRuntime } from '../channel-helpers.ts'
 import { artifacts } from '../processes.ts'
+import { settingButton } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
-import type { Page } from 'playwright-core'
-
-/** The composer in front: a Bot chat stays mounted, inert, behind the Bot's own page. */
-const composer = (page: Page) =>
-  page.locator(
-    "xpath=//*[contains(concat(' ', @class, ' '), ' composer-surface ')][not(ancestor::*[@inert])] >> visible=true",
-  )
 
 export default {
   name: 'a Bot moved to a computer that has not reported its models says so in its model menu',
@@ -26,9 +20,7 @@ export default {
       await page.getByRole('tab', { name: 'Bots' }).click()
       await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E Bot' }).first().click()
       await pickRuntime(page, computer, /^Claude Code/)
-      await composer(page)
-        .getByRole('button', { name: /^Model settings/ })
-        .click()
+      await (await settingButton(page, /^Model settings/)).click()
       await page
         .getByText('This computer hasn’t reported its models yet.', { exact: false })
         .waitFor()

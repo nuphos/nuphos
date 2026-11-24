@@ -42,8 +42,8 @@ email. Never print the token. Every shell call is a fresh process, so source the
 env file in each call that uses it.
 
 A 404 `personal_credential_not_connected` means this member has not connected
-that provider through this team: ask them to connect Gmail, Google Drive or Google Calendar under
-Settings → Personal Credentials, then retry. A 403
+that provider through this team: ask them to connect Gmail, Google Drive or Google Calendar in
+Connectors, then retry. A 403
 `personal_credential_not_selected` means the member has connected it, but it is
 not selected for this conversation: ask them to select it with
 `request_user_decision` (category `integration`, `credentials`

@@ -9,6 +9,7 @@ import type { AgentTrigger } from '../../../api/agent-trigger-types'
 import type { ToolPart } from './parts'
 
 let target = 'task-1'
+let rule: Partial<AgentTrigger> = {}
 const TRIGGER_ID = '6b00eb7166ad4469f8cbc41a'
 const trigger: AgentTrigger = {
   id: TRIGGER_ID,
@@ -28,7 +29,10 @@ const real = await import('../../../api')
 
 mock.module('../../../api', () => ({
   ...real,
-  api: { ...real.api, agentGetTrigger: async () => ({ ...trigger, targetSessionId: target }) },
+  api: {
+    ...real.api,
+    agentGetTrigger: async () => ({ ...trigger, ...rule, targetSessionId: target }),
+  },
 }))
 
 const dom = new Window()
@@ -93,4 +97,18 @@ test('a Trigger that runs in a Task links to Open Task', async () => {
 
 test('a Trigger that runs in a Bot links to Open Bot', async () => {
   assert.equal(await footer('bot-1'), 'Open Bot')
+})
+
+// #4705: a rule kept in New York read as 09:00 UTC on the card.
+test('a cron rule in another zone is described in that zone', async () => {
+  rule = { cronExpression: '0 9 1 * *', timeZone: 'America/New_York' }
+  try {
+    await footer('task-1')
+    const text = dom.document.body.lastElementChild?.textContent ?? ''
+
+    assert.ok(text.includes('09:00 America/New_York'), text)
+    assert.ok(!text.includes('09:00 UTC'), text)
+  } finally {
+    rule = {}
+  }
 })

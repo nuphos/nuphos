@@ -1,14 +1,14 @@
 // The stack under test: a real MongoDB, file store, backend and OpenAB, with a deterministic
 // ACP agent in place of a model and fakes for what it calls out to. Nothing reaches the internet.
 import { execFileSync, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { assertLoopbackOnly, backendEnv } from './backend-env.ts'
 import { startDiscordStub } from './discord-stub.ts'
 import { startInstaboxStub } from './instabox-stub.ts'
-import { artifacts, freePorts, frozen, logPath, spawn, stop, until } from './processes.ts'
+import { artifacts, freePorts, frozen, signInCode, spawn, stop, until } from './processes.ts'
 import { rollBackend, startRedis } from './replicas.ts'
 import { startSlackStub } from './slack-stub.ts'
 import { startStorage } from './storage.ts'
@@ -44,8 +44,9 @@ export type Stack = {
   rollBackend: () => Promise<{ apiUrl: string; log: string; exited: Promise<void> }>
   /** Freezes the backend, so every request waits, runs `whileFrozen`, then lets it go on. */
   freezeBackend: (whileFrozen: () => Promise<void>) => Promise<void>
-  /** The `state` of the newest Cloudflare authorization the app started. */
-  cloudflareState: () => string
+  backendEnv: Record<string, string> // The backend's environment, for a replica; needs `redis`.
+  cloudflareState: () => string // State of the newest Cloudflare authorization.
+  cloudflareShare: () => unknown
 }
 
 function findOpenab(): string {
@@ -111,31 +112,29 @@ export function initiateReplicaSet(uri: string): boolean {
   }
 }
 
-function cloudflareState(uri: string): string {
+function cloudflarePending(uri: string): { _id?: string; share?: unknown } {
   const script = `
     import { MongoClient } from 'mongodb'
     const client = await new MongoClient(process.argv[1]).connect()
     const [pending] = await client.db('nuphos_e2e').collection('cloudflare_oauth_pending')
       .find().sort({ expiresAt: -1 }).limit(1).toArray()
     await client.close()
-    console.log(pending?._id ?? '')`
+    console.log(JSON.stringify(pending ?? {}))`
 
-  return execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 })
-    .toString()
-    .trim()
-}
-
-/** The newest six-digit sign-in code the backend logged for this address. */
-function signInCode(address: string): string | undefined {
-  return readFileSync(logPath('backend'), 'utf8')
-    .split('\n')
-    .filter((line) => line.includes(address) && line.includes('auth.email_otp.dev_code'))
-    .map((line) => /"sign_in_code"\s*:\s*"(\d{6})"/.exec(line)?.[1])
-    .findLast(Boolean)
+  return JSON.parse(
+    execFileSync('bun', ['-e', script, uri], { cwd: BACKEND_DIR, timeout: 10_000 }).toString(),
+  ) as { _id?: string; share?: unknown }
 }
 
 export async function startStack(
-  options: { botOnboarding?: boolean; boxes?: boolean; freeBox?: boolean; redis?: boolean } = {},
+  options: {
+    botOnboarding?: boolean
+    boxes?: boolean
+    freeBox?: boolean
+    redis?: boolean
+    /** A module the backend loads first, with the environment it reads. */
+    backendStub?: { preload: string; env: Record<string, string> }
+  } = {},
 ): Promise<Stack> {
   const [mongoPort, backendPort, runtimePort, secondPort, storagePort, codex] = await freePorts(6)
   const mongoUri = startMongo(mongoPort)
@@ -214,7 +213,7 @@ export async function startStack(
   // The newest CLI release is fixed: GitHub rate-limits its unauthenticated lookup.
   const stub = resolve(import.meta.dirname, 'cli-release-stub.ts')
   const startBackend = (name = 'backend', port = backendPort, url = apiUrl) =>
-    spawn(name, ['bun', 'run', '--preload', stub, 'src/index.ts'], {
+    spawn(name, ['bun', 'run', '--preload', options.backendStub?.preload ?? stub, 'src/index.ts'], {
       cwd: BACKEND_DIR,
       env: {
         ...backendEnv(port, url, mongoUri),
@@ -223,6 +222,7 @@ export async function startStack(
           ? { BOX_DEFAULT_MONTHLY_HOURS: '50', BOX_DEFAULT_VCPU_LIMIT: '2' }
           : {}),
         ...fakes,
+        ...options.backendStub?.env,
       },
     })
   const backendReady = () =>
@@ -293,6 +293,8 @@ export async function startStack(
     },
     rollBackend: async () => rollBackend(backends, startBackend),
     freezeBackend: (whileFrozen) => frozen(backends.at(-1)!, whileFrozen),
-    cloudflareState: () => cloudflareState(mongoUri),
+    backendEnv: { ...backendEnv(backendPort, apiUrl, mongoUri), ...fakes },
+    cloudflareState: () => cloudflarePending(mongoUri)._id ?? '',
+    cloudflareShare: () => cloudflarePending(mongoUri).share,
   }
 }

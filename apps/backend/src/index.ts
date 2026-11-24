@@ -10,6 +10,7 @@ import { app, websocket } from '@/index-app'
 import { startBotImportCleanup } from '@/lib/agent/bot-import/cleanup'
 import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
 import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
+import { startBoxUpdateSweep } from '@/lib/agent/devices/box-update-sweep'
 import { closeTunnelsForRestart } from '@/lib/agent/devices/local-runtime/holder'
 import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
@@ -140,6 +141,7 @@ initRuntimeMetricsSampler()
 startAgentRunStallSweeper()
 const stopBotImportCleanup = startBotImportCleanup()
 const stopFreeBoxSweep = startFreeBoxSweep()
+const stopBoxUpdateSweep = startBoxUpdateSweep()
 const stopWebhookDelivery = startWebhookDelivery()
 const stopRuntimeHandoffAdoption = startRuntimeHandoffAdoption()
 
@@ -224,6 +226,7 @@ async function shutdown(sig: string) {
   shutdownStuckTurnProbe()
   stopBotImportCleanup()
   stopFreeBoxSweep()
+  stopBoxUpdateSweep()
   stopWebhookDelivery()
   const workersStopped = Promise.allSettled([quiesceAgentWorkers(), shutdownJournalSealer()])
 
@@ -250,8 +253,15 @@ async function shutdown(sig: string) {
   }
 
   // 4. Send computers to a ready replica (their tunnels never end on their own), then drain HTTP.
-  closeTunnelsForRestart()
-  await stopHttpWithDeadline(server, devHttpServer, shutdownBudget.httpDrainMs, workersStopped)
+  // The force stop waits for them too: one it cuts ends its sessions after storage is closed.
+  const tunnelsClosed = closeTunnelsForRestart()
+
+  await stopHttpWithDeadline(
+    server,
+    devHttpServer,
+    shutdownBudget.httpDrainMs,
+    Promise.all([workersStopped, tunnelsClosed]),
+  )
 
   // 5. Flush busy-guard releases before Redis closes; the owner-lease sweep covers later ones.
   await Promise.allSettled([

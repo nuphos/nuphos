@@ -11,6 +11,7 @@ import {
   managesRuntime,
   newAgentAction,
   ownSignedInCli,
+  signedInAs,
   visibleAgent,
 } from './agentPresentation.ts'
 import { boxAgents } from './boxPresentation.ts'
@@ -276,6 +277,11 @@ test('every signed-out agent can sign in, by its own CLI or the runtime sign-in'
   // The same machine, signed in here with another account: its agents are not this computer's CLI's.
   assert.equal(localSignIn(codex, { userId: 'other', deviceId: 'mac' }), 'runtime')
   assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
+  // One whose sign-in ended is renewed only through Nuphos, not by the CLI's own login.
+  assert.equal(
+    localSignIn({ ...codex, local: { ...codex.local!, signInEnded: true } }, here),
+    'runtime',
+  )
   // Signed in already, or a team runtime: nothing to offer.
   assert.equal(localSignIn(local('a', 'mac', true), here), undefined)
   assert.equal(localSignIn(local('a', 'box1', true), here), undefined)
@@ -349,4 +355,10 @@ test('AGY only offers its existing shared sign-in, never a second account', () =
     ),
     { signIn: 'agy' },
   )
+})
+
+test('an agent card names who signed its agent in, or says it was the viewer', () => {
+  assert.equal(signedInAs('Alice', 'u1', 'u2'), 'Signed in as Alice')
+  assert.equal(signedInAs('Alice', 'u1', 'u1'), 'Signed in as you')
+  assert.equal(signedInAs('Alice', 'u1', undefined), 'Signed in as Alice')
 })

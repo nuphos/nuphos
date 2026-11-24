@@ -159,6 +159,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     /// Open questions, oldest first; absent when there are none.
     var inputRequests: [InputRequest]?
     var botOnboarding: String?
+    /// A Bot's standing instructions, in full; its owner rewrites them in Bot details (#4084).
+    var instructions: String?
 
     var id: String { sessionId }
 
@@ -235,6 +237,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         lastMessage = try? c.decodeIfPresent(LastMessage.self, forKey: .lastMessage)
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
+        instructions = try? c.decodeIfPresent(String.self, forKey: .instructions)
     }
 
     init(

@@ -5,6 +5,7 @@ export function scriptedUpdates({ send, sessionId, text }) {
   if (text.includes('E2E_COMMANDS')) listCommands({ send, sessionId })
   if (text.includes('E2E_LONG')) longReply({ send, sessionId })
   if (text.includes('E2E_TOOLS')) toolCards({ send, sessionId })
+  if (text.includes('E2E_PRINTED_KEY')) printedKey({ send, sessionId })
   const trigger = /E2E_TRIGGER_CARD:([\da-f]{24})/.exec(text)?.[1]
 
   if (trigger) triggerCard({ send, sessionId, trigger })
@@ -28,6 +29,36 @@ function triggerCard({ send, sessionId, trigger }) {
     sessionUpdate: 'tool_call_update',
     status: 'completed',
     rawOutput: { stdout: JSON.stringify({ id: trigger, triggerType: 'cron' }) },
+  })
+}
+
+// E2E_PRINTED_KEY: a tool prints a fake AWS secret key and session token, as `cat
+// ~/.aws/credentials` would (#4750). The values are built here so no key-shaped text is committed.
+export const PRINTED_SECRET = 'e2eFakeSecret0'.repeat(3)
+export const PRINTED_SESSION = `IQoJb3JpZ2lu${'E2eFakeSessionToken0'.repeat(6)}`
+
+function printedKey({ send, sessionId }) {
+  const toolCallId = randomUUID()
+  const update = (fields) =>
+    send({ method: 'session/update', params: { sessionId, update: { toolCallId, ...fields } } })
+  const stdout = [
+    '[default]',
+    `aws_secret_access_key = ${PRINTED_SECRET}`,
+    `aws_session_token = ${PRINTED_SESSION}`,
+  ].join('\n')
+
+  update({
+    sessionUpdate: 'tool_call',
+    title: 'Bash',
+    kind: 'execute',
+    status: 'in_progress',
+    rawInput: { command: 'cat ~/.aws/credentials' },
+  })
+  update({
+    sessionUpdate: 'tool_call_update',
+    status: 'completed',
+    rawOutput: { stdout },
+    content: [{ type: 'content', content: { type: 'text', text: stdout } }],
   })
 }
 

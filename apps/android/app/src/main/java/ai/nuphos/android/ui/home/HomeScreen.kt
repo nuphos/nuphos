@@ -605,7 +605,9 @@ fun HomeScreen(
         ProfileSheet(
             user = user,
             onDismiss = { showProfile = false },
+            showIntegrations = true,
             workspaceName = store.selectedTeam?.name,
+            teamId = store.selectedTeam?.id,
             workspacePicker = workspacePicker,
         )
     }

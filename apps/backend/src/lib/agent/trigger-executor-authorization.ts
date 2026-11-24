@@ -68,6 +68,13 @@ async function markExecutionAuthorizationValid(trigger: AgentTrigger, now: Date)
   )
 }
 
+/** What a Trigger that was just paused instead of run throws. */
+export const TRIGGER_PAUSED = new Set([
+  'trigger_target_session_invalid',
+  'trigger_target_session_archived',
+  'trigger_execution_principal_invalid',
+])
+
 /** A Trigger runs in its Task, as that Task's owner. */
 export async function resolveExecutionAuthorization(trigger: AgentTrigger) {
   const now = new Date()

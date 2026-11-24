@@ -35,21 +35,32 @@ jobs:
   scope:
     name: Approved iOS change
     if: github.event_name != 'pull_request_review' || github.event.review.state == 'approved'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
     timeout-minutes: 5
     permissions:
       pull-requests: read
+      # To find a run that already passed this head.
+      actions: read
     outputs:
       run: ${{ steps.files.outputs.run }}
     steps:
       # Where #3343, #2708 and #3004 changed navigation, lists, selection and the toolbar.
+      # A head that already passed the full suite is skipped here, off the macOS runner (#4743).
+      # Only a full run uploads ios-ui-results, so a partial or skipped run does not count.
       - id: files
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
+          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -z "$PR" ]; then echo run=true >> "$GITHUB_OUTPUT"; exit 0; fi
+          for run in $(gh run list --workflow ios-ui.yml --commit "$SHA" --status success --json databaseId --jq '.[].databaseId'); do
+            if gh api "repos/$GH_REPO/actions/runs/$run/artifacts" --jq '.artifacts[].name' | grep -qx ios-ui-results; then
+              echo "Run $GITHUB_SERVER_URL/$GH_REPO/actions/runs/$run already passed the full suite on $SHA; skipping." >> "$GITHUB_STEP_SUMMARY"
+              echo run=false >> "$GITHUB_OUTPUT"; exit 0
+            fi
+          done
           paths='^(apps/ios/nuphos-ios/Views/(Home|Chat)/|apps/ios/nuphos-ios/Services/(AgentStore|ConversationNesting)\.swift$|apps/ios/UITests/|apps/ios/tests/fixtures/|scripts/compare-ios-ui-results\.mjs$|\.github/workflows/ios-ui\.yml$)'
           if gh api --paginate "repos/$GH_REPO/pulls/$PR/files" --jq '.[].filename' | grep -qE "$paths"; then
             echo run=true >> "$GITHUB_OUTPUT"
@@ -175,19 +186,6 @@ jobs:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
           retention-days: 7
-      # The Bot composer fixture captures fictional light-theme screens for visual review.
-      - name: Export Bot composer screenshots
-        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/bot-composer-attachments"
-          xcrun xcresulttool export attachments --path "$RUNNER_TEMP/ui.xcresult" --output-path "$RUNNER_TEMP/bot-composer-attachments"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: ${{ !cancelled() && inputs.tests == 'nuphos-iosUITests/BotComposerControlsUITests' }}
-        with:
-          name: bot-composer-ios-screenshots
-          path: ${{ runner.temp }}/bot-composer-attachments/**/*.png
-          if-no-files-found: warn
-          retention-days: 7
       # The full result bundle, with screen recordings, only when something failed.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: failure()
@@ -200,7 +198,8 @@ jobs:
     name: Report a failed nightly run
     needs: ui
     if: failure() && github.event_name == 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && 'ubuntu-latest' || 'instabox-medium' }}
+    timeout-minutes: 30
     permissions:
       issues: write
     steps:

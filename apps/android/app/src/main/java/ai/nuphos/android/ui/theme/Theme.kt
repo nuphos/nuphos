@@ -52,8 +52,8 @@ private val LightScheme = lightColorScheme(
     surfaceContainer = Color(0xFFF1F1F4),
     surfaceContainerHigh = BubbleLight,
     surfaceContainerHighest = Color(0xFFE1E1E5),
-    inverseSurface = Color(0xFF313033),
-    inverseOnSurface = Color(0xFFF4EFF4),
+    inverseSurface = SurfaceDark,
+    inverseOnSurface = Color.White,
     inversePrimary = BrandDark,
 )
 
@@ -90,8 +90,8 @@ private val DarkScheme = darkColorScheme(
     surfaceContainer = SurfaceDark,
     surfaceContainerHigh = BubbleDark,
     surfaceContainerHighest = Color(0xFF353539),
-    inverseSurface = Color(0xFFE6E1E5),
-    inverseOnSurface = Color(0xFF313033),
+    inverseSurface = BubbleLight,
+    inverseOnSurface = Color(0xFF18181B),
     inversePrimary = BrandLight,
 )
 

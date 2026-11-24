@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Nuphos コンピューター</string>
+    <string name="box_setup">ランタイムの設定</string>
+    <string name="box_connect">コンピュータを接続</string>
+    <string name="box_guide_body">Bot とタスクにはランタイムが必要です。Nuphos Desktop でコンピュータを接続するか、チーム管理者にランタイムの共有を依頼してください。</string>
+    <string name="box_description">Nuphos が運用する Linux コンピューターです。Claude Code、Codex、OpenCode などのエージェントを搭載しています。ご自身のアカウントでサインインします。</string>
+    <string name="box_step1">1. コンピュータで Nuphos を開きます。</string>
+    <string name="box_step2">2. サインインしてこのチームを選びます。</string>
+    <string name="box_step3">3. コンピュータを接続してランタイムを追加します。</string>
+    <string name="box_body">Claude Code、Codex、OpenCode などのエージェントを搭載した Linux コンピューターです。実行中のコンピューターはプランの vCPU に含まれ、一時停止中のものは含まれません。</string>
+    <string name="box_name_help">空欄の場合は %1$s という名前になります。</string>
+    <string name="box_create">コンピュータを作成</string>
+    <string name="box_creating">作成中…</string>
+    <string name="box_starting">コンピュータとランタイムを起動中です。通常 10〜30 秒かかります…</string>
+    <string name="box_ready">コンピュータが実行中です。サインインするランタイムを選択してください。</string>
+    <string name="box_failed">コンピュータを起動できませんでした。</string>
+    <string name="box_timeout">5 分経ってもコンピュータが起動しません。</string>
+    <string name="box_plan">お使いのコンピューターの Nuphos でプランを選択してください。</string>
+    <string name="box_state_starting">起動中</string>
+    <string name="box_state_connecting">接続中</string>
+    <string name="box_state_paused">一時停止中</string>
+    <string name="box_state_error">起動しませんでした</string>
+    <string name="box_resume">再開</string>
+    <string name="box_create_failed">コンピュータを作成できませんでした</string>
+    <string name="box_refresh_failed">コンピューターを更新できませんでした。もう一度お試しください。</string>
+    <string name="box_resume_failed">コンピューターを再開できませんでした。もう一度お試しください。</string>
+    <string name="box_uncertain">リクエストが成功した可能性があります。別のコンピューターを作成する前に、コンピューターとランタイムを確認してください。</string>
+    <string name="box_visit">Nuphos を開く</string>
+    <string name="box_name">名前</string>
+    <string name="box_not_available">このチームでは現在 Nuphos コンピューターを作成できません。</string>
+</resources>

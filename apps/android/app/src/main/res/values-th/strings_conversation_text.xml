@@ -1,7 +1,7 @@
 <resources>
     <string name="convtext_downloads_refresh_failed">ไม่สามารถรีเฟรชไฟล์ของเอเจนต์ได้</string>
     <string name="convtext_attachment_access_unavailable">ไม่สามารถเข้าถึงไฟล์แนบได้</string>
-    <string name="convtext_move_wait">รอให้การตอบกลับปัจจุบันเสร็จก่อนสลับรันไทม์</string>
+    <string name="convtext_move_wait">รอให้ข้อความที่กำลังส่งหรือการอัปโหลดเสร็จก่อน แล้วจึงสลับรันไทม์</string>
     <string name="convtext_move_choose_runtime">เลือกรันไทม์ที่ใช้งานได้</string>
     <string name="convtext_runtime_status_unavailable">ไม่มีสถานะของรันไทม์</string>
     <string name="convtext_attachments_after_run">เก็บไฟล์แนบไว้ส่งในข้อความใหม่หลังการทำงานปัจจุบันเสร็จ</string>
@@ -56,7 +56,7 @@
     <string name="convtext_conflict_busy">งานนี้กำลังตอบกลับอีกรายการหนึ่งอยู่</string>
     <string name="convtext_runtime_signed_out">รันไทม์นี้ออกจากระบบแล้ว ลงชื่อเข้าใช้จาก Nuphos บนคอมพิวเตอร์ที่รันอยู่ หรือสลับไปใช้รันไทม์อื่น</string>
     <string name="convtext_runtime_disabled">รันไทม์ของงานนี้ถูกปิดใช้งาน สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ</string>
-    <string name="convtext_runtime_not_found">รันไทม์นี้ไม่มีในเวิร์กสเปซนี้แล้ว สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ</string>
+    <string name="convtext_runtime_not_found">รันไทม์นี้ไม่มีในทีมนี้แล้ว สลับไปใช้รันไทม์อื่นเพื่อดำเนินการต่อ</string>
     <string name="convtext_runtime_offline">คอมพิวเตอร์ที่รันรันไทม์นี้ออฟไลน์อยู่ เปิด Nuphos บนเครื่องนั้น หรือสลับไปใช้รันไทม์อื่น</string>
     <string name="convtext_runtime_paused">%1$s หยุดชั่วคราวอยู่ จะทำงานต่อเมื่อคุณส่งข้อความ</string>
     <string name="convtext_runtime_starting">%1$s กำลังเริ่มทำงาน จะพร้อมใช้งานในไม่กี่วินาที</string>

@@ -97,8 +97,10 @@ export const teammateBotScenarios: Scenario[] = [
       await page.waitForTimeout(400)
       await row.screenshot({ path: `${artifacts}/group-row-selected.png` })
       await page.screenshot({ path: `${artifacts}/teammate-bot-post.png` })
-      // #3298: a teammate's Bot's permission mode and model are its owner's to change.
+      // #3298: a teammate's Bot's permission mode and model are its owner's to change; its
+      // composer offers neither, and its details show them read-only (#4766).
       const offered = await page
+        .locator('.composer-surface:visible')
         .getByRole('button', { name: /^(Authorization mode|Model settings)/ })
         .count()
 

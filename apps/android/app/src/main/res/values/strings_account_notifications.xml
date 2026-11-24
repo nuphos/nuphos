@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">Computer notifications</string>
+    <string name="computer_notifications_intro_title">Choose what matters</string>
+    <string name="computer_notifications_intro">Follow the computers you rely on. Everything else stays quiet.</string>
+    <string name="computer_notifications_empty">No computers in this team.</string>
+    <string name="computer_notifications_help">Off by default. Selected computers notify you after 2 minutes offline and when they reconnect. Only your account is affected.</string>
+    <string name="computer_notifications_online">Online</string>
+    <string name="computer_notifications_offline">Offline</string>
+    <string name="account_notifications">Notifications</string>
+    <string name="computer_notifications_load_failed">Couldn\'t load computers.</string>
+</resources>

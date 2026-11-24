@@ -7,6 +7,7 @@ import { t } from '../../../i18n'
 import { setChatInstructions } from '../../sidebar/agentSessions'
 import { Button } from '../../ui/button'
 import { IconButton } from '../../ui/icon-button'
+import { MessageResponse } from '../MessageResponse'
 
 import { SummarySection } from './ChatSummaryRows'
 
@@ -26,7 +27,7 @@ export function BotInstructionsSection({
   teamId: string
 }) {
   const client = useQueryClient()
-  const textRef = useRef<HTMLParagraphElement>(null)
+  const textRef = useRef<HTMLDivElement>(null)
   // The text being edited, and the height it opens at: the text's own, so nothing jumps.
   const [draft, setDraft] = useState<{ text: string; minHeight: number } | null>(null)
   const [saving, setSaving] = useState(false)
@@ -120,9 +121,22 @@ export function BotInstructionsSection({
           </div>
         </form>
       ) : (
-        <p ref={textRef} className={`${textClass} max-h-80 overflow-y-auto`}>
-          {instructions || <span className="text-tertiary">{t('None yet')}</span>}
-        </p>
+        <div
+          ref={textRef}
+          className="min-w-0 max-w-full max-h-80 overflow-y-auto overflow-x-hidden"
+        >
+          {instructions ? (
+            <MessageResponse
+              teamId={teamId}
+              disableRawHtml
+              className="!text-[13px] [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto"
+            >
+              {instructions}
+            </MessageResponse>
+          ) : (
+            <span className="text-tertiary">{t('None yet')}</span>
+          )}
+        </div>
       )}
     </SummarySection>
   )

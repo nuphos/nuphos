@@ -145,7 +145,7 @@ class OpenQuestions(private val source: Source, private val clock: () -> Instant
             return
         }
         if (!connected.containsAll(ids)) {
-            failures = failures + (question.id to "Connect it in Settings → Personal Credentials first.")
+            failures = failures + (question.id to "Connect it in Connectors on Nuphos Desktop first.")
             return
         }
         val stored = storedSelection(question) ?: return

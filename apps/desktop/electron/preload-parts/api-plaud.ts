@@ -1,8 +1,10 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
 import { ipcRenderer } from 'electron'
 
 export const plaudApi = {
   atlasListPlaudAccounts: (teamId: string) => ipcRenderer.invoke('atlas:listPlaudAccounts', teamId),
-  atlasStartPlaudOAuth: (teamId: string) => ipcRenderer.invoke('atlas:startPlaudOAuth', teamId),
+  atlasStartPlaudOAuth: (teamId: string, share?: BindingShare) =>
+    ipcRenderer.invoke('atlas:startPlaudOAuth', teamId, share),
   atlasCancelPlaudOAuth: (teamId: string) => ipcRenderer.invoke('atlas:cancelPlaudOAuth', teamId),
   atlasUnbindPlaud: (teamId: string, bindingId: string) =>
     ipcRenderer.invoke('atlas:unbindPlaud', teamId, bindingId),

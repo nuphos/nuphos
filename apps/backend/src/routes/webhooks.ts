@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb'
 
 import { agentTriggers, verifyWebhookSecret } from '@/lib/agent/trigger-db'
 import { fireTrigger } from '@/lib/agent/trigger-executor'
+import { TRIGGER_PAUSED } from '@/lib/agent/trigger-executor-authorization'
 import { claimWindow } from '@/lib/agent/trigger-held-claim'
 import { holdDelivery } from '@/lib/agent/trigger-held-deliveries'
 import { matchesPayloadFilters } from '@/lib/agent/trigger-payload-filter'
@@ -167,7 +168,7 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
       return refuse(c, QUEUE_RETRY_SECONDS, error.code)
     // The Trigger was just paused for a reason its owner is told; like a disabled one, a sender
     // retrying would not help, and a 4xx can make it turn the webhook off.
-    if (error instanceof AppError && PAUSED.has(error.code))
+    if (error instanceof AppError && TRIGGER_PAUSED.has(error.code))
       return c.json({ ok: false, reason: error.code }, 200)
     throw error
   }
@@ -176,12 +177,6 @@ async function deliver(c: Context, trigger: AgentTrigger, payload: unknown) {
 }
 
 const QUEUE_RETRY_SECONDS = 30
-// What resolveExecutionAuthorization pauses a Trigger with.
-const PAUSED = new Set([
-  'trigger_target_session_invalid',
-  'trigger_target_session_archived',
-  'trigger_execution_principal_invalid',
-])
 
 function refuse(c: Context, retryAfterSeconds: number, reason: string) {
   c.header('Retry-After', String(retryAfterSeconds))

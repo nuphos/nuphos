@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">Notificaciones de computadoras</string>
+    <string name="computer_notifications_intro_title">Elige lo que importa</string>
+    <string name="computer_notifications_intro">Recibe avisos de las computadoras que necesitas. Las demás no enviarán notificaciones.</string>
+    <string name="computer_notifications_empty">No hay computadoras en este equipo.</string>
+    <string name="computer_notifications_help">Desactivadas por defecto. Las computadoras seleccionadas te avisarán tras 2 minutos sin conexión y cuando se reconecten. Solo afecta a tu cuenta.</string>
+    <string name="computer_notifications_online">En línea</string>
+    <string name="computer_notifications_offline">Sin conexión</string>
+    <string name="account_notifications">Notificaciones</string>
+    <string name="computer_notifications_load_failed">No se pudieron cargar las computadoras.</string>
+</resources>

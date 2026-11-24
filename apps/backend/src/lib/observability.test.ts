@@ -1,6 +1,7 @@
 import { describe, expect, spyOn, test } from 'bun:test'
 
 import { UptimeKumaApiError } from '@/lib/byos/uptime-kuma'
+import { OpenAbRpcError } from '@/lib/claude-code-preview/acp-refusal-notice'
 import { AppError } from '@/lib/errors'
 import {
   describeUnknown,
@@ -216,5 +217,28 @@ describe('request paths', () => {
     })
 
     expect(line.path).toBe(path)
+  })
+})
+
+describe('an agent out of usage', () => {
+  test('is logged as a warning, while any other failure stays an error', () => {
+    const outOfUsage = new OpenAbRpcError(
+      "**Internal Error** (code: -32603)\nInternal error: You've hit your weekly limit · resets 4pm (UTC)",
+      -32603,
+    )
+    const warn = spyOn(console, 'warn').mockImplementation(() => null)
+    const error = spyOn(console, 'error').mockImplementation(() => null)
+
+    try {
+      logError('agent.example.failed', outOfUsage)
+      logError('agent.example.failed', new Error('disk full'))
+
+      expect(JSON.parse(String(warn.mock.calls[0]?.[0]))).toMatchObject({ level: 'warn' })
+      expect(error.mock.calls).toHaveLength(1)
+      expect(JSON.parse(String(error.mock.calls[0]?.[0]))).toMatchObject({ level: 'error' })
+    } finally {
+      warn.mockRestore()
+      error.mockRestore()
+    }
   })
 })

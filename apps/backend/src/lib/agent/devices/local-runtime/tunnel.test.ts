@@ -443,8 +443,8 @@ describe('local runtime tunnel', () => {
     tunnels.push(...held)
     const start = Date.now()
 
-    closeTunnelsForRestart(90)
-    await eventually(() => closes.length === 3)
+    await closeTunnelsForRestart(90)
+    expect(closes).toHaveLength(3)
     expect(closes.map((close) => close.code)).toEqual([1012, 1012, 1012])
     expect(closes[0]!.at - start).toBeLessThan(30)
     expect(closes[2]!.at - start).toBeGreaterThanOrEqual(55)
@@ -486,6 +486,33 @@ describe('local runtime tunnel', () => {
     expect(
       lines.find((line) => line.event === 'agent.local_runtime.tunnel_closed'),
     ).not.toHaveProperty('team_ids')
+  })
+
+  test('the opened tunnel logs which app holds it', async () => {
+    const lines = await logged('log', async () => {
+      tunnels.push(
+        await attachRuntimeTunnel(
+          owner.userId,
+          owner.deviceId,
+          { send: () => {}, close: () => {} },
+          {
+            bus: createLocalTunnelBus(),
+            presence: createMemoryPresenceStore(),
+            isMember: async () => true,
+            heartbeatMs: 60_000,
+          },
+          'nuphos-desktop/1.2.3',
+        ),
+      )
+    })
+
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        event: 'agent.local_runtime.tunnel_opened',
+        device_id: owner.deviceId,
+        client: 'nuphos-desktop/1.2.3',
+      }),
+    )
   })
 
   test('the computer reports why it gave up its last tunnel', async () => {

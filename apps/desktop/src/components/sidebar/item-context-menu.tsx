@@ -67,6 +67,8 @@ export function SidebarItemContextMenu({
   }
   const [pinLabel, unpinLabel] = pinLabels[noun]
   const sessionId = menu.item.key.slice('agent-session:'.length)
+  // A Bot's chat row stands for the Bot: its ID, name and face are the Bot's.
+  const botId = menu.item.botChannelOf ?? sessionId
   const viewerId = useCurrentUser()?.id ?? ''
 
   return (
@@ -108,7 +110,7 @@ export function SidebarItemContextMenu({
                 key: 'copy-session-id',
                 label: COPY_ID[noun](),
                 icon: Hash,
-                onSelect: () => copy(sessionId, noun),
+                onSelect: () => copy(botId, noun),
               },
               ...(menu.item.readOnlyChat
                 ? []
@@ -118,8 +120,7 @@ export function SidebarItemContextMenu({
                       label: RENAME[noun](),
                       icon: Pencil,
                       // A Bot's chat is named after the Bot, so its Rename names the Bot.
-                      onSelect: () =>
-                        renameChat(menu.item.botChannelOf ?? sessionId, menu.item.label),
+                      onSelect: () => renameChat(botId, menu.item.label),
                     },
                     // A Bot's chat wears the Bot's face, so its row changes the Bot's.
                     ...(noun === 'bot'
@@ -131,7 +132,7 @@ export function SidebarItemContextMenu({
                             onSelect: () =>
                               openChangeBotAvatar({
                                 teamId,
-                                botId: menu.item.botChannelOf ?? sessionId,
+                                botId,
                                 title: menu.item.label,
                               }),
                           },

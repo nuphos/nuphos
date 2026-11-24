@@ -34,7 +34,11 @@ export const computerUpdateScenarios: Scenario[] = [
     // what the computer reports, not what the dialog last sent.
     name: "a computer's switch for updating by itself is kept on the computer",
     run: async (page, stack) => {
-      const computer = await startSecondComputer(stack, SELF_UPDATING)
+      // As the service runs it (agent.rs): only a host that updates itself has the switch.
+      // A version past the e2e release (cli-release-stub.ts) never installs one.
+      const computer = await startSecondComputer(stack, SELF_UPDATING, {
+        env: { NUPHOS_CLI_VERSION: '999.0.0', NUPHOS_CLI_EXE: '/bin/false' },
+      })
       const file = join(computer.home, '.nuphos-agent', 'auto-update.json')
       const kept = () =>
         existsSync(file)

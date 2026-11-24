@@ -56,7 +56,7 @@ export function AdminOnlyHint({ teamId }: { teamId: string }) {
     <p className="mt-2 text-[12px] text-tertiary">
       {admin
         ? t('Only {name} can change this.', { name: admin })
-        : t('Only workspace administrators can change this')}
+        : t('Only team administrators can change this')}
     </p>
   )
 }

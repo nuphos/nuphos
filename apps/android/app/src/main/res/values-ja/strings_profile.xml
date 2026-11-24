@@ -50,10 +50,10 @@
     <string name="profile_accounts_sign_in_again">再度サインイン</string>
     <string name="profile_accounts_active">使用中のアカウント</string>
     <string name="profile_workspace_back">アカウントに戻る</string>
-    <string name="profile_workspace">ワークスペース</string>
-    <string name="profile_workspace_none">利用できるワークスペースがありません</string>
-    <string name="profile_workspace_current">現在のワークスペース</string>
-    <string name="profile_workspace_setup">ワークスペースを設定</string>
+    <string name="profile_workspace">チーム</string>
+    <string name="profile_workspace_none">利用できるチームがありません</string>
+    <string name="profile_workspace_current">現在のチーム</string>
+    <string name="profile_workspace_setup">チームを設定</string>
     <string name="profile_two_factor">二要素認証</string>
     <string name="profile_two_factor_intro">サインインのたびに認証アプリのコードを求めます。パスワードやメールが盗まれてもサインインされません。</string>
     <string name="profile_two_factor_load_failed">二要素認証を読み込めませんでした。</string>

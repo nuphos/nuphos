@@ -8,7 +8,6 @@ import { t } from '../../i18n'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
 import { AgentProviderIcon } from '../agent/panel/icons'
-import { threadRuntimeName } from '../agent/panel/threadBadges'
 import { sectionClass } from '../agent/summary/ChatSummaryRows'
 import { Button } from '../ui/button'
 import { IconButton } from '../ui/icon-button'
@@ -16,13 +15,12 @@ import { toast } from '../ui/toast'
 
 import type { AgentFace } from '../../api/agent-types'
 
-/** The Bot itself, first in its chat's details: who it is, where it runs, and its Task and Desktop. */
+/** The Bot itself, first in its chat's details: who it is, and its Task and Desktop. */
 export function BotDetailsCard({
   teamId,
   bot,
   title,
   agent,
-  runtimeLabel,
   loading = false,
   owned,
   onOpenTask,
@@ -33,7 +31,6 @@ export function BotDetailsCard({
   bot: string
   title: string
   agent?: AgentFace
-  runtimeLabel?: string
   loading?: boolean
   owned: boolean
   onOpenTask?: () => void
@@ -41,7 +38,6 @@ export function BotDetailsCard({
   onEdited: () => void
 }) {
   const [editing, setEditing] = useState(false)
-  const runsOn = threadRuntimeName(agent?.provider, runtimeLabel)
 
   if (loading)
     return (
@@ -69,9 +65,6 @@ export function BotDetailsCard({
       )}
       <AgentAvatar agentId={bot} avatar={agent?.avatar} provider={agent?.provider} size={72} />
       <p className="mt-3 max-w-full truncate px-6 text-[15px] font-semibold text-main">{title}</p>
-      {runsOn && (
-        <p className="max-w-full truncate text-[12px] leading-5 text-tertiary">{runsOn}</p>
-      )}
       {(onOpenTask !== undefined || canOpenDesktop) && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {onOpenTask && (

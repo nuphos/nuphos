@@ -40,16 +40,21 @@ export async function pickInRow(page: Page, row: string, item: RegExp) {
     .and(page.locator('[aria-haspopup="menu"]'))
     .first()
 
-  await trigger.hover()
   const runtime = page
     .locator('[role="menu"][data-nested][data-open]')
     .getByRole('menuitem', { name: item })
     .last()
     .and(page.locator(':not([data-disabled]):not([aria-disabled="true"])'))
 
-  await runtime.waitFor({ timeout: 60_000 })
-  await runtime.focus()
-  await page.keyboard.press('Enter')
+  // The menu opens upward, so a computer that joins while it is open slides another row under
+  // the pointer and opens that row's submenu instead: hover again until the menu takes the key.
+  await until(`${row}'s runtime to take the key`, async () => {
+    await trigger.hover()
+    await runtime.press('Enter', { timeout: 2_000 })
+    await page.getByRole('menu').first().waitFor({ state: 'hidden', timeout: 2_000 })
+
+    return true
+  })
 }
 
 /** Activates `item` in an open menu by key: a pointer that jumps onto a submenu lands on the
@@ -75,6 +80,14 @@ export async function setBotDetails(page: Page, open: boolean) {
 
   if ((await toggle.getAttribute('aria-expanded')) !== String(open)) await toggle.click()
   await page.locator(`[data-summary-toggle][aria-expanded="${String(open)}"]:visible`).waitFor()
+}
+
+/** The runtime or model control: a Bot chat's is a row of its details, a Task's a composer chip. */
+export async function settingButton(page: Page, name: RegExp) {
+  if (!(await botDetailsToggle(page).isVisible())) return page.getByRole('button', { name })
+  await setBotDetails(page, true)
+
+  return page.getByRole('complementary', { name: 'Bot details' }).getByRole('button', { name })
 }
 
 /** In a narrow pane the panel floats under the name, start-aligned with it, as the Task summary floats. */

@@ -1,3 +1,5 @@
+import type { BindingShare } from '../../src/lib/bindingShare'
+import { withShare } from './binding-access'
 import { call } from './client'
 
 import type { BindingAccess } from './teams'
@@ -22,11 +24,14 @@ export async function listPlaudAccounts(teamId: string): Promise<PlaudAccount[]>
   return data.accounts ?? []
 }
 
-export async function startPlaudOAuth(teamId: string): Promise<PlaudOAuthStart> {
+export async function startPlaudOAuth(
+  teamId: string,
+  share?: BindingShare,
+): Promise<PlaudOAuthStart> {
   return call<PlaudOAuthStart>(
     'POST',
     `/teams/${teamId}/plaud-accounts/start-oauth`,
-    {},
+    withShare({}, share),
     {
       retry: false,
     },
