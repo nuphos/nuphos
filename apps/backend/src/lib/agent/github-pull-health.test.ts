@@ -88,3 +88,23 @@ test('CI settles only when no run is unfinished and no status is pending', () =>
     ),
   ).toEqual({ id: 'r1,r2,s5', summary: 'GitHub CI finished on aaaaaaa: failed (job-2, council).' })
 })
+
+const lint = (id: number, conclusion: string) => ({
+  id,
+  name: 'Lint',
+  status: 'completed',
+  conclusion,
+})
+
+test('a run replaced on the same commit no longer counts, but a cancelled run nothing replaced fails', () => {
+  const sha = 'a'.repeat(40)
+
+  // cancel-in-progress stopped the first run when another one started on this commit.
+  expect(settledCi(sha, [lint(1, 'cancelled'), lint(2, 'success')], [])).toEqual({
+    id: 'r2',
+    summary: 'GitHub CI finished on aaaaaaa: passed.',
+  })
+  expect(settledCi(sha, [lint(2, 'cancelled')], [])?.summary).toBe(
+    'GitHub CI finished on aaaaaaa: failed (Lint).',
+  )
+})
