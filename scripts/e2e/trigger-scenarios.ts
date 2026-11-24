@@ -217,7 +217,12 @@ export const triggerScenarios: Scenario[] = [
       const limited = await createWebhook(stack, sessionId, 'At most every 5 minutes', {
         minIntervalSeconds: 300,
       })
-      const first = await deliver(stack, limited, { state: 'firing', id: 'hook-limited' })
+      // It holds its turn so the Stop below has a running turn to stop.
+      const first = await deliver(stack, limited, {
+        state: 'firing',
+        hold: 'E2E_HOLD',
+        id: 'hook-limited',
+      })
       const soon = await deliver(stack, limited, { state: 'resolved', id: 'hook-limited-soon' })
 
       console.log(`Rate-limited deliveries: ${JSON.stringify([first, soon])}`)
