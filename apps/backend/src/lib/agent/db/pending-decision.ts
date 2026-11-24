@@ -31,6 +31,10 @@ export type InputRequest = ExplicitUserDecision & {
   credentials?: PersonalCredentialRef[]
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
+  /** The desktop a `computer` request hands over: its Box, its display and the title its card shows. */
+  desktop?: ComputerDesktop
+  /** When someone first took that desktop over, for how long they held it. */
+  takenOverAt?: Date
   askedAt: Date
   /** When the agent last corrected it with update_user_decision. */
   updatedAt?: Date
@@ -39,6 +43,8 @@ export type InputRequest = ExplicitUserDecision & {
   /** Always 'open': clients still filter on it. */
   status: 'open'
 }
+
+export type ComputerDesktop = { deviceId: string; display: number; title: string }
 
 /** The questions a conversation document keeps for its owner. */
 export type ConversationInputRequests = {
