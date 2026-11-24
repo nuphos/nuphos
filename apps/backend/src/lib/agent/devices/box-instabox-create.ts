@@ -27,6 +27,7 @@ import {
 } from './box-instabox-client'
 import { boxSize } from './box-instabox-limit'
 import { startBox } from './box-instabox-start'
+import { giveBoxOpenRouterKey, revokeOpenRouterKey } from './box-openrouter'
 import { noteBoxUsage } from './box-usage-history'
 import { deleteDeviceJoinTokens, issueDeviceJoinToken } from './join-tokens'
 import { waitForPresence } from './presence'
@@ -52,6 +53,7 @@ type Registration = { deviceId: string; label: string; box: AgentDeviceBox }
  * Booting, installing and joining run in the background; the row shows `creating` until
  * the host joins. If any step fails, the machine, the row and its token are removed again.
  * `shared` is whom it is shared with besides its creator, already limited to the team's members.
+ * `openRouterGift` gives the creator's OpenCode on the Box an OpenRouter key; see box-openrouter.
  */
 export async function createBox(
   userId: string,
@@ -61,7 +63,13 @@ export async function createBox(
     vcpus,
     shared,
     accountId,
-  }: { vcpus?: number; shared?: { everyone: boolean; userIds: string[] }; accountId?: string } = {},
+    openRouterGift,
+  }: {
+    vcpus?: number
+    shared?: { everyone: boolean; userIds: string[] }
+    accountId?: string
+    openRouterGift?: boolean
+  } = {},
 ): Promise<AgentDevice> {
   const url = requireBackendUrl()
 
@@ -111,7 +119,7 @@ export async function createBox(
     vault: false,
     ...size,
   })
-  const settingUp = setUp(userId, url, registration, ordering, orderedAt)
+  const settingUp = setUp(userId, url, registration, ordering, orderedAt, openRouterGift)
   const refused = await Promise.race([
     accepted,
     ordering,
@@ -135,10 +143,12 @@ async function setUp(
   registration: Registration,
   ordering: Promise<Sandbox>,
   orderedAt: number,
+  openRouterGift?: boolean,
 ): Promise<void> {
   const { deviceId, label, box } = registration
   let sandbox: Sandbox | undefined
   let issued = false
+  let keyHash: string | undefined
 
   try {
     sandbox = await ordering
@@ -179,6 +189,8 @@ async function setUp(
 
       return install()
     })
+    // Before the host starts, so OpenCode's first launch already has it. A Box without it still works.
+    if (openRouterGift) keyHash = await giveBoxOpenRouterKey(userId, deviceId, box.teamId, sandbox)
     // Setup is done when the machine is actually here, not when its commands returned:
     // instabox can answer a started command after the request cap, when the host has
     // already joined (#4620). A host that never started fails the wait below instead.
@@ -201,6 +213,7 @@ async function setUp(
     logEvent('info', 'agent.box.provisioned', { user_id: userId, device_id: deviceId })
   } catch (error) {
     if (issued) await deleteDeviceJoinTokens(deviceId).catch(() => {})
+    if (keyHash) await revokeOpenRouterKey(keyHash)
     await discard(userId, registration, sandbox?.sandboxId, error)
   }
 }

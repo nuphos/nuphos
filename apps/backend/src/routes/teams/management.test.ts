@@ -87,6 +87,7 @@ useAgentDeviceStore({
       ? [{ userId: 'owner-1', deviceId: 'box-broken' } as AgentDevice, ...boxes]
       : boxes
   },
+  getAgentDevice: () => Promise.resolve(null),
   revokeAgentDeviceCredential: () => Promise.resolve(false),
   deleteAgentDevice: (userId: string, deviceId: string) => {
     removed.push(`${userId}/${deviceId}`)

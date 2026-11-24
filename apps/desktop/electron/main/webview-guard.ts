@@ -46,6 +46,9 @@ function openExternally(url: string) {
   })
 }
 
+/** What `navigator.clipboard.writeText` asks for; Chrome grants it without a prompt. */
+const CLIPBOARD_WRITE = 'clipboard-sanitized-write'
+
 const isExtensionPage = (url: string) => url.startsWith('chrome-extension://')
 
 /**
@@ -55,10 +58,16 @@ const isExtensionPage = (url: string) => url.startsWith('chrome-extension://')
 export function initWebviewGuard() {
   const browserSession = session.fromPartition('persist:browser')
 
-  // Remote pages cannot gain device, clipboard, or other permissions implicitly.
-  // Keep both paths denied until the browser has an explicit permission UI.
-  browserSession.setPermissionCheckHandler(() => false)
-  browserSession.setPermissionRequestHandler((_contents, _permission, callback) => callback(false))
+  // Remote pages cannot gain device, clipboard-read, or other permissions implicitly.
+  // Keep both paths denied until the browser has an explicit permission UI. The one
+  // exception is writing to the clipboard, which Chrome grants every page so a
+  // "Copy" button works: it needs a click and never reveals what is on the clipboard.
+  browserSession.setPermissionCheckHandler(
+    (_contents, permission) => permission === CLIPBOARD_WRITE,
+  )
+  browserSession.setPermissionRequestHandler((_contents, permission, callback) =>
+    callback(permission === CLIPBOARD_WRITE),
+  )
   browserSession.setDevicePermissionHandler(() => false)
   const trackDownloads = guardBrowserDownloads(browserSession, saveAgentDownload)
 

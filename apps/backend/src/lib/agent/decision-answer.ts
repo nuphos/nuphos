@@ -9,7 +9,7 @@ import { logError } from '@/lib/observability'
 import { answered, recordInChannel } from './decision-channel-reply'
 import { reopenInputRequest, resolveInputRequest } from './db/pending-decision'
 import { systemSender } from './message-metadata'
-import { ownBody } from './tools-skilled/decision-tools'
+import { COMPUTER_OPTIONS, ownBody } from './tools-skilled/decision-tools'
 
 import type { AgentConversation } from './db'
 import type { Actor, DecisionAnswer } from './decision-channel-reply'
@@ -19,6 +19,33 @@ export type { DecisionAnswer }
 
 const SENDER = 'nuphos:decision'
 const BODY_EXCERPT = 600
+
+/** "3m 5s": how long someone held a desktop, to the second. */
+export function heldFor(ms: number): string {
+  const seconds = Math.max(0, Math.round(ms / 1000))
+  const [h, m, sec] = [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+
+  if (h) return `${String(h)}h ${String(m)}m`
+
+  return m ? `${String(m)}m ${String(sec)}s` : `${String(sec)}s`
+}
+
+/**
+ * A `computer` card's I'm done, with how long the desktop was held: "I'm done
+ * (handed back after 3m 5s)". Clients read the hand-back from the answer as they
+ * read any other; a Skip, or a desktop nobody took over, stays as answered.
+ */
+export function withHandBack(
+  request: InputRequest,
+  answer: DecisionAnswer,
+  now = new Date(),
+): DecisionAnswer {
+  if (request.category !== 'computer' || !request.takenOverAt) return answer
+  if (answer.choices?.length !== 1 || answer.choices[0] !== COMPUTER_OPTIONS[0]) return answer
+  const held = heldFor(now.getTime() - new Date(request.takenOverAt).getTime())
+
+  return { ...answer, choices: [`${COMPUTER_OPTIONS[0]} (handed back after ${held})`] }
+}
 
 /** "Which regions? → us-east, eu-west", one line per question. */
 export function answerLines(request: InputRequest, answer: DecisionAnswer): string[] {
@@ -90,7 +117,7 @@ export async function answerDecision(args: {
   actor: Actor
   teamId: string
 }): Promise<void> {
-  const { conversation, requestId, answer, actor, teamId } = args
+  const { conversation, requestId, actor, teamId } = args
   const request = conversation.inputRequests?.find((entry) => entry.id === requestId)
 
   if (request?.status !== 'open')
@@ -100,12 +127,13 @@ export async function answerDecision(args: {
   if (
     (request.category === 'integration' &&
       (Boolean(request.providers?.length) || Boolean(request.credentials?.length))) ||
-    (request.category === 'credential' && !credentialChoice(request, answer))
+    (request.category === 'credential' && !credentialChoice(request, args.answer))
   )
     throw new AppError(400, 'decision_not_answerable', 'Answer this question in its own card')
   if (!(await resolveInputRequest(conversation.sessionId, conversation.userId, requestId)))
     throw new AppError(409, 'decision_already_answered', 'This question is no longer open')
   const who = { displayName: actor.displayName, owner: actor.id === conversation.userId }
+  const answer = withHandBack(request, args.answer)
 
   await wakeAsker(conversation, request, teamId, answerNotice(request, answer, who))
   if (request.channelId) await recordInChannel(conversation, request, answer, actor)

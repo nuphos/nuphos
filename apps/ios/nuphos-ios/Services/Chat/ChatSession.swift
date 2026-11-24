@@ -182,6 +182,8 @@ final class ChatSession {
     var sendQueues: Bool { isNativeRuntime && !isNew && !allows("send") && !canReply && !canSteer && runtimeMayAcceptLater }
     /// This person's messages waiting in the session queue, in the order they run.
     private(set) var serverQueued: [AgentChatAPI.QueuedMessage] = []
+    /// The agent's usage limit holding the queue, as the last read of it said.
+    private(set) var queueHold: AgentChatAPI.QueueHold?
     /// Queued messages being steered into the running turn.
     private(set) var steeringQueued: Set<String> = []
     private func allows(_ action: String) -> Bool { runtimeObservation?.allows(action) == true }
@@ -586,9 +588,10 @@ final class ChatSession {
     /// took back, and shows what still waits after a relaunch.
     func refreshQueue() async {
         guard isNativeRuntime, !isNew,
-              let items = try? await AgentChatAPI.queue(token: token, teamId: teamId, sessionId: sessionId) else { return }
-        let mine = items.filter(\.mine)
+              let queue = try? await AgentChatAPI.queue(token: token, teamId: teamId, sessionId: sessionId) else { return }
+        let mine = queue.messages.filter(\.mine)
         if mine != serverQueued { serverQueued = mine }
+        if queue.held != queueHold { queueHold = queue.held }
     }
 
     /// Takes a waiting message back off the queue. Its turn may already have

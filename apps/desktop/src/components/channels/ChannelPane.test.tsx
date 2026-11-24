@@ -33,6 +33,7 @@ const neverResponds = () =>
   })
 const triggerQueries: unknown[][] = []
 const bypassQueries: unknown[] = []
+const renames: unknown[][] = []
 const pending = new Proxy(
   {},
   {
@@ -43,6 +44,11 @@ const pending = new Proxy(
           triggerQueries.push(args)
 
           return Promise.resolve([])
+        }
+        if (key === 'agentRenameConversation') {
+          renames.push(args)
+
+          return Promise.resolve({ title: args[1] })
         }
         if (key === 'agentGetAutoModeBypass') {
           bypassQueries.push(args[0])
@@ -62,6 +68,8 @@ Object.defineProperty(dom.HTMLElement.prototype, 'offsetWidth', { get: () => 120
 const browser: Record<string, unknown> = {
   window: dom,
   navigator: dom.navigator,
+  // A chat's new name is announced on the window, which takes only its own events.
+  CustomEvent: dom.CustomEvent,
   IS_REACT_ACT_ENVIRONMENT: true,
 }
 
@@ -295,6 +303,90 @@ test("a teammate's Bot chat shows its runtime and access read-only", async () =>
   assert.deepEqual(sectionRows(panel, 'Runtime'), [{ text: 'Runtime', opens: false }])
   assert.equal(frames.at(-1)?.runtimeControl, undefined)
   assert.equal(frames.at(-1)?.modelSession, undefined)
+  await act(() => root.unmount())
+  queryClient.clear()
+})
+
+// #3009: a group chat's name in its header renames it in place, for the chat's owner only.
+test("a group chat's owner renames it from its header", async () => {
+  const group = (isOwner: boolean) =>
+    queryClient.setQueryData(queryKeys.channel('team', 'group'), {
+      detail: {
+        sessionId: 'group',
+        kind: 'channel',
+        group: true,
+        title: 'Launch room',
+        isOwner,
+        faces: [
+          { id: 'richard', name: 'Richard' },
+          { id: 'gilfoyle', name: 'Gilfoyle' },
+        ],
+        messages: [],
+      },
+      agents: [],
+      revision: '1',
+    })
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+  const render = () =>
+    act(() =>
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(ChannelPane, {
+            teamId: 'team',
+            channelId: 'group',
+            user: { id: 'me', name: 'Me' } as UserInfo,
+            dockOpen: false,
+            onOpenSession: () => {},
+          }),
+        ),
+      ),
+    )
+
+  queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+    row({ sessionId: 'group', kind: 'channel', title: 'Launch room' }),
+  ])
+  group(false)
+  await render()
+  assert.ok(container.textContent.includes('Launch room'))
+  assert.equal(buttonNamed(container, 'Rename chat: Launch room'), undefined, 'a member reads it')
+
+  group(true)
+  await render()
+  const rename = buttonNamed(container, 'Rename chat: Launch room')
+
+  assert.ok(rename, 'its owner renames it from the header')
+  await act(() => rename.click())
+  const input = dom.document.body.querySelector<HTMLInputElement>('input[aria-label="Name"]')
+
+  assert.ok(input, 'a rename dialog opens')
+  assert.ok(dom.document.body.textContent.includes('Rename chat'))
+  await act(() => {
+    Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, 'value')?.set?.call(
+      input,
+      'Q4 launch',
+    )
+    input.dispatchEvent(new dom.Event('input', { bubbles: true }))
+  })
+  await act(async () => {
+    input.form?.requestSubmit()
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  })
+  assert.deepEqual(renames, [['group', 'Q4 launch', 'team']])
+  assert.notEqual(
+    queryClient.getQueryState(queryKeys.channel('team', 'group'))?.fetchStatus,
+    'idle',
+    'the chat is read again for its new name',
+  )
+  assert.equal(
+    dom.document.body.querySelector('input[aria-label="Name"]'),
+    null,
+    'the dialog closes once saved',
+  )
   await act(() => root.unmount())
   queryClient.clear()
 })

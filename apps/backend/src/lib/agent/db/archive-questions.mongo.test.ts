@@ -1,8 +1,9 @@
 // #3470 against a real MongoDB: the fake in archive.test.ts reads the $pull's operator
 // shape back, so only the database itself shows what `$not: { $elemMatch }` inside a
 // $pull on sub-documents removes. Runs when TEST_MONGODB_URI is set.
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { randomUUID } from 'node:crypto'
+
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 
 import { archiveIdleConversations } from '@/lib/agent/conversation-auto-archive'
 import { closeDb, connectDb } from '@/lib/db'
@@ -10,6 +11,8 @@ import { closeDb, connectDb } from '@/lib/db'
 import { setConversationArchived } from './archive'
 import { leaveChats } from './bot-membership'
 import { agentConversations } from './shared'
+
+const by = { source: 'user', userId: 'u' } as const
 
 const teamId = randomUUID()
 const userId = randomUUID()
@@ -37,7 +40,7 @@ const seed = (sessionId: string, fields = {}) =>
     createdAt: new Date(),
     lastActiveAt: new Date(),
     ...fields,
-  } as never)
+  })
 
 describe.skipIf(!process.env.TEST_MONGODB_URI)('archiving withdraws questions about it', () => {
   beforeAll(() => connectDb())
@@ -57,7 +60,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('archiving withdraws questions ab
     })
     await seed(thread, { parentSessionId: parent })
 
-    await setConversationArchived(thread, true)
+    await setConversationArchived(thread, true, by)
     const kept = await agentConversations().findOne({ sessionId: parent })
 
     expect(kept?.inputRequests?.map((request) => request.id)).toEqual([
@@ -91,7 +94,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('archiving withdraws questions ab
     })
     await seed(chat, { kind: 'channel', agentSessionIds: [bot], participantIds: [userId] })
 
-    await leaveChats(bot)
+    await leaveChats(bot, userId)
     const kept = await agentConversations().findOne({ sessionId: bot })
 
     expect((await agentConversations().findOne({ sessionId: chat }))?.archivedAt).toBeDefined()

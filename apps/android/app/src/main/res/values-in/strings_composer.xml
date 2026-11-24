@@ -86,6 +86,10 @@
     <string name="composer_opening_draft">Membuka draf baru Anda. Belum ada yang dikirim.</string>
     <string name="composer_cancel_share">Batalkan berbagi</string>
     <string name="composer_queued_messages">Pesan dalam antrean</string>
+    <string name="composer_queue_usage_held">Kuota habis. Pesan ini berjalan saat kuota direset.</string>
+    <string name="composer_queue_usage_held_days">Kuota habis. Pesan ini berjalan saat kuota direset dalam %1$d hari %2$d jam.</string>
+    <string name="composer_queue_usage_held_hours">Kuota habis. Pesan ini berjalan saat kuota direset dalam %1$d jam %2$d mnt.</string>
+    <string name="composer_queue_usage_held_minutes">Kuota habis. Pesan ini berjalan saat kuota direset dalam %1$d mnt.</string>
     <string name="composer_refresh_queue">Muat ulang antrean</string>
     <string name="composer_taken_back">Diambil kembali. Pulihkan teks ini sebelum meninggalkan tugas.</string>
     <string name="composer_queued_attachment">Lampiran dalam antrean</string>

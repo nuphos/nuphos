@@ -1,3 +1,4 @@
+import { config } from '@/config'
 import { readBoundedBody } from '@/lib/agent/inbound-files'
 import { AppError } from '@/lib/errors'
 import { logEvent } from '@/lib/observability'
@@ -15,15 +16,18 @@ import type { SlackApiResponse } from '@/lib/slack/api/client'
 // workspace installed before that scope was requested gets 401/403 here, which
 // the caller degrades into "I couldn't read your attachment" rather than a
 // failed turn. The token goes only to Slack's own file hosts: the URL comes
-// from a message payload, so any other host is refused.
+// from a message payload, so any other host is refused. The configured Web API
+// origin, which every API call already sends the token to, is the one other
+// host: https://slack.com in production, a local stand-in in tests.
 export async function downloadSlackFile(args: {
   token: string
   urlPrivate: string
   maxBytes: number
 }): Promise<{ bytes: Uint8Array; contentType: string | null } | null> {
   const url = URL.parse(args.urlPrivate)
+  const slackHost = url?.protocol === 'https:' && /(^|\.)slack\.com$/u.test(url.hostname)
 
-  if (url?.protocol !== 'https:' || !/(^|\.)slack\.com$/u.test(url.hostname)) {
+  if (!url || !(slackHost || url.origin === new URL(config.slack.apiBaseUrl).origin)) {
     logEvent('warn', 'slack.files.download.host_refused', { host: url?.hostname ?? null })
 
     return null

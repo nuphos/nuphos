@@ -97,6 +97,10 @@
 
     <!-- ServerQueuedMessages -->
     <string name="composer_queued_messages">Queued messages</string>
+    <string name="composer_queue_usage_held">Out of usage. These run when usage resets.</string>
+    <string name="composer_queue_usage_held_days">Out of usage. These run when usage resets in %1$dd %2$dh.</string>
+    <string name="composer_queue_usage_held_hours">Out of usage. These run when usage resets in %1$dh %2$dm.</string>
+    <string name="composer_queue_usage_held_minutes">Out of usage. These run when usage resets in %1$dm.</string>
     <string name="composer_refresh_queue">Refresh queue</string>
     <string name="composer_taken_back">Taken back. Restore this text before leaving the task.</string>
     <string name="composer_queued_attachment">Queued attachment</string>
