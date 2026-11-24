@@ -8,7 +8,7 @@ import type { Part, ToolPart } from './parts.ts'
 let applyEvent: (parts: Part[], event: Record<string, unknown>) => Part[]
 
 before(async () => {
-  // stall.ts stays real: mocking it hid the crash of #4887 from these tests.
+  // stall.ts and streamText.ts stay real: mocking stall.ts hid the crash of #4887 from these tests.
   mock.module('../../../api.ts', { namedExports: { isNetworkError: () => false } })
   mock.module('../../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
   mock.module('../../../lib/frontendErrorReporter.ts', {
@@ -17,7 +17,6 @@ before(async () => {
   mock.module('../../../lib/ownedAgentStreams.ts', {
     namedExports: { markOwnedAgentStream: () => {} },
   })
-  mock.module('./streamText.ts', { namedExports: { appendTextDelta: (parts: Part[]) => parts } })
   ;({ applyEvent } = await import('./applyEvent.ts'))
 })
 
@@ -372,4 +371,15 @@ test('a tool error whose text is not a string marks the call failed instead of t
   const [missing] = applyEvent(started, { type: 'tool-output-error', toolCallId: 'call-1' })
 
   assert.equal(missing.type === 'tool' && missing.errorText, 'Tool error')
+})
+
+test('text deltas after a tool open a new text part and then extend it', () => {
+  let parts = applyEvent([tool()], { type: 'text-delta', delta: 'Hel' })
+
+  parts = applyEvent(parts, { type: 'text-delta', delta: 'lo' })
+  assert.deepEqual(
+    parts.map((part) => part.type),
+    ['tool', 'text'],
+  )
+  assert.equal(parts[1]?.type === 'text' ? parts[1].text : undefined, 'Hello')
 })
