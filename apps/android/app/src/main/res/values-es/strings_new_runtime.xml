@@ -3,7 +3,6 @@
     <string name="new_runtime_title">Nuevo entorno de ejecución</string>
     <string name="new_runtime_sign_in">Iniciar sesión en %1$s</string>
     <string name="new_runtime_preview">%1$s · Vista previa</string>
-    <string name="new_runtime_shared_sign_in">Antigravity usa el inicio de sesión compartido de este equipo</string>
     <string name="new_runtime_on_computer">En %1$s. A continuación iniciarás sesión.</string>
     <string name="new_runtime_name">Nombre del entorno de ejecución</string>
     <string name="new_runtime_name_taken">Otro entorno de ejecución de esta computadora ya tiene este nombre.</string>
