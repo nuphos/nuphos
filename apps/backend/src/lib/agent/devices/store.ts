@@ -29,6 +29,8 @@ export type AgentDeviceBox = {
   updateStartedAt?: Date
   /** The OpenRouter key Nuphos gave its OpenCode, revoked with the Box; see box-openrouter. */
   openRouterKeyHash?: string
+  /** When a resume or heal last failed because the machine had run out of CPU or memory. */
+  pressureAt?: Date
 }
 
 export type DeviceGrant = {
