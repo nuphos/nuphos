@@ -201,6 +201,29 @@ export function scheduleAgentRestart(
   }, delay)
 }
 
+/**
+ * Stops the agent, then runs `work` with it stopped and its CLI no longer running a model read,
+ * which could save a login again. Each waits for the one before, so a launch that stops the
+ * agent first starts nothing before `work` is done. It stays stopped until the next launch.
+ */
+export function pauseAgent<T>(
+  agent: Agent,
+  changed: () => void,
+  work?: () => Promise<T> | T,
+): Promise<T | undefined> {
+  const done = (agent.paused ?? Promise.resolve()).then(async () => {
+    await stopAgentProcess(agent, changed)
+    if (!work) return undefined
+    await agent.probing?.catch(() => {})
+
+    return work()
+  })
+
+  agent.paused = done.catch(() => {})
+
+  return done
+}
+
 export async function stopAgentProcess(agent: Agent, changed: () => void): Promise<void> {
   agent.generation += 1
   clearTimeout(agent.restartTimer)

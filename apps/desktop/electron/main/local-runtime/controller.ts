@@ -5,9 +5,9 @@ import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
+  pauseAgent,
   prepareHomeFor,
   scheduleAgentRestart,
-  stopAgentProcess,
   saveCli,
   userDir,
 } from './controller-types.ts'
@@ -42,6 +42,8 @@ export class LocalRuntimeController {
   private revision = 0
   private endpoint: string | undefined
   private switching: Promise<unknown> = Promise.resolve()
+  readonly whileStopped = <T>(provider: LocalAgentProvider, work?: () => Promise<T> | T) =>
+    pauseAgent(this.agents[provider], this.reportChange, work)
   private readonly reportChange = (): void => {
     this.changed()
     this.tunnel?.sendStatus()
@@ -59,7 +61,7 @@ export class LocalRuntimeController {
         this.reportChange,
         {
           refreshDefault: (provider, restart) => this.refresh(restart, [provider]),
-          pauseDefault: (provider, work) => this.whileStopped(provider, work),
+          pauseDefault: this.whileStopped,
         },
       )
     this.deps = deps
@@ -156,7 +158,6 @@ export class LocalRuntimeController {
     this.tunnel?.reconnectNow()
   }
   async shutdown(): Promise<void> {
-    // Nothing starts an agent again until a user is set: a reset under way would.
     this.userId = null
     this.usage.stop()
     this.tunnel?.stop()
@@ -164,31 +165,11 @@ export class LocalRuntimeController {
     this.online = false
     this.superseded = false
     this.revoked = false
-    await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
+    await Promise.all(this.providers.map((provider) => this.whileStopped(provider)))
     await this.instances?.shutdown()
   }
   private changed(): void {
     this.deps.onChange?.()
-  }
-  private stopAgent(provider: LocalAgentProvider): Promise<void> {
-    return stopAgentProcess(this.agents[provider], this.reportChange)
-  }
-  /**
-   * Runs `work` with the agent stopped and its CLI no longer running a model read, which could
-   * save a login again; nothing starts it meanwhile. It stays stopped until the next refresh.
-   */
-  whileStopped<T>(provider: LocalAgentProvider, work: () => Promise<T> | T): Promise<T> {
-    const agent = this.agents[provider]
-    const done = (agent.paused ?? Promise.resolve()).then(async () => {
-      await this.stopAgent(provider)
-      await agent.probing?.catch(() => {})
-
-      return work()
-    })
-
-    agent.paused = done.catch(() => {})
-
-    return done
   }
   private openTunnel(): void {
     this.tunnel ??= this.deps.createTunnel(
@@ -237,11 +218,10 @@ export class LocalRuntimeController {
     return this.instances.request(request, this.userId)
   }
   private async launch(provider: LocalAgentProvider, freshEnv = false): Promise<void> {
-    await this.agents[provider].paused
     const userId = this.userId
 
     if (!userId) return
-    await this.stopAgent(provider)
+    await this.whileStopped(provider)
     const agent = this.agents[provider]
     const generation = agent.generation
     const current = () => generation === agent.generation && userId === this.userId

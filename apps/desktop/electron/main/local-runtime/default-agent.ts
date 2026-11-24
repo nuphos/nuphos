@@ -14,7 +14,10 @@ import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 /** Checks the computer's own agent of a provider again; `restart` also restarts it. */
 export type RefreshDefault = (provider: LocalAgentProvider, restart: boolean) => Promise<unknown>
 /** Runs `work` with the computer's own agent of a provider stopped; the next refresh starts it. */
-export type PauseDefault = <T>(provider: LocalAgentProvider, work: () => Promise<T>) => Promise<T>
+export type PauseDefault = <T>(
+  provider: LocalAgentProvider,
+  work: () => Promise<T>,
+) => Promise<T | undefined>
 export type DefaultAgentControl = { refreshDefault?: RefreshDefault; pauseDefault?: PauseDefault }
 
 /** A default agent whose login Nuphos may delete: never Antigravity's shared OS sign-in. */

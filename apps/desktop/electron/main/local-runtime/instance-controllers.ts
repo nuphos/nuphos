@@ -1,14 +1,12 @@
 import { rmSync } from 'node:fs'
 import path from 'node:path'
 
-import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { parseInstance, readInstances, writeInstances } from './agent-instances.ts'
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
-import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
+import { instanceControllerDeps, secureStorageEnv, signOutInstance } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
-import { agentHomeName } from './providers.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
@@ -210,20 +208,11 @@ export class InstanceControllers {
   private async reset(entry: Entry, userId: string): Promise<unknown> {
     const { instanceId, provider } = entry.metadata
     const dir = this.instanceDir(instanceId)
-    const home = userDir(dir, userId, agentHomeName(provider))
 
     await entry.starting?.catch(() => {})
-    const left = await entry.controller.whileStopped(provider, async () => {
-      deleteAgentCredentials(provider, home)
-      if (provider === 'claude-code') await this.removeCredential(secureStorageEnv(dir, userId))
-
-      // Its own deps, which find an added Claude's Keychain entry.
-      return credentialsLeft(
-        provider,
-        home,
-        instanceControllerDeps(this.deps, dir, userId, this.changed),
-      )
-    })
+    const left = await entry.controller.whileStopped(provider, () =>
+      signOutInstance(this.deps, dir, userId, provider, this.removeCredential),
+    )
 
     // Removed meanwhile: starting it again would bring back an agent no one lists.
     if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
