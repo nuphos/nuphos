@@ -44,6 +44,16 @@ function usersInfo(id: string) {
   return { ok: true, user: { id, team_id: user.team_id, real_name: user.name, profile } }
 }
 
+// A 1×1 PNG, the screenshot a channel message carries; Slack serves it only with the bot token.
+export const SLACK_SCREENSHOT = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+)
+let origin = ''
+
+/** A url_private the stub serves SLACK_SCREENSHOT at. */
+export const slackFileUrl = (name: string) => `${origin}/files-pri/${name}`
+
 const METHODS: Record<string, (params: Record<string, string>) => object> = {
   'users.info': (params) => usersInfo(params.user ?? ''),
   'chat.postMessage': postMessage,
@@ -58,6 +68,15 @@ const METHODS: Record<string, (params: Record<string, string>) => object> = {
 export async function startSlackStub(): Promise<Record<string, string>> {
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://slack')
+
+    if (url.pathname.startsWith('/files-pri/')) {
+      const signed = request.headers.authorization?.startsWith('Bearer xoxb-') === true
+
+      response.writeHead(signed ? 200 : 302, signed ? { 'content-type': 'image/png' } : {})
+      response.end(signed ? SLACK_SCREENSHOT : undefined)
+
+      return
+    }
     const method = url.pathname.split('/').at(-1) ?? ''
     const chunks: Buffer[] = []
 
@@ -79,15 +98,22 @@ export async function startSlackStub(): Promise<Record<string, string>> {
   const port = typeof address === 'object' && address ? address.port : 0
 
   server.unref()
+  origin = `http://127.0.0.1:${String(port)}`
 
   return {
-    SLACK_API_BASE_URL: `http://127.0.0.1:${String(port)}/api`,
+    SLACK_API_BASE_URL: `${origin}/api`,
     SLACK_SIGNING_SECRET: SIGNING_SECRET,
     SLACK_TOKEN_ENCRYPTION_KEY: SLACK_TOKEN_KEY,
   }
 }
 
-type SlackMessage = { ts: string; text: string; user?: string; thread_ts?: string }
+type SlackMessage = {
+  ts: string
+  text: string
+  user?: string
+  thread_ts?: string
+  files?: { id: string; name: string; mimetype: string; url_private: string }[]
+}
 type SlackPerson = { id: string; name: string; real_name: string }
 type SlackChannel = {
   name: string
