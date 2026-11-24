@@ -40,7 +40,14 @@ function setup(t: { after: (fn: () => void) => void }) {
   const deps = {
     dataDir: () => root,
     userEnv: async () => ({ PATH: `${bin}:/usr/bin:/bin`, HOME: root }),
-    probeCli: async () => ({ installed: true, version: '2.3.0', loggedIn: true }),
+    // OpenCode always reports itself signed in; any other agent while its login file is there.
+    probeCli: async (provider: keyof typeof LOGIN, _env: unknown, home: string) => ({
+      installed: true,
+      version: '2.3.0',
+      loggedIn:
+        provider === 'opencode' ||
+        existsSync(path.join(home, LOGIN[provider].split('/').slice(1).join('/'))),
+    }),
   } as unknown as LocalRuntimeControllerDeps
   const instances = new InstanceControllers(
     deps,
@@ -52,15 +59,30 @@ function setup(t: { after: (fn: () => void) => void }) {
         LOGIN[provider as keyof typeof LOGIN],
       )
 
+      // Like the real controller: shut down, it starts nothing until it is given a user again.
+      let user: string | null = null
+
       return {
-        setUser: async () => {
+        setUser: async (userId) => {
+          user = userId
           events.push('start')
         },
         shutdown: async () => {
+          user = null
           await held
           events.push('stop')
         },
-        refresh: async () => ({}) as never,
+        whileStopped: async (_provider, work) => {
+          await held
+          events.push('stop')
+
+          return work()
+        },
+        refresh: async () => {
+          if (user) events.push('start')
+
+          return {} as never
+        },
         state: () =>
           ({
             agents: {
@@ -211,4 +233,26 @@ test('an agent removed while its reset stops it is not started again', async (t)
   assert.equal(events.includes('start'), false)
   assert.equal(existsSync(dirOf(agent.instanceId)), false)
   assert.equal(instances.status().length, 0)
+})
+
+test('an added agent shut down during its reset stays stopped', async (t) => {
+  const context = setup(t)
+  const { instances, events, hold } = context
+
+  await instances.load('alice')
+  const agent = await signedIn(context, 'codex')
+  let resolveStop = () => {}
+
+  hold(
+    new Promise<void>((resolve) => {
+      resolveStop = resolve
+    }),
+  )
+  const reset = instances.request({ method: 'reset', instanceId: agent.instanceId }, 'alice')
+  const shutdown = instances.shutdown()
+
+  resolveStop()
+  await Promise.all([reset, shutdown])
+  await new Promise((resolve) => setImmediate(resolve))
+  assert.equal(events.includes('start'), false)
 })

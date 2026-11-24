@@ -129,6 +129,10 @@ export type Agent = {
   generation: number
   /** The look for a CLI that was missing, while it runs. */
   recheck?: Promise<void>
+  /** A reset holding the agent stopped: nothing starts it before this settles. */
+  paused?: Promise<unknown>
+  /** The last model read, which runs the agent's CLI on its home. */
+  probing?: Promise<unknown>
 }
 
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
@@ -195,6 +199,29 @@ export function scheduleAgentRestart(
   agent.restartTimer = setTimeout(() => {
     if (run.current()) void start()
   }, delay)
+}
+
+/**
+ * Stops the agent, then runs `work` with it stopped and its CLI no longer running a model read,
+ * which could save a login again. Each waits for the one before, so a launch that stops the
+ * agent first starts nothing before `work` is done. It stays stopped until the next launch.
+ */
+export function pauseAgent<T>(
+  agent: Agent,
+  changed: () => void,
+  work?: () => Promise<T> | T,
+): Promise<T | undefined> {
+  const done = (agent.paused ?? Promise.resolve()).then(async () => {
+    await stopAgentProcess(agent, changed)
+    if (!work) return undefined
+    await agent.probing?.catch(() => {})
+
+    return work()
+  })
+
+  agent.paused = done.catch(() => {})
+
+  return done
 }
 
 export async function stopAgentProcess(agent: Agent, changed: () => void): Promise<void> {
