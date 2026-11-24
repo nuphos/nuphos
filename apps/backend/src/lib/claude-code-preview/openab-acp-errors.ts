@@ -90,7 +90,7 @@ export function acpErrorCode(error: OpenAbRpcError): number | undefined {
 const PROVIDER_PAYMENT_REQUIRED = /\(status 402 Payment Required\): ?([^\n]*)/u
 
 /** Claude: -32603 `Internal error: <notice>`. Codex: bare `Internal error`, notice on a `> ` line. */
-const CLAUDE_NOTICE = /^Internal error: ([^\n]*)/u
+const CLAUDE_NOTICE = /^Internal error: (?:.* automatic compaction failed: )?([^\n]*)/u
 const DETAIL_NOTICE = /(?:^|\n)Internal error\n> (?:Error running remote compact task: )?([^\n]*)/u
 /** The SDK's `USAGE_LIMIT_ERROR_PREFIXES`, Codex's (curly apostrophe), Anthropic's hold, OpenCode's free tier. */
 const CLAUDE_USAGE_LIMIT =

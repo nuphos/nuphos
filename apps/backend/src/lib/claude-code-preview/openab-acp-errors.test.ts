@@ -68,6 +68,19 @@ describe('outOfUsageUntilReset', () => {
       ),
     ).toBe(false)
   })
+
+  test('a usage limit that stopped automatic compaction is out of usage until the reset', () => {
+    const error = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: Prompt is too long · automatic compaction failed: You've hit your weekly limit · resets Nov 25, 3am (UTC)\n> {"errorKind":"invalid_request"}`,
+      -32603,
+    )
+
+    expect(outOfUsageUntilReset(error)).toBe(true)
+    expect(turnFailureCause(error)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(error)).toBe(
+      "You've hit your weekly limit · resets Nov 25, 3am (UTC)",
+    )
+  })
 })
 
 describe('turnFailureCause', () => {
