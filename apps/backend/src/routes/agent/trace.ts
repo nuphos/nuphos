@@ -56,6 +56,10 @@ function agentTraceSpanMetadata(
  * filtering `stream_id` and reading `phase` in order, without knowing in
  * advance which of a hundred names to look for.
  *
+ * These rows are debugging telemetry, so they skip person processing: PostHog
+ * bills person-profile updates per event, and a turn emits dozens of these.
+ * They stay filterable by distinct id, `stream_id` and `team_id`.
+ *
  * Attributes are flattened to primitives — PostHog stores nested objects but
  * cannot filter on them, and a property you cannot filter on is a property you
  * will not find at 3am.
@@ -67,6 +71,7 @@ function capturePhaseToPostHog(
   metrics?: Record<string, number>,
 ): void {
   const properties: Record<string, unknown> = {
+    $process_person_profile: false,
     phase: event,
     request_id: trace?.requestId,
     session_id: trace?.sessionId,

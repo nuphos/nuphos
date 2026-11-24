@@ -191,6 +191,8 @@ export function traceStream(
   beacon?: 'info' | 'warn',
 ): void {
   captureMain('agent_stream_lifecycle', {
+    // Debugging telemetry: skip PostHog person processing, billed per event.
+    $process_person_profile: false,
     phase: event,
     stream_id: ctx.streamId,
     session_id: ctx.sessionId,
