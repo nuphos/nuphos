@@ -61,6 +61,12 @@ struct AgentPage: View {
                 if phase == .idle, !pulling { refreshing = false }
             }
             .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
+            .sheet(isPresented: $showArchived) {
+                ArchivedList { row in
+                    showArchived = false
+                    openChat = OpenChat(session: store.session(for: row))
+                }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
@@ -221,7 +227,7 @@ struct AgentPage: View {
     private var content: some View {
         switch store.phase {
         // Bots always lists, so its "+" can make the first one.
-        case .loaded where page == .chats ? store.channelsLoaded && store.selectedTeam != nil && !(store.runtimesLoaded && store.runtimes.isEmpty) : !store.listedConversations.isEmpty || !store.archived.isEmpty:
+        case .loaded where page == .chats ? store.channelsLoaded && store.selectedTeam != nil && !(store.runtimesLoaded && store.runtimes.isEmpty) : !store.listedConversations.isEmpty:
             list
         default:
             // A scroll view even for the non-list states: with plain
@@ -534,12 +540,6 @@ struct AgentPage: View {
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
                         .listRowSeparator(.hidden)
-                        .sheet(isPresented: $showArchived) {
-                            ArchivedList { row in
-                                showArchived = false
-                                openChat = OpenChat(session: store.session(for: row))
-                            }
-                        }
                     }
                 }
             }
