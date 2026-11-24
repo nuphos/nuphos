@@ -162,10 +162,7 @@ const endpoint = (name: string) => [
   { name: 'X-Endpoint', value: name },
 ]
 
-/**
- * Over MCP: a session started for one of two endpoints reports there alone (#4747), and a
- * session started without one reports nowhere (#4928).
- */
+/** Over MCP: a session reports to the endpoint it was started for alone (#4747, #4928). */
 async function overMcp(
   tool: ReturnType<typeof mcp>['tool'],
   teamId: string,
