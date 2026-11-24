@@ -23,7 +23,8 @@ final class InboxUITests: XCTestCase {
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
         // An answer goes to the answer API; no message is sent.
         for (session, request) in [("agent-ops", "q-deploy"), ("agent-staging", "q-staging"),
-                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes"), ("bot-release", "q-blog")] {
+                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes"), ("bot-release", "q-blog"),
+                                   ("agent-avery", "q-sign-in")] {
             responses["POST /agent/conversations/\(session)/decisions/\(request)/answer"] = ["status": 200, "body": ["ok": true]]
         }
         // The asking conversations, opened by "From …" and "Other…".
@@ -774,6 +775,9 @@ final class InboxUITests: XCTestCase {
         guard server != nil else {
             XCTAssertFalse(takeOver.isEnabled, "Take over is on with no desktop to show")
             shot("computer-offline")
+            // I'm done answers the question, with or without a desktop on screen.
+            app.buttons["I'm done"].tap()
+            XCTAssertEqual(try answerBody(session: "agent-avery", request: "q-sign-in")["choices"] as? [String], ["I'm done"])
             return
         }
         XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The desktop did not go live")
@@ -788,6 +792,11 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The card's view did not come back")
         XCTAssertTrue(app.descendants(matching: .any)["computer.handedBack"].exists, "No handed-back line")
         shot("computer-handed-back")
+        // I'm done while in control answers the question and closes the desktop; the question leaves.
+        takeOver.tap()
+        XCTAssertTrue(app.buttons["desktop.done"].waitForExistence(timeout: 10), "No I'm done while in control")
+        app.buttons["desktop.done"].tap()
+        XCTAssertTrue(title.waitForNonExistence(timeout: 10), "I'm done did not answer the question")
     }
 
     /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
