@@ -62,6 +62,10 @@ function hashed(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 32)
 }
 
+/** Sign-ins one client IP may start in an hour; 20 is far more than one address needs. */
+export const IP_SIGN_IN_LIMIT = 20
+export const IP_SIGN_IN_WINDOW_SEC = 3600
+
 /**
  * The bucket every `POST /auth/device` caller without a usable client IP shares,
  * and how many sign-ins it allows per window.
@@ -77,8 +81,8 @@ function hashed(value: string): string {
  * caller can still spend it for the others, but only on a backend reachable
  * without Cloudflare, and only as far as the window.
  */
-const HEADERLESS_SIGN_IN_KEY = 'device-login:ip:headerless'
-const HEADERLESS_SIGN_IN_LIMIT = 300
+export const HEADERLESS_SIGN_IN_KEY = 'device-login:ip:headerless'
+export const HEADERLESS_SIGN_IN_LIMIT = 300
 
 /**
  * `/auth/device*`: device sign-in (see `lib/identity/device-login.ts`).
@@ -94,7 +98,7 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
     // shares the bounded fallback above.
     const refusal = quotaRefusal(
       ip
-        ? await quota(`device-login:ip:${hashed(ip)}`, 20, 3600)
+        ? await quota(`device-login:ip:${hashed(ip)}`, IP_SIGN_IN_LIMIT, IP_SIGN_IN_WINDOW_SEC)
         : await quota(HEADERLESS_SIGN_IN_KEY, HEADERLESS_SIGN_IN_LIMIT, DEVICE_LOGIN_TTL_SEC),
       'Too many sign-in requests; try again later',
     )
