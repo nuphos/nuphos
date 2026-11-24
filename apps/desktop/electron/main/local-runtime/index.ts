@@ -4,7 +4,6 @@ import path from 'node:path'
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
 import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
-import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
@@ -19,7 +18,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
 import { getUpdaterState, installUpdate, readyUpdate, watchUpdater } from '../updater.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
@@ -36,7 +35,7 @@ import {
 } from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
-import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
+import { watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
 import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
@@ -215,11 +214,7 @@ export function initLocalRuntime(): void {
 
   authSession.subscribe(follow)
   follow(authSession.context())
-  if (devBuild())
-    watchDevBundle(bundleRoot(), {
-      bundle: () => void controller.refresh(true),
-      status: broadcastState,
-    })
+  if (devBuild()) watchDevBundle(bundleRoot(), () => void controller.refresh(true))
   powerMonitor.on('resume', () => {
     broadcastState()
     controller.reconnect()
@@ -238,9 +233,6 @@ export function stopLocalRuntime(): Promise<void> {
 }
 
 export function getLocalRuntimeState(): LocalRuntimeViewState {
-  const bundle = findBundle()
-  const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
-  const devBundle = devBuild() && incomplete ? devBundleHint(bundleRoot()) : undefined
   const state = controller.state()
 
   return {
@@ -250,7 +242,6 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
     claudeLogin: logins.state('claude-code'),
     codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
-    ...(devBundle ? { devBundle } : {}),
     ...(state.userId ? { customProviders: readCustomProviders(ownDir(state.userId)) } : {}),
   }
 }
@@ -281,16 +272,4 @@ export async function openLocalRuntimeWorkspace(): Promise<void> {
   if (!workspace) return
   mkdirSync(workspace, { recursive: true })
   await shell.openPath(workspace)
-}
-
-export function listLocalRuntimeActivity(before?: string): Promise<unknown> {
-  const { deviceId } = readDeviceIdentity()
-  const query = new URLSearchParams({ limit: '20' })
-
-  if (before) query.set('before', before)
-
-  return callJson(
-    'GET',
-    `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`,
-  )
 }

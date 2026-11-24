@@ -90,7 +90,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
     },
   },
   './cua-stream.ts': { localToolStreams: {} },
-  './dev-bundle.ts': { devBundleHint: noop, watchDevBundle: noop },
+  './dev-bundle.ts': { watchDevBundle: noop },
   './mac-screen-app.ts': {
     macScreenApp: () => ({ deps: () => ({}) }),
   },

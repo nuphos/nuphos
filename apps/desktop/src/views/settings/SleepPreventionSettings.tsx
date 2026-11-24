@@ -4,9 +4,8 @@ import { api } from '../../api'
 import { AppSelect } from '../../components/ui/select'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
 import { t } from '../../i18n'
-
-import { LOCAL_AGENT_CARD } from './LocalAgentCard'
 
 import type { SleepPreferences, SleepState } from '../../api/device-types'
 
@@ -19,19 +18,17 @@ const STATUS: Record<SleepState['reason'], string> = {
   unsupported: t('Available on macOS only'),
 }
 
-export function SleepPreventionSettings({
-  state: current,
-  onSaved,
-}: {
-  state: SleepState
-  onSaved: (next: SleepState) => void
-}) {
+/** This Mac's own sleep setting; the saved state comes back with the local runtime's broadcast. */
+export function SleepPreventionSettings() {
+  const current = useLocalRuntimeState()?.sleepPrevention
   const [saving, setSaving] = useState(false)
+
+  if (!current?.supported) return null
 
   const save = async (next: SleepPreferences) => {
     setSaving(true)
     try {
-      onSaved(await api.localRuntimeSetSleepPreferences(next))
+      await api.localRuntimeSetSleepPreferences(next)
     } catch (err) {
       toast.apiError(t('Could not save sleep settings'), err)
     } finally {
@@ -40,10 +37,10 @@ export function SleepPreventionSettings({
   }
 
   return (
-    <div className={`${LOCAL_AGENT_CARD} space-y-3 px-4 py-3.5`}>
+    <div className="space-y-3 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
       <div>
-        <div className="text-[13px] font-medium text-main">{t('Prevent Mac auto-sleep')}</div>
-        <p className="mt-1 text-[12px] text-tertiary">
+        <div className="text-[13px] text-main">{t('Prevent Mac auto-sleep')}</div>
+        <p className="mt-0.5 text-[12px] text-tertiary">
           {t(
             'Keep this computer available for local tasks. The display can turn off and the screen can lock. Closing the lid or choosing Sleep can still put your Mac to sleep.',
           )}
@@ -64,6 +61,7 @@ export function SleepPreventionSettings({
         {t('Only while connected to power')}
         <Switch
           checked={current.onlyOnAC}
+          label={t('Only while connected to power')}
           disabled={saving}
           onChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
         />

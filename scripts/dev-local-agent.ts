@@ -1,8 +1,7 @@
 // The agent row: stages the Local agent bundle (openab + adapters) the desktop
 // runs, when this checkout's prepare.mjs has not staged it for this computer yet.
 import { execFileSync, spawn } from 'node:child_process'
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
 import { bundleState } from '../apps/desktop/local-runtime/bundle-stamp.mjs'
 
@@ -35,11 +34,6 @@ export function hostTarget(): string {
 
 export function bundleDir(desktopDir: string, target = hostTarget()): string {
   return join(desktopDir, 'build', 'local-runtime', target)
-}
-
-/** Read by the desktop to tell a developer why its Local agent is not there yet. */
-export function devStatusPath(dir: string): string {
-  return `${dir}.dev.json`
 }
 
 /** cargo and git only build openab; NUPHOS_OPENAB_BINARY hands prepare.mjs a prebuilt one. */
@@ -100,24 +94,12 @@ export function agentRow(phase: AgentPhase): Pick<Service, 'status' | 'note' | '
   }
 }
 
-function writeDevStatus(dir: string, status: object | null): void {
-  const path = devStatusPath(dir)
-
-  try {
-    if (!status) return rmSync(path, { force: true })
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, JSON.stringify({ pid: process.pid, ...status }))
-  } catch {
-    // Only improves the desktop's wording.
-  }
-}
-
 function show(phase: AgentPhase): void {
   Object.assign(localAgent, agentRow(phase))
   markDirty()
 }
 
-function runPrepare(dir: string): Promise<{ code: number; lines: string[] }> {
+function runPrepare(): Promise<{ code: number; lines: string[] }> {
   const lines: string[] = []
   const child = spawn(
     'node',
@@ -136,7 +118,6 @@ function runPrepare(dir: string): Promise<{ code: number; lines: string[] }> {
   }
 
   localAgent.proc = child
-  writeDevStatus(dir, { state: 'preparing' })
   pipeLines(child.stdout, onLine)
   pipeLines(child.stderr, onLine)
 
@@ -159,15 +140,10 @@ export async function startLocalAgent(): Promise<void> {
   show({ kind: 'checking' })
   const state = bundleState(dir)
 
-  if (state === 'ready') {
-    writeDevStatus(dir, null)
-
-    return show({ kind: 'ready' })
-  }
+  if (state === 'ready') return show({ kind: 'ready' })
   const tools = missingTools(onPath)
 
   if (tools.length) {
-    writeDevStatus(dir, { state: 'failed', reason: `Install ${tools.join(', ')}` })
     pushEvent(localAgent, `cannot build the local agent: install ${tools.join(', ')}`)
 
     return show({ kind: 'missing-tools', tools })
@@ -179,18 +155,16 @@ export async function startLocalAgent(): Promise<void> {
   )
   show({ kind: 'preparing', why: state })
   const startedAt = Date.now()
-  const { code, lines } = await runPrepare(dir)
+  const { code, lines } = await runPrepare()
 
-  if (isQuitting()) return writeDevStatus(dir, null)
+  if (isQuitting()) return
   if (code === 0 && bundleState(dir) === 'ready') {
-    writeDevStatus(dir, null)
     pushEvent(localAgent, 'local agent ready — the desktop picks it up on its own')
 
     return show({ kind: 'ready', seconds: Math.round((Date.now() - startedAt) / 1000) })
   }
   const reason = failureReason(lines, code)
 
-  writeDevStatus(dir, { state: 'failed', reason })
   pushEvent(localAgent, `prepare failed: ${reason}`)
   show({ kind: 'failed', reason })
 }

@@ -141,20 +141,6 @@ function useLocalAgentLatest(): LatestVersions {
   return latest
 }
 
-/** This computer's CLI: the version it can update to, and the one update all views share. */
-export function useLocalAgentUpdate(provider: CliLoginProvider) {
-  const local = useLocalRuntimeState()
-  const latest = useLocalAgentLatest()
-  const busy = useStarting()
-  const cli = local?.agents[provider].cli
-
-  return {
-    version: localUpdateVersion(cli, latest[provider]),
-    updating: busy.has(`local:${provider}`),
-    start: () => void updateLocal(provider, cli?.installed ? cli.version : undefined),
-  }
-}
-
 function localAgentUpdate(
   provider: CliLoginProvider,
   cli: AgentCliStatus | null | undefined,
