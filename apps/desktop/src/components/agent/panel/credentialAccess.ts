@@ -199,27 +199,19 @@ export function allCredentialAccess(options: AgentCredentialOptions): AgentCrede
   }
 }
 
-// What a conversation starts with when the user hasn't chosen: everything they
-// may use, minus Resend. Mirrors `allCredentialAccessFromOptions` in the
-// backend's agent.ts — sending mail is irreversible and leaves the system, so a
-// Resend binding is enabled for a conversation on purpose or not at all. Keep
-// the two in step.
-//
-// Note this is deliberately NOT `allCredentialAccess` with a tweak: that one
-// means "every id that exists" and is what prune/select-all need.
+// What a conversation starts with when the user hasn't chosen: All, so ones
+// added later are included too. The ids are what All covers now.
 export function defaultCredentialAccess(options: AgentCredentialOptions): AgentCredentialSelection {
   return {
     ...allCredentialAccess(options),
-    resendIntegrationIds: [],
-    trelloIntegrationIds: [],
     deviceIds: usableDeviceIds(options.devices),
+    allCredentials: true,
+    allDevices: true,
   }
 }
 
 // Drop selected ids no longer in the options (e.g. a connector deleted since
-// this conversation last ran). `allCredentialAccess`, not the default, is the
-// source of valid ids, so an explicitly-enabled Resend binding survives a
-// refresh. teamIdentity is identity, not access, and is kept as is.
+// this conversation last ran). teamIdentity and All are not ids and are kept as is.
 export function pruneCredentialAccessToOptions(
   access: AgentCredentialSelection,
   options: AgentCredentialOptions,
@@ -243,9 +235,7 @@ export function reconcileStoredCredentialAccess(
   if (!credentialOptionsLoaded(options)) {
     return normalizeCredentialAccess(stored ?? EMPTY_CREDENTIAL_ACCESS)
   }
-  // For a dashboard panel, no stored selection means "whatever this team has", not "nothing" —
-  // but via `defaultCredentialAccess`, so Resend stays opt-in rather than being
-  // switched on for every conversation that never made a choice.
+  // No stored selection means the default (All), not "nothing".
   const normalized = normalizeCredentialAccess(stored ?? defaultCredentialAccess(options))
 
   return pruneCredentialAccessToOptions(normalized, options)

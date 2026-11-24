@@ -35,14 +35,8 @@ export function allCredentialAccessFromOptions(
     secureframeIntegrationIds: options.secureframeIntegrations.map(
       (integration) => integration.integrationId,
     ),
-    // Explicit all-credential channel defaults include Resend; other surfaces
-    // retain their existing opt-in default.
-    trelloIntegrationIds: selectAll
-      ? (options.trelloIntegrations ?? []).map((entry) => entry.integrationId)
-      : [],
-    resendIntegrationIds: selectAll
-      ? options.resendIntegrations.map((entry) => entry.integrationId)
-      : [],
+    trelloIntegrationIds: (options.trelloIntegrations ?? []).map((entry) => entry.integrationId),
+    resendIntegrationIds: options.resendIntegrations.map((entry) => entry.integrationId),
     // Offline and long-gone registrations are listed too; a default takes only usable ones.
     deviceIds: options.devices
       .filter((device) => device.available)
@@ -70,7 +64,7 @@ export function allCredentialAccessFromOptions(
 /**
  * `access` with its "All" choices filled in from what the owner can use now, so
  * a credential connected or a computer registered later is included, and a
- * revoked one is gone. Mail (Resend) and Trello come with All, as for a Trigger.
+ * revoked one is gone.
  */
 export function expandAllCredentialAccess<T extends Partial<AgentCredentialAccess>>(
   access: T,
@@ -127,10 +121,7 @@ export async function resolveTriggerCredentialAccess(
   return allCredentialAccessFromOptions(options, userId, true)
 }
 
-/**
- * What a new Bot may use: everything its owner may use right now, as Desktop's new chat
- * selects it. Sending mail (Resend) and Trello stay opt-in.
- */
+/** What a new Bot may use: All, as Desktop's new chat selects it, ones added later included. */
 export async function defaultCredentialAccess(
   teamId: string,
   userId: string,
@@ -146,8 +137,8 @@ export function defaultCredentialAccessFromOptions(
 ): AgentCredentialAccess {
   return {
     ...allCredentialAccessFromOptions(options, userId, true),
-    resendIntegrationIds: [],
-    trelloIntegrationIds: [],
+    allCredentials: true,
+    allDevices: true,
   }
 }
 
