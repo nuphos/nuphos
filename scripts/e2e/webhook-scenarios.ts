@@ -125,12 +125,7 @@ async function delegate(ask: Ask) {
 }
 
 /** A 503 is retried with the same event; 410 switches the endpoint off. */
-async function failures(
-  page: Page,
-  as: Client,
-  teamId: string,
-  ask: Ask,
-) {
+async function failures(page: Page, as: Client, teamId: string, ask: Ask) {
   const retried = await ask('Reply E2E_DELIVERY:webhook-retry')
 
   replyWith(retried, 503)
@@ -206,14 +201,20 @@ async function overMcp(
     prompt: 'Reply E2E_DELIVERY:webhook-bare',
   })
 
-  must(bare.structuredContent?.status === 'completed', `the bare session to finish, got ${JSON.stringify(bare)}`)
+  must(
+    bare.structuredContent?.status === 'completed',
+    `the bare session to finish, got ${JSON.stringify(bare)}`,
+  )
   await received('the reply, at the endpoint that started it', at('own', session))
   // Long past the settle delay a queued event would have waited out.
   await new Promise((resolve) => setTimeout(resolve, 8_000))
   const id = bare.structuredContent!.session_id
 
   must(!webhookRequests().some(at('team', session)), 'the started session to skip other endpoints')
-  must(!webhookRequests().some((r) => r.body.data?.session_id === id), 'a bare session to send nothing')
+  must(
+    !webhookRequests().some((r) => r.body.data.session_id === id),
+    'a bare session to send nothing',
+  )
   for (const webhook_id of [team, own, switchedOff]) await manage({ action: 'delete', webhook_id })
 }
 
