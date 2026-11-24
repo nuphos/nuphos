@@ -1,10 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { DEVICE_CREDENTIAL_PREFIX, hashDeviceSecret } from '@/lib/agent/devices/join-tokens'
-import { findAgentDeviceByCredentialHash } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
-import { getNuphosUserForCredential } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import {
   MAX_DEVICES,
@@ -20,8 +17,10 @@ import {
 } from '@/lib/vault'
 import { getVaultItemForComputer } from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
+import { liveDevice } from '@/routes/agent/router'
 
 import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
 // A user's own vault. Only a signed-in user session reaches these: conversation
 // tokens are not accepted by requireAuth, so an agent never reads a vault. The one
@@ -31,29 +30,29 @@ export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
 // A computer added from afar (POST /teams/:teamId/computers/:deviceId/vault) reads an
 // item with its own device credential, and only with the key of the approved device
 // linked to it. Registered before requireAuth, which refuses device credentials.
-vaultRoutes.get('/computer/items/:name', async (c) => {
-  const header = c.req.header('Authorization') ?? ''
-  const device = header.startsWith(`Bearer ${DEVICE_CREDENTIAL_PREFIX}`)
-    ? await findAgentDeviceByCredentialHash(hashDeviceSecret(header.slice('Bearer '.length)))
-    : null
-  // As for its tunnel: a person's computer stops when they sign out everywhere.
-  const live =
-    device &&
-    (device.box ||
-      (device.credentialIssuedAt &&
-        (await getNuphosUserForCredential(device.userId, device.credentialIssuedAt))))
+vaultRoutes.get('/computer/items/:name', (c) => readComputerItem(c))
 
-  if (!device || !live) throw new AppError(401, 'unauthorized', 'Invalid device credential')
-  const computer = { userId: device.userId, deviceId: device.deviceId }
+/** Separate from the route so its credential check can be tested without a database. */
+export async function readComputerItem(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; getItem: typeof getVaultItemForComputer } = {
+    liveDevice,
+    getItem: getVaultItemForComputer,
+  },
+) {
+  const live = await deps.liveDevice(c.req.header('Authorization'))
+
+  if (!live) throw new AppError(401, 'unauthorized', 'Invalid device credential')
+  const { userId, deviceId } = live.device
 
   return c.json(
-    await getVaultItemForComputer(
+    await deps.getItem(
       c.req.query('user') ?? '',
-      computer,
-      nameParam(c.req.param('name')),
+      { userId, deviceId },
+      nameParam(c.req.param('name') ?? ''),
     ),
   )
-})
+}
 
 vaultRoutes.use('*', requireAuth)
 

@@ -334,17 +334,22 @@ pub async fn get(ctx: &Ctx, name: &str) -> Result<()> {
 /// only; the private key stays here, as `enroll` keeps it. A key already made
 /// for that vault is reused, and an enrolled one is never replaced.
 pub fn keygen(user: &str) -> Result<()> {
-    let key = match load_device(user)? {
-        Some(device) if !device.id.is_empty() => bail!("this computer is already in that vault"),
-        Some(device) => device.key,
-        None => {
-            let (key, _) = X25519HkdfSha256::gen_keypair(&mut OsRng);
-            save_device(user, &Device { id: String::new(), key: key.clone() })?;
-            key
-        }
-    };
+    let (key, made) = computer_key(load_device(user)?)?;
+    if made {
+        save_device(user, &Device { id: String::new(), key: key.clone() })?;
+    }
     println!("{}", B64.encode(X25519HkdfSha256::sk_to_pk(&key).to_bytes()));
     Ok(())
+}
+
+/// The key `keygen` offers, and whether it is new: one not yet approved is
+/// offered again, and an enrolled one is never replaced.
+fn computer_key(saved: Option<Device>) -> Result<(PrivateKey, bool)> {
+    match saved {
+        Some(device) if !device.id.is_empty() => bail!("this computer is already in that vault"),
+        Some(device) => Ok((device.key, false)),
+        None => Ok((X25519HkdfSha256::gen_keypair(&mut OsRng).0, true)),
+    }
 }
 
 /// `nuphos vault get NAME --computer`: reads with this computer's own device
@@ -356,14 +361,19 @@ pub async fn get_on_computer(name: &str, user: Option<String>) -> Result<()> {
     let credential: Value = serde_json::from_str(&text).context("reading this computer's device credential")?;
     let field = |key: &str| credential[key].as_str().unwrap_or_default().to_string();
     let user = user.unwrap_or_else(|| field("userId"));
-    let mut device = load_device(&user)?
+    let device = load_device(&user)?
         .ok_or_else(|| anyhow!("this computer has no vault key: add it to the vault from Desktop"))?;
     let found = crate::api::Api::new(field("apiUrl"), field("credential")).vault_computer_item(name, &user).await?;
-    device.id = found["deviceId"].as_str().unwrap_or_default().to_string();
-    let item = &found["item"];
-    let value = open(&item_key(item, name, &device)?, name, item["ciphertext"].as_str().unwrap_or_default())?;
-    std::io::stdout().write_all(&value)?;
+    std::io::stdout().write_all(&open_computer_item(&found, name, device.key)?)?;
     Ok(())
+}
+
+/// The value from `GET /vault/computer/items/NAME`: the key wrapped for the
+/// approved device linked to this computer, opened with the key `keygen` kept.
+fn open_computer_item(found: &Value, name: &str, key: PrivateKey) -> Result<Vec<u8>> {
+    let device = Device { id: found["deviceId"].as_str().unwrap_or_default().to_string(), key };
+    let item = &found["item"];
+    open(&item_key(item, name, &device)?, name, item["ciphertext"].as_str().unwrap_or_default())
 }
 
 /// `nuphos vault list`
@@ -442,6 +452,34 @@ mod tests {
         for bad in ["", ".", "..", "-x", "a/b", "a b", &"a".repeat(129)] {
             assert!(check_name(bad).is_err(), "{bad}");
         }
+    }
+
+    #[test]
+    fn keygen_makes_a_key_once_and_never_replaces_an_enrolled_one() {
+        let (key, made) = computer_key(None).unwrap();
+        assert!(made);
+        let again = computer_key(Some(Device { id: String::new(), key: key.clone() })).unwrap();
+        assert_eq!((again.0.to_bytes(), again.1), (key.to_bytes(), false));
+        assert!(computer_key(Some(Device { id: "d1".into(), key })).is_err());
+    }
+
+    #[test]
+    fn a_computer_opens_only_the_key_wrapped_for_its_own_device() {
+        let (key, public) = X25519HkdfSha256::gen_keypair(&mut OsRng);
+        let item_key = [9u8; 32];
+        let found = |device: &str| {
+            json!({
+                "deviceId": device,
+                "item": {
+                    "ciphertext": seal(&item_key, "deploy", b"value").unwrap(),
+                    "keys": [{ "deviceId": "d1", "wrapped": wrap(&item_key, "deploy", &public).unwrap() }],
+                },
+            })
+        };
+        assert_eq!(open_computer_item(&found("d1"), "deploy", key.clone()).unwrap(), b"value");
+        assert!(open_computer_item(&found("d2"), "deploy", key).is_err());
+        let (other, _) = X25519HkdfSha256::gen_keypair(&mut OsRng);
+        assert!(open_computer_item(&found("d1"), "deploy", other).is_err());
     }
 
     #[test]

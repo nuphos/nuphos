@@ -31,7 +31,7 @@ type VaultDeviceDoc = {
   computer?: Computer
 }
 
-/** A computer as its device credential names it. */
+/** A computer as its device credential names it; matched whole, so in this field order. */
 export type Computer = { userId: string; deviceId: string }
 
 /** An item's key, wrapped with HPKE for one device. */
@@ -131,7 +131,7 @@ export async function listVaultDevices(userId: string) {
   return docs.map(deviceView)
 }
 
-/** The first device is trusted on first use; any later one, and any computer, waits. */
+/** The first device is trusted on first use; later ones wait. A computer's key is added once. */
 export function addVaultDevice(
   userId: string,
   name: string,
@@ -139,6 +139,9 @@ export function addVaultDevice(
   computer?: Computer,
 ) {
   return exclusive(userId, async () => {
+    const again = computer && (await devices().findOne({ userId, publicKey, computer }))
+
+    if (again) return deviceView(again)
     if ((await devices().countDocuments({ userId })) >= MAX_DEVICES) {
       throw new AppError(409, 'vault_device_limit', `A vault holds at most ${MAX_DEVICES} devices`)
     }

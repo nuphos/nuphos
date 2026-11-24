@@ -13,6 +13,7 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  listVaultDevices,
   listVaultItems,
   putVaultItem,
   removeVaultDevice,
@@ -202,6 +203,9 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     const added = await addVaultDevice(user, 'box', KEY, box)
 
     expect(added.state).toBe('pending')
+    // Adding it again offers the same key: still one device.
+    expect(await addVaultDevice(user, 'box', KEY, box)).toMatchObject({ id: added.id })
+    expect(await listVaultDevices(user)).toHaveLength(2)
     await putVaultItem(user, 'token', 'c1', keysFor(laptop.id))
     expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
 

@@ -46,8 +46,9 @@ export async function addComputerToVault(
 ) {
   const computer = await deps.computer(actorId, teamId, deviceId)
 
-  // A user id goes into a shell command: refuse anything but its plain characters.
-  if (!/^[A-Za-z0-9_-]+$/.test(actorId)) throw new AppError(400, 'bad_request', 'Invalid user')
+  // A user id goes into a shell command: refuse anything but its plain characters,
+  // and a leading "-" that would read as an option.
+  if (!/^\w[\w-]*$/.test(actorId)) throw new AppError(400, 'bad_request', 'Invalid user')
   // An empty vault is refused after this, when the key is registered; the computer
   // keeps the unused key and offers it again next time.
   const outcome = await deps.run(actorId, teamId, deviceId, `nuphos vault keygen --user ${actorId}`)
@@ -63,7 +64,8 @@ export async function addComputerToVault(
       'The computer could not make a vault key. Update Nuphos on it, then retry.',
     )
 
-  return deps.addVaultDevice(actorId, computer.label, publicKey, {
+  // A device name is at most 64 characters, as `POST /vault/devices` takes it.
+  return deps.addVaultDevice(actorId, computer.label.trim().slice(0, 64), publicKey, {
     userId: computer.userId,
     deviceId: computer.deviceId,
   })

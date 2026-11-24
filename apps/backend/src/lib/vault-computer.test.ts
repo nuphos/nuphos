@@ -48,6 +48,24 @@ describe('addComputerToVault', () => {
     expect(calls.added).toEqual([[actor, 'Build box', KEY, { userId: 'owner', deviceId: 'box-1' }]])
   })
 
+  test('a long computer name is cut to what a vault device name holds', async () => {
+    const { value, calls } = deps({
+      computer: async () => ({ userId: 'owner', deviceId: 'box-1', label: `  ${'x'.repeat(80)}` }),
+    })
+
+    await addComputerToVault(actor, 't1', 'box-1', value)
+    expect((calls.added[0] as string[])[1]).toBe('x'.repeat(64))
+  })
+
+  test('a user id that could read as an option never reaches the shell', async () => {
+    const { value, calls } = deps({
+      computer: async () => ({ userId: 'owner', deviceId: 'box-1', label: 'Build box' }),
+    })
+
+    expect(await addComputerToVault('-rf', 't1', 'box-1', value).catch((e) => e.status)).toBe(400)
+    expect(calls.commands).toEqual([])
+  })
+
   test('nothing runs for someone who may not run commands there', async () => {
     const denied = deps()
 
