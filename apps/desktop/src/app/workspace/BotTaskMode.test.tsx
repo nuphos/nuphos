@@ -121,6 +121,7 @@ test('a Bot Task exposes its summary without changing the underlying conversatio
     const back = [...container.querySelectorAll<HTMLButtonElement>('button')].find((b) =>
       b.textContent?.includes('Back to chat'),
     )
+
     assert.ok(back, 'Back to chat button')
 
     await act(() => back.click())
