@@ -1,17 +1,17 @@
-// Slim Monaco build: `editor.api` carries the typed namespace, `editor.all`
-// side-effect-registers the full editor (find widget, folding, bracket
-// matching, …), and we add only the YAML grammar plus the JSON language
-// service used by database query/change inputs. This keeps unrelated
+// Slim Monaco build: `editor.api` carries the typed namespace,
+// `features/register.all` side-effect-registers the full editor (find widget,
+// folding, bracket matching, …), and we add only the YAML grammar plus the JSON
+// language service used by database query/change inputs. This keeps unrelated
 // ts/css/html language services and their workers out of the bundle.
 // The explicit `.js` keeps TypeScript's bundler resolver from mistaking the
 // `.api` segment for a file extension and stripping it (it then maps `.js` back
 // to the adjacent `editor.api.d.ts`).
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api.js'
-import 'monaco-editor/esm/vs/editor/editor.all.js'
-import 'monaco-editor/esm/vs/basic-languages/yaml/yaml.contribution'
-import EditorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'
-import JsonWorker from 'monaco-editor/esm/vs/language/json/json.worker?worker'
-import { jsonDefaults } from 'monaco-editor/esm/vs/language/json/monaco.contribution'
+import * as monaco from 'monaco-editor/editor/editor.api.js'
+import 'monaco-editor/features/register.all.js'
+import 'monaco-editor/languages/definitions/yaml/register.js'
+import EditorWorker from 'monaco-editor/editor/editor.worker?worker'
+import JsonWorker from 'monaco-editor/languages/features/json/json.worker?worker'
+import { jsonDefaults } from 'monaco-editor/languages/features/json/register.js'
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 
 import { applyTheme, THEME_NAME } from './yaml-editor-theme'
