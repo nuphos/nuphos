@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -82,6 +90,27 @@ test('the copies of a login in each conversation home go too, and their sessions
     '.nuphos/session-homes/.sweep',
   ])
 })
+
+test(
+  'conversation homes that cannot be listed fail the deletion, rather than keep their logins',
+  { skip: process.platform === 'win32' || process.getuid?.() === 0 },
+  (t) => {
+    const sessions = '.nuphos/session-homes'
+    const { root } = home(t, {
+      '.pi/agent/auth.json': '{}',
+      [`${sessions}/a/.pi/agent/auth.json`]: '{}',
+    })
+
+    chmodSync(path.join(root, sessions), 0o000)
+    try {
+      assert.throws(() => deleteAgentCredentials('pi', root), /EACCES/u)
+    } finally {
+      chmodSync(path.join(root, sessions), 0o700)
+    }
+    // A home with no conversations yet is fine.
+    assert.doesNotThrow(() => deleteAgentCredentials('pi', path.join(root, 'missing')))
+  },
+)
 
 test('OpenCode loses every provider login and its Bedrock keys, and keeps the rest', (t) => {
   const config = '.config/opencode/opencode.json'
@@ -191,10 +220,20 @@ test('a reset of OpenCode passes only on a list it read empty, or a 1.x CLI with
     'undefined',
   )
   assert.equal(await left(undefined, { installed: false }), 'undefined')
-  // Every other agent's sign-in is the files deleted above, so none is asked.
+  // Any other agent is asked in its home whether a sign-in is left, a key from the computer say.
   asked.length = 0
-  assert.equal(await left(true, { installed: true, loggedIn: true }, 'codex'), 'undefined')
-  assert.deepEqual(asked, [])
+  assert.match(
+    await left(true, { installed: true, loggedIn: true }, 'codex'),
+    /still signed in, for example with an API key/,
+  )
+  assert.deepEqual(asked, ['codex /home/oc'])
+  for (const cli of [
+    { installed: true, loggedIn: false },
+    { installed: true, loggedIn: null },
+    { installed: false },
+    new Error('probe failed'),
+  ])
+    assert.equal(await left(true, cli, 'codex'), 'undefined')
 })
 
 test('a reset of OpenCode logs out in the agent home, and a logout that fails proves nothing', async () => {
@@ -241,5 +280,6 @@ test('a reset of OpenCode logs out in the agent home, and a logout that fails pr
     '/home/cx',
     deps(async () => true),
   )
-  assert.deepEqual(steps, [])
+  // Only OpenCode is logged out; another agent is only checked.
+  assert.deepEqual(steps, ['check'])
 })
