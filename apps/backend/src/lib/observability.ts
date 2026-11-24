@@ -1,3 +1,4 @@
+import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
 import { normalizeError, sanitizeProperties } from '@/lib/observability-sanitize'
 import { recordTelemetryEvent } from '@/lib/telemetry/window'
 
@@ -63,7 +64,8 @@ export function logError(
   properties?: ObservabilityProperties & { context?: Context },
   level: 'warn' | 'error' = 'error',
 ): void {
-  logEvent(level, event, {
+  // An agent out of usage is an expected condition the user resolves, not a failure to page on.
+  logEvent(turnFailureCause(error) === 'usage_limit' ? 'warn' : level, event, {
     ...normalizeError(error),
     ...requestContext(properties?.context),
     ...properties,
