@@ -54,9 +54,11 @@ enum NewRuntimeTests {
         precondition(NewRuntime.action([signedIn(.codex, "c")], .codex) == .create)
         // A computer whose report cannot tell is not signed in either.
         precondition(NewRuntime.action([unknown(.grok, "d")], .grok) == .signIn("d"))
-        // Antigravity's sign-in is the computer's own and shared, so there is no second one.
-        precondition(NewRuntime.action([], .antigravity) == .unavailable)
-        precondition(NewRuntime.action([signedIn(.antigravity, "e")], .antigravity) == .unavailable)
+        // Antigravity's sign-in is the computer's own and shared, so there is no second one:
+        // without it, or signed in, the list has nothing to offer and leaves it out.
+        precondition(NewRuntime.action([], .antigravity) == nil, "Antigravity is listed with nothing to offer")
+        precondition(NewRuntime.action([signedIn(.antigravity, "e")], .antigravity) == nil,
+                     "A signed-in Antigravity is listed again")
         precondition(NewRuntime.action([signedOut(.antigravity, "f")], .antigravity) == .signIn("f"))
     }
 

@@ -1,10 +1,13 @@
 package ai.nuphos.android
 
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +22,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import java.util.Locale
 
 /** Product sheets with synthetic transports; no account or provider login is contacted. */
 @RunWith(AndroidJUnit4::class)
@@ -47,6 +51,52 @@ class NewRuntimeFixtureDeviceTest {
         compose.onNodeWithText(InstrumentationRegistry.getInstrumentation().targetContext.getString(R.string.new_runtime_ask_owner)).assertIsDisplayed()
         compose.onNodeWithTag("new-runtime-use-only").assertDoesNotExist()
         shot("new-runtime-owner-instruction.png")
+    }
+    /** Antigravity's sign-in is the computer's own: the list offers it only to sign in again (#4905). */
+    @Test fun antigravityIsListedOnlyWhenItCanBeSignedIn() {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val app = instrumentation.targetContext
+        val zh = app.createConfigurationContext(Configuration(app.resources.configuration).apply { setLocale(Locale.forLanguageTag("zh-CN")) })
+        val device = RuntimeDevice("host", "Studio", true, null, "unavailable", null, null, null, "manage")
+        fun antigravity(signedIn: Boolean) = AgentRuntime("agy", "antigravity", "Antigravity", "active", "local", signedIn = signedIn,
+            local = RuntimeHost("host", "Studio", true, "Antigravity"))
+        val states = linkedMapOf(
+            "no-antigravity" to emptyList(),
+            "signed-in" to listOf(antigravity(signedIn = true)),
+            "signed-out" to listOf(antigravity(signedIn = false)),
+        )
+        var state by mutableStateOf("no-antigravity")
+        compose.setContent {
+            val scope = rememberCoroutineScope()
+            val existing = states.getValue(state)
+            val sheet = remember(state) { NewRuntimeStore(object : RuntimeCreationTransport {
+                override suspend fun create(deviceId: String, provider: String, instanceId: String, label: String): CreatedRuntime = error("Not created here")
+                override suspend fun discard(deviceId: String, instanceId: String) = Unit
+            }, scope, device, { existing }, { true }, {}, {}) }
+            val setup = remember { RuntimeSetupStore(object : RuntimeTransport {
+                override suspend fun catalog() = emptyList<AgentRuntime>()
+                override suspend fun start(runtimeId: String): RuntimeLogin = error("No external provider in fixture")
+                override suspend fun login(runtimeId: String): RuntimeLogin = error("No external provider in fixture")
+                override suspend fun code(runtimeId: String, attemptId: String, code: String): RuntimeLogin = error("No external provider in fixture")
+                override suspend fun cancel(runtimeId: String, attemptId: String) = Unit
+            }, scope, { true }, { false }, RuntimeSelections.Selection("synthetic", "507f1f77bcf86cd799439011"), {},
+                loginAllowed = { true }, useSelectedRuntime = false) }
+            CompositionLocalProvider(LocalContext provides zh, LocalConfiguration provides zh.resources.configuration) {
+                NuphosTheme(darkTheme = false) { Surface(Modifier.fillMaxSize()) { NewRuntimeSheet(sheet, setup) } }
+            }
+        }
+        // Every state is captured before any assertion, so a failing run still shows all three.
+        val rows = states.keys.associateWith { name ->
+            compose.runOnIdle { state = name }
+            compose.onNodeWithTag("new-runtime-provider-codex").assertIsDisplayed()
+            shot("new-runtime-antigravity-$name.png")
+            compose.onAllNodesWithTag("new-runtime-provider-antigravity").fetchSemanticsNodes().size
+        }
+        assertEquals("Antigravity is listed with nothing to offer", 0, rows["no-antigravity"])
+        assertEquals("A signed-in Antigravity is listed again", 0, rows["signed-in"])
+        compose.runOnIdle { state = "signed-out" }
+        compose.onNodeWithTag("new-runtime-provider-antigravity").assertIsEnabled()
+        compose.onNodeWithText(zh.getString(R.string.new_runtime_sign_in, "Antigravity")).assertIsDisplayed()
     }
     @Test fun chooseNameCreateThenCancelCleansOnlyNewRuntime() {
         val device = RuntimeDevice("host", "Synthetic Laptop", true, null, "unavailable", null, null, null, "manage")

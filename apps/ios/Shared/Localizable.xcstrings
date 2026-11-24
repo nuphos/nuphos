@@ -3418,52 +3418,6 @@
         }
       }
     },
-    "Antigravity uses this computer’s shared sign-in" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity usa el inicio de sesión compartido de este equipo"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity menggunakan login bersama komputer ini"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity はこのコンピューターの共有ログインを使用します"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity는 이 컴퓨터의 공유 로그인을 사용합니다"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity ใช้การลงชื่อเข้าใช้ร่วมกันของคอมพิวเตอร์นี้"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity 使用此电脑的共享登录"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Antigravity 使用這台電腦的共用登入"
-          }
-        }
-      }
-    },
     "App icon" : {
       "localizations" : {
         "es" : {

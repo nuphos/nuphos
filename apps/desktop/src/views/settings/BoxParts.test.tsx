@@ -33,7 +33,11 @@ function items(agents: RuntimeInstance[]) {
 
   return [...html.matchAll(/<li( aria-disabled="true")?>(.*?)<\/li>/g)].map(
     ([, disabled, row]) => ({
-      text: row!.replace(/<[^>]+>/g, ''),
+      // Text only: every other piece of a row split on tag brackets is markup.
+      text: row!
+        .split(/[<>]/)
+        .filter((_, index) => index % 2 === 0)
+        .join(''),
       disabled: Boolean(disabled),
     }),
   )
