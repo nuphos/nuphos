@@ -274,22 +274,22 @@ test('the route rechecks the conversation itself: answered, they watch; unable t
   end()
 })
 
-test('one recheck at a time, and one that fails ends the stream', async () => {
-  let fail: (error: Error) => void = () => {}
-  const { state, end } = await watch(
-    'mate',
-    () =>
-      new Promise((_resolve, reject) => {
-        fail = reject
-      }),
+test('a recheck that fails ends the stream', async () => {
+  const { state, end } = await watch('mate', () =>
+    Promise.reject(new Error('the database is down')),
   )
 
-  // Many intervals pass while the first check is still out.
+  await settle()
+  expect(state.closed).toEqual([1008, 'The invitation ended'])
+  end()
+})
+
+test('one recheck at a time, and one that never answers ends the stream', async () => {
+  const { state, end } = await watch('mate', () => new Promise(() => {}))
+
+  // The next interval finds the first check still out, then it counts as no invitation.
   await settle()
   expect(state.checks).toBe(1)
-  expect(state.closed).toBeUndefined()
-  fail(new Error('the database is down'))
-  await settle()
   expect(state.closed).toEqual([1008, 'The invitation ended'])
   end()
 })
