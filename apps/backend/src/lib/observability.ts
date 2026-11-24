@@ -1,4 +1,4 @@
-import { turnFailureCause } from '@/lib/claude-code-preview/openab-acp-errors'
+import { runtimeUsageExhaustedMessage } from '@/lib/claude-code-preview/acp-refusal-notice'
 import { normalizeError, sanitizeProperties } from '@/lib/observability-sanitize'
 import { recordTelemetryEvent } from '@/lib/telemetry/window'
 
@@ -65,7 +65,7 @@ export function logError(
   level: 'warn' | 'error' = 'error',
 ): void {
   // An agent out of usage is an expected condition the user resolves, not a failure to page on.
-  logEvent(turnFailureCause(error) === 'usage_limit' ? 'warn' : level, event, {
+  logEvent(runtimeUsageExhaustedMessage(error) ? 'warn' : level, event, {
     ...normalizeError(error),
     ...requestContext(properties?.context),
     ...properties,

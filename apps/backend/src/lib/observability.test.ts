@@ -1,7 +1,7 @@
 import { describe, expect, spyOn, test } from 'bun:test'
 
 import { UptimeKumaApiError } from '@/lib/byos/uptime-kuma'
-import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
+import { OpenAbRpcError } from '@/lib/claude-code-preview/acp-refusal-notice'
 import { AppError } from '@/lib/errors'
 import {
   describeUnknown,
