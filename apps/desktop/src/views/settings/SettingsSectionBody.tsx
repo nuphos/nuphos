@@ -1,7 +1,6 @@
 import { GeneralSection } from './GeneralSection'
 import { InstructionsSection } from './InstructionsSection'
 import { LocalExecSection } from './LocalExecSection'
-import { LocalRuntimeSection } from './LocalRuntimeSection'
 import { LocalSetupSection } from './LocalSetupSection'
 import { AppearanceSection } from './personalSections'
 import { PrivacySection } from './PrivacySection'
@@ -47,9 +46,6 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   'device.appearance': () => <AppearanceSection />,
   'device.updates': () => <UpdatesSection />,
   'device.privacy': () => <PrivacySection />,
-  'device.localRuntime': ({ team, onOpenConversation }) => (
-    <LocalRuntimeSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />
-  ),
   'device.localExec': ({ team, onOpenConversation }) => (
     <LocalExecSection currentTeamId={team?.id} onOpenConversation={onOpenConversation} />
   ),

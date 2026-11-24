@@ -155,7 +155,7 @@ export function AgentSetupRequiredCard({
       {route.kind === 'none' && personalAgent && !onThisComputer && (
         <p className="text-[13px] leading-relaxed text-secondary">
           {t(
-            'Sign in on the computer hosting this runtime, in Settings → Local runtime, then retry your message.',
+            'On the computer hosting this runtime, sign it in from Settings → Computers, then retry your message.',
           )}
         </p>
       )}
