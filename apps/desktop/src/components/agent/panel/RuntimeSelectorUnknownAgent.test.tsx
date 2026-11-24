@@ -7,7 +7,7 @@ import { act, createElement } from 'react'
 import type { RuntimeInstance } from '../../../types/runtime'
 import type { ReactNode } from 'react'
 
-// A backend newer than this build can list an agent it does not know yet (#5012's Cursor).
+// A backend newer than this build can list an agent it does not know yet (a fictional Windsail here).
 // The picker and the chosen agent must still render, named by the agent's id.
 
 // Base UI's menu does not render in happy-dom; an open menu renders its items.
@@ -61,10 +61,10 @@ for (const [key, value] of Object.entries(browser))
 const { RuntimeSelector } = await import('./RuntimeSelector')
 const { createRoot } = await import('react-dom/client')
 
-const cursor = {
-  id: 'r-cursor',
-  provider: 'cursor',
-  label: 'Cursor on a test computer',
+const windsail = {
+  id: 'r-windsail',
+  provider: 'windsail',
+  label: 'Windsail on a test computer',
   status: 'active',
   kind: 'external',
   connection: 'paired',
@@ -82,17 +82,17 @@ test('an agent this build does not know renders in the picker and as the chosen 
       createElement(RuntimeSelector, {
         teamId: 't1',
         menuOpen: true,
-        value: { id: cursor.id, provider: cursor.provider, label: cursor.label },
-        options: [cursor],
+        value: { id: windsail.id, provider: windsail.provider, label: windsail.label },
+        options: [windsail],
         onSelect: () => {},
       }),
     ),
   )
 
-  assert.equal(host.querySelector('button')?.getAttribute('title'), `${cursor.label} · cursor`)
+  assert.equal(host.querySelector('button')?.getAttribute('title'), `${windsail.label} · windsail`)
   assert.ok(
     [...host.querySelectorAll('[role="menuitem"]')].some((row) =>
-      row.textContent?.includes(cursor.label),
+      row.textContent?.includes(windsail.label),
     ),
   )
   await act(async () => root.unmount())

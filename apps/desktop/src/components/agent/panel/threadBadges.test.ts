@@ -56,11 +56,14 @@ test('a messaged thread shows where that message ran, not where the thread is no
   assert.equal(info?.runtimeLabel, "Yuanlin (6.25x) in Yuanlin's Box")
   // An agent a newer backend added keeps its id, which names it until this build knows it.
   const odd = threadBadgeInfo(
-    part('send_message_to_thread', { input: { threadId: ID }, output: { agentRuntime: 'cursor' } }),
+    part('send_message_to_thread', {
+      input: { threadId: ID },
+      output: { agentRuntime: 'windsail' },
+    }),
   )
 
-  assert.equal(odd?.agentRuntime, 'cursor')
-  assert.equal(threadRuntimeName(odd?.agentRuntime ?? undefined, undefined), 'cursor')
+  assert.equal(odd?.agentRuntime, 'windsail')
+  assert.equal(threadRuntimeName(odd?.agentRuntime ?? undefined, undefined), 'windsail')
 })
 
 test('a started thread shows the model the agent chose for it, and why', () => {
