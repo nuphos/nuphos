@@ -79,6 +79,23 @@ final class TasksLayoutArchiveUITests: XCTestCase {
         shot("4-archived-opened")
     }
 
+    /// No live Tasks, only archived ones: the empty state still leads to them.
+    func testArchivedIsReachableWithNoLiveTasks() throws {
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        responses["GET /agent/conversations"] = Self.page([])
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        launch()
+        XCTAssertTrue(app.staticTexts["No tasks yet"].waitForExistence(timeout: 10), "Tasks is not empty")
+        let archived = app.buttons["Archived"].firstMatch
+        XCTAssertTrue(archived.waitForExistence(timeout: 5), "The empty Tasks page has no way to its archived Tasks")
+        shot("5-empty-archived")
+        archived.tap()
+        let old = app.staticTexts["Migrate the old database"].firstMatch
+        XCTAssertTrue(old.waitForExistence(timeout: 5), "Archived lists nothing")
+        old.tap()
+        XCTAssertTrue(app.buttons["Done"].waitForNonExistence(timeout: 5), "Opening an archived Task kept the sheet")
+    }
+
     private func launch() {
         app = XCUIApplication()
         app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "agent", "-nuphos.agent.foldedThreads", "{}"]

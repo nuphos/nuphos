@@ -278,6 +278,16 @@ struct AgentPage: View {
                 Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
                 if !store.search.isEmpty { Text("No tasks match your search.") }
+            } actions: {
+                // With no live Tasks the list, and its Archived row, is gone.
+                if page != .chats, store.search.isEmpty, !store.archived.isEmpty || store.archivedFailed {
+                    Button { showArchived = true } label: {
+                        Label { Text("Archived") } icon: { LucideIcon("archive") }
+                            .font(Theme.Text.label.weight(.medium))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         case .loaded:
             EmptyView()
