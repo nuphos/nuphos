@@ -121,7 +121,12 @@ final class ComposerReturnUITests: XCTestCase {
         shot("8-one-more-character")
         XCTAssertGreaterThan(composer.frame.height, oneLine + 1, "One more character did not wrap")
 
-        composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: count + 1))
+        // One key at a time until the field is empty: a run of deletes typed at once can drop keys.
+        var deletes = 0
+        while composer.value as? String ?? "" != composer.placeholderValue ?? "", deletes < 250 {
+            composer.typeText(XCUIKeyboardKey.delete.rawValue)
+            deletes += 1
+        }
         XCTAssertEqual(composer.value as? String ?? "", composer.placeholderValue ?? "", "The draft was not deleted")
         XCTAssertEqual(composer.frame.height, oneLine, accuracy: 1, "The empty field is not one line tall")
         XCTAssertGreaterThan(composer.frame.width, fullWidth, "The emptied field is not a full line wide")
