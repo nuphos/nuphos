@@ -190,7 +190,7 @@ export const installScenarios: Scenario[] = [
       await page.evaluate(() => window.api.localRuntimeInstallAgent('claude-code'))
       await until(
         "this computer's Claude Code to be back",
-        async () => (await claudeHere(page)) !== null,
+        async () => (await claudeHere(page))?.ready === true,
       )
 
       // A copy that is there but will not start: the turn says so in plain words, and this
