@@ -920,12 +920,15 @@ final class AgentStore {
         // A failed list keeps polling too, so it comes back on its own.
         guard phase == .loaded || isFailed, let team = selectedTeam else { return }
         async let chats: () = loadChannels()
+        // Runtimes too: one that joins or signs in at any time turns Create on.
+        async let runtimesLoad: () = loadRuntimes()
         let generation = loadGeneration
         if let rows = try? await listConversations(teamId: team.id), generation == loadGeneration, !Task.isCancelled {
             conversations = rows
             if isFailed { phase = .loaded }
         }
         await chats
+        await runtimesLoad
     }
 
     /// Search is server-backed; debounce like the desktop (250 ms).

@@ -3,7 +3,6 @@ import SwiftUI
 /// Conversation history for the selected team. Task creation lives in a sheet.
 struct AgentPage: View {
     @Environment(AgentStore.self) private var store
-    @Environment(\.scenePhase) private var scenePhase
     @Binding var page: HomePage
     /// True once the large header has scrolled under the bar.
     @Binding var titleCollapsed: Bool
@@ -107,8 +106,6 @@ struct AgentPage: View {
             .ignoresSafeArea(ownsKeyboard ? [] : .keyboard, edges: .bottom)
             .onPreferenceChange(ComposerOwnsKeyboard.self) { ownsKeyboard = $0 }
             .task(id: store.selectedTeam?.id) { await store.loadCredentialOptions() }
-            // A runtime that joined while the app was away shows when it comes back.
-            .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await store.loadRuntimes() } } }
             .onChange(of: store.teamsPhase) { _, phase in if phase == .loaded { openPushTarget() } }
             .onChange(of: PushNotifications.shared.pendingTarget) { _, _ in openPushTarget() }
             .task {
@@ -648,8 +645,8 @@ private func endEditing() {
 }
 
 /// Shown for a Box still coming up while the workspace has no runtime, in place of advice to
-/// connect a computer. It re-reads both lists every 5 s until the Box's runtimes are listed,
-/// which takes this view off screen and ends the loop.
+/// connect a computer. It re-reads the devices every 5 s, so it gives way once the Box's host
+/// is up or down; the store's poll lists the Box's runtimes.
 private struct BoxStartingState: View {
     @Environment(AgentStore.self) private var store
     let label: String
@@ -663,7 +660,6 @@ private struct BoxStartingState: View {
         .task {
             while true {
                 do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                await store.loadRuntimes()
                 await store.loadAgentDevices(metrics: false)
             }
         }
