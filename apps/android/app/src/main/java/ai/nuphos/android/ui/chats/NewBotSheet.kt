@@ -101,18 +101,31 @@ internal fun CreateBotDialog(nav: NavHostController, requireCurrentRuntime: Bool
     val auth = LocalAuthSession.current
     val account = auth.user?.id
     val selected = if (account != null && team != null) auth.runtimeSelections.bind(account, team) else null
-    val target = ai.nuphos.android.session.HomeCreation.botRuntime(store.creationRuntimes, selected?.selectedId)
+    fun target() = ai.nuphos.android.session.HomeCreation.botRuntime(store.creationRuntimes, selected?.selectedId)
+    // With the remembered runtime unavailable, Create asks for one first, then creates, as on iOS (#3947).
+    val picker = if (requireCurrentRuntime) ai.nuphos.android.ui.agent.rememberRuntimeChoice(selected) else null
+    var waitingForRuntime by remember(picker) { mutableStateOf<Pair<String, String>?>(null) }
+    fun create(title: String, avatar: String) {
+        // On the runtime a new chat would use, so the Bot's composer shows it.
+        val runtime = if (requireCurrentRuntime) target()?.let { ai.nuphos.android.data.RuntimeBinding(it.id, it.provider, it.label) } else selected?.binding
+        scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
+            val chat = store.createBot(title, avatar, runtime) ?: return@launch
+            onDismiss()
+            nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
+        }
+    }
     NewBotSheet(store.creatingBot, store.newBotError, store.newBotWaitingForChat != null,
         onCreate = { title, avatar ->
-            // On the runtime a new chat would use, so the Bot's composer shows it.
-            val runtime = if (requireCurrentRuntime) target?.let { ai.nuphos.android.data.RuntimeBinding(it.id, it.provider, it.label) } else selected?.binding
-            scope.launch(kotlinx.coroutines.Dispatchers.Main.immediate) {
-                val chat = store.createBot(title, avatar, runtime) ?: return@launch
-                onDismiss()
-                nav.navigate("channel/${android.net.Uri.encode(chat)}") { launchSingleTop = true }
-            }
+            if (requireCurrentRuntime && target() == null && store.newBotWaitingForChat == null) waitingForRuntime = title to avatar
+            else create(title, avatar)
         },
         onDismiss = { store.forgetNewBot(); onDismiss() },
-        creationAllowed = !requireCurrentRuntime || target != null || store.newBotWaitingForChat != null,
+        creationAllowed = !requireCurrentRuntime || picker != null || target() != null || store.newBotWaitingForChat != null,
     )
+    val pending = waitingForRuntime
+    if (pending != null && picker != null && picker.isSourceCurrent()) ai.nuphos.android.ui.agent.RuntimeChoiceSheet(picker) {
+        waitingForRuntime = null
+        // Closed without a pick, the New Bot sheet stays as it was, with what was typed.
+        if (target() != null) create(pending.first, pending.second)
+    }
 }

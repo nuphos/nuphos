@@ -83,6 +83,7 @@ class HomeNavigationFixtureDeviceTest {
     @Volatile private var runtimeRemoved = false
     @Volatile private var runtimeReplaced = false
     @Volatile private var signedInAgain = false
+    private val createdBots = CopyOnWriteArrayList<String>()
     private lateinit var plansStore: PlansStore
     private lateinit var app: NuphosApplication
     private lateinit var agent: AgentStore
@@ -137,7 +138,10 @@ class HomeNavigationFixtureDeviceTest {
                 val mfa = request.method == "GET" && path == "/auth/mfa"
                 val mfaSetup = request.method == "POST" && path == "/auth/mfa/totp/setup"
                 val endSession = request.method == "DELETE" && path == "/auth/sessions/current"
-                if (!mfa && !mfaSetup && !endSession && !subscriptions && !updateSubscription && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
+                val newBot = request.method == "POST" && path == "/agent/bots" && request.url.queryParameter("teamId") == a.id
+                val newBotChat = request.method == "POST" && request.url.queryParameter("teamId") == a.id &&
+                    path in setOf("/agent/channels", "/agent/conversations/fixture-bot-chat/agents")
+                if (!newBot && !newBotChat && !mfa && !mfaSetup && !endSession && !subscriptions && !updateSubscription && !runtimeCatalog && !runtimeQuotas && !devices && !teamRead && !discovery && !favorites && !history && !consent && !connectors && !plans && !members && !policy && !browsing && !credentials && !archive && !detail) unexpected += request
                 var code = 200
                 val body = when {
                     runtimeCatalog -> {
@@ -191,6 +195,11 @@ class HomeNavigationFixtureDeviceTest {
                     mfaSetup -> if (signedInAgain) """{"secret":"JBSWY3DPEHPK3PXP","otpauthUrl":"otpauth://totp/Nuphos:fixture?secret=JBSWY3DPEHPK3PXP"}"""
                         else { code = 403; """{"error":{"code":"reauth_required","message":"Sign in again","details":{"method":"sign_in"}}}""" }
                     endSession -> "{}"
+                    newBot -> {
+                        createdBots += okio.Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+                        """{"sessionId":"fixture-bot"}"""
+                    }
+                    newBotChat -> """{"sessionId":"fixture-bot-chat"}"""
                     else -> { code = 500; "{}" }
                 }
                 Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
@@ -261,6 +270,7 @@ class HomeNavigationFixtureDeviceTest {
                             composable("conversation/{id}?fresh={fresh}") {
                                 androidx.compose.material3.Text("Synthetic task destination")
                             }
+                            composable("channel/{id}") { androidx.compose.material3.Text("Synthetic Bot chat") }
                         } else HomeScreen(NuphosUser.preview, nav, showComposer = false)
                     } }
                 }
@@ -571,8 +581,9 @@ class HomeNavigationFixtureDeviceTest {
         noWrites()
     }
 
-    @Test fun staleRuntimeChoiceOnlyDisablesNewBotInSharedMenu() {
-        render()
+    /** #3947: New Bot was greyed out here. Now Create asks for a runtime, then makes the Bot on the one picked. */
+    @Test fun staleRuntimeChoiceAsksForARuntimeBeforeMakingABot() {
+        render(newTask = true)
         compose.waitUntil(8_000) { agent.hasSelectableRuntimes == true }
         compose.runOnIdle {
             val selection = auth.runtimeSelections.bind(NuphosUser.preview.id, a.id)
@@ -582,9 +593,30 @@ class HomeNavigationFixtureDeviceTest {
         }
         compose.waitUntil(8_000) { agent.creationRuntimes?.singleOrNull()?.id == "replacement" }
         compose.onNodeWithTag("home-create").assertIsEnabled().performClick()
-        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_bot)).assertIsNotEnabled()
-        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_task)).assertIsEnabled()
-        noWrites()
+        shot("stale-runtime-create-menu")
+        compose.onNodeWithText(app.getString(R.string.home_toolbar_new_bot)).assertIsEnabled().performClick()
+        compose.onNodeWithTag("new-bot-name").performTextInput("Atlas")
+        val create = app.getString(R.string.chats_new_bot_create)
+        compose.onNodeWithText(create).assertIsEnabled().performClick()
+
+        val use = app.getString(R.string.agent_use_runtime_named, "Other Cloud")
+        reach("Create did not ask for a runtime") { compose.onAllNodesWithContentDescription(use) }
+        compose.onNodeWithText(app.getString(R.string.agent_choose_runtime)).assertIsDisplayed()
+        assertTrue("A Bot was made before a runtime was picked", createdBots.isEmpty())
+        // Closing the picker keeps the sheet and the name, and still makes nothing.
+        pressSystemBack()
+        compose.onNodeWithTag("new-bot-sheet").assertExists()
+        compose.onNodeWithText("Atlas").assertExists()
+        assertTrue(createdBots.isEmpty())
+
+        compose.onNodeWithText(create).performClick()
+        reach("Create did not ask again") { compose.onAllNodesWithContentDescription(use) }
+        compose.onNodeWithContentDescription(use).performScrollTo().performClick()
+        reach("The Bot's chat did not open after picking a runtime") { compose.onAllNodesWithText("Synthetic Bot chat") }
+        val sent = JsonValue.parse(createdBots.single())
+        assertEquals("Atlas", sent?.get("title")?.stringValue)
+        assertEquals("replacement", sent?.get("runtimeId")?.stringValue)
+        compose.runOnIdle { assertEquals("replacement", auth.runtimeSelections.bind(NuphosUser.preview.id, a.id).selectedId) }
     }
 
     @Test fun sharedTaskWhileToolbarSheetIsOpenHasOnlyOneSheetAndKeepsDraft() {

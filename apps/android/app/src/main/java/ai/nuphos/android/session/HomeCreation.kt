@@ -2,7 +2,10 @@ package ai.nuphos.android.session
 
 import ai.nuphos.android.data.AgentRuntime
 
-/** New Task may repair an unavailable remembered choice; New Bot must use that exact choice. */
+/**
+ * New Task may repair an unavailable remembered choice. New Bot never moves to another runtime on its own:
+ * with no [botRuntime], it asks for one before it creates (#3947).
+ */
 object HomeCreation {
     fun canStart(runtimes: List<AgentRuntime>?) = runtimes?.any { it.selectable } == true
     fun botRuntime(runtimes: List<AgentRuntime>?, selectedId: String?): AgentRuntime? {
