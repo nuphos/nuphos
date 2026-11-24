@@ -820,6 +820,7 @@
   "POST /teams/:teamId/composio/execute": "member",
   "POST /teams/:teamId/computers/:deviceId/app-update": "member",
   "POST /teams/:teamId/computers/:deviceId/clear-caches": "member",
+  "POST /teams/:teamId/computers/:deviceId/vault": "member",
   "POST /teams/:teamId/connector-oauth/:state/complete": "member",
   "POST /teams/:teamId/cost-dashboards": "member",
   "POST /teams/:teamId/cost-dashboards/:dashboardId/panels": "member",
@@ -1010,8 +1011,10 @@
   "DELETE /vault/devices/:id": "user",
   "DELETE /vault/items/:name": "user",
   "GET /vault/devices": "user",
+  "GET /vault/computer/items/:name": "user",
   "GET /vault/items": "user",
   "GET /vault/items/:name": "user",
+  "POST /vault/computer/devices": "user",
   "POST /vault/devices": "user",
   "POST /vault/devices/:id/approve": "user",
   "PUT /vault/items/:name": "user"

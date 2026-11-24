@@ -151,6 +151,27 @@ export async function status(): Promise<VaultStatus> {
   }
 }
 
+/**
+ * Adds a computer this person manages to their vault (nuphos/nuphos#5016). It makes
+ * its own key and waits for approval. Its key and fingerprint come through Nuphos, so
+ * the most sensitive computers enroll over the person's own SSH instead.
+ */
+export async function addComputer(deviceId: string, teamId: string): Promise<VaultDevice> {
+  const { device } = await call<{ device: RemoteDevice }>(
+    'POST',
+    `/teams/${encodeURIComponent(teamId)}/computers/${encodeURIComponent(deviceId)}/vault`,
+    undefined,
+    { retry: false },
+  )
+
+  return {
+    id: device.id,
+    name: device.name,
+    state: device.state,
+    fingerprint: fingerprint(Buffer.from(device.publicKey, 'base64')),
+  }
+}
+
 let enrolling: Promise<VaultStatus> | null = null
 
 /** Adds this device. The first one is trusted on first use; a later one waits for approval. */

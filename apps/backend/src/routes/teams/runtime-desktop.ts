@@ -13,6 +13,7 @@ import {
 } from '@/lib/claude-code-preview/runtime-desktop'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
+import { addComputerToVault } from '@/lib/vault-computer'
 
 import type { DesktopOwner } from '@/lib/claude-code-preview/runtime-desktop'
 import type { TeamAuthVariables } from '@/middleware/auth'
@@ -73,6 +74,16 @@ export function registerRuntimeDesktopRoutes(teamScoped: Hono<{ Variables: TeamA
     c.json(
       await requestBoxCacheClear(c.get('teamId'), c.req.param('deviceId'), c.get('userId')),
       202,
+    ),
+  )
+
+  // The caller adds a computer they manage to their own vault; it waits for approval.
+  teamScoped.post('/computers/:deviceId/vault', async (c) =>
+    c.json(
+      {
+        device: await addComputerToVault(c.get('userId'), c.get('teamId'), c.req.param('deviceId')),
+      },
+      201,
     ),
   )
 

@@ -5,6 +5,8 @@ export const vaultChannels = {
   'vault:enroll': () => vault.enroll(),
   'vault:approve': (_e: unknown, deviceId: string, fingerprint: string) =>
     vault.approve(deviceId, fingerprint),
+  'vault:addComputer': (_e: unknown, deviceId: string, teamId: string) =>
+    vault.addComputer(deviceId, teamId),
   'vault:removeDevice': (_e: unknown, deviceId: string) => vault.removeDevice(deviceId),
   'vault:items': () => vault.items(),
   'vault:get': (_e: unknown, name: string) => vault.getItem(name),

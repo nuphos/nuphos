@@ -27,7 +27,12 @@ type VaultDeviceDoc = {
   state: VaultDeviceState
   createdAt: Date
   enrolledAt?: Date
+  /** The computer that added it from afar; it reads with its own device credential. */
+  computer?: Computer
 }
+
+/** A computer as its device credential names it; matched whole, so in this field order. */
+export type Computer = { userId: string; deviceId: string }
 
 /** An item's key, wrapped with HPKE for one device. */
 export type VaultKey = { deviceId: string; wrapped: string }
@@ -42,8 +47,8 @@ type VaultItemDoc = {
   updatedAt: Date
 }
 
-const devices = (): Collection<VaultDeviceDoc> => db().collection('vault_devices')
-const items = (): Collection<VaultItemDoc> => db().collection('vault_items')
+export const devices = (): Collection<VaultDeviceDoc> => db().collection('vault_devices')
+export const items = (): Collection<VaultItemDoc> => db().collection('vault_items')
 const locks = (): Collection<{ _id: string; token: string; until: Date }> =>
   db().collection('vault_locks')
 
@@ -94,7 +99,7 @@ function deviceView(doc: VaultDeviceDoc) {
   }
 }
 
-function itemView(doc: VaultItemDoc) {
+export function itemView(doc: VaultItemDoc) {
   return {
     name: doc.name,
     ciphertext: doc.ciphertext,
@@ -126,13 +131,24 @@ export async function listVaultDevices(userId: string) {
   return docs.map(deviceView)
 }
 
-/** The first device is trusted on first use; any later one waits for an enrolled device. */
-export function addVaultDevice(userId: string, name: string, publicKey: string) {
+/** The first device is trusted on first use; later ones wait. A computer holds one key. */
+export function addVaultDevice(
+  userId: string,
+  name: string,
+  publicKey: string,
+  computer?: Computer,
+) {
   return exclusive(userId, async () => {
-    if ((await devices().countDocuments({ userId })) >= MAX_DEVICES) {
+    const linked = computer && (await devices().findOne({ userId, computer }))
+
+    if (linked?.publicKey === publicKey) return deviceView(linked)
+    if (linked) throw new AppError(409, 'vault_computer_exists', 'This computer has a key here')
+    if ((await devices().countDocuments({ userId })) >= MAX_DEVICES)
       throw new AppError(409, 'vault_device_limit', `A vault holds at most ${MAX_DEVICES} devices`)
-    }
     const first = (await enrolledIds(userId)).length === 0
+
+    if (first && computer)
+      throw new AppError(409, 'vault_not_enrolled', 'Add this device to your vault first')
     const now = new Date()
     const doc: VaultDeviceDoc = {
       _id: randomUUID(),
@@ -142,6 +158,7 @@ export function addVaultDevice(userId: string, name: string, publicKey: string) 
       state: first ? 'enrolled' : 'pending',
       createdAt: now,
       ...(first ? { enrolledAt: now } : {}),
+      ...(computer ? { computer } : {}),
     }
 
     await devices().insertOne(doc)
