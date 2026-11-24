@@ -1,5 +1,5 @@
 import clsx from 'clsx'
-import { Loader2, Play, Plus } from 'lucide-react'
+import { Loader2, Play, Plus, RotateCw } from 'lucide-react'
 
 import { LOCAL_AGENT_PROVIDERS } from '../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
@@ -172,8 +172,10 @@ export function ShareButton({ disabled, onClick }: { disabled: boolean; onClick:
   )
 }
 
-/** Wakes a paused or stopped cloud computer, for those who manage it. */
-/** Starts its host again; a Box that ran out of CPU or memory is restarted, not resumed. */
+/**
+ * Wakes a paused or stopped cloud computer, for those who manage it. A Box that ran out of CPU
+ * or memory is restarted, not resumed.
+ */
 export function ResumeButton({
   busy,
   device,
@@ -183,12 +185,12 @@ export function ResumeButton({
   device: AgentDevice
   onClick: () => void
 }) {
-  const label = offlineFromPressure(device) ? t('Restart') : t('Resume')
+  const [label, Icon] = offlineFromPressure(device) ? [t('Restart'), RotateCw] : [t('Resume'), Play]
 
   return (
     <div className="mt-2">
       <Button size="sm" variant="secondary" disabled={busy} onClick={onClick}>
-        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3" />}
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Icon className="h-3 w-3" />}
         {busy ? t('Resuming…') : label}
       </Button>
     </div>
