@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
-import type { GeneralAccess } from './access'
+import type { CredentialAllFlags, GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
 import type { SettingsChange } from './settings-history'
@@ -191,15 +191,18 @@ export type AgentCredentialAccess = {
   onpremClusterIds?: string[] // optional: older docs predate on-prem relay clusters
   betterStackIntegrationIds: string[]
   uptimeKumaInstanceIds: string[]
-  linearWorkspaceIds?: string[] // optional: older docs predate Linear selection
+  // Optional for docs written before Linear joined the session-isolation tier.
+  linearWorkspaceIds?: string[]
   jiraSiteIds: string[]
   asanaAccountIds: string[]
-  sentryAccountIds?: string[] // optional: older docs predate Sentry selection
+  // Optional for docs written before Sentry joined the session-isolation tier.
+  sentryAccountIds?: string[]
   tailscaleClientIds: string[]
   zeaburIds: string[]
   vantaIntegrationIds: string[]
   secureframeIntegrationIds: string[]
-  resendIntegrationIds?: string[] // optional: older docs predate Resend selection
+  // Optional for docs written before Resend joined the session-isolation tier.
+  resendIntegrationIds?: string[]
   trelloIntegrationIds?: string[]
   posthogIntegrationIds?: string[]
   plaudAccountIds?: string[]
@@ -216,12 +219,9 @@ export type AgentCredentialAccess = {
   deviceIds?: string[]
   teamIdentity?: ('github' | 'linear')[] // act as the team, not a member's Personal Credential
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
-  // "All": what the owner can use whenever read, including what is added later.
-  allCredentials?: boolean
-  allDevices?: boolean
   updatedAt: Date
   updatedBy: string
-}
+} & CredentialAllFlags
 
 export type AgentMessage = {
   _id?: ObjectId

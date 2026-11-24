@@ -112,6 +112,14 @@ describe('nuphos_update_credentials', () => {
     expect(stored.credentialAccess.deviceIds).toEqual(['mac', 'other-mac'])
     expect(stored.credentialAccess.awsRoleIds).toEqual([])
   })
+
+  test('naming credentials turns off All credentials but keeps All computers', async () => {
+    Object.assign(stored.credentialAccess, { allCredentials: true, allDevices: true })
+
+    expect(await run()).not.toContain('isError":true')
+    expect(stored.credentialAccess.allCredentials).toBe(false)
+    expect(stored.credentialAccess.allDevices).toBe(true)
+  })
 })
 
 test('updates GitHub selection and identity through the shared credential resolver', async () => {

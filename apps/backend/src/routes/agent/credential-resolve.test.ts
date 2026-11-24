@@ -223,6 +223,20 @@ describe('All', () => {
     expect(expanded.deviceIds).toEqual(['device-1', 'box-1'])
   })
 
+  test('a stored All drops a credential or computer revoked since', () => {
+    const stored = resolve({ allCredentials: true, allDevices: true })
+    const later = credentialOptions()
+
+    later.awsRoles = []
+    later.devices = later.devices.map((device) => ({ ...device, available: false }))
+
+    const expanded = expandAllCredentialAccess(stored, later)
+
+    expect(stored.awsRoleIds).toEqual(['aws-1'])
+    expect(expanded.awsRoleIds).toEqual([])
+    expect(expanded.deviceIds).toEqual([])
+  })
+
   test('without All, a selection is left as stored', () => {
     const stored = availableCredentialAccess({ awsRoleIds: ['aws-1'] }, credentialOptions())
 
