@@ -276,10 +276,10 @@ function MessageList({
 /** The transcript; each choice card reads its answer from the replies after it. */
 export function ConversationMessageList(props: Parameters<typeof MessageList>[0]) {
   const { teamId } = props
-  const { sessionId } = props.tab
+  const { sessionId, title: name } = props.tab
   const conversation = useMemo(
-    () => (teamId && sessionId ? { teamId, sessionId } : null),
-    [teamId, sessionId],
+    () => (teamId && sessionId ? { teamId, sessionId, name } : null),
+    [teamId, sessionId, name],
   )
 
   return (

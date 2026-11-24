@@ -31,7 +31,9 @@ export type ConnectCardContextValue = {
 
 export const ConnectCardContext = createContext<ConnectCardContextValue | null>(null)
 
-/** The conversation a transcript's cards were asked in, for a card that shows its desktop. */
-export const CardConversationContext = createContext<{ teamId: string; sessionId: string } | null>(
-  null,
-)
+/** The conversation a transcript's cards were asked in, and its name, for a card that shows its desktop. */
+export const CardConversationContext = createContext<{
+  teamId: string
+  sessionId: string
+  name?: string
+} | null>(null)

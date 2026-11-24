@@ -5,6 +5,7 @@ import { useContext, useId, useState } from 'react'
 import { t } from '../../../i18n'
 import { MessageResponse } from '../MessageResponse'
 
+import { computerOutcome, parseComputerRequest } from './computerCardModel'
 import { parseChoiceRequest } from './connectCardModel'
 import { AskedCardsContext, WaitingAnswersContext } from './decisionAnswers'
 import { ownBody } from './decisionFormModel'
@@ -23,6 +24,7 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
   const waiting = useContext(WaitingAnswersContext).get(notice.requestId)
   // The card as it was asked, when this conversation asked it: the notice only excerpts it.
   const card = asked ? parseChoiceRequest(asked.input) : null
+  const computer = asked ? parseComputerRequest(asked.input, asked.output) : null
   const times = {
     asked: asked?.askedAt === undefined ? undefined : formatMessageTimestamp(asked.askedAt),
     answered: formatMessageTimestamp(new Date(sentAt).getTime()),
@@ -30,17 +32,31 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
 
   return (
     <div className="flex flex-col gap-3">
-      {notice.answers.map(({ question, answer }, index) => (
-        <AnsweredLine
-          key={`${String(index)}:${question}`}
-          name={notice.answeredBy}
-          question={question}
-          answer={answer}
-          body={card ? ownBody(card.body, card.questions) : notice.body}
-          options={card?.questions?.[index]?.options ?? card?.options ?? notice.options}
-          times={times}
-        />
-      ))}
+      {notice.answers.map(({ question, answer }, index) => {
+        // A desktop handed back reads as the takeover it was, and for how long.
+        const outcome = computer ? computerOutcome(answer) : undefined
+        const tookOver = computer && outcome?.kind === 'handed-back'
+
+        return (
+          <AnsweredLine
+            key={`${String(index)}:${question}`}
+            who={
+              tookOver
+                ? t('{name} took over {computer}', {
+                    name: notice.answeredBy,
+                    computer: computer.desktop.title,
+                  })
+                : t('{name} answered', { name: notice.answeredBy })
+            }
+            pill={tookOver ? outcome.after : answer}
+            question={question}
+            answer={answer}
+            body={card ? ownBody(card.body, card.questions) : notice.body}
+            options={card?.questions?.[index]?.options ?? card?.options ?? notice.options}
+            times={times}
+          />
+        )
+      })}
       {waiting ? <div className="-mt-2 text-[12.5px] text-status-warning">{waiting}</div> : null}
     </div>
   )
@@ -48,14 +64,18 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
 
 /** "✓ Sam answered  Which region?  [ us-east ]  ⌄", and under it, once opened, the question's card. */
 function AnsweredLine({
-  name,
+  who,
+  pill,
   question,
   answer,
   body,
   options,
   times,
 }: {
-  name: string
+  /** "Sam answered", or "Sam took over Studio Box". */
+  who: string
+  /** The answer, or how long a desktop was held. */
+  pill: string
   question: string
   answer: string
   body: string | undefined
@@ -77,10 +97,10 @@ function AnsweredLine({
         className="-mx-2 flex min-h-7 max-w-[calc(100%+1rem)] min-w-0 items-center gap-2 rounded-lg px-2 text-left text-[12.5px] leading-[18px] hover:bg-[rgba(var(--color-text-primary),0.04)]"
       >
         <Check className="size-3.5 shrink-0 text-tertiary" strokeWidth={2.2} />
-        <span className="shrink-0 font-medium text-main">{t('{name} answered', { name })}</span>
+        <span className="shrink-0 font-medium text-main">{who}</span>
         <span className="min-w-0 truncate text-tertiary">{question}</span>
         <span className="h-[22px] max-w-[50%] shrink-0 truncate rounded-md bg-[rgba(var(--color-text-primary),0.07)] px-2 leading-[22px] font-medium text-main">
-          {answer}
+          {pill}
         </span>
         <Chevron className="size-3.5 shrink-0 text-tertiary" strokeWidth={2} />
       </button>

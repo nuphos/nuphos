@@ -133,6 +133,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       <PermissionResumeContext.Provider value={resumePermissionTurn}>
         <AuthorizationActionContext.Provider value={authorizationContextValue}>
           <div
+            data-chat-pane
             className={clsx(
               'relative grid min-h-0 flex-1 grid-cols-1',
               c.hideTranscript ? 'grid-rows-[0_auto]' : 'grid-rows-[1fr_auto]',

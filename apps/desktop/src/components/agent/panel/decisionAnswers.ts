@@ -25,8 +25,8 @@ function answeredBy(input: unknown): ((text: string) => boolean) | null {
   return secret ? (text) => text.startsWith(secretSavedReply(secret.name)) : null
 }
 
-/** A question card in the transcript: what was asked, and when. */
-export type AskedCard = { toolCallId: string; input: unknown; askedAt?: number }
+/** A question card in the transcript: what was asked, what its result said, and when. */
+export type AskedCard = { toolCallId: string; input: unknown; output?: unknown; askedAt?: number }
 
 /** Each question card of a conversation, by its request id as the card's result names it. */
 export const AskedCardsContext = createContext<ReadonlyMap<string, AskedCard>>(new Map())
@@ -41,6 +41,7 @@ export function askedCards(messages: readonly Message[]): Map<string, AskedCard>
       cards.set(decisionRequestId(part.output) ?? part.toolCallId, {
         toolCallId: part.toolCallId,
         input: part.input,
+        output: part.output,
         askedAt: message.createdAt,
       })
     }

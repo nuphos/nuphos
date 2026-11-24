@@ -48,8 +48,8 @@ export function BotChatQuestion({
   )
   const failure = useAnswerFailure(request.inputRequest.id)
   const conversation = useMemo(
-    () => ({ teamId, sessionId: request.sessionId }),
-    [teamId, request.sessionId],
+    () => ({ teamId, sessionId: request.sessionId, name: request.title }),
+    [teamId, request.sessionId, request.title],
   )
   // A question card names who asked and is dismissed inside itself; the other cards keep both outside.
   const choice = parseChoiceRequest(part.input) !== null && !request.inputRequest.desktop

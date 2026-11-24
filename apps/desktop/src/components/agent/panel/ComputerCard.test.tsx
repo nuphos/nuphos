@@ -59,7 +59,7 @@ function setUpDom() {
   return dom
 }
 
-const desktop = { deviceId: 'box-1', display: 2, title: 'Studio Box · :2' }
+const desktop = { deviceId: 'box-1', display: 2, title: 'Studio Box' }
 
 async function renderCard(recorded?: RecordedAnswer, canAct = true) {
   const dom = setUpDom()
@@ -82,7 +82,7 @@ async function renderCard(recorded?: RecordedAnswer, canAct = true) {
     root.render(
       createElement(
         CardConversationContext.Provider,
-        { value: { teamId: 'team', sessionId: 'chat' } },
+        { value: { teamId: 'team', sessionId: 'chat', name: 'Avery' } },
         createElement(
           DecisionAnswersContext.Provider,
           { value: new Map(recorded ? [['call-1', recorded]] : []) },
@@ -126,14 +126,16 @@ test('the card shows the desktop live, takes it over full screen, and hands it b
   })
   assert.match(streams.at(-1)?.id ?? '', /^computer:call-1:/)
   assert.equal(card.container.querySelector('img'), null)
-  assert.match(card.container.textContent ?? '', /Studio Box · :2/)
-  assert.match(card.container.textContent ?? '', /Your sign-in stays on this computer\./)
+  assert.match(card.container.textContent ?? '', /Computer · Studio Box/)
+  assert.match(card.container.textContent ?? '', /Live/)
+  assert.match(card.container.textContent ?? '', /You sign in on Studio Box, Avery’s computer/)
   assert.ok(card.button('Take over') && card.button('I’m done') && card.button('Skip'))
 
   await card.click('Take over')
   assert.deepEqual(holds, [true])
   assert.match(card.container.textContent ?? '', /You’re in control/)
-  assert.ok(card.container.querySelector('.fixed.inset-0'))
+  assert.match(card.container.textContent ?? '', /hand it back to Avery\./)
+  assert.ok(card.container.querySelector('.fixed'))
 
   // The full-screen toolbar's I'm done: back to the agent, and the card is answered.
   const toolbarDone = [...card.container.querySelectorAll('.fixed button')].find(
@@ -170,6 +172,7 @@ test('once handed back, the live view stays, with who handed it back and after h
   assert.match(card.container.textContent ?? '', /Handed back by Sam Rivera after 3m 5s/)
   assert.equal(card.button('Take over'), undefined)
   assert.equal(card.button('Skip'), undefined)
+  assert.doesNotMatch(card.container.textContent ?? '', /Live|You sign in/)
   await card.unmount()
 
   const skipped = await renderCard({ option: 'Skip', by: 'Sam Rivera' })
@@ -186,4 +189,48 @@ test('a Box that is offline shows the desktop’s own offline state, and nothing
   assert.ok(card.button('Resume'))
   assert.equal(card.button('Take over')?.disabled, true)
   await card.unmount()
+})
+
+test('a desktop handed back reads in the conversation as who took it over, and for how long', async () => {
+  const dom = setUpDom()
+  const { createRoot } = await import('react-dom/client')
+  const { AnsweredNotice } = await import('./AnsweredNotice')
+  const { AskedCardsContext } = await import('./decisionAnswers')
+  const container = dom.document.createElement('div')
+  const root = createRoot(container as unknown as HTMLElement)
+  const asked = {
+    toolCallId: 'call-1',
+    input: { category: 'computer', question: 'Sign in to the staging dashboard' },
+    output: { desktop },
+  }
+
+  await act(() =>
+    root.render(
+      createElement(
+        AskedCardsContext.Provider,
+        { value: new Map([['req-1', asked]]) },
+        createElement(AnsweredNotice, {
+          notice: {
+            requestId: 'req-1',
+            answeredBy: 'Sam Rivera',
+            question: 'Sign in to the staging dashboard',
+            options: ["I'm done", 'Skip'],
+            answers: [
+              {
+                question: 'Sign in to the staging dashboard',
+                answer: "I'm done (handed back after 1m 24s)",
+              },
+            ],
+          },
+          sentAt: '2026-11-24T10:00:00Z',
+        }),
+      ),
+    ),
+  )
+  const line = container.querySelector('button')?.textContent ?? ''
+
+  assert.match(line, /Sam Rivera took over Studio Box/)
+  assert.match(line, /1m 24s/)
+  assert.doesNotMatch(line, /handed back after/)
+  await act(() => root.unmount())
 })
