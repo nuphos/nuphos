@@ -12,15 +12,20 @@ final class BotDesktopUITests: XCTestCase {
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
 
-        let button = app.buttons["chat.desktop"]
+        let button = app.buttons["Desktop"]
+        let more = app.buttons["chat.more"]
         let transcript = app.collectionViews["chat.transcript"].cells.firstMatch
 
         app.staticTexts["Release notes"].firstMatch.tap()
         XCTAssertTrue(transcript.waitForExistence(timeout: 10), "The Bot's chat did not load")
+        // This Bot has neither a Task nor a desktop, so its header has nothing to put in More.
+        XCTAssertFalse(more.exists, "A Bot without a desktop or Task shows More")
         XCTAssertFalse(button.exists, "A Bot without a desktop shows the desktop button")
 
         app.navigationBars.buttons["BackButton"].tap()
         app.staticTexts["Sign-in helper"].firstMatch.tap()
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot's chat has no More button")
+        more.tap()
         XCTAssertTrue(button.waitForExistence(timeout: 10), "A Bot with a desktop has no desktop button")
         button.tap()
         XCTAssertTrue(app.buttons["Close desktop"].waitForExistence(timeout: 10), "The desktop viewer did not open")
@@ -37,7 +42,10 @@ final class BotDesktopUITests: XCTestCase {
         app.launch()
 
         app.staticTexts["Sign-in helper"].firstMatch.tap()
-        let button = app.buttons["chat.desktop"]
+        let more = app.buttons["chat.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot's chat has no More button")
+        more.tap()
+        let button = app.buttons["Desktop"]
         XCTAssertTrue(button.waitForExistence(timeout: 10), "A Bot with a desktop has no desktop button")
         button.tap()
         let retry = app.buttons["Try again"]

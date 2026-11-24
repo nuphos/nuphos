@@ -166,7 +166,7 @@ export function dialBackend(
     if (signature === lastFailure) return
     lastFailure = signature
     console.warn('[backend-socket] dial failed', failure)
-    captureMain('backend_socket_dial_failed', failure)
+    captureMain('backend_socket_dial_failed', { ...failure, $process_person_profile: false })
   })
 
   return socket

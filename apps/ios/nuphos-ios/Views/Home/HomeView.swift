@@ -472,7 +472,7 @@ private struct GlassGroupSpacer: ToolbarContent {
     }
 }
 
-private extension ToolbarContent {
+extension ToolbarContent {
     /// Drops the shared glass behind an item that draws its own (iOS 26).
     @ToolbarContentBuilder
     func sharedBackgroundHidden() -> some ToolbarContent {

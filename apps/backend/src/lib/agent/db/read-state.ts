@@ -33,6 +33,15 @@ export function conversationReadState(
 export const isBot = (conversation: { kind?: string; avatar?: string | null } | null) =>
   Boolean(conversation && conversation.kind !== 'channel' && conversation.avatar != null)
 
+/**
+ * `isBot` as a filter: matches anything but a Bot. A Bot is a tree of its own:
+ * nested under another conversation, it is still never part of that one's
+ * subtree, so archiving, credentials and watching never reach it through its parent.
+ */
+export const NOT_A_BOT = {
+  $nor: [{ kind: { $ne: 'channel' as const }, avatar: { $type: 'string' as const } }],
+}
+
 /** A Task a Bot started; it has no unread state of its own. */
 async function underBot(sessionId: string, userId: string): Promise<boolean> {
   const projection = { parentSessionId: 1, kind: 1, avatar: 1 }

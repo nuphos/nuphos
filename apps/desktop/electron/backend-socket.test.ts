@@ -33,7 +33,9 @@ test('a refused dial reports the host and the network error code, once per failu
   await dial(`http://127.0.0.1:${String(port)}/agent/devices/d/runtime-tunnel`)
   await dial(`http://127.0.0.1:${String(port)}/agent/devices/d/runtime-tunnel`)
 
-  assert.deepEqual(failures, [{ host: `127.0.0.1:${String(port)}`, code: 'ECONNREFUSED' }])
+  assert.deepEqual(failures, [
+    { host: `127.0.0.1:${String(port)}`, code: 'ECONNREFUSED', $process_person_profile: false },
+  ])
 })
 
 test('a server that answers without upgrading reports a rejected handshake', async () => {
@@ -46,7 +48,13 @@ test('a server that answers without upgrading reports a rejected handshake', asy
   await dial(`http://127.0.0.1:${String(port)}/x`)
   server.close()
 
-  assert.deepEqual(failures, [{ host: `127.0.0.1:${String(port)}`, code: 'handshake_rejected' }])
+  assert.deepEqual(failures, [
+    {
+      host: `127.0.0.1:${String(port)}`,
+      code: 'handshake_rejected',
+      $process_person_profile: false,
+    },
+  ])
 })
 
 test('a refused dial tells its caller the status the server answered with', async () => {
