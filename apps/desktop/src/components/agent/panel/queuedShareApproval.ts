@@ -31,8 +31,8 @@ export function shareApprovalText(status: ShareApproval, computer: string): stri
 
 /**
  * Where an open conversation says that it waits for the owner of a teammate's computer, or was
- * declined: on its queued messages when it has any, since the banner above the composer would
- * cover them, and in that banner otherwise. Asked once here for both.
+ * declined: on its queued messages when it has any, beside what waits, and in the banner above the
+ * composer otherwise. Asked once here for both.
  */
 export function useQueuedShareApproval(
   control: RuntimeControl | undefined,
