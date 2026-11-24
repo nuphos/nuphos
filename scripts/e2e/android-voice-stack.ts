@@ -1,8 +1,6 @@
-// Real backend for Android's VoiceTranscriptionLiveDeviceTest (#1049): a subscribed team whose
-// recordings go to a stand-in Whisper on this computer, never to OpenAI. The stand-in answers with
-// the size and SHA-256 of the audio it received, so the test can tell its own recording arrived
-// intact. Writes `$E2E_ARTIFACTS/voice.json` (the test's arguments; reach the port with
-// `adb reverse`) and keeps the stack up until `$E2E_ARTIFACTS/done` exists.
+// Real backend for Android's VoiceTranscriptionLiveDeviceTest (#1049), with a stand-in Whisper that answers with the
+// size and SHA-256 of the audio it got, never OpenAI. Writes `$E2E_ARTIFACTS/voice.json` (the test's arguments; reach
+// the port with `adb reverse`) and stays up until `$E2E_ARTIFACTS/done` exists.
 import { createHash } from 'node:crypto'
 import { existsSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
