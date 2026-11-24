@@ -176,14 +176,17 @@ export const triggerScenarios: Scenario[] = [
       )
       // Seconds later, while it runs: each is accepted, not acknowledged and dropped.
       const resolved = await deliver(stack, hook, { state: 'resolved', id: 'hook-resolved' })
-      const again = await deliver(stack, hook, { state: 'firing again', id: 'hook-again' })
+      // The last one holds the next turn, so it is still running when it is stopped below.
+      const again = await deliver(stack, hook, {
+        state: 'firing again',
+        hold: 'E2E_HOLD',
+        id: 'hook-again',
+      })
 
       console.log(`Deliveries: ${JSON.stringify([firing, resolved, again])}`)
       for (const answer of [firing, resolved, again])
         if (answer.status !== 200 || !answer.body.ok)
           throw new Error(`A delivery was not accepted: ${JSON.stringify(answer)}`)
-      // Stopped without a reply, the first alert stays in the next turn's prompt, and with it
-      // E2E_HOLD: that turn keeps running too, so its start is what shows it.
       await page.locator('button[title="Stop"]:visible').click()
       await until('the later alerts to start', async () =>
         agentEvents(stack).includes('start E2E_DELIVERY:hook-again'),
@@ -195,9 +198,11 @@ export const triggerScenarios: Scenario[] = [
       const after = turns.filter((markers) => markers.includes('E2E_DELIVERY:hook-resolved'))
 
       console.log(`Turns: ${JSON.stringify(turns)}`)
-      // One turn after the running one, carrying both later alerts in the order they came.
+      // One turn after the running one, carrying both later alerts in the order they came. #4943:
+      // the stopped first alert ended its turn, so it is not sent again.
       if (
         after.length !== 1 ||
+        after[0]!.includes('E2E_DELIVERY:hook-firing') ||
         after[0]!.indexOf('E2E_DELIVERY:hook-resolved') >
           after[0]!.indexOf('E2E_DELIVERY:hook-again')
       )
