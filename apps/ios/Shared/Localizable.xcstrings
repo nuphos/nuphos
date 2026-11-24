@@ -14665,6 +14665,7 @@
       }
     },
     "I’m done" : {
+      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -28700,7 +28701,6 @@
       }
     },
     "Take over" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
