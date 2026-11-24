@@ -438,8 +438,11 @@ fun ConversationScreen(
                     LaunchedEffect(triggerEditDraft, draft) {
                         val text = triggerEditDraft ?: return@LaunchedEffect
                         if (draft != null) runCatching {
-                            draftApp.incomingShares.writeText(draft.key, text)
-                            draft.write(text)
+                            // Put the request in front of what the person already typed instead of dropping it.
+                            val existing = draftApp.incomingShares.text(draft.key) ?: draft.text
+                            val merged = if (existing.startsWith(text)) existing else text + existing.trimStart()
+                            draftApp.incomingShares.writeText(draft.key, merged)
+                            draft.write(merged)
                         }
                         triggerEditDraft = null
                     }

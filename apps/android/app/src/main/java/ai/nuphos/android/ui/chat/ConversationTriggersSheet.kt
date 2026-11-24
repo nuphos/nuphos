@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -114,32 +116,51 @@ private fun nextRunLabel(trigger: ConversationTrigger): String {
 }
 
 /** What a Trigger sends and when; Edit hands a message for the agent to the composer, since the agent changes Triggers. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TriggerDetails(trigger: ConversationTrigger, onBack: () -> Unit, onEdit: ((String) -> Unit)?) {
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
-            Text(trigger.name, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-        }
-        Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            SelectionContainer {
-                Text(trigger.messageTemplate.orEmpty(), Modifier.testTag("trigger-instruction"),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.fillMaxWidth()) {
+        TopAppBar(
+            title = { Text(trigger.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.testTag("trigger-title")) },
+            navigationIcon = {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(R.string.chat_back)) }
+            },
+            windowInsets = WindowInsets(0, 0, 0, 0),
+            colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
+        )
+        // Instruction, schedule and action as separate groups, like the iOS sections and Desktop cards.
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            // A webhook Trigger sends what arrives, so it has no instruction to show.
+            trigger.messageTemplate?.takeIf { it.isNotBlank() }?.let { instruction ->
+                TriggerGroup {
+                    SelectionContainer {
+                        Text(instruction, Modifier.testTag("trigger-instruction"), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
             }
-            HorizontalDivider()
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            TriggerGroup {
                 Text(trigger.schedule, style = MaterialTheme.typography.bodyMedium)
                 Text(nextRunLabel(trigger), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            HorizontalDivider()
             if (onEdit != null) {
                 val draft = stringResource(R.string.chat_trigger_edit_draft, trigger.name)
-                TextButton(onClick = { onEdit(draft) }, Modifier.testTag("trigger-edit")) { Text(stringResource(R.string.chat_trigger_edit)) }
+                OutlinedButton(onClick = { onEdit(draft) }, Modifier.fillMaxWidth().testTag("trigger-edit")) { Text(stringResource(R.string.chat_trigger_edit)) }
             } else {
-                Text(stringResource(R.string.chat_trigger_ask_to_change), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                TriggerGroup {
+                    Text(stringResource(R.string.chat_trigger_ask_to_change), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun TriggerGroup(content: @Composable ColumnScope.() -> Unit) {
+    // Body text by default, so only the next-run line reads as secondary.
+    Surface(Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
     }
 }

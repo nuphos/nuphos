@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">Could not load triggers</string>
     <string name="chat_triggers_update_failed">Could not update trigger</string>
     <string name="chat_triggers_title">Triggers</string>
-    <string name="chat_triggers_empty">Ask the agent to schedule recurring work in this conversation.</string>
+    <string name="chat_triggers_empty">Ask here to schedule recurring work.</string>
     <string name="chat_trigger_paused">Paused</string>
     <string name="chat_trigger_next_run">Next: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Waiting for webhook</string>

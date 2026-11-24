@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">无法加载触发器</string>
     <string name="chat_triggers_update_failed">无法更新触发器</string>
     <string name="chat_triggers_title">触发器</string>
-    <string name="chat_triggers_empty">请在此对话中告诉代理要定期执行的工作。</string>
+    <string name="chat_triggers_empty">请在这里要求安排定期执行的工作。</string>
     <string name="chat_trigger_paused">已暂停</string>
     <string name="chat_trigger_next_run">下次：%1$s</string>
     <string name="chat_trigger_waiting_webhook">等待 Webhook</string>

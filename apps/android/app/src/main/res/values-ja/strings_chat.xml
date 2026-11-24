@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">トリガーを読み込めませんでした</string>
     <string name="chat_triggers_update_failed">トリガーを更新できませんでした</string>
     <string name="chat_triggers_title">トリガー</string>
-    <string name="chat_triggers_empty">この会話で定期的な作業をエージェントに依頼してください。</string>
+    <string name="chat_triggers_empty">定期的な作業はここで依頼してください。</string>
     <string name="chat_trigger_paused">一時停止中</string>
     <string name="chat_trigger_next_run">次回: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Webhook を待機中</string>

@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">無法載入觸發條件</string>
     <string name="chat_triggers_update_failed">無法更新觸發條件</string>
     <string name="chat_triggers_title">觸發條件</string>
-    <string name="chat_triggers_empty">請在此對話中告訴代理人要定期執行的工作。</string>
+    <string name="chat_triggers_empty">請在這裡要求安排定期執行的工作。</string>
     <string name="chat_trigger_paused">已暫停</string>
     <string name="chat_trigger_next_run">下次：%1$s</string>
     <string name="chat_trigger_waiting_webhook">等待 Webhook</string>

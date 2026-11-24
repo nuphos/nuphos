@@ -37,9 +37,10 @@ class ConversationTriggersFixtureDeviceTest {
     private var savedAccess: Any? = null
     private val fixtureToken = "synthetic-no-credentials"
     @Volatile private var weeklyEnabled = false
+    @Volatile private var none = false
     @Suppress("UNCHECKED_CAST") private fun accessState() = AiAccess::class.java.getDeclaredField("state").also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
 
-    private fun triggers() = """[
+    private fun triggers() = if (none) "[]" else """[
         {"id": "digest", "name": "Morning PR digest", "enabled": true, "triggerType": "cron", "cronExpression": "0 9 * * 1-5", "scheduleDescription": "Weekdays at 09:00 UTC", "nextRunAt": "2027-01-04T09:00:00.000Z", "canManage": true, "messageTemplate": "Summarize the pull requests merged since yesterday and post the list here."},
         {"id": "watch", "name": "Production alerts", "enabled": true, "triggerType": "webhook", "scheduleDescription": "When a webhook arrives", "canManage": true},
         {"id": "weekly", "name": "Weekly dependency review", "enabled": $weeklyEnabled, "triggerType": "cron", "cronExpression": "0 10 * * 1", "scheduleDescription": "Mondays at 10:00 UTC", "canManage": true}
@@ -124,13 +125,13 @@ class ConversationTriggersFixtureDeviceTest {
         compose.waitUntil(10_000) { shares.isBound("triggers-fixture") }
         compose.onNodeWithContentDescription("Ask Nuphos anything").assertIsEnabled()
     }
-    private fun openTriggers() {
+    private fun openTriggers(row: String = "trigger-row-digest") {
         compose.onNodeWithContentDescription("Show task triggers").performClick()
-        compose.waitUntil(10_000) { compose.onAllNodesWithTag("trigger-row-digest").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag(row).fetchSemanticsNodes().isNotEmpty() }
         compose.waitForIdle() // The rows exist while the sheet is still animating in.
     }
-    private fun composerText() = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().config
-        .getOrNull(SemanticsProperties.EditableText)?.text
+    private fun composerConfig() = compose.onNodeWithContentDescription("Ask Nuphos anything").fetchSemanticsNode().config
+    private fun composerText() = composerConfig().getOrNull(SemanticsProperties.EditableText)?.text
 
     @Test fun switchTogglesWithoutOpeningTheRow() {
         render()
@@ -146,8 +147,10 @@ class ConversationTriggersFixtureDeviceTest {
 
     @Test fun rowOpensDetailsAndEditStartsAMessage() {
         render()
+        compose.onNodeWithContentDescription("Ask Nuphos anything").performTextInput("Keep it short.")
         openTriggers()
         compose.onNodeWithTag("trigger-row-digest").performClick()
+        compose.onNodeWithTag("trigger-title").assertTextEquals("Morning PR digest")
         compose.onNodeWithTag("trigger-instruction").assertIsDisplayed()
             .assertTextEquals("Summarize the pull requests merged since yesterday and post the list here.")
         compose.onNodeWithText("Weekdays at 09:00 UTC").assertIsDisplayed()
@@ -156,7 +159,10 @@ class ConversationTriggersFixtureDeviceTest {
 
         compose.onNodeWithTag("trigger-edit").assertIsDisplayed().performClick()
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("trigger-edit").fetchSemanticsNodes().isEmpty() }
-        compose.waitUntil(10_000) { composerText() == "Edit your trigger “Morning PR digest”: " }
+        // The request goes in front of what was already typed, with the cursor at the end.
+        val expected = "Edit your trigger “Morning PR digest”: Keep it short."
+        compose.waitUntil(10_000) { composerText() == expected }
+        Assert.assertEquals(androidx.compose.ui.text.TextRange(expected.length), composerConfig().getOrNull(SemanticsProperties.TextSelectionRange))
         Assert.assertTrue("Edit sent the message", requests.none { it.startsWith("POST /agent/chat") })
     }
 
@@ -169,5 +175,23 @@ class ConversationTriggersFixtureDeviceTest {
         androidx.test.espresso.Espresso.pressBack()
         compose.onNodeWithTag("trigger-row-digest").assertIsDisplayed()
         compose.onNodeWithTag("trigger-instruction").assertDoesNotExist()
+    }
+
+    @Test fun webhookDetailsHaveNoInstruction() {
+        render()
+        openTriggers("trigger-row-watch")
+        compose.onNodeWithTag("trigger-row-watch").performClick()
+        compose.onNodeWithTag("trigger-title").assertTextEquals("Production alerts")
+        compose.onNodeWithText("When a webhook arrives").assertIsDisplayed()
+        compose.onNodeWithText("Waiting for webhook").assertIsDisplayed()
+        compose.onNodeWithTag("trigger-instruction").assertDoesNotExist()
+        compose.onNodeWithTag("trigger-edit").assertIsDisplayed()
+    }
+
+    @Test fun emptySheetAsksHere() {
+        none = true
+        render()
+        compose.onNodeWithContentDescription("Show task triggers").performClick()
+        compose.waitUntil(10_000) { compose.onAllNodesWithText("Ask here to schedule recurring work.").fetchSemanticsNodes().isNotEmpty() }
     }
 }

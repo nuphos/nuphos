@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">No se pudieron cargar los disparadores</string>
     <string name="chat_triggers_update_failed">No se pudo actualizar el disparador</string>
     <string name="chat_triggers_title">Disparadores</string>
-    <string name="chat_triggers_empty">Pide al agente que programe tareas recurrentes en esta conversación.</string>
+    <string name="chat_triggers_empty">Pide aquí que se programen trabajos recurrentes.</string>
     <string name="chat_trigger_paused">En pausa</string>
     <string name="chat_trigger_next_run">Próxima: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Esperando webhook</string>

@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">Tidak dapat memuat pemicu</string>
     <string name="chat_triggers_update_failed">Tidak dapat memperbarui pemicu</string>
     <string name="chat_triggers_title">Pemicu</string>
-    <string name="chat_triggers_empty">Minta agen menjadwalkan pekerjaan rutin dalam percakapan ini.</string>
+    <string name="chat_triggers_empty">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_trigger_paused">Dijeda</string>
     <string name="chat_trigger_next_run">Berikutnya: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Menunggu webhook</string>

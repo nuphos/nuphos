@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">ไม่สามารถโหลดทริกเกอร์</string>
     <string name="chat_triggers_update_failed">ไม่สามารถอัปเดตทริกเกอร์</string>
     <string name="chat_triggers_title">ทริกเกอร์</string>
-    <string name="chat_triggers_empty">ขอให้เอเจนต์กำหนดเวลางานประจำในการสนทนานี้</string>
+    <string name="chat_triggers_empty">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
     <string name="chat_trigger_paused">หยุดชั่วคราว</string>
     <string name="chat_trigger_next_run">ครั้งถัดไป: %1$s</string>
     <string name="chat_trigger_waiting_webhook">กำลังรอเว็บฮุก</string>
