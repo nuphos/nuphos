@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { fixtureBundle } from './tunnel-scenarios.ts'
-import { newTask, openComputers, pickInRow, send } from './ui.ts'
+import { newTask, openComputers, pickAgent, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -114,6 +114,11 @@ export const computerCardScenarios: Scenario[] = [
         if ((await page.getByText('You’re in control').count()) > 0)
           throw new Error('The desktop is still held after I’m done')
         await page.screenshot({ path: join(artifacts, 'computer-card-3-handed-back.png') })
+
+        // A new Task starts on the agent picked last. Pick the fixture again before this
+        // computer stops, so later scenarios do not start on an offline computer.
+        await newTask(page)
+        await pickAgent(page, 'E2E fixture agent')
       } finally {
         await computer.stop()
       }
