@@ -1,4 +1,4 @@
-import { Resource } from '@opentelemetry/resources'
+import { resourceFromAttributes } from '@opentelemetry/resources'
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions'
 
 import { config } from '@/config'
@@ -10,7 +10,7 @@ import { config } from '@/config'
 export function buildResource() {
   const o = config.otel
 
-  return new Resource({
+  return resourceFromAttributes({
     [ATTR_SERVICE_NAME]: o.serviceName,
     [ATTR_SERVICE_VERSION]: o.serviceVersion,
     // semconv keys that don't have a stable export from the package yet —

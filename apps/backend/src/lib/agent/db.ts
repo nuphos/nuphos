@@ -86,7 +86,7 @@ export {
   setConversationArchived,
   setMemberArchived,
 } from './db/archive'
-export { backfillConversationWatchers, setConversationWatched } from './db/watch'
+export { setConversationWatched } from './db/watch'
 
 export type { AdminFilterOp, StatWindows } from './db/admin'
 export type { AdminFeedbackEntry } from './db/admin-feedback'

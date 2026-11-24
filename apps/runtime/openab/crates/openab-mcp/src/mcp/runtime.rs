@@ -27,11 +27,10 @@ use oauth2::{
     TokenResponse, TokenUrl,
 };
 use rmcp::model::{
-    ClientInfo, CreateElicitationRequestParams, CreateElicitationResult,
-    CreateMessageRequestParams, CreateMessageResult, ElicitationAction, ElicitationCapability,
-    ErrorData, FormElicitationCapability, ListRootsResult, LoggingLevel,
-    LoggingMessageNotificationParam, Root, RootsCapabilities, SamplingCapability,
-    SetLevelRequestParams,
+    ClientInfo, CreateMessageRequestParams, CreateMessageResult, ElicitRequestParams, ElicitResult,
+    ElicitationAction, ElicitationCapability, ErrorData, FormElicitationCapability,
+    ListRootsResult, LoggingLevel, LoggingMessageNotificationParam, Root, RootsCapabilities,
+    SamplingCapability, SetLevelRequestParams,
 };
 use rmcp::service::{NotificationContext, RequestContext, RoleClient, RunningService};
 use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
@@ -141,7 +140,7 @@ impl ClientHandler for OpenabClientHandler {
         // `notifications/roots/list_changed` (spec rows 363-384). Everything
         // else stays at the SDK default, byte-identical to the prior posture.
         let mut info = ClientInfo::default();
-        info.capabilities.roots = Some(RootsCapabilities { list_changed: None });
+        info.capabilities.roots = Some(RootsCapabilities::default());
         // Advertise `sampling` only when an LLM provider is configured — the
         // capability is a promise we can actually serve `create_message`. No
         // `tools` sub-capability: text-only baseline (`sampling.tools` is a
@@ -156,12 +155,10 @@ impl ClientHandler for OpenabClientHandler {
         // schema to the host UI and do not validate the reply ourselves (spec
         // §1, row 439).
         if self.host_bridge.is_some() {
-            info.capabilities.elicitation = Some(ElicitationCapability {
-                form: Some(FormElicitationCapability {
-                    schema_validation: Some(false),
-                }),
-                url: None,
-            });
+            info.capabilities.elicitation = Some(
+                ElicitationCapability::new()
+                    .with_form(FormElicitationCapability::new().with_schema_validation(false)),
+            );
         }
         info
     }
@@ -179,10 +176,9 @@ impl ClientHandler for OpenabClientHandler {
     #[allow(clippy::manual_async_fn)]
     fn create_elicitation(
         &self,
-        request: CreateElicitationRequestParams,
+        request: ElicitRequestParams,
         _context: RequestContext<RoleClient>,
-    ) -> impl std::future::Future<Output = Result<CreateElicitationResult, ErrorData>> + Send + '_
-    {
+    ) -> impl std::future::Future<Output = Result<ElicitResult, ErrorData>> + Send + '_ {
         async move {
             // Headless / pre-bridge: `get_info` advertised no `elicitation`
             // capability at all, so any inbound `elicitation/create` is a
@@ -198,12 +194,12 @@ impl ClientHandler for OpenabClientHandler {
             // mode we did not declare → -32602 (spec rows 416/439); a compliant
             // server never sends it (row 417).
             let (message, requested_schema) = match request {
-                CreateElicitationRequestParams::FormElicitationParams {
+                ElicitRequestParams::FormElicitationParams {
                     message,
                     requested_schema,
                     ..
                 } => (message, requested_schema),
-                CreateElicitationRequestParams::UrlElicitationParams { .. } => {
+                _ => {
                     return Err(ErrorData::invalid_params(
                         "url elicitation mode not declared",
                         None,
@@ -222,7 +218,7 @@ impl ClientHandler for OpenabClientHandler {
                 // (channel closed / host can't answer / method unknown). Degrade
                 // to decline so the server's operation continues (row 477)
                 // instead of failing the whole tool call.
-                Err(_) => Ok(CreateElicitationResult::new(ElicitationAction::Decline)),
+                Err(_) => Ok(ElicitResult::new(ElicitationAction::Decline)),
             }
         }
     }
@@ -1719,16 +1715,16 @@ impl Drop for InFlightGuard {
 }
 
 /// Map a host reply to our `session/request_input` elicitation request into a
-/// `CreateElicitationResult`. The host returns `{ action, content }`; a missing
+/// `ElicitResult`. The host returns `{ action, content }`; a missing
 /// or unrecognized `action` defaults to `accept` when `content` is present (so a
 /// bare content object is treated as an acceptance). `decline` / `cancel` carry
 /// no content per the elicitation result shape.
-fn elicitation_result_from_reply(reply: &serde_json::Value) -> CreateElicitationResult {
+fn elicitation_result_from_reply(reply: &serde_json::Value) -> ElicitResult {
     match reply.get("action").and_then(|a| a.as_str()) {
-        Some("decline") => CreateElicitationResult::new(ElicitationAction::Decline),
-        Some("cancel") => CreateElicitationResult::new(ElicitationAction::Cancel),
+        Some("decline") => ElicitResult::new(ElicitationAction::Decline),
+        Some("cancel") => ElicitResult::new(ElicitationAction::Cancel),
         _ => {
-            let mut result = CreateElicitationResult::new(ElicitationAction::Accept);
+            let mut result = ElicitResult::new(ElicitationAction::Accept);
             if let Some(content) = reply.get("content") {
                 result = result.with_content(content.clone());
             }

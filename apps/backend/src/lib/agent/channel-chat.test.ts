@@ -1251,6 +1251,18 @@ describe('the loop guard and mentions', () => {
   })
 })
 
+test("a Slack channel's hidden record tells no one in Nuphos, not even who connected it (#4936)", async () => {
+  await seed('slack', { kind: 'channel', external: 'slack', userId: 'mei', watcherIds: ['mei'] })
+  await postChannelMessage(
+    (await agentConversations().findOne({ sessionId: 'slack' }))!,
+    { id: 'm1', text: '@Mei Chen the canary is green', metadata: agentSpeaker('agent-a') },
+    'agent-a',
+  )
+
+  expect((await agentConversations().findOne({ sessionId: 'slack' }))?.mentions).toBeUndefined()
+  expect(await listChannelMentions(TEAM, 'mei')).toEqual([])
+})
+
 describe('an agent speaks in a channel only with channel_post', () => {
   const agentPosts = async () =>
     (

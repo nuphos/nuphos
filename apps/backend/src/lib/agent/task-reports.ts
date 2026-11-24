@@ -76,7 +76,7 @@ export async function reportTask(
 
   const id = taskReportKey(userId, teamId, sessionId, report.reportId)
 
-  // No parent to wake: the report reaches task.reported webhooks only, once per report id.
+  // No parent to wake: the report reaches only its session's webhook, once per report id.
   if (!parent) {
     const recorded = await agentConversations().updateOne(
       { sessionId, userId, teamId, 'taskReport.id': { $ne: id } },
