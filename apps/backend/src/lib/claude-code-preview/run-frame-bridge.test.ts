@@ -200,7 +200,7 @@ describe('a tool error frame whose errorText is not a string (#4920)', () => {
     warn = spyOn(console, 'warn').mockImplementation(() => {})
   })
   const records = () =>
-    warn.mock.calls.map(([line]) => JSON.parse(String(line)) as Record<string, unknown>)
+    warn.mock.calls.map((call: unknown[]) => JSON.parse(String(call[0])) as Record<string, unknown>)
 
   afterEach(() => warn.mockRestore())
 

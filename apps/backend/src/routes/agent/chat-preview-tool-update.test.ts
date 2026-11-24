@@ -288,7 +288,7 @@ describe('a tool error event whose errorText is not a string (#4920)', () => {
   beforeEach(() => {
     warn = spyOn(console, 'warn').mockImplementation(() => {})
   })
-  const logged = () => warn.mock.calls.map(([line]) => String(line))
+  const logged = () => warn.mock.calls.map((call: unknown[]) => String(call[0]))
 
   afterEach(() => warn.mockRestore())
 

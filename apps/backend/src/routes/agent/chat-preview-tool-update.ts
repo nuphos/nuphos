@@ -45,8 +45,7 @@ export function consumePreviewToolPresentation(
     })
     const step = log.list().find((entry) => entry.toolCallId === id)
 
-    if (step?.errorText !== undefined)
-      emitToolError(emit, id, state.toolName, step.errorText)
+    if (step?.errorText !== undefined) emitToolError(emit, id, state.toolName, step.errorText)
     else if (step?.output !== undefined)
       emit({ type: 'tool-output-available', toolCallId: id, output: step.output })
   }
@@ -54,7 +53,7 @@ export function consumePreviewToolPresentation(
   return true
 }
 
-/** Emits a runtime tool's error, logging the producer when its errorText is not a string (#4920). */
+/** Emits a runtime tool's error, logging the producer if its errorText is not a string (#4920). */
 function emitToolError(
   emit: (frame: Record<string, unknown>) => void,
   toolCallId: string,
