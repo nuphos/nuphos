@@ -102,6 +102,7 @@ enum WorkspaceAPI {
                 throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(files[index].name). Your message has not been sent; try again.")
             }
             sent += Int64(files[index].size)
+            progress.completedUnitCount = sent
         }
         let ready: Ready = try await request(path + "/\(intent.groupId)/finalize", token: token, method: "POST")
         guard ready.status == "ready" else { throw NuphosAPI.Failure.http(409, message: "Files are not ready yet. Please retry.") }
@@ -113,7 +114,7 @@ enum WorkspaceAPI {
 /// the files already sent. It writes the count itself: a child Progress only
 /// raises its parent's completedUnitCount once the child finishes, so the
 /// bubble would read "Uploading Zero kB" for the whole of a single file.
-private nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let progress: Progress
     let offset: Int64
 
