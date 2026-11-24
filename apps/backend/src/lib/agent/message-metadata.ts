@@ -1,8 +1,12 @@
 import { trustedAvatarURL } from '../identity/avatar-url'
 
+import { parseCreatedTriggers } from './message-created-triggers'
 import { REMINDER_NOTE, resourceInstructions } from './resource-instructions'
 import { fenceUntrusted } from './untrusted-content'
 
+import type { CreatedTrigger } from './message-created-triggers'
+
+export type { CreatedTrigger } from './message-created-triggers'
 export { systemSender } from './message-system-sender'
 
 /** Server-authored attribution. Never derive authorization from these fields. */
@@ -42,6 +46,8 @@ export type MessageMetadata = {
   mentions?: MessageMention[]
   /** A channel's wake notice: the newest post it brings, for the line people see. */
   channelPost?: ChannelPostPreview
+  /** Triggers a Bot was set up with, shown as a line above its first message. */
+  createdTriggers?: CreatedTrigger[]
 }
 
 /**
@@ -143,6 +149,8 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     m.source === 'agent.resource' && m.sender.id.startsWith('channel:')
       ? parseChannelPost(m.channelPost)
       : undefined
+  const createdTriggers =
+    m.source === 'agent.thread' ? parseCreatedTriggers(m.createdTriggers) : undefined
   const replyTo =
     m.replyTo && nonEmpty(m.replyTo.authorName) && nonEmpty(m.replyTo.text)
       ? {
@@ -188,6 +196,7 @@ export function parseMessageMetadata(value: unknown): MessageMetadata | undefine
     ...(nonEmpty(m.cliTokenId) ? { cliTokenId: m.cliTokenId } : {}),
     ...(mentions ? { mentions } : {}),
     ...(channelPost ? { channelPost } : {}),
+    ...(createdTriggers ? { createdTriggers } : {}),
   }
 }
 
