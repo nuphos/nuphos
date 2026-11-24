@@ -187,7 +187,7 @@ export function applyEvent(parts: Part[], event: Record<string, unknown>): Part[
   }
   if (type === 'tool-output-error') {
     const toolCallId = event.toolCallId as string
-    const errorText = normalizeAgentError((event.errorText as string) ?? 'Tool error')
+    const errorText = normalizeAgentError(event.errorText ?? 'Tool error')
 
     return parts.map((p) =>
       p.type === 'tool' && p.toolCallId === toolCallId

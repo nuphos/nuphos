@@ -1,20 +1,23 @@
 import { Bug, FileSearch, Shield, Terminal } from 'lucide-react'
 
-import { isNetworkError } from '../../../api'
+import { isNetworkError } from '../../../api.ts'
 import { t } from '../../../i18n/index.ts'
-import { reportFrontendError } from '../../../lib/frontendErrorReporter'
-import { markOwnedAgentStream } from '../../../lib/ownedAgentStreams'
+import { reportFrontendError } from '../../../lib/frontendErrorReporter.ts'
+import { markOwnedAgentStream } from '../../../lib/ownedAgentStreams.ts'
 
-import { SANDBOX_EXPIRED_MESSAGE } from './constants'
+import { SANDBOX_EXPIRED_MESSAGE } from './constants.ts'
 
-import type { Message } from './model'
+import type { Message } from './model.ts'
 
-export function normalizeAgentError(message: string): string {
+// Error text arrives from stream frames and stored events, which carry whatever a
+// producer sent: a string usually, but not always (#4887). Anything else is shown as JSON.
+export function normalizeAgentError(message: unknown): string {
+  const text = typeof message === 'string' ? message : (JSON.stringify(message) ?? String(message))
   // The electron layer appends a "\ncontext=phase=…streamId=…" diagnostic tail
   // (formatAgentLocalError) for logs/telemetry — it must never reach the user's
   // error banner. Strip it before anything else; the main-process logs and the
   // IPC channel still carry the full context for debugging.
-  const base = message.split('\ncontext=')[0].trim()
+  const base = text.split('\ncontext=')[0].trim()
   const normalized = base.toLowerCase()
 
   // AI_MissingToolResultsError: the transcript carries a tool call with
@@ -90,13 +93,13 @@ export const PRESETS = [
   },
 ]
 
-import { INCOMPLETE_TOOL_MESSAGE } from './toolInterruption'
+import { INCOMPLETE_TOOL_MESSAGE } from './toolInterruption.ts'
 
 export {
   INCOMPLETE_TOOL_MESSAGE,
   INTERRUPTED_TOOL_MESSAGE,
   incompleteToolErrorText,
-} from './toolInterruption'
+} from './toolInterruption.ts'
 
 // Model-only corrective nudge: when a resume follows a tool call that
 // never finished streaming, tell the model to re-issue a complete call instead
