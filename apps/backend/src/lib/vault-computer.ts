@@ -64,11 +64,16 @@ export async function addComputerToVault(
       'The computer could not make a vault key. Update Nuphos on it, then retry.',
     )
 
-  // A device name is at most 64 characters, as `POST /vault/devices` takes it.
-  return deps.addVaultDevice(actorId, computer.label.trim().slice(0, 64), publicKey, {
-    userId: computer.userId,
-    deviceId: computer.deviceId,
-  })
+  // A device name is 1 to 64 characters, as `POST /vault/devices` takes it.
+  return deps.addVaultDevice(
+    actorId,
+    (computer.label.trim() || computer.deviceId).slice(0, 64),
+    publicKey,
+    {
+      userId: computer.userId,
+      deviceId: computer.deviceId,
+    },
+  )
 }
 
 /**

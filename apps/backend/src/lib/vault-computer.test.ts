@@ -57,6 +57,15 @@ describe('addComputerToVault', () => {
     expect((calls.added[0] as string[])[1]).toBe('x'.repeat(64))
   })
 
+  test('a blank computer name falls back to its device id', async () => {
+    const { value, calls } = deps({
+      computer: async () => ({ userId: 'owner', deviceId: 'box-1', label: '   ' }),
+    })
+
+    await addComputerToVault(actor, 't1', 'box-1', value)
+    expect((calls.added[0] as string[])[1]).toBe('box-1')
+  })
+
   test('a user id that could read as an option never reaches the shell', async () => {
     const { value, calls } = deps({
       computer: async () => ({ userId: 'owner', deviceId: 'box-1', label: 'Build box' }),
