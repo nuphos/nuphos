@@ -100,7 +100,7 @@ class AccountApiTest {
         }
     }
 
-    @Test fun consentHasFixedHostAndAccountHeadersWithoutAiGate() = runTest {
+    @Test fun consentHasFixedHostAccountHeadersAndShownVersion() = runTest {
         assertFalse(api.consent().accepted)
         api.setConsent(true)
         assertEquals("PUT", requests.last().method)
@@ -111,7 +111,7 @@ class AccountApiTest {
         requests.forEach {
             assertEquals("Bearer fixture-token", it.header("Authorization"))
             assertNotNull(it.header("x-atlas-client"))
-            assertNull(it.header("x-nuphos-ai-consent-version"))
+            assertEquals("2026-11-23", it.header("x-nuphos-ai-consent-version"))
         }
     }
     @Test fun profileTrimsOnlyNameAndUsernameAndKeepsConflict() = runTest {

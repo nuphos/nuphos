@@ -1,0 +1,13 @@
+# Dependabot security updates are the only automated dependency updater (see
+# CONTRIBUTING.md, "Security updates"). The Bun projects are declared here
+# because Dependabot otherwise treats them as npm, which cannot update
+# bun.lock. A limit of 0 turns off routine version updates.
+version: 2
+updates:
+  - package-ecosystem: 'bun'
+    directories:
+      - '/'
+      - '/apps/backend'
+    schedule:
+      interval: 'weekly'
+    open-pull-requests-limit: 0
