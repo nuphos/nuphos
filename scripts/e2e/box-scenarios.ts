@@ -241,7 +241,7 @@ export const boxScenarios: Scenario[] = [
         await page.getByText(text).filter({ visible: true }).first().waitFor({ timeout: 30_000 })
         if (await page.getByText('Its computer is offline').count())
           throw new Error('the send to a Box that is away was refused as offline')
-        // The banner takes its own room above the composer: it does not cover the queued row (#4881).
+        // The banner floats above the queued row instead of covering it (#4881).
         await page.waitForTimeout(1_000)
         const takeBack = await page.getByRole('button', { name: 'Take back' }).first().boundingBox()
         const banner = await page
@@ -249,9 +249,9 @@ export const boxScenarios: Scenario[] = [
           .first()
           .boundingBox()
 
-        if (!takeBack || !banner || takeBack.y + takeBack.height > banner.y)
+        if (!takeBack || !banner || banner.y + banner.height > takeBack.y + 1)
           throw new Error(
-            `the paused banner ${JSON.stringify(banner)} to sit below the queued row ${JSON.stringify(takeBack)}`,
+            `the paused banner ${JSON.stringify(banner)} to end above the queued row's Take back ${JSON.stringify(takeBack)}`,
           )
         await page.screenshot({ path: join(artifacts, 'box-paused-queued.png') })
       } finally {
