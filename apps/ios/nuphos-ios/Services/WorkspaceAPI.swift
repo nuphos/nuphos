@@ -89,15 +89,9 @@ enum WorkspaceAPI {
             guard let index = files.firstIndex(where: { $0.relPath == item.relPath }), let url = URL(string: item.uploadUrl), url.scheme == "https" else { throw NuphosAPI.Failure.invalidResponse }
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
-            request.timeoutInterval = 180
             request.setValue(files[index].type, forHTTPHeaderField: "Content-Type")
             // Presigned storage requests never receive the Nuphos bearer token.
-            let response: URLResponse
-            let tracker = UploadProgress(progress: progress, offset: sent)
-            switch attachments[index].kind {
-            case .image(let data): (_, response) = try await URLSession.shared.upload(for: request, from: data, delegate: tracker)
-            case .file(let file): (_, response) = try await URLSession.shared.upload(for: request, fromFile: file, delegate: tracker)
-            }
+            let response = try await put(request, attachments[index].kind, progress: progress, offset: sent)
             guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
                 throw NuphosAPI.Failure.http(502, message: "Couldn't upload \(files[index].name). Your message has not been sent; try again.")
             }
@@ -107,6 +101,28 @@ enum WorkspaceAPI {
         let ready: Ready = try await request(path + "/\(intent.groupId)/finalize", token: token, method: "POST")
         guard ready.status == "ready" else { throw NuphosAPI.Failure.http(409, message: "Files are not ready yet. Please retry.") }
         return TransferUpload(groupId: intent.groupId, files: files.map { .init(fileName: $0.name, size: $0.size) })
+    }
+
+    /// Sends one file to the store. Ten seconds without a byte moving is a
+    /// stall, as is a dropped network; the file goes again, up to three tries
+    /// in all, before the message fails. The presigned URL outlives the tries.
+    static func put(_ request: URLRequest, _ body: ComposerAttachment.Kind, progress: Progress, offset: Int64, idle: TimeInterval = 10) async throws -> URLResponse {
+        var request = request
+        request.timeoutInterval = idle
+        var tries = 0
+        while true {
+            tries += 1
+            let tracker = UploadProgress(progress: progress, offset: offset)
+            do {
+                switch body {
+                case .image(let data): return try await URLSession.shared.upload(for: request, from: data, delegate: tracker).1
+                case .file(let file): return try await URLSession.shared.upload(for: request, fromFile: file, delegate: tracker).1
+                }
+            } catch let error as URLError where tries < 3 && [.timedOut, .networkConnectionLost, .notConnectedToInternet, .cannotConnectToHost].contains(error.code) {
+                progress.completedUnitCount = offset
+                try await Task.sleep(for: .seconds(2))
+            }
+        }
     }
 }
 
