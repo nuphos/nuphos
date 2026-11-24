@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">沒有即將執行的排程</string>
     <string name="chat_trigger_enable">啟用 %1$s</string>
     <string name="chat_triggers_refresh">重新整理</string>
+    <string name="chat_trigger_edit">編輯</string>
+    <string name="chat_trigger_edit_draft">"修改觸發條件「%1$s」："</string>
+    <string name="chat_trigger_ask_to_change">請在這裡要求修改此觸發條件。</string>
     <string name="chat_image_preparing">正在準備圖片…</string>
     <string name="chat_image_share">分享圖片</string>
     <string name="chat_image_saved">已儲存至 Pictures/Nuphos</string>

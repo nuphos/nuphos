@@ -241,8 +241,10 @@ fun ConversationScreen(
     val uriHandler = LocalUriHandler.current
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
+    // A Trigger's Edit starts a message to the agent; the composer below picks it up.
+    var triggerEditDraft by remember(sessionId) { mutableStateOf<String?>(null) }
     if (showTriggers && auth.token != null) {
-        ConversationTriggersSheet(auth.token!!, session.teamId, sessionId) { showTriggers = false }
+        ConversationTriggersSheet(auth.token!!, session.teamId, sessionId, onEdit = { triggerEditDraft = it }) { showTriggers = false }
     }
     var showSummary by remember(session, selectedTeamId) { mutableStateOf(false) }
     val summaryToken = auth.token
@@ -432,6 +434,14 @@ fun ConversationScreen(
                             draftApp.incomingShares.drop(draft.key)
                             draft.write("")
                         }
+                    }
+                    LaunchedEffect(triggerEditDraft, draft) {
+                        val text = triggerEditDraft ?: return@LaunchedEffect
+                        if (draft != null) runCatching {
+                            draftApp.incomingShares.writeText(draft.key, text)
+                            draft.write(text)
+                        }
+                        triggerEditDraft = null
                     }
                     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(draftAuth.token, session.teamId)
                     if (showAgent && draftAuth.token != null && draftAuth.aiAllowed) {

@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">Tidak ada eksekusi mendatang</string>
     <string name="chat_trigger_enable">Aktifkan %1$s</string>
     <string name="chat_triggers_refresh">Muat ulang</string>
+    <string name="chat_trigger_edit">Edit</string>
+    <string name="chat_trigger_edit_draft">"Ubah pemicu “%1$s”: "</string>
+    <string name="chat_trigger_ask_to_change">Minta di sini untuk mengubah pemicu ini.</string>
     <string name="chat_image_preparing">Menyiapkan gambar…</string>
     <string name="chat_image_share">Bagikan gambar</string>
     <string name="chat_image_saved">Disimpan ke Pictures/Nuphos</string>
