@@ -34,9 +34,10 @@ class NewRuntimeFixtureDeviceTest {
         compose.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.waitForIdleSync()
-        File(instrumentation.targetContext.getExternalFilesDir(null), name).outputStream().use {
-            instrumentation.uiAutomation.takeScreenshot().compress(Bitmap.CompressFormat.PNG, 100, it)
-        }
+        val shot = instrumentation.uiAutomation.takeScreenshot()
+        // The additional test output is what CI uploads with the report.
+        listOfNotNull(instrumentation.targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, name).outputStream().use { shot.compress(Bitmap.CompressFormat.PNG, 100, it) } }
     }
     @Test fun useOnlyComputerShowsOwnerInstructionInsteadOfCreate() {
         lateinit var inventory: RuntimesStore
@@ -88,14 +89,15 @@ class NewRuntimeFixtureDeviceTest {
         // Every state is captured before any assertion, so a failing run still shows all three.
         val rows = states.keys.associateWith { name ->
             compose.runOnIdle { state = name }
-            compose.onNodeWithTag("new-runtime-provider-codex").assertIsDisplayed()
+            // OpenCode follows Antigravity's place in the list, so each shot shows where its row is or would be.
+            compose.onNodeWithTag("new-runtime-provider-opencode").performScrollTo().assertIsDisplayed()
             shot("new-runtime-antigravity-$name.png")
             compose.onAllNodesWithTag("new-runtime-provider-antigravity").fetchSemanticsNodes().size
         }
         assertEquals("Antigravity is listed with nothing to offer", 0, rows["no-antigravity"])
         assertEquals("A signed-in Antigravity is listed again", 0, rows["signed-in"])
         compose.runOnIdle { state = "signed-out" }
-        compose.onNodeWithTag("new-runtime-provider-antigravity").assertIsEnabled()
+        compose.onNodeWithTag("new-runtime-provider-antigravity").performScrollTo().assertIsEnabled()
         compose.onNodeWithText(zh.getString(R.string.new_runtime_sign_in, "Antigravity")).assertIsDisplayed()
     }
     @Test fun chooseNameCreateThenCancelCleansOnlyNewRuntime() {
