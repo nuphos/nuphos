@@ -17,6 +17,7 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
+import { getVaultItemForComputer } from '@/lib/vault-computer'
 
 const KEY = Buffer.alloc(32, 1).toString('base64')
 const keysFor = (...ids: string[]) =>
@@ -185,5 +186,36 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     })
     // An existing item can still change.
     await putVaultItem(user, 'item-0', 'c2', keysFor(device.id))
+  })
+
+  test('a computer added from afar waits for approval and reads only its own key', async () => {
+    const user = randomUUID()
+    const box = { userId: randomUUID(), deviceId: randomUUID() }
+    const other = { userId: box.userId, deviceId: randomUUID() }
+
+    // Never trusted on first use: its key came through Nuphos.
+    expect(await fails(addVaultDevice(user, 'box', KEY, box))).toMatchObject({
+      status: 409,
+      code: 'vault_not_enrolled',
+    })
+    const laptop = await addVaultDevice(user, 'laptop', KEY)
+    const added = await addVaultDevice(user, 'box', KEY, box)
+
+    expect(added.state).toBe('pending')
+    await putVaultItem(user, 'token', 'c1', keysFor(laptop.id))
+    expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
+
+    await approveVaultDevice(user, added.id, [{ name: 'token', wrapped: 'w-box' }])
+    expect(await getVaultItemForComputer(user, box, 'token')).toMatchObject({
+      deviceId: added.id,
+      item: { name: 'token', ciphertext: 'c1', keys: [{ deviceId: added.id, wrapped: 'w-box' }] },
+    })
+    // Another computer, or the same computer for another person's vault, reads nothing.
+    expect(await fails(getVaultItemForComputer(user, other, 'token'))).toMatchObject({
+      status: 404,
+    })
+    expect(await fails(getVaultItemForComputer(randomUUID(), box, 'token'))).toMatchObject({
+      status: 404,
+    })
   })
 })

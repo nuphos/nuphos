@@ -10,6 +10,7 @@ import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
 import { useThisComputerConnection } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 
+import { useAddToVault } from './AddToVault'
 import { canManage, newAgentAction } from './agentPresentation'
 import { BoxAccessDialog } from './BoxAccessDialog'
 import { useComputerSettings } from './useComputerSettings'
@@ -86,6 +87,7 @@ export function BoxRow({
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
   }
   const computerSettings = useComputerSettings(device, teamId, changed)
+  const addToVault = useAddToVault(device, teamId)
   const run = async (title: string, action: () => Promise<unknown>, fallback?: string) => {
     setBusy(true)
     try {
@@ -197,6 +199,7 @@ export function BoxRow({
                 </MenuItem>
               )}
               {computerSettings.menuItem}
+              {!thisComputer && addToVault.menuItem}
               <MenuItem onClick={() => setRenaming(true)}>{t('Rename')}</MenuItem>
               <MenuItem onClick={() => void copyUid(device)}>{t('Copy UID')}</MenuItem>
               <MenuItem onClick={() => setSharing(true)}>{t('Manage access…')}</MenuItem>
@@ -271,6 +274,7 @@ export function BoxRow({
         />
       )}
       {computerSettings.dialog}
+      {addToVault.dialog}
       {sharing && (
         <AccessDialog
           teamId={teamId}

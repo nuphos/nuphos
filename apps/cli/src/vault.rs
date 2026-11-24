@@ -329,6 +329,43 @@ pub async fn get(ctx: &Ctx, name: &str) -> Result<()> {
     Ok(())
 }
 
+/// `nuphos vault keygen --user USER`: run on a computer that its manager adds
+/// to their vault from Desktop (nuphos/nuphos#5016). Prints the public key
+/// only; the private key stays here, as `enroll` keeps it. A key already made
+/// for that vault is reused, and an enrolled one is never replaced.
+pub fn keygen(user: &str) -> Result<()> {
+    let key = match load_device(user)? {
+        Some(device) if !device.id.is_empty() => bail!("this computer is already in that vault"),
+        Some(device) => device.key,
+        None => {
+            let (key, _) = X25519HkdfSha256::gen_keypair(&mut OsRng);
+            save_device(user, &Device { id: String::new(), key: key.clone() })?;
+            key
+        }
+    };
+    println!("{}", B64.encode(X25519HkdfSha256::sk_to_pk(&key).to_bytes()));
+    Ok(())
+}
+
+/// `nuphos vault get NAME --computer`: reads with this computer's own device
+/// credential, so it needs no sign-in, and only once it was approved.
+pub async fn get_on_computer(name: &str, user: Option<String>) -> Result<()> {
+    let name = check_name(name)?;
+    let path = crate::agent::agent_home()?.join("device-credential.json");
+    let text = std::fs::read_to_string(&path).context("this computer has no device credential")?;
+    let credential: Value = serde_json::from_str(&text).context("reading this computer's device credential")?;
+    let field = |key: &str| credential[key].as_str().unwrap_or_default().to_string();
+    let user = user.unwrap_or_else(|| field("userId"));
+    let mut device = load_device(&user)?
+        .ok_or_else(|| anyhow!("this computer has no vault key: add it to the vault from Desktop"))?;
+    let found = crate::api::Api::new(field("apiUrl"), field("credential")).vault_computer_item(name, &user).await?;
+    device.id = found["deviceId"].as_str().unwrap_or_default().to_string();
+    let item = &found["item"];
+    let value = open(&item_key(item, name, &device)?, name, item["ciphertext"].as_str().unwrap_or_default())?;
+    std::io::stdout().write_all(&value)?;
+    Ok(())
+}
+
 /// `nuphos vault list`
 pub async fn list(ctx: &Ctx) -> Result<()> {
     let items = ctx.api.vault_items().await?;

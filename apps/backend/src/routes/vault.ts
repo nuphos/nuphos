@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 
+import { DEVICE_CREDENTIAL_PREFIX, hashDeviceSecret } from '@/lib/agent/devices/join-tokens'
+import { findAgentDeviceByCredentialHash } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
+import { getNuphosUserForCredential } from '@/lib/identity'
 import { zv } from '@/lib/validate'
 import {
   MAX_DEVICES,
@@ -15,13 +18,42 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
+import { getVaultItemForComputer } from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
 
 import type { AuthVariables } from '@/middleware/auth'
 
 // A user's own vault. Only a signed-in user session reaches these: conversation
-// tokens are not accepted by requireAuth, so an agent never reads a vault.
+// tokens are not accepted by requireAuth, so an agent never reads a vault. The one
+// exception is the computer read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
+
+// A computer added from afar (POST /teams/:teamId/computers/:deviceId/vault) reads an
+// item with its own device credential, and only with the key of the approved device
+// linked to it. Registered before requireAuth, which refuses device credentials.
+vaultRoutes.get('/computer/items/:name', async (c) => {
+  const header = c.req.header('Authorization') ?? ''
+  const device = header.startsWith(`Bearer ${DEVICE_CREDENTIAL_PREFIX}`)
+    ? await findAgentDeviceByCredentialHash(hashDeviceSecret(header.slice('Bearer '.length)))
+    : null
+  // As for its tunnel: a person's computer stops when they sign out everywhere.
+  const live =
+    device &&
+    (device.box ||
+      (device.credentialIssuedAt &&
+        (await getNuphosUserForCredential(device.userId, device.credentialIssuedAt))))
+
+  if (!device || !live) throw new AppError(401, 'unauthorized', 'Invalid device credential')
+  const computer = { userId: device.userId, deviceId: device.deviceId }
+
+  return c.json(
+    await getVaultItemForComputer(
+      c.req.query('user') ?? '',
+      computer,
+      nameParam(c.req.param('name')),
+    ),
+  )
+})
 
 vaultRoutes.use('*', requireAuth)
 
