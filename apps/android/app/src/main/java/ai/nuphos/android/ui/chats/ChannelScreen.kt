@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -346,6 +347,10 @@ private fun BotInstructionsCard(botId: String) {
     var saving by remember(botId) { mutableStateOf(false) }
     var error by remember(botId) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    // Cancel and Save stay above the keyboard as it opens, and when a refusal adds a line under the field.
+    val actions = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val keyboard = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+    LaunchedEffect(draft != null, keyboard, error) { if (draft != null) actions.bringIntoView() }
     ai.nuphos.android.ui.chat.SummaryCard {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.chat_bot_instructions), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
@@ -360,7 +365,8 @@ private fun BotInstructionsCard(botId: String) {
                     Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
                     enabled = !saving, isError = error != null,
                     supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().bringIntoViewRequester(actions).testTag("bot-instructions-actions"),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
                     Button(onClick = {
                         saving = true

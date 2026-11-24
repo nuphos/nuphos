@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -131,7 +132,8 @@ internal fun TaskSummarySheet(
     ) {
         BackHandler(enabled = selected != null) { selectedId = null }
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+            // The keyboard takes its height off the sheet, so an editor's buttons scroll above it (#4084).
+            Modifier.fillMaxWidth().imePadding().verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp).testTag("task-summary"),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

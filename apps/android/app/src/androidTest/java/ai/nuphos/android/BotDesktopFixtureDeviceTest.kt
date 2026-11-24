@@ -415,6 +415,53 @@ class BotDesktopFixtureDeviceTest {
         capture("14-bot-instructions-refused")
     }
 
+    /** With the keyboard open, Cancel and Save stay above it, also once a refusal adds a line under the field. */
+    @Test fun theKeyboardLeavesCancelAndSaveInView() {
+        refuseInstructions = true
+        openPlainDetails()
+        compose.onNodeWithTag("bot-instructions-edit").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-field").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-field").performClick()
+        val opened = runCatching { compose.waitUntil(10_000) { keyboardTop() != null } }.isSuccess
+        org.junit.Assume.assumeTrue("No soft keyboard on this device", opened)
+        assertActionsAboveKeyboard()
+        capture("15-bot-instructions-keyboard")
+        compose.onNodeWithTag("bot-instructions-field").performTextInput(" More.")
+        // Tapped where it is on screen, without scrolling to it first.
+        compose.onNodeWithTag("bot-instructions-save").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-field").performClick()
+        compose.waitUntil(10_000) { keyboardTop() != null }
+        assertActionsAboveKeyboard()
+        capture("16-bot-instructions-keyboard-refused")
+    }
+
+    /** Where the keyboard starts on screen, or null while it's closed. */
+    private fun keyboardTop(): Int? {
+        var top: Int? = null
+        inst.runOnMainSync {
+            val view = compose.activity.window.decorView
+            val ime = androidx.core.view.ViewCompat.getRootWindowInsets(view)
+                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom ?: 0
+            if (ime > 0) {
+                val at = IntArray(2).also(view::getLocationOnScreen)
+                top = at[1] + view.height - ime
+            }
+        }
+        return top
+    }
+
+    private fun assertActionsAboveKeyboard() {
+        compose.waitForIdle()
+        Thread.sleep(600) // the keyboard's slide and the scroll that follows it
+        compose.waitForIdle()
+        val top = keyboardTop() ?: error("The keyboard closed")
+        val row = compose.onNodeWithTag("bot-instructions-actions").fetchSemanticsNode()
+        val bottom = row.positionOnScreen.y + row.size.height
+        assertTrue("Cancel and Save end at $bottom, under the keyboard at $top", bottom <= top)
+        compose.onNodeWithTag("bot-instructions-save").assertIsDisplayed()
+    }
+
     /** A teammate's Bot shows no instructions card, so nothing offers an edit the server would refuse. */
     @Test fun aTeammatesBotShowsNoInstructions() {
         nonOwner = true
@@ -423,6 +470,7 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).assertDoesNotExist()
         compose.onNodeWithTag("bot-instructions-edit").assertDoesNotExist()
         compose.onNodeWithText(inst.targetContext.getString(R.string.chat_bot_instructions)).assertDoesNotExist()
+        capture("17-bot-instructions-teammate")
     }
 
     private fun openPlainDetails() {
