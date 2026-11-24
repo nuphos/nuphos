@@ -46,7 +46,10 @@ struct InboxQuestionView: View {
                         .accessibilityIdentifier("inbox.body")
                 }
                 if let desktop = question.request.desktop {
-                    ComputerPreview(teamId: inbox.teamId, sessionId: question.sessionId, desktop: desktop, bot: question.title).padding(.top, 18)
+                    ComputerPreview(teamId: inbox.teamId, sessionId: question.sessionId, desktop: desktop, bot: question.title) {
+                        answer(DecisionAnswer(choices: [question.request.options?.first ?? "I'm done"]))
+                    }
+                    .padding(.top, 18)
                 }
                 if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {

@@ -779,12 +779,14 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The desktop did not go live")
         shot("computer-waiting")
         takeOver.tap()
-        XCTAssertTrue(app.buttons["Hand back"].waitForExistence(timeout: 10), "Take over did not hand the desktop over")
+        XCTAssertTrue(app.descendants(matching: .any)["desktop.handOffStatus"].waitForExistence(timeout: 10), "Take over did not hand the desktop over")
+        XCTAssertTrue(app.buttons["desktop.done"].exists, "No I'm done while in control")
         sleep(3) // its first frame, for the picture
         shot("computer-in-control")
-        // Closing it hands it back, and the card shows the desktop live again.
+        // Closing it hands it back unanswered: the card shows the desktop live again, and for how long it was held.
         app.buttons["Close desktop"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The card's view did not come back")
+        XCTAssertTrue(app.descendants(matching: .any)["computer.handedBack"].exists, "No handed-back line")
         shot("computer-handed-back")
     }
 

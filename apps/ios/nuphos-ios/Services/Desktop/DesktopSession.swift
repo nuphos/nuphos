@@ -80,6 +80,8 @@ final class DesktopSession {
     @ObservationIgnored private let given: Int?
     /// Take the desktop over as soon as it shows, once: a `computer` question's Take over.
     @ObservationIgnored var takesOver = false
+    /// A `computer` question's takeover: its computer, named above the desktop, and I'm done, which answers it.
+    @ObservationIgnored var handOff: (computer: String, done: () -> Void)?
 
     init(teamId: String, sessionId: String, token: String, browserTab: (id: String, size: CGSize)? = nil, display: Int? = nil) {
         self.teamId = teamId

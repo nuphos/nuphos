@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The desktop a `computer` question hands over, live and view-only above its I'm done and Skip:
-/// never a stored picture. Take over opens it full screen, already taken over; closing that hands
-/// it back. A stopped Box or a dropped stream shows the desktop's own connecting or failed state.
+/// never a stored picture. Take over opens it full screen, already taken over; I'm done there
+/// answers the question, and closing it hands the desktop back. A stopped Box or a dropped stream
+/// shows the desktop's own connecting or failed state.
 struct ComputerPreview: View {
     let teamId: String
     /// The conversation that asked: its display is reached through it.
@@ -10,10 +11,15 @@ struct ComputerPreview: View {
     let desktop: AgentConversation.ComputerDesktop
     /// The Bot whose computer it is, named in the sign-in note.
     let bot: String
+    /// Answers the question with I'm done.
+    let done: () -> Void
 
     @Environment(AgentStore.self) private var store
     @State private var live: DesktopSession?
     @State private var held: DesktopSession?
+    @State private var heldSince: Date?
+    /// How long the person held the desktop, once they hand it back.
+    @State private var handedBack: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -34,6 +40,14 @@ struct ComputerPreview: View {
             }
             .font(Theme.Text.caption)
             screen
+            if let handedBack {
+                Label { Text(handedBackText(handedBack)) } icon: {
+                    Image(systemName: "checkmark.circle").foregroundStyle(Theme.success)
+                }
+                    .font(Theme.Text.caption)
+                    .foregroundStyle(Theme.muted)
+                    .accessibilityIdentifier("computer.handedBack")
+            }
             Button { takeOver() } label: {
                 Label("Take over", systemImage: "cursorarrow")
                     .font(.system(size: 15, weight: .medium))
@@ -59,19 +73,33 @@ struct ComputerPreview: View {
         }
         .onDisappear { live?.stop() }
         // One stream at a time: the card's view rests while the desktop is held.
-        .onChange(of: held == nil) { _, closed in if closed { live?.start() } }
+        .onChange(of: held == nil) { _, closed in
+            guard closed else { return }
+            live?.start()
+            if let heldSince {
+                handedBack = Duration.seconds(Date.now.timeIntervalSince(heldSince).rounded())
+                    .formatted(.units(allowed: [.hours, .minutes, .seconds], width: .narrow))
+            }
+        }
         .desktop($held)
     }
 
     private func takeOver() {
         live?.stop()
+        heldSince = .now
         held = session(takingOver: true)
     }
 
     private func session(takingOver: Bool) -> DesktopSession {
         let session = DesktopSession(teamId: teamId, sessionId: sessionId, token: store.token, display: desktop.display)
         session.takesOver = takingOver
+        if takingOver { session.handOff = (desktop.title, done) }
         return session
+    }
+
+    private func handedBackText(_ duration: String) -> String {
+        guard let name = store.me?.name else { return String(localized: "Handed back after \(duration)") }
+        return String(localized: "Handed back by \(name) after \(duration)")
     }
 
     /// The desktop's own shape once it shows; 16:10 until then.
