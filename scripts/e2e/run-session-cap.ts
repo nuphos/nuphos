@@ -1,7 +1,6 @@
-// `bun scripts/e2e/run-session-cap.ts`: a real backend and OpenAB, where every conversation on one
-// agent shares one connection. Conversations are started with nuphos_ask and archived one by one,
-// past the 128 the gateway used to allow a connection over its lifetime, then the agent host
-// restarts, the backend takes every one of them back up, and two more start. Each must start.
+// `bun scripts/e2e/run-session-cap.ts`: one agent's conversations share one connection. Start and
+// archive more than the 128 the gateway used to allow it, restart the agent host so the backend
+// takes them all back up, then start two more. Every start must succeed.
 import { client, must } from './binding-access-scenarios.ts'
 import { askOverMcp, mcp } from './mcp-scenarios.ts'
 import { artifacts, stopAll } from './processes.ts'
