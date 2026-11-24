@@ -106,6 +106,7 @@ export function ComputerSettingsDialog({
       }
     >
       <div className="space-y-3 p-5">
+        {here && <OpenAtLoginSettings />}
         <div className={`${CARD} flex items-start justify-between gap-4 px-4 py-3.5`}>
           <div className="min-w-0">
             <div className="text-[13px] text-main">{t('Install updates automatically')}</div>
@@ -129,7 +130,6 @@ export function ComputerSettingsDialog({
         </div>
         {here && (
           <>
-            <OpenAtLoginSettings />
             <SleepPreventionSettings />
             <WorkspaceFolder />
           </>

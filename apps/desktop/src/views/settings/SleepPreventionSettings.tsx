@@ -57,15 +57,18 @@ export function SleepPreventionSettings() {
           { value: 'host', label: t('While signed in to Nuphos') },
         ]}
       />
-      <label className="flex items-center justify-between gap-3 text-[12px] text-secondary">
-        {t('Only while connected to power')}
-        <Switch
-          checked={current.onlyOnAC}
-          label={t('Only while connected to power')}
-          disabled={saving}
-          onChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
-        />
-      </label>
+      {/* Off keeps nothing awake, so there is no power condition to set. */}
+      {current.mode !== 'off' && (
+        <label className="flex items-center justify-between gap-3 text-[12px] text-secondary">
+          {t('Only while connected to power')}
+          <Switch
+            checked={current.onlyOnAC}
+            label={t('Only while connected to power')}
+            disabled={saving}
+            onChange={(onlyOnAC) => void save({ ...current, onlyOnAC })}
+          />
+        </label>
+      )}
       <p role="status" className="text-[12px] text-secondary">
         {STATUS[current.reason]}
       </p>

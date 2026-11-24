@@ -219,6 +219,13 @@ test('on this computer, its own settings are reachable from Computer settings an
     const login = switchNamed(container, 'Open Nuphos at login')
 
     assert.ok(login, 'Open Nuphos at login is in Computer settings')
+    // It comes first, above the auto-update switch every computer has.
+    assert.deepEqual(
+      [...container.querySelectorAll('[role="switch"]')]
+        .slice(0, 2)
+        .map((element) => element.getAttribute('aria-label')),
+      ['Open Nuphos at login', 'Install updates automatically'],
+    )
     await act(async () => login.click())
     assert.equal(
       switchNamed(container, 'Open Nuphos at login')?.getAttribute('aria-checked'),
@@ -231,6 +238,8 @@ test('on this computer, its own settings are reachable from Computer settings an
 
     assert.ok(sleep, 'Prevent Mac auto-sleep is in Computer settings')
     assert.equal(sleep.value, 'off')
+    // Off keeps nothing awake, so it has no power condition.
+    assert.equal(switchNamed(container, 'Only while connected to power'), null)
     await act(async () => {
       sleep.value = 'tasks'
       sleep.dispatchEvent(new window.Event('change', { bubbles: true }))
