@@ -180,7 +180,7 @@ export async function updateConversationSettings(
       { ...filter, settingsRevision: doc.settingsRevision ?? { $exists: false } },
       {
         ...update,
-        $inc: { settingsRevision: 1 },
+        $inc: { ...update.$inc, settingsRevision: 1 },
         ...(changes
           ? {
               $push: {
