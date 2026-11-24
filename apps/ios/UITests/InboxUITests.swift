@@ -750,6 +750,44 @@ final class InboxUITests: XCTestCase {
         listed(question).tap()
     }
 
+    /// A computer question shows that computer live, Take over, and where the sign-in stays (#4977).
+    /// Offline, no desktop answers, so Take over waits for the picture. With `NUPHOS_DESKTOP_URL` set
+    /// to a desktop server, the run shows it live instead.
+    func testAComputerQuestionShowsItsDesktop() throws {
+        let ask: [String: Any] = [
+            "id": "q-sign-in", "category": "computer", "question": "Sign in to analytics.northwind.example",
+            "body": "The dashboard asks for your own account. Sign in on the desktop, then choose I’m done.",
+            "options": ["I'm done", "Skip"], "askedAt": "2026-11-03T09:40:00Z", "status": "open",
+            "desktop": ["deviceId": "box-demo", "display": 2, "title": "Northwind Box"]]
+        try listQuestions([InboxUITests.row("agent-avery", "Avery", ask)])
+        let server = ProcessInfo.processInfo.environment["NUPHOS_DESKTOP_URL"]
+        app = launch(page: "agent", extra: ["-AppleInterfaceStyle", "Light"] + (server.map { ["-apiBaseURL", $0] } ?? []))
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+        openQuestion("Sign in to analytics.northwind.example")
+
+        let title = app.descendants(matching: .any)["computer.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "The question did not open")
+        XCTAssertEqual(title.label, "Computer · Northwind Box")
+        XCTAssertTrue(app.descendants(matching: .any)["computer.signInNote"].label.hasPrefix("You sign in on Northwind Box, Avery’s computer"))
+        for option in ["I'm done", "Skip"] { XCTAssertTrue(app.buttons[option].exists, "No \(option)") }
+        let takeOver = app.buttons["computer.takeOver"]
+        guard server != nil else {
+            XCTAssertFalse(takeOver.isEnabled, "Take over is on with no desktop to show")
+            shot("computer-offline")
+            return
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The desktop did not go live")
+        shot("computer-waiting")
+        takeOver.tap()
+        XCTAssertTrue(app.buttons["Hand back"].waitForExistence(timeout: 10), "Take over did not hand the desktop over")
+        sleep(3) // its first frame, for the picture
+        shot("computer-in-control")
+        // Closing it hands it back, and the card shows the desktop live again.
+        app.buttons["Close desktop"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The card's view did not come back")
+        shot("computer-handed-back")
+    }
+
     /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
     /// A question asked before the one-line limit is its card's one line, cut with an ellipsis,
     /// until a tap shows it in full.
@@ -822,9 +860,9 @@ final class InboxUITests: XCTestCase {
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
     }
 
-    private func launch(page: String? = nil) -> XCUIApplication {
+    private func launch(page: String? = nil, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? [])
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? []) + extra
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path, "NUPHOS_PREVIEW_REQUESTS": sent.path]
         app.launch()
         return app

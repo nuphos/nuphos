@@ -7324,6 +7324,52 @@
         }
       }
     },
+    "Computer · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computadora · %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピューター · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 · %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电脑 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦 · %@"
+          }
+        }
+      }
+    },
     "Computers" : {
       "localizations" : {
         "es" : {
@@ -14939,6 +14985,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已達上限"
+          }
+        }
+      }
+    },
+    "Live" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En vivo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실시간"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สด"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即時"
           }
         }
       }
@@ -36057,6 +36149,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你拒絕了這個指令。"
+          }
+        }
+      }
+    },
+    "You sign in on %@, %@’s computer, and it stays signed in there. The site may email you about a sign-in from a new device." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicias sesión en %1$@, la computadora de %2$@, y la sesión queda iniciada allí. El sitio puede enviarte un correo sobre un inicio de sesión desde un dispositivo nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda masuk di %1$@, komputer milik %2$@, dan tetap masuk di sana. Situs mungkin mengirim email tentang proses masuk dari perangkat baru."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ のコンピューター %1$@ でサインインし、サインイン状態はそこに残ります。新しいデバイスからのサインインについてサイトからメールが届く場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@의 컴퓨터인 %1$@에서 로그인하며, 로그인 상태는 그곳에 유지됩니다. 사이트에서 새 기기 로그인 안내 메일을 보낼 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณลงชื่อเข้าใช้บน %1$@ ซึ่งเป็นคอมพิวเตอร์ของ %2$@ และจะยังคงลงชื่อเข้าใช้อยู่ที่นั่น เว็บไซต์อาจส่งอีเมลแจ้งการลงชื่อเข้าใช้จากอุปกรณ์ใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在 %2$@ 的电脑 %1$@ 上登录，登录状态会保留在那里。该网站可能会发邮件通知你有新设备登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在 %2$@ 的電腦 %1$@ 上登入，登入狀態會留在那裡。該網站可能會寄信通知你有新裝置登入。"
           }
         }
       }

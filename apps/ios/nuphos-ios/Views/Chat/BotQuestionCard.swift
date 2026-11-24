@@ -69,7 +69,7 @@ struct BotQuestionCard: View {
                 questionBody(body).padding(.top, 4)
             }
             if let desktop = question.request.desktop {
-                ComputerPreview(teamId: teamId, sessionId: question.sessionId, desktop: desktop).padding(.top, 12)
+                ComputerPreview(teamId: teamId, sessionId: question.sessionId, desktop: desktop, bot: question.title).padding(.top, 12)
             }
             // "Show more" is its own 44pt of room above the answers.
             answers.padding(.top, question.ownBody.map(BotQuestion.isLongBody) == true ? 0 : 12)
