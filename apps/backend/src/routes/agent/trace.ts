@@ -71,7 +71,6 @@ function capturePhaseToPostHog(
   metrics?: Record<string, number>,
 ): void {
   const properties: Record<string, unknown> = {
-    $process_person_profile: false,
     phase: event,
     request_id: trace?.requestId,
     session_id: trace?.sessionId,
@@ -88,6 +87,7 @@ function capturePhaseToPostHog(
     properties[key] = value !== null && typeof value === 'object' ? JSON.stringify(value) : value
   }
   for (const [key, value] of Object.entries(metrics ?? {})) properties[key] = value
+  properties.$process_person_profile = false
   capture('agent_lifecycle', { distinctId: trace?.userId ?? 'unknown', properties })
 }
 

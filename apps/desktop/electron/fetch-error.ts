@@ -116,10 +116,10 @@ export function backendFailure(error: unknown, route: string, requestId: string)
 
   console.warn(`[backend] ${route} failed request_id=${requestId}: ${detail}`)
   captureMain('backend_request_failed', {
-    $process_person_profile: false,
     request_id: requestId,
     route,
     error: detail,
+    $process_person_profile: false,
   })
   const why = reason((error as ErrorLike | undefined)?.cause) ?? reason(error) ?? 'unknown error'
 
