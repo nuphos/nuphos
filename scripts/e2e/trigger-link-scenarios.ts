@@ -104,7 +104,11 @@ export const triggerLinkScenarios: Scenario[] = [
       await page.getByText('ACK E2E_DELIVERY:link-file-task').waitFor()
       await page.getByRole('link', { name: 'missing-report.md' }).last().click()
       await page.getByText('Could not load runtime files').waitFor()
-      await page.getByRole('button', { name: /^Launch report/ }).waitFor()
+      // The sidebar's row for the Task is a button of the same name; the Files pane comes after it.
+      await page
+        .getByRole('button', { name: /^Launch report/ })
+        .last()
+        .waitFor()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'files-error-task-link.png') })
       await page.getByRole('button', { name: 'Close tab Files' }).click()
@@ -120,7 +124,7 @@ export const triggerLinkScenarios: Scenario[] = [
         .filter({ hasText: 'POSTED E2E_DELIVERY:link-file-bot' })
         .waitFor()
       await page.getByRole('link', { name: 'missing-report.md' }).last().click()
-      await page.getByRole('button', { name: 'Metrics Bot', exact: true }).waitFor()
+      await page.getByRole('button', { name: 'Metrics Bot', exact: true }).last().waitFor()
       await page.waitForTimeout(500)
       await page.screenshot({ path: join(artifacts, 'files-error-bot-link.png') })
       await page.getByRole('button', { name: 'Close tab Files' }).click()
