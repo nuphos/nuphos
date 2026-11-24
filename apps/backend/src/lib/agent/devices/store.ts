@@ -143,10 +143,7 @@ export async function insertJoinedAgentDevice(
   })
 }
 
-/**
- * A Box's device row exists from the moment the machine is ordered, so the UI can show it.
- * Its creator owns it; `shared` is whom the route chose to let use it.
- */
+/** A Box's row exists once its machine is ordered; its creator owns it, `shared` may use it. */
 export async function insertBoxAgentDevice(
   userId: string,
   device: AgentDeviceRegistration & { box: AgentDeviceBox },
