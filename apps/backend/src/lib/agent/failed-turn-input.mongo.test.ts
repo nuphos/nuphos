@@ -108,5 +108,44 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
 
       expect(inputs).toEqual(wakes.map((message) => [message.id]))
     })
+
+    test('a conversation stored before this fix answers only its next message', async () => {
+      // As a stuck conversation is stored: wakes whose replies kept nothing, the
+      // last ones refused as too large. Nothing in it is rewritten to recover.
+      const stuck = Array.from({ length: 40 }, (_, n) => [
+        {
+          id: new ObjectId().toHexString(),
+          role: 'user',
+          parts: [{ type: 'text', text: 'posted' }],
+        },
+        {
+          id: new ObjectId().toHexString(),
+          role: 'assistant',
+          parts:
+            n < 34
+              ? []
+              : [
+                  {
+                    type: 'turn-interrupted',
+                    id: 'x',
+                    reason: 'error',
+                    message: 'Frame too large',
+                  },
+                ],
+        },
+      ]).flat()
+
+      await store(stuck)
+      replyParts = [{ type: 'text', text: 'Noted.' }]
+      const next = wake()
+
+      await enqueuePendingUserMessage(OWNER, SESSION, next)
+      await startQueuedTurn(OWNER, SESSION)
+
+      expect(inputs).toEqual([[next.id]])
+      const last = await agentMessages().findOne({ messageId: stuck.at(-1)!.id })
+
+      expect(last?.parts).toEqual(stuck.at(-1)!.parts)
+    })
   },
 )
