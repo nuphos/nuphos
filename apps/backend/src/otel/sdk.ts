@@ -186,15 +186,17 @@ function startTelemetryInner(): { shutdown: TelemetryShutdown } {
       headers: o.exporter.logsHeaders,
     })
 
-    loggerProvider = new LoggerProvider({ resource })
-    loggerProvider.addLogRecordProcessor(
-      new BatchLogRecordProcessor(exporter, {
-        maxQueueSize: 4_096,
-        maxExportBatchSize: 512,
-        scheduledDelayMillis: 5_000,
-        exportTimeoutMillis: 30_000,
-      }),
-    )
+    loggerProvider = new LoggerProvider({
+      resource,
+      processors: [
+        new BatchLogRecordProcessor(exporter, {
+          maxQueueSize: 4_096,
+          maxExportBatchSize: 512,
+          scheduledDelayMillis: 5_000,
+          exportTimeoutMillis: 30_000,
+        }),
+      ],
+    })
     logs.setGlobalLoggerProvider(loggerProvider)
   }
 
