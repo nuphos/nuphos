@@ -1,19 +1,10 @@
 import { revokeSessionTokens } from '@/lib/internal-token/revocation'
 
 import { conversationParticipantIds } from './participants'
+import { NOT_A_BOT } from './read-state'
 import { agentConversations } from './shared'
 
 import type { AgentConversation } from './shared'
-
-/**
- * Matches anything but a Bot (a face on anything but a chat, as isBot in
- * read-state.ts says). A Bot is a tree of its own: nested under another
- * conversation, it is still never part of that one's subtree, so archiving,
- * credentials and watching never reach it through its parent.
- */
-export const NOT_A_BOT = {
-  $nor: [{ kind: { $ne: 'channel' as const }, avatar: { $type: 'string' as const } }],
-}
 
 const restore = () => ({
   $unset: { archivedAt: '' as const },

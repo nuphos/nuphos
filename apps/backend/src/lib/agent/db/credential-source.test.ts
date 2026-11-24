@@ -98,6 +98,21 @@ describe('credentialSource', () => {
   })
 })
 
+describe('a chat with a face', () => {
+  test('is not a Bot, so it ends neither the chain nor the subtree', async () => {
+    docs.push({
+      sessionId: 'face-chat',
+      userId: 'u',
+      teamId: 't',
+      kind: 'channel',
+      avatar: '01-face',
+      parentSessionId: 'task',
+    })
+    expect(await sourceOf('face-chat')).toBe('bot')
+    expect(await credentialHeirs(docs[0] as never)).toEqual(['bot', 'task', 'subtask', 'face-chat'])
+  })
+})
+
 describe('credentialHeirs', () => {
   test('lists the conversation and every same-owner Task below it', async () => {
     expect(await credentialHeirs(docs[0] as never)).toEqual(['bot', 'task', 'subtask'])

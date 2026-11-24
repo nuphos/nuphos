@@ -1,11 +1,12 @@
-import { descendantSessionIds, NOT_A_BOT } from './archive'
+import { descendantSessionIds } from './archive'
+import { isBot, NOT_A_BOT } from './read-state'
 import { agentConversations, withTeamScope } from './shared'
 
 import type { AgentConversation } from './shared'
 
 type Link = Pick<AgentConversation, 'sessionId' | 'userId' | 'teamId' | 'parentSessionId'>
 export type CredentialSource = Link &
-  Pick<AgentConversation, 'credentialAccess' | 'metadata' | 'avatar'>
+  Pick<AgentConversation, 'credentialAccess' | 'metadata' | 'kind' | 'avatar'>
 
 const projection = {
   sessionId: 1,
@@ -14,6 +15,7 @@ const projection = {
   parentSessionId: 1,
   credentialAccess: 1,
   'metadata.source': 1,
+  kind: 1,
   avatar: 1,
 }
 
@@ -57,7 +59,7 @@ export async function credentialSource<T extends Link>(
     if (!parent) break
     seen.add(parent.sessionId)
     source = parent
-    if (parent.avatar != null) break
+    if (isBot(parent)) break
   }
 
   return source
