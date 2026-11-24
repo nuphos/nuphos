@@ -1,14 +1,19 @@
 import { revokeSessionTokens } from '@/lib/internal-token/revocation'
 
+import { appendArchiveLog, pushArchiveLog } from './archive-log'
 import { conversationParticipantIds } from './participants'
 import { agentConversations } from './shared'
 
+import type { ArchiveActor } from './archive-log'
 import type { AgentConversation } from './shared'
 
-const restore = () => ({
+export type { ArchiveActor } from './archive-log'
+
+const restore = (actor: ArchiveActor, via?: string) => ({
   $unset: { archivedAt: '' as const },
   $set: { archiveRestoredAt: new Date() },
   $inc: { sessionHomeEpoch: 1 },
+  $push: pushArchiveLog(false, actor, via),
 })
 
 /**
@@ -16,10 +21,11 @@ const restore = () => ({
  * created before it are removed, and the current home generation is queued for
  * reclaim on the runtime that holds it.
  */
-export const archiveUpdate = (at: Date) => [
+export const archiveUpdate = (at: Date, actor: ArchiveActor, via?: string) => [
   {
     $set: {
       archivedAt: at,
+      archiveLog: appendArchiveLog(true, actor, via),
       archiveTriggersPendingAt: at,
       triggerArchiveEpoch: { $add: [{ $ifNull: ['$triggerArchiveEpoch', 0] }, 1] },
       archiveHomePendingEpochs: {
@@ -126,18 +132,25 @@ async function botUnit(conversation: Archivable, archiving = false): Promise<Arc
 export async function setConversationArchived(
   sessionId: string,
   archived: boolean,
+  actor: ArchiveActor,
 ): Promise<ArchiveUnit> {
   const conversation = await agentConversations().findOne({ sessionId }, { projection: ARCHIVABLE })
 
   if (!conversation) return { sessionIds: [] }
   const unit = await botUnit(conversation, archived)
 
-  for (const id of unit.sessionIds) await setTreeArchived(id, archived)
+  for (const id of unit.sessionIds)
+    await setTreeArchived(id, archived, actor, id === sessionId ? undefined : sessionId)
 
   return unit
 }
 
-async function setTreeArchived(sessionId: string, archived: boolean): Promise<void> {
+async function setTreeArchived(
+  sessionId: string,
+  archived: boolean,
+  actor: ArchiveActor,
+  via?: string,
+): Promise<void> {
   const conversation = await agentConversations().findOne(
     { sessionId },
     { projection: { sessionId: 1, userId: 1, teamId: 1, archivedAt: 1 } },
@@ -153,9 +166,13 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
   if (archived) {
     const cutoff = archivedAt ?? new Date()
 
+    await agentConversations().updateOne(
+      { sessionId, archivedAt: { $exists: false } },
+      archiveUpdate(cutoff, actor, via),
+    )
     await agentConversations().updateMany(
-      { sessionId: { $in: [sessionId, ...descendants] }, archivedAt: { $exists: false } },
-      archiveUpdate(cutoff),
+      { sessionId: { $in: descendants }, archivedAt: { $exists: false } },
+      archiveUpdate(cutoff, actor, sessionId),
     )
     // A thread never outlives its parent: tokens issued so far stop working.
     await revokeSessionTokens([sessionId, ...descendants], 'archived')
@@ -168,10 +185,13 @@ async function setTreeArchived(sessionId: string, archived: boolean): Promise<vo
   if (archivedAt && descendants.length > 0) {
     await agentConversations().updateMany(
       { sessionId: { $in: descendants }, archivedAt },
-      restore(),
+      restore(actor, sessionId),
     )
   }
-  await agentConversations().updateOne({ sessionId, archivedAt: { $exists: true } }, restore())
+  await agentConversations().updateOne(
+    { sessionId, archivedAt: { $exists: true } },
+    restore(actor, via),
+  )
 }
 
 /**
@@ -213,11 +233,13 @@ export async function setMemberArchived(
  */
 export async function archiveConversationAs(
   conversation: Pick<AgentConversation, 'sessionId' | 'userId' | 'kind' | 'participantIds'>,
-  userId: string,
+  actor: ArchiveActor & { userId: string },
   archived: boolean,
 ): Promise<ArchiveUnit | null> {
+  const { userId } = actor
+
   if (conversation.userId === userId) {
-    return await setConversationArchived(conversation.sessionId, archived)
+    return await setConversationArchived(conversation.sessionId, archived, actor)
   }
   if (conversation.kind === 'channel' || !conversation.participantIds?.includes(userId)) return null
   await setMemberArchived(conversation.sessionId, userId, archived)
@@ -247,10 +269,13 @@ export async function descendantSessionIds(
 }
 
 /** Any new human turn brings an archived conversation back, whoever sends it; a Bot with its chats. */
-export async function restoreArchivedConversation(sessionId: string): Promise<boolean> {
+export async function restoreArchivedConversation(
+  sessionId: string,
+  actor: ArchiveActor,
+): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, archivedAt: { $exists: true } },
-    restore(),
+    restore(actor),
   )
 
   if (result.modifiedCount === 0) return false
@@ -260,7 +285,7 @@ export async function restoreArchivedConversation(sessionId: string): Promise<bo
     if (id !== sessionId)
       await agentConversations().updateOne(
         { sessionId: id, archivedAt: { $exists: true } },
-        restore(),
+        restore(actor, sessionId),
       )
   }
 

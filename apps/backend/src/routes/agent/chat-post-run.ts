@@ -128,7 +128,7 @@ export function launchAcceptedChatTurn(args: {
 
     try {
       appendAgentRunPhase(run, 'saving-turn')
-      void restoreArchivedSession(sessionId, 'user')
+      void restoreArchivedSession(sessionId, { source: 'turn', userId: chatCtx.userId })
       // The user-turn persist joins the parallel prep group: handleChatRequest
       // awaits it before anything that needs the write to have landed
       // (default-credential persist on a new conversation, telemetry, title
