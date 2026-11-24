@@ -63,8 +63,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     private var contentHeight: NSKeyValueObservation?
     private let composer = UIHostingController(rootView: AnyView(EmptyView()))
     let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
-    /// Where the composer shows: its host runs from the page's top to the
-    /// keyboard, with the composer at its bottom.
+    /// Where the composer shows: on the keyboard, as tall as the composer.
     private let composerFrame = UILayoutGuide()
     private lazy var composerHeight = composerFrame.heightAnchor.constraint(equalToConstant: 0)
     private let composerContainer = ComposerContainer()
@@ -129,10 +128,11 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         view.addSubview(bottomFade)
         addChild(composer)
         // The composer animates its own height, a paste or a cleared draft.
-        // Its host keeps one size, so the composer grows and shrinks from its
-        // bottom edge and that edge stays on the keyboard in every frame. A
-        // host that resized with it would move the composer's origin under
-        // the animation.
+        // Its host is always the page's height and only slides with the
+        // keyboard, so the composer grows and shrinks from its bottom edge and
+        // that edge stays on the keyboard in every frame. A host that resized
+        // with the keyboard would hand the move to the composer's own
+        // animation, which runs ahead of the keyboard and sinks behind it.
         composer.view.backgroundColor = .clear
         // The guide already keeps it clear of the keyboard and home indicator;
         // SwiftUI's own keyboard avoidance would move it a second time.
@@ -148,7 +148,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            composerContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            composerContainer.heightAnchor.constraint(equalTo: view.heightAnchor),
             composerContainer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             composerContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             composerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
@@ -172,6 +172,9 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         placeholder.safeAreaRegions = []
         collection.backgroundView = placeholder.view
         placeholder.didMove(toParent: self)
+        #if DEBUG
+        if CommandLine.arguments.contains("-composer-keyboard-probe") { probeComposerOnKeyboard() }
+        #endif
         dataSource = ChatLayoutDiffableDataSource(collectionView: collection) { [weak self] collection, path, id in
             guard let self, let row = self.byID[id], let content = self.content else { return nil }
             let cell = collection.dequeueReusableCell(withReuseIdentifier: "row", for: path) as! TranscriptCell
@@ -574,6 +577,29 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     }
 
     #if DEBUG
+    private var keyboardProbe: TranscriptFrameProbe?
+    /// In every frame, how far the composer's field sits above the keyboard,
+    /// as drawn. A UI test reads it from the transcript's value, with the
+    /// least and most it has been: riding the keyboard, it only ever takes
+    /// its resting values, never one in between or beyond.
+    private func probeComposerOnKeyboard() {
+        func drawnMaxY(_ view: UIView) -> CGFloat {
+            let layer = view.layer.presentation() ?? view.layer
+            return layer.convert(layer.bounds, to: nil).maxY
+        }
+        func field(in view: UIView) -> UITextView? {
+            view as? UITextView ?? view.subviews.lazy.compactMap(field(in:)).first
+        }
+        var lowest = CGFloat.infinity, highest = -CGFloat.infinity
+        keyboardProbe = TranscriptFrameProbe { [weak self] in
+            guard let self, let field = field(in: composer.view), field.window != nil else { return }
+            let gap = drawnMaxY(composerContainer) - drawnMaxY(field)
+            lowest = min(lowest, gap)
+            highest = max(highest, gap)
+            collection.accessibilityValue = [gap, lowest, highest].map { String(Int($0.rounded())) }.joined(separator: " ")
+        }
+    }
+
     /// Runs against real UIKit layout and the real Markdown renderer. No API
     /// requests or saved authentication are involved.
     func runScrollRegression() async {
