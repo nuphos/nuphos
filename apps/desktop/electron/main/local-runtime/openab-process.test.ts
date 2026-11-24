@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import childProcess, { spawn } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { syncBuiltinESMExports } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -180,3 +181,46 @@ test("a Box runs openab in the memory-capped agents cgroup, keeping openab's own
   // stopStaleOpenab finds a stale run by this suffix; `--scope` execs openab in place.
   assert.ok(args.join(' ').endsWith('openab run -c /l/openab.toml'))
 })
+
+// #5019: a stuck process made `ps` take seconds; the host sent no frames meanwhile and the
+// backend closed its tunnel. This `ps` is the real one, started 2 s late.
+const slowPs = (file: string, args: readonly string[]): [string, string[]] =>
+  file === '/bin/ps'
+    ? ['/bin/sh', ['-c', 'sleep 2; exec /bin/ps "$@"', 'sh', ...args]]
+    : [file, [...args]]
+
+test(
+  'a slow ps does not stall the host while it looks for a stale openab',
+  { skip: process.platform === 'win32', timeout: 30_000 },
+  async (t) => {
+    const { execFile, execFileSync } = childProcess
+
+    t.mock.method(childProcess, 'execFile', (file: string, args: string[], ...rest: unknown[]) =>
+      Reflect.apply(execFile, childProcess, [...slowPs(file, args), ...rest]),
+    )
+    t.mock.method(
+      childProcess,
+      'execFileSync',
+      (file: string, args: string[], ...rest: unknown[]) =>
+        Reflect.apply(execFileSync, childProcess, [...slowPs(file, args), ...rest]),
+    )
+    syncBuiltinESMExports()
+    t.after(() => {
+      t.mock.restoreAll()
+      syncBuiltinESMExports()
+    })
+    const startedAt = Date.now()
+    // Stands in for the tunnel's heartbeat, which must keep its time while ps runs.
+    const beat = new Promise<number>((resolve) =>
+      setTimeout(() => {
+        resolve(Date.now() - startedAt)
+      }, 100),
+    )
+
+    await stopStaleOpenab(path.join(tmpdir(), 'no-such-openab', 'openab.toml'))
+    assert.ok(Date.now() - startedAt >= 2_000, 'it waited for the slow ps')
+    const beatAfter = await beat
+
+    assert.ok(beatAfter < 1_000, `a 100 ms timer fired after ${String(beatAfter)} ms`)
+  },
+)
