@@ -55,6 +55,7 @@ const decisionToolModule = (options: Parameters<typeof createDecisionToolModule>
   createDecisionToolModule({ runStreamId: async () => undefined, ...options })
 const { unansweredInstruction } = await import('./decision-specs')
 const { awaitDecisionOnce } = await import('./decision-wait')
+const { COMPUTER_CARDS } = await import('@/lib/agent/tools-skilled/decision-tools')
 const { relatedQuestionsNote, siteAskedFor } = await import('@/lib/agent/db/pending-decision')
 
 const ctx = { userId: 'u1', teamId: 't1', sessionId: 'conv-1', locale: 'zh-TW', localTools: true }
@@ -99,21 +100,34 @@ describe('decision tool module', () => {
     expect(names).not.toContain('check_decision')
   })
 
-  test('a computer card needs a desktop to hand over, and opens no card without one', async () => {
-    const tools = decisionToolModule({ publish: async () => undefined }).handlers(ctx)
-    const result = await tools.request_user_decision!({
-      label: 'Hand over the sign-in',
-      category: 'computer',
-      question: 'Sign in to the console',
-      body: 'Type your password on the open page.',
-    })
+  test('agents are not offered a computer card until its live view ships', () => {
+    const definition = decisionToolModule({ publish: async () => {} }).definitions.find(
+      (tool) => (tool as { name: string }).name === 'request_user_decision',
+    ) as { description: string; inputSchema: { properties: { category: { enum: string[] } } } }
 
-    expect(result.isError).toBe(true)
-    expect(JSON.stringify(result.content)).toContain('no desktop to hand over')
-    expect(conversationUpdates.flat().some((arg) => JSON.stringify(arg).includes('computer'))).toBe(
-      false,
-    )
+    expect(COMPUTER_CARDS).toBe(false)
+    expect(definition.inputSchema.properties.category.enum).not.toContain('computer')
+    expect(definition.description).not.toContain('`computer`')
   })
+
+  test.skipIf(!COMPUTER_CARDS)(
+    'a computer card needs a desktop to hand over, and opens no card without one',
+    async () => {
+      const tools = decisionToolModule({ publish: async () => undefined }).handlers(ctx)
+      const result = await tools.request_user_decision!({
+        label: 'Hand over the sign-in',
+        category: 'computer',
+        question: 'Sign in to the console',
+        body: 'Type your password on the open page.',
+      })
+
+      expect(result.isError).toBe(true)
+      expect(JSON.stringify(result.content)).toContain('no desktop to hand over')
+      expect(
+        conversationUpdates.flat().some((arg) => JSON.stringify(arg).includes('computer')),
+      ).toBe(false)
+    },
+  )
 
   test('request_user_decision returns at once; the answer arrives as a new message', async () => {
     const frames: Record<string, unknown>[] = []
