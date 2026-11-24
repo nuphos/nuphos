@@ -40,6 +40,7 @@ import { setupUserSessionIndexes } from '@/lib/identity/sessions'
 import { setupSocialAuthIndexes } from '@/lib/identity/social-store'
 import { setupTokenRevocationIndexes } from '@/lib/internal-token/revocation'
 import { setupLarkAgentIndexes } from '@/lib/lark/agent-bot'
+import { setupTeamMcpServerIndexes } from '@/lib/mcp/team-servers'
 import { setupNativeAuthIndexes } from '@/lib/native-auth'
 import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
@@ -138,6 +139,7 @@ export async function setupIndexes(): Promise<void> {
     ['agent-device-runtime-sessions', setupLocalRuntimeActivityIndexes],
     ['runtime-auth-refusals', setupRuntimeAuthRefusalIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
+    ['team-mcp-servers', setupTeamMcpServerIndexes],
     ['team-webhooks', setupWebhookIndexes],
     // Idempotent backfill, not an index; remove once every deployment ran it.
     ['conversation-watchers', backfillConversationWatchers],

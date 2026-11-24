@@ -63,6 +63,7 @@ import { slackInstallationsRoutes } from '@/routes/slack-installations'
 import { sonarqubeIntegrationsRoutes } from '@/routes/sonarqube-integrations'
 import { tailscaleClientsRoutes } from '@/routes/tailscale-clients'
 import { teamConnectorsRoutes } from '@/routes/team-connectors'
+import { teamMcpServersRoutes } from '@/routes/team-mcp-servers'
 import { teamSkillsRoutes } from '@/routes/team-skills'
 import { teamWebhooksRoutes } from '@/routes/team-webhooks'
 import { registerAgentRuntimeRoutes } from '@/routes/teams/agent-runtimes'
@@ -239,7 +240,6 @@ teamScoped.route('/home-layout', homeLayoutRoutes)
 teamScoped.route('/runtime-fallbacks', runtimeFallbackRoutes)
 teamScoped.route('/instructions', instructionsRoutes)
 teamScoped.route('/voice-transcriptions', voiceTranscriptionsRoutes)
-
 teamScoped.route('/clusters', teamClusters)
 teamScoped.route('/aws-accounts', awsAccountsRoutes)
 teamScoped.route('/permission-grant-proposals', permissionGrantProposalsRoutes)
@@ -250,12 +250,12 @@ teamScoped.route('/volcengine-accounts', volcengineAccountsRoutes)
 teamScoped.route('/azure-accounts', azureAccountsRoutes)
 teamScoped.route('/huawei-accounts', huaweiAccountsRoutes)
 teamScoped.route('/grafana-instances', grafanaInstancesRoutes)
+teamScoped.route('/mcp-servers', teamMcpServersRoutes)
 teamScoped.route('/webhooks', teamWebhooksRoutes)
 teamScoped.route('/architecture-diagrams', architectureDiagramsRoutes)
 teamScoped.route('/designs', designsRoutes)
 teamScoped.route('/dashboards', nuphosDashboardsRoutes)
-// Alias for desktop builds that predate the Dashboards rename.
-teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes)
+teamScoped.route('/cost-dashboards', nuphosDashboardsRoutes) // Pre-rename alias.
 teamScoped.route('/agent-triggers', agentTriggersRoutes)
 teamScoped.route('/agent-reminders', agentRemindersRoutes)
 teamScoped.route('/knowledge', knowledgeRoutes)
