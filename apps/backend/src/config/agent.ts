@@ -29,9 +29,6 @@ export function agentConfig() {
     // and call Nuphos tools here; managed pods keep using the Service.
     publicBackendUrl: optional('NUPHOS_PUBLIC_BACKEND_URL'),
     triggers: {
-      // A team member keeps the historical personal ceiling while the team
-      // also has a larger shared ceiling.
-      maxPerOwner: 50,
       maxPerTeam: 500,
     },
     // Conversations idle this many days are archived by an hourly sweep; 0 = off.

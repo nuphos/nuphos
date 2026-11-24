@@ -5,6 +5,7 @@ import { config } from '@/config'
 import { useDb } from '@/lib/test/doubles/db'
 
 const OWNER = new ObjectId().toHexString()
+const TEAM = new ObjectId().toHexString()
 const triggerId = new ObjectId()
 let enabledCount = 0
 let writes = 0
@@ -12,6 +13,7 @@ let writes = 0
 const trigger = {
   _id: triggerId,
   userId: OWNER,
+  teamId: TEAM,
   name: 'Nightly',
   messageTemplate: 'Run the nightly check',
   triggerType: 'cron',
@@ -22,7 +24,16 @@ const trigger = {
   updatedAt: new Date(),
 }
 
-function collection() {
+const team = {
+  _id: new ObjectId(TEAM),
+  name: 'Team',
+  ownerID: new ObjectId(OWNER),
+  contactEmails: [],
+  createdAt: new Date(),
+  members: [{ userId: new ObjectId(OWNER), role: 'ADMINISTRATOR', joinedAt: new Date() }],
+}
+
+function collection(name: string) {
   const write = () => {
     writes++
 
@@ -30,7 +41,7 @@ function collection() {
   }
 
   return {
-    findOne: () => Promise.resolve(trigger),
+    findOne: () => Promise.resolve(name === 'teams' ? team : trigger),
     countDocuments: () => Promise.resolve(enabledCount),
     updateOne: write,
     findOneAndUpdate: write,
@@ -47,12 +58,12 @@ afterEach(() => {
 })
 
 describe('re-enabling a Trigger', () => {
-  test('is refused once its owner is at the enabled-Trigger limit', async () => {
-    enabledCount = config.agent.triggers.maxPerOwner
+  test('is refused once its team is at the enabled-Trigger limit', async () => {
+    enabledCount = config.agent.triggers.maxPerTeam
 
     await expect(
       updateTrigger(triggerId.toHexString(), OWNER, { enabled: true }),
-    ).rejects.toMatchObject({ status: 429, code: 'trigger_quota_exceeded' })
+    ).rejects.toMatchObject({ status: 429, code: 'team_trigger_quota_exceeded' })
     expect(writes).toBe(0)
   })
 })
