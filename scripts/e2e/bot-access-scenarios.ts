@@ -121,28 +121,26 @@ export const botAccessScenarios: Scenario[] = [
           ),
       )
 
-      // Custom: unticking a row leaves All and keeps what is ticked; the switch brings All back.
-      for (const [row, flag] of [
-        [/^Computers/, 'allDevices'],
-        [/^Credentials/, 'allCredentials'],
-      ] as const) {
-        await access(page).getByRole('button', { name: row }).click()
-        const menu = page.getByRole('menu')
+      // Custom: unticking a computer leaves All and stores what is ticked; the switch brings
+      // All back. This team has no credentials; mcp-credential-defaults narrows those.
+      await access(page)
+        .getByRole('button', { name: /^Computers/ })
+        .click()
+      const menu = page.getByRole('menu')
 
-        await menu.getByRole('menuitemcheckbox', { checked: true }).first().click()
-        await until(`unticking a row to leave ${flag}`, async () => {
-          const now = botNamed(stack, 'E2E Bot')?.access
+      await menu.getByRole('menuitemcheckbox', { checked: true }).first().click()
+      await until('unticking a computer to leave All', async () => {
+        const now = botNamed(stack, 'E2E Bot')?.access
 
-          return now !== undefined && now !== null && !now[flag]
-        })
-        await shoot(page, `custom-${flag}`)
-        await menu.getByRole('switch').click()
-        await until(`the switch to bring back ${flag}`, async () =>
-          Boolean(botNamed(stack, 'E2E Bot')?.access?.[flag]),
-        )
-        await page.keyboard.press('Escape')
-        await menu.waitFor({ state: 'detached' })
-      }
+        return Boolean(now && !now.allDevices && (now.deviceIds?.length ?? 0) < deviceIds.length)
+      })
+      await shoot(page, 'custom-computers')
+      await menu.getByRole('switch').click()
+      await until('the switch to bring All back', async () =>
+        Boolean(botNamed(stack, 'E2E Bot')?.access?.allDevices),
+      )
+      await page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'detached' })
       const narrowed = botNamed(stack, 'E2E Bot')?.access
 
       if (JSON.stringify(narrowed?.deviceIds) !== JSON.stringify(deviceIds))
