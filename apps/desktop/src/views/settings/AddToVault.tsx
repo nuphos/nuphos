@@ -1,4 +1,3 @@
-import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -6,6 +5,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { MenuItem } from '../../components/ui/menu'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
+import { queryClient } from '../../lib/query/client'
 
 import type { AgentDevice } from '../../api'
 
@@ -15,7 +15,6 @@ import type { AgentDevice } from '../../api'
  * `nuphos vault enroll` there.
  */
 export function useAddToVault(device: AgentDevice, teamId: string) {
-  const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const add = async () => {
     try {
