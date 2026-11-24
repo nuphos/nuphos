@@ -1,13 +1,13 @@
 import { createHash } from 'node:crypto'
 
 import { createBot } from '@/lib/agent/bots'
+import { postChannelMessage } from '@/lib/agent/channel-chat'
 import {
   agentConversations,
   getConversationBySessionId,
   updateBotSelf,
   upsertConversationShell,
 } from '@/lib/agent/db'
-import { postChannelMessage } from '@/lib/agent/channel-chat'
 import { addChannelAgent } from '@/lib/agent/db/channels'
 import { getMemoryProvider } from '@/lib/agent/memory-slots'
 import { personalSkillsScope, putSkillObjects } from '@/lib/agent/skill-store/service'
@@ -20,12 +20,12 @@ import { storeAvatar } from '@/lib/identity/avatar-upload'
 import { ImportScheduleFailure } from './batch'
 import { importedFileReferences, importBotFiles } from './files'
 import { greetingPost } from './greeting'
-import type { CreatedTrigger } from '@/lib/agent/message-metadata'
 import { saveTemplateOrigin } from './template-origin'
 
 import type { BotBundleArchive } from './archive'
 import type { ImportBatch, ImportItem, ImportOperations, ImportOwner } from './batch'
 import type { ImportedBot, ImportedChat } from './manifest'
+import type { CreatedTrigger } from '@/lib/agent/message-created-triggers'
 
 export async function checkImportDestination(owner: ImportOwner) {
   const runtime = await requireRuntimeInstance(owner.teamId, owner.runtimeId, owner.userId)
@@ -95,7 +95,8 @@ async function schedules(
         { userId: batch.userId, teamId: batch.teamId, source: 'user', via: 'bot_import' },
       )
 
-      if (trigger.id) created.push({ id: trigger.id, name: trigger.name ?? routine.name })
+      // The row type leaves _id optional; a stored Trigger always has one.
+      if (trigger.id) created.push({ id: trigger.id, name: trigger.name })
     } catch {
       throw new ImportScheduleFailure()
     }
@@ -203,15 +204,17 @@ export function importOperations(
           kind: 'channel',
         })
         await addChannelAgent(item.privateChatId, item.sessionId)
-        const chat = source.greeting && (await getConversationBySessionId(item.privateChatId))
+        if (source.greeting) {
+          const chat = await getConversationBySessionId(item.privateChatId)
 
-        // A fixed id: a retried apply finds the greeting already posted.
-        if (chat && source.greeting)
-          await postChannelMessage(
-            chat,
-            greetingPost(item, source.name, batch.agentRuntime, source.greeting, created),
-            item.sessionId,
-          )
+          // A fixed id: a retried apply finds the greeting already posted.
+          if (chat)
+            await postChannelMessage(
+              chat,
+              greetingPost(item, source.name, batch.agentRuntime, source.greeting, created),
+              item.sessionId,
+            )
+        }
       }
 
       return warnings
