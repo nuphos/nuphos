@@ -3,7 +3,8 @@ name: CI
 on:
   pull_request:
   merge_group:
-  # Format and lint only, so a regression two merged PRs create together shows on main.
+  # Format, lint and the end-to-end job, so a regression two merged PRs create together,
+  # or one merged before its own end-to-end run finished, shows on main.
   push:
     branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
@@ -473,7 +474,8 @@ jobs:
 
   # The Desktop app driven against a real backend, MongoDB, file store and OpenAB,
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
-  # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
+  # a contributor runs. It runs on pull requests and on main after a merge; the merge
+  # queue skips it (see `if`).
   e2e:
     # The three parts of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
     # that start a stack of their own run side by side; the first part keeps the check name
@@ -484,10 +486,11 @@ jobs:
       matrix:
         part: ['1', '2', bots, standalone]
     needs: changes
-    # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
-    # Not in the merge queue: each PR already passed it, and one flaky run there ejects
-    # the PR and rebuilds every group behind it.
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' && !inputs.nightly || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
+    # On dispatch and push `changes` is skipped, which skips this job unless the condition says
+    # otherwise. Not in the merge queue: one flaky run there ejects the PR and rebuilds every
+    # group behind it. It is not a required check either (#2930), so a PR can merge before
+    # its own run fails; the run on main after the merge catches that.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' && !inputs.nightly || github.event_name == 'push' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
     # Keep real-disk evidence on hosted runners after the Instabox loop-mount failure.
     # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
