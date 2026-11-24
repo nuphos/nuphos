@@ -76,24 +76,13 @@ const linkOf = ({ userId, deviceId }: Computer): Computer => ({ userId, deviceId
 /**
  * A computer that just joined offers its own key to its owner's vault: it made the
  * key with `nuphos vault keygen`, so only the public key comes here, and it waits for
- * the owner's approval like any other device. One key per computer, so its device
- * credential cannot fill the vault with pending devices.
+ * the owner's approval like any other device.
  */
-export async function offerComputerKey(
+export const offerComputerKey = (
   computer: Computer & { label: string },
   publicKey: string,
-  deps = {
-    linked: (link: Computer) => devices().findOne({ userId: link.userId, computer: link }),
-    addVaultDevice,
-  },
-) {
-  const linked = await deps.linked(linkOf(computer))
-
-  if (linked && linked.publicKey !== publicKey)
-    throw new AppError(409, 'vault_computer_exists', 'This computer is already in the vault')
-
-  return deps.addVaultDevice(computer.userId, deviceName(computer), publicKey, linkOf(computer))
-}
+  deps = { addVaultDevice },
+) => deps.addVaultDevice(computer.userId, deviceName(computer), publicKey, linkOf(computer))
 
 /**
  * An item as a computer reads it with its device credential: only when the vault's

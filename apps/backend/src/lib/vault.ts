@@ -131,7 +131,7 @@ export async function listVaultDevices(userId: string) {
   return docs.map(deviceView)
 }
 
-/** The first device is trusted on first use; later ones wait. A computer's key is added once. */
+/** The first device is trusted on first use; later ones wait. A computer holds one key. */
 export function addVaultDevice(
   userId: string,
   name: string,
@@ -139,12 +139,12 @@ export function addVaultDevice(
   computer?: Computer,
 ) {
   return exclusive(userId, async () => {
-    const again = computer && (await devices().findOne({ userId, publicKey, computer }))
+    const linked = computer && (await devices().findOne({ userId, computer }))
 
-    if (again) return deviceView(again)
-    if ((await devices().countDocuments({ userId })) >= MAX_DEVICES) {
+    if (linked?.publicKey === publicKey) return deviceView(linked)
+    if (linked) throw new AppError(409, 'vault_computer_exists', 'This computer has a key here')
+    if ((await devices().countDocuments({ userId })) >= MAX_DEVICES)
       throw new AppError(409, 'vault_device_limit', `A vault holds at most ${MAX_DEVICES} devices`)
-    }
     const first = (await enrolledIds(userId)).length === 0
 
     if (first && computer)

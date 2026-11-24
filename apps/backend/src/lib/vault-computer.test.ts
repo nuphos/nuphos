@@ -105,37 +105,21 @@ describe('addComputerToVault', () => {
 })
 
 describe('offerComputerKey', () => {
-  const computer = { userId: 'owner', deviceId: 'mac-1', label: 'Studio Mac' }
-  const link = { userId: 'owner', deviceId: 'mac-1' }
-  const offer = (linkedKey: string | null) => {
-    const added: unknown[] = []
-    const result = offerComputerKey(computer, KEY, {
-      linked: async () => (linkedKey ? ({ publicKey: linkedKey } as never) : null),
-      addVaultDevice: async (...args) => {
-        added.push(args)
-
-        return { id: 'd1', name: 'Studio Mac', publicKey: KEY, state: 'pending', createdAt: '' }
-      },
-    })
-
-    return { result, added }
-  }
-
   test("a computer that joined waits in its owner's vault, linked to it", async () => {
-    const { result, added } = offer(null)
+    const added: unknown[] = []
+    const device = await offerComputerKey(
+      { userId: 'owner', deviceId: 'mac-1', label: 'Studio Mac' },
+      KEY,
+      {
+        addVaultDevice: async (...args) => {
+          added.push(args)
 
-    expect(await result).toMatchObject({ state: 'pending' })
-    expect(added).toEqual([['owner', 'Studio Mac', KEY, link]])
-  })
+          return { id: 'd1', name: 'Studio Mac', publicKey: KEY, state: 'pending', createdAt: '' }
+        },
+      },
+    )
 
-  test('the same key again is the same device; another key for that computer is refused', async () => {
-    const same = offer(KEY)
-
-    await same.result
-    expect(same.added).toHaveLength(1)
-    const other = offer(Buffer.alloc(32, 9).toString('base64'))
-
-    await expect(other.result).rejects.toMatchObject({ status: 409 })
-    expect(other.added).toHaveLength(0)
+    expect(device).toMatchObject({ state: 'pending' })
+    expect(added).toEqual([['owner', 'Studio Mac', KEY, { userId: 'owner', deviceId: 'mac-1' }]])
   })
 })
