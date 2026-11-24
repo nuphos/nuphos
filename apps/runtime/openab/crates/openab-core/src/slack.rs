@@ -889,7 +889,7 @@ pub async fn run_slack_adapter(
                                         // still considers pending.
                                         match send_with_timeout(
                                             &mut write,
-                                            tungstenite::Message::Text(ack.to_string()),
+                                            tungstenite::Message::Text(ack.to_string().into()),
                                         )
                                         .await
                                         {
@@ -1289,7 +1289,7 @@ pub async fn run_slack_adapter(
                                 );
                                 break;
                             }
-                            match send_with_timeout(&mut write, tungstenite::Message::Ping(Vec::new())).await {
+                            match send_with_timeout(&mut write, tungstenite::Message::Ping(Default::default())).await {
                                 Ok(Err(e)) => {
                                     warn!(error = %e, "Slack Socket Mode ping failed, reconnecting");
                                     break;

@@ -1062,7 +1062,7 @@ async fn ws_connect_loop(
                                     ack.payload = Some(b"{\"code\":200}".to_vec());
                                     let ack_bytes = ack.encode_to_vec();
                                     let _ = ws_tx.send(
-                                        tokio_tungstenite::tungstenite::Message::Binary(ack_bytes)
+                                        tokio_tungstenite::tungstenite::Message::Binary(ack_bytes.into())
                                     ).await;
                                 }
                             }

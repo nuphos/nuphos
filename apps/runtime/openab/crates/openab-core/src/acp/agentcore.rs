@@ -303,7 +303,7 @@ where
             let mut frame = Vec::with_capacity(1 + data.len());
             frame.push(CHANNEL_STDIN);
             frame.extend_from_slice(data.as_bytes());
-            let _ = w.send(Message::Binary(frame)).await;
+            let _ = w.send(Message::Binary(frame.into())).await;
         }
 
         // Read responses/notifications from kiro-cli until we get the response for our id.
@@ -382,7 +382,7 @@ where
             frame.push(CHANNEL_STDIN);
             frame.extend_from_slice(data.as_bytes());
             let mut w = shell.ws_write.lock().await;
-            let _ = w.send(Message::Binary(frame)).await;
+            let _ = w.send(Message::Binary(frame.into())).await;
         }
     }
 
@@ -432,7 +432,7 @@ where
             frame.push(CHANNEL_STDIN);
             frame.extend_from_slice(shell_cmd.as_bytes());
             let mut w = ws_write.lock().await;
-            w.send(Message::Binary(frame))
+            w.send(Message::Binary(frame.into()))
                 .await
                 .map_err(|e| anyhow!("failed to send launch cmd: {e}"))?;
         }
@@ -506,7 +506,7 @@ where
                 let mut frame = Vec::with_capacity(1 + init_data.len());
                 frame.push(CHANNEL_STDIN);
                 frame.extend_from_slice(init_data.as_bytes());
-                if let Err(e) = w.send(Message::Binary(frame)).await {
+                if let Err(e) = w.send(Message::Binary(frame.into())).await {
                     if attempt < 4 {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
                         continue;
@@ -561,7 +561,7 @@ where
             let mut frame = Vec::with_capacity(1 + sess_data.len());
             frame.push(CHANNEL_STDIN);
             frame.extend_from_slice(sess_data.as_bytes());
-            w.send(Message::Binary(frame)).await?;
+            w.send(Message::Binary(frame.into())).await?;
         }
 
         // Wait for session/new response — skip notifications (up to 120s)

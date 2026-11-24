@@ -1,7 +1,7 @@
 import { MongoServerError } from 'mongodb'
 
 import { setupAutoModeIndexes } from '@/lib/agent/auto-mode/store'
-import { backfillConversationWatchers, setupAgentIndexes } from '@/lib/agent/db'
+import { setupAgentIndexes } from '@/lib/agent/db'
 import { setupDeviceAccessAuditIndexes } from '@/lib/agent/devices/access-audit'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
@@ -45,6 +45,7 @@ import { logEvent } from '@/lib/observability'
 import { setupPushDeviceIndexes } from '@/lib/push/devices'
 import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
+import { unwatchExternalChats } from '@/lib/slack/external-chats'
 import { setupVaultIndexes } from '@/lib/vault'
 import { setupWebhookIndexes } from '@/lib/webhooks/store'
 import { setupCoreIndexes } from '@/models/indexes-core'
@@ -139,8 +140,8 @@ export async function setupIndexes(): Promise<void> {
     ['runtime-auth-refusals', setupRuntimeAuthRefusalIndexes],
     ['agent-instructions', setupAgentInstructionIndexes],
     ['team-webhooks', setupWebhookIndexes],
-    // Idempotent backfill, not an index; remove once every deployment ran it.
-    ['conversation-watchers', backfillConversationWatchers],
+    // Idempotent cleanup, not an index; remove once every deployment ran it.
+    ['slack-external-chats-unwatched', unwatchExternalChats],
   ]
 
   // Build every group in parallel. The groups are independent, and on a

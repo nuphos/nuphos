@@ -1,12 +1,18 @@
 //! Native MCP client. See `docs/adr/openab-agent-mcp.md`.
 
+// Sampling, Roots and Logging are deprecated by SEP-2577 but still in the
+// protocol, and rmcp keeps them working until it removes them. Servers may
+// still use them, so these modules keep serving them.
 pub mod breaker;
+#[allow(deprecated)]
 pub mod config;
 pub mod facade;
 pub mod flow;
 pub mod meta_tool;
 pub mod oauth;
+#[allow(deprecated)]
 pub mod runtime;
+#[allow(deprecated)]
 pub mod sampling;
 pub mod sources;
 

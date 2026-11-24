@@ -140,7 +140,7 @@ pub fn build_result(text: String, model: &str) -> CreateMessageResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rmcp::model::SamplingMessageContent;
+    use rmcp::model::SamplingMessageContentBlock;
 
     #[test]
     fn approval_parse_defaults_closed() {
@@ -195,8 +195,8 @@ mod tests {
         let msg = SamplingMessage::new_multiple(
             Role::User,
             vec![
-                SamplingMessageContent::text("first"),
-                SamplingMessageContent::text("second"),
+                SamplingMessageContentBlock::text("first"),
+                SamplingMessageContentBlock::text("second"),
             ],
         );
         let out = convert_messages(&[msg]).unwrap();
