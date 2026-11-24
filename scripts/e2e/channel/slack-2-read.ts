@@ -1,11 +1,12 @@
-// #4157: an agent reads a Slack channel the app has joined, and one of its threads, through
-// slack_read, and finds its members to mention through slack_members, the way it posts
-// there; a channel the app is not in stays closed.
+// #4157: an agent reads a Slack channel the app has joined, one of its threads and the
+// screenshots posted there through slack_read, and finds its members to mention through
+// slack_members, the way it posts there; a channel the app is not in stays closed.
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { agentLog } from '../agent-log.ts'
-import { addSlackChannel, sealSlackToken } from '../slack-stub.ts'
+import { addSlackChannel, sealSlackToken, SLACK_SCREENSHOT, slackFileUrl } from '../slack-stub.ts'
 import { newTask, send } from '../ui.ts'
 
 import type { Stack } from '../stack.ts'
@@ -93,6 +94,25 @@ export default {
       messages: [{ ts: '1700000005.000100', user: 'U1', text: 'Not for the app' }],
       members: [{ id: 'U3', name: 'outsider', real_name: 'Out Sider' }],
     })
+    const screenshot = {
+      id: 'FSHOT',
+      name: 'error.png',
+      mimetype: 'image/png',
+      url_private: slackFileUrl('TE2EREAD-FSHOT/error.png'),
+    }
+
+    addSlackChannel('CSHOT', {
+      name: 'e2e-support',
+      joined: true,
+      messages: [
+        {
+          ts: '1700000006.000100',
+          user: 'U1',
+          text: 'The deploy page shows this',
+          files: [screenshot],
+        },
+      ],
+    })
     const created = mongo(
       stack,
       `const done = await db.collection('team_byos_bindings').updateOne(
@@ -145,6 +165,24 @@ export default {
         ['not in that Slack channel'],
         ['outsider'],
       )
+      // #4984: a message's screenshot is only Slack metadata the agent cannot open...
+      expectIn(await slackCall(page, stack, 'slack_read', { channelId: 'CSHOT' }), [
+        'The deploy page shows this',
+        screenshot.url_private,
+      ])
+      // ...until it asks for files: the backend fetches it with the bot token and the agent
+      // gets a path on its runtime holding the image, and no Slack URL.
+      const withFiles = await slackCall(page, stack, 'slack_read', {
+        channelId: 'CSHOT',
+        files: true,
+      })
+
+      expectIn(withFiles, ['"name":"error.png"', '"path":'], [screenshot.url_private, '"error"'])
+      const path = (JSON.parse(withFiles) as { messages: { files: { path: string }[] }[] })
+        .messages[0]!.files[0]!.path
+
+      if (!readFileSync(path).equals(SLACK_SCREENSHOT))
+        throw new Error(`The runtime's ${path} is not the screenshot posted in Slack`)
     } finally {
       mongo(
         stack,
