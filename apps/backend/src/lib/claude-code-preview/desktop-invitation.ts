@@ -33,8 +33,10 @@ export async function desktopInvitation(
 }
 
 /**
- * Asks `invitedNow` every `ms` and hands the answer to `apply`; a refusal or failure is no
- * invitation. One check at a time, so an older answer never overwrites a newer one.
+ * Asks `invitedNow` every `ms` and hands the answer to `apply`; a refusal, a failure or no
+ * answer within `ms` is no invitation. One check at a time, so an older answer never
+ * overwrites a newer one. `apply` ends the stream itself, so a throw there is dropped and the
+ * next check applies again.
  */
 export function recheckInvitation(
   invitedNow: () => Promise<Invited | undefined>,
@@ -45,10 +47,19 @@ export function recheckInvitation(
   const timer = setInterval(() => {
     if (checking) return
     checking = true
-    void invitedNow()
+    let late: ReturnType<typeof setTimeout> | undefined
+
+    void Promise.race([
+      invitedNow(),
+      new Promise<undefined>((resolve) => {
+        late = setTimeout(resolve, ms)
+      }),
+    ])
       .catch(() => undefined)
       .then(apply)
+      .catch(() => {})
       .finally(() => {
+        clearTimeout(late)
         checking = false
       })
   }, ms)
