@@ -149,6 +149,8 @@ agent.post('/chat/:streamId/report-failure', async (c) => {
       session_id: sessionId,
       level,
       message,
+      // Debugging telemetry: skip PostHog person processing, billed per event.
+      $process_person_profile: false,
     },
   })
   if (level !== 'error') {
