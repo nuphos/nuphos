@@ -2073,7 +2073,7 @@
   "Generate pairing code": "產生配對碼",
   "Generating…": "正在產生…",
   "Generation": "Generation",
-  "Get a POST request when a conversation finishes a reply, fails, needs input, or a Task reports back, so your own systems can follow up without polling.": "在對話完成回覆、失敗、需要輸入，或任務回報時收到 POST 請求，讓你自己的系統不必輪詢就能跟進。",
+  "A conversation started by nuphos_ask with a webhook_id sends that webhook a POST request when it finishes a reply, fails, needs input, or one of its Tasks reports back, so your own systems can follow up without polling.": "以 nuphos_ask 帶 webhook_id 開始的對話，在完成回覆、失敗、需要輸入，或其任務回報時，會對該 webhook 送出 POST 請求，讓你自己的系統不必輪詢就能跟進。",
   "Get started": "開始使用",
   "Getting model settings…": "正在取得模型設定…",
   "Getting started": "設定中",

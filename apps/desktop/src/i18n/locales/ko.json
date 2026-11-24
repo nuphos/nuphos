@@ -2073,7 +2073,7 @@
   "Generate pairing code": "페어링 코드 생성",
   "Generating…": "생성하는 중…",
   "Generation": "세대",
-  "Get a POST request when a conversation finishes a reply, fails, needs input, or a Task reports back, so your own systems can follow up without polling.": "대화가 답장을 마치거나 실패하거나 입력이 필요할 때, 또는 작업이 보고할 때 POST 요청을 받아 폴링 없이 자체 시스템에서 후속 조치를 할 수 있습니다.",
+  "A conversation started by nuphos_ask with a webhook_id sends that webhook a POST request when it finishes a reply, fails, needs input, or one of its Tasks reports back, so your own systems can follow up without polling.": "webhook_id를 지정해 nuphos_ask로 시작한 대화는 답장을 마치거나 실패하거나 입력이 필요할 때, 또는 그 작업이 보고할 때 해당 웹훅으로 POST 요청을 보내므로 폴링 없이 자체 시스템에서 후속 조치를 할 수 있습니다.",
   "Get started": "시작하기",
   "Getting model settings…": "모델 설정을 가져오는 중…",
   "Getting started": "초기 설정 중",

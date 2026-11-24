@@ -2073,7 +2073,7 @@
   "Generate pairing code": "สร้างรหัสจับคู่",
   "Generating…": "กำลังสร้าง…",
   "Generation": "Generation",
-  "Get a POST request when a conversation finishes a reply, fails, needs input, or a Task reports back, so your own systems can follow up without polling.": "รับคำขอ POST เมื่อบทสนทนาตอบกลับเสร็จ ล้มเหลว ต้องการข้อมูล หรือเมื่องานรายงานกลับ เพื่อให้ระบบของคุณดำเนินการต่อได้โดยไม่ต้อง polling",
+  "A conversation started by nuphos_ask with a webhook_id sends that webhook a POST request when it finishes a reply, fails, needs input, or one of its Tasks reports back, so your own systems can follow up without polling.": "บทสนทนาที่เริ่มโดย nuphos_ask พร้อม webhook_id จะส่งคำขอ POST ไปยัง webhook นั้นเมื่อตอบกลับเสร็จ ล้มเหลว ต้องการข้อมูล หรือเมื่องานของบทสนทนารายงานกลับ เพื่อให้ระบบของคุณดำเนินการต่อได้โดยไม่ต้อง polling",
   "Get started": "เริ่มต้นใช้งาน",
   "Getting model settings…": "กำลังดึงการตั้งค่าโมเดล…",
   "Getting started": "กำลังตั้งค่าเริ่มต้น",
