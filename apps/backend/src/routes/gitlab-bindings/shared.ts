@@ -20,6 +20,7 @@ export function publicView(b: GitlabBinding) {
 }
 
 export function handleGitlabError(e: unknown, fallbackMsg: string): never {
+  if (e instanceof AppError) throw e
   if (e instanceof GitlabOAuthNotConfigured) {
     throw new AppError(503, 'gitlab_oauth_not_configured', e.message)
   }

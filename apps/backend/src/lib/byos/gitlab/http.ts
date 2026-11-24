@@ -1,3 +1,4 @@
+import { AppError } from '@/lib/errors'
 import { blockedUrlReason, OutboundBlockedError, pinnedFetch } from '@/lib/net/safe-outbound'
 
 export const USER_AGENT = 'nuphos-backend'
@@ -33,6 +34,7 @@ export async function gitlabFetch(url: string, init: RequestInit): Promise<Respo
     })
   } catch (e) {
     if (e instanceof OutboundBlockedError) {
+      if (e.status === 400) throw refusedHost(e.message)
       throw new GitlabApiError(e.status, `GitLab host refused: ${e.message}`)
     }
     const name = (e as { name?: string }).name
@@ -49,20 +51,33 @@ export async function gitlabFetch(url: string, init: RequestInit): Promise<Respo
   }
 }
 
+/** A host the outbound guard refuses is the caller's input, never a GitLab failure. */
+function refusedHost(reason: string): AppError {
+  return new AppError(
+    400,
+    'gitlab_host_refused',
+    `Nuphos can't connect to this GitLab host: ${reason}`,
+  )
+}
+
 export function normalizeHostUrl(input: string): string {
   let url: URL
 
   try {
     url = new URL(input)
   } catch {
-    throw new GitlabApiError(400, `Invalid GitLab host URL: ${input}`)
+    throw new AppError(400, 'invalid_gitlab_host', `Invalid GitLab host URL: ${input}`)
   }
   if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new GitlabApiError(400, `GitLab host URL must use http or https (got ${url.protocol})`)
+    throw new AppError(
+      400,
+      'invalid_gitlab_host',
+      `GitLab host URL must use http or https (got ${url.protocol})`,
+    )
   }
   const reason = blockedUrlReason(url.origin)
 
-  if (reason) throw new GitlabApiError(400, `GitLab host URL refused: ${reason}`)
+  if (reason) throw refusedHost(reason)
 
   // Strip trailing slashes + the path; we only want origin.
   return url.origin
