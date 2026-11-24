@@ -31,7 +31,7 @@ const hook = async (enabled = true, team = teamId) => {
   return _id.toHexString()
 }
 const start = (webhook_id: string) => startChoice({ webhook_id }, null, teamId, userId)
-const session = async (webhookId?: string) => {
+const session = async (webhookId?: string, parentSessionId?: string) => {
   const sessionId = randomUUID()
 
   await upsertConversationShell({
@@ -43,13 +43,14 @@ const session = async (webhookId?: string) => {
     locale: 'en',
     agentRuntime: 'claude-code',
     ...(webhookId ? { webhookId } : {}),
+    ...(parentSessionId ? { parentSessionId } : {}),
   })
 
   return sessionId
 }
-const queued = async (sessionId: string) => {
+const queued = async (sessionId: string, tries = 100) => {
   queueWebhookEvents(sessionId)
-  for (let tries = 0; tries < 100; tries++) {
+  for (; tries > 0; tries--) {
     const rows = await webhookDeliveries().find({ sessionId }).toArray()
 
     if (rows.length)
@@ -63,12 +64,11 @@ const queued = async (sessionId: string) => {
 // #4747: a session an endpoint started reports to that endpoint, not the whole team.
 describe.skipIf(!process.env.TEST_MONGODB_URI)('a session started for one webhook', () => {
   let a = ''
-  let b = ''
 
   beforeAll(async () => {
     await connectDb()
     a = await hook()
-    b = await hook()
+    await hook()
   })
   afterAll(async () => {
     await teamWebhooks().deleteMany({ createdBy: userId })
@@ -92,11 +92,19 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a session started for one webhoo
     })
   })
 
-  test('its events are queued for that endpoint alone; other sessions still fan out', async () => {
+  test('its events are queued for that endpoint alone, and its Tasks report there too', async () => {
     const own = await session(a)
+    const task = await session(undefined, own)
 
     expect((await agentConversations().findOne({ sessionId: own }))?.webhookId).toBe(a)
     expect(await queued(own)).toEqual([a])
-    expect(await queued(await session())).toEqual([a, b].sort((x, y) => x.localeCompare(y)))
+    expect(await queued(task)).toEqual([a])
+    expect(await queued(await session(undefined, task))).toEqual([a])
+  })
+
+  // #4928: no team-wide fan-out; a session nobody started for an endpoint reports nowhere.
+  test('a session started without a webhook sends no events', async () => {
+    expect(await queued(await session(), 30)).toEqual([])
+    expect(await queued(await session(undefined, await session()), 30)).toEqual([])
   })
 })
