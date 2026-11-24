@@ -20,10 +20,12 @@ const HOST_LOG = join(artifacts, 'fake-mac-screen-host-card.log')
 /** The desktop's canvas in the card, once it shows the stand-in's colour bars. */
 async function painted(page: Page) {
   return page.evaluate((question) => {
-    const card = document.querySelector(`[data-decision-question="${question}"]`)
-    const canvas = card?.querySelector('canvas')
+    // The question is also marked where it is not on screen, so look in every copy.
+    const canvas = [
+      ...document.querySelectorAll(`[data-decision-question="${question}"] canvas`),
+    ].find((each) => each instanceof HTMLCanvasElement && each.width === 1280 && each.clientWidth)
 
-    if (!canvas || canvas.width !== 1280 || canvas.clientWidth === 0) return false
+    if (!(canvas instanceof HTMLCanvasElement)) return false
     const pixels = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height).data
     const colours = new Set<string>()
 
