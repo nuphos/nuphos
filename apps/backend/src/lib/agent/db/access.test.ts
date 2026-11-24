@@ -17,6 +17,13 @@ describe('conversationAccess', () => {
     expect(conversationAccess({ ...base, generalAccess: 'none' }, 'owner', false)).toBe('owner')
   })
 
+  test("a Slack channel's hidden record opens for no one, not even who connected it (#4936)", () => {
+    const record = { ...base, kind: 'channel', external: 'slack', generalAccess: 'none' as const }
+
+    expect(conversationAccess(record, 'owner', false)).toBeNull()
+    expect(conversationAccess({ ...record, generalAccess: 'reply' }, 'teammate', true)).toBeNull()
+  })
+
   test('older sessions without general access stay open to the team to read', () => {
     expect(conversationAccess(base, 'teammate', false)).toBe('view')
     expect(conversationAccess({ ...base, generalAccess: 'reply' }, 'teammate', false)).toBe('view')
@@ -133,6 +140,7 @@ describe('readableConversationScope', () => {
     expect(readableConversationScope({ sessionId: 's' }, 'viewer', 'team')).toEqual({
       sessionId: 's',
       teamId: 'team',
+      external: { $exists: false },
       ...readableByFilter('viewer'),
     })
   })
@@ -165,12 +173,18 @@ function mongoMatches(doc: Record<string, unknown>, filter: Record<string, unkno
   })
 }
 
-test('readableByFilter admits exactly the viewers readsConversation admits', () => {
+test('the readable scope admits exactly the viewers readsConversation admits', () => {
   const generals = [undefined, 'none', 'view', 'reply'] as const
   const memberships = [{}, { participantIds: ['viewer'] }, { participantIds: ['someone-else'] }]
   let checked = 0
 
-  const kinds = [{}, { avatar: '07-ada' }, { kind: 'channel' }, { kind: 'channel', avatar: 'x' }]
+  const kinds = [
+    {},
+    { avatar: '07-ada' },
+    { kind: 'channel' },
+    { kind: 'channel', avatar: 'x' },
+    { kind: 'channel', external: 'slack' },
+  ]
 
   for (const owner of ['owner', 'viewer'])
     for (const generalAccess of generals)
@@ -184,10 +198,10 @@ test('readableByFilter admits exactly the viewers readsConversation admits', () 
             ...kind,
           }
 
-          expect(mongoMatches(doc, readableByFilter('viewer'))).toBe(
+          expect(mongoMatches(doc, readableConversationScope({}, 'viewer', 'team'))).toBe(
             readsConversation(doc, 'viewer'),
           )
           checked++
         }
-  expect(checked).toBe(96)
+  expect(checked).toBe(120)
 })

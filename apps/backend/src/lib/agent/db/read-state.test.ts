@@ -18,7 +18,10 @@ class FakeConversations {
   lastCountFilter: Doc | undefined
   private match(filter: Doc) {
     return this.docs.find((doc) =>
-      Object.entries(filter).every(([key, value]) => key === '$or' || doc[key] === value),
+      Object.entries(filter).every(
+        ([key, value]) =>
+          key === '$or' || (key === 'external' ? doc[key] === undefined : doc[key] === value),
+      ),
     )
   }
   async findOne(filter: Doc) {

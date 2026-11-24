@@ -16,11 +16,15 @@ const sent = (url: unknown) => {
   requests.push(String(url))
 }
 
+// Every answer carries what PostHog's remote config says for our project: posthog-js
+// starts autocapture only once the config says whether the project opted out.
+const body = JSON.stringify({ autocapture_opt_out: false })
+
 Object.assign(dom, {
   fetch: (url: unknown) => {
     sent(url)
 
-    return Promise.resolve(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+    return Promise.resolve(new Response(body, { headers: { 'content-type': 'application/json' } }))
   },
   XMLHttpRequest: class {
     open(_method: string, url: string) {

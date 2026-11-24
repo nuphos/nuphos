@@ -1,9 +1,9 @@
 import { t } from '../../../i18n/index.ts'
-import { track, trackError } from '../../../lib/analytics'
-import { withClientToolDeadline } from '../../../lib/clientToolDeadline'
-import { pendingClientSideLocalTools } from '../../../lib/clientToolPhase'
+import { track, trackError } from '../../../lib/analytics.ts'
+import { withClientToolDeadline } from '../../../lib/clientToolDeadline.ts'
+import { pendingClientSideLocalTools } from '../../../lib/clientToolPhase.ts'
 
-import { incompleteToolErrorText } from './stall'
+import { incompleteToolErrorText } from './stall.ts'
 
 import type { Message, Tab } from './model'
 import type { Part, ToolPart } from './parts'

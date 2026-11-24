@@ -141,42 +141,20 @@ Every project commits its lockfile and CI installs from it (`--frozen-lockfile`,
 
 A new release is not used until it is seven days old. Most compromised packages
 are found and pulled within days of publication, and the delay keeps them out of
-this repository while that happens. It is enforced in two places:
-
-- **Renovate** (`renovate.json`), self-hosted in `.github/workflows/renovate.yml`,
-  proposes updates once a week, Monday 00:00–06:00 UTC, with `minimumReleaseAge`
-  set to seven days. Compatible updates for one project share a pull request;
-  majors wait until a maintainer ticks them on the Dependency Dashboard issue.
-  GitHub Actions are pinned to commit digests. The runtime image's agent SDKs
-  (`apps/runtime/image`, updated by `runtime-update-*.yml`) and our own
-  `ghcr.io/nuphos` images are left out. The dependencies we patch are left out
-  too, and the packages that pin them exactly (`electron-builder`, the three
-  `@opentelemetry/exporter-*-otlp-http`) wait for Dashboard approval, because
-  their update needs the patch regenerated.
-- **The package managers**, for anything you add or update by hand.
-  `bunfig.toml` (root) and `apps/backend/bunfig.toml` set Bun's
-  `minimumReleaseAge`; `apps/desktop/.npmrc` sets pnpm's `minimum-release-age`;
-  `deploy/railway/.npmrc` sets npm's `min-release-age` (npm 11 or later; `npm ci`
-  installs the lockfile either way). Versions already in a lockfile still
-  install.
-
-The delay applies to the version Renovate picks, not to what the package
-manager resolves around it, so Renovate's lock file maintenance (a full
-re-resolve) runs only for the root Bun project, which enforces the delay
-itself. It is off for the backend and the desktop, whose patched dependencies
-(the OpenTelemetry exporters, `electron-builder`) must not move without
-approval, and for Cargo and npm.
+this repository while that happens. The package managers enforce it for anything
+you add or update: `bunfig.toml` (root) and `apps/backend/bunfig.toml` set Bun's
+`minimumReleaseAge`; `apps/desktop/.npmrc` sets pnpm's `minimum-release-age`;
+`deploy/railway/.npmrc` sets npm's `min-release-age` (npm 11 or later; `npm ci`
+installs the lockfile either way). Versions already in a lockfile still install.
 
 Two ecosystems have no local delay, so check the release date yourself (crates.io,
-Maven Central) before adding or bumping a dependency by hand:
+Maven Central) before adding or bumping a dependency:
 
 - **Cargo**: `registry.global-min-publish-age` needs Cargo 1.100, and the CLI
-  and openab toolchains (1.94, 1.99) only warn about it. Because Cargo can also
-  pull in new transitive crates of any age, every Renovate Cargo update waits
-  for Dashboard approval; before ticking it, check that the crates it would add
-  to `Cargo.lock` are at least seven days old. Once both toolchains move past
-  1.100, add the setting to a `.cargo/config.toml` in both projects and drop
-  the approval.
+  and openab toolchains (1.94, 1.99) only warn about it. Cargo can also pull in
+  new transitive crates of any age, so check that the crates an update adds to
+  `Cargo.lock` are at least seven days old. Once both toolchains move past
+  1.100, add the setting to a `.cargo/config.toml` in both projects.
 - **Gradle** (`apps/android`): Gradle has no release-age setting and the
   project has no dependency locking.
 
@@ -189,70 +167,33 @@ includes the latest SDK and Codex CLI. The reviewer of that pull request is the
 gate: read the lockfile diff for new or unexpected packages before approving.
 
 Bun's version lives in `.bun-version` (every CI job reads it) and in
-`apps/backend/Dockerfile`; CI fails if they differ, and Renovate updates both
-in one pull request.
+`apps/backend/Dockerfile`; CI fails if they differ, so update both together.
 
 No dependency runs install scripts unless it is listed: `trustedDependencies` is
 empty in both Bun projects, which also turns off Bun's built-in allowlist, and
 the desktop allows only `pnpm.onlyBuiltDependencies`. Adding an entry needs a
 reason in the pull request.
 
-Renovate does not update the iOS app's Swift packages (`apps/ios`); update them
-in Xcode and pick a release at least seven days old.
+The iOS app's Swift packages (`apps/ios`) are updated in Xcode; pick a release
+at least seven days old.
 
-### Urgent security fixes
+### Security updates
 
-A fix for a published vulnerability should not wait a week:
+Dependabot security updates are the only automated dependency updater. When an
+advisory affects a locked dependency, Dependabot opens a pull request with the
+patched version. `.github/dependabot.yml` only declares the Bun projects, which
+Dependabot would otherwise treat as npm, and sets `open-pull-requests-limit: 0`
+so it opens no routine version updates. Security updates still cover every
+project with a supported lockfile; routine version updates are made by hand.
 
-- Renovate's vulnerability pull requests skip the delay and the schedule. They
-  need Dependabot alerts enabled on the repository and read access to them for
-  the Renovate App.
-- To get any other pending update now, tick it under "Pending Status Checks" on
-  the Dependency Dashboard, then run the workflow (below).
-- By hand, override the delay for one command and say why in the pull request:
-  `bun update <pkg> --minimum-release-age=0`,
-  `pnpm update <pkg> --config.minimum-release-age=0` or
-  `npm update <pkg> --min-release-age=0`. Cargo needs no override.
-
-### Running Renovate
-
-The workflow runs hourly inside the Monday window. To run it at any other time,
-for example right after ticking a box on the Dependency Dashboard, open Actions →
-Renovate → Run workflow (choose `debug` to get a verbose log). Renovate reads the
-Dashboard only when it runs, so a ticked box waits for the next run.
-
-The workflow authenticates as a GitHub App dedicated to Renovate, never as the
-Nuphos product App, whose installations reach customer organizations. Its
-private key is a secret of the `renovate` environment, so only this job can read
-it. Until a maintainer sets the App up, the job is skipped:
-
-1. Create a GitHub App owned by the `nuphos` organization (for example
-   `nuphos-renovate`), with webhooks off and these repository permissions:
-   Contents, Pull requests, Issues and Workflows: read and write; Checks,
-   Commit statuses and Dependabot alerts: read; Metadata: read.
-2. Install it on `nuphos/nuphos` only.
-3. Generate a private key.
-4. In the repository settings, create the environment `renovate` (deployment
-   branches: `main` only), add the secret `RENOVATE_APP_PRIVATE_KEY` (the key)
-   to it, and add the repository variable `RENOVATE_APP_CLIENT_ID` (the App's
-   client ID).
-5. Enable the dependency graph and Dependabot alerts (Settings → Advanced
-   Security), so vulnerability updates work. Dependabot's own updates stay off.
-6. If a ruleset or branch protection restricts who may create branches or
-   bypass rules, allow the App to create `renovate/*` branches.
-7. Run the workflow once by hand and check that it opens the Dependency
-   Dashboard issue.
-
-### Renovate pull requests
-
-Renovate commits through the GitHub API as the App (`platformCommit`), so GitHub
-signs its commits, and each one carries a `Signed-off-by:` naming the App's bot
-user, which the workflow derives from the App. It opens pull requests from
-branches in this repository with the App's token, so CI runs on them, unlike the
-`runtime-update-*.yml` pull requests opened with `GITHUB_TOKEN`. They still need
-an approving review. If you push a fix to a Renovate branch, sign off your own
-commit; Renovate stops rebasing a branch someone else has pushed to until you
-tick "rebase" on the pull request.
+Dependabot cannot update a dependency that a parent package pins below the
+patched version, or a crate in a Cargo workspace member; its run then fails
+with `security_update_not_possible` or `dependency_file_not_supported`. Fix
+those by hand, by upgrading the parent rather than adding an override where
+possible, and override the delay for one command, saying why in the pull
+request: `bun update <pkg> --minimum-release-age=0`,
+`pnpm update <pkg> --config.minimum-release-age=0` or
+`npm update <pkg> --min-release-age=0`. Cargo needs no override.
 
 ## Security
 

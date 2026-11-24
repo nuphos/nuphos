@@ -1,5 +1,3 @@
-import { logEvent } from '@/lib/observability'
-
 import { descendantSessionIds } from './archive'
 import { agentConversations } from './shared'
 
@@ -56,27 +54,4 @@ export async function setConversationWatched(
     { sessionId: { $in: [sessionId, ...descendants] } },
     { $pull: { watcherIds: userId } },
   )
-}
-
-/** One-time backfill for conversations created before watching existed.
- *  Idempotent: a no-op once every conversation has `watcherIds`. */
-export async function backfillConversationWatchers(): Promise<number> {
-  const unset = { watcherIds: { $exists: false } }
-  const humanOpened = await agentConversations().updateMany(
-    {
-      ...unset,
-      parentSessionId: { $exists: false },
-      'metadata.trigger': { $exists: false },
-      'metadata.source': { $not: UNWATCHED_SOURCE },
-    },
-    [{ $set: { watcherIds: ['$userId'] } }],
-  )
-  const rest = await agentConversations().updateMany(unset, { $set: { watcherIds: [] } })
-  const backfilled = humanOpened.modifiedCount + rest.modifiedCount
-
-  if (backfilled > 0) {
-    logEvent('info', 'backend.migration.conversation_watchers_backfilled', { backfilled })
-  }
-
-  return backfilled
 }

@@ -10,7 +10,7 @@ import type { SlackChannelMapping } from '@/lib/slack/agent-bot'
  * A connected channel's hidden record (#3702): what its Bots read and post
  * there. Made on first connect, kept while the channel stays connected, and
  * deleted with its messages when an admin disconnects it.
- * Nobody watches it and nobody else may read it, so no list, badge or Inbox
+ * Nobody watches it and nobody in Nuphos may open it, so no list, badge or Inbox
  * in Nuphos ever shows it.
  */
 export async function ensureExternalChat(
@@ -84,6 +84,17 @@ export async function bringExternalChatBot(
   )
 
   return matchedCount > 0
+}
+
+/**
+ * Before #4936 a startup backfill made the connecting admin a watcher of each
+ * hidden record, so its posts pushed to them and counted as unread.
+ */
+export async function unwatchExternalChats(): Promise<void> {
+  await agentConversations().updateMany(
+    { external: 'slack', watcherIds: { $exists: true } },
+    { $unset: { watcherIds: '' } },
+  )
 }
 
 /** A disconnected channel's record goes, with the Slack messages it held. */

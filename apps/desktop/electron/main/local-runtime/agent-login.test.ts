@@ -10,6 +10,7 @@ import type { spawn } from 'node:child_process'
 function harness(
   connected: () => Promise<boolean> = async () => true,
   provider: 'claude-code' | 'codex' = 'claude-code',
+  signedIn?: () => Promise<void>,
 ) {
   const children: (EventEmitter & {
     stdin: PassThrough
@@ -23,6 +24,7 @@ function harness(
     provider,
     changed: () => {},
     connected,
+    ...(signedIn ? { signedIn } : {}),
     spawn: ((...args: unknown[]) => {
       calls.push(args)
       const child = Object.assign(new EventEmitter(), {
@@ -239,4 +241,47 @@ test('an API key goes only to the login wrapper’s stdin, and a sign-out sends 
 
   await assert.rejects(login.applyApiKey(run, 'not a key'), /whole API key/u)
   assert.equal(calls.length, 2)
+})
+
+test('a verified sign-in here, by account or API key, replaces whoever signed the agent in', async () => {
+  let replaced = 0
+  let ready = false
+  const { login, children } = harness(
+    async () => ready,
+    'codex',
+    async () => {
+      replaced += 1
+    },
+  )
+  const run = { command: '/bin/node', args: ['/bundle/codex-login.mjs'], env: {} }
+  const tick = () => new Promise((resolve) => setImmediate(resolve))
+  const wrapperExits = async (index: number, type: string) => {
+    await tick()
+    children[index]?.stdout.write(`{"type":"${type}"}\n`)
+    children[index]?.emit('close', 0)
+  }
+
+  // A CLI that exits but is not signed in replaces nothing.
+  login.start('/bin/codex', {})
+  children[0]?.emit('exit', 0)
+  await tick()
+  assert.equal(replaced, 0)
+  ready = true
+  login.start('/bin/codex', {})
+  children[1]?.emit('exit', 0)
+  await tick()
+  assert.deepEqual(login.state(), { state: 'connected' })
+  assert.equal(replaced, 1)
+
+  const applied = login.applyApiKey(run, 'sk-proj-not-a-real-key-0123456789')
+
+  await wrapperExits(2, 'authenticated')
+  await applied
+  assert.equal(replaced, 2)
+  // Removing a key can leave the account it had: no one new signed it in.
+  const removed = login.applyApiKey(run, null)
+
+  await wrapperExits(3, 'signedOut')
+  await removed
+  assert.equal(replaced, 2)
 })

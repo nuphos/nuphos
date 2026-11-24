@@ -1,9 +1,12 @@
 import { cjk as cjkPlugin } from '@streamdown/cjk'
 import { createCodePlugin } from '@streamdown/code'
+import { math as mathPlugin } from '@streamdown/math'
+import { mermaid as mermaidPlugin } from '@streamdown/mermaid'
 import clsx from 'clsx'
 import { ExternalLink, Link2, PanelRight } from 'lucide-react'
 import { isValidElement, memo, useContext, useMemo, useState } from 'react'
 import { Streamdown, defaultRemarkPlugins } from 'streamdown'
+import 'katex/dist/katex.min.css'
 import 'streamdown/styles.css'
 
 import { t } from '../../i18n'
@@ -271,7 +274,7 @@ export const MessageResponse = memo(
           lineNumbers={false}
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
-          plugins={{ code: codePlugin, cjk: cjkPlugin }}
+          plugins={{ code: codePlugin, cjk: cjkPlugin, math: mathPlugin, mermaid: mermaidPlugin }}
           remarkPlugins={messageRemarkPlugins}
           skipHtml={disableRawHtml}
           rehypePlugins={disableRawHtml ? markdownOnlyRehypePlugins : messageRehypePlugins}

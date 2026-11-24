@@ -15,6 +15,7 @@
   "DELETE /agent/conversations/:sessionId/watch": "user",
   "DELETE /agent/devices/:deviceId": "user",
   "DELETE /agent/devices/:deviceId/agents/:agent": "user",
+  "DELETE /agent/devices/:deviceId/agents/:provider/sign-in": "user",
   "DELETE /agent/devices/:deviceId/box": "user",
   "DELETE /agent/devices/:deviceId/credential": "user",
   "DELETE /agent/devices/:deviceId/share-trusts/:actorId": "user",

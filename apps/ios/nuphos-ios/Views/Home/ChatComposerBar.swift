@@ -49,6 +49,8 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var dictationError: String?
     /// The `@Title`s picked into the draft, and the links they are sent as.
     @State private var mentionLinks: [String: URL] = [:]
+    /// The field's height, animated toward the hidden text's.
+    @State private var fieldHeight: CGFloat?
     #if canImport(UIKit)
     @State private var pasteHandler = ComposerPaste()
     #endif
@@ -162,7 +164,6 @@ struct ChatComposerBar<Controls: View>: View {
         .glass(interactive: true, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .animation(.snappy(duration: 0.28), value: expanded)
         .animation(.snappy(duration: 0.25), value: attachments)
-        .animation(.easeOut(duration: 0.15), value: hasText)
         .animation(.easeOut(duration: 0.15), value: isStreaming)
         .animation(.snappy(duration: 0.25), value: dictation == nil)
         .animation(.snappy(duration: 0.25), value: mentionResults)
@@ -259,36 +260,47 @@ struct ChatComposerBar<Controls: View>: View {
     /// input method. Only the hidden text sizes it, a full line wide and one to
     /// eight lines tall, since the text view would grow with its draft; the
     /// trailing space keeps an empty draft one line tall and counts a final
-    /// line break as a line.
+    /// line break as a line. The text view resizes in one frame whatever the
+    /// transaction says, so the field takes the hidden text's height as state
+    /// and animates it, and a paste or a cleared draft grows or shrinks the
+    /// composer instead of jumping.
     private var field: some View {
-        Text(text + " ")
-            .lineLimit(1...8)
-            .padding(Self.textInset)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .hidden()
-            .overlay {
-                ZStack(alignment: .topLeading) {
-                    if text.isEmpty {
-                        Text(prompt)
-                            .lineLimit(1)
-                            .foregroundStyle(.tertiary)
-                            .padding(Self.textInset)
-                            .allowsHitTesting(false)
-                            .accessibilityHidden(true)
-                    }
-                    TextEditor(text: $text)
-                        .scrollContentBackground(.hidden)
-                        .focused($focused)
-                        .accessibilityLabel(Text(prompt))
-                        // The numeric keypad's Enter may arrive as its own key.
-                        .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
-                            guard ComposerReturn.on(press.modifiers, composing: composing) == .send
-                            else { return .ignored }
-                            send(keepingFocus: true)
-                            return .handled
-                        }
-                }
+        ZStack(alignment: .topLeading) {
+            if text.isEmpty {
+                Text(prompt)
+                    .lineLimit(1)
+                    .foregroundStyle(.tertiary)
+                    .padding(Self.textInset)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
+            TextEditor(text: $text)
+                .scrollContentBackground(.hidden)
+                .focused($focused)
+                .accessibilityLabel(Text(prompt))
+                // The numeric keypad's Enter may arrive as its own key.
+                .onKeyPress(keys: [.return, KeyEquivalent("\u{3}")], phases: .down) { press in
+                    guard ComposerReturn.on(press.modifiers, composing: composing) == .send
+                    else { return .ignored }
+                    send(keepingFocus: true)
+                    return .handled
+                }
+        }
+        .frame(maxWidth: .infinity)
+        // One line until the hidden text has been measured.
+        .frame(height: fieldHeight ?? Self.textInset.top + Self.textInset.bottom + 22)
+        .background(alignment: .top) {
+            Text(text + " ")
+                .lineLimit(1...8)
+                .padding(Self.textInset)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .hidden()
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height in
+                    if fieldHeight == nil { fieldHeight = height }
+                    else { withAnimation(.snappy(duration: 0.25)) { fieldHeight = height } }
+                }
+        }
         // The text view's own inset, taken back so the text sits where the field's did.
         .padding(.horizontal, -Self.textInset.leading)
         .padding(.vertical, -Self.textInset.top)

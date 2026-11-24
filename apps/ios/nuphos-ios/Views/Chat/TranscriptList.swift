@@ -16,6 +16,9 @@ struct TranscriptList: UIViewControllerRepresentable {
     /// New rows slide in, rows that leave fade, and the rows on screen glide
     /// to make room, as in Messages. Off, only a sent row comes in this way.
     var animatesArrivals = false
+    /// Rows run on under the floating header and blur out there, as under
+    /// any iOS 26 bar, instead of fading into a canvas band.
+    var softTopEdge = false
     /// Scrolls to a row, such as the post a reply quotes.
     var jump: TranscriptJump? = nil
     /// What swiping a row right does, as replying in Messages; nil for a row that can't be swiped.
@@ -28,6 +31,7 @@ struct TranscriptList: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: TranscriptController, context: Context) {
         controller.setComposer(composer)
+        controller.setSoftTopEdge(softTopEdge)
         controller.swipeAction = swipeAction
         controller.placeholder.rootView = placeholder
         controller.update(rows: rows, submittedRowID: submittedRowID,
@@ -59,8 +63,13 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
     private var contentHeight: NSKeyValueObservation?
     private let composer = UIHostingController(rootView: AnyView(EmptyView()))
     let placeholder = UIHostingController(rootView: AnyView(EmptyView()))
-    private lazy var composerHeight = composer.view.heightAnchor.constraint(equalToConstant: 0)
+    /// Where the composer shows: its host runs from the page's top to the
+    /// keyboard, with the composer at its bottom.
+    private let composerFrame = UILayoutGuide()
+    private lazy var composerHeight = composerFrame.heightAnchor.constraint(equalToConstant: 0)
+    private let composerContainer = ComposerContainer()
     private let latestButton = UIButton(type: .system)
+    private let topFade = CanvasFade(edge: .top)
     var swipeAction: ((ChatRow) -> (() -> Void)?)? {
         didSet { swipe.isEnabled = swipeAction != nil }
     }
@@ -115,35 +124,46 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         // gets the same at the top. One keyboard source moves the composer
         // and the collection, inside the keyboard's own animation and
         // interactive drag, and nothing else moves them.
-        let topFade = CanvasFade(edge: .top), bottomFade = CanvasFade(edge: .bottom)
+        let bottomFade = CanvasFade(edge: .bottom)
         view.addSubview(topFade)
         view.addSubview(bottomFade)
         addChild(composer)
-        composer.view.backgroundColor = UIColor(Theme.chatCanvas)
-        // Its own changes (focus, attachments, a long draft) report a new size
-        // to this controller, which measures it again.
-        composer.sizingOptions = .preferredContentSize
+        // The composer animates its own height, a paste or a cleared draft.
+        // Its host keeps one size, so the composer grows and shrinks from its
+        // bottom edge and that edge stays on the keyboard in every frame. A
+        // host that resized with it would move the composer's origin under
+        // the animation.
+        composer.view.backgroundColor = .clear
         // The guide already keeps it clear of the keyboard and home indicator;
         // SwiftUI's own keyboard avoidance would move it a second time.
         composer.safeAreaRegions = []
         composer.view.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(composer.view)
+        composerContainer.translatesAutoresizingMaskIntoConstraints = false
+        composerContainer.addSubview(composer.view)
+        view.addSubview(composerContainer)
+        view.addLayoutGuide(composerFrame)
         composer.didMove(toParent: self)
         NSLayoutConstraint.activate([
             collection.topAnchor.constraint(equalTo: view.topAnchor),
             collection.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             collection.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             collection.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            composer.view.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
-            composer.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            composer.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composerContainer.topAnchor.constraint(equalTo: view.topAnchor),
+            composerContainer.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
+            composerContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            composerContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            composer.view.topAnchor.constraint(equalTo: composerContainer.topAnchor),
+            composer.view.bottomAnchor.constraint(equalTo: composerContainer.bottomAnchor),
+            composer.view.leadingAnchor.constraint(equalTo: composerContainer.leadingAnchor),
+            composer.view.trailingAnchor.constraint(equalTo: composerContainer.trailingAnchor),
+            composerFrame.bottomAnchor.constraint(equalTo: view.keyboardLayoutGuide.topAnchor),
             composerHeight,
             topFade.topAnchor.constraint(equalTo: view.topAnchor),
             topFade.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: CanvasFade.fade),
             topFade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             topFade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             bottomFade.heightAnchor.constraint(equalToConstant: CanvasFade.fade),
-            bottomFade.bottomAnchor.constraint(equalTo: composer.view.topAnchor),
+            bottomFade.bottomAnchor.constraint(equalTo: composerFrame.topAnchor),
             bottomFade.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             bottomFade.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         ])
@@ -176,9 +196,15 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
         view.addSubview(latestButton)
         NSLayoutConstraint.activate([
             latestButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -16),
-            latestButton.bottomAnchor.constraint(equalTo: composer.view.topAnchor, constant: -12),
+            latestButton.bottomAnchor.constraint(equalTo: composerFrame.topAnchor, constant: -12),
         ])
         latestButton.isHidden = true
+    }
+
+    func setSoftTopEdge(_ soft: Bool) {
+        guard #available(iOS 26, *) else { return }
+        topFade.isHidden = soft
+        collection.topEdgeEffect.style = soft ? .soft : .automatic
     }
 
     func update(rows transcript: [ChatRow], submittedRowID: String?, sessionID: String, animatesArrivals: Bool = false,
@@ -257,24 +283,32 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
 
     /// A draft lives in the page's state, so every keystroke arrives here.
     func setComposer(_ content: AnyView) {
-        composer.rootView = content
-        view.setNeedsLayout()
+        composer.rootView = AnyView(content
+            .frame(maxWidth: .infinity)
+            .background(Theme.chatCanvas)
+            .onGeometryChange(for: CGFloat.self) { ceil($0.size.height) } action: { [weak self] height in
+                self?.composerResized(to: height)
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom))
     }
 
-    override func preferredContentSizeDidChange(forChildContentContainer container: UIContentContainer) {
-        super.preferredContentSizeDidChange(forChildContentContainer: container)
+    /// The composer's height places the transcript, the fade and the button
+    /// above it. Outside the keyboard's animation they follow the composer's
+    /// own resizing on the same spring.
+    private func composerResized(to height: CGFloat) {
+        composerContainer.composerHeight = height
+        let animated = composerHeight.constant != 0 && UIView.inheritedAnimationDuration == 0
+        composerHeight.constant = height
         view.setNeedsLayout()
+        if animated { UIView.animate(springDuration: 0.25, bounce: 0.15) { self.view.layoutIfNeeded() } }
     }
 
     /// Before layout, so the transcript is sized and positioned against the
     /// composer's new height in the same pass, inside the keyboard's animation.
     override func viewWillLayoutSubviews() {
         super.viewWillLayoutSubviews()
-        // Measured at the page's width: the hosting controller's own intrinsic
-        // size has no width, so a long draft would never wrap and grow it.
-        let height = ceil(composer.sizeThatFits(in: CGSize(width: view.bounds.width, height: .greatestFiniteMagnitude)).height)
-        if composerHeight.constant != height {
-            composerHeight.constant = height
+        let height = composerHeight.constant
+        if collection.contentInset.bottom != height {
             collection.contentInset.bottom = height
             collection.verticalScrollIndicatorInsets.bottom = height
             // Counting the composer as part of the keyboard lets a drag pick
@@ -364,7 +398,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             }
         }
         for picture in leaving {
-            view.insertSubview(picture, belowSubview: composer.view)
+            view.insertSubview(picture, belowSubview: composerContainer)
             let frame = picture.frame
             picture.layer.anchorPoint = CGPoint(x: 0, y: 1)
             picture.frame = frame
@@ -819,7 +853,7 @@ final class TranscriptController: UIViewController, UICollectionViewDelegate, UI
             let tapped = collection.contentOffset.y
             await pause()
             let newestBottom = layout.layoutAttributesForItem(at: IndexPath(item: rows.count - 1, section: 0))?.frame.maxY ?? .infinity
-            let composerTop = composer.view.convert(CGPoint.zero, to: collection).y
+            let composerTop = view.convert(CGPoint(x: 0, y: composerFrame.layoutFrame.minY), to: collection).y
             check(name, shownBefore && atEnd && newestBottom <= composerTop && latestButton.isHidden,
                   "gap=\(distanceToEnd) tapped=\(tapped) after=\(collection.contentOffset.y) newestBottom=\(newestBottom) " +
                   "composerTop=\(composerTop) buttonBefore=\(shownBefore) buttonAfter=\(!latestButton.isHidden)")
@@ -911,6 +945,15 @@ final class TranscriptCollectionView: UICollectionView {
 #else
 typealias TranscriptCollectionView = UICollectionView
 #endif
+
+/// The composer's host runs from the page's top to the keyboard; touches
+/// above the composer itself reach the transcript.
+private final class ComposerContainer: UIView {
+    var composerHeight: CGFloat = 0
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        point.y < bounds.height - composerHeight ? nil : super.hitTest(point, with: event)
+    }
+}
 
 private final class RotationLayoutView: UIView {
     var rotating = false

@@ -127,20 +127,19 @@ export function NewAgentMenu({
       <MenuContent align="start">
         {LOCAL_AGENT_PROVIDERS.map((provider) => {
           const action = newAgentAction(agents, provider)
+
+          // Nothing to add or sign in: Antigravity is either not on this computer or already signed in.
+          if (!action) return null
           const { label, preview } = AGENT_PROVIDER[provider]
 
           return (
             <MenuItem
               key={provider}
-              disabled={busy || !action}
+              disabled={busy}
               icon={<AgentProviderIcon provider={provider} className="h-4 w-4" />}
               onClick={() => onAdd(provider)}
             >
-              {provider === 'antigravity' && !action
-                ? t('Antigravity uses this computer’s shared sign-in')
-                : action && 'create' in action
-                  ? label
-                  : t('Sign in to {provider}', { provider: label })}
+              {'create' in action ? label : t('Sign in to {provider}', { provider: label })}
               {preview && <PreviewTag />}
             </MenuItem>
           )

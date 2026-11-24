@@ -37,7 +37,7 @@ use base64::engine::general_purpose::{STANDARD as B64_STD, URL_SAFE_NO_PAD as B6
 use base64::Engine as _;
 use rmcp::handler::server::ServerHandler;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResult, Content, Implementation, ListToolsResult,
+    CallToolRequestParams, CallToolResult, ContentBlock, Implementation, ListToolsResult,
     PaginatedRequestParams, ServerCapabilities, ServerInfo, Tool,
 };
 use rmcp::service::{RequestContext, RoleServer};
@@ -694,10 +694,12 @@ impl ServerHandler for GmailNative {
             }
         };
         Ok(match outcome {
-            Ok(v) => CallToolResult::success(vec![Content::text(
+            Ok(v) => CallToolResult::success(vec![ContentBlock::text(
                 serde_json::to_string(&v).unwrap_or_else(|_| v.to_string()),
             )]),
-            Err(e) => CallToolResult::error(vec![Content::text(redact_secrets(&format!("{e:#}")))]),
+            Err(e) => {
+                CallToolResult::error(vec![ContentBlock::text(redact_secrets(&format!("{e:#}")))])
+            }
         })
     }
 }

@@ -53,12 +53,11 @@ struct NewRuntimeSheet: View {
         List {
             Section {
                 ForEach(NewRuntime.providers, id: \.rawValue) { candidate in
-                    let action = NewRuntime.action(existing, candidate)
-
-                    Button { choose(candidate, action) } label: { row(candidate, action) }
-                        .buttonStyle(.plain)
-                        .disabled(action == .unavailable)
-                        .accessibilityIdentifier("provider-\(candidate.rawValue)")
+                    if let action = NewRuntime.action(existing, candidate) {
+                        Button { choose(candidate, action) } label: { row(candidate, action) }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("provider-\(candidate.rawValue)")
+                    }
                 }
             } header: {
                 Text(device.label)
@@ -72,13 +71,7 @@ struct NewRuntimeSheet: View {
     private func row(_ candidate: RuntimeInstance.Provider, _ action: NewRuntime.Action) -> some View {
         HStack(spacing: 12) {
             ProviderIcon(provider: candidate, size: 30)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title(candidate, action)).font(.system(size: 15)).foregroundStyle(Theme.heading)
-                if action == .unavailable {
-                    Text("Antigravity uses this computer’s shared sign-in")
-                        .font(.footnote).foregroundStyle(Theme.muted)
-                }
-            }
+            Text(title(candidate, action)).font(.system(size: 15)).foregroundStyle(Theme.heading)
             Spacer(minLength: 0)
         }
         .contentShape(Rectangle())
@@ -100,8 +93,6 @@ struct NewRuntimeSheet: View {
             provider = candidate
         case .signIn(let runtimeId):
             signingIn = existing.first { $0.id == runtimeId }
-        case .unavailable:
-            break
         }
     }
 

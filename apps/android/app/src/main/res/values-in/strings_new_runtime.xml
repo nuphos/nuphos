@@ -3,7 +3,6 @@
     <string name="new_runtime_title">Runtime baru</string>
     <string name="new_runtime_sign_in">Masuk ke %1$s</string>
     <string name="new_runtime_preview">%1$s · Pratinjau</string>
-    <string name="new_runtime_shared_sign_in">Antigravity menggunakan login bersama komputer ini</string>
     <string name="new_runtime_on_computer">Di %1$s. Berikutnya Anda masuk ke akunnya.</string>
     <string name="new_runtime_name">Nama runtime</string>
     <string name="new_runtime_name_taken">Runtime lain di komputer ini sudah memakai nama ini.</string>

@@ -94,38 +94,56 @@ export const SETTLE_MS = 3_000
 
 export const newEventId = () => `evt_${randomBytes(12).toString('hex')}`
 
-/** Queues a look at the session for each enabled endpoint of its team. Never throws. */
+/**
+ * The endpoint a session reports to: the one nuphos_ask's webhook_id named for
+ * it or, for a Task, for its nearest ancestor. Read at queue time, so a Task
+ * moved under another parent follows it.
+ */
+async function sessionWebhook(sessionId: string) {
+  const seen = new Set([sessionId])
+  let link = await agentConversations().findOne(
+    { sessionId },
+    { projection: { teamId: 1, webhookId: 1, parentSessionId: 1 } },
+  )
+  const teamId = link?.teamId
+
+  while (link && !link.webhookId && link.parentSessionId && !seen.has(link.parentSessionId)) {
+    seen.add(link.parentSessionId)
+    link = await agentConversations().findOne(
+      { sessionId: link.parentSessionId, teamId },
+      { projection: { webhookId: 1, parentSessionId: 1 } },
+    )
+  }
+
+  return teamId && link?.webhookId ? { teamId, webhookId: link.webhookId } : null
+}
+
+/** Queues a look at the session for the endpoint it reports to, if any. Never throws. */
 export function queueWebhookEvents(sessionId: string, hint?: WebhookEvent): void {
   void (async () => {
-    const conversation = await agentConversations().findOne(
-      { sessionId },
-      { projection: { teamId: 1, webhookId: 1 } },
+    const target = await sessionWebhook(sessionId)
+
+    if (!target) return
+    const { teamId } = target
+    const hook = await teamWebhooks().findOne(
+      { _id: new ObjectId(target.webhookId), teamId, enabled: true },
+      { projection: { _id: 1 } },
     )
-    const teamId = conversation?.teamId
 
-    if (!teamId) return
-    // A session started for one endpoint (nuphos_ask's webhook_id) reaches only that one.
-    const only = conversation.webhookId ? { _id: new ObjectId(conversation.webhookId) } : {}
-    const hooks = await teamWebhooks()
-      .find({ teamId, enabled: true, ...only }, { projection: { _id: 1 } })
-      .toArray()
-
-    if (hooks.length === 0) return
+    if (!hook) return
     const now = new Date()
 
-    await webhookDeliveries().insertMany(
-      hooks.map((hook) => ({
-        _id: newEventId(),
-        webhookId: hook._id,
-        teamId,
-        sessionId,
-        ...(hint ? { hint } : {}),
-        state: 'pending' as const,
-        attempts: 0,
-        nextAttemptAt: new Date(now.getTime() + SETTLE_MS),
-        createdAt: now,
-      })),
-    )
+    await webhookDeliveries().insertOne({
+      _id: newEventId(),
+      webhookId: hook._id,
+      teamId,
+      sessionId,
+      ...(hint ? { hint } : {}),
+      state: 'pending',
+      attempts: 0,
+      nextAttemptAt: new Date(now.getTime() + SETTLE_MS),
+      createdAt: now,
+    })
   })().catch((error: unknown) => {
     logError('webhooks.queue_failed', error, { session_id: sessionId })
   })

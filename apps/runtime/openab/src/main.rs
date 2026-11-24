@@ -325,6 +325,9 @@ static PROCESS_STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::Onc
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let _ = PROCESS_STARTED.set(std::time::Instant::now());
+    // Both ring and aws-lc-rs are compiled into rustls 0.23, so rustls can't pick a
+    // provider itself, and `ClientConfig::builder()` (tokio-tungstenite, agentcore) panics.
+    let _ = rustls::crypto::ring::default_provider().install_default();
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()

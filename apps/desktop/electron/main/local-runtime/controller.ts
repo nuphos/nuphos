@@ -5,9 +5,9 @@ import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
+  pauseAgent,
   prepareHomeFor,
   scheduleAgentRestart,
-  stopAgentProcess,
   saveCli,
   userDir,
 } from './controller-types.ts'
@@ -42,6 +42,8 @@ export class LocalRuntimeController {
   private revision = 0
   private endpoint: string | undefined
   private switching: Promise<unknown> = Promise.resolve()
+  readonly whileStopped = <T>(provider: LocalAgentProvider, work?: () => Promise<T> | T) =>
+    pauseAgent(this.agents[provider], this.reportChange, work)
   private readonly reportChange = (): void => {
     this.changed()
     this.tunnel?.sendStatus()
@@ -59,7 +61,7 @@ export class LocalRuntimeController {
         this.reportChange,
         {
           refreshDefault: (provider, restart) => this.refresh(restart, [provider]),
-          stopDefault: (provider) => this.stopAgent(provider),
+          pauseDefault: this.whileStopped,
         },
       )
     this.deps = deps
@@ -156,20 +158,18 @@ export class LocalRuntimeController {
     this.tunnel?.reconnectNow()
   }
   async shutdown(): Promise<void> {
+    this.userId = null
     this.usage.stop()
     this.tunnel?.stop()
     this.tunnel = undefined
     this.online = false
     this.superseded = false
     this.revoked = false
-    await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
+    await Promise.all(this.providers.map((provider) => this.whileStopped(provider)))
     await this.instances?.shutdown()
   }
   private changed(): void {
     this.deps.onChange?.()
-  }
-  private stopAgent(provider: LocalAgentProvider): Promise<void> {
-    return stopAgentProcess(this.agents[provider], this.reportChange)
   }
   private openTunnel(): void {
     this.tunnel ??= this.deps.createTunnel(
@@ -221,7 +221,7 @@ export class LocalRuntimeController {
     const userId = this.userId
 
     if (!userId) return
-    await this.stopAgent(provider)
+    await this.whileStopped(provider)
     const agent = this.agents[provider]
     const generation = agent.generation
     const current = () => generation === agent.generation && userId === this.userId

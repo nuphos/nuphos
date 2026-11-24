@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">Menganggur · %1$s</string>
     <string name="chat_bot_details_no_triggers">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_summary_paused">Dijeda</string>
+    <string name="chat_bot_instructions">Instruksi Bot</string>
+    <string name="chat_bot_instructions_edit">Edit instruksi</string>
+    <string name="chat_bot_instructions_none">Belum ada</string>
 </resources>

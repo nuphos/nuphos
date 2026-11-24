@@ -79,6 +79,7 @@ export function discoverModels(
       .finally(() => {
         inFlight = undefined
       })
+    agent.probing = inFlight
 
     return inFlight
   }
