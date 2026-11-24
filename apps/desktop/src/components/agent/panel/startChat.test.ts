@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
 import { before, mock, test } from 'node:test'
 
 import { AGENT_PROVIDERS } from '../../../types/runtime.ts'
 
-import type { Message, Tab } from './model'
+import type { Tab } from './model'
 import type { TransferUploadPart } from './parts'
 import type { StartChatCtx } from './startChat.ts'
 import type { WindowAgentApi } from '../../../api/window-agent'
@@ -28,10 +27,11 @@ before(async () => {
   mock.module('./credentialAccess.ts', {
     namedExports: { credentialSelectionSignature: JSON.stringify },
   })
-  mock.module('./stall.ts', { namedExports: { uid: randomUUID, newAgentStreamId: randomUUID } })
-  mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en-US' } })
-  mock.module('./toUiMessages.ts', {
-    namedExports: { toUiMessages: (messages: Message[]) => messages },
+  mock.module('../../../lib/frontendErrorReporter.ts', {
+    namedExports: { reportFrontendError: () => {} },
+  })
+  mock.module('../../../lib/ownedAgentStreams.ts', {
+    namedExports: { markOwnedAgentStream: () => {} },
   })
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
