@@ -966,6 +966,13 @@ final class AgentStore {
             if isFailed { phase = .loaded }
         }
         await chats
+        // A Box still coming up lists no selectable runtime yet, and a host
+        // that drops on its way can leave "getting ready" before any joins:
+        // keep reading until one is, so Home reaches a usable state untouched.
+        if runtimesLoaded && RuntimeInstance.defaultPick(runtimes) == nil {
+            await loadRuntimes()
+            await loadAgentDevices(metrics: false)
+        }
     }
 
     /// Search is server-backed; debounce like the desktop (250 ms).
