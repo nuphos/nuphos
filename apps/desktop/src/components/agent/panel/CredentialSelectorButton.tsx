@@ -185,6 +185,9 @@ function SelectionButton({
           </div>
         )}
         {totalCount > 0 && (
+          <AllSwitch all={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
+        )}
+        {totalCount > 0 && !all && (
           <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
             <button
               type="button"
@@ -205,16 +208,10 @@ function SelectionButton({
             </button>
           </div>
         )}
-        {totalCount > 0 && (
-          <AllOption
-            devices={devices}
-            checked={all}
-            onCheckedChange={(checked) => save(setAll(stored, options, flag, checked))}
-          />
-        )}
-        {devices ? (
+        {!all && devices && (
           <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
-        ) : (
+        )}
+        {!all && !devices && (
           <CredentialSelectorSectionList
             sections={sections}
             value={value}
@@ -229,25 +226,29 @@ function SelectionButton({
   )
 }
 
-// Unlike Select all, it also covers what is added later.
-function AllOption({
-  devices,
-  checked,
-  onCheckedChange,
-}: {
-  devices: boolean
-  checked: boolean
-  onCheckedChange: (checked: boolean) => void
-}) {
+// A mode, not a row: All covers what is added later, so there is nothing to pick under it.
+// Custom starts from what All covered now.
+function AllSwitch({ all, onChange }: { all: boolean; onChange: (all: boolean) => void }) {
+  const choice = (on: boolean, label: string) => (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={all === on}
+      onClick={() => all !== on && onChange(on)}
+      className={clsx(
+        'h-6 flex-1 rounded-[5px] text-[12px] transition-colors',
+        all === on ? 'bg-surface-raised text-main shadow-sm' : 'text-secondary hover:text-main',
+      )}
+    >
+      {label}
+    </button>
+  )
+
   return (
-    <MenuCheckboxItem checked={checked} onCheckedChange={onCheckedChange}>
-      <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] text-main">{t('All')}</span>
-        <span className="block text-[11.5px] text-tertiary">
-          {devices ? t('Includes computers added later') : t('Includes credentials added later')}
-        </span>
-      </span>
-    </MenuCheckboxItem>
+    <div role="radiogroup" className="mx-2 mb-1.5 flex gap-0.5 rounded-md bg-surface-sunken p-0.5">
+      {choice(true, t('All'))}
+      {choice(false, t('Custom'))}
+    </div>
   )
 }
 
