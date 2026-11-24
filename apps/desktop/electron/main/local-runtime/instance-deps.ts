@@ -1,7 +1,10 @@
 import { INSTALLABLE, installAgentCli } from './agent-cli-install.ts'
+import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { userDir } from './controller-types.ts'
+import { agentHomeName } from './providers.ts'
 
+import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 /** An added agent's own install of its missing CLI: tried once, reported while it runs. */
@@ -82,4 +85,27 @@ export function instanceControllerDeps(
     }),
     onChange: changed,
   }
+}
+
+/**
+ * Deletes an added agent's logins and Claude's Keychain entry, then checks with its own deps,
+ * which find that entry, whether it is still signed in: the error to fail a reset with.
+ */
+export async function signOutInstance(
+  deps: LocalRuntimeControllerDeps,
+  dir: string,
+  userId: string,
+  provider: LocalAgentProvider,
+  removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>,
+): Promise<Error | undefined> {
+  const home = userDir(dir, userId, agentHomeName(provider))
+
+  deleteAgentCredentials(provider, home)
+  if (provider === 'claude-code') await removeCredential(secureStorageEnv(dir, userId))
+
+  return credentialsLeft(
+    provider,
+    home,
+    instanceControllerDeps(deps, dir, userId, () => undefined),
+  )
 }
