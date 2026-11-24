@@ -27,7 +27,7 @@ const { receiveAgentAvatars, agentAvatarBackground } =
   await import('../../../lib/agentAvatarChoices')
 const { RenameConversationDialog } = await import('./ConversationTitleEditor')
 
-test('Edit Bot saves a background picked for the same character', async () => {
+test('Edit Bot shows, previews and saves the background of the same character', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -42,7 +42,10 @@ test('Edit Bot saves a background picked for the same character', async () => {
 
   for (const [key, value] of Object.entries(values))
     Object.defineProperty(globalThis, key, { configurable: true, value })
-  receiveAgentAvatars([{ sessionId: 'bot-1', avatar: '07-ada' }], Date.now())
+  receiveAgentAvatars(
+    [{ sessionId: 'bot-1', avatar: '07-ada', avatarBackground: 'sky' }],
+    Date.now(),
+  )
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -62,12 +65,22 @@ test('Edit Bot saves a background picked for the same character', async () => {
         }),
       ),
     )
-    const mint = [...container.querySelectorAll('[role="radio"]')].find(
-      (radio) => radio.getAttribute('aria-label') === 'Mint' || radio.textContent === 'Mint',
-    ) as unknown as HTMLElement | undefined
+    const backgrounds = container.querySelector('[role="radiogroup"][aria-label="Background"]')
+    const preview = () =>
+      [...container.querySelectorAll('span[style]')].map(
+        (span) => (span as unknown as HTMLElement).style.background,
+      )
 
-    assert.ok(mint, 'Edit Bot offers a background for the character')
+    assert.ok(backgrounds, 'Edit Bot offers a background for the character')
+    assert.equal(
+      backgrounds.querySelector('[aria-checked="true"]')?.getAttribute('aria-label'),
+      'Sky',
+    )
+    assert.ok(preview().some((color) => color.includes('avatar-sky')))
+    const mint = backgrounds.querySelector('[aria-label="Mint"]') as unknown as HTMLElement
+
     await act(() => mint.click())
+    assert.ok(preview().some((color) => color.includes('avatar-mint')))
     const form = container.querySelector('form')
 
     assert.ok(form)
