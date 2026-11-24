@@ -166,13 +166,13 @@ export const botAccessScenarios: Scenario[] = [
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
-      await page.getByText('Back to conversation').waitFor()
+      await page.getByText('Back to chat').waitFor()
       await composer(page).getByRole('button', { name: 'Authorization mode' }).waitFor()
       if ((await composerAccess(page)) !== 3)
         throw new Error(`The Bot's page composer offers ${String(await composerAccess(page))} of 3`)
       await shoot(page, 'task-composer')
-      await page.getByText('Back to conversation').click()
-      await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+      await page.getByText('Back to chat').click()
+      await page.getByText('Back to chat').waitFor({ state: 'hidden' })
       await setBotDetails(page, false)
     },
   },
