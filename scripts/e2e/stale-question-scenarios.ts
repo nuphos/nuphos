@@ -2,6 +2,7 @@
 import { agentLog } from './agent-log.ts'
 import { client, must } from './binding-access-scenarios.ts'
 import { busyAnswerScenarios } from './busy-answer-scenarios.ts'
+import { todoScenarios } from './todo-scenarios.ts'
 import { calledTool } from './computer-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
@@ -209,4 +210,5 @@ export const staleQuestionScenarios: Scenario[] = [
     },
   },
   ...busyAnswerScenarios,
+  ...todoScenarios,
 ]

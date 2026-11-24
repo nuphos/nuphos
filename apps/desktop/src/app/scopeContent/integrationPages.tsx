@@ -1,14 +1,16 @@
 import {
-  faDatabase,
-  faGaugeHigh,
-  faServer,
-  faTableColumns,
-  faTriangleExclamation,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Container, FolderTree, Server, ShieldAlert } from 'lucide-react'
+  Database as DatabaseIcon,
+  Gauge as GaugeIcon,
+  PanelsTopLeft as PanelsTopLeftIcon,
+  TriangleAlert as TriangleAlertIcon,
+  Container,
+  FolderTree,
+  Server,
+  ShieldAlert,
+} from 'lucide-react'
 
 import { api } from '../../api'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import {
   BetterStackIntegrationView,
@@ -41,15 +43,15 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
             ? 'dashboards'
             : 'monitors'
     const betterStackMeta = {
-      monitors: { title: t('Monitors'), icon: faGaugeHigh },
-      incidents: { title: t('Incidents'), icon: faTriangleExclamation },
-      sources: { title: t('Sources'), icon: faDatabase },
-      dashboards: { title: t('Dashboards'), icon: faTableColumns },
+      monitors: { title: t('Monitors'), icon: GaugeIcon },
+      incidents: { title: t('Incidents'), icon: TriangleAlertIcon },
+      sources: { title: t('Sources'), icon: DatabaseIcon },
+      dashboards: { title: t('Dashboards'), icon: PanelsTopLeftIcon },
     }[betterStackPage]
 
     return renderActiveNavPage(
       betterStackMeta.title,
-      <FontAwesomeIcon icon={betterStackMeta.icon} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={betterStackMeta.icon} className="w-3.5 h-3.5 text-tertiary" />,
       <BetterStackIntegrationView
         teamId={scope.teamId}
         integration={integration}
@@ -67,7 +69,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
 
     return renderActiveNavPage(
       t('Monitors'),
-      <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={GaugeIcon} className="w-3.5 h-3.5 text-tertiary" />,
       <UptimeKumaInstanceView
         teamId={scope.teamId}
         instance={instance}
@@ -106,7 +108,7 @@ export function renderIntegrationPages(ctx: ScopeRenderContext): React.ReactNode
   if (scope.kind === 'tailscale-client') {
     return renderActiveNavPage(
       t('Devices'),
-      <FontAwesomeIcon icon={faServer} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={Server} className="w-3.5 h-3.5 text-tertiary" />,
       <TailscaleDevicesView
         teamId={scope.teamId}
         clientId={scope.clientId}

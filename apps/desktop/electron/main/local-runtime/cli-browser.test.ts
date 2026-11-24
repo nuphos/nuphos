@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { PassThrough } from 'node:stream'
@@ -156,6 +156,26 @@ test('show answers that the computer has no screen', async () => {
 
   assert.equal(shown.isError, true)
   assert.match(textOf(shown), /without a screen/)
+})
+
+test("a conversation's browser waits while a person holds its desktop", async () => {
+  const pool = mkdtempSync(join(tmpdir(), 'desktop-pool-'))
+  const hold = (owner: string) =>
+    writeFileSync(join(pool, '1.xdg', 'instabox-control'), `${owner} ${String(Date.now() / 1000)}`)
+  const run = createCliBrowser(() => fakeChromium().browser, temp, pool)
+  const open = (session: string) =>
+    run(call(session, { action: 'open', url: 'https://example.com/' }))
+
+  writeFileSync(join(pool, '1.lock'), JSON.stringify({ sessionId: 's1' }))
+  mkdirSync(join(pool, '1.xdg'))
+  hold('human Sam')
+  const waiting = await open('s1')
+
+  assert.equal(waiting.isError, true)
+  assert.match(textOf(waiting), /taken over/)
+  assert.notEqual((await open('s2')).isError, true)
+  hold('agent')
+  assert.notEqual((await open('s1')).isError, true)
 })
 
 test('a computer offers local_browser only when it has a Chromium to run it on', () => {

@@ -99,11 +99,21 @@ export class LocalAgentLogin {
     connected: () => Promise<boolean>
     /** After an account sign-in: an API key would still outrank it, so it is removed. */
     accountSignedIn?: () => Promise<void>
+    /** Once it is verified signed in here: whoever signed it in through Nuphos no longer applies. */
+    signedIn?: () => Promise<void>
     spawn?: typeof spawn
   }
 
   constructor(deps: LocalAgentLogin['deps']) {
     this.deps = deps
+  }
+
+  private async verified(): Promise<boolean> {
+    const ready = await this.deps.connected()
+
+    if (ready) await this.deps.signedIn?.()
+
+    return ready
   }
 
   state(): LocalAgentLoginState {
@@ -139,7 +149,7 @@ export class LocalAgentLogin {
     this.update({ state: 'checking' })
     try {
       await runLoginWrapper(run, key, this.deps.spawn)
-      const ready = await this.deps.connected()
+      const ready = await (key ? this.verified() : this.deps.connected())
 
       if (generation !== this.generation) return
       if (key && !ready) throw new Error('The API key was saved, but the runtime is not ready yet.')
@@ -234,7 +244,7 @@ export class LocalAgentLogin {
       this.child = undefined
       this.update({ state: 'checking' })
       void (this.deps.accountSignedIn?.() ?? Promise.resolve())
-        .then(() => this.deps.connected())
+        .then(() => this.verified())
         .then(
           (ready) => {
             if (current())

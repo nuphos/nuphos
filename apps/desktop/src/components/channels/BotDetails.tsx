@@ -10,6 +10,7 @@ import {
 } from '../../lib/botDetailsPanel'
 import { useChatSummaryDocked } from '../../lib/chatSummaryPanel'
 import { selectInboxQuestion } from '../../views/inbox/inboxSelection'
+import { EditableConversationTitle } from '../agent/panel/ConversationTitleEditor'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
@@ -70,14 +71,16 @@ function BotDetailsToggle({
   )
 }
 
-/** A chat's face and name in its header; a Bot's open the Bot's details. */
+/** A chat's face and name in its header; a Bot's open the Bot's details, a group chat's owner renames it. */
 export function ChannelHeading({
+  teamId,
   chat,
   title,
   visible,
 }: {
+  teamId: string
   /** Undefined while the chat loads. */
-  chat: { faces?: ChannelFace[]; group?: true } | undefined
+  chat: { sessionId: string; isOwner?: boolean; faces?: ChannelFace[]; group?: true } | undefined
   title: string
   visible: boolean
 }) {
@@ -88,7 +91,14 @@ export function ChannelHeading({
   return (
     <>
       <ChatHeaderIcon faces={chat?.faces} title={title} loading={!chat} />
-      <span className="min-w-0 truncate text-main">{title}</span>
+      <span className="flex min-w-0 text-main">
+        <EditableConversationTitle
+          sessionId={chat?.sessionId ?? null}
+          teamId={teamId}
+          title={title}
+          canRename={chat?.isOwner === true}
+        />
+      </span>
     </>
   )
 }

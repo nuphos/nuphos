@@ -170,7 +170,7 @@ export function ChannelPane({
       >
         {titlebarLeading}
         <div className="titlebar-drag flex min-w-0 flex-1 self-stretch items-center gap-2 overflow-hidden text-[13px] font-medium text-secondary">
-          <ChannelHeading chat={chat} title={title} visible={visible} />
+          <ChannelHeading teamId={teamId} chat={chat} title={title} visible={visible} />
           <BotStatusPill
             teamId={teamId}
             botId={bot}

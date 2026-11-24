@@ -109,7 +109,8 @@ export function turnFacts(text) {
       }
     : undefined
 
-  return { language: promptLanguage(text), history }
+  // The Pending line a turn carries while its Task has open Inbox questions or to-dos.
+  return { language: promptLanguage(text), history, pending: /^Pending: .*$/m.exec(text)?.[0] }
 }
 
 /** The Claude Code settings a session was opened with that only a Bot's carry (#3970). */

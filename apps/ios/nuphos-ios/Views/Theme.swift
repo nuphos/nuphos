@@ -38,21 +38,8 @@ enum Theme {
     static let hairline = heading.opacity(0.08)
     static let separator = heading.opacity(0.08)
 
-    /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
-    /// The characters are drawn for light discs, so the tints stay light in the dark.
-    private static let avatarBackgrounds: [String: Color] = [
-        "sand": adaptive(light: 0xF2E7D3, dark: 0xF2E7D3),
-        "peach": adaptive(light: 0xF8DCCB, dark: 0xF8DCCB),
-        "rose": adaptive(light: 0xF6D5DE, dark: 0xF6D5DE),
-        "lilac": adaptive(light: 0xE5DCF5, dark: 0xE5DCF5),
-        "sky": adaptive(light: 0xD6E6F7, dark: 0xD6E6F7),
-        "mint": adaptive(light: 0xD3EEDF, dark: 0xD3EEDF),
-        "sage": adaptive(light: 0xE1E9D1, dark: 0xE1E9D1),
-        "slate": adaptive(light: 0xE1E4EA, dark: 0xE1E4EA),
-    ]
-
     /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
-    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { avatarBackgrounds[$0] } }
+    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { BotAvatars.backgrounds[$0] }.map { Color(hex: $0) } }
 
     enum Space {
         static let small: CGFloat = 8
