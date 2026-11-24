@@ -700,24 +700,28 @@ private struct ReplyFailedLine: View {
 private struct TypingRow: View {
     let agents: [ChannelAgent]
     @Environment(AgentStore.self) private var store
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(agents) { agent in
                 let runtime = agent.provider ?? store.conversations.first { $0.sessionId == agent.sessionId }?.agentRuntime
                 HStack(alignment: .bottom, spacing: 8) {
-                    AgentAvatar(agentId: agent.sessionId, runtime: runtime, size: 24)
+                    AgentAvatar(agentId: agent.sessionId, runtime: runtime, size: 28)
                     TypingDots(size: 6)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                         .background(Theme.sunken, in: UnevenRoundedRectangle(cornerRadii: .init(
                             topLeading: 16, bottomLeading: 6, bottomTrailing: 16, topTrailing: 16), style: .continuous))
+                        .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("\(agent.title) is thinking")
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onAppear { withAnimation(.spring(duration: 0.3, bounce: 0.25)) { shown = true } }
     }
 }
 
