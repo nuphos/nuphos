@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">閒置 · %1$s</string>
     <string name="chat_bot_details_no_triggers">請在這裡要求安排定期執行的工作。</string>
     <string name="chat_summary_paused">已暫停</string>
+    <string name="chat_bot_instructions">Bot 指示</string>
+    <string name="chat_bot_instructions_edit">編輯指示</string>
+    <string name="chat_bot_instructions_none">尚無</string>
 </resources>

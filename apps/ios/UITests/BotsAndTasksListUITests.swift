@@ -270,6 +270,10 @@ final class BotsAndTasksListUITests: XCTestCase {
         field.tap()
         field.typeText(" Thursday.")
         shot("6-bot-instructions-editing")
+        // The server lists what it saved from now on, so the Bots poll does not bring the old text back.
+        let saved = try String(contentsOf: live, encoding: .utf8)
+            .replacingOccurrences(of: "Ship the 2.4 release. Ask before tagging.", with: "Ship 2.4 on Thursday.")
+        try saved.write(to: live, atomically: true, encoding: .utf8)
         app.buttons["bot-instructions-save"].tap()
         XCTAssertTrue(text.waitForExistence(timeout: 5), "Save does not close the editor")
         XCTAssertEqual(text.label, "Ship 2.4 on Thursday.", "Bot details does not show what the server saved")

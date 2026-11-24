@@ -5,8 +5,9 @@ export const WEBHOOK_TOOLS = [
     name: 'nuphos_webhooks',
     description:
       "List, create, update, delete or test a team's webhooks, as Team settings → Webhooks " +
-      'does. Nuphos POSTs JSON to the https URL when a session finishes or fails a turn, ' +
-      'needs input, or a Task reports. Team administrators only. Header values (e.g. ' +
+      'does. For sessions started by nuphos_ask with webhook_id set to a webhook, and ' +
+      'their Tasks, Nuphos POSTs JSON to its https URL when a session finishes or fails a ' +
+      'turn, needs input, or a Task reports. Team administrators only. Header values (e.g. ' +
       'Authorization: Bearer <key>) are stored encrypted and never returned. headers replaces ' +
       'the whole list on update, and a header given without a value keeps its stored one.',
     inputSchema: {

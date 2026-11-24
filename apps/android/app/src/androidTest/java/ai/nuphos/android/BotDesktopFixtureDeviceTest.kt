@@ -56,6 +56,9 @@ class BotDesktopFixtureDeviceTest {
     @Volatile private var dispatched = false
     /** A pull request linked to the Bot's own session, which Bot details leaves out (#4790). */
     @Volatile private var linkedPr = false
+    /** The Bot's instructions save is refused with the server's reason (#4084). */
+    @Volatile private var refuseInstructions = false
+    @Volatile private var sentInstructions: String? = null
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -115,6 +118,14 @@ class BotDesktopFixtureDeviceTest {
                 if (denyBotTask) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                     .code(403).message("fixture").body("""{"error":{"message":"Session access denied"}}""".toResponseBody(Http.jsonMedia)).build()
             }
+            if (request.method == "PATCH" && path.endsWith("/agent/conversations/bot-plain/instructions")) {
+                val sent = okio.Buffer().also { request.body?.writeTo(it) }.readUtf8()
+                sentInstructions = org.json.JSONObject(sent).getString("instructions")
+                val (code, reply) = if (refuseInstructions) 400 to """{"error":{"code":"invalid_request","message":"Instructions must be at most 8000 characters"}}"""
+                    else 200 to """{"instructions":"Ship 2.4 on Thursday."}"""
+                return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(code).message("fixture")
+                    .body(reply.toResponseBody(Http.jsonMedia)).build()
+            }
             val body = when {
                 path.endsWith("/model-config") && composerFixture -> """{"status":"ready","options":[{"id":"model","name":"Model","kind":"model","currentValue":"sonnet","options":[{"value":"sonnet","name":"Sonnet"},{"value":"opus","name":"Opus"}]}]}"""
                 chatId != null -> chat(chatId, bots.getValue(chatId))
@@ -126,7 +137,8 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
-                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":true,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z"}""" }}],"hasMore":false}"""
+                    """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":${!nonOwner},"readOnly":$nonOwner,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z",
+                        "instructions":"Ship the 2.4 release. Ask before tagging."}""" }}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
@@ -364,6 +376,108 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
         compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
         captureComposer("bot-details-android-member")
+    }
+
+    /** The owner rewrites a Bot's instructions in Bot details (#4084): Edit opens them in place,
+     *  Save shows what the server kept. */
+    @Test fun ownerEditsTheBotsInstructions() {
+        openPlainDetails()
+        val text = compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).performScrollTo()
+        text.assertTextEquals("Ship the 2.4 release. Ask before tagging.")
+        compose.onNodeWithTag("bot-instructions-edit").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-field").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-save").performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag("bot-instructions-field").performScrollTo().performTextInputSelection(androidx.compose.ui.text.TextRange(41))
+        compose.onNodeWithTag("bot-instructions-field").performTextInput(" Thursday.")
+        compose.onNodeWithTag("bot-instructions-save").performScrollTo().assertIsEnabled()
+        capture("12-bot-instructions-editing")
+        compose.onNodeWithTag("bot-instructions-save").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-text", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        assertEquals("Ship the 2.4 release. Ask before tagging. Thursday.", sentInstructions)
+        compose.onNodeWithTag("bot-instructions-field").assertDoesNotExist()
+        compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).assertTextEquals("Ship 2.4 on Thursday.")
+        capture("13-bot-instructions-saved")
+    }
+
+    @Test fun aRefusedSaveSaysWhyUnderTheField() {
+        refuseInstructions = true
+        openPlainDetails()
+        compose.onNodeWithTag("bot-instructions-edit").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-field").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-field").performScrollTo().performTextInputSelection(androidx.compose.ui.text.TextRange(41))
+        compose.onNodeWithTag("bot-instructions-field").performTextInput(" More.")
+        compose.onNodeWithTag("bot-instructions-save").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-error", useUnmergedTree = true).assertTextEquals("Instructions must be at most 8000 characters")
+        // The edit stays, so nothing typed is lost.
+        compose.onNodeWithTag("bot-instructions-field").assertTextContains("Ship the 2.4 release. Ask before tagging. More.")
+        compose.onNodeWithTag("bot-instructions-save").assertIsEnabled()
+        capture("14-bot-instructions-refused")
+    }
+
+    /** With the keyboard open, Cancel and Save stay above it, also once a refusal adds a line under the field. */
+    @Test fun theKeyboardLeavesCancelAndSaveInView() {
+        refuseInstructions = true
+        openPlainDetails()
+        compose.onNodeWithTag("bot-instructions-edit").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-field").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-field").performClick()
+        val opened = runCatching { compose.waitUntil(10_000) { keyboardTop() != null } }.isSuccess
+        org.junit.Assume.assumeTrue("No soft keyboard on this device", opened)
+        assertActionsAboveKeyboard()
+        capture("15-bot-instructions-keyboard")
+        compose.onNodeWithTag("bot-instructions-field").performTextInput(" More.")
+        // Tapped where it is on screen, without scrolling to it first.
+        compose.onNodeWithTag("bot-instructions-save").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-error", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-field").performClick()
+        compose.waitUntil(10_000) { keyboardTop() != null }
+        assertActionsAboveKeyboard()
+        capture("16-bot-instructions-keyboard-refused")
+    }
+
+    /** Where the keyboard starts on screen, or null while it's closed. */
+    private fun keyboardTop(): Int? {
+        var top: Int? = null
+        inst.runOnMainSync {
+            val view = compose.activity.window.decorView
+            val ime = androidx.core.view.ViewCompat.getRootWindowInsets(view)
+                ?.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())?.bottom ?: 0
+            if (ime > 0) {
+                val at = IntArray(2).also(view::getLocationOnScreen)
+                top = at[1] + view.height - ime
+            }
+        }
+        return top
+    }
+
+    private fun assertActionsAboveKeyboard() {
+        compose.waitForIdle()
+        Thread.sleep(600) // the keyboard's slide and the scroll that follows it
+        compose.waitForIdle()
+        val top = keyboardTop() ?: error("The keyboard closed")
+        val row = compose.onNodeWithTag("bot-instructions-actions").fetchSemanticsNode()
+        val bottom = row.positionOnScreen.y + row.size.height
+        assertTrue("Cancel and Save end at $bottom, under the keyboard at $top", bottom <= top)
+        compose.onNodeWithTag("bot-instructions-save").assertIsDisplayed()
+    }
+
+    /** A teammate's Bot shows no instructions card, so nothing offers an edit the server would refuse. */
+    @Test fun aTeammatesBotShowsNoInstructions() {
+        nonOwner = true
+        openPlainDetails()
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-runtime").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("bot-instructions-edit").assertDoesNotExist()
+        compose.onNodeWithText(inst.targetContext.getString(R.string.chat_bot_instructions)).assertDoesNotExist()
+        capture("17-bot-instructions-teammate")
+    }
+
+    private fun openPlainDetails() {
+        render("chat-plain", listBots = true)
+        compose.waitUntil(10_000) { compose.onAllNodesWithTag("bot-details-entry").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("task-summary").fetchSemanticsNodes().isNotEmpty() }
     }
 
     private fun captureComposer(name: String) {

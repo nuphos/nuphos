@@ -8,7 +8,6 @@ import { requestEmailOtp, verifyEmailOtp } from '@/lib/email-otp'
 import { AppError } from '@/lib/errors'
 import { signInWithGoogleCode } from '@/lib/identity'
 import { getDeletionRequest, requestAccountDeletion } from '@/lib/identity/account-deletion'
-import { readAIConsent, saveAIConsent } from '@/lib/identity/ai-consent'
 import { MAX_AVATAR_UPLOAD_BYTES, removeAvatar, uploadAvatar } from '@/lib/identity/avatar-upload'
 import { setPasswordWithEmailCode, signInFromRequest } from '@/lib/identity/password'
 import { updateProfile } from '@/lib/identity/profile'
@@ -25,6 +24,7 @@ import {
 import { clientIp, signInSource } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import * as authMiddleware from '@/middleware/auth' // per request: see auth.late-binding.test.ts
+import { authAIConsent } from '@/routes/auth-ai-consent'
 import { authMfa } from '@/routes/auth-mfa'
 import { authSessions } from '@/routes/auth-sessions'
 
@@ -39,6 +39,7 @@ export const auth = new Hono<{ Variables: AuthVariables }>()
 auth.route('/social', socialAuth)
 auth.route('/sessions', authSessions)
 auth.route('/mfa', authMfa)
+auth.route('/ai-consent', authAIConsent)
 
 auth.get('/me', requireAuth, (c) => {
   const cliToken = c.get('cliToken')
@@ -52,12 +53,6 @@ auth.get('/account-deletion', requireAuth, async (c) =>
 
 auth.post('/account-deletion', requireAuth, async (c) =>
   c.json(await requestAccountDeletion(c.get('user'), await c.req.json().catch(() => null)), 202),
-)
-
-auth.get('/ai-consent', requireAuth, async (c) => c.json(await readAIConsent(c.get('userId'))))
-
-auth.put('/ai-consent', requireAuth, async (c) =>
-  c.json(await saveAIConsent(c.get('userId'), await c.req.json().catch(() => null))),
 )
 
 auth.patch('/me', requireAuth, async (c) =>

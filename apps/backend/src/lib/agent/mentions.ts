@@ -133,6 +133,8 @@ export async function notePost(
   post: Mentioning,
   byAgent: boolean,
 ): Promise<void> {
+  // A Slack channel's people are in Slack, which tells them itself (#3702).
+  if (channel.external) return
   try {
     await noteMentions(channel, post)
     if (!byAgent) return

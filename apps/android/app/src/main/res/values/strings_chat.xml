@@ -214,4 +214,7 @@
     <string name="chat_summary_idle_since">Idle · %1$s</string>
     <string name="chat_bot_details_no_triggers">Ask here to schedule recurring work.</string>
     <string name="chat_summary_paused">Paused</string>
+    <string name="chat_bot_instructions">Bot instructions</string>
+    <string name="chat_bot_instructions_edit">Edit instructions</string>
+    <string name="chat_bot_instructions_none">None yet</string>
 </resources>

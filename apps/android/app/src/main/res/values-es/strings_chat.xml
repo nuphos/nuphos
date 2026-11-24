@@ -214,4 +214,7 @@
     <string name="chat_summary_idle_since">Inactivo · %1$s</string>
     <string name="chat_bot_details_no_triggers">Pide aquí que se programen trabajos recurrentes.</string>
     <string name="chat_summary_paused">En pausa</string>
+    <string name="chat_bot_instructions">Instrucciones del bot</string>
+    <string name="chat_bot_instructions_edit">Editar instrucciones</string>
+    <string name="chat_bot_instructions_none">Todavía ninguno</string>
 </resources>

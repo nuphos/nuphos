@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.134.0",
+  "version": "0.135.1",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -36,6 +36,8 @@
     "@novnc/novnc": "1.7.0",
     "@streamdown/cjk": "^1.0.3",
     "@streamdown/code": "^1.1.1",
+    "@streamdown/math": "^1.0.3",
+    "@streamdown/mermaid": "^1.0.3",
     "@stylistic/eslint-plugin": "^5.10.0",
     "@tailwindcss/container-queries": "^0.1.1",
     "@tanstack/react-query": "^5.106.0",
@@ -51,7 +53,7 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
     "@xyflow/react": "^12.11.0",
-    "ansi-to-react": "^6.2.6",
+    "anser": "^2.3.5",
     "autoprefixer": "^10.5.0",
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
@@ -71,19 +73,20 @@
     "globals": "^17.5.0",
     "happy-dom": "^21.0.4",
     "js-yaml": "^4.3.2",
+    "katex": "^0.19.1",
     "lucide-react": "^1.11.0",
-    "monaco-editor": "^0.55.1",
+    "monaco-editor": "^0.58.0",
     "node-api-headers": "^1.9.0",
     "opencc-js": "1.4.2",
     "postcss": "^8.5.23",
-    "posthog-js": "^1.376.0",
+    "posthog-js": "^1.450.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-grid-layout": "2.2.4",
     "recharts": "^2.15.0",
     "sharp": "^0.35.5",
     "shiki": "^3.23.0",
-    "streamdown": "^2.5.0",
+    "streamdown": "^2.8.0",
     "strip-ansi": "^7.2.0",
     "tailwindcss": "^3.4.19",
     "typescript": "~6.0.2",
@@ -218,6 +221,9 @@
       "electron",
       "node-pty"
     ],
+    "overrides": {
+      "katex@<0.18.2": "^0.19.1"
+    },
     "patchedDependencies": {
       "app-builder-lib@26.15.7": "patches/app-builder-lib@26.15.7.patch",
       "electron-chrome-extensions@4.10.0": "patches/electron-chrome-extensions@4.10.0.patch"

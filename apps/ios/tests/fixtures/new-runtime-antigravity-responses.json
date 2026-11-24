@@ -1,0 +1,147 @@
+{
+  "GET /teams": {
+    "status": 200,
+    "body": {
+      "teams": [
+        {
+          "id": "64b5f1c2e4b0a1d2c3e4f5a6",
+          "name": "Preview workspace",
+          "isOwner": true,
+          "role": "ADMINISTRATOR"
+        }
+      ]
+    }
+  },
+  "GET /teams/discoverable": {
+    "status": 200,
+    "body": {
+      "teams": []
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes": {
+    "status": 200,
+    "body": {
+      "runtimes": [
+        {
+          "id": "local_507f1f77bcf86cd799439011_macbook_codex",
+          "provider": "codex",
+          "label": "Codex in MacBook Pro",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "507f1f77bcf86cd799439011",
+            "deviceId": "macbook",
+            "deviceLabel": "MacBook Pro",
+            "online": true,
+            "signedIn": false
+          }
+        },
+        {
+          "id": "local_507f1f77bcf86cd799439012_teammate-mac",
+          "provider": "claude-code",
+          "label": "Claude Code in Robin's Mac",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "507f1f77bcf86cd799439012",
+            "deviceId": "teammate-mac",
+            "deviceLabel": "Robin's Mac",
+            "online": true,
+            "signedIn": true,
+            "shared": {
+              "level": "full"
+            }
+          }
+        },
+        {
+          "id": "local_507f1f77bcf86cd799439011_studio-signed-in_antigravity",
+          "provider": "antigravity",
+          "label": "Antigravity in Studio A",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "507f1f77bcf86cd799439011",
+            "deviceId": "studio-signed-in",
+            "deviceLabel": "Studio A",
+            "online": true,
+            "signedIn": true
+          }
+        },
+        {
+          "id": "local_507f1f77bcf86cd799439011_studio-signed-out_antigravity",
+          "provider": "antigravity",
+          "label": "Antigravity in Studio B",
+          "status": "active",
+          "kind": "local",
+          "local": {
+            "ownerUserId": "507f1f77bcf86cd799439011",
+            "deviceId": "studio-signed-out",
+            "deviceLabel": "Studio B",
+            "online": true,
+            "signedIn": false
+          }
+        }
+      ]
+    }
+  },
+  "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites": {
+    "status": 200,
+    "body": {
+      "entries": [],
+      "revision": 0
+    }
+  },
+  "GET /agent/credential-options": {
+    "status": 200,
+    "body": {}
+  },
+  "POST /push/devices": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  },
+  "GET /agent/conversations": {
+    "status": 200,
+    "body": {
+      "conversations": []
+    }
+  },
+  "GET /agent/devices": {
+    "status": 200,
+    "body": {
+      "devices": [
+        {
+          "deviceId": "macbook",
+          "label": "MacBook Pro",
+          "access": "owner",
+          "online": true,
+          "metricsStatus": "offline",
+          "metrics": null
+        },
+        {
+          "deviceId": "studio-signed-in",
+          "label": "Studio A",
+          "access": "owner",
+          "online": true,
+          "metricsStatus": "offline",
+          "metrics": null
+        },
+        {
+          "deviceId": "studio-signed-out",
+          "label": "Studio B",
+          "access": "owner",
+          "online": true,
+          "metricsStatus": "offline",
+          "metrics": null
+        }
+      ]
+    }
+  },
+  "GET /agent/conversations?kind=channel": {
+    "status": 200,
+    "body": {
+      "conversations": []
+    }
+  }
+}

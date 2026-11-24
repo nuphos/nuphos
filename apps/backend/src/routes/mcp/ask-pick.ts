@@ -63,7 +63,7 @@ export type StartChoice = {
   fullAccess?: boolean
   /** The caller's Bot the new session starts under, as its Task. */
   bot?: AgentConversation
-  /** The team webhook that alone receives the new session's events. */
+  /** The team webhook the new session and its Tasks report to. */
   webhookId?: string
 }
 
@@ -129,7 +129,7 @@ async function onRuntime(
 
 /**
  * What a new session starts on: the agent (`runtime_id`) and its model and
- * effort, Full Access, the team webhook that alone receives its events, or a
+ * effort, Full Access, the team webhook it and its Tasks report to, or a
  * Bot (`parent_session_id`) whose agent, model and
  * effort it starts on and whose credentials and mode it uses. Otherwise it
  * starts as a new Task in the app does: with Full Access, on the agent, model

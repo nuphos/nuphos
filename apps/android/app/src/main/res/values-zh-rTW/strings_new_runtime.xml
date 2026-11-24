@@ -3,7 +3,6 @@
     <string name="new_runtime_title">新增執行環境</string>
     <string name="new_runtime_sign_in">登入 %1$s</string>
     <string name="new_runtime_preview">%1$s · 預覽</string>
-    <string name="new_runtime_shared_sign_in">Antigravity 使用這台電腦的共用登入</string>
     <string name="new_runtime_on_computer">建立在 %1$s 上。下一步登入。</string>
     <string name="new_runtime_name">執行環境名稱</string>
     <string name="new_runtime_name_taken">此電腦上已有其他執行環境使用這個名稱。</string>

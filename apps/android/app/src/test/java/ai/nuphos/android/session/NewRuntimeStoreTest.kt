@@ -10,7 +10,7 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 class NewRuntimeStoreTest {
     private val host = RuntimeDevice("host", "Laptop", true, null, "unavailable", null, null, null, "manage")
-    private fun runtime(name: String = "Codex", signedIn: Boolean = true) = AgentRuntime("old", "codex", "Codex on Laptop", "active", "local", signedIn = signedIn,
+    private fun runtime(name: String = "Codex", signedIn: Boolean = true, provider: String = "codex") = AgentRuntime("old", provider, "Codex on Laptop", "active", "local", signedIn = signedIn,
         local = RuntimeHost("host", "Laptop", true, name))
     private class Api : RuntimeCreationTransport {
         val ids = mutableListOf<String>(); val removed = mutableListOf<String>()
@@ -27,7 +27,10 @@ class NewRuntimeStoreTest {
         assertEquals(listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi"), NewRuntime.providers)
         assertEquals(setOf("dsh", "pi"), NewRuntime.previews)
         assertTrue(NewRuntime.action(listOf(runtime(signedIn = false)), "codex") is NewRuntime.Action.SignIn)
-        assertEquals(NewRuntime.Action.Unavailable, NewRuntime.action(emptyList(), "antigravity"))
+        // Antigravity's sign-in is the computer's own: without it, or signed in, there is nothing to list.
+        assertNull(NewRuntime.action(emptyList(), "antigravity"))
+        assertNull(NewRuntime.action(listOf(runtime(provider = "antigravity")), "antigravity"))
+        assertTrue(NewRuntime.action(listOf(runtime(provider = "antigravity", signedIn = false)), "antigravity") is NewRuntime.Action.SignIn)
         assertEquals("Codex 3", NewRuntime.defaultName(listOf(runtime(), runtime("codex 2")), "codex"))
         assertTrue(NewRuntime.nameTaken(listOf(runtime()), " codEX "))
     }

@@ -1,10 +1,11 @@
-// Guards the patches/@opentelemetry%2Fotlp-exporter-base patch: Bun emits the
-// request 'close' event before the response 'end' event (Node emits it after),
-// which made the unpatched transport report every successful OTLP export as
-// "Request timed out" (prod incident forensics). If a dependency bump changes
-// the otlp-exporter-base version, bun silently stops applying the version-keyed
-// patch — this test catches that regression.
+// Bun emits the request 'close' event before the response 'end' event (Node
+// emits it after). The 0.57 OTLP HTTP transport reported failure on 'close',
+// so under Bun every successful export read as "Request timed out" (prod
+// incident forensics), and a patch deferred it. The 0.2xx transport no longer
+// listens for 'close', so the patch is gone; these tests keep a future
+// exporter bump from bringing the bug back.
 import http from 'node:http'
+import { gunzipSync } from 'node:zlib'
 
 import { ExportResultCode } from '@opentelemetry/core'
 import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http'
@@ -56,7 +57,7 @@ async function exportOnce(url: string, timeoutMillis: number): Promise<ExportRes
 
   provider.getMeter('otlp-export-test').createCounter('test.counter').add(1)
   await provider.forceFlush().catch(() => {})
-  // The patched failure path is deferred one macrotask; give it time to land
+  // A late failure would land a macrotask after the export; give it time
   // so a bogus late failure can't hide behind the assertion.
   await new Promise((resolve) => setTimeout(resolve, 150))
   await provider.shutdown().catch(() => {})
@@ -93,3 +94,89 @@ test('endpoint that never responds still reports timeout failure', async () => {
 
   expect(result.code).toBe(ExportResultCode.FAILED)
 })
+
+type OtlpValue = { stringValue?: string }
+type OtlpResource = { attributes?: { key: string; value: OtlpValue }[] }
+type OtlpBody = {
+  resourceSpans?: { resource?: OtlpResource; scopeSpans?: { spans?: { name: string }[] }[] }[]
+  resourceMetrics?: {
+    resource?: OtlpResource
+    scopeMetrics?: { metrics?: { name: string }[] }[]
+  }[]
+  resourceLogs?: {
+    resource?: OtlpResource
+    scopeLogs?: { logRecords?: { body?: OtlpValue }[] }[]
+  }[]
+}
+
+function service(resource?: OtlpResource): string | undefined {
+  return resource?.attributes?.find((a) => a.key === 'service.name')?.value.stringValue
+}
+
+test('the backend telemetry exports traces, metrics and logs to an OTLP collector', async () => {
+  const bodies = new Map<string, OtlpBody[]>()
+  const collector = await listen((req, res) => {
+    const chunks: Buffer[] = []
+
+    req.on('data', (chunk: Buffer) => chunks.push(chunk))
+    req.on('end', () => {
+      const raw = Buffer.concat(chunks)
+      const text = (req.headers['content-encoding'] === 'gzip' ? gunzipSync(raw) : raw).toString()
+
+      bodies.set(req.url ?? '', [...(bodies.get(req.url ?? '') ?? []), JSON.parse(text)])
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end('{}')
+    })
+  })
+  // The fetch instrumentation skips the collector's own origin, so the traced call goes elsewhere.
+  const upstream = await listen((_req, res) => res.end('ok'))
+  const endpoint = `http://127.0.0.1:${String(collector)}`
+  // Its own process: startTelemetry installs global providers other suites must not inherit.
+  const child = Bun.spawn(
+    [
+      process.execPath,
+      '-e',
+      `const { setupTelemetry } = await import(${JSON.stringify(new URL('index.ts', import.meta.url).href)})
+      const { logs } = await import('@opentelemetry/api-logs')
+      const { shutdown } = await setupTelemetry()
+      await fetch('http://127.0.0.1:${String(upstream)}/ping')
+      logs.getLogger('otel-export-test').emit({ body: 'otel export test log' })
+      await shutdown()`,
+    ],
+    {
+      env: {
+        ...process.env,
+        OTEL_ENABLED: 'true',
+        OTEL_LOGS_ENABLED: 'true',
+        OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
+        OTEL_SERVICE_NAME: 'otel-export-test',
+      },
+      stdout: 'inherit',
+      stderr: 'inherit',
+    },
+  )
+
+  const timer = setTimeout(() => child.kill(), 15_000)
+
+  expect(await child.exited.finally(() => clearTimeout(timer))).toBe(0)
+  const traces = bodies.get('/v1/traces')?.flatMap((b) => b.resourceSpans ?? []) ?? []
+  const metrics = bodies.get('/v1/metrics')?.flatMap((b) => b.resourceMetrics ?? []) ?? []
+  const logRecords = bodies.get('/v1/logs')?.flatMap((b) => b.resourceLogs ?? []) ?? []
+
+  expect(traces.map((r) => service(r.resource))).toContain('otel-export-test')
+  expect(
+    traces.flatMap((r) => r.scopeSpans ?? []).flatMap((s) => (s.spans ?? []).map((x) => x.name)),
+  ).toContain('HTTP GET')
+  expect(metrics.map((r) => service(r.resource))).toContain('otel-export-test')
+  const names = metrics.flatMap((r) => r.scopeMetrics ?? []).flatMap((s) => s.metrics ?? [])
+
+  expect(names.map((m) => m.name)).toEqual(
+    expect.arrayContaining(['http.client.request.duration', 'process.runtime.memory.rss']),
+  )
+  expect(logRecords.map((r) => service(r.resource))).toContain('otel-export-test')
+  expect(
+    logRecords
+      .flatMap((r) => r.scopeLogs ?? [])
+      .flatMap((s) => (s.logRecords ?? []).map((x) => x.body?.stringValue)),
+  ).toContain('otel export test log')
+}, 20_000)

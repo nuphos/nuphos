@@ -65,13 +65,6 @@ before(async () => {
   mock.module('./stall.ts', {
     namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted', newAgentStreamId: randomUUID },
   })
-  mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en-US' } })
-  mock.module('./toUiMessages.ts', {
-    namedExports: {
-      toUiMessages: (messages: Message[]) => messages,
-      toPersistedMessages: (messages: Message[]) => messages,
-    },
-  })
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     value: {

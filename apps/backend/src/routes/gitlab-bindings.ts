@@ -114,14 +114,7 @@ gitlabBindingsRoutes.post(
     const teamId = parseObjectId(c.get('teamId'), 'teamId')
     const requesterUserId = c.get('userId')
 
-    let host: string
-
-    try {
-      host = normalizeHostUrl(hostUrl)
-    } catch (e) {
-      handleGitlabError(e, 'Invalid GitLab host URL')
-    }
-
+    const host = normalizeHostUrl(hostUrl)
     let resolved
 
     try {

@@ -31,8 +31,8 @@ internal fun NewRuntimeSheet(store: NewRuntimeStore, setup: RuntimeSetupStore) {
             if (store.provider == null) {
                 Text(store.device.label, style = MaterialTheme.typography.titleMedium)
                 NewRuntime.providers.forEach { provider ->
-                    val action = store.action(provider)
-                    OutlinedButton(onClick = { store.choose(provider) }, enabled = action != NewRuntime.Action.Unavailable,
+                    val action = store.action(provider) ?: return@forEach
+                    OutlinedButton(onClick = { store.choose(provider) },
                         modifier = Modifier.fillMaxWidth().testTag("new-runtime-provider-$provider")) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             ai.nuphos.android.ui.components.RuntimeMark(provider, 30.dp)
@@ -43,7 +43,6 @@ internal fun NewRuntimeSheet(store: NewRuntimeStore, setup: RuntimeSetupStore) {
                                     provider in NewRuntime.previews -> stringResource(R.string.new_runtime_preview, label)
                                     else -> label
                                 })
-                                if (action == NewRuntime.Action.Unavailable) Text(stringResource(R.string.new_runtime_shared_sign_in), style = MaterialTheme.typography.bodySmall)
                             }
                         }
                     }

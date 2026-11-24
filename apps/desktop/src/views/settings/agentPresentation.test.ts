@@ -277,10 +277,11 @@ test('every signed-out agent can sign in, by its own CLI or the runtime sign-in'
   // The same machine, signed in here with another account: its agents are not this computer's CLI's.
   assert.equal(localSignIn(codex, { userId: 'other', deviceId: 'mac' }), 'runtime')
   assert.equal(localSignIn({ ...codex, provider: 'grok' }, here), 'runtime')
-  // One whose sign-in ended is renewed only through Nuphos, not by the CLI's own login.
+  // One whose sign-in ended too: the CLI's own login here replaces it, even where this computer
+  // has no runtime sign-in (a path with spaces).
   assert.equal(
     localSignIn({ ...codex, local: { ...codex.local!, signInEnded: true } }, here),
-    'runtime',
+    'codex',
   )
   // Signed in already, or a team runtime: nothing to offer.
   assert.equal(localSignIn(local('a', 'mac', true), here), undefined)

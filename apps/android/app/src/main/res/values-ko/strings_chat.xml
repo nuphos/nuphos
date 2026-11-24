@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">유휴 · %1$s</string>
     <string name="chat_bot_details_no_triggers">정기 작업 예약은 여기에서 요청하세요.</string>
     <string name="chat_summary_paused">일시 중지됨</string>
+    <string name="chat_bot_instructions">봇 지침</string>
+    <string name="chat_bot_instructions_edit">지침 편집</string>
+    <string name="chat_bot_instructions_none">아직 없음</string>
 </resources>

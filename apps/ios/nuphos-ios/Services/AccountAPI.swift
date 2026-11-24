@@ -23,6 +23,8 @@ enum AccountAPI {
         request.timeoutInterval = 30
         request.setValue(upload == nil ? "application/json" : "application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue("nuphos-ios/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")", forHTTPHeaderField: "x-atlas-client")
+        // GET ai-consent answers for the notice this build shows.
+        request.setValue(aiConsentVersion, forHTTPHeaderField: "x-nuphos-ai-consent-version")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
         request.httpBody = upload ?? request.httpBody

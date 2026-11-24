@@ -4,7 +4,6 @@
 FROM oven/bun:1.4.3-alpine AS deps
 WORKDIR /app
 COPY apps/backend/package.json apps/backend/bun.lock ./
-COPY apps/backend/patches ./patches
 RUN bun install --frozen-lockfile --production
 
 # --- runtime: copy deps + source, run with bun -----------------------------

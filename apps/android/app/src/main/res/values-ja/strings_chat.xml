@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">待機中 · %1$s</string>
     <string name="chat_bot_details_no_triggers">定期的な作業はここで依頼してください。</string>
     <string name="chat_summary_paused">一時停止中</string>
+    <string name="chat_bot_instructions">ボットの指示</string>
+    <string name="chat_bot_instructions_edit">指示を編集</string>
+    <string name="chat_bot_instructions_none">まだなし</string>
 </resources>

@@ -117,6 +117,35 @@ class BotsTest {
             runBlocking { BotActions.create("synthetic", "team", "Ada", "07-ada") { _, _, _, _, _ -> "{}" } }
         }
     }
+    @Test fun aBotsListingRowCarriesItsInstructions() {
+        assertEquals("Ship the 2.4 release.", decode("""{"sessionId":"b","instructions":"Ship the 2.4 release."}""").instructions)
+        assertNull(decode("""{"sessionId":"b"}""").instructions)
+    }
+    /** #4084: the owner's edit goes to the Bot's instructions, and what the server kept comes back. */
+    @Test fun savingABotsInstructionsReturnsWhatTheServerKept() = runBlocking {
+        var seen: JsonValue? = null
+        val saved = BotActions.setInstructions("synthetic", "team", "bot /", "Ship the 2.4 release. Thursday.") { method, path, token, query, body ->
+            assertEquals("PATCH", method); assertEquals("agent/conversations/bot%20%2F/instructions", path); assertEquals("synthetic", token)
+            assertEquals(listOf("teamId" to "team"), query)
+            seen = body
+            """{"instructions":"Ship 2.4 on Thursday."}"""
+        }
+        assertEquals("Ship 2.4 on Thursday.", saved)
+        assertEquals(JsonValue.obj("instructions" to JsonValue.Str("Ship the 2.4 release. Thursday.")), seen)
+        assertThrows(NuphosApi.Failure.InvalidResponse::class.java) {
+            runBlocking { BotActions.setInstructions("synthetic", "team", "bot", "x") { _, _, _, _, _ -> "{}" } }
+        }
+        Unit
+    }
+    /** A refusal keeps the server's own reason, which Bot details shows under the field. */
+    @Test fun aRefusedSaveCarriesTheServersReason() {
+        val refused = ai.nuphos.android.data.AgentChatApi.conflict(400,
+            """{"error":{"code":"invalid_request","message":"Instructions must be at most 8000 characters"}}""")
+        val error = assertThrows(Exception::class.java) {
+            runBlocking { BotActions.setInstructions("synthetic", "team", "bot", "x") { _, _, _, _, _ -> throw refused } }
+        }
+        assertEquals("Instructions must be at most 8000 characters", error.message)
+    }
     @Test fun aBotsChatIsMadeAndThenTheBotAddedToIt() = runBlocking {
         val calls = mutableListOf<Pair<String, JsonValue?>>()
         val chat = BotActions.createChannel("synthetic", "team") { method, path, _, query, body ->
