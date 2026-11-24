@@ -164,6 +164,7 @@ export function localSignIn(
 
   if (!local || local.signedIn === true) return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
+
   // An ended sign-in too: the CLI's login here tells the backend it runs as this person now.
   return !local.instanceId && isThisComputer(thisComputer, computerOf(local))
     ? instance.provider

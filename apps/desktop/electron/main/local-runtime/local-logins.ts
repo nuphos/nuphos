@@ -1,11 +1,27 @@
 // This app's own sign-in, for the agents it can run a CLI login for; others sign in from Nuphos.
 
+import { callJson } from '../../agent/http.ts'
+import { readDeviceIdentity } from '../device-identity.ts'
+
 import { LocalAgentLogin, runLoginWrapper } from './agent-login.ts'
 import { loginTarget, loginWrapper } from './login-target.ts'
 
 import type { LocalRuntimeState } from './controller-types.ts'
 
 type CliLoginProvider = 'claude-code' | 'codex'
+
+/**
+ * The agent is signed in here with its own login, so it runs as this person now: whoever signed
+ * it in through Nuphos no longer applies. A backend too old for this route keeps the record.
+ */
+const forgetSignInHere = (provider: CliLoginProvider) =>
+  callJson(
+    'DELETE',
+    `/agent/devices/${encodeURIComponent(readDeviceIdentity().deviceId)}/agents/${provider}/sign-in`,
+  ).then(
+    () => {},
+    () => {},
+  )
 
 export function localLogins(deps: {
   changed: () => void
@@ -15,8 +31,6 @@ export function localLogins(deps: {
   userDir: (userId: string) => string
   ownerHome: () => string
   bundleRoot: () => string
-  /** The agent is signed in here with its own login: it runs as this person now. */
-  signedIn: (provider: CliLoginProvider) => Promise<void>
 }) {
   const logins = Object.fromEntries(
     (['claude-code', 'codex'] as const).map((provider) => [
@@ -29,7 +43,7 @@ export function localLogins(deps: {
 
           return cli?.installed === true && cli.loggedIn === true
         },
-        signedIn: () => deps.signedIn(provider),
+        signedIn: () => forgetSignInHere(provider),
         // Codex's own sign-in replaces its key; Claude's leaves one in its settings.
         ...(provider === 'claude-code'
           ? {
