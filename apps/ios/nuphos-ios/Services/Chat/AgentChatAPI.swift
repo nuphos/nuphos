@@ -301,12 +301,52 @@ enum AgentChatAPI {
         let text: String
     }
 
+    /// The agent's usage limit holding the queue: the server retries it once
+    /// usage resets, at `until` when the reset is known (#4573).
+    struct QueueHold: Equatable, Sendable {
+        let until: Date?
+
+        /// The queued strip's status line while the hold lasts, as on Desktop.
+        func notice(now: Date = .now) -> String {
+            if let time = RuntimeQuota.resetsDuration(until, now: now) {
+                return String(localized: "Out of usage. These run when usage resets in \(time).")
+            }
+            return String(localized: "Out of usage. These run when usage resets.")
+        }
+    }
+
+    /// The session queue: its waiting messages, and the usage hold on them if any.
+    struct Queue: Equatable, Sendable {
+        let messages: [QueuedMessage]
+        let held: QueueHold?
+    }
+
     /// `GET /agent/conversations/:id/queue`: everyone's waiting messages.
-    static func queue(token: String, teamId: String, sessionId: String) async throws -> [QueuedMessage] {
-        struct Queue: Decodable { let messages: [QueuedMessage] }
+    static func queue(token: String, teamId: String, sessionId: String) async throws -> Queue {
         let data = try await send("GET", "agent/conversations/\(sessionId)/queue",
             query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: Optional<Int>.none)
-        return try JSONDecoder().decode(Queue.self, from: data).messages
+        return try decodeQueue(data)
+    }
+
+    /// Only a usage hold counts: any other reason the server may add later
+    /// leaves the strip as it is, and an unreadable reset reads as unknown.
+    static func decodeQueue(_ data: Data) throws -> Queue {
+        struct Wire: Decodable {
+            struct Held: Decodable { let reason: String?; let until: String? }
+            let messages: [QueuedMessage]
+            let held: Held?
+        }
+        let wire = try JSONDecoder().decode(Wire.self, from: data)
+        let held = wire.held.flatMap { held in
+            held.reason == "usage_limit" ? QueueHold(until: held.until.flatMap(instant)) : nil
+        }
+        return Queue(messages: wire.messages, held: held)
+    }
+
+    private static func instant(_ raw: String) -> Date? {
+        let iso = ISO8601DateFormatter()
+        iso.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return iso.date(from: raw) ?? ISO8601DateFormatter().date(from: raw)
     }
 
     /// `DELETE /agent/conversations/:id/queue/:messageId` takes one of the
