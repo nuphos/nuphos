@@ -23,7 +23,8 @@ rl.on('line', (line) => {
     GROK_HOME: process.env.GROK_HOME, NUPHOS_AGENT_HOME: process.env.NUPHOS_AGENT_HOME,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
     OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE,
-    DSH_HOME: process.env.DSH_HOME } }
+    DSH_HOME: process.env.DSH_HOME,
+    AGENT_CLI_CREDENTIAL_STORE: process.env.AGENT_CLI_CREDENTIAL_STORE } }
   const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
 })
@@ -181,6 +182,27 @@ test('opencode shares only its own data directory with the runtime home', async 
     )
     assert.equal(seen.env.OPENCODE_DISABLE_AUTOUPDATE, '1')
     assert.equal(seen.params._meta.rules, undefined)
+  })
+})
+
+test('cursor runs `cursor-agent acp` with its file login shared from the runtime home', async () => {
+  await withShim('cursor', async ({ call, children, home }) => {
+    await call('initialize', { protocolVersion: 1 })
+    const { seen } = (await call('session/new', session('Be Nuphos.'))).result
+
+    assert.deepEqual(children[1].command, ['cursor-agent', 'acp'])
+    assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+    assert.equal(seen.env.AGENT_CLI_CREDENTIAL_STORE, 'file')
+    // Its login and settings: ~/.cursor on macOS, ~/.config/cursor elsewhere.
+    for (const dir of ['.cursor', join('.config', 'cursor')])
+      assert.equal(await realpath(join(seen.env.HOME, dir)), await realpath(join(home, dir)))
+    // No system prompt over ACP: the instructions lead the first prompt.
+    assert.equal(seen.params._meta?.rules, undefined)
+    const prompt = (
+      await call('session/prompt', { sessionId: 's1', prompt: [{ type: 'text', text: 'hi' }] })
+    ).result.seen.params.prompt
+    assert.match(prompt[0].text, /<nuphos-instructions>\nBe Nuphos\.\n/u)
+    assert.equal(prompt[1].text, 'hi')
   })
 })
 

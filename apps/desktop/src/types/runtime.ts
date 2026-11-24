@@ -8,6 +8,7 @@ export const AGENT_PROVIDERS = [
   'hermes',
   'dsh',
   'pi',
+  'cursor',
 ] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
@@ -25,6 +26,7 @@ export const AGENT_PROVIDER: Record<
   hermes: { label: 'Hermes Agent', account: 'a model provider' },
   dsh: { label: 'DeepSeek Harness', account: 'DeepSeek', preview: true },
   pi: { label: 'Pi', account: 'a model provider', preview: true },
+  cursor: { label: 'Cursor', account: 'Cursor', preview: true },
 }
 
 /**

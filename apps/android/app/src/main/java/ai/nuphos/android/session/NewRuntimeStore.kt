@@ -9,8 +9,8 @@ import kotlinx.coroutines.*
 import java.util.UUID
 
 object NewRuntime {
-    val providers = listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi")
-    val previews = setOf("dsh", "pi")
+    val providers = listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi", "cursor")
+    val previews = setOf("dsh", "pi", "cursor")
     sealed interface Action {
         data object Create : Action
         data class SignIn(val runtime: AgentRuntime) : Action

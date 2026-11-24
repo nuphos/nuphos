@@ -50,6 +50,7 @@ const PROVIDERS: &[(&str, &str)] = &[
     ("hermes", "Hermes Agent"),
     ("dsh", "DeepSeek Harness"),
     ("pi", "Pi"),
+    ("cursor", "Cursor"),
 ];
 /// How long a sign-in may take, from starting the agent to the browser.
 const SIGN_IN_TIMEOUT: Duration = Duration::from_secs(10 * 60);

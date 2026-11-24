@@ -24,8 +24,8 @@ class NewRuntimeStoreTest {
         override suspend fun discard(deviceId: String, instanceId: String) { discardFailure?.let { throw it }; removed += instanceId }
     }
     @Test fun providersReuseSignedOutAndRespectSharedAntigravity() {
-        assertEquals(listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi"), NewRuntime.providers)
-        assertEquals(setOf("dsh", "pi"), NewRuntime.previews)
+        assertEquals(listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi", "cursor"), NewRuntime.providers)
+        assertEquals(setOf("dsh", "pi", "cursor"), NewRuntime.previews)
         assertTrue(NewRuntime.action(listOf(runtime(signedIn = false)), "codex") is NewRuntime.Action.SignIn)
         // Antigravity's sign-in is the computer's own: without it, or signed in, there is nothing to list.
         assertNull(NewRuntime.action(emptyList(), "antigravity"))

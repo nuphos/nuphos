@@ -23,6 +23,7 @@ export const INSTALLABLE = [
   'hermes',
   'opencode',
   'dsh',
+  'cursor',
 ] as const
 
 type Installable = (typeof INSTALLABLE)[number]
@@ -36,8 +37,8 @@ const NPM_PACKAGE = {
   dsh: '@deepseek-ai/dsh@latest',
 }
 
-/** The vendors whose own script installs their CLI: macOS and Linux, then Windows. */
-const SCRIPT = {
+/** The vendors whose own script installs their CLI: macOS and Linux, then Windows if it runs there. */
+const SCRIPT: Partial<Record<Installable, [string, string?]>> = {
   'claude-code': [
     'curl -fsSL https://claude.ai/install.sh | bash',
     'irm https://claude.ai/install.ps1 | iex',
@@ -47,6 +48,8 @@ const SCRIPT = {
     'curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --non-interactive',
     '& ([scriptblock]::Create((irm https://hermes-agent.nousresearch.com/install.ps1))) -NonInteractive',
   ],
+  // Its Windows login lives in APPDATA, which Nuphos does not share with a conversation yet.
+  cursor: ['curl -fsSL https://cursor.com/install | bash'],
 }
 
 function onPath(name: string, env: NodeJS.ProcessEnv): string | null {
@@ -66,22 +69,18 @@ export function installCommand(provider: Installable, env: NodeJS.ProcessEnv): C
   const standIn = envValue(env, 'NUPHOS_E2E_AGENT_INSTALLER')
 
   if (standIn) return { file: '/bin/sh', args: [standIn, provider] }
-  if (provider in SCRIPT) {
-    const [posix, powershell] = SCRIPT[provider as keyof typeof SCRIPT]
+  const script = SCRIPT[provider]
 
-    return windows
-      ? {
-          file: powershellPath(env),
-          args: [
-            '-NoProfile',
-            '-NonInteractive',
-            '-ExecutionPolicy',
-            'Bypass',
-            '-Command',
-            powershell,
-          ],
-        }
-      : { file: '/bin/bash', args: ['-c', posix] }
+  if (script) {
+    const [posix, powershell] = script
+
+    if (!windows) return { file: '/bin/bash', args: ['-c', posix] }
+    if (!powershell) return null
+
+    return {
+      file: powershellPath(env),
+      args: ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', powershell],
+    }
   }
 
   const npm = onPath('npm', env)
@@ -124,7 +123,11 @@ export function installAgentCli(
   // Only the npm installs can find nothing to run: this computer has no Node.js.
   if (!command)
     return Promise.reject(
-      new Error('Install Node.js from https://nodejs.org there, then try again.'),
+      new Error(
+        provider === 'cursor'
+          ? 'Cursor runs as a local runtime on macOS and Linux.'
+          : 'Install Node.js from https://nodejs.org there, then try again.',
+      ),
     )
 
   return new Promise((resolve, reject) => {
