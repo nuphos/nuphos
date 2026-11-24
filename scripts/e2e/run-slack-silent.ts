@@ -1,5 +1,5 @@
-// #4936: a Slack channel's hidden record pushes to no phone, counts as no unread and
-// lists nowhere, even after a restart. Real backend, MongoDB and OpenAB; Slack and APNs
+// #4936: a Slack channel's hidden record pushes to no phone, counts as no unread,
+// lists nowhere and opens for no one, even after a restart. Real backend, MongoDB and OpenAB; Slack and APNs
 // are stubbed. Run with: bun scripts/e2e/run-slack-silent.ts
 import assert from 'node:assert/strict'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -129,6 +129,13 @@ try {
     'GET',
     `/agent/conversations?teamId=${stack.teamId}&scope=team&kind=channel`,
   )
+  // What an old push or a deep link opens.
+  const opened = await fetch(
+    `${stack.apiUrl}/agent/conversations/${chatId}?teamId=${stack.teamId}`,
+    {
+      headers: { authorization: `Bearer ${stack.token}` },
+    },
+  )
   const evidence = {
     chatId,
     owner: record?.userId,
@@ -136,6 +143,7 @@ try {
     chatPushes,
     unread,
     listed: listed.conversations.some((row) => row.sessionId === chatId),
+    openedStatus: opened.status,
   }
 
   writeFileSync(join(artifacts, 'slack-silent.json'), JSON.stringify(evidence, null, 2))
@@ -144,6 +152,7 @@ try {
   assert.equal(evidence.watcherIdsAfterRestart, null, 'someone still watches the hidden record')
   assert.equal(unread.count, 0, 'the hidden record counts as unread')
   assert.equal(evidence.listed, false, 'the hidden record is listed')
+  assert.equal(opened.status, 404, 'an old push or deep link still opens the hidden record')
   await client.close()
   console.log('PASS')
 } finally {

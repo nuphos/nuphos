@@ -10,7 +10,7 @@ import type { SlackChannelMapping } from '@/lib/slack/agent-bot'
  * A connected channel's hidden record (#3702): what its Bots read and post
  * there. Made on first connect, kept while the channel stays connected, and
  * deleted with its messages when an admin disconnects it.
- * Nobody watches it and nobody else may read it, so no list, badge or Inbox
+ * Nobody watches it and nobody in Nuphos may open it, so no list, badge or Inbox
  * in Nuphos ever shows it.
  */
 export async function ensureExternalChat(
