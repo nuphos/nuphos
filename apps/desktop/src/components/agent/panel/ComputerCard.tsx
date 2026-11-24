@@ -158,14 +158,15 @@ export function ComputerCard({
 }
 
 /**
- * Where the chat pane is while the desktop is held, so the takeover covers the
- * conversation and leaves the sidebar in view; the whole window outside one.
+ * Where the chat pane and the panel beside it are while the desktop is held, so the
+ * takeover runs to the window edge and leaves the sidebar in view; the whole window outside one.
  */
 function useChatPane(host: RefObject<HTMLElement | null>, holding: boolean): CSSProperties {
   const [rect, setRect] = useState<CSSProperties>({ inset: 0 })
 
   useLayoutEffect(() => {
-    const pane = holding ? host.current?.closest('[data-chat-pane]') : null
+    const card = holding ? host.current : null
+    const pane = card?.closest('[data-takeover-area]') ?? card?.closest('[data-chat-pane]')
 
     if (!pane) return
     const measure = () => {

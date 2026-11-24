@@ -120,7 +120,7 @@ function BotTaskBody({
           pendingCount={inputQueue.requests.length}
         />
       </header>
-      <div className="relative flex min-h-0 flex-1">
+      <div data-takeover-area className="relative flex min-h-0 flex-1">
         <SkeletonReveal
           ready={settled}
           skeleton={<TaskSkeleton />}

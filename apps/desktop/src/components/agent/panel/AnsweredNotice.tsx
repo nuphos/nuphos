@@ -13,6 +13,7 @@ import { pickedOptions } from './decisionNotice'
 import { formatMessageTimestamp } from './streamText'
 
 import type { DecisionNotice } from './decisionNotice'
+import type { ReactNode } from 'react'
 
 /**
  * A question someone answered, for the people reading the conversation: one
@@ -41,12 +42,11 @@ export function AnsweredNotice({ notice, sentAt }: { notice: DecisionNotice; sen
           <AnsweredLine
             key={`${String(index)}:${question}`}
             who={
-              tookOver
-                ? t('{name} took over {computer}', {
-                    name: notice.answeredBy,
-                    computer: computer.desktop.title,
-                  })
-                : t('{name} answered', { name: notice.answeredBy })
+              tookOver ? (
+                <TookOver name={notice.answeredBy} computer={computer.desktop.title} />
+              ) : (
+                t('{name} answered', { name: notice.answeredBy })
+              )
             }
             pill={tookOver ? outcome.after : answer}
             question={question}
@@ -72,8 +72,8 @@ function AnsweredLine({
   options,
   times,
 }: {
-  /** "Sam answered", or "Sam took over Studio Box". */
-  who: string
+  /** "Sam answered", or "Sam took over Studio Box ·". */
+  who: ReactNode
   /** The answer, or how long a desktop was held. */
   pill: string
   question: string
@@ -147,6 +147,19 @@ function AnsweredLine({
         </div>
       )}
     </div>
+  )
+}
+
+/** "**Sam** took over Studio Box ·": only the name stands out, in each language's own word order. */
+function TookOver({ name, computer }: { name: string; computer: string }) {
+  const [before, after] = t('{name} took over {computer}', { name: '\0', computer }).split('\0')
+
+  return (
+    <span className="font-normal text-secondary">
+      {before}
+      <span className="font-medium text-main">{name}</span>
+      {after} <span className="text-tertiary">·</span>
+    </span>
   )
 }
 

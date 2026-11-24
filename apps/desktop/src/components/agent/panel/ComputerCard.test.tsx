@@ -229,7 +229,14 @@ test('a desktop handed back reads in the conversation as who took it over, and f
   )
   const line = container.querySelector('button')?.textContent ?? ''
 
-  assert.match(line, /Sam Rivera took over Studio Box/)
+  assert.match(line, /Sam Rivera took over Studio Box ·\s*Sign in/)
+  // Only the name stands out; the takeover reads as secondary text.
+  const name = [...container.querySelectorAll('button span')].find(
+    (node) => node.textContent === 'Sam Rivera',
+  )
+
+  assert.match(name?.className ?? '', /font-medium/)
+  assert.match(name?.parentElement?.className ?? '', /font-normal text-secondary/)
   assert.match(line, /1m 24s/)
   assert.doesNotMatch(line, /handed back after/)
   await act(() => root.unmount())
