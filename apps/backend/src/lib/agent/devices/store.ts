@@ -1,5 +1,7 @@
 import { db } from '@/lib/db'
 
+import * as forgotten from './forgotten-devices'
+
 import type { DeviceAgentRecords } from './agent-registry'
 import type { RequestOrigin } from '@/lib/request-origin'
 import type { Collection } from 'mongodb'
@@ -98,12 +100,14 @@ export async function upsertAgentDevice(
   { label, ...device }: AgentDeviceRegistration,
 ): Promise<void> {
   const now = new Date()
+  const inserted = { label, createdAt: now, ...(await forgotten.kept(userId, device.deviceId)) }
 
   await agentDevices().updateOne(
     { userId, deviceId: device.deviceId },
-    { $set: { ...device, userId, updatedAt: now }, $setOnInsert: { label, createdAt: now } },
+    { $set: { ...device, userId, updatedAt: now }, $setOnInsert: inserted },
     { upsert: true },
   )
+  await forgotten.drop(userId, device.deviceId)
 }
 
 export async function renameAgentDevice(
@@ -271,9 +275,7 @@ export async function teamOrderingVcpus(teamId: string): Promise<number> {
 }
 
 export async function deleteAgentDevice(userId: string, deviceId: string): Promise<boolean> {
-  const result = await agentDevices().deleteOne({ userId, deviceId })
-
-  return result.deletedCount > 0
+  return forgotten.keep(await agentDevices().findOneAndDelete({ userId, deviceId }))
 }
 
 /** Never infer a legacy Box's team from its owner. */

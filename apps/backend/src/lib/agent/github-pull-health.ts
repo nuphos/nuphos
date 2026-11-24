@@ -90,11 +90,26 @@ export type SettledCi = { id: string; summary: string }
 type CheckRun = { id: number; name: string; status: string; conclusion: string | null }
 type CommitStatus = { id: number; context: string; state: string }
 
+/**
+ * Each check's newest run. GitHub's `filter=latest` keeps one per check suite,
+ * so a run that a later workflow run replaced on the same commit, such as one
+ * cancelled by `cancel-in-progress`, still comes back beside its replacement.
+ */
+function latestRuns(runs: CheckRun[]): CheckRun[] {
+  const newest = new Map<string, CheckRun>()
+
+  for (const run of runs) if (run.id > (newest.get(run.name)?.id ?? -1)) newest.set(run.name, run)
+
+  return [...newest.values()]
+}
+
 export function settledCi(
   sha: string,
-  runs: CheckRun[],
+  allRuns: CheckRun[],
   statuses: CommitStatus[],
 ): SettledCi | null {
+  const runs = latestRuns(allRuns)
+
   if (!runs.length && !statuses.length) return null
   if (runs.some((run) => run.status !== 'completed')) return null
   if (statuses.some((status) => status.state === 'pending')) return null
@@ -150,7 +165,7 @@ export async function readPull(
 
   return {
     health: pullHealth({
-      checkConclusions: checks?.check_runs.map((run) => run.conclusion) ?? [],
+      checkConclusions: latestRuns(checks?.check_runs ?? []).map((run) => run.conclusion),
       // With no statuses at all GitHub still says "pending"; that blocks nothing.
       statusState: status && status.total_count > 0 ? status.state : undefined,
       mergeableState: pull.mergeable_state,

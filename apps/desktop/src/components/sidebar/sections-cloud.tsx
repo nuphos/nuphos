@@ -1,15 +1,9 @@
 import {
-  faAlignLeft,
-  faBell,
-  faBolt,
-  faChartLine,
-  faDatabase,
-  faHardDrive,
-  faKey,
-  faLayerGroup,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
+  AlignLeft as AlignLeftIcon,
+  Bell as BellIcon,
+  Zap as ZapIcon,
+  HardDrive as HardDriveIcon,
+  KeyRound as KeyRoundIcon,
   ChartLine,
   Cloud,
   Container,
@@ -25,6 +19,7 @@ import {
 } from 'lucide-react'
 
 import { t } from '../../i18n'
+import { UiIcon } from '../ui/ui-icon'
 
 import type { Section } from './types'
 
@@ -47,7 +42,7 @@ export function awsSections(): Section[] {
         {
           key: 'aws.lambda',
           label: 'Lambda',
-          iconNode: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
       ],
@@ -66,19 +61,19 @@ export function awsSections(): Section[] {
         {
           key: 'aws.cloudwatch',
           label: t('Logs'),
-          iconNode: <FontAwesomeIcon icon={faAlignLeft} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={AlignLeftIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'aws.cloudwatch-alarms',
           label: t('Alarms'),
-          iconNode: <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={BellIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'aws.cloudwatch-metrics',
           label: t('Metrics'),
-          iconNode: <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={ChartLine} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
       ],
@@ -209,19 +204,19 @@ export function cloudflareSections(): Section[] {
         {
           key: 'cloudflare.workers',
           label: 'Workers',
-          iconNode: <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'cloudflare.r2',
           label: 'R2',
-          iconNode: <FontAwesomeIcon icon={faHardDrive} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={HardDriveIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'cloudflare.pages',
           label: 'Pages',
-          iconNode: <FontAwesomeIcon icon={faLayerGroup} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={Layers} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
       ],
@@ -232,13 +227,13 @@ export function cloudflareSections(): Section[] {
         {
           key: 'cloudflare.d1',
           label: 'D1',
-          iconNode: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={Database} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
         {
           key: 'cloudflare.kv',
           label: 'KV',
-          iconNode: <FontAwesomeIcon icon={faKey} className="w-3.5 h-3.5 text-tertiary" />,
+          iconNode: <UiIcon size={14} icon={KeyRoundIcon} className="w-3.5 h-3.5 text-tertiary" />,
           enabled: true,
         },
       ],

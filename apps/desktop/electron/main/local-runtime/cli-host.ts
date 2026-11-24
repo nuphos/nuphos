@@ -185,7 +185,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
-      ...cliBrowser(dataDir, findBrowser()),
+      ...cliBrowser(dataDir, findBrowser(), desktopPool),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 

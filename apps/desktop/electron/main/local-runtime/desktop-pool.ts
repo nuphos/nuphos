@@ -3,7 +3,7 @@
 // and a pool sized to the CPUs; a reaper frees displays whose session is gone.
 
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, watch } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, readdirSync, watch } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -25,6 +25,43 @@ export function listDesktops(wrapper: string, pool: string): SessionDesktop[] {
   } catch {
     return []
   }
+}
+
+/** The computer-use proxy forgets a human owner this long after their last renewal (vnc-stream.ts). */
+const HUMAN_HOLD_MS = 30_000
+
+export const HELD =
+  'A person has taken over this conversation’s desktop, so the browser waits too. Do not retry now: end your turn, and continue when you are told they handed it back.'
+
+/**
+ * Whether a person holds one of `sessionId`'s displays right now, read from the
+ * control file the desktop stream renews while they do (vnc-stream.ts). The
+ * session's other input, its headless browser, waits for them as its desktop does.
+ */
+export function humanHolds(pool: string, sessionId: string, now = Date.now()): boolean {
+  const read = (file: string) => {
+    try {
+      return readFileSync(path.join(pool, file), 'utf8')
+    } catch {
+      return ''
+    }
+  }
+  const lockedBy = (lock: string) => {
+    try {
+      return (JSON.parse(read(lock)) as { sessionId?: string }).sessionId
+    } catch {
+      return
+    }
+  }
+
+  return (existsSync(pool) ? readdirSync(pool) : []).some((name) => {
+    if (!name.endsWith('.lock') || lockedBy(name) !== sessionId) return false
+    const [owner, , since] = read(`${name.slice(0, -5)}.xdg/instabox-control`)
+      .trim()
+      .split(' ')
+
+    return owner === 'human' && now - Number(since) * 1000 < HUMAN_HOLD_MS
+  })
 }
 
 /** What the tunnel status says about this computer's desktops: who holds which, and that it opens them on request. */

@@ -32,6 +32,7 @@ const onlyAbout = (question: Question, ids: unknown[]) =>
 
 function matches(doc: Doc, filter: Doc): boolean {
   return Object.entries(filter).every(([key, value]) => {
+    if (key === '$nor') return !(value as Doc[]).some((one) => matches(doc, one))
     if (key === 'inputRequests.about') {
       return questions(doc).some((question) => isAbout(question, (value as { $in: unknown[] }).$in))
     }
@@ -39,8 +40,10 @@ function matches(doc: Doc, filter: Doc): boolean {
 
     if (value instanceof Date) return actual instanceof Date && actual.getTime() === value.getTime()
     if (value && typeof value === 'object') {
-      const op = value as { $in?: unknown[]; $exists?: boolean }
+      const op = value as { $ne?: unknown; $type?: string; $in?: unknown[]; $exists?: boolean }
 
+      if (op.$ne !== undefined) return actual !== op.$ne
+      if (op.$type) return typeof actual === op.$type
       if (op.$in) return op.$in.includes(actual)
       if (op.$exists !== undefined) return (actual !== null) === op.$exists
     }

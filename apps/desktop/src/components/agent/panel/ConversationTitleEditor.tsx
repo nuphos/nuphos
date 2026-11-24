@@ -9,12 +9,40 @@ import { botAvatarFile, botAvatarName } from '../../../lib/botAvatars'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
 import { saveBotIdentity } from '../../../lib/saveBotIdentity'
 import { sessionShortcutCombo } from '../../../lib/sessionShortcuts'
+import { listedConversation } from '../../channels/channelShared'
 import { Modal } from '../../Modal'
 import { Button } from '../../ui/button'
 import { ShortcutLabel } from '../../ui/shortcut-hint'
 import { toast } from '../../ui/toast'
 import { Tooltip } from '../../ui/tooltip'
 import { BotIdentityFields } from '../BotIdentityFields'
+
+const LABELS = {
+  task: {
+    rename: () => t('Rename task'),
+    named: (title: string) => t('Rename task: {title}', { title }),
+    failed: () => t('Could not rename task'),
+  },
+  bot: {
+    rename: () => t('Edit Bot'),
+    named: (title: string) => t('Edit Bot: {title}', { title }),
+    failed: () => t('Could not rename Bot'),
+  },
+  chat: {
+    rename: () => t('Rename chat'),
+    named: (title: string) => t('Rename chat: {title}', { title }),
+    failed: () => t('Could not rename chat'),
+  },
+}
+
+/** What renaming this conversation renames: a Bot, a group chat, or a Task. */
+function useRenamed(teamId: string, sessionId: string): keyof typeof LABELS {
+  const bot = Boolean(useAgentAvatarPick(sessionId))
+
+  if (bot) return 'bot'
+
+  return listedConversation(teamId, sessionId)?.kind === 'channel' ? 'chat' : 'task'
+}
 
 export function EditableConversationTitle({
   sessionId,
@@ -35,7 +63,7 @@ export function EditableConversationTitle({
   const [localEditing, setLocalEditing] = useState(false)
   const editing = editingProp ?? localEditing
   const setEditing = onEditingChange ?? setLocalEditing
-  const bot = Boolean(useAgentAvatarPick(sessionId ?? ''))
+  const renamed = useRenamed(teamId, sessionId ?? '')
 
   if (!sessionId || !canRename) return <span className="truncate">{title}</span>
 
@@ -53,17 +81,20 @@ export function EditableConversationTitle({
         side="bottom"
         triggerClassName="min-w-0"
         content={
-          <ShortcutLabel
-            label={bot ? t('Edit Bot') : t('Rename task')}
-            combo={sessionShortcutCombo('rename-chat')}
-          />
+          // A group chat has no rename shortcut: that is a Task's titlebar menu.
+          renamed === 'chat' ? (
+            LABELS.chat.rename()
+          ) : (
+            <ShortcutLabel
+              label={LABELS[renamed].rename()}
+              combo={sessionShortcutCombo('rename-chat')}
+            />
+          )
         }
       >
         <button
           type="button"
-          aria-label={
-            bot ? t('Edit Bot: {title}', { title }) : t('Rename task: {title}', { title })
-          }
+          aria-label={LABELS[renamed].named(title)}
           onClick={() => setEditing(true)}
           className="titlebar-no-drag group flex min-w-0 items-center gap-1.5 rounded px-1 py-1 text-left hover:bg-state-hover"
         >
@@ -87,7 +118,8 @@ export function RenameConversationDialog({
   onClose: () => void
 }) {
   const currentAvatar = useAgentAvatarPick(sessionId)
-  const bot = Boolean(currentAvatar)
+  const renamed = useRenamed(teamId, sessionId)
+  const bot = renamed === 'bot'
   const photo = trustedAvatarURL(currentAvatar)
   const [avatar, setAvatar] = useState(() =>
     photo ? undefined : botAvatarFile(sessionId, currentAvatar),
@@ -128,7 +160,7 @@ export function RenameConversationDialog({
       )
       onClose()
     } catch (error) {
-      toast.apiError(bot ? t('Could not rename Bot') : t('Could not rename task'), error)
+      toast.apiError(LABELS[renamed].failed(), error)
     } finally {
       inFlight.current = false
       setSaving(false)
@@ -138,7 +170,7 @@ export function RenameConversationDialog({
   return (
     <Modal
       open
-      title={bot ? t('Edit Bot') : t('Rename task')}
+      title={LABELS[renamed].rename()}
       appearance="prompt"
       width={bot ? 440 : 420}
       onClose={onClose}
@@ -166,7 +198,7 @@ export function RenameConversationDialog({
           <>
             <div className="flex flex-col items-center px-5 pt-1 pb-5">
               <input
-                aria-label={t('Task name')}
+                aria-label={renamed === 'chat' ? t('Name') : t('Task name')}
                 autoFocus
                 maxLength={120}
                 value={draft}

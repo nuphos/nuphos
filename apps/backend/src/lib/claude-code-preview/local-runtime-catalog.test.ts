@@ -625,13 +625,31 @@ describe('who an agent is signed in as', () => {
     expect(listed?.local.signedInBy).toBeUndefined()
     // The Desktop then renews it through Nuphos, not the CLI's own login.
     expect(listed?.local.signInEnded).toBe(true)
-    for (const purpose of ['transport', 'control'] as const)
-      await expect(
-        resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', purpose, ended),
-      ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', ended),
+    ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
     expect(
       (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'login', ended)).authKey,
     ).toBe('control')
+  })
+
+  test('a turn still running when its sign-in ended can be stopped, not steered', async () => {
+    const ended = signedInAs(at)
+
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'control', ended)).authKey,
+    ).toBe('control')
+    // Steering is new input on the ended sign-in, so it waits for a new one, like a turn.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'steer', ended),
+    ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'steer', signedInAs())).authKey,
+    ).toBe('control')
+    // Still only for someone who may use the computer.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'teammate', 'control', ended),
+    ).rejects.toMatchObject({ status: 404, code: 'runtime_not_found' })
   })
 })
 

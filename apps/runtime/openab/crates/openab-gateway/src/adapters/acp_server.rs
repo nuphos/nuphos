@@ -54,9 +54,12 @@ const ACP_PROTOCOL_VERSION: u32 = 1;
 pub const BINDING_REVOKED_CLOSE_CODE: u16 = 4401;
 
 /// Lightweight per-connection resource caps: turn unbounded client-driven growth into
-/// a deterministic overload error. Full backpressure (bounded outbound channel), idle
-/// eviction, and global connection/worker limits are a follow-up (review F6, roadmap).
-const MAX_SESSIONS_PER_CONNECTION: usize = 128;
+/// a deterministic overload error. Full backpressure (bounded outbound channel) and
+/// global connection/worker limits are a follow-up (review F6, roadmap).
+///
+/// Sessions attached to a connection are not capped. Nothing ever detaches one, so a cap
+/// only counted every conversation the connection had seen and refused the next after
+/// 128 of them, however few were running. Agent processes are bounded by the pool.
 const MAX_INFLIGHT_PROMPTS: usize = 32;
 /// Cap on concurrently-establishing tunnels per connection.
 ///
@@ -2448,16 +2451,6 @@ async fn handle_acp_connection(
                     let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
                     continue;
                 }
-                // Cap sessions per connection (deterministic overload, not unbounded).
-                if sessions.lock().await.len() >= MAX_SESSIONS_PER_CONNECTION {
-                    let resp = JsonRpcResponse::error(
-                        id,
-                        ACP_OVERLOADED,
-                        format!("Too many sessions on this connection (max {MAX_SESSIONS_PER_CONNECTION})"),
-                    );
-                    let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
-                    continue;
-                }
                 // Bound the declaration fan-out BEFORE the session exists or any task is
                 // spawned (R3-F1): an over-declaring request must cost nothing.
                 let acp_mcp_servers =
@@ -2562,11 +2555,7 @@ async fn handle_acp_connection(
                     .as_ref()
                     .and_then(|p| p["sessionId"].as_str())
                     .unwrap_or_default();
-                let over_cap = {
-                    let guard = sessions.lock().await;
-                    !guard.contains_key(requested) && guard.len() >= MAX_SESSIONS_PER_CONNECTION
-                };
-                if let Some(channel) = derive_channel_id(requested).filter(|_| !over_cap) {
+                if let Some(channel) = derive_channel_id(requested) {
                     if let Some((code, message)) = scope.claim_or_refusal(&channel) {
                         let resp = JsonRpcResponse::error(id, code, message);
                         let _ = out_tx.send(serde_json::to_string(&resp).unwrap());
@@ -3608,7 +3597,7 @@ async fn handle_session_new(
 /// Returns the response and, **only when the resume actually succeeded**, the channel it resumed.
 /// The caller uses that `Some` as its permission to open tunnels: deriving a channel id from the
 /// requested `sessionId` is not sufficient, because a well-formed id derives fine even on the
-/// paths that reject the resume (unknown session, per-connection cap, busy).
+/// paths that reject the resume (unknown session, busy).
 /// Returns the response, the channel on success, and the declarations this resume RETIRES —
 /// servers the session had that the client no longer offers.
 ///
@@ -3650,19 +3639,6 @@ async fn handle_session_resume(
     };
 
     let mut guard = sessions.lock().await;
-    // Same per-connection cap as session/new: resume must not be an unbounded insert
-    // path (a client can mint unlimited valid `sess_<uuid>`). An already-present key is
-    // exempt so re-resuming an existing session stays idempotent.
-    if !guard.contains_key(&session_id) && guard.len() >= MAX_SESSIONS_PER_CONNECTION {
-        return (
-            JsonRpcResponse::error(
-                id,
-                ACP_OVERLOADED,
-                format!("Too many sessions on this connection (max {MAX_SESSIONS_PER_CONNECTION})"),
-            ),
-            None,
-        );
-    }
     // R16-F2: refuse to resume a session that currently has a prompt in flight. The insert
     // below unconditionally rewrites AcpSession{busy:false,cancel:None}, which would drop the
     // active turn's cancel handle — and then that turn's cleanup would clobber the resumed
@@ -6538,51 +6514,21 @@ mod acp_review_fixes {
         Arc::new(tokio::sync::Mutex::new(HashMap::new()))
     }
 
-    // M1 — session/resume enforces the same per-connection cap as session/new, so a
-    // client cannot grow the map without bound by resuming arbitrary `sess_<uuid>`.
+    // A connection attaches every conversation it has seen and never detaches one, so it must
+    // take a session after the 128 that used to fill a cap, and re-resume one it already holds.
     #[tokio::test]
-    async fn resume_enforces_session_cap() {
+    async fn resume_attaches_past_the_former_session_cap() {
         let sessions = sessions_map();
-        let mut ids = Vec::new();
-        for _ in 0..MAX_SESSIONS_PER_CONNECTION {
-            let sid = format!("sess_{}", Uuid::new_v4());
+        let ids: Vec<String> = (0..200)
+            .map(|_| format!("sess_{}", Uuid::new_v4()))
+            .collect();
+        for sid in ids.iter().chain(&ids[..1]) {
             let p = json!({ "sessionId": sid });
-            let v = serde_json::to_value(
-                handle_session_resume(&sessions, json!(1), Some(&p), false)
-                    .await
-                    .0,
-            )
-            .unwrap();
-            assert_eq!(v["result"], json!({}), "resume under cap should succeed");
-            ids.push(sid);
+            let (resp, chan) = handle_session_resume(&sessions, json!(1), Some(&p), false).await;
+            assert_eq!(serde_json::to_value(resp).unwrap()["result"], json!({}));
+            assert!(chan.is_some(), "an attached session yields its channel");
         }
-        assert_eq!(sessions.lock().await.len(), MAX_SESSIONS_PER_CONNECTION);
-        // A new distinct session over the cap is refused with ACP_OVERLOADED.
-        let over = json!({ "sessionId": format!("sess_{}", Uuid::new_v4()) });
-        let v = serde_json::to_value(
-            handle_session_resume(&sessions, json!(2), Some(&over), false)
-                .await
-                .0,
-        )
-        .unwrap();
-        assert_eq!(
-            v["error"]["code"],
-            json!(ACP_OVERLOADED),
-            "over-cap resume must be refused"
-        );
-        // Re-resuming an already-present session is exempt (idempotent).
-        let existing = json!({ "sessionId": ids[0] });
-        let v = serde_json::to_value(
-            handle_session_resume(&sessions, json!(3), Some(&existing), false)
-                .await
-                .0,
-        )
-        .unwrap();
-        assert_eq!(
-            v["result"],
-            json!({}),
-            "re-resume of existing session must bypass the cap"
-        );
+        assert_eq!(sessions.lock().await.len(), ids.len());
     }
 
     // --- R3-F1: declaration fan-out is bounded before it costs anything ---
@@ -6754,25 +6700,7 @@ mod acp_review_fixes {
             "malformed sessionId must not yield a channel"
         );
 
-        // 3. over the per-connection cap — note the id IS well formed, so the old
-        //    derive-from-params guard would have happily produced a channel here.
-        for _ in 0..MAX_SESSIONS_PER_CONNECTION {
-            let p = json!({ "sessionId": format!("sess_{}", Uuid::new_v4()) });
-            let (_r, chan) = handle_session_resume(&sessions, json!(3), Some(&p), false).await;
-            assert!(chan.is_some(), "resume under the cap should succeed");
-        }
-        let over = json!({ "sessionId": format!("sess_{}", Uuid::new_v4()) });
-        let (resp, chan) = handle_session_resume(&sessions, json!(4), Some(&over), false).await;
-        assert_eq!(
-            serde_json::to_value(resp).unwrap()["error"]["code"],
-            json!(ACP_OVERLOADED)
-        );
-        assert!(
-            chan.is_none(),
-            "an over-cap resume must not yield a channel"
-        );
-
-        // 4. busy — likewise a well-formed id on a session that really exists.
+        // 3. busy — likewise a well-formed id on a session that really exists.
         let busy_sid = format!("sess_{}", Uuid::new_v4());
         sessions.lock().await.insert(
             busy_sid.clone(),
@@ -11864,41 +11792,6 @@ mod acp_ws_integration {
             call(&mut b_transport, 20, "session/resume", resume(&sess_a)).await["result"]
                 .is_object(),
             "a revoked binding's sessions are released"
-        );
-    }
-
-    #[tokio::test]
-    async fn a_resume_refused_by_the_session_cap_claims_nothing() {
-        let store = Arc::new(CredentialStore::in_memory(None, None));
-        let a = store
-            .create_pending("a".into(), Default::default())
-            .unwrap();
-        let url = serve_with_credentials(store.clone()).await;
-        let mut ws = connect_bearer(&url, &a.transport_key).await.unwrap();
-        initialize(&mut ws).await;
-        for n in 0..MAX_SESSIONS_PER_CONNECTION {
-            let session = format!("sess_{}", Uuid::new_v4());
-            let resumed = call(
-                &mut ws,
-                100 + n as u64,
-                "session/resume",
-                json!({"sessionId": session, "cwd": "/tmp"}),
-            )
-            .await;
-            assert!(resumed["result"].is_object(), "{resumed}");
-        }
-        let refused = format!("sess_{}", Uuid::new_v4());
-        let response = call(
-            &mut ws,
-            1,
-            "session/resume",
-            json!({"sessionId": refused, "cwd": "/tmp"}),
-        )
-        .await;
-        assert_eq!(response["error"]["code"], ACP_OVERLOADED);
-        assert_eq!(
-            store.sessions.owner(&derive_channel_id(&refused).unwrap()),
-            None
         );
     }
 
