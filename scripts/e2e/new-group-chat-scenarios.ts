@@ -79,7 +79,8 @@ export const newGroupChatScenarios: Scenario[] = [
       const renaming = page.getByRole('dialog', { name: 'Rename chat' })
 
       await renaming.getByRole('textbox', { name: 'Name' }).fill(RENAMED)
-      await settled(page)
+      // The dialog fades in; shoot it once it has settled.
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/group-chat-rename-dialog.png` })
       await renaming.getByRole('button', { name: 'Save' }).click()
       await renaming.waitFor({ state: 'detached' })
@@ -93,20 +94,10 @@ export const newGroupChatScenarios: Scenario[] = [
         return shared.conversations?.find((chat) => chat.sessionId === made[0])?.title === RENAMED
       })
       await page.mouse.move(0, 0)
-      await settled(page)
+      // The tooltip and composer placeholder fade; shoot once they have settled.
+      await page.waitForTimeout(1_000)
       await page.screenshot({ path: `${artifacts}/group-chat-renamed.png` })
     },
   },
 ]
 
-/** Waits for the page's finite transitions (dialog fade, tooltip fade, blur) to finish before a screenshot. */
-async function settled(page: Page) {
-  await page.waitForFunction(() =>
-    document
-      .getAnimations()
-      .every(
-        (motion) =>
-          motion.playState !== 'running' || motion.effect?.getTiming().iterations === Infinity,
-      ),
-  )
-}
