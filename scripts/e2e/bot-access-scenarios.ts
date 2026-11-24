@@ -73,7 +73,8 @@ export const botAccessScenarios: Scenario[] = [
       if (
         !made?.access?.awsRoleIds ||
         !deviceIds.length ||
-        made.access.resendIntegrationIds?.length
+        !made.access.allCredentials ||
+        !made.access.allDevices
       )
         throw new Error(`"+" stored ${JSON.stringify(made?.access)}, not its owner's default`)
       if ((await page.getByText(CHOOSE).count()) > 0)
@@ -119,6 +120,33 @@ export const botAccessScenarios: Scenario[] = [
               JSON.stringify(entry.result).includes('E2E_ON_COMPUTER'),
           ),
       )
+
+      // Custom: unticking a row leaves All and keeps what is ticked; the switch brings All back.
+      for (const [row, flag] of [
+        [/^Computers/, 'allDevices'],
+        [/^Credentials/, 'allCredentials'],
+      ] as const) {
+        await access(page).getByRole('button', { name: row }).click()
+        const menu = page.getByRole('menu')
+
+        await menu.getByRole('menuitemcheckbox', { checked: true }).first().click()
+        await until(`unticking a row to leave ${flag}`, async () => {
+          const now = botNamed(stack, 'E2E Bot')?.access
+
+          return now?.[flag] === false
+        })
+        await shoot(page, `custom-${flag}`)
+        await menu.getByRole('switch').click()
+        await until(`the switch to bring back ${flag}`, async () =>
+          Boolean(botNamed(stack, 'E2E Bot')?.access?.[flag]),
+        )
+        await page.keyboard.press('Escape')
+        await menu.waitFor({ state: 'detached' })
+      }
+      const narrowed = botNamed(stack, 'E2E Bot')?.access
+
+      if (JSON.stringify(narrowed?.deviceIds) !== JSON.stringify(deviceIds))
+        throw new Error(`All again stored ${JSON.stringify(narrowed)}`)
 
       await narrowDetails(page)
 
