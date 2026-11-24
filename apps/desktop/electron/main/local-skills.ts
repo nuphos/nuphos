@@ -6,6 +6,8 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { skillDescription } from './skill-description.ts'
+
 import type { Dirent, Stats } from 'node:fs'
 
 /** `folder`: one the member added to Sync my setup. */
@@ -25,6 +27,8 @@ export type LocalSkillInfo = {
   files: LocalSkillFileInfo[]
   fileCount: number
   totalBytes: number
+  /** A walk cap stopped short: `files` is not the whole skill, so it cannot be imported. */
+  truncated: boolean
   updatedAt: string
 }
 
@@ -52,30 +56,15 @@ export type LocalSkillEntry = {
 
 /** The team skill store rejects anything larger, so skip it before uploading. */
 export const MAX_SKILL_FILE_BYTES = 10_000_000
-const MAX_FILES = 200
-const MAX_DEPTH = 6
+/** The runtime loads at most 2,000 skill files in all, so one skill stays well under it. */
+export const MAX_FILES = 1_000
+export const MAX_DEPTH = 6
 /** Entries examined per skill: aliased directories can fan out with no files to count. */
 const MAX_ENTRIES = 5_000
 const SKIP_ENTRIES = new Set(['.git', '.DS_Store', 'node_modules'])
 
 /** Where Codex keeps its skills, the folder Sync my setup offers to add. */
 export const codexSkillsDir = () => path.join(os.homedir(), '.agents', 'skills')
-
-/** The `description:` of a SKILL.md, read from its leading frontmatter block. */
-export function skillDescription(markdown: string): string | null {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---/u.exec(markdown)
-
-  if (!match?.[1]) return null
-  const line = match[1]
-    .split(/\r?\n/u)
-    .find((candidate) => /^description\s*:/iu.test(candidate))
-    ?.replace(/^description\s*:/iu, '')
-    .trim()
-    .replace(/^['"]|['"]$/gu, '')
-    .trim()
-
-  return line ? line.slice(0, 300) : null
-}
 
 function isUnder(target: string, base: string): boolean {
   return target.startsWith(base.endsWith(path.sep) ? base : `${base}${path.sep}`)
@@ -119,12 +108,19 @@ export async function walkSkill(
 
   if (!realRoot) return { entries: out, truncated: false }
   let examined = 0
+  /** Folders below the depth cap: never read, so their files would vanish unreported. */
+  const tooDeep: string[] = []
+  const capped = () => out.length >= MAX_FILES || examined >= MAX_ENTRIES
 
   // Each cap also stops descents already queued. A cycle is only `ancestors`,
   // not every directory seen: `assets -> scripts` must not hide `scripts/`.
   async function walk(dir: string, prefix: string, depth: number, ancestors: Set<string>) {
-    if (depth > MAX_DEPTH || out.length >= MAX_FILES || examined >= MAX_ENTRIES) return
-    if (ancestors.has(dir)) return
+    if (capped() || ancestors.has(dir)) return
+    if (depth > MAX_DEPTH) {
+      tooDeep.push(prefix)
+
+      return
+    }
     const lineage = new Set(ancestors).add(dir)
     let entries: Dirent[]
 
@@ -138,7 +134,7 @@ export async function walkSkill(
     const subdirs: { real: string; relPath: string }[] = []
 
     for (const entry of entries.toSorted((a, b) => a.name.localeCompare(b.name))) {
-      if (out.length >= MAX_FILES || examined >= MAX_ENTRIES) return
+      if (capped()) return
       examined += 1
       if (SKIP_ENTRIES.has(entry.name)) continue
       const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
@@ -165,7 +161,7 @@ export async function walkSkill(
     return a.relPath.localeCompare(b.relPath)
   })
 
-  return { entries, truncated: out.length >= MAX_FILES || examined >= MAX_ENTRIES }
+  return { entries, truncated: tooDeep.length > 0 || capped() }
 }
 
 /** The files a link brings into `skill` from outside its folder, for review before sync. */
@@ -243,7 +239,7 @@ async function describeSkill(
 
   // Without a SKILL.md the directory is not a skill (the store keys on it too), nor walked.
   if (!(await fs.stat(path.join(root, 'SKILL.md')).catch(() => null))?.isFile()) return null
-  const entries = await localSkillEntries(root)
+  const { entries, truncated } = await walkSkill(root)
   const skillMd = entries.find((entry) => entry.relPath === 'SKILL.md')
 
   // One the CLI could not read either: not a skill, and sync would fail on it.
@@ -269,6 +265,7 @@ async function describeSkill(
     })),
     fileCount: entries.length,
     totalBytes: entries.reduce((sum, entry) => sum + entry.size, 0),
+    truncated,
     updatedAt: new Date(Math.max(0, ...entries.map((entry) => entry.mtimeMs))).toISOString(),
   }
 }
