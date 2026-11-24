@@ -4,6 +4,7 @@ import { useCallback, useContext, useEffect } from 'react'
 import { api } from '../../api.ts'
 import { WorkspaceTabContext } from '../../hooks/useWorkspaceTab.ts'
 import { useChatSwitchShown } from '../../lib/chatSwitchTiming.ts'
+import { onChatTitleChanged } from '../../lib/chatTitleEvents.ts'
 import { queryKeys } from '../../lib/query/keys.ts'
 import { prefetchTask } from '../agent/panel/taskTranscript.ts'
 
@@ -133,6 +134,15 @@ export function useChannel(teamId: string, channelId: string) {
   const refresh = useCallback(
     () => void refreshChannel(client, teamId, channelId),
     [client, teamId, channelId],
+  )
+
+  // Renamed from its header or its sidebar row: read again for the new name.
+  useEffect(
+    () =>
+      onChatTitleChanged((change) => {
+        if (change.teamId === teamId && change.sessionId === channelId) refresh()
+      }),
+    [teamId, channelId, refresh],
   )
 
   const detail = data?.detail ?? null
