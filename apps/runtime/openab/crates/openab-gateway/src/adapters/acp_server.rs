@@ -9147,7 +9147,7 @@ mod acp_ws_integration {
     >;
 
     async fn send(ws: &mut Ws, v: Value) {
-        ws.send(WsMessage::Text(v.to_string())).await.unwrap();
+        ws.send(WsMessage::Text(v.to_string().into())).await.unwrap();
     }
 
     /// Next JSON frame from the server, skipping anything that is not text (pings etc).
