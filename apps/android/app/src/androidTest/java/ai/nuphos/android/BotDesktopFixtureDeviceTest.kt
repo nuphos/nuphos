@@ -451,14 +451,19 @@ class BotDesktopFixtureDeviceTest {
         return top
     }
 
+    /** Waits out the keyboard's slide and the scroll that follows it, however long they take on this device. */
     private fun assertActionsAboveKeyboard() {
-        compose.waitForIdle()
-        Thread.sleep(600) // the keyboard's slide and the scroll that follows it
-        compose.waitForIdle()
-        val top = keyboardTop() ?: error("The keyboard closed")
-        val row = compose.onNodeWithTag("bot-instructions-actions").fetchSemanticsNode()
-        val bottom = row.positionOnScreen.y + row.size.height
-        assertTrue("Cancel and Save end at $bottom, under the keyboard at $top", bottom <= top)
+        var top: Int? = null
+        var bottom = 0f
+        val above = runCatching {
+            compose.waitUntil(5_000) {
+                top = keyboardTop()
+                val row = compose.onNodeWithTag("bot-instructions-actions").fetchSemanticsNode()
+                bottom = row.positionOnScreen.y + row.size.height
+                top?.let { bottom <= it } ?: false
+            }
+        }.isSuccess
+        assertTrue("Cancel and Save end at $bottom, under the keyboard at ${top ?: "closed"}", above)
         compose.onNodeWithTag("bot-instructions-save").assertIsDisplayed()
     }
 
