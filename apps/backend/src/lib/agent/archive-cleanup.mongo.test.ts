@@ -24,7 +24,7 @@ const now = new Date(Date.now() - 1000)
 
 // What the archive routes do: archive, then clean up what it queued.
 const archiveTask = async (sessionId: string) => {
-  await setConversationArchived(sessionId, true)
+  await setConversationArchived(sessionId, true, { source: 'user' })
   await cleanUpArchived([sessionId])
 }
 

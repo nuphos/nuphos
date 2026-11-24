@@ -285,7 +285,11 @@ export async function setAgentThreadArchived(
   if (!target || target.userId !== actor.userId || target.teamId !== actor.teamId) {
     throw new Error('Target must be a conversation you own in this team.')
   }
-  await setConversationArchived(threadId, archived)
+  await setConversationArchived(threadId, archived, {
+    source: 'archive_thread',
+    userId: actor.userId,
+    agentSessionId: actor.sessionId,
+  })
   if (archived) await cleanUpArchived([threadId])
 
   return { threadId, archived, _links: { web: `/teams/${actor.teamId}/agent/${threadId}` } }
