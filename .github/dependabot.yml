@@ -1,0 +1,13 @@
+# Renovate owns routine dependency updates (see CONTRIBUTING.md, "Dependencies").
+# This file only tells Dependabot's security updates that the Bun projects are
+# managed by Bun: without it they default to npm_and_yarn, which cannot update
+# bun.lock and fails every run. A limit of 0 turns off version updates here.
+version: 2
+updates:
+  - package-ecosystem: "bun"
+    directories:
+      - "/"
+      - "/apps/backend"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
