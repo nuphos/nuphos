@@ -1,4 +1,4 @@
-import { execFile, execFileSync, spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import { createHash, randomBytes } from 'node:crypto'
 import { createWriteStream, mkdirSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
@@ -61,16 +61,17 @@ async function waitUntilListening(port: number, child: ChildProcess): Promise<vo
 
 type ProcessEntry = { pid: number; args: string }
 
-function listProcesses(): ProcessEntry[] {
-  try {
-    return execFileSync('/bin/ps', ['-axo', 'pid=,args='], { encoding: 'utf8' })
-      .split('\n')
-      .map((line) => /^\s*(\d+) (.*)$/u.exec(line))
-      .filter((match) => match !== null)
-      .map((match) => ({ pid: Number(match[1]), args: match[2] ?? '' }))
-  } catch {
-    return []
-  }
+/** Async: a slow `ps` must not block the host, and with it the tunnel (#5019). */
+function listProcesses(): Promise<ProcessEntry[]> {
+  return new Promise((resolve) => {
+    execFile('/bin/ps', ['-axo', 'pid=,args='], { encoding: 'utf8' }, (error, stdout) => {
+      const matches = (error ? '' : stdout).split('\n').map((line) => /^\s*(\d+) (.*)$/u.exec(line))
+
+      resolve(
+        matches.filter((m) => m !== null).map((m) => ({ pid: Number(m[1]), args: m[2] ?? '' })),
+      )
+    })
+  })
 }
 
 /** Sends `sig` if the process still exists; signal 0 only asks whether it does. */
@@ -91,12 +92,9 @@ const alive = (pid: number) => signal(pid, 0)
  * it serving this config, with every agent it spawned. openab reaps its agents on
  * SIGTERM, so the next start stops that earlier run instead of adding another.
  */
-export async function stopStaleOpenab(
-  configPath: string,
-  list: () => ProcessEntry[] = listProcesses,
-): Promise<void> {
+export async function stopStaleOpenab(configPath: string): Promise<void> {
   if (process.platform === 'win32') return
-  const stale = list()
+  const stale = (await listProcesses())
     .filter(({ pid, args }) => pid !== process.pid && args.endsWith(`openab run -c ${configPath}`))
     .map(({ pid }) => pid)
 
