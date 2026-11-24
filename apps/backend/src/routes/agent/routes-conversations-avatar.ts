@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 import { BOT_AVATAR_BACKGROUNDS, BOT_AVATARS, derivedAvatar } from '@/lib/agent/bot-avatars'
-import { startBotOnboarding } from '@/lib/agent/bot-onboarding'
 import { botInstructions } from '@/lib/agent/bot-instructions'
+import { startBotOnboarding } from '@/lib/agent/bot-onboarding'
 import { createBot } from '@/lib/agent/bots'
 import { startConversationTurn } from '@/lib/agent/conversation-turn'
 import {
@@ -63,7 +63,7 @@ agent.patch('/conversations/:sessionId/avatar', async (c) => {
   // A photo the Bot wore until now is no longer its face.
   if (conversation._id) await pruneAvatars(conversation._id.toHexString())
   // A Task is never in a chat.
-  if (body.data.avatar === null) await leaveChats(sessionId)
+  if (body.data.avatar === null) await leaveChats(sessionId, userId)
 
   return c.json({ avatar, ...(background ? { background } : {}) })
 })

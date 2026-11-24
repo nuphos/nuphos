@@ -124,6 +124,16 @@ test('usage analytics stays off a self-hosted backend, and clicks carry no text 
   // Nothing of what the button says, as text or as an attribute.
   assert.ok(!JSON.stringify(events).includes(TITLE), JSON.stringify(click))
 
+  // Debugging telemetry skips person processing; product events keep it.
+  analytics.track('agent_end_effects_deferred', { stream_id: 'st1' })
+  await settle()
+  const profile = (name: string) =>
+    (events.findLast((event) => event.event === name) as { properties?: Record<string, unknown> })
+      ?.properties?.$process_person_profile
+
+  assert.equal(profile('agent_end_effects_deferred'), false)
+  assert.equal(profile('app_ready'), true)
+
   // Back to a self-hosted backend during the same session: nothing more is sent.
   usage = false
   changed(false)

@@ -7,6 +7,8 @@ import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scop
  * follows its members, so it keeps team-wide 'reply'.
  */
 export type GeneralAccess = 'none' | 'view' | 'reply'
+/** "All" on a conversation's credential selection: what the owner can use whenever read, added-later ones too. */
+export type CredentialAllFlags = { allCredentials?: boolean; allDevices?: boolean }
 /** What one viewer may do: whoever may use the conversation's computer replies. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 

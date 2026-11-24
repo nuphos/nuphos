@@ -1,15 +1,15 @@
 import { ObjectId } from 'mongodb'
 
-import type { NuphosTeamRole } from '@/lib/identity'
-import type { AuthVariables, TeamAuthVariables } from '@/middleware/auth/types'
-import type { MiddlewareHandler } from 'hono'
-
 import { AppError } from '@/lib/errors'
 import { authenticateToken, getTeamMembership } from '@/lib/identity'
 import { readAIConsent, shownConsentVersion } from '@/lib/identity/ai-consent'
 import { authenticateCliToken, cliTokenDenied, isCliToken } from '@/lib/identity/cli-tokens'
 import { isStepUpRoute, requireRecentVerification } from '@/lib/identity/step-up'
 import { runInTokenTeamScope } from '@/lib/identity/token-team-scope'
+
+import type { NuphosTeamRole } from '@/lib/identity'
+import type { AuthVariables, TeamAuthVariables } from '@/middleware/auth/types'
+import type { MiddlewareHandler } from 'hono'
 
 export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = async (c, next) => {
   const header = c.req.header('Authorization')
@@ -69,6 +69,7 @@ export const requireAuth: MiddlewareHandler<{ Variables: AuthVariables }> = asyn
   c.set('authToken', token)
   if ('sessionId' in result && result.sessionId) c.set('sessionId', result.sessionId)
   if (cliToken) c.set('cliToken', cliToken)
+  if ('agentRun' in result && result.agentRun) c.set('agentRun', true)
   if (cliToken?.teamId) return runInTokenTeamScope(cliToken.teamId, next)
   await next()
 }

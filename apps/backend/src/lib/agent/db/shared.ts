@@ -2,7 +2,8 @@ import { db } from '@/lib/db'
 import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
-import type { GeneralAccess } from './access'
+import type { CredentialAllFlags, GeneralAccess } from './access'
+import type { ArchiveChange } from './archive-log'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
 import type { SettingsChange } from './settings-history'
@@ -10,10 +11,10 @@ import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
-import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -88,6 +89,7 @@ export type AgentConversation = ConversationTaskState & {
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
+  archiveLog?: ArchiveChange[] // Each archive and restore, oldest first: who, and through what.
   // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
   // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
@@ -221,7 +223,7 @@ export type AgentCredentialAccess = {
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
-}
+} & CredentialAllFlags
 
 export type AgentMessage = {
   _id?: ObjectId
@@ -269,18 +271,14 @@ export type AgentEventDoc = {
   data?: Record<string, unknown>
 }
 
-const COLLECTION_NAME = 'agent_conversations'
-const MESSAGE_COLLECTION_NAME = 'agent_messages'
-const EVENT_COLLECTION_NAME = 'agent_events'
-
 export const agentConversations = (): Collection<AgentConversation> =>
-  db().collection<AgentConversation>(COLLECTION_NAME)
+  db().collection<AgentConversation>('agent_conversations')
 
 export const agentMessages = (): Collection<AgentMessage> =>
-  db().collection<AgentMessage>(MESSAGE_COLLECTION_NAME)
+  db().collection<AgentMessage>('agent_messages')
 
 export const agentEvents = (): Collection<AgentEventDoc> =>
-  db().collection<AgentEventDoc>(EVENT_COLLECTION_NAME)
+  db().collection<AgentEventDoc>('agent_events')
 
 // Keep legacy user rows reachable, but scope conversation tokens strictly to their own team.
 export function withTeamScope(

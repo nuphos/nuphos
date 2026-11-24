@@ -1,6 +1,7 @@
 import { beforeEach, expect, test } from 'bun:test'
 
 import { serializeConversationForViewer } from './conversation-view'
+import { listRow } from './list-row'
 import { assertConversationSendable, assertConversationWritable } from './team-scope'
 
 import type { AgentConversation } from '@/lib/agent/db'
@@ -102,6 +103,24 @@ test('the serializer tells each viewer what they may do', () => {
       'view',
     ),
   ).toMatchObject({ generalAccess: 'view' })
+})
+
+test('only the owner reads who archived and restored it, and never in the list', () => {
+  const archiveLog = [{ archived: true, at: new Date(), source: 'user' as const, userId: 'owner' }]
+  const doc = {
+    userId: 'owner',
+    teamId,
+    generalAccess: 'view',
+    participantIds: ['invited'],
+    archiveLog,
+  }
+  const as = (id: string, access: 'owner' | 'reply' | 'view') =>
+    serializeConversationForViewer(doc, { id } as NuphosUser, new Map(), null, access)
+
+  expect(as('owner', 'owner').archiveLog).toEqual(archiveLog)
+  expect(as('invited', 'reply').archiveLog).toBeUndefined()
+  expect(as('teammate', 'view').archiveLog).toBeUndefined()
+  expect(listRow(as('owner', 'owner'))).not.toHaveProperty('archiveLog')
 })
 
 test('a removed participant falls back to whatever general access still grants', async () => {

@@ -195,6 +195,8 @@ export function serializeConversationForViewer(
     watching: grants.watcherIds?.includes(viewer.id) ?? false,
     // Someone else's Task is archived for them when they archived it for themselves.
     archivedAt: grants.archivedAt ?? grants.memberArchivedAt?.[viewer.id],
+    // Who archived and restored it names people and agents: the owner's alone.
+    archiveLog: isOwner ? grants.archiveLog : undefined,
     // What this viewer may do; the list and detail routes only return what
     // they may at least read, so null here means a personal conversation.
     access,

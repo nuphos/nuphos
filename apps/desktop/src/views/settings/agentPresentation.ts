@@ -171,6 +171,17 @@ export function localSignIn(
     : 'runtime'
 }
 
+/** This Desktop's own Claude Code or Codex: settings saved on this computer, such as its custom provider. */
+export function ownCliProvider(
+  instance: RuntimeInstance,
+  thisComputer: ThisComputer,
+): 'claude-code' | 'codex' | undefined {
+  const local = instance.local
+
+  if (!local || local.instanceId || !isThisComputer(thisComputer, computerOf(local))) return
+  if (instance.provider === 'claude-code' || instance.provider === 'codex') return instance.provider
+}
+
 /**
  * What New Agent does for a provider: sign in the machine's signed-out one first, so a lapsed
  * sign-in never turns into a second agent; else add an agent. An older host is the backend's to

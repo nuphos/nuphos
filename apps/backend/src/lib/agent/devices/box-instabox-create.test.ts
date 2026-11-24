@@ -346,3 +346,80 @@ test('a host that joined stays, though instabox answered the exec that started i
   expect(deleted).toEqual([])
   expect(killed).toEqual([])
 })
+
+test('a gifted OpenRouter key is recorded on the Box, written to its OpenCode, and revoked when the Box is discarded', async () => {
+  const savedFetch = globalThis.fetch
+  const openRouter: string[] = []
+  const recorded: string[] = []
+  const configs: string[] = []
+  let settled = () => {}
+  const done = new Promise<void>((resolve) => {
+    settled = resolve
+  })
+  const machine = {
+    sandboxId: 'm_1',
+    setAutoSuspend: () => Promise.resolve(),
+    commands: {
+      run: (_command: string, options?: { envs?: Record<string, string> }) => {
+        if (options?.envs?.OPENCODE_CONFIG) configs.push(options.envs.OPENCODE_CONFIG)
+
+        return Promise.resolve({})
+      },
+    },
+  } as unknown as Sandbox
+
+  config.box.openRouterManagementKey = 'mgmt'
+  globalThis.fetch = Object.assign(
+    (input: string | URL | Request, init?: RequestInit) => {
+      openRouter.push(
+        `${String(init?.method)} ${input instanceof Request ? input.url : input.toString()}`,
+      )
+
+      return Promise.resolve(Response.json({ data: { hash: 'h1' }, key: 'sk-or-v1-gift' }))
+    },
+    { preconnect: savedFetch.preconnect },
+  )
+  installStore({
+    setAgentDeviceBoxSandbox: () => Promise.resolve(true),
+    deleteAgentDevice: (_userId: string, deviceId: string) => {
+      deleted.push(deviceId)
+      settled()
+
+      return Promise.resolve(true)
+    },
+    agentDevices: () =>
+      ({
+        updateOne: (_filter: unknown, update: { $set: Record<string, string> }) => {
+          recorded.push(update.$set['box.openRouterKeyHash'] ?? '')
+
+          return Promise.resolve({ matchedCount: 1 })
+        },
+      }) as never,
+  })
+  installTokens({
+    issueDeviceJoinToken: () => Promise.resolve({ token: 't' } as never),
+    deleteDeviceJoinTokens: () => Promise.resolve(),
+  })
+  // The host never joins, so the Box is discarded.
+  installPresence({ waitForPresence: () => Promise.resolve(false) })
+  spies.push(spyOn(Sandbox, 'create').mockResolvedValue(machine))
+  spies.push(spyOn(Sandbox, 'connect').mockResolvedValue(machine))
+
+  try {
+    await createBox('u1', teamId, 'Box', { accountId, openRouterGift: true })
+    await done
+  } finally {
+    globalThis.fetch = savedFetch
+    delete config.box.openRouterManagementKey
+  }
+
+  expect(recorded).toEqual(['h1'])
+  expect(JSON.parse(configs[0] ?? '{}')).toMatchObject({
+    provider: { openrouter: { options: { apiKey: 'sk-or-v1-gift' } } },
+  })
+  expect(openRouter).toEqual([
+    'POST https://openrouter.ai/api/v1/keys',
+    'DELETE https://openrouter.ai/api/v1/keys/h1',
+  ])
+  expect(deleted).toHaveLength(1)
+})

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import { createBot } from '@/lib/agent/bots'
+import { postChannelMessage } from '@/lib/agent/channel-chat'
 import {
   agentConversations,
   getConversationBySessionId,
@@ -18,11 +19,13 @@ import { storeAvatar } from '@/lib/identity/avatar-upload'
 
 import { ImportScheduleFailure } from './batch'
 import { importedFileReferences, importBotFiles } from './files'
+import { greetingPost } from './greeting'
 import { saveTemplateOrigin } from './template-origin'
 
 import type { BotBundleArchive } from './archive'
 import type { ImportBatch, ImportItem, ImportOperations, ImportOwner } from './batch'
 import type { ImportedBot, ImportedChat } from './manifest'
+import type { CreatedTrigger } from '@/lib/agent/message-created-triggers'
 
 export async function checkImportDestination(owner: ImportOwner) {
   const runtime = await requireRuntimeInstance(owner.teamId, owner.runtimeId, owner.userId)
@@ -64,6 +67,7 @@ async function schedules(
 ) {
   const { createTrigger } = await import('@/lib/agent/trigger-service')
   const warnings = source.manualTasks.map((task) => `${task.name}: ${task.reason}`)
+  const created: CreatedTrigger[] = []
 
   for (const routine of source.schedules) {
     if (routine.schedule.kind !== 'cron' || !isValidCronExpression(routine.schedule.expression)) {
@@ -71,7 +75,7 @@ async function schedules(
       continue
     }
     try {
-      await createTrigger(
+      const trigger = await createTrigger(
         {
           name: routine.name,
           triggerType: 'cron',
@@ -90,12 +94,15 @@ async function schedules(
         },
         { userId: batch.userId, teamId: batch.teamId, source: 'user', via: 'bot_import' },
       )
+
+      // The row type leaves _id optional; a stored Trigger always has one.
+      if (trigger.id) created.push({ id: trigger.id, name: trigger.name })
     } catch {
       throw new ImportScheduleFailure()
     }
   }
 
-  return warnings
+  return { warnings, created }
 }
 
 async function skills(
@@ -185,7 +192,7 @@ export function importOperations(
       await skills(batch, item, source, archive)
       if (source.memories.length) await saveFacts(batch, item, source.memories)
       await importBotFiles(batch, item, source, archive, save)
-      const warnings = await schedules(batch, item, source, enable)
+      const { warnings, created } = await schedules(batch, item, source, enable)
 
       if (item.privateChatId) {
         await upsertConversationShell({
@@ -197,6 +204,17 @@ export function importOperations(
           kind: 'channel',
         })
         await addChannelAgent(item.privateChatId, item.sessionId)
+        if (source.greeting) {
+          const chat = await getConversationBySessionId(item.privateChatId)
+
+          // A fixed id: a retried apply finds the greeting already posted.
+          if (chat)
+            await postChannelMessage(
+              chat,
+              greetingPost(item, source.name, batch.agentRuntime, source.greeting, created),
+              item.sessionId,
+            )
+        }
       }
 
       return warnings
@@ -241,7 +259,7 @@ export function importOperations(
       const incomplete = members.length < selectedMembers.length || Boolean(source.lead && !lead)
       const warnings = incomplete
         ? ['Group schedules were not created because a selected member or lead is missing']
-        : await schedules(batch, item, source, enable)
+        : (await schedules(batch, item, source, enable)).warnings
 
       return warnings
     },

@@ -5,8 +5,6 @@ import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 
-import { LOCAL_AGENT_CARD } from './LocalAgentCard'
-
 import type { LoginItemState } from '../../api/window-app'
 
 /** Opens Nuphos at login, so this computer's local runtime comes back after a restart. */
@@ -46,10 +44,10 @@ export function OpenAtLoginSettings() {
   }
 
   return (
-    <label className={`${LOCAL_AGENT_CARD} flex items-start justify-between gap-3 px-4 py-3.5`}>
+    <label className="flex items-start justify-between gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
       <div>
-        <div className="text-[13px] font-medium text-main">{t('Open Nuphos at login')}</div>
-        <p className="mt-1 text-[12px] text-tertiary">
+        <div className="text-[13px] text-main">{t('Open Nuphos at login')}</div>
+        <p className="mt-0.5 text-[12px] text-tertiary">
           {t(
             'Open Nuphos when you sign in to this computer, so its local runtime is back online after a restart.',
           )}
@@ -57,6 +55,7 @@ export function OpenAtLoginSettings() {
       </div>
       <Switch
         checked={state.openAtLogin}
+        label={t('Open Nuphos at login')}
         disabled={saving}
         onChange={(openAtLogin) => void save(openAtLogin)}
       />

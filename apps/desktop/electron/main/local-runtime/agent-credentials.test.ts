@@ -112,7 +112,7 @@ test(
   },
 )
 
-test('OpenCode loses every provider login and its Bedrock keys, and keeps the rest', (t) => {
+test('OpenCode loses every provider login and its Bedrock and OpenRouter keys, and keeps the rest', (t) => {
   const config = '.config/opencode/opencode.json'
   const { root, left, json } = home(t, {
     '.local/share/opencode/auth.json': '{"openai":{}}',
@@ -123,6 +123,7 @@ test('OpenCode loses every provider login and its Bedrock keys, and keeps the re
         'amazon-bedrock': {
           options: { region: 'us-east-1', accessKeyId: 'AKIA', secretAccessKey: 's' },
         },
+        openrouter: { options: { apiKey: 'sk-or-v1-gift' } },
       },
     }),
   })
@@ -131,7 +132,10 @@ test('OpenCode loses every provider login and its Bedrock keys, and keeps the re
   assert.deepEqual(left(), ['.local/share/opencode/storage/session.json', config])
   assert.deepEqual(json(config), {
     model: 'amazon-bedrock/claude',
-    provider: { 'amazon-bedrock': { options: { region: 'us-east-1' } } },
+    provider: {
+      'amazon-bedrock': { options: { region: 'us-east-1' } },
+      openrouter: { options: {} },
+    },
   })
 })
 

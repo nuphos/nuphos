@@ -60,7 +60,6 @@ export type AgentCliStatus =
       version?: string
       loggedIn: boolean | null
       account?: string
-      plan?: string
       /** Signed in with an API key, or the host of a custom provider, rather than an account. */
       apiKey?: true
       customProvider?: string
@@ -82,10 +81,6 @@ export type LocalAgentInstance = {
   label: string
   workspace: string | null
 } & LocalAgentState
-
-/** Only for an unpackaged app with no local agent bundle: what `bun run dev` is doing about it. */
-export type DevBundleHint =
-  { state: 'preparing' } | { state: 'failed'; reason: string } | { state: 'missing' }
 
 export type LocalAgentLoginState = {
   state: 'idle' | 'waiting' | 'checking' | 'connected' | 'failed' | 'cancelled'
@@ -115,24 +110,6 @@ export type LocalRuntimeState = {
   connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
   customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
   deviceId?: string
-  devBundle?: DevBundleHint
-}
-
-export type LocalRuntimeActivityEntry = {
-  id: string
-  teamId: string
-  sessionId: string
-  conversationTitle: string | null
-  actorUserId: string
-  actorName: string | null
-  firstServedAt: string
-  lastServedAt: string
-  turns: number
-}
-
-export type LocalRuntimeActivityPage = {
-  entries: LocalRuntimeActivityEntry[]
-  nextCursor: string | null
 }
 
 /** `connecting`: the machine runs but its host has not joined yet. */

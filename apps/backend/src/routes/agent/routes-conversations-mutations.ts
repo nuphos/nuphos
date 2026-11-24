@@ -2,7 +2,6 @@ import { z } from 'zod'
 
 import { cleanUpArchived } from '@/lib/agent/archive-cleanup'
 import { addedCredentialIds, answerCredentialAsks } from '@/lib/agent/credential-asks'
-
 import {
   archiveConversationAs,
   credentialSource,
@@ -152,7 +151,18 @@ agent.patch('/conversations/:sessionId/archive', async (c) => {
 
   // What moved with it (a Bot and its chats), so clients close and hide exactly that. Someone
   // else in a Task archives it for themselves alone; a group chat they leave instead.
-  const moved = conversation && (await archiveConversationAs(conversation, userId, body.archived))
+  const cliToken = c.get('cliToken')
+  const moved =
+    conversation &&
+    (await archiveConversationAs(
+      conversation,
+      {
+        source: c.get('agentRun') ? 'agent_run' : 'user',
+        userId,
+        ...(cliToken?.kind === 'agent' ? { agentTokenId: cliToken.id } : {}),
+      },
+      body.archived,
+    ))
 
   if (!moved) throw new AppError(404, 'not_found', 'Conversation not found')
   if (body.archived) await cleanUpArchived(moved.sessionIds)

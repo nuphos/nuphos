@@ -106,30 +106,52 @@ enum BotAvatars {
         }
     }
 
-    /// Old payloads and Tasks stay ordinary notifications; never derive a persona from an id.
-    static func notificationIdentity(_ userInfo: [AnyHashable: Any]) -> (avatar: String, provider: String?)? {
-        guard let identity = userInfo["agentIdentity"] as? [String: Any],
-              identity["isBot"] as? Bool == true,
-              let avatar = identity["avatar"] as? String,
-              asset(named: avatar) != nil else { return nil }
-        return (avatar, identity["provider"] as? String)
+    /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
+    /// The characters are drawn for light discs, so the tints stay light in the dark.
+    static let backgrounds: [String: UInt32] = [
+        "sand": 0xF2E7D3, "peach": 0xF8DCCB, "rose": 0xF6D5DE, "lilac": 0xE5DCF5,
+        "sky": 0xD6E6F7, "mint": 0xD3EEDF, "sage": 0xE1E9D1, "slate": 0xE1E4EA,
+    ]
+
+    /// A Bot shows its own face; a Task (no avatar) its runtime's mark. Old payloads,
+    /// unknown faces and runtimes this build has no logo for keep the app icon.
+    static func notificationIdentity(_ userInfo: [AnyHashable: Any]) -> (avatar: String?, provider: String?, background: String?)? {
+        guard let identity = userInfo["agentIdentity"] as? [String: Any] else { return nil }
+        let provider = identity["provider"] as? String
+        guard identity["isBot"] as? Bool == true else { return runtimeLogo(provider) == nil ? nil : (nil, provider, nil) }
+        guard let avatar = identity["avatar"] as? String, asset(named: avatar) != nil else { return nil }
+        return (avatar, provider, identity["background"] as? String)
     }
 
 
     #if canImport(UIKit)
     /// Bitmap for INPerson, also exercised directly without delivering a notification.
-    static func notificationPNG(avatar: String, provider: String?) -> Data? {
+    static func notificationPNG(avatar: String?, provider: String?, background: String? = nil) -> Data? {
         let bundle = Bundle(for: BotAvatarBundle.self)
+        let logo = runtimeLogo(provider).flatMap { UIImage(named: $0, in: bundle, compatibleWith: nil) }
+        let mark = provider == "claude-code" ? logo : logo?.withTintColor(.label, renderingMode: .alwaysOriginal)
+        let size = CGSize(width: 120, height: 120)
+        guard let avatar else {
+            guard let mark else { return nil }
+            return UIGraphicsImageRenderer(size: size).pngData { context in
+                UIColor.systemBackground.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                mark.draw(in: CGRect(x: 30, y: 30, width: 60, height: 60))
+            }
+        }
         guard let asset = asset(named: avatar),
               let face = UIImage(named: asset, in: bundle, compatibleWith: nil) else { return nil }
-        let size = CGSize(width: 120, height: 120)
         return UIGraphicsImageRenderer(size: size).pngData { context in
+            if let tint = background.flatMap({ backgrounds[$0] }) {
+                UIColor(red: CGFloat(tint >> 16 & 0xFF) / 255, green: CGFloat(tint >> 8 & 0xFF) / 255,
+                        blue: CGFloat(tint & 0xFF) / 255, alpha: 1).setFill()
+                context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size))
+            }
             face.draw(in: CGRect(origin: .zero, size: size))
-            if let name = runtimeLogo(provider), let logo = UIImage(named: name, in: bundle, compatibleWith: nil) {
+            if let mark {
                 let disc = CGRect(x: 74, y: 74, width: 32, height: 32)
                 UIColor.systemBackground.setFill()
                 context.cgContext.fillEllipse(in: disc)
-                let mark = provider == "claude-code" ? logo : logo.withTintColor(.label, renderingMode: .alwaysOriginal)
                 mark.draw(in: disc.insetBy(dx: 3, dy: 3))
             }
         }

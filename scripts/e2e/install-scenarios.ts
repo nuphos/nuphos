@@ -13,16 +13,19 @@ import { newTask, openComputers, pickInRow, send } from './ui.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-/** Settings › Local runtime, through ⌘K, where this computer's own agents are. */
-export async function openLocalRuntime(page: Page) {
-  await page
-    .getByRole('button', { name: /^Search/ })
-    .first()
-    .click()
-  await page.keyboard.type('User settings')
-  await page.getByRole('option', { name: 'User settings' }).first().click()
-  await page.getByRole('searchbox', { name: 'Search settings' }).fill('Local runtime')
-  await page.keyboard.press('Enter')
+/** This computer's own Claude Code as its Desktop finds it now: version, or null when missing. */
+async function claudeHere(page: Page) {
+  return page.evaluate(async () => {
+    const agent = (await window.api.localRuntimeRefresh()).agents['claude-code']
+
+    if (!agent.cli?.installed) return null
+
+    // What the removed card read as "Ready for your Bots and tasks".
+    return {
+      version: agent.cli.version,
+      ready: agent.available && agent.cli.loggedIn === true && agent.online,
+    }
+  })
 }
 
 const REINSTALL =
@@ -116,50 +119,24 @@ export const installScenarios: Scenario[] = [
     },
   },
   {
-    // On the computer itself: its own Claude Code, from Settings › Local runtime. Last, since
-    // the app's computer has Claude Code from here on.
-    name: 'this computer without Claude Code installs it from its settings, then signs it in',
+    // On the computer itself: its own Claude Code, added with the same + as any other computer
+    // (#3848), which installs it there. Last, since the app's computer has Claude Code from here on.
+    name: 'this computer without Claude Code installs it from its New runtime, then signs it in',
     run: async (page) => {
-      // #3848: its card adds a runtime with the same + as any other computer, not a link away.
       await page.setViewportSize({ width: 1280, height: 880 })
       await openComputers(page)
       await page
         .getByRole('button', { name: /^New runtime on / })
         .first()
         .click()
-      await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).waitFor()
-      await shot(page, 'local-0-new-runtime')
-      await page.keyboard.press('Escape')
-      await page.getByText('Back to app', { exact: true }).click()
-      await page
-        .getByRole('button', { name: /^Search/ })
-        .first()
-        .click()
-      await page.keyboard.type('User settings')
-      await page.getByRole('option', { name: 'User settings' }).first().click()
-      await page.getByRole('searchbox', { name: 'Search settings' }).fill('Local runtime')
-      await page.keyboard.press('Enter')
-      const install = page.getByRole('button', { name: 'Install Claude Code' })
-
-      await install.waitFor()
-      await shot(page, 'local-1-not-installed')
-      await install.click()
-      await page.getByText('Claude Code installed').waitFor({ timeout: 60_000 })
-      await page.getByRole('button', { name: 'Sign in with Claude Code' }).click()
-      // This computer's own sign-in says first that it is kept apart from the terminal's.
-      await page.getByRole('button', { name: 'Sign in with Claude', exact: true }).click()
-      // This computer's own sign-in takes the code in a dialog of its own.
-      const code = page.getByRole('dialog').getByRole('textbox')
-
-      await code.waitFor({ timeout: 60_000 })
-      await shot(page, 'local-2-sign-in')
-      await code.fill('e2e-code#e2e-state')
-      await page.getByRole('button', { name: 'Submit code' }).click()
-      await page.getByText('Signed in to Claude Code.').waitFor({ timeout: 60_000 })
-      // #3916: an Ultra login reads as Ultra, though Claude Code stores "max".
-      await page.getByText('· ultra').waitFor({ timeout: 10_000 })
-      await shot(page, 'local-3-signed-in')
-      await page.getByRole('button', { name: 'Done', exact: true }).click()
+      await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click()
+      await shot(page, 'local-1-new-runtime')
+      await page.getByRole('button', { name: 'Continue' }).click()
+      await page.getByText(/^Installing Claude Code on /).waitFor({ timeout: 60_000 })
+      await shot(page, 'local-2-installing')
+      await pasteCode(page, 'local-3-sign-in')
+      await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
+      await shot(page, 'local-4-added')
       await page.getByText('Back to app', { exact: true }).click()
     },
   },
@@ -184,26 +161,40 @@ export const installScenarios: Scenario[] = [
         writeFileSync(join(app, version, 'claude'), script, { mode: 0o755 })
       }
 
-      await openLocalRuntime(page)
-      // The Claude Code card: its name and its own Check again, and not the Codex card beside it.
-      const card = page
-        .locator('div')
-        .filter({ has: page.getByText('Claude Code', { exact: true }) })
-        .filter({ has: page.getByRole('button', { name: 'Check again' }) })
-        .last()
-      const ready = card.getByText('Ready for your Bots and tasks')
+      const found = (version: string | null) =>
+        until(`this computer's Claude Code to read ${version ?? 'missing'}`, async () => {
+          const here = await claudeHere(page)
+
+          return version === null ? here === null : here?.version === version && here.ready
+        })
+
+      // The runtime New runtime added before has a sign-in of its own; this computer's own Claude
+      // Code signs in the way its runtime details do, so the turns below are not refused.
+      await page.evaluate(() => window.api.localRuntimeStartClaudeLogin())
+      await until('the sign-in to take a code', () =>
+        page.evaluate(async () => {
+          try {
+            await window.api.localRuntimeSubmitClaudeLoginCode('e2e-code#e2e-state')
+
+            return true
+          } catch {
+            return false
+          }
+        }),
+      )
+      await until(
+        "this computer's Claude Code to be signed in",
+        async () => (await claudeHere(page))?.ready === true,
+      )
 
       // Only the Claude app's copy is left, and the agent runs it.
       copy('2.1.0', readFileSync(cli, 'utf8'))
       rmSync(cli)
-      await card.getByRole('button', { name: 'Check again' }).click()
-      await card.getByText('v2.1.0').waitFor({ timeout: 60_000 })
-      await ready.waitFor({ timeout: 60_000 })
+      await found('2.1.0')
 
       // The Claude app updates: 2.1.1 in, 2.1.0 deleted while the agent runs it.
       copy('2.1.1', `#!/bin/sh\ntouch "${ran}"\nexec node "${FIXTURE_CLAUDE}" "$@"\n`)
       rmSync(join(app, '2.1.0'), { recursive: true })
-      await page.getByText('Back to app', { exact: true }).click()
       await newTask(page)
       // This computer's own row lists its agents by name alone.
       await page.getByRole('button', { name: /^Runtime:/ }).click()
@@ -215,17 +206,14 @@ export const installScenarios: Scenario[] = [
         90_000,
       )
 
-      // Nothing left: the card says so, and Install brings it back.
+      // Nothing left: Desktop finds no copy, and its installer, which Install runs, brings it back.
       rmSync(join(homedir(), '.config', 'Claude'), { recursive: true })
-      await openLocalRuntime(page)
-      await card.getByRole('button', { name: 'Check again' }).click()
-      await card.getByText('Not installed', { exact: true }).waitFor({ timeout: 60_000 })
-      await shot(page, 'local-4-deleted')
-      await card.getByRole('button', { name: 'Install Claude Code' }).click()
-      await page.getByText('Claude Code installed').waitFor({ timeout: 60_000 })
-      await ready.waitFor({ timeout: 60_000 })
-      await shot(page, 'local-5-reinstalled')
-      await page.getByText('Back to app', { exact: true }).click()
+      await found(null)
+      await page.evaluate(() => window.api.localRuntimeInstallAgent('claude-code'))
+      await until(
+        "this computer's Claude Code to be back",
+        async () => (await claudeHere(page))?.ready === true,
+      )
 
       // A copy that is there but will not start: the turn says so in plain words, and this
       // computer's failure line offers its installer.

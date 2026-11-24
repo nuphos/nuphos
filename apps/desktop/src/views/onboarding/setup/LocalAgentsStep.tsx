@@ -9,7 +9,7 @@ import { t } from '../../../i18n'
 import { isMac } from '../../../lib/platform'
 import { RENTED_COMPUTER_DESCRIPTION } from '../../settings/boxCreatePresentation'
 import { ClaudeSignInCode } from '../../settings/ClaudeSignInCode'
-import { InstallButton } from '../../settings/LocalAgentCard'
+import { InstallButton } from '../../settings/InstallAgentButton'
 import { useAgentDevices } from '../../settings/useAgentDevices'
 import { useLocalAgentLogin } from '../../settings/useLocalAgentLogin'
 

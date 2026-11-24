@@ -86,6 +86,8 @@ const bot = z
   .object({
     ...setup,
     avatar: path.optional(),
+    /** Its first words in the new private chat, posted in its own name. */
+    greeting: z.string().trim().min(1).max(2000).optional(),
     skills: z
       .array(
         z
