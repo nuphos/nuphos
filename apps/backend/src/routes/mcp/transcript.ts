@@ -60,7 +60,9 @@ export function persistedMessageToUiMessage(message: {
   if (message.role !== 'user' && message.role !== 'assistant') return null
   const parts = message.parts.flatMap(persistedPartToUiMessagePart)
 
-  if (parts.length === 0) return null
+  // A reply that kept nothing, a failed turn's or a silent one's, still ends its turn:
+  // without it, that turn's input would run again with every later one.
+  if (parts.length === 0 && message.role === 'user') return null
   // Kept so a history rebuilt from storage still says who sent each message.
   const metadata = parseMessageMetadata(message.metadata)
 
