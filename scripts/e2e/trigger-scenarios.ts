@@ -199,9 +199,11 @@ export const triggerScenarios: Scenario[] = [
       const after = turns.filter((markers) => markers.includes('E2E_DELIVERY:hook-resolved'))
 
       console.log(`Turns: ${JSON.stringify(turns)}`)
-      // One turn after the running one, carrying both later alerts in the order they came.
+      // One turn after the running one, carrying both later alerts in the order they came, and
+      // not the stopped first alert: its turn ended (#4943).
       if (
         after.length !== 1 ||
+        after[0]!.includes('E2E_DELIVERY:hook-firing') ||
         after[0]!.indexOf('E2E_DELIVERY:hook-resolved') >
           after[0]!.indexOf('E2E_DELIVERY:hook-again')
       )
