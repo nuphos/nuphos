@@ -4,6 +4,7 @@ import { useState } from 'react'
 
 import { t } from '../../../i18n'
 import { Menu, MenuCheckboxItem, MenuContent, MenuTrigger } from '../../ui/menu'
+import { Switch } from '../../ui/Switch'
 import { SummaryMenuRow } from '../summary/ChatSummaryRows'
 
 import { expandAll, setAll, withoutAll } from './allSelection'
@@ -185,9 +186,12 @@ function SelectionButton({
           </div>
         )}
         {totalCount > 0 && (
-          <AllSwitch all={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
+          <label className="px-2 pb-1.5 flex items-center gap-2 text-[12px] text-main">
+            <span className="flex-1">{t('Include ones added later')}</span>
+            <Switch checked={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
+          </label>
         )}
-        {totalCount > 0 && !all && (
+        {totalCount > 0 && (
           <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
             <button
               type="button"
@@ -208,10 +212,10 @@ function SelectionButton({
             </button>
           </div>
         )}
-        {!all && devices && (
+        {devices && (
           <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
         )}
-        {!all && !devices && (
+        {!devices && (
           <CredentialSelectorSectionList
             sections={sections}
             value={value}
@@ -223,32 +227,6 @@ function SelectionButton({
         )}
       </MenuContent>
     </Menu>
-  )
-}
-
-// A mode, not a row: All covers what is added later, so there is nothing to pick under it.
-// Custom starts from what All covered now.
-function AllSwitch({ all, onChange }: { all: boolean; onChange: (all: boolean) => void }) {
-  const choice = (on: boolean, label: string) => (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={all === on}
-      onClick={() => all !== on && onChange(on)}
-      className={clsx(
-        'h-6 flex-1 rounded-[5px] text-[12px] transition-colors',
-        all === on ? 'bg-surface-raised text-main shadow-sm' : 'text-secondary hover:text-main',
-      )}
-    >
-      {label}
-    </button>
-  )
-
-  return (
-    <div role="radiogroup" className="mx-2 mb-1.5 flex gap-0.5 rounded-md bg-surface-sunken p-0.5">
-      {choice(true, t('All'))}
-      {choice(false, t('Custom'))}
-    </div>
   )
 }
 
