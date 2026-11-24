@@ -344,6 +344,14 @@ final class ChatSession {
         self.title = title
         self.agentRuntime = agentRuntime
         self.runtimeLabel = runtimeLabel
+        // The chat opens on its last read, as a messaging app does; `load()` reads it again.
+        if let cached = NuphosAPI.cachedConversationDetail(token: token, sessionId: sessionId) {
+            adopt(cached)
+            messages = cached.messages
+            loaded = true
+            // What the server sent is never written back to it.
+            lastSyncedSignature = signature()
+        }
     }
 
     /// A brand-new conversation, not yet known to the server.
@@ -379,22 +387,10 @@ final class ChatSession {
             let detail = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId)
             if let shown, streaming || signature() != shown { return }
             serverTail = ServerTail(detail)
-            // A link can name a chat; the app shows it as one, not as an agent.
-            isChannel = detail.isChannel
-            isBot = detail.avatar != nil && !detail.isChannel
-            shareable = detail.shareable ?? !isBot
+            adopt(detail)
             var msgs = detail.messages
-            baseIndex = detail.messagesFirstIndex ?? 0
-            readOnly = detail.readOnly ?? true
-            isOwner = detail.isOwner ?? false
-            manages = detail.canManage ?? isOwner
-            archives = detail.canArchive ?? manages
-            adoptRuntime(from: detail)
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             Task { await refreshQueue() }
-            followsBot = detail.followsBot
-            // Nothing stored is stored too: the server reads every kind left unset as team-wide (#4034).
-            credentialAccess = CredentialSelection(json: detail.credentialAccess ?? .object([:]))
             Task { [weak self] in
                 guard let self, canManage, let bypass = try? await AgentChatAPI.bypass(token: token, sessionId: sessionId) else { return }
                 permissionMode = bypass ? .bypass : .auto
@@ -408,7 +404,8 @@ final class ChatSession {
                 }
                 messages = msgs
                 loaded = true
-                awaitingReplay = true
+                // Only a chat with nothing on screen yet waits for the replay to show.
+                awaitingReplay = shown == nil
                 startTurn(TurnOptions(streamId: run.streamId, explicitResume: true, resumeFrom: 0))
                 // A replay that never arrives must not hide the chat for good.
                 Task { [weak self] in
@@ -428,6 +425,24 @@ final class ChatSession {
             loadError = error.localizedDescription
             loaded = true
         }
+    }
+
+    /// What a read says about the conversation, short of acting on it: the read
+    /// itself and the last one kept on this device both show it so.
+    private func adopt(_ detail: AgentConversationDetail) {
+        // A link can name a chat; the app shows it as one, not as an agent.
+        isChannel = detail.isChannel
+        isBot = detail.avatar != nil && !detail.isChannel
+        shareable = detail.shareable ?? !isBot
+        baseIndex = detail.messagesFirstIndex ?? 0
+        readOnly = detail.readOnly ?? true
+        isOwner = detail.isOwner ?? false
+        manages = detail.canManage ?? isOwner
+        archives = detail.canArchive ?? manages
+        adoptRuntime(from: detail)
+        followsBot = detail.followsBot
+        // Nothing stored is stored too: the server reads every kind left unset as team-wide (#4034).
+        credentialAccess = CredentialSelection(json: detail.credentialAccess ?? .object([:]))
     }
 
     /// One read at a time: a second one would replay the same run again.

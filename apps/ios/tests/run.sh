@@ -56,6 +56,7 @@ chat_sources=(
   nuphos-ios/Services/Chat/OpenQuestions.swift \
   nuphos-ios/Services/BotFaces.swift \
   nuphos-ios/Services/Chat/AgentChatAPI.swift \
+  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Views/Home/ComposerAttachment.swift \
   nuphos-ios/Services/AccountAPI.swift \
   nuphos-ios/Models/TeamMember.swift \
@@ -81,7 +82,6 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
   "${chat_sources[@]}" \
   nuphos-ios/Services/AgentStore.swift \
-  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Services/Chat/ChatSession.swift \
   nuphos-ios/Services/Chat/UIStreamReducer.swift \
   nuphos-ios/Services/Chat/RuntimeTranscript.swift \

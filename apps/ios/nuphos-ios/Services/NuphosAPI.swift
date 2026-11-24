@@ -76,7 +76,7 @@ extension NuphosAPI {
     static func conversationDetail(
         token: String, teamId: String, sessionId: String, tail: Int = 100, displayed: Bool = true
     ) async throws -> AgentConversationDetail {
-        let detail: AgentConversationDetail = try await get(
+        let data = try await getData(
             "agent/conversations/\(sessionId)",
             // `runtimeState=omit`: the server still probes the runtime when a run is
             // live, and otherwise answers with the state it last recorded, like the
@@ -86,8 +86,16 @@ extension NuphosAPI {
             token: token,
             timeout: 20
         )
+        guard let detail = try? decoder.decode(AgentConversationDetail.self, from: data) else { throw Failure.invalidResponse }
+        // A probe reads one message: only a full read is worth opening the chat on.
+        if tail > 1 { LaunchCache.storeChat(data, as: sessionId, token: token) }
         ConversationUnread.forAccount(token).receive(team: teamId, session: sessionId, activity: detail.activitySeq, read: detail.readSeq, displayed: displayed)
         return detail
+    }
+
+    /// The last full read of a conversation on this device, to show while it is read again.
+    static func cachedConversationDetail(token: String, sessionId: String) -> AgentConversationDetail? {
+        LaunchCache.chat(sessionId, token: token).flatMap { try? decoder.decode(AgentConversationDetail.self, from: $0) }
     }
 
     /// `GET /agent/credential-options?teamId=` — the IAM the agent may use.
@@ -154,6 +162,13 @@ extension NuphosAPI {
     private static func get<T: Decodable>(
         _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval
     ) async throws -> T {
+        let data = try await getData(path, query: query, token: token, timeout: timeout)
+        do { return try decoder.decode(T.self, from: data) } catch { throw Failure.invalidResponse }
+    }
+
+    private static func getData(
+        _ path: String, query: [URLQueryItem] = [], token: String, timeout: TimeInterval
+    ) async throws -> Data {
         var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
 
@@ -170,7 +185,7 @@ extension NuphosAPI {
 
         switch http.statusCode {
         case 200..<300:
-            do { return try decoder.decode(T.self, from: data) } catch { throw Failure.invalidResponse }
+            return data
         case 403 where needsStepUp(data):
             throw Failure.reauthRequired
         case 401, 403:
