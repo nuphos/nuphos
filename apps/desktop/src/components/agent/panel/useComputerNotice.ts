@@ -50,7 +50,11 @@ export function useComputerNotice({
   return { notice, device, reload: devices.reload }
 }
 
-/** Why a Box is away: paused, or filled by its own load moments ago, which a resume cannot fix. */
+/**
+ * Why a Box is away: paused, or filled by its own load moments ago, which a resume cannot fix.
+ * A Box that recovered and then paused for idleness within those 15 minutes still reads as out of
+ * CPU or memory. That is accepted: Restart resumes it either way, and the window is short.
+ */
 function awayKind(device: AgentDevice | undefined): 'paused' | 'pressure' {
   return device && offlineFromPressure(device) ? 'pressure' : 'paused'
 }

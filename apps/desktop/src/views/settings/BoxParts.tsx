@@ -10,14 +10,17 @@ import { t } from '../../i18n'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { agentName, agentOffline, newAgentAction } from './agentPresentation'
-import { offlineFromPressure } from './boxMetricsPresentation'
+import { offlineFromPressure, pressureStatus } from './boxMetricsPresentation'
 import { accessHint, machineLine, seenFrom } from './boxPresentation'
+import { boxRestartLabel } from './boxRestartPresentation'
 import { PreviewTag } from './PreviewTag'
 import { STATUS_DOT } from './runtimePresentation'
 
 import type { AgentDevice } from '../../api'
 import type { LocalAgentProvider } from '../../api/device-types'
 import type { RuntimeInstance } from '../../types/runtime'
+import type { BoxRestart } from './boxRestartPresentation'
+import type { RuntimeStatusView } from './runtimePresentation'
 
 /** Open the same agent details panel as the usage table. */
 export function AgentTile({ agent, onSelect }: { agent: RuntimeInstance; onSelect: () => void }) {
@@ -66,6 +69,41 @@ export function OwnerLine({
 /** The green dot before a running Box or a live reading. */
 export function LiveDot() {
   return <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT.online}`} />
+}
+
+/**
+ * A computer's state word. A Box that ran out of CPU or memory reads as a fault, in the warning
+ * colour, with what to do on hover.
+ */
+export function BoxStatus({
+  badge,
+  restart,
+  device,
+  away,
+}: {
+  badge: RuntimeStatusView
+  restart: BoxRestart | undefined
+  device: AgentDevice
+  away: boolean
+}) {
+  const pressure = away ? pressureStatus(device) : null
+  let mark = badge.tone === 'online' && <LiveDot />
+
+  if (restart) mark = <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
+
+  return (
+    <span
+      role="status"
+      title={pressure?.hint}
+      className={clsx(
+        'flex shrink-0 items-center gap-1.5 whitespace-nowrap',
+        pressure && 'text-warning',
+      )}
+    >
+      {mark}
+      {restart ? boxRestartLabel(restart.kind) : (pressure?.label ?? badge.label)}
+    </span>
+  )
 }
 
 /** One short line after the status: the machine's kind, and when it was last seen if it is away. For a manager the

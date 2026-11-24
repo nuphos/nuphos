@@ -130,6 +130,8 @@ try {
   const hint = await status.getAttribute('title')
 
   if (!hint?.includes('run top in its terminal')) throw new Error(`the status hint: ${hint}`)
+  if (!(await status.getAttribute('class'))?.includes('text-warning'))
+    throw new Error('the status to read as a fault, in the warning colour')
   await card.scrollIntoViewIfNeeded()
   await page.waitForTimeout(500)
   await around(card, 'pressure-card', { up: 16, down: 16 })

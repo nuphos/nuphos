@@ -1,4 +1,4 @@
-import { Ellipsis, Loader2 } from 'lucide-react'
+import { Ellipsis } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -19,13 +19,19 @@ import { DeskArt } from './BoxDesk'
 import { DeskAgents, DeskReadings } from './BoxDeskInfo'
 import { deskModel } from './boxDeskModel'
 import { BoxHostUpdate } from './BoxHostUpdate'
-import { AccessHint, LiveDot, MachineLine, OwnerLine, ResumeButton, ShareButton } from './BoxParts'
+import {
+  AccessHint,
+  BoxStatus,
+  MachineLine,
+  OwnerLine,
+  ResumeButton,
+  ShareButton,
+} from './BoxParts'
 import { copyUid } from './boxCopyUid'
 import { deleteBox } from './boxDelete'
-import { pressureStatus } from './boxMetricsPresentation'
 import { openBoxPaywall } from './boxPaywallStore'
 import { BOX_BADGE, boxActions, boxState } from './boxPresentation'
-import { boxRestartLabel, boxRestartOf } from './boxRestartPresentation'
+import { boxRestartOf } from './boxRestartPresentation'
 import { boxRestarts, useBoxRestart } from './boxRestartStore'
 import { openDesktop } from './computerDesktop'
 import { ComputerNotices } from './ComputerNotices'
@@ -120,7 +126,6 @@ export function BoxRow({
   const settingUp = state === 'creating' || state === 'connecting'
   const metricsStatus = settingUp ? state : device.metricsStatus
   const away = !restart && (state === 'paused' || state === 'hostOffline')
-  const pressure = away ? pressureStatus(device) : null
   const hostAgent = cloud && manage && state === 'running' && !restart ? agents[0]?.id : undefined
   const running = state === 'running' && !restart
   const hostUpdate = useComputerUpdate(teamId, device, { cloud, thisComputer, running, hostAgent })
@@ -225,18 +230,7 @@ export function BoxRow({
         )}
       </div>
       <div className="mt-0.5 flex min-w-0 shrink-0 items-center gap-1.5 text-[11.5px] leading-4 text-tertiary">
-        <span
-          role="status"
-          title={pressure?.hint}
-          className="flex shrink-0 items-center gap-1.5 whitespace-nowrap"
-        >
-          {restart ? (
-            <Loader2 aria-hidden className="h-3 w-3 animate-spin" />
-          ) : (
-            badge.tone === 'online' && <LiveDot />
-          )}
-          {restart ? boxRestartLabel(restart.kind) : (pressure?.label ?? badge.label)}
-        </span>
+        <BoxStatus badge={badge} restart={restart} device={device} away={away} />
         <MachineLine device={device} dim={dim} live={badge !== BOX_BADGE[state]} />
         <AccessHint device={device} />
         {updateVersion !== undefined && (
