@@ -45,6 +45,9 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
+                if let desktop = question.request.desktop {
+                    ComputerPreview(teamId: inbox.teamId, sessionId: question.sessionId, desktop: desktop).padding(.top, 18)
+                }
                 if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
