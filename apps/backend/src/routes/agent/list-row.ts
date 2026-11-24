@@ -2,7 +2,7 @@
  * A list row without what only the open conversation or the server reads.
  * Clients poll the whole list every few seconds, and the runtime attachment
  * and the per-model token breakdown were a third of each row. Lists show only
- * the cost. The credential selection stays: the desktop chat summary counts
+ * the cost, and the archive log only in the open conversation. The credential selection stays: the desktop chat summary counts
  * it from the polled row.
  */
 export function listRow(row: Record<string, unknown>): Record<string, unknown> {
@@ -16,6 +16,7 @@ export function listRow(row: Record<string, unknown>): Record<string, unknown> {
     conversationTraceParent: _conversationTraceParent,
     runtimeMigration: _runtimeMigration,
     modelFallback: _modelFallback,
+    archiveLog: _archiveLog,
     tokenUsage,
     ...rest
   } = row

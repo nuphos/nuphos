@@ -166,6 +166,12 @@ try {
   ])
   check('the idle sweep', await log(idle), [{ archived: true, source: 'auto_archive' }])
 
+  // The polled list leaves it to the open conversation.
+  const listed = await as('GET', `/agent/conversations?teamId=${teamId}`)
+  const rows = (listed.body as { conversations: Record<string, unknown>[] }).conversations
+
+  check('no list row carries the log', rows.filter((row) => 'archiveLog' in row).length, 0)
+
   console.log('\narchiveLog from GET /agent/conversations/:id')
   for (const [name, id] of Object.entries({ own, parent, one, two, idle })) await report(name, id)
   await mongo.close()
