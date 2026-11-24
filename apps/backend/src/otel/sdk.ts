@@ -189,7 +189,8 @@ function startTelemetryInner(): { shutdown: TelemetryShutdown } {
     loggerProvider = new LoggerProvider({
       resource,
       processors: [
-        new BatchLogRecordProcessor(exporter, {
+        new BatchLogRecordProcessor({
+          exporter,
           maxQueueSize: 4_096,
           maxExportBatchSize: 512,
           scheduledDelayMillis: 5_000,

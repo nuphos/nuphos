@@ -103,9 +103,13 @@ type OtlpBody = {
     resource?: OtlpResource
     scopeMetrics?: { metrics?: { name: string }[] }[]
   }[]
+  resourceLogs?: {
+    resource?: OtlpResource
+    scopeLogs?: { logRecords?: { body?: OtlpValue }[] }[]
+  }[]
 }
 
-test('the backend telemetry exports traces and metrics to an OTLP collector', async () => {
+test('the backend telemetry exports traces, metrics and logs to an OTLP collector', async () => {
   const bodies = new Map<string, OtlpBody[]>()
   const collector = await listen((req, res) => {
     const chunks: Buffer[] = []
@@ -129,15 +133,17 @@ test('the backend telemetry exports traces and metrics to an OTLP collector', as
       process.execPath,
       '-e',
       `const { setupTelemetry } = await import(${JSON.stringify(`${import.meta.dir}/index.ts`)})
+      const { logs } = await import('@opentelemetry/api-logs')
       const { shutdown } = await setupTelemetry()
       await fetch('http://127.0.0.1:${String(upstream)}/ping')
+      logs.getLogger('otel-export-test').emit({ body: 'otel export test log' })
       await shutdown()`,
     ],
     {
       env: {
         ...process.env,
         OTEL_ENABLED: 'true',
-        OTEL_LOGS_ENABLED: 'false',
+        OTEL_LOGS_ENABLED: 'true',
         OTEL_EXPORTER_OTLP_ENDPOINT: endpoint,
         OTEL_SERVICE_NAME: 'otel-export-test',
       },
@@ -146,9 +152,12 @@ test('the backend telemetry exports traces and metrics to an OTLP collector', as
     },
   )
 
-  expect(await child.exited).toBe(0)
+  const timer = setTimeout(() => child.kill(), 15_000)
+
+  expect(await child.exited.finally(() => clearTimeout(timer))).toBe(0)
   const traces = bodies.get('/v1/traces')?.flatMap((b) => b.resourceSpans ?? []) ?? []
   const metrics = bodies.get('/v1/metrics')?.flatMap((b) => b.resourceMetrics ?? []) ?? []
+  const logRecords = bodies.get('/v1/logs')?.flatMap((b) => b.resourceLogs ?? []) ?? []
   const service = (resource?: OtlpResource) =>
     resource?.attributes?.find((a) => a.key === 'service.name')?.value.stringValue
 
@@ -162,4 +171,10 @@ test('the backend telemetry exports traces and metrics to an OTLP collector', as
   expect(names.map((m) => m.name)).toEqual(
     expect.arrayContaining(['http.client.request.duration', 'process.runtime.memory.rss']),
   )
+  expect(logRecords.map((r) => service(r.resource))).toContain('otel-export-test')
+  expect(
+    logRecords
+      .flatMap((r) => r.scopeLogs ?? [])
+      .flatMap((s) => (s.logRecords ?? []).map((x) => x.body?.stringValue)),
+  ).toContain('otel export test log')
 }, 20_000)
