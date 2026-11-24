@@ -13,9 +13,9 @@ import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 /** Checks the computer's own agent of a provider again; `restart` also restarts it. */
 export type RefreshDefault = (provider: LocalAgentProvider, restart: boolean) => Promise<unknown>
-/** Stops the computer's own agent of a provider until the next refresh starts it. */
-export type StopDefault = (provider: LocalAgentProvider) => Promise<void>
-export type DefaultAgentControl = { refreshDefault?: RefreshDefault; stopDefault?: StopDefault }
+/** Runs `work` with the computer's own agent of a provider stopped; the next refresh starts it. */
+export type PauseDefault = <T>(provider: LocalAgentProvider, work: () => Promise<T>) => Promise<T>
+export type DefaultAgentControl = { refreshDefault?: RefreshDefault; pauseDefault?: PauseDefault }
 
 /** A default agent whose login Nuphos may delete: never Antigravity's shared OS sign-in. */
 function deletableProvider(provider: unknown): LocalAgentProvider {
@@ -57,9 +57,9 @@ async function resetDefaultAgent(
   userId: string,
   provider: unknown,
   refresh: RefreshDefault | undefined,
-  stop: StopDefault | undefined,
+  pause: PauseDefault | undefined,
 ): Promise<unknown> {
-  if (!deps.ownsMachine || !refresh || !stop)
+  if (!deps.ownsMachine || !refresh || !pause)
     throw new Error('Only a computer from Nuphos resets its default runtimes')
   const agent = deletableProvider(provider)
   const env = await deps.userEnv()
@@ -68,9 +68,11 @@ async function resetDefaultAgent(
     prepareHomeFor(deps, agent, userId, env) ??
     userDir(deps.dataDir(), userId, agentHomeName(agent))
 
-  await stop(agent)
-  deleteDefaultCredentials(agent, home, env)
-  const left = await credentialsLeft(agent, home, deps)
+  const left = await pause(agent, async () => {
+    deleteDefaultCredentials(agent, home, env)
+
+    return credentialsLeft(agent, home, deps)
+  })
 
   await refresh(agent, false)
   if (left) throw left
@@ -94,10 +96,10 @@ export function defaultAgentRequest(
   userId: string,
   method: 'remove' | 'commit' | 'reset',
   provider: unknown,
-  { refreshDefault, stopDefault }: DefaultAgentControl,
+  { refreshDefault, pauseDefault }: DefaultAgentControl,
 ): Promise<unknown> {
   if (method === 'reset')
-    return resetDefaultAgent(deps, userId, provider, refreshDefault, stopDefault)
+    return resetDefaultAgent(deps, userId, provider, refreshDefault, pauseDefault)
 
   return method === 'remove'
     ? removeDefaultAgent(deps, userId, provider, refreshDefault)

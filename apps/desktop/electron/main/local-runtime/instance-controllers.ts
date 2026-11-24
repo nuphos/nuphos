@@ -213,14 +213,21 @@ export class InstanceControllers {
     const home = userDir(dir, userId, agentHomeName(provider))
 
     await entry.starting?.catch(() => {})
-    await entry.controller.shutdown()
-    deleteAgentCredentials(provider, home)
-    if (provider === 'claude-code') await this.removeCredential(secureStorageEnv(dir, userId))
-    const left = await credentialsLeft(provider, home, this.deps)
+    const left = await entry.controller.whileStopped(provider, async () => {
+      deleteAgentCredentials(provider, home)
+      if (provider === 'claude-code') await this.removeCredential(secureStorageEnv(dir, userId))
+
+      // Its own deps, which find an added Claude's Keychain entry.
+      return credentialsLeft(
+        provider,
+        home,
+        instanceControllerDeps(this.deps, dir, userId, this.changed),
+      )
+    })
 
     // Removed meanwhile: starting it again would bring back an agent no one lists.
     if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
-    entry.starting = entry.controller.setUser(userId).then(this.changed)
+    entry.starting = entry.controller.refresh(false).then(this.changed)
     entry.starting.catch(() => {}) // The controller reports its own start failure.
     this.changed()
     if (left) throw left

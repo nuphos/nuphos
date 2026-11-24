@@ -55,6 +55,7 @@ function setup(
         shutdown: async () => {
           fake.stopped = true
         },
+        whileStopped: async (_provider, work) => work(),
         refresh: async (restart: boolean) => {
           fake.restarts.push(restart)
 

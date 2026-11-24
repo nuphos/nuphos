@@ -129,6 +129,10 @@ export type Agent = {
   generation: number
   /** The look for a CLI that was missing, while it runs. */
   recheck?: Promise<void>
+  /** A reset holding the agent stopped: nothing starts it before this settles. */
+  paused?: Promise<unknown>
+  /** The last model read, which runs the agent's CLI on its home. */
+  probing?: Promise<unknown>
 }
 
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
