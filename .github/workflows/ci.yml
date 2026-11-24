@@ -25,9 +25,11 @@ on:
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
 # A dispatched run has a group of its own, so a push to main does not cancel it.
+# A run on main is the only e2e run of what merged (the merge queue skips e2e), so the
+# next merge does not cancel it; GitHub keeps only the newest of the runs waiting behind it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
