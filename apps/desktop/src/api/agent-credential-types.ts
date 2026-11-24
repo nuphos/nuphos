@@ -36,6 +36,7 @@ export type AgentCredentialSelection = {
   cloudflareAccountIds: string[]
   instaboxAccountIds: string[]
   deviceIds: string[]
+  mcpServerIds: string[]
   /** Providers this conversation acts as the team on, despite the member's Personal Credential. */
   teamIdentity?: PersonalCredentialProvider[]
   /** The member's own Personal Credentials this conversation may use, binding or not. */
@@ -97,6 +98,11 @@ export type AgentCredentialOptions = {
     clusterId: string
     label: string
     contextName: string
+  }[]
+  mcpServers: {
+    id: string
+    name: string
+    url?: string
   }[]
   betterStackIntegrations: {
     integrationId: string

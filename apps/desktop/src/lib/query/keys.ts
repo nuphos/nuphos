@@ -44,6 +44,7 @@ export const queryKeys = {
   memories: (teamId: string, scope: string, state = 'live') =>
     [...queryKeys.memoryScope(teamId, scope), state] as const,
   webhooks: (teamId: string) => [...queryKeys.team(teamId), 'webhooks'] as const,
+  mcpServers: (teamId: string) => [...queryKeys.team(teamId), 'mcp-servers'] as const,
   grafanaInstances: (teamId: string) => [...queryKeys.team(teamId), 'grafana'] as const,
   /** Under `grafanaInstances`, so refreshing the bindings refreshes what was read through them. */
   grafana: (teamId: string, instanceId: string, ...rest: string[]) =>

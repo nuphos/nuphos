@@ -1,4 +1,4 @@
-import { allCredentialAccess } from './credentialAccess.ts'
+import { availableCredentialAccess } from './credentialAccess.ts'
 
 import type { CredentialSelectorControl } from './credentialSections'
 
@@ -11,9 +11,9 @@ function credentialIds(value: CredentialSelectorControl['value']): string[] {
   )
 }
 
-/** Every credential row the picker draws: what Select all ticks. */
+/** Every credential row the picker draws. */
 export function countTotalCredentials(options: CredentialSelectorControl['options']): number {
-  return credentialIds(allCredentialAccess(options)).length
+  return credentialIds(availableCredentialAccess(options)).length
 }
 
 /**
@@ -28,7 +28,7 @@ export function countSelectedCredentials(
 
   if (!options) return ids.length
 
-  const drawn = new Set(credentialIds(allCredentialAccess(options)))
+  const drawn = new Set(credentialIds(availableCredentialAccess(options)))
 
   return ids.filter((id) => drawn.has(id)).length
 }

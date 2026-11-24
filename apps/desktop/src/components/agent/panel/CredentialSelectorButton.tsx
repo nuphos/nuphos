@@ -84,6 +84,9 @@ function SelectionButton({
         : {
             ...next,
             deviceIds: value.deviceIds,
+            // Custom remote MCP servers stay opt-in: Select all never enables unselected
+            // servers (keeping any already opted in), while Clear all clears them.
+            mcpServerIds: select ? value.mcpServerIds : [],
             // Where own rows show, they follow Select all / Clear all like every other row.
             ...(personalIdentity
               ? setAllPersonal(value, rows, select)
