@@ -806,97 +806,18 @@ describe('reclaimSessionHomes', () => {
     expect(await reclaimSessionHomes(now)).toBe(0)
   })
 
-  describe('a move between team runtimes', () => {
-    const moved = (sessionId: string, from: string) =>
-      conversation({
-        sessionId,
-        archivedAt: undefined,
-        runtimeId: 'new',
-        runtimeMigration: {
-          fromRuntimeId: from,
-          toRuntimeId: 'new',
-          movedAt: archivedAt,
-          movedBy: 'owner',
-        },
-      })
-
-    beforeEach(() => {
-      instances = ['old', 'offline', 'new'].map((id) => ({ id, provider: 'claude-code' }))
+  // A move queues the home it left (#5047); the sweep has no move of its own to follow.
+  test('leaves a moved conversation to the archive queue', async () => {
+    conversation({
+      archivedAt: undefined,
+      runtimeMigration: {
+        fromRuntimeId: 'local_owner_laptop',
+        toRuntimeId: LOCAL,
+        movedAt: archivedAt,
+      },
     })
-
-    test('reclaims on the runtime it left when that one is reached at another address', async () => {
-      endpoints = [
-        { runtimeId: 'old', url: 'wss://old.example/acp' },
-        { runtimeId: 'new', url: 'wss://new.example/acp' },
-      ]
-      const row = moved('conversation', 'old')
-
-      expect(await reclaimSessionHomes(now)).toBe(1)
-      expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(jobs.map((job) => job.runtimeId)).toEqual(['old'])
-    })
-
-    test('reclaims nothing when both are reached at one address: they share the home', async () => {
-      endpoints = [
-        { runtimeId: 'old', url: 'wss://shared.example/acp' },
-        { runtimeId: 'new', url: 'wss://shared.example/acp' },
-      ]
-      const row = moved('conversation', 'old')
-
-      expect(await reclaimSessionHomes(now)).toBe(1)
-      expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(jobs).toEqual([])
-    })
-
-    test('deletes nothing when either runtime cannot be resolved', async () => {
-      // Only 'old' has an endpoint: 'gone' is not in the catalog, 'offline' has no
-      // endpoint, and 'new', where all three moved, has none either.
-      endpoints = [{ runtimeId: 'old', url: 'wss://old.example/acp' }]
-      moved('from-gone', 'gone')
-      moved('from-unreachable', 'offline')
-      moved('to-unreachable', 'old')
-
-      expect(await reclaimSessionHomes(now)).toBe(3)
-      expect(jobs).toEqual([])
-    })
-  })
-
-  describe('a move off a computer', () => {
-    const moved = (to: string) =>
-      conversation({
-        archivedAt: undefined,
-        runtimeId: to,
-        runtimeMigration: {
-          fromRuntimeId: LOCAL,
-          toRuntimeId: to,
-          movedAt: archivedAt,
-          movedBy: 'owner',
-        },
-      })
-
-    test('reclaims the home a moved conversation left on its old computer', async () => {
-      const row = moved('local_owner_laptop')
-
-      expect(await reclaimSessionHomes(now)).toBe(1)
-      expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(jobs.map((job) => job.runtimeId)).toEqual([LOCAL])
-    })
-
-    test('a move between agents on one computer reclaims nothing: the new agent uses that home', async () => {
-      const row = moved(`${LOCAL}_codex`)
-
-      expect(await reclaimSessionHomes(now)).toBe(1)
-      expect(row.sessionHomeReclaimedAt).toEqual(now)
-      expect(jobs).toEqual([])
-    })
-
-    test('retries while the old computer is offline', async () => {
-      offline = [LOCAL]
-      const row = moved('local_owner_laptop')
-
-      expect(await reclaimSessionHomes(now)).toBe(0)
-      expect(row.sessionHomeReclaimedAt).toBeUndefined()
-    })
+    expect(await reclaimSessionHomes(now)).toBe(0)
+    expect(jobs).toEqual([])
   })
 
   describe('trigger runs', () => {

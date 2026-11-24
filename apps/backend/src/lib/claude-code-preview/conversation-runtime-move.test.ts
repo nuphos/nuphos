@@ -217,6 +217,21 @@ test('a move records where the conversation came from', async () => {
   // Not in the capped timeline, which could evict it.
   expect(conversation.timelineEvents ?? []).toEqual([])
 })
+// Every home a conversation leaves is queued where it is, so a later move or an
+// archive cannot make the sweep forget one (#5047).
+test('a move queues the home it leaves and starts a new one on the destination', async () => {
+  const earlier = { epoch: 1, runtimeId: 'elsewhere', provider: 'codex' as const }
+
+  conversation.sessionHomeEpoch = 2
+  conversation.archiveHomePendingEpochs = [earlier]
+  await moveConversationRuntime({ ...conversation }, 'new', 'owner')
+
+  expect(conversation.sessionHomeEpoch).toBe(3)
+  expect(conversation.archiveHomePendingEpochs).toEqual([
+    earlier,
+    { epoch: 2, runtimeId: 'old', provider: 'claude-code' },
+  ])
+})
 test('a move during a turn stops it as Stop does, then moves', async () => {
   busy = true
   await moveConversationRuntime({ ...conversation }, 'new', 'owner')
