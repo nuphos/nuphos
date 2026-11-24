@@ -1,13 +1,13 @@
-import { textDeltaInsertionIndex } from '../../../lib/agentMessagePartOrder'
+import { textDeltaInsertionIndex } from '../../../lib/agentMessagePartOrder.ts'
 
-import { STREAM_CHUNK_SIZES, STREAM_DELAY_MS } from './constants'
-import { isHiddenMemoryIngestPart } from './parts'
-import { uid } from './stall'
-import { replyId } from './turnBoundaries'
+import { STREAM_CHUNK_SIZES, STREAM_DELAY_MS } from './constants.ts'
+import { isHiddenMemoryIngestPart } from './parts.ts'
+import { uid } from './stall.ts'
+import { replyId } from './turnBoundaries.ts'
 import { t } from '../../../i18n/index.ts'
 
-import type { Message, Tab } from './model'
-import type { Part } from './parts'
+import type { Message, Tab } from './model.ts'
+import type { Part } from './parts.ts'
 
 export function appendTextDelta(parts: Part[], delta: string): Part[] {
   if (!delta) return parts
