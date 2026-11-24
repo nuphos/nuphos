@@ -27,7 +27,8 @@ final class EmptyChatUITests: XCTestCase {
         }
         serve(chat: "chat-group", title: "design-review", agent: nil)
         serve(chat: "chat-long", title: Self.long, agent: "bot-long")
-        responses["POST /agent/conversations/task-long/bot"] = ["status": 200, "body": [:]]
+        // "Make this a Bot" waits long enough for the test to put the Bot and its chat in the listings.
+        responses["POST /agent/conversations/task-long/bot"] = ["status": 200, "body": [:], "delayMs": 1500]
         serve(chat: "chat-made", title: Self.long, agent: "task-long")
         responses["POST /agent/channels"] = ["status": 200, "body": ["sessionId": "chat-made"]]
         responses["POST /agent/conversations/chat-made/agents"] = ["status": 200, "body": [:]]
@@ -104,11 +105,10 @@ final class EmptyChatUITests: XCTestCase {
         row.press(forDuration: 1)
         let make = app.buttons["Make this a Bot"].firstMatch
         XCTAssertTrue(make.waitForExistence(timeout: 5), "No Make this a Bot among the row's actions")
-        // The listings the app reads after the change, in place before the tap rather than raced against it.
+        make.tap()
         try edit("GET /agent/conversations") { $0 = $0.filter { $0["sessionId"] as? String != "task-long" } + [Self.task(avatar: "02-leonardo")] }
         try edit("GET /agent/conversations?kind=channel") { $0.append(Self.chat("chat-made", title: Self.long, faces: [Self.face("task-long")])) }
         try write()
-        make.tap()
     }
 
     private func expectEmptyChat(named title: String, shot name: String) throws {
