@@ -61,6 +61,7 @@ export function Composer({
   promptSuggestion,
   recall,
   agentMenu,
+  queued,
   aboveStatus,
 }: {
   variant?: 'compact' | 'hero'
@@ -106,6 +107,8 @@ export function Composer({
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
+  /** The messages waiting to send. They sit under the banners above the composer, not behind them. */
+  queued?: ReactNode
 } & Pick<Parameters<typeof ComposerOverlays>[0], 'aboveStatus'>) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -174,6 +177,7 @@ export function Composer({
     >
       <div className="relative w-full">
         <ComposerOverlays {...{ aboveStatus, readOnly, runtimeControl, hero, switchAgent }} />
+        {queued}
         <div
           className={clsx(
             'relative',

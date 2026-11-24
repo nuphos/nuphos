@@ -121,6 +121,16 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
       : undefined
 
   const shown = activeTab && !switchingConversation ? activeTab : null
+  const waiting = shown ? waitingMessages(shown) : []
+  const queued = shown && waiting.length > 0 && (
+    <QueuedStrip
+      items={waiting}
+      approval={queuedApproval ?? usageHoldNotice(shown.queueHeld)}
+      canSteer={runtimeAllows(shown.runtimeState, 'steer')}
+      onRemove={(queuedId) => void removeQueued(shown.id, queuedId)}
+      onSteer={(queuedId) => void steerQueued(shown.id, queuedId)}
+    />
+  )
 
   return (
     <div className="flex min-h-0 flex-1">
@@ -197,15 +207,6 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
             <div ref={setComposer} className="col-start-1 row-start-2 z-10">
               {shown && (
                 <ChatColumn key={shown.sessionId} sidebar={isSidebarMode}>
-                  {waitingMessages(shown).length > 0 && (
-                    <QueuedStrip
-                      items={waitingMessages(shown)}
-                      approval={queuedApproval ?? usageHoldNotice(shown.queueHeld)}
-                      canSteer={runtimeAllows(shown.runtimeState, 'steer')}
-                      onRemove={(queuedId) => void removeQueued(shown.id, queuedId)}
-                      onSteer={(queuedId) => void steerQueued(shown.id, queuedId)}
-                    />
-                  )}
                   {shown.messages.length === 0 ? (
                     <DelayedPanelReveal>
                       <Composer
@@ -218,6 +219,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                         executing={runtimeIsExecuting(shown.runtimeState)}
                         readOnly={shown.readOnly}
                         readOnlyNotice={readOnlyNotice}
+                        queued={queued}
                         activitySource={shown.activitySource}
                         slackThread={shown.slackThread}
                         credentialSelector={visibleConversationCredentialSelector}
@@ -250,6 +252,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
                       canStop={canStopTurn(shown)}
                       readOnly={shown.readOnly}
                       readOnlyNotice={readOnlyNotice}
+                      queued={queued}
                       activitySource={shown.activitySource}
                       slackThread={shown.slackThread}
                       credentialSelector={visibleConversationCredentialSelector}
