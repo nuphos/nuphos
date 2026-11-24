@@ -2,7 +2,7 @@ import { db } from '@/lib/db'
 import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
-import type { CredentialAllFlags, GeneralAccess } from './access'
+import type { GeneralAccess } from './access'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
 import type { SettingsChange } from './settings-history'
@@ -221,7 +221,7 @@ export type AgentCredentialAccess = {
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
-} & CredentialAllFlags
+}
 
 export type AgentMessage = {
   _id?: ObjectId
