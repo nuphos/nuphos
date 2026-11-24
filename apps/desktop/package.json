@@ -79,7 +79,7 @@
     "node-api-headers": "^1.9.0",
     "opencc-js": "1.4.2",
     "postcss": "^8.5.23",
-    "posthog-js": "^1.376.0",
+    "posthog-js": "^1.450.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
     "react-grid-layout": "2.2.4",
