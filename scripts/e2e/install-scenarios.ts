@@ -20,7 +20,8 @@ async function claudeHere(page: Page) {
 
     if (!agent.cli?.installed) return null
 
-    return { version: agent.cli.version, ready: agent.available && agent.cli.loggedIn === true }
+    // Online is what the removed card read as "Ready for your Bots and tasks".
+    return { version: agent.cli.version, ready: agent.online }
   })
 }
 
