@@ -235,9 +235,9 @@ export async function steerConversationRuntime(
   const attachment = liveAttachment(conversation)
 
   if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
-  // Steering carries the sender's input, so it is resolved as theirs.
+  // Steering carries the sender's input, so it is resolved as theirs, on a current sign-in.
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
-    purpose: 'control',
+    purpose: 'steer',
     userId: steer.userId,
   })
 

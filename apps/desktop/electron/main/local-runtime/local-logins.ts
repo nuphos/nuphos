@@ -15,6 +15,8 @@ export function localLogins(deps: {
   userDir: (userId: string) => string
   ownerHome: () => string
   bundleRoot: () => string
+  /** The agent is signed in here with its own login: it runs as this person now. */
+  signedIn: (provider: CliLoginProvider) => Promise<void>
 }) {
   const logins = Object.fromEntries(
     (['claude-code', 'codex'] as const).map((provider) => [
@@ -27,6 +29,7 @@ export function localLogins(deps: {
 
           return cli?.installed === true && cli.loggedIn === true
         },
+        signedIn: () => deps.signedIn(provider),
         // Codex's own sign-in replaces its key; Claude's leaves one in its settings.
         ...(provider === 'claude-code'
           ? {

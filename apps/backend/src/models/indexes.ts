@@ -6,6 +6,7 @@ import { setupDeviceAccessAuditIndexes } from '@/lib/agent/devices/access-audit'
 import { setupDeviceExecAuditIndexes } from '@/lib/agent/devices/audit'
 import { setupBoxUsageHistoryIndexes } from '@/lib/agent/devices/box-usage-history'
 import { setupDeviceGrantIndexes } from '@/lib/agent/devices/device-grants'
+import { setupForgottenDeviceIndexes } from '@/lib/agent/devices/forgotten-devices'
 import { setupDeviceJoinTokenIndexes } from '@/lib/agent/devices/join-tokens'
 import { setupLocalRuntimeActivityIndexes } from '@/lib/agent/devices/local-runtime/activity'
 import { dropOrphanedShareState } from '@/lib/agent/devices/local-share-orphans'
@@ -125,6 +126,7 @@ export async function setupIndexes(): Promise<void> {
     ['push-devices', setupPushDeviceIndexes],
     ['push-live-activities', setupLiveActivityIndexes],
     ['agent-devices', setupAgentDeviceIndexes],
+    ['agent-devices-forgotten', setupForgottenDeviceIndexes],
     ['agent-device-shares', setupShareApprovalIndexes],
     ['agent-device-access', setupDeviceGrantIndexes],
     ['agent-device-share-trusts', setupShareTrustIndexes],

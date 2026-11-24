@@ -105,7 +105,7 @@ export async function noteSignIn(
 
   // A newer sign-in recorded meanwhile has its own signer checked.
   if (!ref || !signer || !(await recordAgentSignIn(ref, ref, { ...signer, at }))) return
-  if (!(await manages(doc, ref.deviceId))) await endAgentSignIn(ref, ref, signer, reset)
+  if (!(await manages(doc, ref.deviceId))) await endAgentSignIn(ref, ref, { ...signer, at }, reset)
 }
 
 function managesComputer(doc: RuntimeLoginDoc, deviceId: string): Promise<boolean> {

@@ -91,13 +91,34 @@ class FakeCollection {
 
     return { matchedCount: hit ? 1 : 0 }
   }
+  async findOneAndDelete(filter: Doc) {
+    const hit = await this.findOne(filter)
+
+    this.docs = this.docs.filter((doc) => doc !== hit)
+
+    return hit
+  }
+  async deleteOne(filter: Doc) {
+    return { deletedCount: (await this.findOneAndDelete(filter)) ? 1 : 0 }
+  }
+  async replaceOne(filter: Doc, replacement: Doc) {
+    await this.findOneAndDelete(filter)
+    this.docs.push(replacement)
+  }
 }
 
 const devices = new FakeCollection()
+// Any other collection the store keeps: what a forgotten computer leaves behind.
+const others = new FakeCollection()
 
-useDb({ db: (() => ({ collection: () => devices })) as unknown as typeof dbActual.db })
+useDb({
+  db: (() => ({
+    collection: (name: string) => (name === 'agent_devices' ? devices : others),
+  })) as unknown as typeof dbActual.db,
+})
 
-const { getAgentDevice, renameAgentDevice, upsertAgentDevice } = await import('./store')
+const { deleteAgentDevice, getAgentDevice, renameAgentDevice, upsertAgentDevice } =
+  await import('./store')
 const {
   forgetAgentReset,
   recordAgentAddition,
@@ -140,6 +161,31 @@ describe('agent device registration', () => {
     await upsertAgentDevice('u1', registration)
     expect(await renameAgentDevice('u2', 'mac-1', 'Mine')).toBe(false)
     expect((await getAgentDevice('u1', 'mac-1'))?.label).toBe('Yuanlin’s MacBook Pro')
+  })
+})
+
+describe('forgetting a computer', () => {
+  beforeEach(() => {
+    devices.docs = []
+    others.docs = []
+  })
+
+  test('keeps who signed its agents in, and the resets they owe, for when it registers again', async () => {
+    const at = new Date('2026-11-13T00:00:00Z')
+    const signIns = [{ agent: 'claude-code', userId: 'lead', teamId: 't1', at, endedAt: at }]
+    const pendingResets = [
+      { id: 'r1', agent: { instanceId: 'i1' }, actorId: 'lead', teamId: 't1', at },
+    ]
+
+    await upsertAgentDevice('u1', registration)
+    Object.assign(devices.docs[0]!, { signIns, pendingResets })
+    expect(await deleteAgentDevice('u1', 'mac-1')).toBe(true)
+    expect(await getAgentDevice('u1', 'mac-1')).toBeNull()
+    // Opening Nuphos there again registers it again: its ended sign-in stays ended.
+    await upsertAgentDevice('u1', registration)
+
+    expect(await getAgentDevice('u1', 'mac-1')).toMatchObject({ signIns, pendingResets })
+    expect(others.docs).toEqual([])
   })
 })
 

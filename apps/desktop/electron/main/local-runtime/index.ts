@@ -172,6 +172,15 @@ const logins = localLogins({
   userDir: (userId) => path.join(dataDir(), 'users', userId),
   ownerHome: () => app.getPath('home'),
   bundleRoot,
+  // A backend too old for this route kept the record; nothing else to do.
+  signedIn: (provider) =>
+    callJson(
+      'DELETE',
+      `/agent/devices/${encodeURIComponent(readDeviceIdentity().deviceId)}/agents/${provider}/sign-in`,
+    ).then(
+      () => {},
+      () => {},
+    ),
 })
 
 export const submitLocalClaudeLoginCode = (code: unknown) => logins.submitClaudeCode(code)
