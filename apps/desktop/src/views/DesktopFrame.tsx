@@ -51,12 +51,14 @@ export function DesktopScreen({
   onRetry,
   host,
   className,
+  style,
   children,
 }: {
   phase: DesktopPhase
   onRetry: () => void
   host: React.RefObject<HTMLDivElement | null>
   className?: string
+  style?: React.CSSProperties
   /** Drawn over the live picture once it shows. */
   children?: React.ReactNode
 }) {
@@ -68,7 +70,7 @@ export function DesktopScreen({
         : undefined
 
   return (
-    <div className={clsx('relative', className)}>
+    <div className={clsx('relative', className)} style={style}>
       <div ref={host} className="absolute inset-0 flex" />
       {overlay || phase.kind === 'stopped' ? (
         <div

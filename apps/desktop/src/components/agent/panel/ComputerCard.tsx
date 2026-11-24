@@ -59,6 +59,7 @@ export function ComputerCard({
   const outcome = computerOutcome(recorded?.option)
   const holding = live.holding && interactive
   const pane = useChatPane(live.host, holding)
+  const ratio = useDesktopRatio(live.host, live.phase.kind === 'connected')
   const bot = conversation?.name ?? t('the Bot')
   const answer = (option: string) => {
     if (live.holding) live.hold(false)
@@ -101,15 +102,20 @@ export function ComputerCard({
           {holding && (
             <TakeoverBar sessionId={conversation?.sessionId} bot={bot} computer={desktop.title} />
           )}
-          <div className={clsx(holding && 'flex min-h-0 flex-1 items-center justify-center px-4')}>
+          <div
+            style={holding ? { containerType: 'size' } : undefined}
+            className={clsx(holding && 'flex min-h-0 flex-1 items-center justify-center px-4')}
+          >
             <DesktopScreen
               phase={live.phase}
               onRetry={live.retry}
               host={live.host}
+              style={{
+                aspectRatio: ratio,
+                ...(holding && { width: `min(100cqw, ${String(ratio)} * 100cqh)` }),
+              }}
               className={
-                holding
-                  ? 'aspect-video max-h-full w-full rounded-lg shadow-[0_0_0_1px_#FFFFFF14]'
-                  : 'aspect-video'
+                holding ? 'overflow-hidden rounded-lg shadow-[0_0_0_1px_#FFFFFF14]' : 'w-full'
               }
             />
           </div>
@@ -178,6 +184,28 @@ function useChatPane(host: RefObject<HTMLElement | null>, holding: boolean): CSS
   }, [host, holding])
 
   return rect
+}
+
+/** The desktop's own shape once it shows, so its view fills the frame edge to edge; 16:9 until then. */
+function useDesktopRatio(host: RefObject<HTMLElement | null>, shown: boolean): number {
+  const [ratio, setRatio] = useState(16 / 9)
+
+  useLayoutEffect(() => {
+    const canvas = shown ? host.current?.querySelector('canvas') : null
+
+    if (!canvas) return
+    const observer = new ResizeObserver(() => {
+      if (canvas.width && canvas.height) setRatio(canvas.width / canvas.height)
+    })
+
+    observer.observe(canvas)
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [host, shown])
+
+  return ratio
 }
 
 /** The Bot, then the computer, and that the person now holds it. */
