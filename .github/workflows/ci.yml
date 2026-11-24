@@ -7,21 +7,25 @@ on:
   push:
     branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
+  # With `nightly`, only the full macOS package instead, since PRs and the queue build
+  # it only when a packaging input changes. A Nuphos Trigger dispatches that on main
+  # every night: GitHub fired this repository's cron hours late or not at all.
   workflow_dispatch:
     inputs:
       real_disk:
         description: Run the isolated real-disk Desktop evidence scenario
         type: boolean
         default: false
-  # The full macOS package every night, since PRs and the queue build it only
-  # when a packaging input changes.
-  schedule:
-    - cron: '0 19 * * *'
+      nightly:
+        description: Build the full macOS package instead of running the end-to-end job
+        type: boolean
+        default: false
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
+# A dispatched run has a group of its own, so a push to main does not cancel it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -483,7 +487,7 @@ jobs:
     # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
     # Not in the merge queue: each PR already passed it, and one flaky run there ejects
     # the PR and rebuilds every group behind it.
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' && !inputs.nightly || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
     # Keep real-disk evidence on hosted runners after the Instabox loop-mount failure.
     # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
@@ -727,9 +731,9 @@ jobs:
   desktop:
     name: Desktop (Nuphos macOS package)
     needs: changes
-    # On schedule `changes` is skipped; !cancelled() keeps this job running.
+    # On the nightly dispatch `changes` is skipped; !cancelled() keeps this job running.
     if: >-
-      ${{ !cancelled() && (github.event_name == 'schedule' ||
+      ${{ !cancelled() && (inputs.nightly ||
       (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
       needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
@@ -769,7 +773,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       # Nobody watches the nightly run, so a failure is posted to the maintainers.
       - name: Report a failed nightly run
-        if: failure() && github.event_name == 'schedule'
+        if: failure() && inputs.nightly
         env:
           WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
