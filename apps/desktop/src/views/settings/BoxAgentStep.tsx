@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Button } from '../../components/ui/button'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { Choice } from './AddAgentChoice'
 import { NEW_BOX_DESCRIPTION } from './boxCreatePresentation'
@@ -86,9 +86,9 @@ export function BoxAgentForm({
             <Choice
               key={agent.id}
               icon={<AgentProviderIcon provider={agent.provider} className="h-4 w-4" />}
-              title={AGENT_PROVIDER[agent.provider].label}
+              title={agentProvider(agent.provider).label}
               description={t('Sign in with {account}.', {
-                account: AGENT_PROVIDER[agent.provider].account,
+                account: agentProvider(agent.provider).account,
               })}
               onClick={() => onChosen(agent)}
             />

@@ -3,7 +3,7 @@ import { Box, Check, ChevronRight, Laptop, LogIn } from 'lucide-react'
 
 import { t } from '../../../i18n'
 import { SHARED_COMPUTER_PRIVACY } from '../../../lib/sharedComputerDisclosure'
-import { AGENT_PROVIDER } from '../../../types/runtime'
+import { agentProvider } from '../../../types/runtime'
 import { RuntimeUsageBar } from '../../../views/settings/RuntimeUsageBar'
 import { SharedComputerLearnMore } from '../../SharedComputerLearnMore'
 import { MenuContent, MenuItem, MenuSubmenu, MenuSubmenuTrigger } from '../../ui/menu'
@@ -123,7 +123,7 @@ function AgentRow({
   const name = boxAgentName(instance)
   const admin = instance.kind === 'managed' && adminName(fixes.viewer.members)
   const askToUpdate = admin && t('Ask {name} to update', { name: admin })
-  const provider = AGENT_PROVIDER[instance.provider].label
+  const provider = agentProvider(instance.provider).label
 
   return (
     <MenuItem

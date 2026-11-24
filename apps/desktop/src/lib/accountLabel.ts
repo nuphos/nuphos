@@ -1,4 +1,4 @@
-import { AGENT_PROVIDER } from '../types/runtime.ts'
+import { agentProvider } from '../types/runtime.ts'
 
 import type { LocalAgentProvider, LocalRuntimeState } from '../api/device-types.ts'
 import type { AgentProvider, RuntimeInstance } from '../types/runtime.ts'
@@ -26,7 +26,7 @@ export function accountLabel(
 
   if (!account || distinctAccounts(agent.provider, onComputer) < 2) return undefined
 
-  return `${AGENT_PROVIDER[agent.provider].label}${ACCOUNT_LABEL_SEPARATOR}${account}`
+  return `${agentProvider(agent.provider).label}${ACCOUNT_LABEL_SEPARATOR}${account}`
 }
 
 /** How many accounts of one provider a computer's agents are known to be signed in to. */

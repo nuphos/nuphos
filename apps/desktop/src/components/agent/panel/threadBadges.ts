@@ -1,4 +1,4 @@
-import { AGENT_PROVIDER } from '../../../types/runtime.ts'
+import { agentProvider } from '../../../types/runtime.ts'
 
 import type { Part, ToolPart } from './parts.ts'
 import type { AgentProvider } from '../../../types/runtime.ts'
@@ -76,7 +76,7 @@ export function threadBadgeInfo(part: ToolPart): ThreadBadgeInfo | null {
     model: chosen('model'),
     effort: chosen('effort'),
     modelReason: chosen('modelReason'),
-    agentRuntime: provider && provider in AGENT_PROVIDER ? (provider as AgentProvider) : null,
+    agentRuntime: (provider as AgentProvider | null) ?? null,
     runtimeLabel: nonEmpty(answer?.runtimeLabel),
   }
 }
@@ -86,7 +86,7 @@ export function threadRuntimeName(
   provider: AgentProvider | undefined,
   runtimeLabel: string | undefined,
 ): string | null {
-  const agent = provider ? AGENT_PROVIDER[provider].label : undefined
+  const agent = provider ? agentProvider(provider).label : undefined
   const computer = runtimeLabel?.trim()
 
   if (!computer) return agent ?? null

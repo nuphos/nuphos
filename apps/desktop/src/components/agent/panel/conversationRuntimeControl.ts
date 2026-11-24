@@ -5,7 +5,7 @@ import { decideErrorToast } from '../../../api/errors'
 import { t } from '../../../i18n/index.ts'
 import { agentAvatarPick } from '../../../lib/agentAvatarChoices.ts'
 import { localAgentMoveWarning, moveNotice } from '../../../lib/localAgentSharing'
-import { AGENT_PROVIDER } from '../../../types/runtime'
+import { agentProvider } from '../../../types/runtime'
 import { toast } from '../../ui/toast'
 
 import type { PanelViewCtx } from './ctx'
@@ -165,7 +165,7 @@ export function useSessionRuntimeControl(c: SessionRuntimeContext): RuntimeContr
         ? {
             id: tab?.runtimeId,
             provider,
-            label: current?.label ?? tab?.runtimeLabel ?? AGENT_PROVIDER[provider].label,
+            label: current?.label ?? tab?.runtimeLabel ?? agentProvider(provider).label,
             status: current?.status,
           }
         : null,
