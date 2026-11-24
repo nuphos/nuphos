@@ -27,8 +27,6 @@ export type AgentDeviceBox = {
   createdBy?: string
   /** When an update last restarted its host; see box-updating. */
   updateStartedAt?: Date
-  /** When a resume or heal last failed because the machine had run out of CPU or memory. */
-  pressureAt?: Date
 }
 
 /** In one team: who may use a computer and who may also manage it. */
