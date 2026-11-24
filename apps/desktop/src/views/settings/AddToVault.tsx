@@ -37,7 +37,7 @@ export function useAddToVault(device: AgentDevice, teamId: string) {
         open={open}
         title={t('Add {name} to your vault?', { name: device.label })}
         description={t(
-          'Once you approve it, everything on that computer, its Bots and Tasks included, can read your vault. Its key passes through Nuphos, as with `nuphos vault enroll` in a Nuphos terminal; for your most sensitive computers, enroll over your own SSH instead.',
+          'Once you approve it, every program on that computer can read your vault, its Bots and Tasks included, and so can anyone using its user account; on a shared computer, that includes whoever owns that account. Its key passes through Nuphos, as with `nuphos vault enroll` in a Nuphos terminal. For your most sensitive computers, enroll over your own SSH with the CLI instead.',
         )}
         confirmLabel={t('Add to Vault')}
         onConfirm={() => void add()}

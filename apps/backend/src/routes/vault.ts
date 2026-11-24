@@ -22,9 +22,10 @@ import { liveDevice } from '@/routes/agent/router'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 
-// A user's own vault. Only a signed-in user session reaches these: conversation
-// tokens are not accepted by requireAuth, so an agent never reads a vault. The one
-// exception is the computer read below.
+// A user's own vault, end-to-end encrypted: the server stores only ciphertext, wrapped
+// item keys and device public keys, so it can never decrypt an item. Whatever reaches
+// these routes gets only that. A signed-in session reaches them, except the computer
+// read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
 
 // A computer added from afar (POST /teams/:teamId/computers/:deviceId/vault) reads an

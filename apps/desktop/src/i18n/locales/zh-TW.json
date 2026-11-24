@@ -3261,7 +3261,7 @@
   "On this computer": "在此電腦上",
   "OnDelete requires replacing pods manually": "OnDelete 策略需要手動替換 Pod",
   "Once the plan changes, {size} is unlocked and selected in New computer.": "方案變更後，{size} 會解鎖並在「新電腦」中自動選取。",
-  "Once you approve it, everything on that computer, its Bots and Tasks included, can read your vault. Its key passes through Nuphos, as with `nuphos vault enroll` in a Nuphos terminal; for your most sensitive computers, enroll over your own SSH instead.": "核准後，這台電腦上的所有程式（包括它的 Bot 與 Task）都能讀取你的 Vault。它的金鑰會經過 Nuphos，與在 Nuphos 終端機執行 `nuphos vault enroll` 相同；最敏感的電腦請改用你自己的 SSH 加入。",
+  "Once you approve it, every program on that computer can read your vault, its Bots and Tasks included, and so can anyone using its user account; on a shared computer, that includes whoever owns that account. Its key passes through Nuphos, as with `nuphos vault enroll` in a Nuphos terminal. For your most sensitive computers, enroll over your own SSH with the CLI instead.": "核准後，這台電腦上的每個程式都能讀取你的 Vault，包括它的 Bot 與 Task；使用它那個使用者帳號的任何人也能讀取，在共用電腦上，這包括該帳號的擁有者。它的金鑰會經過 Nuphos，與在 Nuphos 終端機執行 `nuphos vault enroll` 相同。最敏感的電腦，請改用你自己的 SSH 透過 CLI 加入。",
   "Once you have paid, the sizes your plan allows appear in New computer.": "付款後，方案允許的規格會出現在「新電腦」中。",
   "Once you have paid, your computer starts here on its own.": "付款完成後，你的電腦會在這裡自動啟動。",
   "Once {name} is installed and signed in, your own Bots and tasks in any of your teams can run it here while Nuphos is open — including shell commands with your user's access. Teammates you share this computer with can run it too, on your sign-in.": "安裝並登入 {name} 後，只要 Nuphos 保持開啟，你在任何團隊中的 Bot 與任務都能在這裡執行它，包括以你的使用者權限執行 Shell 指令。你分享這台電腦的隊友也能用你的登入執行它。",
