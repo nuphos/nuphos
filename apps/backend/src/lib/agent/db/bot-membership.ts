@@ -1,6 +1,7 @@
 import { AppError } from '@/lib/errors'
 
 import { isBotChat, withdrawQuestionsAbout } from './archive'
+import { pushArchiveLog } from './archive-log'
 import { agentConversations } from './shared'
 
 import type { AgentConversation } from './shared'
@@ -32,7 +33,7 @@ export async function speakingBot(self: AgentConversation): Promise<AgentConvers
  * A Bot made a Task again leaves every group chat. Its 1:1 chats are archived
  * with it still in them, so making it a Bot again brings back the latest.
  */
-export async function leaveChats(agentSessionId: string) {
+export async function leaveChats(agentSessionId: string, userId: string) {
   const chats = await agentConversations()
     .find({ kind: 'channel', agentSessionIds: agentSessionId })
     .toArray()
@@ -40,7 +41,10 @@ export async function leaveChats(agentSessionId: string) {
 
   await agentConversations().updateMany(
     { sessionId: { $in: own }, archivedAt: { $exists: false } },
-    { $set: { archivedAt: new Date() } },
+    {
+      $set: { archivedAt: new Date() },
+      $push: pushArchiveLog(true, { source: 'bot_left', userId }, agentSessionId),
+    },
   )
   for (const chat of chats.filter(isBotChat))
     await withdrawQuestionsAbout(chat.userId, [chat.sessionId])

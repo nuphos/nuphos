@@ -5,6 +5,7 @@
 import posthog from 'posthog-js'
 
 import { setFrontendErrorReporter } from './frontendErrorReporter'
+import { skipPersonProcessing } from './personlessEvents'
 import { sanitizeReportText } from './reportRedaction'
 
 import type { UserInfo } from '../types'
@@ -162,6 +163,7 @@ export function initAnalytics(): void {
     // (surveys, toolbar) into the renderer at runtime — those would execute
     // with full Electron process privileges.
     disable_external_dependency_loading: true,
+    before_send: skipPersonProcessing,
   })
   // An opt-out from an earlier session is persisted; the setting is on now.
   if (posthog.has_opted_out_capturing()) posthog.opt_in_capturing()

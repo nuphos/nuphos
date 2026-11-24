@@ -7,6 +7,8 @@ import { closeDb, connectDb } from '@/lib/db'
 import { setConversationArchived } from './archive'
 import { agentConversations } from './shared'
 
+const by = { source: 'user', userId: 'u' } as const
+
 const owner = randomUUID()
 const team = randomUUID()
 const sessionId = randomUUID()
@@ -14,7 +16,7 @@ const program = `
   import { connectDb, closeDb } from './src/lib/db.ts'
   import { restoreArchivedConversation } from './src/lib/agent/db/archive.ts'
   await connectDb()
-  const result = await restoreArchivedConversation(process.argv[1])
+  const result = await restoreArchivedConversation(process.argv[1], { source: 'turn' })
   console.log(JSON.stringify({ restored: result }))
   await closeDb()
 `
@@ -57,10 +59,10 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
         createdAt: now,
         lastActiveAt: now,
       })
-      await setConversationArchived(other, true)
-      await setConversationArchived(other, false)
-      await setConversationArchived(other, true)
-      await setConversationArchived(other, false)
+      await setConversationArchived(other, true, by)
+      await setConversationArchived(other, false, by)
+      await setConversationArchived(other, true, by)
+      await setConversationArchived(other, false, by)
       const row = await agentConversations().findOne({ sessionId: other })
 
       expect(row?.sessionHomeEpoch).toBe(2)

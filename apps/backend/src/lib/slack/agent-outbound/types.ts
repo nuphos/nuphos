@@ -1,3 +1,4 @@
+import type { InboundFile } from '@/lib/agent/inbound-files'
 import type {
   fetchSlackChannelHistory,
   fetchSlackChannelMembers,
@@ -10,6 +11,8 @@ import type { ObjectId } from 'mongodb'
 export type SlackOutboundArgs = {
   userId: string
   teamId?: string | null
+  /** Puts files fetched from Slack on the conversation's runtime; slack_read's files needs it. */
+  placeFiles?: (files: InboundFile[]) => Promise<string[]>
 }
 
 export type SlackOutboundContext = {
@@ -58,6 +61,8 @@ export type SlackOutboundContext = {
     cursor?: string
     oldest?: string
     latest?: string
+    /** Put the page's attachments on the runtime and list their paths instead of Slack URLs. */
+    files?: boolean
   }) => Promise<
     | {
         ok: true
@@ -65,6 +70,7 @@ export type SlackOutboundContext = {
         messages: Record<string, unknown>[]
         hasMore: boolean
         nextCursor?: string
+        note?: string
       }
     | { ok: false; error: string }
   >

@@ -15,6 +15,7 @@ import { useRuntimeStatusQuery } from '../../lib/query/runtime'
 import { AGENT_PROVIDER } from '../../types/runtime'
 
 import { AgentAddedBy, AgentSignedInBy } from './AgentAddedBy'
+import { CustomProviderSettings } from './CustomProviderSettings'
 import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
@@ -218,6 +219,7 @@ export function RuntimeInstanceCard({
           </p>
         ) : (
           <>
+            <CustomProviderSettings instance={instance} />
             {runtime?.credentialRevoked ? (
               <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
                 {t(

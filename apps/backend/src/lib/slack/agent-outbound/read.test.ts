@@ -1,10 +1,21 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
-import { createSlackOutboundContext } from '@/lib/slack/agent-outbound'
+import { useSlackApi } from '@/lib/test/doubles/slack-api'
 
 import type { SlackOutboundContext, SlackOutboundDependencies } from '@/lib/slack/agent-outbound'
 
+const downloads: { token: string; url: string }[] = []
+
+useSlackApi({
+  downloadSlackFile: (args: { token: string; urlPrivate: string }) => {
+    downloads.push({ token: args.token, url: args.urlPrivate })
+
+    return Promise.resolve({ bytes: new Uint8Array([137, 80, 78, 71]), contentType: 'image/png' })
+  },
+})
+
+const { createSlackOutboundContext } = await import('@/lib/slack/agent-outbound')
 const teamId = new ObjectId().toHexString()
 let installed = true
 let admin = true
@@ -29,7 +40,7 @@ const dependencies = {
   readHistory: async ({ token, ...input }) => {
     reads.push({ method: 'history', token, input })
 
-    return { messages: [{ ts: '2.0' }, { ts: '1.0' }], hasMore: true, nextCursor: 'next' }
+    return { messages: page, hasMore: true, nextCursor: 'next' }
   },
   readReplies: async ({ token, ...input }) => {
     reads.push({ method: 'replies', token, input })
@@ -50,10 +61,24 @@ const person = (id: string, name: string, realName: string) => ({
   realName,
   isBot: false,
 })
+let page: Record<string, unknown>[] = [{ ts: '2.0' }, { ts: '1.0' }]
 let people = [person('U1', 'ada', 'Ada Lovelace'), person('U2', 'grace', 'Grace Hopper')]
 
+const placed: { fileName: string; bytes: number }[][] = []
+
 async function context() {
-  return (await createSlackOutboundContext({ userId: 'user-1', teamId }, dependencies))!
+  return (await createSlackOutboundContext(
+    {
+      userId: 'user-1',
+      teamId,
+      placeFiles: (files) => {
+        placed.push(files.map((file) => ({ fileName: file.fileName, bytes: file.bytes.length })))
+
+        return Promise.resolve(files.map((file) => `/runtime/${file.fileName}`))
+      },
+    },
+    dependencies,
+  ))!
 }
 
 async function read(input: Parameters<SlackOutboundContext['read']>[0]) {
@@ -70,6 +95,9 @@ beforeEach(() => {
   channelGrants = []
   channels = { C1: { isPrivate: false, joined: true } }
   reads.length = 0
+  downloads.length = 0
+  placed.length = 0
+  page = [{ ts: '2.0' }, { ts: '1.0' }]
   people = [person('U1', 'ada', 'Ada Lovelace'), person('U2', 'grace', 'Grace Hopper')]
 })
 
@@ -100,6 +128,39 @@ describe('slack read', () => {
         input: { channel: 'C1', threadTs: '1.0', maxMessages: 50 },
       },
     ])
+  })
+
+  test('with files, puts a message’s attachments on the runtime and drops the Slack URLs', async () => {
+    const screenshot = {
+      id: 'F1',
+      name: 'screenshot.png',
+      mimetype: 'image/png',
+      url_private: 'https://files.slack.com/files-pri/T1-F1/screenshot.png',
+      url_private_download: 'https://files.slack.com/files-pri/T1-F1/download/screenshot.png',
+    }
+
+    page = [{ ts: '2.0', text: 'See the error', files: [screenshot] }]
+
+    // Without files the page is as Slack sent it, and nothing is downloaded.
+    expect(await read({ channelId: 'C1' })).toMatchObject({ messages: [{ files: [screenshot] }] })
+    expect(downloads).toEqual([])
+
+    const result = await read({ channelId: 'C1', files: true })
+
+    expect(result).toMatchObject({
+      ok: true,
+      messages: [
+        {
+          ts: '2.0',
+          files: [{ id: 'F1', name: 'screenshot.png', path: '/runtime/screenshot.png' }],
+        },
+      ],
+      note: expect.stringContaining('untrusted data'),
+    })
+    expect(JSON.stringify(result)).not.toContain('files.slack.com')
+    // The bot token that read the channel fetched the file, inside the backend.
+    expect(downloads).toEqual([{ token: 'own-token', url: screenshot.url_private }])
+    expect(placed).toEqual([[{ fileName: 'screenshot.png', bytes: 4 }]])
   })
 
   test('refuses a channel the bot has not joined', async () => {

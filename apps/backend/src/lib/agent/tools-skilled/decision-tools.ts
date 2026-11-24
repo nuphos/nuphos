@@ -74,6 +74,9 @@ export function isPersonalCredentialRef(value: unknown): value is PersonalCreden
 /** A `computer` card's answers, which its clients draw as its own buttons. */
 export const COMPUTER_OPTIONS = ["I'm done", 'Skip'] as const
 
+/** Whether agents are offered `computer` cards: off until its clients show the desktop live (#4977). */
+export const COMPUTER_CARDS = false
+
 const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
   ConnectableProvider,
   ...ConnectableProvider[],
@@ -170,7 +173,9 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
         "When you are filling in a form on a website and it needs the user's own details (an ID number, a date of birth, a booking reference), ask for all of them in one such card: add `fields`, one per detail, and `site`, the host they will be entered on. Decide the page's other options yourself, then enter the saved values with local_browser `fill`. " +
-        "For a step on your desktop that only the person can do, such as a sign-in whose password you do not have, open the page on your desktop (the nuphos-desktop tools), then use category `computer`: the user gets a card with a live view of that desktop and Take over, I'm done and Skip, and your input tools on it wait while they hold it. Say in `body` what they need to do there. Do not set `options`; the card has its own. " +
+        (COMPUTER_CARDS
+          ? "For a step on your desktop that only the person can do, such as a sign-in whose password you do not have, open the page on your desktop (the nuphos-desktop tools), then use category `computer`: the user gets a card with a live view of that desktop and Take over, I'm done and Skip, and your input tools on it wait while they hold it. Say in `body` what they need to do there. Do not set `options`; the card has its own. "
+          : '') +
         'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
         'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
         "Write `question`, `body` and `options` in the user's language from the Response language section, even when the messages you received are in another language: the user reads the card, not your prompt. " +
@@ -189,7 +194,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
             'credential',
             'integration',
             'risk_tradeoff',
-            'computer',
+            ...(COMPUTER_CARDS ? (['computer'] as const) : []),
           ]),
           question: questionField,
           body: bodyField.optional(),

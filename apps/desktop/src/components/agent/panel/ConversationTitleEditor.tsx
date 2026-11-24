@@ -3,8 +3,13 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
-import { pickAgentAvatar, useAgentAvatarPick } from '../../../lib/agentAvatarChoices'
+import {
+  agentAvatarBackground,
+  pickAgentAvatar,
+  useAgentAvatarPick,
+} from '../../../lib/agentAvatarChoices'
 import { trustedAvatarURL } from '../../../lib/avatarUrl'
+import { botAvatarBackground } from '../../../lib/botAvatarBackgrounds'
 import { botAvatarFile, botAvatarName } from '../../../lib/botAvatars'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
 import { saveBotIdentity } from '../../../lib/saveBotIdentity'
@@ -124,6 +129,8 @@ export function RenameConversationDialog({
   const [avatar, setAvatar] = useState(() =>
     photo ? undefined : botAvatarFile(sessionId, currentAvatar),
   )
+  const [savedBackground] = useState(() => botAvatarBackground(agentAvatarBackground(sessionId)))
+  const [background, setBackground] = useState(savedBackground)
   const [draft, setDraft] = useState(title)
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
@@ -143,17 +150,20 @@ export function RenameConversationDialog({
       await saveBotIdentity(
         title,
         name,
-        currentAvatar,
-        bot && avatar ? botAvatarName(avatar) : undefined,
+        { avatar: currentAvatar, background: savedBackground },
+        { avatar: bot && avatar ? botAvatarName(avatar) : undefined, background },
         {
           rename: async (nextName) => {
             const result = await api.agentRenameConversation(sessionId, nextName, teamId)
 
             announceChatTitle({ sessionId, teamId, title: result.title })
           },
-          setAvatar: async (nextAvatar) => {
-            await pickAgentAvatar(sessionId, nextAvatar, () =>
-              api.agentSetConversationAvatar(sessionId, nextAvatar, teamId),
+          setAvatar: async (nextAvatar, nextBackground) => {
+            await pickAgentAvatar(
+              sessionId,
+              nextAvatar,
+              () => api.agentSetConversationAvatar(sessionId, nextAvatar, teamId, nextBackground),
+              nextBackground,
             )
           },
         },
@@ -189,6 +199,8 @@ export function RenameConversationDialog({
               onNameChange={setDraft}
               avatar={avatar}
               onAvatarChange={setAvatar}
+              background={background}
+              onBackgroundChange={setBackground}
               photo={photo}
               busy={saving}
               submitLabel={t('Save')}

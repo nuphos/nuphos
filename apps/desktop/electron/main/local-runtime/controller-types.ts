@@ -7,7 +7,6 @@ import type { AgentInstance } from './agent-instances.ts'
 import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { CustomProvider, CustomProviderAgent } from './custom-provider.ts'
-import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
@@ -39,7 +38,6 @@ export type LocalRuntimeViewState = LocalRuntimeState & {
   detectionDisabled?: boolean
   deviceId: string
   sleepPrevention: SleepState
-  devBundle?: DevBundleHint
   /** This account's own model providers; the keys stay in the credential store. */
   customProviders?: Partial<Record<CustomProviderAgent, CustomProvider>>
   claudeLogin: ReturnType<LocalAgentLogin['state']>

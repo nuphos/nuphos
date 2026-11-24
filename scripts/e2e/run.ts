@@ -22,6 +22,7 @@ import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
+import { computerSettingsScenarios } from './computer-settings-scenarios.ts'
 import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -194,6 +195,7 @@ const scenarios: Scenario[] = [
 const later: Scenario[] = [
   ...computerScenarios,
   ...computerUpdateScenarios,
+  ...computerSettingsScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
