@@ -27,6 +27,8 @@ type AgentEntry = {
   sections?: string[]
   /** The response language a turn's prompt names. */
   language?: string
+  /** `start`: the turn's `Pending:` line, if it carried one. */
+  pending?: string
   /** `start`: the model the turn received. */
   model?: string
   isError?: boolean

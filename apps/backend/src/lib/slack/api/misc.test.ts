@@ -1,5 +1,7 @@
 import { expect, spyOn, test } from 'bun:test'
 
+import { config } from '@/config'
+
 import { downloadSlackFile } from './misc'
 
 function withFetch() {
@@ -64,6 +66,21 @@ test('any other host is refused without a request', async () => {
     }
     expect(requests).toEqual([])
   } finally {
+    fetch.mockRestore()
+  }
+})
+
+test('the configured Web API origin, a stand-in Slack in tests, is the one other host', async () => {
+  const { requests, fetch } = withFetch()
+  const apiBaseUrl = config.slack.apiBaseUrl
+
+  config.slack.apiBaseUrl = 'http://127.0.0.1:4100/api'
+  try {
+    expect(await download('http://127.0.0.1:4100/files/shot.png')).not.toBeNull()
+    expect(await download('http://127.0.0.1:4101/files/shot.png')).toBeNull()
+    expect(requests.map((request) => request.url)).toEqual(['http://127.0.0.1:4100/files/shot.png'])
+  } finally {
+    config.slack.apiBaseUrl = apiBaseUrl
     fetch.mockRestore()
   }
 })

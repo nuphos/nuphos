@@ -114,7 +114,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
 
-  await restoreArchivedForTurn(existingConversation, params.origin ?? 'user')
+  await restoreArchivedForTurn(existingConversation, params)
   // A conversation opened over MCP starts with the app's default selection, as a
   // new chat does; a Task under a Bot uses the Bot's instead.
   const mcpFirstTurn = source === 'mcp' && !existingConversation && !params.parentSessionId

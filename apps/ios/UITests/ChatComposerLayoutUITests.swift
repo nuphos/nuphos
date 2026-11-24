@@ -1,7 +1,7 @@
 import XCTest
 
-/// The composer and the nav bar are see-through and rows scroll on under them,
-/// so they need a backing: whatever is scrolled behind, they look the same.
+/// The composer is see-through and rows scroll on under it, so it needs a backing:
+/// whatever is scrolled behind, it looks the same. Under the header, rows blur out by design.
 /// Uses a copy of the offline chats fixture with release-planning's posts
 /// replaced by a mix of video, words, an image, words and a file.
 final class ChatComposerLayoutUITests: XCTestCase {
@@ -32,7 +32,6 @@ final class ChatComposerLayoutUITests: XCTestCase {
         XCTAssertGreaterThan(changed(rest, scrolled, in: rows, width: width), 0.05, "The transcript did not move between the shots")
         // Glass tints faintly with what scrolls behind it; a row showing through differs far more.
         XCTAssertLessThan(changed(rest, scrolled, in: field, width: width, by: 48), 0.001, "Rows show through the composer")
-        XCTAssertLessThan(changed(rest, scrolled, in: bar, width: width, by: 48), 0.001, "Rows show through the nav bar")
         composer.tap()
         composer.typeText("A longer draft that wraps onto a second line and then a third, to grow the composer.")
         sleep(2)

@@ -147,12 +147,26 @@ struct RuntimeQuota: Decodable, Sendable {
     /// "resets in 2d 5h", "resets in 3h 20m" or "resets in 12m"; nil when the reset is
     /// unknown or past. Every usage bar and usage-limit notice says it this way, as on Desktop.
     static func resetsIn(_ date: Date?, now: Date = .now) -> String? {
-        guard let date, date > now else { return nil }
-        let total = Int((date.timeIntervalSince(now) / 60).rounded(.up))
-        let days = total / 1440, hours = total % 1440 / 60, minutes = total % 60
+        guard let (days, hours, minutes) = untilReset(date, now: now) else { return nil }
         if days > 0 { return String(localized: "resets in \(days)d \(hours)h") }
         if hours > 0 { return String(localized: "resets in \(hours)h \(minutes)m") }
         return String(localized: "resets in \(minutes)m")
+    }
+
+    /// The same time on its own, "2d 5h", "3h 20m" or "12m", for a sentence that
+    /// says the reset its own way; nil when the reset is unknown or past.
+    static func resetsDuration(_ date: Date?, now: Date = .now) -> String? {
+        guard let (days, hours, minutes) = untilReset(date, now: now) else { return nil }
+        if days > 0 { return String(localized: "\(days)d \(hours)h") }
+        if hours > 0 { return String(localized: "\(hours)h \(minutes)m") }
+        return String(localized: "\(minutes)m")
+    }
+
+    /// Whole minutes to the reset, rounded up so under a minute still reads as one.
+    private static func untilReset(_ date: Date?, now: Date) -> (days: Int, hours: Int, minutes: Int)? {
+        guard let date, date > now else { return nil }
+        let total = Int((date.timeIntervalSince(now) / 60).rounded(.up))
+        return (total / 1440, total % 1440 / 60, total % 60)
     }
 
     /// The widest a reset reads, under a day and past one, for a column that fits any of them.

@@ -241,7 +241,7 @@ async function leaveChannelAsOwner(
   const handed = await handOverChannel(channel)
 
   if (!handed) {
-    await setConversationArchived(channel.sessionId, true)
+    await setConversationArchived(channel.sessionId, true, { source: 'chat_left', userId: owner })
     await cleanUpArchived([channel.sessionId])
 
     return channel

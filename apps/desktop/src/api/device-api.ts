@@ -41,7 +41,6 @@ export const deviceApi = {
     window.api.localRuntimeInstallAgent(provider),
   localRuntimeLatestAgentVersions: () => window.api.localRuntimeLatestAgentVersions(),
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
-  localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
   boxCreate: (
     label?: string,

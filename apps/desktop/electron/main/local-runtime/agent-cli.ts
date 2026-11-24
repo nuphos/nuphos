@@ -40,7 +40,6 @@ export type AgentCliStatus =
       apiKey?: true
       /** The host of the user's own model provider, which stands in for a sign-in. */
       customProvider?: string
-      plan?: string
       /** Which account's quota it spends, hashed (agent-account.ts); absent when unknown. */
       accountKey?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
@@ -131,8 +130,6 @@ async function claudeLogin(
     | {
         accessToken?: unknown
         refreshToken?: unknown
-        subscriptionType?: unknown
-        rateLimitTier?: unknown
       }
     | undefined
   const config = env.CLAUDE_CONFIG_DIR
@@ -150,16 +147,6 @@ async function claudeLogin(
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
     ...(typeof email === 'string' ? { account: email } : {}),
-    // Claude Code stores "max" for Max 20x (now Ultra) too; only the rate limit tier tells it
-    // from Max 5x. The backend's runtime-quota-probe.ts reads a remote login the same way.
-    ...(typeof oauth?.subscriptionType === 'string'
-      ? {
-          plan:
-            oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x'
-              ? 'ultra'
-              : oauth.subscriptionType,
-        }
-      : {}),
   }
 }
 

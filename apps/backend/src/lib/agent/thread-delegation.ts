@@ -113,7 +113,11 @@ export async function prepareThread(
       await setThreadModel(threadId, actor.userId, pick, by)
     } catch (error) {
       // Nothing ran yet; a refused pick hides the unused conversation.
-      await setConversationArchived(threadId, true)
+      await setConversationArchived(threadId, true, {
+        source: 'create_thread',
+        userId: actor.userId,
+        agentSessionId: actor.sessionId,
+      })
       throw error
     }
   }

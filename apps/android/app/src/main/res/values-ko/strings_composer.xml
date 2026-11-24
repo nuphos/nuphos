@@ -86,6 +86,10 @@
     <string name="composer_opening_draft">새 초안을 여는 중입니다. 아직 아무것도 보내지 않았습니다.</string>
     <string name="composer_cancel_share">공유 취소</string>
     <string name="composer_queued_messages">대기 중인 메시지</string>
+    <string name="composer_queue_usage_held">사용량 소진. 사용량이 초기화되면 실행됩니다.</string>
+    <string name="composer_queue_usage_held_days">사용량 소진. %1$d일 %2$d시간 후 초기화되면 실행됩니다.</string>
+    <string name="composer_queue_usage_held_hours">사용량 소진. %1$d시간 %2$d분 후 초기화되면 실행됩니다.</string>
+    <string name="composer_queue_usage_held_minutes">사용량 소진. %1$d분 후 초기화되면 실행됩니다.</string>
     <string name="composer_refresh_queue">대기열 새로 고침</string>
     <string name="composer_taken_back">다시 가져왔습니다. 이 작업을 떠나기 전에 이 텍스트를 복원하세요.</string>
     <string name="composer_queued_attachment">대기 중인 첨부 파일</string>

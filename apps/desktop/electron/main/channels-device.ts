@@ -18,7 +18,6 @@ import {
   cancelLocalClaudeLogin,
   cancelLocalCodexLogin,
   getLocalRuntimeState,
-  listLocalRuntimeActivity,
   openLocalRuntimeWorkspace,
   refreshLocalRuntime,
   startLocalClaudeLogin,
@@ -102,5 +101,4 @@ export const deviceChannels = {
   },
   'localRuntime:latestAgentVersions': () => latestAgentCliVersions(),
   'localRuntime:openWorkspace': () => openLocalRuntimeWorkspace(),
-  'localRuntime:listActivity': (_e: unknown, before?: string) => listLocalRuntimeActivity(before),
 }

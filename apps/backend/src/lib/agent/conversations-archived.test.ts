@@ -3,8 +3,8 @@ import { ObjectId } from 'mongodb'
 
 import { useDb } from '@/lib/test/doubles/db'
 
-import { readableByFilter } from './db/access'
 import { getConversations, restoreArchivedConversation } from './db'
+import { readableByFilter } from './db/access'
 
 import type * as dbActual from '@/lib/db'
 
@@ -50,7 +50,7 @@ const collection = {
   },
 }
 
-useDb({ db: (() => ({ collection: () => collection })) as unknown as typeof dbActual.db })
+useDb({ db: () => ({ collection: () => collection }) })
 
 const TEAM = '64b5f1c2e4b0a1d2c3e4f5a6'
 const VIEWER = '642802f4c38340345aa2384d'
@@ -145,7 +145,7 @@ describe('archived conversation listing', () => {
 
 describe('restoreArchivedConversation', () => {
   test('only touches a conversation that is archived, and stamps the restore', async () => {
-    expect(await restoreArchivedConversation('sess-1')).toBe(true)
+    expect(await restoreArchivedConversation('sess-1', { source: 'turn', userId: 'u' })).toBe(true)
     expect(lastUpdate?.filter).toEqual({ sessionId: 'sess-1', archivedAt: { $exists: true } })
     expect(lastUpdate?.update).toMatchObject({
       $unset: { archivedAt: '' },

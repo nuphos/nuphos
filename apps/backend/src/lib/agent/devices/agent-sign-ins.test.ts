@@ -254,7 +254,7 @@ test('a signer who lost managing it while signing in ends it, reset as its owner
     await endAgentSignIn(
       { userId: 'host', deviceId: 'box' },
       { provider: 'claude-code' },
-      { userId, teamId: 'team' },
+      { userId, teamId: 'team', at },
       reset(),
     )
   found = []
@@ -262,4 +262,20 @@ test('a signer who lost managing it while signing in ends it, reset as its owner
   expect(ended()).toEqual(endedOnly('claude-code'))
   // A Box handed over is reset as its new owner.
   expect(resets).toEqual([onBox({ provider: 'claude-code' }, 'new-owner')])
+})
+
+test('a late check ends only the sign-in it checked, not a newer one in another team', async () => {
+  fresh()
+  // The same person signed the agent in again from another team since.
+  found = [device({ signIns: [{ ...lead, teamId: 'other-team', at: new Date(at.getTime() + 1) }] })]
+  await endAgentSignIn(
+    { userId: 'host', deviceId: 'box' },
+    { provider: 'claude-code' },
+    { userId: 'lead', teamId: 'team', at },
+    reset(),
+  )
+  found = []
+
+  expect(ended()).toEqual([])
+  expect(resets).toEqual([])
 })

@@ -16,11 +16,15 @@ const sent = (url: unknown) => {
   requests.push(String(url))
 }
 
+// Every answer carries what PostHog's remote config says for our project: posthog-js
+// starts autocapture only once the config says whether the project opted out.
+const body = JSON.stringify({ autocapture_opt_out: false })
+
 Object.assign(dom, {
   fetch: (url: unknown) => {
     sent(url)
 
-    return Promise.resolve(new Response('{}', { headers: { 'content-type': 'application/json' } }))
+    return Promise.resolve(new Response(body, { headers: { 'content-type': 'application/json' } }))
   },
   XMLHttpRequest: class {
     open(_method: string, url: string) {
@@ -119,6 +123,16 @@ test('usage analytics stays off a self-hosted backend, and clicks carry no text 
   assert.ok(requests.length > 0 && requests.every((url) => url.startsWith(HOST)))
   // Nothing of what the button says, as text or as an attribute.
   assert.ok(!JSON.stringify(events).includes(TITLE), JSON.stringify(click))
+
+  // Debugging telemetry skips person processing; product events keep it.
+  analytics.track('agent_end_effects_deferred', { stream_id: 'st1' })
+  await settle()
+  const profile = (name: string) =>
+    (events.findLast((event) => event.event === name) as { properties?: Record<string, unknown> })
+      ?.properties?.$process_person_profile
+
+  assert.equal(profile('agent_end_effects_deferred'), false)
+  assert.equal(profile('app_ready'), true)
 
   // Back to a self-hosted backend during the same session: nothing more is sent.
   usage = false

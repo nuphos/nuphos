@@ -36,7 +36,7 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   if (idleDays <= 0) return 0
   const result = await agentConversations().updateMany(
     idleConversationFilter(now, idleDays),
-    archiveUpdate(now),
+    archiveUpdate(now, { source: 'auto_archive' }),
   )
 
   if (result.modifiedCount > 0) {

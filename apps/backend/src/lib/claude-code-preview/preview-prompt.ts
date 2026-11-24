@@ -10,6 +10,7 @@ import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
 import { isUnnamedTask } from '@/lib/agent/title-fallback'
+import { turnPending } from '@/lib/agent/todos'
 import { generateContextPrompt, parseUrlContext } from '@/lib/agent/url-context'
 import { loadInstructionsBlock } from '@/lib/instructions/prompt'
 import {
@@ -72,7 +73,7 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   if (!device) return 'inside the team sandbox'
 
-  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
+  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
 }
 
 const DASHBOARDS_RUNTIME_NOTE =
@@ -163,8 +164,9 @@ function forProvider(provider: OpenAbProvider = 'claude-code', text: string | nu
 
 /**
  * Where the person is as they send this turn: the page, the diagram and the kubeconfig context
- * of their tab. It changes from turn to turn, so it leads the turn instead of sitting in the
- * system prompt, which a running agent reloads for when it changes (#4087).
+ * of their tab, and what the Task still waits on. It changes from turn to turn, so it leads the
+ * turn instead of sitting in the system prompt, which a running agent reloads for when it changes
+ * (#4087).
  */
 export async function withPageContext(
   turnContext: string | undefined,
@@ -173,6 +175,8 @@ export async function withPageContext(
     kubeContext?: string
     diagramId?: string
     currentUrl?: string | null
+    sessionId?: string
+    teamId?: string | null
   },
 ): Promise<string | undefined> {
   const lead = [
@@ -180,6 +184,7 @@ export async function withPageContext(
     buildKubeContextMessage(args.kubeContext),
     forProvider(args.provider, buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     await urlContextSection(args.currentUrl),
+    args.teamId && args.sessionId && (await turnPending(args.teamId, args.sessionId)),
   ]
     .filter(Boolean)
     .join('\n\n')

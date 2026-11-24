@@ -96,7 +96,7 @@ test("this computer's agent signs in through its own CLI", () => {
   assert.deepEqual(route('local_u-editor_dev-1_codex'), { kind: 'cli', provider: 'codex' })
 })
 
-test("an ended sign-in on this computer is renewed through Nuphos, not the CLI's own login", () => {
+test("an ended sign-in on this computer is renewed by the CLI's own login, which runs anywhere", () => {
   const runtimeId = 'local_u-editor_dev-1_codex'
   const instance = {
     ...managed,
@@ -111,9 +111,10 @@ test("an ended sign-in on this computer is renewed through Nuphos, not the CLI's
     },
   }
 
+  // A computer whose runtime cannot sign in (a path with spaces) still signs in here.
   assert.deepEqual(signInRoute({ ...base, runtimeId, instance, onThisComputer: true }), {
-    kind: 'dialog',
-    instance,
+    kind: 'cli',
+    provider: 'codex',
   })
 })
 

@@ -1,12 +1,8 @@
 import {
-  faDatabase,
-  faGaugeHigh,
-  faServer,
-  faTableColumns,
-  faTriangleExclamation,
-} from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
+  Database as DatabaseIcon,
+  Gauge as GaugeIcon,
+  PanelsTopLeft as PanelsTopLeftIcon,
+  TriangleAlert as TriangleAlertIcon,
   ChartLine,
   Compass,
   Container,
@@ -22,6 +18,7 @@ import {
   Terminal,
 } from 'lucide-react'
 
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 
 import type { NavItemMeta } from './types'
@@ -118,25 +115,25 @@ export function betterstackIntegrationNavItems(): NavItemMeta[] {
       key: 'betterstack.monitors',
       label: t('Monitors'),
       group: 'Better Stack',
-      icon: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={GaugeIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.incidents',
       label: t('Incidents'),
       group: 'Better Stack',
-      icon: <FontAwesomeIcon icon={faTriangleExclamation} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={TriangleAlertIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.sources',
       label: t('Sources'),
       group: 'Better Stack',
-      icon: <FontAwesomeIcon icon={faDatabase} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={DatabaseIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
     {
       key: 'betterstack.dashboards',
       label: t('Dashboards'),
       group: 'Better Stack',
-      icon: <FontAwesomeIcon icon={faTableColumns} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={PanelsTopLeftIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
   ]
 }
@@ -147,7 +144,7 @@ export function uptimeKumaInstanceNavItems(): NavItemMeta[] {
       key: 'uptime-kuma.monitors',
       label: t('Monitors'),
       group: 'Uptime Kuma',
-      icon: <FontAwesomeIcon icon={faGaugeHigh} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={GaugeIcon} className="w-3.5 h-3.5 text-tertiary" />,
     },
   ]
 }
@@ -224,7 +221,7 @@ export function tailscaleClientNavItems(): NavItemMeta[] {
       key: 'tailscale.devices',
       label: t('Devices'),
       group: t('Network'),
-      icon: <FontAwesomeIcon icon={faServer} className="w-3.5 h-3.5 text-tertiary" />,
+      icon: <UiIcon size={14} icon={Server} className="w-3.5 h-3.5 text-tertiary" />,
     },
   ]
 }

@@ -1,6 +1,6 @@
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
-import { InstallButton } from '../../views/settings/LocalAgentCard'
+import { InstallButton } from '../../views/settings/InstallAgentButton'
 import { AgentSignInButton } from '../agent/panel/AgentSignInAction'
 import { useAgentSignInRoute } from '../agent/panel/useAgentSignInRoute'
 import { useAgentSessions } from '../sidebar/agentSessions'

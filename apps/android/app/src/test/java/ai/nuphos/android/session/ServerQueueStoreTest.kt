@@ -11,8 +11,22 @@ class ServerQueueStoreTest {
     private val own = AgentChatApi.QueuedMessage("mine", true, "Waiting text")
     private fun store(current: () -> Boolean = { true }, writable: () -> Boolean = { true }, canSteer: () -> Boolean = { true },
         read: suspend () -> List<AgentChatApi.QueuedMessage> = { listOf(own) },
-        remove: suspend (String) -> AgentChatApi.QueueRecall = { AgentChatApi.QueueRecall(own.text) }, steer: suspend (AgentChatApi.QueuedMessage) -> Unit = {}) =
-        ServerQueueStore(current, writable, canSteer, read, remove, steer)
+        remove: suspend (String) -> AgentChatApi.QueueRecall = { AgentChatApi.QueueRecall(own.text) }, steer: suspend (AgentChatApi.QueuedMessage) -> Unit = {},
+        held: () -> AgentChatApi.UsageHold? = { null }) =
+        ServerQueueStore(current, writable, canSteer, { AgentChatApi.Queue(read(), held()) }, remove, steer)
+
+    @Test fun keepsTheUsageHoldFromTheLastReadAndDropsItOnInvalidate() = runTest {
+        var hold: AgentChatApi.UsageHold? = AgentChatApi.UsageHold("2026-09-15T13:50:00Z")
+        val queue = store(held = { hold })
+        queue.refresh()
+        assertEquals(AgentChatApi.UsageHold("2026-09-15T13:50:00Z"), queue.held)
+        hold = null
+        queue.refresh()
+        assertNull(queue.held)
+        hold = AgentChatApi.UsageHold(null)
+        queue.refresh(); queue.invalidate()
+        assertNull(queue.held)
+    }
 
     @Test fun onlyOwnMessagesRemainInServerOrder() = runTest {
         val second = own.copy(id = "second")

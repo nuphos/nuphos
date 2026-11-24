@@ -4,11 +4,16 @@ import { useState } from 'react'
 import { api } from '../../api'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
+import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
+import { AGENT_PROVIDER } from '../../types/runtime'
 
+import { ownCliProvider } from './agentPresentation'
 import { inputClasses } from './styles'
 
-import type { CliLoginProvider, LocalRuntimeState } from '../../api'
+import type { CliLoginProvider } from '../../api'
+import type { RuntimeInstance } from '../../types/runtime'
 
 function hostOf(url: string): string {
   try {
@@ -21,19 +26,20 @@ function hostOf(url: string): string {
 /**
  * A model provider of the user's own for one local agent: a base URL, a key and optional
  * model ids, used the way the agent's own CLI supports one. The key goes to the main process
- * once and is never shown again.
+ * once and is never shown again. Shown on this computer's own agent, under its header; the saved
+ * value comes back with the local runtime's broadcast.
  */
-export function CustomProviderSettings({
-  provider,
-  name,
-  saved,
-  onSaved,
-}: {
-  provider: CliLoginProvider
-  name: string
-  saved: { baseUrl: string; models: string[] } | undefined
-  onSaved: (state: LocalRuntimeState) => void
-}) {
+export function CustomProviderSettings({ instance }: { instance: RuntimeInstance }) {
+  const provider = ownCliProvider(instance, useThisComputer())
+
+  return provider ? <ProviderRow provider={provider} /> : null
+}
+
+function ProviderRow({ provider }: { provider: CliLoginProvider }) {
+  const state = useLocalRuntimeState()
+  const agent = state?.agents[provider]
+  const saved = state?.customProviders?.[provider]
+  const name = AGENT_PROVIDER[provider].label
   const [editing, setEditing] = useState(false)
   const [busy, setBusy] = useState(false)
   const [baseUrl, setBaseUrl] = useState('')
@@ -50,7 +56,7 @@ export function CustomProviderSettings({
   async function apply(value: Parameters<typeof api.localRuntimeSetCustomProvider>[1]) {
     setBusy(true)
     try {
-      onSaved(await api.localRuntimeSetCustomProvider(provider, value))
+      await api.localRuntimeSetCustomProvider(provider, value)
       setApiKey('')
       setEditing(false)
       toast.success(value ? t('Custom provider saved') : t('Custom provider removed'))
@@ -64,16 +70,27 @@ export function CustomProviderSettings({
     }
   }
 
+  if (!agent?.available) return null
+
   if (!editing)
     return (
-      <div className="flex items-start justify-between gap-4 border-t border-line-control/60 px-4 py-3">
+      <div className="flex items-start justify-between gap-4 px-5 py-4">
         <div className="min-w-0 space-y-0.5 text-[12px] text-tertiary">
           <div className="text-[13px] font-medium text-main">{t('Custom provider')}</div>
           {saved ? (
-            <div className="truncate" title={saved.baseUrl}>
-              {hostOf(saved.baseUrl)}
-              {saved.models.length > 0 && <span> · {saved.models.join(', ')}</span>}
-            </div>
+            <>
+              <div className="truncate" title={saved.baseUrl}>
+                {hostOf(saved.baseUrl)}
+                {saved.models.length > 0 && <span> · {saved.models.join(', ')}</span>}
+              </div>
+              {agent.cli?.installed && agent.cli.customProvider && agent.cli.loggedIn !== true && (
+                <div role="alert" className="text-error">
+                  {t(
+                    'Could not read the custom provider’s API key. Edit it to enter the key again.',
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div>
               {t('Use your own gateway or a compatible API instead of signing in to {name}.', {
@@ -97,7 +114,7 @@ export function CustomProviderSettings({
 
   return (
     <form
-      className="space-y-3 border-t border-line-control/60 px-4 py-3"
+      className="space-y-3 px-5 py-4"
       onSubmit={(event) => {
         event.preventDefault()
         void apply({

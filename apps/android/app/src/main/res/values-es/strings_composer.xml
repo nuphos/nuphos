@@ -86,6 +86,10 @@
     <string name="composer_opening_draft">Abriendo tu nuevo borrador. No se ha enviado nada.</string>
     <string name="composer_cancel_share">Cancelar el contenido compartido</string>
     <string name="composer_queued_messages">Mensajes en cola</string>
+    <string name="composer_queue_usage_held">Sin uso disponible. Se envían cuando el uso se restablezca.</string>
+    <string name="composer_queue_usage_held_days">Sin uso disponible. Se envían cuando el uso se restablezca en %1$d d %2$d h.</string>
+    <string name="composer_queue_usage_held_hours">Sin uso disponible. Se envían cuando el uso se restablezca en %1$d h %2$d min.</string>
+    <string name="composer_queue_usage_held_minutes">Sin uso disponible. Se envían cuando el uso se restablezca en %1$d min.</string>
     <string name="composer_refresh_queue">Actualizar la cola</string>
     <string name="composer_taken_back">Recuperado. Restaura este texto antes de salir de la tarea.</string>
     <string name="composer_queued_attachment">Adjunto en cola</string>
