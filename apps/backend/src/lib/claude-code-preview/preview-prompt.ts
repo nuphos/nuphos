@@ -176,6 +176,7 @@ export async function withPageContext(
     diagramId?: string
     currentUrl?: string | null
     sessionId?: string
+    teamId?: string | null
   },
 ): Promise<string | undefined> {
   const lead = [
@@ -183,7 +184,7 @@ export async function withPageContext(
     buildKubeContextMessage(args.kubeContext),
     forProvider(args.provider, buildDiagramMessage(args.diagramId, { nativeClaudeSkills: true })),
     await urlContextSection(args.currentUrl),
-    args.sessionId && (await turnPending(args.sessionId)),
+    args.teamId && args.sessionId && (await turnPending(args.teamId, args.sessionId)),
   ]
     .filter(Boolean)
     .join('\n\n')
