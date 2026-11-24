@@ -51,42 +51,15 @@ export async function resolveTriggerCredentialSelection(
     : { credentialMode: 'selected', executionCredentialAccess: approved }
 }
 
-/** Every enabled Trigger consumes one quota slot. */
+/** Every enabled Trigger in a team consumes one of the team's slots. */
 export async function assertTriggerCreationQuota(context: TriggerActorContext): Promise<void> {
-  if (!context.teamId) {
-    const personalCount = await agentTriggers().countDocuments({
-      userId: context.userId,
-      teamId: { $exists: false },
-      enabled: true,
-    })
+  if (!context.teamId) return
 
-    if (personalCount >= config.agent.triggers.maxPerOwner) {
-      throw new AppError(
-        429,
-        'trigger_quota_exceeded',
-        `Your enabled Trigger limit is ${String(config.agent.triggers.maxPerOwner)}. Disable or remove one first.`,
-      )
-    }
+  const teamTriggers = await agentTriggers().countDocuments({
+    teamId: context.teamId,
+    enabled: true,
+  })
 
-    return
-  }
-
-  const [actorTriggers, teamTriggers] = await Promise.all([
-    agentTriggers().countDocuments({
-      teamId: context.teamId,
-      enabled: true,
-      userId: context.userId,
-    }),
-    agentTriggers().countDocuments({ teamId: context.teamId, enabled: true }),
-  ])
-
-  if (actorTriggers >= config.agent.triggers.maxPerOwner) {
-    throw new AppError(
-      429,
-      'trigger_quota_exceeded',
-      `Each team member may own up to ${String(config.agent.triggers.maxPerOwner)} enabled Triggers.`,
-    )
-  }
   if (teamTriggers >= config.agent.triggers.maxPerTeam) {
     throw new AppError(
       429,
