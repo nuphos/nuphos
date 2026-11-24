@@ -191,7 +191,8 @@ function SelectionButton({
             <Switch checked={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
           </label>
         )}
-        {totalCount > 0 && (
+        {/* All has nothing to pick: the list shows once the switch is off. */}
+        {totalCount > 0 && !all && (
           <div className="px-2 pb-1.5 mb-1 flex items-center gap-2 border-b border-line-control/60">
             <button
               type="button"
@@ -212,10 +213,10 @@ function SelectionButton({
             </button>
           </div>
         )}
-        {devices && (
+        {devices && !all && (
           <DeviceOptions options={options} value={value} unseen={unseen} onChange={onChange} />
         )}
-        {!devices && (
+        {!devices && !all && (
           <CredentialSelectorSectionList
             sections={sections}
             value={value}

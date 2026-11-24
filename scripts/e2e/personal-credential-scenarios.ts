@@ -10,6 +10,7 @@ import { newTask, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 const BACKEND_DIR = resolve(import.meta.dirname, '../../apps/backend')
 
@@ -39,6 +40,14 @@ const selected = (stack: Stack, userId: string) =>
     console.log(JSON.stringify(conversation?.credentialAccess?.personalCredentialIds ?? null))`,
     userId,
   )
+
+/** All lists nothing: turning it off shows the rows, each still ticked. */
+async function showRows(page: Page) {
+  const all = page.getByRole('menu').getByRole('switch')
+
+  await all.waitFor()
+  if ((await all.getAttribute('aria-checked')) === 'true') await all.click()
+}
 
 /** What the Google Calendar handout answered the turn marked `marker`, once it has. */
 async function handout(stack: Stack, marker: string): Promise<{ status: number; code?: string }> {
@@ -100,6 +109,7 @@ export const personalCredentialScenarios: Scenario[] = [
         )
 
         await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
+        await showRows(page)
         const row = page.getByRole('menuitemcheckbox', {
           name: `Google Calendar · You (${login}) · Personal`,
         })
@@ -214,6 +224,7 @@ export const personalCredentialScenarios: Scenario[] = [
           .click()
         await page.getByText(`ACK ${marker}`, { exact: true }).waitFor()
         await page.getByRole('button', { name: 'Credentials', exact: true }).last().click()
+        await showRows(page)
         const row = page.getByRole('menuitemcheckbox', {
           name: `Google Calendar · You (${login}) · Personal`,
         })

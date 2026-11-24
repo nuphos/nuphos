@@ -121,13 +121,18 @@ export const botAccessScenarios: Scenario[] = [
           ),
       )
 
-      // Custom: unticking a computer leaves All and stores what is ticked; the switch brings
-      // All back. This team has no credentials; mcp-credential-defaults narrows those.
+      // Custom: All lists nothing; turning it off shows every computer ticked, unticking one
+      // stores what is ticked, and the switch brings All back. This team has no credentials;
+      // mcp-credential-defaults narrows those.
       await access(page)
         .getByRole('button', { name: /^Computers/ })
         .click()
       const menu = page.getByRole('menu')
 
+      await menu.getByRole('switch').waitFor()
+      if ((await menu.getByRole('menuitemcheckbox').count()) > 0)
+        throw new Error('All still lists the computers')
+      await menu.getByRole('switch').click()
       await menu.getByRole('menuitemcheckbox', { checked: true }).first().click()
       await until('unticking a computer to leave All', async () => {
         const now = botNamed(stack, 'E2E Bot')?.access

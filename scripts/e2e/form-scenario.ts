@@ -106,11 +106,11 @@ export const formScenario = {
       // The Nuphos browser runs on this computer, so the person lets the Task use it.
       // An earlier scenario's Task keeps its own composer, inert, behind this one.
       await page.locator('button[title^="Computers"]:not([inert])').last().click()
-      const selectAll = page.getByRole('button', { name: 'Select all' }).last()
+      const all = page.getByRole('menu').getByRole('switch')
 
-      await selectAll.waitFor()
-      // Already selected when the person has used this computer in another Task.
-      if (await selectAll.isEnabled()) await selectAll.click()
+      await all.waitFor()
+      // A new Task starts on All, which already lets it use this computer.
+      if ((await all.getAttribute('aria-checked')) !== 'true') await all.click()
       await page.keyboard.press('Escape')
       // The app takes the stored transcript within a second of the turn's end, and nothing on
       // the page says when. After it, the card is still the card that was typed in.
