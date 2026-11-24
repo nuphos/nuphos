@@ -22,6 +22,7 @@ struct NestedConversation: Identifiable, Equatable {
 /// conversation that opened them, one level deeper, siblings in list order.
 enum ConversationNesting {
     static let projectPrefix = "project:"
+    static let noProject = projectPrefix + "none"
 
     /// A row is top-level when its parent is not listed, and a Bot always is (#2500).
     /// Rows under a folded parent are left out. With `attention`, the top-level rows
@@ -76,19 +77,18 @@ enum ConversationNesting {
         for path in tasks.compactMap(\.workspace?.path) where !paths.contains(path) { paths.append(path) }
         guard !paths.isEmpty else { return tasks }
         let listed = Set(tasks.map(\.sessionId))
-        let none = projectPrefix + "none"
         let nested = tasks.map { task -> AgentConversation in
             if let parent = task.parentSessionId, listed.contains(parent) { return task }
             var task = task
-            task.parentSessionId = task.workspace?.path.map { projectPrefix + $0 } ?? none
+            task.parentSessionId = task.workspace?.path.map { projectPrefix + $0 } ?? noProject
             return task
         }
         let row = { (id: String, name: String) in
             AgentConversation(sessionId: id, title: name, messageCount: 0, createdAt: .distantPast, lastActiveAt: .distantPast)
         }
-        let loose = nested.contains { $0.parentSessionId == none }
+        let loose = nested.contains { $0.parentSessionId == noProject }
         return paths.map { row(projectPrefix + $0, projectName($0)) }
-            + (loose ? [row(none, String(localized: "No project"))] : []) + nested
+            + (loose ? [row(noProject, String(localized: "No project"))] : []) + nested
     }
 
     /// A folder's last component, as Desktop names a project.

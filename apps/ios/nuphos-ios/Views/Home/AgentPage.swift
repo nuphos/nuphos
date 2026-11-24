@@ -285,7 +285,7 @@ struct AgentPage: View {
             // A folder, not a conversation: the whole row folds what it holds.
             Button { store.toggleFolded(item.id) } label: {
                 treeRow(item) {
-                    Label { Text(item.conversation.title) } icon: { LucideIcon("folder") }
+                    Label { Text(item.conversation.title) } icon: { LucideIcon(item.id == ConversationNesting.noProject ? "circle-dashed" : "folder") }
                         .font(Theme.Text.label.weight(.medium))
                         .foregroundStyle(Theme.muted)
                         .frame(maxWidth: .infinity, alignment: .leading)
