@@ -188,7 +188,8 @@ test("a teammate's stream ends once the card no longer lets them in; the owner's
       const ws = {
         send: () => {},
         close: (...args: unknown[]) => {
-          closed = args
+          // The first close is the one the client sees.
+          closed ??= args
         },
       }
 

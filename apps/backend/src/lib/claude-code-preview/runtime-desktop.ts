@@ -279,8 +279,8 @@ export function runtimeDesktopEvents(
         recheck = setInterval(() => {
           void stillInvited().then((yes) => {
             if (yes) return
-            close()
             ws.close(1008, 'The invitation ended')
+            close()
           })
         }, INVITE_RECHECK_MS)
     },
