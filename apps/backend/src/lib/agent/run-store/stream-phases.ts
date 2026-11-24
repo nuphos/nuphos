@@ -2,6 +2,7 @@ import { errorTelemetryProperties } from '@/lib/observability'
 import { getRedis, withRedis } from '@/lib/redis'
 
 import {
+  frameType,
   OWNER_TTL_SEC,
   parseEntries,
   RESUME_ATTACH_GRACE_MS,
@@ -138,7 +139,14 @@ export async function backfillAgentRunHistory(ctx: StreamResumeContext): Promise
     await sleep(RESUME_ATTACH_RETRY_MS)
   }
   if (state.closed) return
-  for (let i = startIndex; i < entries.length; i++) {
+  // A resume past the end of a finished run still ends with its done frame (#4924).
+  const last = entries.at(-1)
+  const from =
+    last && frameType(last.frame) === STREAM_DONE_NEEDLE
+      ? Math.min(startIndex, entries.length - 1)
+      : startIndex
+
+  for (let i = from; i < entries.length; i++) {
     const e = entries[i]!
 
     emit(e.frame)
@@ -221,6 +229,7 @@ async function tailLoop(
       // the client stops waiting.
       const currentOwner = await withRedis((c) => c.get(oKey))
 
+      if (state.closed) break
       if (currentOwner) {
         state.ownerSeenAt = Date.now()
         traceRunStoreEvent('info', 'agent.run.redis_resume.owner_seen', trace, {
