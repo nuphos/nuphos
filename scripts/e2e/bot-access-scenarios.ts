@@ -133,7 +133,7 @@ export const botAccessScenarios: Scenario[] = [
         await until(`unticking a row to leave ${flag}`, async () => {
           const now = botNamed(stack, 'E2E Bot')?.access
 
-          return now?.[flag] === false
+          return now !== undefined && now !== null && !now[flag]
         })
         await shoot(page, `custom-${flag}`)
         await menu.getByRole('switch').click()
