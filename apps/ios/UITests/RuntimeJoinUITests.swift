@@ -1,7 +1,7 @@
 import XCTest
 
 /// A team with no runtime shows "Connect your first runtime". Once a runtime
-/// joins, Home leaves that state on a pull and on a return to the foreground.
+/// joins, Home leaves that state on the poll and on a return to the foreground.
 /// The fixture is rewritten while the app runs: the app reads it on every request.
 final class RuntimeJoinUITests: XCTestCase {
     private let runtimes = "GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes"
@@ -35,27 +35,21 @@ final class RuntimeJoinUITests: XCTestCase {
         try? FileManager.default.removeItem(at: live)
     }
 
-    func testPullLeavesTheEmptyState() throws {
+    func testJoinLeavesTheEmptyState() throws {
         try join()
-        let window = app.windows.firstMatch
-        window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.3))
-            .press(forDuration: 0.05, thenDragTo: window.coordinate(withNormalizedOffset: CGVector(dx: 0.4, dy: 0.9)))
-        XCTAssertTrue(app.staticTexts[empty].waitForNonExistence(timeout: 8), "The pull did not read the runtimes")
+        XCTAssertTrue(app.staticTexts[empty].waitForNonExistence(timeout: 8), "The poll did not read the runtimes")
     }
 
     func testForegroundLeavesTheEmptyState() throws {
         XCUIDevice.shared.press(.home)
-        try join(checked: false)
+        try join()
         app.activate()
         XCTAssertTrue(app.staticTexts[empty].waitForNonExistence(timeout: 8), "The return did not read the runtimes")
     }
 
-    private func join(checked: Bool = true) throws {
+    private func join() throws {
         responses[runtimes] = joined
         try write()
-        guard checked else { return }
-        // Nothing reads the runtimes on its own, so the empty state stays.
-        XCTAssertFalse(app.staticTexts[empty].waitForNonExistence(timeout: 3), "Left the empty state without a pull")
     }
 
     private func write() throws {

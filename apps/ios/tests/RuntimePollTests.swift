@@ -22,6 +22,7 @@ private final class Backend: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var runtimes = ""
     nonisolated(unsafe) static var runtimeReads = 0
     nonisolated(unsafe) static var deviceReads = 0
+    nonisolated(unsafe) static var runtimeFailures = 0
     static func snapshot() -> (runtimes: String, runtimeReads: Int, deviceReads: Int) {
         lock.lock()
         defer { lock.unlock() }
@@ -32,6 +33,11 @@ private final class Backend: URLProtocol, @unchecked Sendable {
         runtimes = rows
         lock.unlock()
     }
+    static func failRuntimes(_ count: Int) {
+        lock.lock()
+        runtimeFailures = count
+        lock.unlock()
+    }
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
     override func startLoading() {
@@ -39,9 +45,23 @@ private final class Backend: URLProtocol, @unchecked Sendable {
         var status = 404
         var body = "{}"
         if request.httpMethod == "GET", url.path.hasSuffix("/agent-runtimes") {
-            let rows: String = { Self.lock.lock(); defer { Self.lock.unlock() }; Self.runtimeReads += 1; return Self.runtimes }()
-            status = 200
-            body = #"{"runtimes":[\#(rows)]}"#
+            let rows: String? = {
+                Self.lock.lock()
+                defer { Self.lock.unlock() }
+                Self.runtimeReads += 1
+                if Self.runtimeFailures > 0 {
+                    Self.runtimeFailures -= 1
+                    return nil
+                }
+                return Self.runtimes
+            }()
+            if let rows = rows {
+                status = 200
+                body = #"{"runtimes":[\#(rows)]}"#
+            } else {
+                status = 500
+                body = #"{"error":"runtime list failed"}"#
+            }
         } else if request.httpMethod == "GET", url.path.hasSuffix("/agent/devices") {
             Self.lock.lock()
             Self.deviceReads += 1
@@ -74,14 +94,16 @@ enum RuntimePollTests {
         URLProtocol.registerClass(Backend.self)
         // A fresh account key per run: the store's launch cache would otherwise
         // restore this team, `select` would return early, and nothing would load.
+        Backend.failRuntimes(1)
         let store = AgentStore(token: "token-\(UUID().uuidString)", loadsHistory: true)
         let team = try! JSONDecoder().decode(Team.self, from: Data(#"{"id":"team","name":"Demo Studio"}"#.utf8))
         store.select(team: team)
-        for _ in 0..<400 where !store.runtimesLoaded { try? await Task.sleep(for: .milliseconds(25)) }
-        check(store.runtimesLoaded && store.runtimes.isEmpty, "The empty runtime list did not load")
         store.startPolling()
+        for _ in 0..<400 where !store.runtimesLoaded { try? await Task.sleep(for: .milliseconds(25)) }
+        check(Backend.snapshot().runtimeReads >= 2, "The poller did not retry a failed runtimes load")
+        check(store.runtimesLoaded && store.runtimes.isEmpty, "The empty runtime list did not load")
         try? await Task.sleep(for: .milliseconds(4000))
-        var reads = Backend.snapshot()
+        let reads = Backend.snapshot()
         check(reads.runtimeReads >= 2, "The poller did not re-read the runtimes while none was listed")
         check(reads.deviceReads >= 1, "The poller did not re-read the devices while no runtime was listed")
 
