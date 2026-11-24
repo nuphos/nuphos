@@ -146,8 +146,9 @@ jobs:
           xcrun simctl ui "$udid" appearance light
           # The shell stops at the first failed command, so keep the test status for the end.
           status=0
+          # In English whatever the Mac's own language, which a new simulator would take.
           xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
-            -parallel-testing-enabled NO "${only[@]}" \
+            -testLanguage en -testRegion US -parallel-testing-enabled NO "${only[@]}" \
             -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || status=$?
           xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
           grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log" || true
