@@ -194,6 +194,17 @@ describe('limitCredentialAccess', () => {
       githubInstallationIds: ['gh-1'],
     })
   })
+
+  test('drops All, so a limited token reaches only the limit', () => {
+    const access: Record<string, unknown> = {
+      allCredentials: true,
+      allDevices: true,
+      onpremClusterIds: ['c-1', 'c-2'],
+    }
+    const limited = realShared.limitCredentialAccess(access, { onpremClusterIds: ['c-1'] })
+
+    expect(limited).toEqual({ onpremClusterIds: ['c-1'] })
+  })
 })
 
 describe('limited tokens vend credentials only', () => {

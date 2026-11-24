@@ -101,9 +101,50 @@ export const mcpCredentialDefaultsScenarios: Scenario[] = [
           fromMcp.grafanaInstanceIds?.includes('000000000000000000000002'),
           'Grafana to be selected',
         )
+        // A new Task starts on All, Resend and Trello included like every other kind.
+        for (const view of [fromApp, fromMcp] as unknown as Record<string, unknown>[])
+          must(view.allCredentials === true && view.allDevices === true, 'a new Task to be All')
         must(
-          fromMcp.resendIntegrationIds?.length === 0 && fromMcp.trelloIntegrationIds?.length === 0,
-          'Resend and Trello to stay off',
+          fromMcp.resendIntegrationIds?.includes('000000000000000000000003') &&
+            fromMcp.trelloIntegrationIds?.includes('000000000000000000000004'),
+          'Resend and Trello to be selected',
+        )
+        const args = { team_id: stack.teamId, session_id: task }
+        const usable = await tool<{ enabled_for_session: Record<string, string[]> }>(
+          'nuphos_list_credentials',
+          args,
+        )
+
+        console.log('Usable on All:', JSON.stringify(usable.structuredContent?.enabled_for_session))
+        must(
+          usable.structuredContent?.enabled_for_session.resend_integration_ids?.length === 1 &&
+            usable.structuredContent.enabled_for_session.trello_integration_ids?.length === 1,
+          'the agent to be offered Resend and Trello',
+        )
+
+        // Narrowing to a custom set leaves All and takes effect.
+        await tool('nuphos_update_credentials', {
+          ...args,
+          aws_role_ids: ['000000000000000000000001'],
+          resend_integration_ids: [],
+          trello_integration_ids: [],
+        })
+        const narrowed = (await access(task)) as unknown as Record<string, unknown>
+        const offered = await tool<{ enabled_for_session: Record<string, string[]> }>(
+          'nuphos_list_credentials',
+          args,
+        )
+
+        console.log(
+          'After narrowing:',
+          JSON.stringify(offered.structuredContent?.enabled_for_session),
+        )
+        must(narrowed.allCredentials === false, 'narrowing to leave All')
+        must(
+          offered.structuredContent?.enabled_for_session.resend_integration_ids?.length === 0 &&
+            offered.structuredContent.enabled_for_session.trello_integration_ids?.length === 0 &&
+            offered.structuredContent.enabled_for_session.aws_role_ids?.length === 1,
+          'the agent to be offered only the custom set',
         )
       } finally {
         const restore = `

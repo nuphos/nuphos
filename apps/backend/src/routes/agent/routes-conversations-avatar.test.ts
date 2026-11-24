@@ -283,12 +283,8 @@ test('"+" on Bots creates a Bot with a name and its derived face, before any mes
       teamId,
       title: 'New Bot',
       firstMessage: '',
-      // It may use everything its owner may, as a new chat does; sending mail stays opt-in.
-      credentialAccess: expect.objectContaining({
-        awsRoleIds: ['role-1'],
-        deviceIds: ['mac'],
-        resendIntegrationIds: [],
-      }),
+      // All, as a new chat starts.
+      credentialAccess: expect.objectContaining({ allCredentials: true, allDevices: true }),
       bot: {
         avatar: body.avatar,
         change: {

@@ -1,6 +1,6 @@
 import type { AgentCredentialOptions } from '@/routes/agent/types'
 
-/** One of a few kinds, an online and an offline computer, and Resend to show it stays opt-in. */
+/** One of a few kinds, an online and an offline computer, and Resend. */
 export const options: AgentCredentialOptions = {
   awsRoles: [
     {
