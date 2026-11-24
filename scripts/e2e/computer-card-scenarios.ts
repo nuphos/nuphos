@@ -106,14 +106,14 @@ export const computerCardScenarios: Scenario[] = [
         await until('a pointer event to reach the computer', async () => pointers() > before)
         await page.screenshot({ path: join(artifacts, 'computer-card-2-in-control.png') })
 
-        // I'm done, under the held desktop: it is handed back and the card is answered.
+        // I'm done, under the held desktop: it is handed back and the question answered. The
+        // fixture agent's call is no transcript part, so the card leaves with the open question
+        // and the answer's row says it was handed back.
         await page.getByRole('button', { name: 'I’m done' }).first().click()
-        await card.getByText(/^Handed back (by .+ )?after \S+/u).waitFor({ timeout: 30_000 })
+        await page.getByText(/I.m done \(handed back after \S+\)/u).waitFor({ timeout: 30_000 })
         if ((await page.getByText('You’re in control').count()) > 0)
           throw new Error('The desktop is still held after I’m done')
-        if ((await card.getByRole('button', { name: 'Take over' }).count()) > 0)
-          throw new Error('An answered computer card still offers Take over')
-        await card.screenshot({ path: join(artifacts, 'computer-card-3-handed-back.png') })
+        await page.screenshot({ path: join(artifacts, 'computer-card-3-handed-back.png') })
       } finally {
         await computer.stop()
       }
