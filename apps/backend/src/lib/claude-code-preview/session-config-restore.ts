@@ -1,4 +1,5 @@
 import { isBot } from '@/lib/agent/db/read-state'
+import { appendMcpServerNotices } from '@/lib/mcp/declaration-budget'
 
 import { previewSessionAccess } from './credentials-mcp'
 import { sessionMeta } from './openab-acp-session'
@@ -18,6 +19,7 @@ export async function sessionConfigRestoreContext(
   const teamId = conversation.teamId
 
   if (!teamId) throw new Error('A workspace is required to restore model settings')
+  const provider = runtimeProvider(conversation.agentRuntime)
   const access = await previewSessionAccess(
     conversation.sessionId,
     teamId,
@@ -29,18 +31,21 @@ export async function sessionConfigRestoreContext(
       parentSessionId: conversation.parentSessionId,
       sessionHomeEpoch: conversation.sessionHomeEpoch,
       bot: isBot(conversation),
+      agentRuntime: provider,
     },
   )
-  const provider = runtimeProvider(conversation.agentRuntime)
-  const systemPrompt = await buildPreviewSystemPrompt({
-    provider,
-    runtimeId: conversation.runtimeId,
-    userId: conversation.userId,
-    teamId,
-    sessionId: conversation.sessionId,
-    locale: conversation.metadata?.locale ?? 'en',
-    ...conversation.claudeCodePreviewContext,
-  })
+  const systemPrompt = appendMcpServerNotices(
+    await buildPreviewSystemPrompt({
+      provider,
+      runtimeId: conversation.runtimeId,
+      userId: conversation.userId,
+      teamId,
+      sessionId: conversation.sessionId,
+      locale: conversation.metadata?.locale ?? 'en',
+      ...conversation.claudeCodePreviewContext,
+    }),
+    access.notices,
+  )
 
   return {
     cwd: RUNTIME_CWD,

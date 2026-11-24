@@ -184,7 +184,8 @@ export function isEmptyCredentialAccess(access: AgentCredentialAccess | undefine
       (access.upstashAccountIds?.length ?? 0) +
       (access.cloudflareAccountIds?.length ?? 0) +
       (access.instaboxAccountIds?.length ?? 0) +
-      (access.deviceIds?.length ?? 0) ===
+      (access.deviceIds?.length ?? 0) +
+      (access.mcpServerIds?.length ?? 0) ===
     0
   )
 }
@@ -199,6 +200,7 @@ export function credentialAccessResponse(access: AgentCredentialAccess) {
     posthogIntegrationIds: access.posthogIntegrationIds ?? [],
     plaudAccountIds: access.plaudAccountIds ?? [],
     deviceIds: access.deviceIds ?? [],
+    mcpServerIds: access.mcpServerIds ?? [],
     updatedAt: access.updatedAt.toISOString(),
   }
 }

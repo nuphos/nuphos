@@ -3,6 +3,11 @@ import { describe, expect, test } from 'bun:test'
 import { createTeamMemoryTools } from '@/lib/agent/memory-native/tools'
 import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
+import {
+  ANTIGRAVITY_DECLARATION_BUDGET,
+  ANTIGRAVITY_NUPHOS_RESERVE,
+  declarationBytes,
+} from '@/lib/mcp/declaration-budget'
 
 import { CREDENTIALS_MCP_SURFACE } from '../credentials-mcp'
 import { nuphosToolsSurface } from '../nuphos-tools-mcp'
@@ -15,16 +20,10 @@ import { threadToolModule } from './threads'
 
 import { ANTIGRAVITY_TOOLS, toolModulesForRuntime } from './index'
 
-type Definition = { name: string; description?: string; inputSchema?: unknown }
-
-// Antigravity's measured budget is about 33.8 KB for every MCP server's tools and,
-// probably, their instructions (#4148). Counting plain bytes overstates its cost, so
-// 32 KiB leaves room for per-turn text such as the device list.
-const ANTIGRAVITY_BUDGET = 32 * 1024
+import type { McpToolDeclaration } from '@/lib/mcp/declaration-budget'
 
 const turn = { userId: 'u', teamId: 't', sessionId: 's', origin: 'user' as const }
 
-// The real factories behind the tools Antigravity keeps, and some it drops.
 function modules() {
   return [
     toolModuleFromAiSdkTools(
@@ -45,14 +44,29 @@ function modules() {
 }
 
 const names = (definitions: readonly unknown[]) =>
-  definitions.map((definition) => (definition as Definition).name)
+  definitions.map((definition) => (definition as { name: string }).name)
 
-const bytes = (definitions: readonly unknown[]) =>
-  definitions.reduce<number>((sum, definition) => {
-    const { name, description, inputSchema } = definition as Definition
+function asDeclarations(definitions: readonly unknown[]): McpToolDeclaration[] {
+  return definitions.map((definition) => {
+    const { name, description, inputSchema } = definition as McpToolDeclaration
 
-    return sum + Buffer.byteLength(JSON.stringify({ name, description, inputSchema }))
-  }, 0)
+    return { name, description, inputSchema }
+  })
+}
+
+function measuredBytes(): number {
+  const { instructions, toolDefinitions } = nuphosToolsSurface(
+    toolModulesForRuntime(modules(), 'antigravity'),
+    'antigravity',
+  )
+
+  return (
+    declarationBytes(asDeclarations(toolDefinitions)) +
+    declarationBytes(asDeclarations(CREDENTIALS_MCP_SURFACE.toolDefinitions)) +
+    Buffer.byteLength(instructions) +
+    Buffer.byteLength(CREDENTIALS_MCP_SURFACE.instructions)
+  )
+}
 
 describe('Antigravity tools', () => {
   test('keep only the allowlist, and only for Antigravity', () => {
@@ -82,16 +96,9 @@ describe('Antigravity tools', () => {
   })
 
   test('fit in its tool budget with both servers instructions', () => {
-    const { instructions, toolDefinitions } = nuphosToolsSurface(
-      toolModulesForRuntime(modules(), 'antigravity'),
-      'antigravity',
-    )
-    const total =
-      bytes(toolDefinitions) +
-      bytes(CREDENTIALS_MCP_SURFACE.toolDefinitions) +
-      Buffer.byteLength(instructions) +
-      Buffer.byteLength(CREDENTIALS_MCP_SURFACE.instructions)
+    const measured = measuredBytes()
 
-    expect(total).toBeLessThanOrEqual(ANTIGRAVITY_BUDGET)
+    expect(measured).toBeLessThanOrEqual(ANTIGRAVITY_NUPHOS_RESERVE)
+    expect(measured).toBeLessThanOrEqual(ANTIGRAVITY_DECLARATION_BUDGET)
   })
 })

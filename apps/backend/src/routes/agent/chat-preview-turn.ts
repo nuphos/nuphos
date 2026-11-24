@@ -21,6 +21,7 @@ import { noteOutdated, queuedRefusal, resentAfter } from '@/lib/claude-code-prev
 import { steeringReceipt } from '@/lib/claude-code-preview/steering-receipt'
 import { createTurnDiagnostics } from '@/lib/claude-code-preview/turn-diagnostics'
 import { RunHandoff } from '@/lib/lifecycle'
+import { appendMcpServerNotices } from '@/lib/mcp/declaration-budget'
 
 import { previewTurnAccess, renewPreviewTurnEnv } from './chat-preview-access'
 import {
@@ -128,6 +129,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       run,
     })
 
+  const systemPrompt = appendMcpServerNotices(prepared.systemPrompt, access.notices)
   const promptOnce = () =>
     runClaudeCodePreviewPrompt({
       teamId,
@@ -143,7 +145,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       mcpServers: access.mcpServers,
       runtime: { provider: args.endpoint.provider ?? 'claude-code', env: access.runtimeEnv },
       renewRuntimeEnv: renewPreviewTurnEnv(args, prepared),
-      ...(prepared.systemPrompt ? { systemPrompt: prepared.systemPrompt } : {}),
+      ...(systemPrompt ? { systemPrompt } : {}),
       signal: state.signal,
       onTextDelta: (delta, metadata) => {
         diagnostic.progress()

@@ -36,6 +36,8 @@ export const agentCredentialSelectionSchema = z.object({
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
   deviceIds: z.array(z.string().min(1)).default([]),
+  // Opt-in: an omitted list selects nothing, unlike a connector whose absence is team-wide.
+  mcpServerIds: z.array(objectIdStringSchema).optional(),
 })
 
 const agentCredentialAccessSchema = z.object({
@@ -68,6 +70,7 @@ const agentCredentialAccessSchema = z.object({
   teamIdentity: z.array(z.enum(['github', 'linear'])).optional(),
   personalCredentialIds: z.array(z.enum(PERSONAL_CREDENTIAL_PROVIDERS)).optional(),
   deviceIds: z.array(z.string().min(1)).optional(),
+  mcpServerIds: z.array(objectIdStringSchema).optional(),
   updatedAt: z.string().datetime().optional(),
   updatedBy: objectIdStringSchema.optional(),
 })

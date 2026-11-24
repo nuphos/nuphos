@@ -31,6 +31,7 @@ const http = (name, value) => ({
 test('bearer-only Nuphos MCP servers are bridged only when credential files exist', () => {
   const servers = [
     http('nuphos-tools', 'Bearer spawn'),
+    http('homelab', 'Bearer s3cret-value'),
     http('other', 'Basic x'),
     {
       ...http('multi', 'Bearer y'),
@@ -39,7 +40,7 @@ test('bearer-only Nuphos MCP servers are bridged only when credential files exis
   ]
 
   assert.equal(nuphosBridgeMcpServers(servers, {}, '/node'), servers)
-  const [bridged, basic, multi] = nuphosBridgeMcpServers(
+  const [bridged, homelab, basic, multi] = nuphosBridgeMcpServers(
     servers,
     { OPENAB_CREDENTIALS_DIR: '/c' },
     '/node',
@@ -51,8 +52,17 @@ test('bearer-only Nuphos MCP servers are bridged only when credential files exis
     args: ['/opt/nuphos-runtime/mcp-http-bridge.mjs', 'http://backend/nuphos-tools'],
     env: [{ name: 'OPENAB_CREDENTIALS_DIR', value: '/c' }],
   })
-  assert.equal(basic, servers[1])
-  assert.equal(multi, servers[2])
+  // A team's Bearer is not the rotating Nuphos token. Leave it on the HTTP server.
+  assert.equal(homelab, servers[1])
+  assert.equal(homelab.headers[0].value, 'Bearer s3cret-value')
+  assert.equal(basic, servers[2])
+  assert.equal(multi, servers[3])
+  const [credentials] = nuphosBridgeMcpServers(
+    [http('nuphos-credentials', 'Bearer spawn')],
+    { OPENAB_CREDENTIALS_DIR: '/c' },
+    '/node',
+  )
+  assert.equal(credentials.command, '/node')
 })
 
 test('the MCP bridge authorizes every request with the token current at call time', async () => {

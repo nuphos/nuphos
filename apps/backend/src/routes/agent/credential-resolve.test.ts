@@ -148,6 +148,7 @@ describe('withOmittedKeysFromStored', () => {
     jiraSiteIds: [],
     asanaAccountIds: [],
     deviceIds: ['device-1'],
+    mcpServerIds: ['66b11a4bd267393baaa22222'],
     updatedAt: new Date(),
     updatedBy: 'u1',
   }
@@ -161,6 +162,7 @@ describe('withOmittedKeysFromStored', () => {
     const access = resolve({ awsRoleIds: [] })
 
     expect(access.deviceIds).toEqual(['device-1'])
+    expect(access.mcpServerIds).toEqual(['66b11a4bd267393baaa22222'])
     expect(access.awsRoleIds).toEqual([])
   })
 

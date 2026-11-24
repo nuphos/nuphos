@@ -34,6 +34,8 @@ export type AgentCredentialSelection = {
   cloudflareAccountIds?: string[]
   instaboxAccountIds?: string[]
   deviceIds?: string[]
+  /** Team remote MCP servers enabled for this conversation. Absent or empty means none. */
+  mcpServerIds?: string[]
   teamIdentity?: ('github' | 'linear')[]
   /** The owner's own Personal Credentials this conversation may use, without a team binding. */
   personalCredentialIds?: PersonalCredentialProvider[]
