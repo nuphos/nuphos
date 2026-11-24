@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { useDb } from '@/lib/test/doubles/db'
 
 import { upsertConversationShell } from './conversations'
-import { backfillConversationWatchers, initialWatcherIds, setConversationWatched } from './watch'
+import { initialWatcherIds, setConversationWatched } from './watch'
 
 import type * as dbActual from '@/lib/db'
 
@@ -24,11 +24,10 @@ function matches(doc: Doc, filter: Doc): boolean {
     const actual = field(doc, key)
 
     if (value && typeof value === 'object' && !Array.isArray(value)) {
-      const op = value as { $in?: unknown[]; $exists?: boolean; $not?: RegExp }
+      const op = value as { $in?: unknown[]; $exists?: boolean }
 
       if (op.$in) return op.$in.includes(actual)
       if (op.$exists !== undefined) return (actual !== undefined) === op.$exists
-      if (op.$not) return typeof actual !== 'string' || !op.$not.test(actual)
     }
 
     return actual === value
@@ -37,13 +36,7 @@ function matches(doc: Doc, filter: Doc): boolean {
 
 class FakeConversations {
   docs: Doc[] = []
-  private apply(doc: Doc, update: Update | Doc[]) {
-    if (Array.isArray(update)) {
-      // Only the backfill's `[{ $set: { watcherIds: ['$userId'] } }]` pipeline.
-      doc.watcherIds = [doc.userId]
-
-      return
-    }
+  private apply(doc: Doc, update: Update) {
     Object.assign(doc, update.$set)
     for (const [key, id] of Object.entries(update.$addToSet ?? {})) {
       const list = (doc[key] as string[] | undefined) ?? []
@@ -70,7 +63,7 @@ class FakeConversations {
 
     return { upsertedCount: 1, modifiedCount: 0 }
   }
-  async updateMany(filter: Doc, update: Update | Doc[]) {
+  async updateMany(filter: Doc, update: Update) {
     const hits = this.docs.filter((d) => matches(d, filter))
 
     for (const doc of hits) this.apply(doc, update)
@@ -157,31 +150,4 @@ describe('setConversationWatched', () => {
     expect(watchersOf('root')).toEqual(['teammate', 'u'])
     expect(watchersOf('child')).toEqual([])
   })
-})
-
-test('the backfill gives existing conversations the default a new one would get', async () => {
-  conversations.docs = [
-    { sessionId: 'mine', userId: 'u', metadata: { source: 'app' } },
-    { sessionId: 'legacy', userId: 'u', metadata: {} },
-    {
-      sessionId: 'thread',
-      userId: 'u',
-      parentSessionId: 'mine',
-      metadata: { source: 'agent.thread' },
-    },
-    { sessionId: 'run', userId: 'u', metadata: { source: 'agent.trigger', trigger: { id: 'tr' } } },
-    { sessionId: 'slack', userId: 'u', metadata: { source: 'slack.agent' } },
-    { sessionId: 'done', userId: 'u', watcherIds: [] },
-  ]
-
-  expect(await backfillConversationWatchers()).toBe(5)
-  expect(conversations.docs.map((doc) => [doc.sessionId, doc.watcherIds])).toEqual([
-    ['mine', ['u']],
-    ['legacy', ['u']],
-    ['thread', []],
-    ['run', []],
-    ['slack', []],
-    ['done', []],
-  ])
-  expect(await backfillConversationWatchers()).toBe(0)
 })
