@@ -50,7 +50,7 @@ const session = async (webhookId?: string, parentSessionId?: string) => {
 }
 const queued = async (sessionId: string, tries = 100) => {
   queueWebhookEvents(sessionId)
-  for (; tries > 0; tries--) {
+  for (let i = 0; i < tries; i++) {
     const rows = await webhookDeliveries().find({ sessionId }).toArray()
 
     if (rows.length)
