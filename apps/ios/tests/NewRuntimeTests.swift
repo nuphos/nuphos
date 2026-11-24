@@ -17,7 +17,7 @@ enum NewRuntimeTests {
 
     private static func offersTheSameProvidersInTheSameOrder() {
         precondition(NewRuntime.providers.map(\.rawValue) == [
-            "claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi",
+            "claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi", "cursor",
         ], "The New runtime menu must offer Desktop's LOCAL_AGENT_PROVIDERS in Desktop's order")
         // Every one of them has a name and a mark, so no menu item reads "Unknown runtime".
         for provider in NewRuntime.providers {
@@ -25,7 +25,7 @@ enum NewRuntimeTests {
             precondition(name != "Unknown runtime" && name != "Runtime", "\(provider.rawValue) has no name")
             precondition(RuntimeInstance.Provider.logo(provider.rawValue) != nil, "\(provider.rawValue) has no mark")
         }
-        precondition(NewRuntime.previews == [.dsh, .pi])
+        precondition(NewRuntime.previews == [.dsh, .pi, .cursor])
     }
 
     private static func onlyManagersOfARunningComputerMayAdd() {

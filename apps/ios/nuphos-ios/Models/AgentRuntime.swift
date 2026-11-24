@@ -21,6 +21,7 @@ struct RuntimeInstance: Codable, Identifiable, Equatable, Hashable, Sendable {
         static let hermes = Self(rawValue: "hermes")
         static let dsh = Self(rawValue: "dsh")
         static let pi = Self(rawValue: "pi")
+        static let cursor = Self(rawValue: "cursor")
     }
     enum Status: String, Codable, Sendable { case active, disabled }
 
@@ -127,6 +128,7 @@ extension RuntimeInstance.Provider {
         case "hermes": "Hermes Agent"
         case "dsh": "DeepSeek Harness"
         case "pi": "Pi"
+        case "cursor": "Cursor"
         case "nuphos": "Nuphos"
         default: raw?.isEmpty == false ? String(localized: "Unknown runtime") : String(localized: "Runtime")
         }

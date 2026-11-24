@@ -13,8 +13,8 @@ class RuntimeIdentityTest {
         assertEquals("Codex", RuntimeIdentity.detail("codex", "Codex"))
         assertEquals("Codex · Studio laptop", RuntimeIdentity.detail("codex", "Studio laptop"))
         assertEquals("OpenCode · Claude", RuntimeIdentity.detail("opencode", "Claude"))
-        assertEquals(listOf("openai", "claude", "grok", "opencode", "antigravity", "deepseek", "hermes", "pi"),
-            listOf("codex", "claude-code", "grok", "opencode", "antigravity", "dsh", "hermes", "pi").map(RuntimeIdentity::logo))
+        assertEquals(listOf("openai", "claude", "grok", "opencode", "antigravity", "deepseek", "hermes", "pi", "cursor"),
+            listOf("codex", "claude-code", "grok", "opencode", "antigravity", "dsh", "hermes", "pi", "cursor").map(RuntimeIdentity::logo))
         assertEquals("DeepSeek Harness", RuntimeIdentity.name("dsh"))
         assertTrue(RuntimeIdentity.originalColor("claude-code"))
         assertFalse(RuntimeIdentity.originalColor("antigravity"))

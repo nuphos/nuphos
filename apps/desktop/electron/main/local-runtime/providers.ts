@@ -16,10 +16,11 @@ export const LOCAL_AGENT_NAMES: Record<LocalAgentProvider, string> = {
   dsh: 'DeepSeek Harness',
   hermes: 'Hermes Agent',
   pi: 'Pi',
+  cursor: 'Cursor',
 }
 
 /**
- * Grok Build, Antigravity, OpenCode, DeepSeek Harness, Hermes Agent and Pi run behind the image's
+ * Grok Build, Antigravity, OpenCode, DeepSeek Harness, Hermes Agent, Pi and Cursor run behind the image's
  * ACP shim, whose /home/node this home stands in for. openab runs their login wrapper under its own
  * HOME, so the shim and the wrapper are both told the CLI and the home.
  */
@@ -48,13 +49,15 @@ export function prepareShimHome(provider: LocalAgentProvider, userDir: string): 
 export const agentHomeName = (provider: LocalAgentProvider) =>
   provider === 'claude-code' ? 'claude-home' : `${provider}-home`
 
-/** Grok Build, DeepSeek Harness, Hermes Agent and Pi are asked for no status:
+/** Grok Build, DeepSeek Harness, Hermes Agent, Pi and Cursor are asked for no status:
  *  their login is this file, as in the cloud runtime. */
 export const LOGIN_FILE: Partial<Record<LocalAgentProvider, string>> = {
   grok: '.grok/auth.json',
   dsh: '.dsh/.credentials.yaml',
   hermes: '.hermes/auth.json',
   pi: '.pi/agent/auth.json',
+  // Its file store (cursor-login.mjs): ~/.cursor on macOS, XDG's config directory elsewhere.
+  cursor: process.platform === 'darwin' ? '.cursor/auth.json' : '.config/cursor/auth.json',
 }
 
 /** Whether the agent's home holds its login; undefined for an agent its CLI reports on. */
@@ -80,6 +83,7 @@ export const AGENT_HOME_UNAVAILABLE: Record<LocalAgentProvider, string> = {
   dsh: 'Nuphos could not prepare a separate DeepSeek Harness home on this computer.',
   hermes: 'Nuphos could not prepare a separate Hermes Agent home on this computer.',
   pi: 'Nuphos could not prepare a separate Pi home on this computer.',
+  cursor: 'Nuphos could not prepare a separate Cursor home on this computer.',
 }
 
 export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
@@ -93,4 +97,6 @@ export const INSTALL_HINT: Record<LocalAgentProvider, string> = {
   hermes:
     'Install Hermes Agent with its one-line installer from hermes-agent.nousresearch.com, which sets up Python and uv itself, to run it as a local runtime.',
   pi: 'Install Pi with `npm install -g @earendil-works/pi-coding-agent` (Node.js 22.19 or newer) to run it as a local runtime.',
+  cursor:
+    'Install the Cursor CLI with `curl https://cursor.com/install -fsS | bash` to run it as a local runtime.',
 }

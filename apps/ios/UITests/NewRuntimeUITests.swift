@@ -58,7 +58,7 @@ final class NewRuntimeUITests: XCTestCase {
         app.buttons["new-runtime-device:macbook"].tap()
 
         // Antigravity's sign-in is the computer's own, so there is none to add.
-        let order = ["claude-code", "codex", "grok", "opencode", "dsh", "hermes", "pi"]
+        let order = ["claude-code", "codex", "grok", "opencode", "dsh", "hermes", "pi", "cursor"]
         for provider in order {
             XCTAssertTrue(app.buttons["provider-\(provider)"].waitForExistence(timeout: 15),
                           "\(provider) is missing from the New runtime list")
@@ -72,6 +72,7 @@ final class NewRuntimeUITests: XCTestCase {
         XCTAssertTrue(text(app, "Claude Code").exists, "Claude Code is not offered as a new runtime")
         XCTAssertTrue(text(app, "DeepSeek Harness · Preview").exists, "DeepSeek Harness is not marked a preview")
         XCTAssertTrue(text(app, "Pi · Preview").exists, "Pi is not marked a preview")
+        XCTAssertTrue(text(app, "Cursor · Preview").exists, "Cursor is not marked a preview")
     }
 
     func testANewRuntimeIsNamedThenTakenToItsSignIn() {

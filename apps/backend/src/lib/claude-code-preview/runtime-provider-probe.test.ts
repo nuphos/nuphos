@@ -125,6 +125,8 @@ describe('probeExternalRuntimeProvider', () => {
     ['antigravity-cli@1.5.4', 'antigravity'],
     ['opencode@1.18.35', 'opencode'],
     ['dsh@0.2.2-rc.1', 'dsh'],
+    ['pi-acp@0.0.34', 'pi'],
+    ['cursor@acp-shim', 'cursor'],
   ] as const)
     test(`recognizes the ${provider} stamp the image sets`, async () => {
       const h = harness()

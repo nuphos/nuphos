@@ -5,7 +5,7 @@ import Foundation
 /// `newAgentAction` are the same list and the same rule; team runtimes can run more.
 enum NewRuntime {
     static let providers: [RuntimeInstance.Provider] = [
-        .claudeCode, .codex, .grok, .antigravity, .opencode, .dsh, .hermes, .pi,
+        .claudeCode, .codex, .grok, .antigravity, .opencode, .dsh, .hermes, .pi, .cursor,
     ]
 
     /// The runtimes a new Box lists, in this same order, so one that joins later
@@ -16,7 +16,7 @@ enum NewRuntime {
     }
 
     /// Still a preview, as Desktop marks them.
-    static let previews: Set<RuntimeInstance.Provider> = [.dsh, .pi]
+    static let previews: Set<RuntimeInstance.Provider> = [.dsh, .pi, .cursor]
 
     /// What New runtime does for one provider.
     enum Action: Equatable {

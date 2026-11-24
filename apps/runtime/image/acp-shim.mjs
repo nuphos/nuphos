@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The Nuphos layer for agents that ship their own ACP server (Grok Build, Google
-// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness), and for Pi behind the pi-acp
+// Antigravity, OpenCode, Hermes Agent, DeepSeek Harness, Cursor), and for Pi behind the pi-acp
 // adapter. Claude Code and Codex get this layer by patching their Node adapters;
 // a native binary cannot be patched, so this process sits in front of it instead and
 // passes every frame through, except where a Nuphos session needs something:
@@ -115,6 +115,17 @@ export const PROVIDERS = {
     // DSH resumes a session without replaying it, and has no session/load; OpenAB only
     // loads, so a load is sent as a resume.
     loadAsResume: true,
+  },
+  cursor: {
+    name: 'Cursor',
+    // `cursor-agent`, not its shorter name `agent`, which other CLIs also install.
+    command: ['cursor-agent', 'acp'],
+    // Its login as a file (cursor-login.mjs), not in a keychain every home shares.
+    home: () => ({ AGENT_CLI_CREDENTIAL_STORE: 'file' }),
+    // The login and settings: ~/.cursor on macOS, ~/.config/cursor elsewhere.
+    shared: ['.cursor', join('.config', 'cursor')],
+    instruct: null,
+    serialPrompts: true,
   },
   pi: {
     name: 'Pi',

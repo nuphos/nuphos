@@ -8,12 +8,15 @@ export const OPENAB_PROVIDERS = [
   'hermes',
   'dsh',
   'pi',
+  'cursor',
 ] as const
 
 export type OpenAbProvider = (typeof OPENAB_PROVIDERS)[number]
 
-/** The agents a runtime image is published for: Pi runs only on a computer so far. */
-export const IMAGE_PROVIDERS = OPENAB_PROVIDERS.filter((provider) => provider !== 'pi')
+/** The agents a runtime image is published for: Pi and Cursor run only on a computer so far. */
+export const IMAGE_PROVIDERS = OPENAB_PROVIDERS.filter(
+  (provider) => provider !== 'pi' && provider !== 'cursor',
+)
 
 // `shim`: the agent speaks ACP itself and the image's ACP shim adds the Nuphos layer
 // in front of it (apps/runtime/image/acp-shim.mjs) instead of a patched adapter.
@@ -34,6 +37,7 @@ const PROVIDERS: Record<
   hermes: { label: 'Hermes Agent', errorPrefix: 'hermes', short: 'hermes', shim: true },
   dsh: { label: 'DeepSeek Harness', errorPrefix: 'dsh', short: 'dsh', shim: true },
   pi: { label: 'Pi', errorPrefix: 'pi', short: 'pi', shim: true },
+  cursor: { label: 'Cursor', errorPrefix: 'cursor', short: 'cursor', shim: true },
 }
 
 export function isOpenAbProvider(value: unknown): value is OpenAbProvider {

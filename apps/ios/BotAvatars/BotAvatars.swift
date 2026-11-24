@@ -102,6 +102,7 @@ enum BotAvatars {
         case "dsh": "logo-deepseek"
         case "hermes": "logo-hermes"
         case "pi": "logo-pi"
+        case "cursor": "logo-cursor"
         default: nil
         }
     }
