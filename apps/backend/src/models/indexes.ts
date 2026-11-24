@@ -19,6 +19,7 @@ import { setupMemoryIngestEventIndexes } from '@/lib/agent/memory-slots/ingest-e
 import { setupPreviewMemoryActivityIndexes } from '@/lib/agent/memory-slots/preview-activity-store'
 import { setupPlanIndexes } from '@/lib/agent/plans'
 import { setupSkillMetadataIndexes } from '@/lib/agent/skill-store/metadata'
+import { setupTodoIndexes } from '@/lib/agent/todos'
 import { setupTokenUsageIndexes } from '@/lib/agent/token-usage'
 import { setupTriggerIndexes } from '@/lib/agent/trigger-db'
 import { setupReminderIndexes } from '@/lib/agent/reminders'
@@ -106,6 +107,7 @@ export async function setupIndexes(): Promise<void> {
     ['triggers', setupTriggerIndexes],
     ['trigger-history', setupTriggerHistoryIndexes],
     ['reminders', setupReminderIndexes],
+    ['todos', setupTodoIndexes],
     ['plans', setupPlanIndexes],
     ['skill-metadata', setupSkillMetadataIndexes],
     ['auto-mode', setupAutoModeIndexes],
