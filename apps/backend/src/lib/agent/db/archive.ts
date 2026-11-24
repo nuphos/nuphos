@@ -276,7 +276,6 @@ export async function descendantSessionIds(
   return [...seen]
 }
 
-/** Any new human turn brings an archived conversation back, whoever sends it; a Bot with its chats. */
 export async function restoreArchivedConversation(
   sessionId: string,
   actor: ArchiveActor,
