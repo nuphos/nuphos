@@ -1,0 +1,112 @@
+// A turn whose reply kept nothing to show, because it failed or because the agent
+// only read and said nothing, still stores its input and that reply. The next wake
+// must answer its own message, not that input again: otherwise each such turn adds
+// one more copy to every later prompt until none fits.
+// Against a real MongoDB.
+// Runs when TEST_MONGODB_URI is set, with MONGODB_URI pointing at the same server.
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { ObjectId } from 'mongodb'
+
+import { closeDb, connectDb } from '@/lib/db'
+import { turnInputMessages } from '@/routes/agent/turn-start-frame'
+
+import { setupAgentIndexes } from './db/events'
+import { agentConversations, agentMessages } from './db/shared'
+import { appendTranscriptMessages } from './db/transcript'
+import { systemSender } from './message-metadata'
+import {
+  buildPendingUserMessage,
+  clearPendingUserMessages,
+  enqueuePendingUserMessage,
+} from './pending-messages'
+import { startQueuedTurn } from './queued-turn'
+import { installTurnRunner, resetTurnRunner } from './turn-runner'
+
+const SESSION = new ObjectId().toHexString()
+const OWNER = new ObjectId().toHexString()
+const TEAM = new ObjectId().toHexString()
+
+// The input of each turn the runner was asked to run.
+const inputs: string[][] = []
+// What each turn's reply keeps.
+let replyParts: unknown[] = []
+
+const store = (messages: { id: string; role: string; parts: unknown[] }[]) =>
+  appendTranscriptMessages({
+    sessionId: SESSION,
+    userId: OWNER,
+    teamId: TEAM,
+    title: '',
+    firstMessage: 'Watcher',
+    messages: messages as never,
+    preserveTitle: true,
+  })
+
+const wake = () =>
+  buildPendingUserMessage({
+    renderedText: 'something was posted',
+    source: 'agent.resource',
+    actorUserId: OWNER,
+    metadata: systemSender('nuphos', 'Nuphos'),
+  })
+
+describe.skipIf(!process.env.TEST_MONGODB_URI)(
+  'a turn after ones whose replies kept nothing',
+  () => {
+    beforeAll(async () => {
+      await connectDb()
+      await setupAgentIndexes()
+      await agentConversations().insertOne({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        title: 'Watcher',
+        firstMessage: 'Watcher',
+        createdAt: new Date(),
+        lastActiveAt: new Date(),
+      } as never)
+    })
+    beforeEach(async () => {
+      inputs.length = 0
+      await agentMessages().deleteMany({ sessionId: SESSION })
+      installTurnRunner({
+        hasActiveAgentRunForSession: async () => false,
+        claimAgentRunForSession: async () => () => {},
+        runAgentForTrigger: async ({ messages }) => {
+          inputs.push(turnInputMessages(messages).map((m) => m.id))
+          // As the real runner stores a turn: its input, then the reply.
+          await store([
+            ...messages.slice(-1),
+            { id: new ObjectId().toHexString(), role: 'assistant', parts: replyParts },
+          ])
+
+          return { status: 'completed' }
+        },
+      })
+    })
+    afterEach(async () => {
+      resetTurnRunner()
+      await clearPendingUserMessages(OWNER, SESSION)
+    })
+    afterAll(async () => {
+      await agentMessages().deleteMany({ sessionId: SESSION })
+      await agentConversations().deleteMany({ sessionId: SESSION })
+      await closeDb()
+    })
+
+    test.each([
+      ['failed', [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }]],
+      ['said nothing', []],
+    ])('answers only its own message, however many before it %s', async (_, parts) => {
+      replyParts = parts
+      const wakes = [wake(), wake(), wake()]
+
+      for (const message of wakes) {
+        await enqueuePendingUserMessage(OWNER, SESSION, message)
+        await startQueuedTurn(OWNER, SESSION)
+      }
+
+      expect(inputs).toEqual(wakes.map((message) => [message.id]))
+    })
+  },
+)
