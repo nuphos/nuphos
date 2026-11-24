@@ -82,8 +82,8 @@ useGithubHttp({
     if (url.includes('/check-runs'))
       return Response.json({
         check_runs: [
-          { id: 1, name: 'build', status: 'completed', conclusion: 'success' },
-          { id: 2, name: 'test', status: 'completed', conclusion: 'failure' },
+          { id: 1, name: 'build', conclusion: 'success' },
+          { id: 2, name: 'test', conclusion: 'failure' },
         ],
       })
     if (url.endsWith('/status')) return Response.json({ state: 'success', total_count: 1 })
