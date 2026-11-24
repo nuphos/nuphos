@@ -345,3 +345,18 @@ test('a Codex usage limit counts as the agent failing, so the turn can fall back
     ),
   ).toBe(true)
 })
+
+test('Claude Code on a model its endpoint does not serve counts as the agent failing', () => {
+  const message =
+    "Internal error: There's an issue with the selected model (claude-e2e-retired). It may not exist or you may not have access to it."
+
+  expect(
+    runtimeFailed(
+      new OpenAbRpcError(
+        `**Internal Error** (code: -32603)\n${message}\n> {"errorKind":"model_not_found"}`,
+        -32603,
+        { code: -32603, message },
+      ),
+    ),
+  ).toBe(true)
+})
