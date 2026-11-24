@@ -22,27 +22,35 @@ export type Todo = {
 export const todos = () => db().collection<Todo>('agent_todos')
 
 export async function setupTodoIndexes(): Promise<void> {
-  await todos().createIndex({ taskId: 1, doneAt: 1, createdAt: 1 }, { name: 'todo_task_open' })
+  await todos().createIndex(
+    { teamId: 1, taskId: 1, doneAt: 1, createdAt: 1 },
+    { name: 'todo_task_open' },
+  )
 }
 
-/** A Task's open to-dos, oldest first. */
-export function openTodos(taskId: string) {
-  return todos()
-    .find({ taskId, doneAt: { $exists: false } })
-    .sort({ createdAt: 1 })
-    .toArray()
+const openFilter = (teamId: string, taskId: string) => ({
+  teamId,
+  taskId,
+  doneAt: { $exists: false },
+})
+
+/** A Task's open to-dos, oldest first, capped so a runaway list stays readable. */
+export function openTodos(teamId: string, taskId: string, limit = 100) {
+  return todos().find(openFilter(teamId, taskId)).sort({ createdAt: 1 }).limit(limit).toArray()
 }
+
+type Waiting = { count: number; oldest?: Date }
 
 /**
  * What the Task still waits on, named on every turn while anything is open so
  * neither its Inbox questions nor its to-dos are forgotten. Null when nothing is.
  */
-export function pendingLine(inbox: Date[], open: Date[], now = new Date()): string | null {
-  const part = (name: string, dates: Date[]) => {
-    if (dates.length === 0) return null
-    const hours = Math.floor((now.getTime() - Math.min(...dates.map(Number))) / 3_600_000)
+export function pendingLine(inbox: Waiting, open: Waiting, now = new Date()): string | null {
+  const part = (name: string, { count, oldest }: Waiting) => {
+    if (count === 0 || !oldest) return null
+    const hours = Math.floor((now.getTime() - oldest.getTime()) / 3_600_000)
 
-    return `${name} ${String(dates.length)} (oldest ${hours < 1 ? '<1' : String(hours)}h)`
+    return `${name} ${String(count)} (oldest ${hours < 1 ? '<1' : String(hours)}h)`
   }
   const parts = [part('inbox', inbox), part('todos', open)].filter(Boolean)
 
@@ -50,16 +58,21 @@ export function pendingLine(inbox: Date[], open: Date[], now = new Date()): stri
 }
 
 /** This turn's Pending line for a Task. A reminder only, so a failed read leaves it out. */
-export async function turnPending(taskId: string): Promise<string | null> {
+export async function turnPending(teamId: string, taskId: string): Promise<string | null> {
   try {
-    const [conversation, open] = await Promise.all([
+    const [conversation, count, first] = await Promise.all([
       getConversationBySessionId(taskId),
-      openTodos(taskId),
+      todos().countDocuments(openFilter(teamId, taskId)),
+      todos().findOne(openFilter(teamId, taskId), {
+        sort: { createdAt: 1 },
+        projection: { createdAt: 1 },
+      }),
     ])
+    const inbox = conversation ? attentionInputRequests(conversation) : []
 
     return pendingLine(
-      conversation ? attentionInputRequests(conversation).map((request) => request.askedAt) : [],
-      open.map((todo) => todo.createdAt),
+      { count: inbox.length, oldest: inbox[0]?.askedAt },
+      { count, oldest: first?.createdAt },
     )
   } catch {
     return null
@@ -68,7 +81,7 @@ export async function turnPending(taskId: string): Promise<string | null> {
 
 const DESCRIPTION =
   "This Task's to-do list, kept across turns and restarts. Everything that needs your attention belongs in it, including the work you are doing now: add it when you take it on, mark it done when it is finished, and remove what is no longer needed by marking it done. " +
-  "Use list to see what is open. Each turn's prompt carries a Pending: line while anything is open."
+  "Use list to see what is open (the oldest 100). Each turn's prompt carries a Pending: line while anything is open."
 
 export function createTodoTools(
   userId: string,
@@ -106,7 +119,7 @@ export function createTodoTools(
           if (action === 'done') {
             if (!id || !ObjectId.isValid(id)) throw new Error('done needs the to-do id.')
             const { matchedCount } = await todos().updateOne(
-              { _id: new ObjectId(id), taskId, doneAt: { $exists: false } },
+              { _id: new ObjectId(id), ...openFilter(teamId, taskId) },
               { $set: { doneAt: new Date() } },
             )
 
@@ -116,7 +129,7 @@ export function createTodoTools(
           }
 
           return {
-            todos: (await openTodos(taskId)).map((todo) => ({
+            todos: (await openTodos(teamId, taskId)).map((todo) => ({
               id: todo._id.toHexString(),
               title: todo.title,
               createdAt: todo.createdAt.toISOString(),

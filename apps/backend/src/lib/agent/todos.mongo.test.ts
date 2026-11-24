@@ -3,9 +3,10 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { ObjectId } from 'mongodb'
 
+import { withPageContext } from '@/lib/claude-code-preview/preview-prompt'
 import { closeDb, connectDb } from '@/lib/db'
 
-import { createTodoTools, openTodos, setupTodoIndexes, todos } from './todos'
+import { createTodoTools, openTodos, setupTodoIndexes, todos, turnPending } from './todos'
 
 const teamId = new ObjectId().toHexString()
 const taskId = `todo-test-${teamId}`
@@ -34,7 +35,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a Task to-do list', () => {
     await run(taskId, { action: 'add', title: 'second' })
     await run(taskId, { action: 'done', id: first.id })
 
-    expect((await openTodos(taskId)).map((todo) => todo.title)).toEqual(['second'])
+    expect((await openTodos(teamId, taskId)).map((todo) => todo.title)).toEqual(['second'])
     expect(await run(taskId, { action: 'list' })).toMatchObject({
       todos: [{ title: 'second' }],
     })
@@ -46,5 +47,26 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a Task to-do list', () => {
     await expect(run(otherTask, { action: 'done', id })).rejects.toThrow('No open to-do')
     await run(taskId, { action: 'done', id })
     await expect(run(taskId, { action: 'done', id })).rejects.toThrow('No open to-do')
+  })
+
+  test('a to-do is reached only through its own team', async () => {
+    const { id } = await run(taskId, { action: 'add', title: 'scoped' })
+
+    expect(await openTodos(new ObjectId().toHexString(), taskId)).toEqual([])
+    await run(taskId, { action: 'done', id })
+  })
+
+  test('the turn names open to-dos in its page context, and drops the line when none are', async () => {
+    await todos().deleteMany({ taskId })
+    expect(await turnPending(teamId, taskId)).toBeNull()
+    expect(await withPageContext(undefined, { teamId, sessionId: taskId })).toBeUndefined()
+
+    const { id } = await run(taskId, { action: 'add', title: 'waiting' })
+
+    expect(await turnPending(teamId, taskId)).toBe('Pending: todos 1 (oldest <1h).')
+    expect(await withPageContext('ctx', { teamId, sessionId: taskId })).toBe(
+      'ctx\n\nPending: todos 1 (oldest <1h).',
+    )
+    await run(taskId, { action: 'done', id })
   })
 })
