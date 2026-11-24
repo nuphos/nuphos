@@ -428,7 +428,8 @@
         {
           "sessionId": "bot-trip",
           "title": "Trip planner",
-          "ownerId": "507f1f77bcf86cd799439011"
+          "ownerId": "507f1f77bcf86cd799439011",
+          "avatar": "05-rembrandt"
         }
       ]
     }
@@ -636,7 +637,8 @@
         {
           "sessionId": "bot-trip",
           "title": "Trip planner",
-          "ownerId": "507f1f77bcf86cd799439011"
+          "ownerId": "507f1f77bcf86cd799439011",
+          "avatar": "05-rembrandt"
         }
       ]
     }
