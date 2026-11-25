@@ -284,6 +284,32 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("chat-bot-task").assertExists()
     }
 
+    /** With Bot avatars on, the face's corner badge is the header's only runtime mark, as on iOS. */
+    @Test fun botAvatarsOnShowTheRuntimeMarkOnceInTheHeader() = headerRuntimeMarks(avatars = true, shot = "12-header-bot-avatars-on")
+
+    /** With Bot avatars off, the avatar itself is the header's only runtime mark, as on iOS. */
+    @Test fun botAvatarsOffShowTheRuntimeMarkOnceInTheHeader() = headerRuntimeMarks(avatars = false, shot = "13-header-bot-avatars-off")
+
+    private fun headerRuntimeMarks(avatars: Boolean, shot: String) {
+        composerFixture = true
+        val app = inst.targetContext.applicationContext as NuphosApplication
+        val previous = app.botAvatarsEnabled
+        try {
+            inst.runOnMainSync { app.updateBotAvatars(avatars) }
+            render("chat-plain", taskNavigation = true)
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("chat-bot-task").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithTag("chat-bot-task").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("channel-transcript").fetchSemanticsNodes().isEmpty() }
+            compose.waitUntil(5_000) { compose.onAllNodesWithText("Fixture Box", substring = true).fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForIdle()
+            capture(shot)
+            val marks = compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).fetchSemanticsNodes().size
+            assertEquals("With Bot avatars ${if (avatars) "on" else "off"} the header shows the runtime mark once", 1, marks)
+        } finally {
+            inst.runOnMainSync { app.updateBotAvatars(previous) }
+        }
+    }
+
     @Test fun aBotWithoutADesktopHasNoButton() {
         render("chat-plain")
         // Long enough for the Bot's own read to land.
