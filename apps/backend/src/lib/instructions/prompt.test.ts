@@ -220,8 +220,8 @@ test('setup context survives saved instructions and disappears after explicit co
 })
 
 // A turn the runtime accepts records what it told the agent.
-async function turn(fresh = false): Promise<string> {
-  const update = await instructionsUpdate(TEAM_ID.toHexString(), 'u1', 'edited-bot', fresh)
+async function turn(fresh = false, userId = 'u1'): Promise<string> {
+  const update = await instructionsUpdate(TEAM_ID.toHexString(), userId, 'edited-bot', fresh)
 
   await update.given()
 
@@ -263,6 +263,21 @@ describe('instructionsUpdate', () => {
     expect(await turn()).toBe('')
     expect(digests.has('edited-bot')).toBe(true)
     expect(await turn()).toBe('')
+  })
+
+  // The session holds the personal instructions of whoever it was started or last told for.
+  test("a teammate's turn tells the agent that teammate's personal instructions, not the last one's", async () => {
+    seed({ scope: 'personal', userId: 'u1', title: 'Mine', content: 'Answer in French.' })
+    seed({ scope: 'personal', userId: 'u2', title: 'Mine', content: 'Answer in German.' })
+    expect(await turn(true, 'u1')).toBe('')
+    expect(await turn(false, 'u1')).toBe('')
+
+    const teammate = await turn(false, 'u2')
+
+    expect(teammate).toContain('Answer in German.')
+    expect(teammate).not.toContain('Answer in French.')
+    expect(await turn(false, 'u2')).toBe('')
+    expect(await turn(false, 'u1')).toContain('Answer in French.')
   })
 
   test('a failed read is never reported as a change', async () => {

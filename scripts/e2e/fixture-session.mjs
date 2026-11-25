@@ -16,11 +16,8 @@ const INITIALIZE = {
 export const ruleIn = (params) =>
   /E2E_RULE:([a-z]+)/.exec(JSON.stringify(params._meta ?? {}))?.[1] ?? 'none'
 
-/**
- * The E2E_RULE a turn's standing-instructions update names: in the lead text the backend
- * sends before the user's words (always the last part), or in a Codex prompt's `_meta`.
- * A block the user typed is not one.
- */
+// The E2E_RULE a turn's instructions update names, read from the lead before the user's
+// words (always the last part) or Codex `_meta`, never from what the user typed.
 export function updatedRule(parts, meta) {
   const lead = parts
     .slice(0, -1)
