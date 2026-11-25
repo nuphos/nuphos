@@ -22,6 +22,7 @@
 // follows the agent like any other.
 
 import { spawn, spawnSync } from 'node:child_process'
+import { randomBytes } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
@@ -36,11 +37,10 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 
-// Every display runs as the Box's one Unix user, with no X authority and no VNC
-// password: sessions on a Box are not a security boundary from each other, any
-// more than their shells are. A Box can be shared by a team, so an agent in one
-// person's session can reach another person's display. That risk is accepted for
-// now; the fix is a Unix user per session, not a check here.
+// Every display runs as the Box's one Unix user. Its X server takes only clients
+// with its cookie and its RFB is served only on a 0600 socket, both in the
+// display's own 0700 dir, with no network listener. Nuphos hands a display to a
+// person only on a Box no one else uses (computer-desktop.ts in the backend).
 const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
 const PROXY = '/usr/local/bin/instabox-computer-use-proxy'
@@ -49,6 +49,60 @@ export const MANUAL_IDLE_MS = 10 * 60_000
 
 export const lockFile = (pool, display) => path.join(pool, `${String(display)}.lock`)
 export const xdgDir = (pool, display) => path.join(pool, `${String(display)}.xdg`)
+/** The display's RFB socket, the only way to its screen besides X (vnc-stream.ts). */
+export const vncSocket = (pool, display) => path.join(xdgDir(pool, display), 'vnc')
+
+/** The display's X cookie, which every X client of the display presents. */
+export const xauthority = (pool, display) => path.join(xdgDir(pool, display), 'Xauthority')
+
+/** A fresh cookie for any display number, as one Xauthority entry (FamilyWild). */
+export function writeXauthority(file) {
+  const field = (data) => {
+    const length = Buffer.alloc(2)
+
+    length.writeUInt16BE(data.length)
+
+    return [length, data]
+  }
+  const family = Buffer.alloc(2)
+
+  family.writeUInt16BE(0xffff)
+  writeFileSync(
+    file,
+    Buffer.concat([
+      family,
+      ...field(Buffer.alloc(0)),
+      ...field(Buffer.alloc(0)),
+      ...field(Buffer.from('MIT-MAGIC-COOKIE-1')),
+      ...field(randomBytes(16)),
+    ]),
+    { mode: 0o600 },
+  )
+}
+
+/** Xvnc for `display`: X only with its cookie, RFB on its own socket (mode 0600 by default), no TCP listener at all. */
+export const xvncArgs = (pool, display) => [
+  `:${String(display)}`,
+  '-auth',
+  xauthority(pool, display),
+  '-geometry',
+  GEOMETRY,
+  '-depth',
+  '24',
+  '-rfbport',
+  '-1',
+  '-rfbunixpath',
+  vncSocket(pool, display),
+  '-SecurityTypes',
+  'None',
+  '-AlwaysShared',
+  '-desktop',
+  `nuphos-${String(display)}`,
+  '-nolisten',
+  'tcp',
+  '-FrameRate',
+  '10',
+]
 
 export function alive(pid) {
   try {
@@ -148,6 +202,7 @@ export async function startDisplay(pool, display, home) {
     HOME: home,
     USER: process.env.USER ?? os.userInfo().username,
     DISPLAY: `:${String(display)}`,
+    XAUTHORITY: xauthority(pool, display),
     XDG_RUNTIME_DIR: xdg,
     XDG_CONFIG_HOME: path.join(home, '.config'),
     XDG_CACHE_HOME: path.join(home, '.cache'),
@@ -164,25 +219,8 @@ export async function startDisplay(pool, display, home) {
 
   if (!existsSync(socket)) {
     rmSync(`/tmp/.X${String(display)}-lock`, { force: true })
-    detached('Xvnc', [
-      `:${String(display)}`,
-      '-geometry',
-      GEOMETRY,
-      '-depth',
-      '24',
-      '-rfbport',
-      String(5900 + display),
-      '-localhost',
-      '-SecurityTypes',
-      'None',
-      '-AlwaysShared',
-      '-desktop',
-      `nuphos-${String(display)}`,
-      '-nolisten',
-      'tcp',
-      '-FrameRate',
-      '10',
-    ])
+    writeXauthority(env.XAUTHORITY)
+    detached('Xvnc', xvncArgs(pool, display))
     for (let i = 0; i < 50 && !existsSync(socket); i++) await sleep(200)
     if (!existsSync(socket)) throw new Error(`Xvnc :${String(display)} did not start`)
   }

@@ -1,14 +1,17 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import {
   chmodSync,
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
+  statSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs'
+import { connect } from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
@@ -21,6 +24,11 @@ import {
   lockFile,
   readLock,
   reap,
+  vncSocket,
+  writeXauthority,
+  xauthority,
+  xdgDir,
+  xvncArgs,
 } from './desktop-session.mjs'
 
 test('each session gets its own display, the lowest free one, and keeps it', () => {
@@ -236,5 +244,64 @@ test(
     await new Promise((resolve) => session.once('exit', resolve))
     await until(() => readFileSync(log, 'utf8').includes('eof'))
     assert.equal(readFileSync(log, 'utf8'), 'started\neof\n')
+  },
+)
+
+/** What a client reading from `target` gets first: the server's bytes, or the error that refused it. */
+const firstRead = (target, hello = '') =>
+  new Promise((resolve) => {
+    const socket = connect(...target)
+
+    socket.write(hello)
+    socket.once('data', (chunk) => {
+      resolve(chunk)
+      socket.destroy()
+    })
+    socket.once('error', (error) => resolve(error.code))
+  })
+
+/** An X11 connection setup carrying `cookie`, or none: the server answers 1 to accept, 0 to refuse. */
+function xHello(cookie) {
+  const name = cookie ? Buffer.from('MIT-MAGIC-COOKIE-1\0\0') : Buffer.alloc(0)
+  const head = Buffer.from([0x6c, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+
+  head.writeUInt16LE(cookie ? 18 : 0, 6)
+  head.writeUInt16LE(cookie ? cookie.length : 0, 8)
+
+  return Buffer.concat([head, name, cookie ?? Buffer.alloc(0)])
+}
+
+// Another session runs as the same user, but no other user or container on the
+// machine should reach a desktop: X takes only the display's cookie and RFB is
+// served only on the display's 0600 socket. Needs a real Xvnc, so it runs on a
+// Linux Box image, not on CI.
+test(
+  'a display takes X clients only with its cookie and serves RFB only on its own 0600 socket',
+  { skip: spawnSync('Xvnc', ['-version']).error ? 'needs Xvnc' : false },
+  async () => {
+    const pool = mkdtempSync(path.join(os.tmpdir(), 'pool-'))
+    const display = 90 + Math.floor(Math.random() * 9)
+    const x = [`/tmp/.X11-unix/X${String(display)}`]
+
+    mkdirSync(xdgDir(pool, display), { mode: 0o700 })
+    writeXauthority(xauthority(pool, display))
+    const xvnc = spawn('Xvnc', xvncArgs(pool, display), { stdio: 'ignore' })
+
+    try {
+      for (let i = 0; i < 50 && !existsSync(vncSocket(pool, display)); i++)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      assert.equal(statSync(vncSocket(pool, display)).mode & 0o777, 0o600)
+      assert.equal(statSync(xauthority(pool, display)).mode & 0o777, 0o600)
+      assert.match(String(await firstRead([vncSocket(pool, display)])), /^RFB 003\.008/u)
+      assert.equal(await firstRead([5900 + display, '127.0.0.1']), 'ECONNREFUSED')
+      assert.equal(await firstRead([5900 + display, '::1']), 'ECONNREFUSED')
+      const cookie = readFileSync(xauthority(pool, display)).subarray(-16)
+
+      assert.equal((await firstRead(x, xHello()))[0], 0)
+      assert.equal((await firstRead(x, xHello(Buffer.alloc(16))))[0], 0)
+      assert.equal((await firstRead(x, xHello(cookie)))[0], 1)
+    } finally {
+      xvnc.kill()
+    }
   },
 )

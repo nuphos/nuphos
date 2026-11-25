@@ -7,11 +7,11 @@ import test, { mock } from 'node:test'
 
 import { VncStream } from './vnc-stream.ts'
 
-import type { AddressInfo, Socket } from 'node:net'
+import type { Socket } from 'node:net'
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
 
-test('bridges base64 frames to the display’s VNC port and holds the lock while a human has the desktop', async () => {
+test('bridges base64 frames to the display’s own RFB socket and holds the lock while a human has the desktop', async () => {
   const pool = mkdtempSync(path.join(tmpdir(), 'pool-'))
 
   mkdirSync(path.join(pool, '2.xdg'))
@@ -24,8 +24,8 @@ test('bridges base64 frames to the display’s VNC port and holds the lock while
     socket.write('RFB 003.008\n')
   })
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  await new Promise<void>((resolve) => server.listen(path.join(pool, '2.xdg', 'vnc'), resolve))
+  const stream = new VncStream(pool)
   const messages: string[] = []
   let closed = false
 
@@ -69,7 +69,7 @@ test('a display another session holds, or an unknown frame first, ends the strea
     const stream = new VncStream(pool, () => {
       connected = true
 
-      return 1
+      return path.join(pool, 'vnc.sock')
     })
     let closed = false
 
@@ -96,8 +96,8 @@ test('a viewer whose display went to another session is cut off and leaves its l
     client = socket
   })
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  await new Promise<void>((resolve) => server.listen(path.join(pool, 'vnc.sock'), resolve))
+  const stream = new VncStream(pool, () => path.join(pool, 'vnc.sock'))
   let closed = false
 
   stream.addEventListener('close', () => {
@@ -139,8 +139,8 @@ test('the moment the display goes to another session, no byte passes either way'
     socket.on('data', (chunk) => received.push(chunk))
   })
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  await new Promise<void>((resolve) => server.listen(path.join(pool, 'vnc.sock'), resolve))
+  const stream = new VncStream(pool, () => path.join(pool, 'vnc.sock'))
   const messages: string[] = []
   let closed = false
 
@@ -176,8 +176,8 @@ test('a write from the viewer alone, with the server silent, is refused once the
   const received: Buffer[] = []
   const server = createServer((socket) => socket.on('data', (chunk) => received.push(chunk)))
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  const stream = new VncStream(pool, () => (server.address() as AddressInfo).port)
+  await new Promise<void>((resolve) => server.listen(path.join(pool, 'vnc.sock'), resolve))
+  const stream = new VncStream(pool, () => path.join(pool, 'vnc.sock'))
 
   await tick()
   stream.send(JSON.stringify({ t: 'open', sessionId: 'a', display: 0, viewer: 'ua' }))
