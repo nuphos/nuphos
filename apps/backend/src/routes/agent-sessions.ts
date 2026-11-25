@@ -168,8 +168,7 @@ teamScoped.post('/mcp', async (c) => {
 })
 
 // Nuphos's native tools (memory, dashboards, diagrams, triggers, …) as a second MCP
-// server; their results render as cards through the run-frame bridge. Agents wait for
-// initialize before their session starts, so the handshake skips building the tools.
+// server, rendered as cards via the run-frame bridge. Agents await initialize, so it skips the tools.
 teamScoped.post('/mcp-tools', (c) =>
   serveMcp(c, async (payload) => {
     const agent = c.get('agent')
