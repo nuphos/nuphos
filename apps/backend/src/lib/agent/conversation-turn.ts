@@ -225,9 +225,10 @@ async function reportIfRestarted(
     const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
 
     await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
+    // The runtime took the turn, so an answer in it was delivered: it stays answered (#5109).
     await reportUndelivered(
       data,
-      messages.filter((message) => !channelIdOf(message)),
+      messages.filter((message) => !channelIdOf(message) && !message.answers),
       LOST_TURN,
     )
   } catch (error) {
