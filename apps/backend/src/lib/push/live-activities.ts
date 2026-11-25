@@ -3,6 +3,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
+import { isActive, liveActivityCard } from './live-activity-card'
 import { idleWindow, scheduleIdleEnd } from './live-activity-idle'
 import { liveActivityStore } from './live-activity-store'
 import { conversationTitle } from './turn-outcome'
@@ -28,12 +29,12 @@ export type {
   LiveActivityToken,
 } from './live-activity-store'
 
-// Rows on the card; the rest are counted.
-export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 // iOS ends a card 8 hours after it starts; an older token shows nothing.
 export const LIVE_ACTIVITY_LIFETIME_MS = 8 * 60 * 60 * 1000
+
+export { LIVE_ACTIVITY_ROWS, liveActivityCard } from './live-activity-card'
 
 /** The status the app shows for this runtime state (iOS `AgentThreadBadge`). */
 export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase {
@@ -60,40 +61,23 @@ export type LiveActivityDeps = {
   schedule: (work: () => void, delayMs: number) => void
 }
 
-const isActive = (phase?: LiveActivityPhase) =>
-  !phase || phase === 'running' || phase === 'approval'
-
-/** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
- *  registered before its run reported a phase is running. */
-export function liveActivityCard(sessions: LiveActivitySession[]) {
-  return {
-    sessions: sessions.slice(0, LIVE_ACTIVITY_ROWS).map((s) => ({
-      id: s.sessionId,
-      teamId: s.teamId ?? '',
-      title: s.title ?? '',
-      phase: s.phase ?? 'running',
-    })),
-    more: Math.max(0, sessions.length - LIVE_ACTIVITY_ROWS),
-    active: sessions.filter((s) => isActive(s.phase)).length,
-  }
-}
-
 /** Sends each token its whole card as an update: the card stays up between
  *  turns so the next one reuses it, and ends once it has sat idle (see
  *  `live-activity-idle`). A token is dropped only once APNs says it is dead;
  *  anything else is retried unless the phase changed meanwhile (its own
- *  delivery covers those tokens). */
+ *  delivery covers those tokens). True when a token was dead. */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
   tokens: LiveActivityToken[],
   attempt = 0,
-): Promise<void> {
+): Promise<boolean> {
   const credentials = deps.credentials()
 
-  if (!credentials) return
+  if (!credentials) return false
   const now = Math.floor(deps.now() / 1000)
   const retry: LiveActivityToken[] = []
+  let dead = false
 
   await Promise.all(
     tokens.map(async (token) => {
@@ -117,6 +101,7 @@ async function deliver(
         })
 
         if (isDeadToken(response)) {
+          dead = true
           await deps.liveActivities.removeToken(token.token)
         } else if (response.status === 200) {
           if (idle !== null) scheduleIdleEnd(deps, token, listed, card, idle)
@@ -146,6 +131,8 @@ async function deliver(
       })
     }, delay)
   }
+
+  return dead
 }
 
 async function retryIfCurrent(
@@ -268,11 +255,16 @@ export async function recordLiveActivityState(
   const changed = await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
 
   if (!changed) return
-  if (!isActive(changed.phase)) return deliver(deps, changed, changed.tokens)
+  if (!isActive(changed.phase)) {
+    await deliver(deps, changed, changed.tokens)
+
+    return
+  }
   await join(deps, changed)
   const session = (await deps.liveActivities.get(sessionId)) ?? changed
 
-  await deliver(deps, session, session.tokens)
+  // A card swiped away while the app was closed answers dead: start a new one.
+  if (await deliver(deps, session, session.tokens)) await join(deps, session)
 }
 
 export const liveActivityDeps: LiveActivityDeps = {

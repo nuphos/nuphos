@@ -537,6 +537,19 @@ describe('Live Activities for watched conversations', () => {
     expect(tokensOf('session-1')).toContain('la-v')
   })
 
+  test('a card swiped away while the app was closed gets a new one for the next turn', async () => {
+    devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
+    await store.addToken('session-1', { ...token('la-v'), deviceId: 'phone-v' }, row('One'))
+    await record('session-1', IDLE)
+    responses = { 'la-v': { status: 410, reason: 'Unregistered' } }
+    await record('session-5', RUNNING)
+
+    expect(tokensOf('session-5')).not.toContain('la-v')
+    expect(sent.find((r) => r.deviceToken === 'start-v')?.payload).toMatchObject({
+      aps: { event: 'start', 'content-state': card([['session-5', 'Five', 'running']], 1) },
+    })
+  })
+
   test('a card older than its iOS lifetime gets a new one instead', async () => {
     devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
     await store.addToken(

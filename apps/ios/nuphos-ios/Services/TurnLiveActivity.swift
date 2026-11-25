@@ -10,6 +10,9 @@ enum TurnLiveActivity {
     private static var registered: Set<String> = []
     /// Cards whose token updates are being followed.
     private static var followed: Set<String> = []
+    /// Each followed card's latest token, kept so it can be reported once the
+    /// card is gone (its `pushToken` may be nil by then).
+    private static var tokens: [String: String] = [:]
 
     private static var card: Activity<TurnActivityAttributes>? {
         Activity<TurnActivityAttributes>.activities.first { $0.activityState == .active }
@@ -47,6 +50,7 @@ enum TurnLiveActivity {
         guard followed.insert(activity.id).inserted else { return }
         Task {
             for await data in activity.pushTokenUpdates {
+                tokens[activity.id] = hex(data)
                 guard activity.activityState == .active else { break }
                 for session in activity.content.state.sessions where session.phase.isActive {
                     register(session, token: hex(data))
@@ -57,7 +61,9 @@ enum TurnLiveActivity {
         // ended, the next turn should start a new one instead of updating it.
         Task {
             for await state in activity.activityStateUpdates where state == .dismissed || state == .ended {
-                if let data = activity.pushToken { unregister(token: hex(data)) }
+                if let token = tokens.removeValue(forKey: activity.id) ?? activity.pushToken.map(hex) {
+                    unregister(token: token)
+                }
                 break
             }
         }

@@ -1,6 +1,7 @@
 import { logError, logEvent } from '@/lib/observability'
 
 import { isDeadToken } from './apns'
+import { isActive } from './live-activity-card'
 
 import type { LiveActivityDeps } from './live-activities'
 import type { LiveActivitySession, LiveActivityToken } from './live-activity-store'
@@ -11,10 +12,9 @@ export const LIVE_ACTIVITY_IDLE_S = 30 * 60
 // A card left with only unreachable runtimes ends sooner.
 export const LIVE_ACTIVITY_OFFLINE_S = 10 * 60
 
-/** Seconds a card with nothing running or waiting stays up; null otherwise.
- *  A session registered before its run reported a phase is running. */
+/** Seconds a card with nothing running or waiting stays up; null otherwise. */
 export function idleWindow(listed: LiveActivitySession[]): number | null {
-  if (listed.some((s) => !s.phase || s.phase === 'running' || s.phase === 'approval')) return null
+  if (listed.some((s) => isActive(s.phase))) return null
 
   return listed.some((s) => s.phase === 'unavailable')
     ? LIVE_ACTIVITY_OFFLINE_S
@@ -26,8 +26,9 @@ const cardVersion = (listed: LiveActivitySession[]) =>
   JSON.stringify(listed.map((s) => [s.sessionId, s.phase ?? null, s.updatedAt.getTime()]))
 
 /** Ends the card once it has sat idle for its window, unless it changed since:
- *  that change scheduled its own end. After a restart nothing is scheduled, and
- *  the `stale-date` sent with the update marks the card out of date instead. */
+ *  that change scheduled its own end. The timer is in memory: after a restart,
+ *  or on another replica, nothing is scheduled, and the `stale-date` sent with
+ *  the update marks the card out of date until iOS ends it. */
 export function scheduleIdleEnd(
   deps: LiveActivityDeps,
   token: LiveActivityToken,
