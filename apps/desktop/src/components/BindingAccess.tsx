@@ -176,7 +176,12 @@ export function BindingAccessSection({
         <>
           {!canEdit && (
             <p className="mb-3 text-[12px] text-tertiary">
-              {t('Only its owner can change who may use it.')}
+              {bindingShareStatus(
+                normalizeAllowList(loadedAccess.memberAllowList),
+                loadedAccess.ownerUserId,
+              ) === 'private'
+                ? t('Only its owner can change who may use it.')
+                : t('Once it is shared, only team administrators can change who may use it.')}
             </p>
           )}
           <div

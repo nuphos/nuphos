@@ -34,7 +34,7 @@ const EVENT_LABELS: Record<WebhookEvent, { label: string; description: string }>
   },
   'task.reported': {
     label: t('Task reported'),
-    description: t('A Task reported a result or a blocker to its parent.'),
+    description: t('A conversation reported a result or a blocker, to its parent if it has one.'),
   },
 }
 
