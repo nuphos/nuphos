@@ -8,6 +8,7 @@ enum ConversationNestingTests {
         aThreadNestsUnderAParentFromALaterPage()
         aBotIsNeverAThread()
         tasksOrderFamiliesByTheirNewestActivity()
+        tasksGroupUnderTheirProjects()
         aBotOwnsWhatItDispatchedAtAnyDepth()
         chatsAndTasksFallBackToTheirOwnNames()
         print("Conversation nesting passed")
@@ -86,7 +87,34 @@ enum ConversationNestingTests {
         asking.inputRequests = [.init(id: "q", category: nil, question: "Ship?", options: nil, askedAt: nil)]
         let rows = [row("recent", active: 30), row("old", active: 10), row("busy", parent: "old", active: 40), asking]
         precondition(ConversationNesting.nest(rows).map(\.id) == ["recent", "old", "busy", "asking"])
-        precondition(ConversationNesting.nest(rows, byFamily: true).map(\.id) == ["asking", "old", "busy", "recent"])
+        let waiting = ConversationNesting.nest(rows, attention: \.isWaiting)
+        precondition(waiting.map(\.id) == ["asking", "old", "busy", "recent"])
+        // Families that need the viewer come first, and a line sets them apart.
+        precondition(waiting.filter(\.divider).map(\.id) == ["old"])
+        let unread = ConversationNesting.nest(rows, attention: { $0.isWaiting || $0.sessionId == "recent" })
+        precondition(unread.map(\.id) == ["asking", "recent", "old", "busy"])
+        precondition(unread.filter(\.divider).map(\.id) == ["old"])
+        // With nothing to ask, there is no line.
+        precondition(ConversationNesting.nest(rows, attention: { _ in false }).allSatisfy { !$0.divider })
+    }
+
+    /// Desktop's projects: a row per folder in list order, then No project; threads stay under their parent.
+    private static func tasksGroupUnderTheirProjects() {
+        func task(_ id: String, _ path: String?, parent: String? = nil, active: TimeInterval) -> AgentConversation {
+            var task = row(id, parent: parent, active: active)
+            task.workspace = path.map { .init(path: $0) }
+            return task
+        }
+        let rows = [task("site", "/work/site", active: 30), task("loose", nil, active: 20),
+                    task("fix", "/work/site", parent: "site", active: 10), task("api", "/work/api", active: 40)]
+        let grouped = ConversationNesting.withProjects(rows)
+        precondition(grouped.filter(\.isProject).map(\.title) == ["site", "api", "No project"])
+        let nested = ConversationNesting.nest(grouped, attention: { _ in false })
+        precondition(nested.map(\.id) == ["project:/work/api", "api", "project:/work/site", "site", "fix", "project:none", "loose"])
+        precondition(nested.map(\.depth) == [0, 1, 0, 1, 2, 0, 1])
+        // No folder anywhere: Tasks stays as it was.
+        precondition(ConversationNesting.withProjects([row("a"), row("b")]).map(\.id) == ["a", "b"])
+        precondition(ConversationNesting.projectName("C:\\work\\site") == "site")
     }
 
     /// The nearest Bot up a row's parents owns it; Bots and plain Tasks are owned by none.

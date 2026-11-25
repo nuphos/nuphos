@@ -17,6 +17,7 @@ struct AgentPage: View {
     @State private var showWorkspaceSetup = false
     @State private var renaming: AgentConversation?
     @State private var archivingBot: AgentConversation?
+    @State private var showArchived = false
     @State private var renamedTitle = ""
     @State private var refreshing = false
     @State private var pulling = false
@@ -60,6 +61,12 @@ struct AgentPage: View {
                 if phase == .idle, !pulling { refreshing = false }
             }
             .sheet(isPresented: $showRuntimeSetup) { RuntimeSetupGuide().environment(store) }
+            .sheet(isPresented: $showArchived) {
+                ArchivedList { row in
+                    showArchived = false
+                    openChat = OpenChat(session: store.session(for: row))
+                }
+            }
             .sheet(isPresented: $showWorkspaceSetup) { WorkspaceSetupSheet() }
             .sheet(isPresented: $showNewBot) {
                 NewBotSheet(hasRuntime: { store.newConversationRuntime != nil }) { title, avatar in
@@ -271,6 +278,16 @@ struct AgentPage: View {
                 Label(store.search.isEmpty ? "No tasks yet" : "No matches", image: "lucide-message-circle")
             } description: {
                 if !store.search.isEmpty { Text("No tasks match your search.") }
+            } actions: {
+                // With no live Tasks the list, and its Archived row, is gone.
+                if page != .chats, store.search.isEmpty, !store.archived.isEmpty || store.archivedFailed {
+                    Button { showArchived = true } label: {
+                        Label { Text("Archived") } icon: { LucideIcon("archive") }
+                            .font(Theme.Text.label.weight(.medium))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .buttonStyle(.plain)
+                }
             }
         case .loaded:
             EmptyView()
@@ -280,6 +297,22 @@ struct AgentPage: View {
     /// One row: a Task with the threads it opened under it, or on Bots a chat or a Bot.
     @ViewBuilder
     private func agentRow(_ item: NestedConversation) -> some View {
+        if item.conversation.isProject {
+            // A folder, not a conversation: the whole row folds what it holds.
+            Button { store.toggleFolded(item.id) } label: {
+                treeRow(item) {
+                    Label { Text(item.conversation.title) } icon: { LucideIcon(item.id == ConversationNesting.noProject ? "circle-dashed" : "folder") }
+                        .font(Theme.Text.label.weight(.medium))
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .listRowBackground(Color.clear)
+            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+            .listRowSeparator(.hidden)
+        } else {
                 let conversation = item.conversation
                 // A Bot's chat acts for the Bot, as on Desktop; a group chat has no actions here.
                 let acted = conversation.isChannel ? store.bot(of: conversation) : conversation
@@ -346,6 +379,7 @@ struct AgentPage: View {
                     }
                     .contextMenu { if let acted { rowActions(acted, tinted: false) } }
                 }
+        }
     }
 
     /// A row's content with its thread count, indented on the tree's lines.
@@ -493,11 +527,36 @@ struct AgentPage: View {
                 }
             } else {
                 Section {
-                    ForEach(store.nestedConversations) { item in agentRow(item) }
+                    ForEach(store.nestedConversations) { item in
+                        // Tasks that need the viewer sit above this line, as on Desktop.
+                        if item.divider {
+                            Theme.separator
+                                .frame(height: 1)
+                                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
+                                .listRowBackground(Color.clear)
+                                .listRowSeparator(.hidden)
+                        }
+                        agentRow(item)
+                    }
+                    if !store.archived.isEmpty || store.archivedFailed {
+                        Button { showArchived = true } label: {
+                            Label { Text("Archived") } icon: { LucideIcon("archive") }
+                                .font(Theme.Text.label.weight(.medium))
+                                .foregroundStyle(Theme.muted)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
+                        .listRowSeparator(.hidden)
+                    }
                 }
             }
         }
         .listStyle(.plain)
+        // Rows set their own height; the line between Tasks is one point.
+        .environment(\.defaultMinListRowHeight, 1)
         .onScrollGeometryChange(for: Bool.self) { geometry in
             geometry.contentOffset.y + geometry.contentInsets.top > PageTitleHeader.collapseThreshold
         } action: { _, collapsed in
