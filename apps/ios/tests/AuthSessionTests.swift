@@ -18,6 +18,7 @@ import Foundation
         await aSignInWithTwoFactorWaitsForTheCode()
         await aSavedAccountOpensHomeFromTheCache()
         await aSavedAccountStaysOpenOffline()
+        await anOfflineLaunchClearsWhenTheCheckPasses()
         await aRejectedSavedAccountSignsOut()
         await anotherAccountsCacheIsNotShown()
         print("Auth session launch check passed")
@@ -310,6 +311,20 @@ import Foundation
         await session.restore()
         precondition(session.state == .signedOut(error: "This account's session expired. Sign in again."))
         precondition(!session.unverified)
+    }
+
+    private static func anOfflineLaunchClearsWhenTheCheckPasses() async {
+        let (session, reply) = await relaunch(as: "alice")
+        await reply(.failure(URLError(.notConnectedToInternet)))
+        precondition(session.unverified, "an offline launch must leave the token to check again")
+        // Back in the app and online, the token is still valid: stay signed in and stop re-checking.
+        NuphosAPI.me = { _ in NuphosUser(id: "u-alice", email: "", name: "Alice", username: "", avatarURL: "") }
+        await session.restore()
+        precondition(session.user?.name == "Alice", "a passing check keeps the account and takes the verified user")
+        precondition(session.token == "alice")
+        precondition(!session.unverified, "a passing check clears unverified")
+        precondition(LaunchCache.user != nil, "a passing check keeps the cache")
+        print("valid-token recheck passed")
     }
 
     private static func aRejectedSavedAccountSignsOut() async {
