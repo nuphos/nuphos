@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 
 import { ObjectId } from 'mongodb'
 
+import { isBot } from '@/lib/agent/db/read-state'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
 import { logError } from '@/lib/observability'
@@ -97,21 +98,29 @@ export const newEventId = () => `evt_${randomBytes(12).toString('hex')}`
 /**
  * The endpoint a session reports to: the one nuphos_ask's webhook_id named for
  * it or, for a Task, for its nearest ancestor. Read at queue time, so a Task
- * moved under another parent follows it.
+ * moved under another parent follows it. A Bot is never part of its parent's
+ * subtree. It reports only to a webhook it was started with, and so do its Tasks.
  */
 async function sessionWebhook(sessionId: string) {
   const seen = new Set([sessionId])
+  const projection = { webhookId: 1, parentSessionId: 1, kind: 1, avatar: 1 }
   let link = await agentConversations().findOne(
     { sessionId },
-    { projection: { teamId: 1, webhookId: 1, parentSessionId: 1 } },
+    { projection: { ...projection, teamId: 1 } },
   )
   const teamId = link?.teamId
 
-  while (link && !link.webhookId && link.parentSessionId && !seen.has(link.parentSessionId)) {
+  while (
+    link &&
+    !link.webhookId &&
+    !isBot(link) &&
+    link.parentSessionId &&
+    !seen.has(link.parentSessionId)
+  ) {
     seen.add(link.parentSessionId)
     link = await agentConversations().findOne(
       { sessionId: link.parentSessionId, teamId },
-      { projection: { webhookId: 1, parentSessionId: 1 } },
+      { projection },
     )
   }
 
