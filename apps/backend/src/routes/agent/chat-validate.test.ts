@@ -137,14 +137,16 @@ describe('acceptClientTail', () => {
   // store has not written yet. The turn plan reads the store, so this is fine.
   test('accepts a send whose window is ahead of the store', async () => {
     state.stored = [stored('m1')]
-    const view = await acceptClientTail(
+    const view = acceptClientTail(
       { id: 'sess', messages: tail, baseIndex: 2 },
       'sess',
       'owner',
       conversation,
     )
 
-    expect(view.map((message) => message.id)).toEqual(['m3'])
+    await expect(view.then((messages) => messages.map((message) => message.id))).resolves.toEqual([
+      'm3',
+    ])
   })
 
   test('answers 409 when a send stands on a conversation that does not exist', async () => {
