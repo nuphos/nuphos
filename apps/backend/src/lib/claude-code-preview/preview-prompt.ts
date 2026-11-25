@@ -4,7 +4,7 @@
 // scripts) are adapted to the native runtime equivalents it actually has.
 
 import { getConversationBySessionId } from '@/lib/agent/db'
-import { OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
+import { EXTERNAL_CHANNEL_NOTE, OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
@@ -117,14 +117,22 @@ async function taskNameSection(sessionId: string): Promise<string | null> {
 async function channelsSection(sessionId: string): Promise<string | null> {
   const channels = await agentConversations()
     .find({ kind: 'channel', agentSessionIds: sessionId, archivedAt: { $exists: false } })
-    .project<{ sessionId: string }>({ _id: 0, sessionId: 1 })
+    .project<{ sessionId: string; external?: string }>({ _id: 0, sessionId: 1, external: 1 })
     .toArray()
 
   if (channels.length === 0) return null
   // Ids only: a title is free text the channel's creator, maybe not the owner, chose.
-  const ids = channels.map((channel) => channel.sessionId).join(', ')
+  const ids = (list: typeof channels) => list.map((channel) => channel.sessionId).join(', ')
+  const slack = channels.filter((channel) => channel.external)
+  const nuphos = channels.filter((channel) => !channel.external)
 
-  return `## Channels you are in\nYou are a member of the channels ${ids}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post. ${OWNER_DECISION_NOTE}`
+  return [
+    `## Channels you are in\nYou are a member of the channels ${ids(channels)}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post.`,
+    nuphos.length ? OWNER_DECISION_NOTE : '',
+    slack.length ? `Slack channels: ${ids(slack)}. ${EXTERNAL_CHANNEL_NOTE}` : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** Build credential context and permission recovery guidance together. */

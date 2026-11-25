@@ -55,6 +55,26 @@ test('an agent in a channel is told to post what its people should know there', 
   expect(text).not.toContain('old-room')
 })
 
+test('an agent only in a Slack channel is told who may read it, never to point to a card there', async () => {
+  memory.rows('agent_conversations').push(
+    { sessionId: 'bot', userId: 'owner', teamId: TEAM },
+    {
+      sessionId: 'slack-room',
+      userId: 'owner',
+      teamId: TEAM,
+      kind: 'channel',
+      external: 'slack',
+      agentSessionIds: ['bot'],
+    },
+  )
+
+  const text = await prompt('bot')
+
+  expect(text).toContain('Slack channels: slack-room.')
+  expect(text).toContain('customers')
+  expect(text).not.toContain('pointing to that card')
+})
+
 test('an agent in no channel gets no channel section', async () => {
   memory.rows('agent_conversations').push({ sessionId: 'solo', userId: 'owner', teamId: TEAM })
 
