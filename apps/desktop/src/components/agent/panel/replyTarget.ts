@@ -23,6 +23,8 @@ export type ReplyQuestion = {
   providers?: string[]
   /** The member's own credential an `integration` request asks for. */
   credentials?: AgentInputRequest['credentials']
+  /** The desktop a `computer` request hands over. */
+  desktop?: AgentInputRequest['desktop']
 }
 
 /** A question card as the transcript shows it. */
@@ -50,6 +52,7 @@ export function requestQuestion({
   site,
   providers,
   credentials,
+  desktop,
 }: Pick<
   AgentInputRequest,
   | 'id'
@@ -64,6 +67,7 @@ export function requestQuestion({
   | 'site'
   | 'providers'
   | 'credentials'
+  | 'desktop'
 >): ReplyQuestion {
   return {
     id,
@@ -77,6 +81,7 @@ export function requestQuestion({
     ...(secretName && fields?.length && site && { fields, site }),
     ...(category === 'integration' && providers?.length && { providers }),
     ...(category === 'integration' && credentials?.length && { credentials }),
+    ...(category === 'computer' && desktop && { desktop }),
   }
 }
 

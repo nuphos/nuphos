@@ -28,7 +28,7 @@ test("a computer card names the conversation's own display on its Box", async ()
     return { display: 12 }
   })
 
-  expect(desktop).toEqual({ deviceId: 'dev-1', display: 12, title: 'Box 1 · :12' })
+  expect(desktop).toEqual({ deviceId: 'dev-1', display: 12, title: 'Box 1' })
   expect(opened).toEqual([['t1', 'owner', 'conv-1']])
 })
 

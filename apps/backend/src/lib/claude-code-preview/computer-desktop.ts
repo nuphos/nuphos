@@ -31,6 +31,6 @@ export async function computerDesktop(
   return {
     deviceId: ref.deviceId,
     display: opened.display,
-    title: `${label} · :${String(opened.display)}`,
+    title: label,
   }
 }

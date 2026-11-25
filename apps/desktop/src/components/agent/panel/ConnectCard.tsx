@@ -1,10 +1,13 @@
 import { useContext, useRef, useState } from 'react'
 
 import { api } from '../../../api'
+import { COMPUTER_OPTIONS } from '../../../api/agent-input-request'
 import { useTeamRole } from '../../../hooks/useTeamRole'
 import { TeamHomeBindFlow } from '../../../views/cloud/team-home-bind-flow'
 
 import { ChoiceCard } from './ChoiceCard'
+import { ComputerCard } from './ComputerCard'
+import { parseComputerRequest } from './computerCardModel'
 import { ConnectCardContext } from './connectCardContext'
 import {
   CONNECT_SELECTION_KEY,
@@ -192,7 +195,7 @@ export function ConnectCard({
   )
 }
 
-/** A user decision: a Connect card when it lists `providers`, a secure input card when it names a `secretName`, else its question card; the plain tool row until the input parses. */
+/** A user decision: a Connect card when it lists `providers`, a secure input card when it names a `secretName`, a Computer card when it hands over a desktop, else its question card; the plain tool row until the input parses. */
 export function DecisionToolPart({
   part,
   now,
@@ -211,7 +214,8 @@ export function DecisionToolPart({
   const failed = isDecisionFailed(part)
   const connect = failed ? null : parseConnectRequest(part.input)
   const secret = failed || connect ? null : parseSecretRequest(part.input)
-  const choice = failed || connect || secret ? null : parseChoiceRequest(part.input)
+  const computer = failed ? null : parseComputerRequest(part.input, part.output)
+  const choice = failed || connect || secret || computer ? null : parseChoiceRequest(part.input)
   const requestId = decisionRequestId(part.output)
   const state = (card: Omit<DecisionCardRef, 'toolCallId' | 'requestId'>) =>
     cardAnswerState({ toolCallId: part.toolCallId, requestId, ...card }, openQuestions, {
@@ -242,6 +246,11 @@ export function DecisionToolPart({
         state={state({ question: secret.reason, secretName: secret.name })}
       />
     )
+  }
+  if (computer) {
+    const open = state({ question: computer.question, options: [...COMPUTER_OPTIONS] }) === 'open'
+
+    return <ComputerCard {...computer} toolCallId={part.toolCallId} canAct={open} />
   }
   if (choice) {
     const answer = state({ question: choice.question, options: choice.options })
