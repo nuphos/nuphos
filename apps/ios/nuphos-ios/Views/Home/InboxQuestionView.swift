@@ -247,9 +247,9 @@ struct AnswerField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField(prompt, text: $words, axis: .vertical)
+            // One line, so the return key sends: a vertical field takes it as a new line.
+            TextField(prompt, text: $words)
                 .font(.system(size: 16))
-                .lineLimit(1...5)
                 .focused(focused)
                 .onSubmit(send)
                 .padding(.horizontal, 16)

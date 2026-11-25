@@ -180,7 +180,8 @@ struct AgentSummaryPanel: View {
                     do { try await Task.sleep(for: .seconds(20)) } catch { return }
                 }
             }
-            .sheet(item: $selectedQuestion) { question in
+            // Open while the question is: an answer closes it, and a refused one brings it back with why.
+            .sheet(item: Binding(get: { pending.first { $0.id == selectedQuestion?.id } }, set: { selectedQuestion = $0 })) { question in
                 NavigationStack {
                     ScrollView {
                         if let questions {
