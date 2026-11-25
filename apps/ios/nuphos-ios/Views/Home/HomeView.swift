@@ -1,4 +1,23 @@
 import SwiftUI
+import UIKit
+
+private enum HomeVerticalBarKey: UITraitBridgedEnvironmentKey {
+    static let defaultValue = false
+
+    static func read(from traitCollection: UITraitCollection) -> Bool {
+        if #available(iOS 27.1, *) {
+            return traitCollection.verticalBarEdge != .unspecified
+        }
+        return false
+    }
+
+    static func write(to mutableTraits: inout UIMutableTraits, value: Bool) {}
+}
+
+private extension EnvironmentValues {
+    var homeHasVerticalBar: Bool { self[HomeVerticalBarKey.self] }
+}
+
 
 /// The signed-in shell shares its stores across three native home tabs.
 /// The split view keeps conversation navigation and its keyboard behavior intact.
@@ -31,7 +50,24 @@ struct HomeView: View {
     @State private var showBotTask = false
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
-    private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
+    @State private var portraitWindow = false
+    @State private var visibleColumns: NavigationSplitViewVisibility = .all
+    private var sidebarLayout: HomeSidebarLayout {
+        HomeSidebarLayout(isPhone: UIDevice.current.userInterfaceIdiom == .phone,
+                          isRegularWidth: sizeClass == .regular,
+                          isPortrait: portraitWindow,
+                          hasVerticalBar: hasVerticalBar)
+    }
+    private var usesCompactWorkspaceSwitcher: Bool { sidebarLayout == .duoLandscape && !desktopOpen }
+    private var usesConversationDrawer: Bool {
+        sidebarLayout.usesDrawer(hasConversation: openChat != nil, desktopOpen: desktopOpen)
+    }
+    private var canToggleSidebar: Bool {
+        usesConversationDrawer || (usesCompactWorkspaceSwitcher && openChat != nil)
+    }
+    private var columns: Binding<NavigationSplitViewVisibility> {
+        NavigationSplitViewVisibility.homeSidebar($visibleColumns, allowsToggle: canToggleSidebar)
+    }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
         return { open in desktopOpen = open }
@@ -39,6 +75,7 @@ struct HomeView: View {
     /// The window's, not a column's: a split view's columns report compact.
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.homeHasVerticalBar) private var hasVerticalBar
     @Environment(\.scenePhase) private var scenePhase
     /// Read the open chat and agent conversation. Here, not on their views:
     /// collapsed, SwiftUI ends a view's appearance while it stays on screen (#1440).
@@ -73,17 +110,22 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .navigationTitle("")
-            // Wide, the list always stays: there is nothing to put it away with.
-            .toolbar(removing: .sidebarToggle)
+            .toolbar(removing: canToggleSidebar ? nil : .sidebarToggle)
             .toolbar {
                 if !coverHeader, let store, !store.teams.isEmpty {
-                    ToolbarItem(placement: .topBarLeading) { teamButton(store) }
+                    workspaceToolbarItem(store)
                 }
-                // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
-                // and Account and Computers went with it.
-                if !coverHeader, sizeClass != .regular || openChat != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                if !coverHeader, sizeClass != .regular || openChat != nil || usesCompactWorkspaceSwitcher {
+                    if usesCompactWorkspaceSwitcher || usesConversationDrawer {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                                .glass(interactive: true, in: Capsule())
+                        }
+                        .sharedBackgroundHidden()
+                    } else {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            HStack(spacing: 0) { homeActions }.buttonStyle(.plain)
+                        }
                     }
                 }
             }
@@ -180,7 +222,7 @@ struct HomeView: View {
                 }
             }
             .toolbar {
-                if sizeClass == .regular, openChat == nil {
+                if sizeClass == .regular, openChat == nil, !usesCompactWorkspaceSwitcher {
                     ToolbarItemGroup(placement: .topBarTrailing) { homeActions }
                 }
             }
@@ -195,7 +237,14 @@ struct HomeView: View {
         }
         // Wide, the list stays beside the detail. The automatic style overlays
         // it on a portrait-shaped window, where picking a chat put it away.
-        .navigationSplitViewStyle(.balanced)
+        .navigationSplitViewStyle(.automatic)
+        .onGeometryChange(for: Bool.self) { proxy in
+            proxy.size.height > proxy.size.width
+        } action: { isPortrait in
+            portraitWindow = isPortrait
+        }
+        .onChange(of: sidebarLayout, initial: true) { _, _ in resetSidebarVisibility() }
+        .onChange(of: desktopOpen) { _, _ in resetSidebarVisibility() }
         // On the split view itself, so the detail column and pushed
         // destinations see the store too — not only pageContent.
         .environment(store)
@@ -255,6 +304,7 @@ struct HomeView: View {
             Task { openChat = chat }
         }
         .onChange(of: openChat?.id) { _, _ in
+            if usesConversationDrawer || openChat == nil { resetSidebarVisibility() }
             showBotTask = false
             botTask = nil
         }
@@ -281,6 +331,7 @@ struct HomeView: View {
         // The workspace loads with the shell, not with one tab: a page opened first needs it too (#4040).
         .task(id: store != nil) { await store?.loadTeams() }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
+            resetSidebarVisibility()
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
         // Off the lists, a notification or link opens over the list it is on: Tasks lists no Bot,
@@ -304,13 +355,27 @@ struct HomeView: View {
         }
     }
 
+    private func resetSidebarVisibility() {
+        visibleColumns = sidebarLayout.initialVisibility(hasConversation: openChat != nil, desktopOpen: desktopOpen)
+    }
+
     /// Create another task without replacing the current conversation first.
     @ToolbarContentBuilder
     private var newAgentItem: some ToolbarContent {
         if sizeClass == .regular {
-            ToolbarItem(placement: .topBarLeading) {
+            ToolbarItem(placement: usesConversationDrawer ? .topBarTrailing : .topBarLeading) {
                 DesignButton("New task", image: "lucide-square-pen") { showNewTask = true }
             }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private func workspaceToolbarItem(_ store: AgentStore) -> some ToolbarContent {
+        if #available(iOS 27, *) {
+            ToolbarItem(placement: .topBarLeading) { teamButton(store) }
+                .visibilityPriority(.high)
+        } else {
+            ToolbarItem(placement: .topBarLeading) { teamButton(store) }
         }
     }
 
@@ -318,12 +383,18 @@ struct HomeView: View {
         Button { showTeamPicker = true } label: {
             HStack(spacing: 6) {
                 if let team = store.selectedTeam { TeamAvatar(team: team) }
-                Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
-                    .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                    .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
-                LucideIcon("chevron-down", size: 14)
+                if usesCompactWorkspaceSwitcher || usesConversationDrawer {
+                    if store.selectedTeam == nil {
+                        LucideIcon("users", size: 20)
+                    }
+                } else {
+                    Text(store.selectedTeam?.name ?? String(localized: "Choose team"))
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                        .frame(maxWidth: sizeClass == .regular ? (openChat == nil ? nil : 90) : Self.compactTeamNameWidth, alignment: .leading)
+                    LucideIcon("chevron-down", size: 14)
+                }
             }
         }
         .sheet(isPresented: $showTeamPicker) {
@@ -333,6 +404,7 @@ struct HomeView: View {
                 .presentationBackground(.ultraThinMaterial)
         }
         .accessibilityLabel("Switch team")
+        .accessibilityValue(store.selectedTeam?.name ?? "")
     }
 
     /// iOS 27 puts the tab bar beside the content on iPhone Duo's folded cover screen (each
@@ -431,7 +503,8 @@ struct HomeView: View {
 
     private func homeList(_ tab: HomePage) -> some View {
         AgentPage(page: .constant(tab),
-                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false))
+                  titleCollapsed: $titleCollapsed, openChat: $openChat, showNewBot: tab == .chats ? $showNewBot : .constant(false),
+                  insetSelection: usesCompactWorkspaceSwitcher)
 
     }
 
