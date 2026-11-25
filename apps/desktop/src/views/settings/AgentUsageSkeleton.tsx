@@ -22,22 +22,22 @@ export function HeatmapSkeleton({ rows }: { rows: number }) {
   )
 }
 
-/** The whole overview's shape before the agents themselves have loaded. */
+/** The usage card's shape before the agents themselves have loaded. */
 export function AgentUsageSkeleton() {
   return (
     <div aria-busy="true" aria-label={t('Loading runtimes')}>
       <div className={`mb-2 h-3 w-36 ${SKELETON}`} />
       <div className={`mb-4 h-3 w-64 ${SKELETON}`} />
-      <HeatmapSkeleton rows={5} />
-      <div aria-hidden="true" className="rounded-xl border border-line-control/60 bg-surface/40">
+      <div
+        aria-hidden="true"
+        className="rounded-xl border border-line-control/60 bg-surface/40 p-4"
+      >
+        <div className={`h-3.5 w-48 ${SKELETON}`} />
+        <div className={`mt-3 h-44 ${SKELETON}`} />
         {Array.from({ length: 4 }, (_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 border-b border-line-control/60 px-4 py-3 last:border-b-0"
-          >
-            <div className={`h-8 w-8 shrink-0 rounded-lg ${SKELETON}`} />
+          <div key={i} className="mt-4 flex items-center gap-3">
             <div className={`h-3 w-40 ${SKELETON}`} />
-            <div className={`ml-auto h-1.5 w-48 ${SKELETON}`} />
+            <div className={`ml-auto h-1.5 w-40 ${SKELETON}`} />
           </div>
         ))}
       </div>

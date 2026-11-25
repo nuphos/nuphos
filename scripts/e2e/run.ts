@@ -71,6 +71,7 @@ import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
+import { subscriptionUsageScenarios } from './subscription-usage-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { sessionRevokedScenario } from './session-revoked-scenario.ts'
@@ -195,6 +196,7 @@ const scenarios: Scenario[] = [
 // A scenario that needs something created earlier in the run stays in its creator's part.
 const later: Scenario[] = [
   ...computerScenarios,
+  ...subscriptionUsageScenarios,
   ...computerUpdateScenarios,
   ...computerSettingsScenarios,
   ...mcpFileScenarios,
