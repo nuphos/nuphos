@@ -67,6 +67,9 @@ export function createSlackOutboundPost(setup: {
         token: sendToken,
         channel: channelId,
         text,
+        ...(args.botName
+          ? { from: { name: args.botName, slackWorkspaceId: sendWorkspaceId } }
+          : {}),
       })
       const messageTs = response.ts
       const responseChannel =

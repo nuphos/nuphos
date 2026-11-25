@@ -147,6 +147,19 @@ describe('agent outbound Slack context', () => {
     expect(postCount).toBe(1)
   })
 
+  test("a Bot's post carries its name, as its post in an external chat does", async () => {
+    const context = await createSlackOutboundContext(
+      { userId: 'user-1', teamId, botName: 'Deploy Bot' },
+      dependencies,
+    )
+
+    await context?.post({ destination: { type: 'channel', channelId: 'C1' }, text: 'Done.' })
+
+    expect(postedMessages[0]).toMatchObject({
+      from: { name: 'Deploy Bot', slackWorkspaceId: 'T1' },
+    })
+  })
+
   test('a non-destination rejection is capped too, so no validation path loops', async () => {
     // Every pre-delivery rejection must reach the same cap. An unbound-DM
     // refusal hits the datastore on each call, so an uncapped path is a real

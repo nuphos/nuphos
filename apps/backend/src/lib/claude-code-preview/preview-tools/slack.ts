@@ -3,6 +3,7 @@
 // Slack bridge: the MCP handler runs on any replica with only the
 // PreviewToolContext in hand.
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { isBot } from '@/lib/agent/db/read-state'
 import { ingestInboundFiles } from '@/lib/agent/inbound-files'
 import { createSlackMessagingTools } from '@/lib/agent/tools-skilled/messaging-tools'
 import { createNotificationTools } from '@/lib/agent/tools-skilled/notification-tools'
@@ -64,10 +65,12 @@ async function slackReplyTools(ctx: PreviewToolContext): Promise<Record<string, 
 }
 
 async function outboundTools(ctx: PreviewToolContext): Promise<Record<string, unknown>> {
+  const self = await getConversationBySessionId(ctx.sessionId)
   const [slackOutbound, larkOutbound] = await Promise.all([
     createSlackOutboundContext({
       userId: ctx.userId,
       teamId: ctx.teamId,
+      ...(self && isBot(self) ? { botName: self.title || 'Nuphos' } : {}),
       placeFiles: (files) => placeFiles(ctx, files),
     }),
     createLarkOutboundContext({ teamId: ctx.teamId }),

@@ -11,6 +11,8 @@ import type { ObjectId } from 'mongodb'
 export type SlackOutboundArgs = {
   userId: string
   teamId?: string | null
+  /** The Bot the words are from, named on each post the way its external-chat posts are. */
+  botName?: string
   /** Puts files fetched from Slack on the conversation's runtime; slack_read's files needs it. */
   placeFiles?: (files: InboundFile[]) => Promise<string[]>
 }
@@ -137,6 +139,7 @@ export type SlackOutboundDependencies = {
     channel: string
     text: string
     threadTs?: string
+    from?: { name: string; slackWorkspaceId: string }
   }) => Promise<{ channel?: string | { id?: string }; ts?: string }>
   readHistory: typeof fetchSlackChannelHistory
   readReplies: typeof fetchSlackThreadReplies

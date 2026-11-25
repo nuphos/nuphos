@@ -2,10 +2,8 @@ import { agentMessages } from '@/lib/agent/db'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
 import { getSlackChannelMappingByExternalChat } from '@/lib/slack/agent-bot'
-import { postSlackMessage } from '@/lib/slack/api'
+import { postAgentSlackMessage } from '@/lib/slack/agent-message'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
-import { escapeSlackMrkdwn } from '@/lib/slack/mrkdwn'
-import { toSlackMrkdwn } from '@/lib/slack/mrkdwn/convert'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -30,25 +28,12 @@ export async function postToSlack(
 
   if (!mapping || !installed)
     throw new AppError(409, 'slack_channel_unavailable', 'This chat is no longer in Slack.')
-  const name = bot.title || 'Nuphos'
-  const body = toSlackMrkdwn(text)
-  const threadTs = await threadRoot(record, mapping.slackChannelId, replyTo?.id)
-  const post = (customize: boolean) =>
-    postSlackMessage({
-      token: installed.botToken,
-      channel: mapping.slackChannelId,
-      // Without the name Slack shows the app's, so the post opens with the Bot's.
-      text: customize ? body : `*${escapeSlackMrkdwn(name)}*\n${body}`,
-      threadTs,
-      ...(customize ? { username: name } : {}),
-    })
-  // Slack does not say a custom name is ignored without chat:write.customize,
-  // so a token that refuses it posts once more without one.
-  const customize = installed.binding.scope.split(',').includes('chat:write.customize')
-  const { ts } = await post(customize).catch(async (error: unknown) => {
-    if (!customize || !(error instanceof AppError) || error.message !== 'missing_scope') throw error
-
-    return await post(false)
+  const { ts } = await postAgentSlackMessage({
+    token: installed.botToken,
+    channel: mapping.slackChannelId,
+    text,
+    threadTs: await threadRoot(record, mapping.slackChannelId, replyTo?.id),
+    from: { name: bot.title || 'Nuphos', slackWorkspaceId: mapping.slackWorkspaceId },
   })
 
   if (!ts) throw new AppError(502, 'slack_api_error', 'Slack returned no message id')
