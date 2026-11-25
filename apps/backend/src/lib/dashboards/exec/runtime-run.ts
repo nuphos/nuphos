@@ -133,7 +133,7 @@ export const RUNTIME_BUSY_MESSAGE =
 export const RUNTIME_LOST_MESSAGE =
   'The connection to the agent was lost while the panel was running. Refresh to try again.'
 const RUNTIME_OUTDATED_JOB_MESSAGE =
-  'The selected agent cannot run dashboard panels. Update it to the latest image in Settings → Agent, then refresh.'
+  'The selected runtime cannot run dashboard panels. Update it to the latest image in Settings → Computers, then refresh.'
 const RUNTIME_KEY_REJECTED_MESSAGE =
   'The agent rejected its operator credential. Rotate it in the agent settings, then refresh.'
 const PUBLIC_URL_MISSING_MESSAGE =

@@ -12,25 +12,25 @@ export function slackAgentErrorNotice(err: unknown): string {
       err.code,
     )
   ) {
-    return `${err.message} Retry after Runtime status shows Online in Nuphos Settings → Agent.`
+    return `${err.message} Retry after the runtime shows Online in Nuphos Settings → Computers.`
   }
 
   if (err.code === 'claude_code_setup_required') {
     return (
-      '*You have no agent to run this message on, so it was not run.* ' +
-      'Sign in to an agent on a computer you can use in Nuphos, or pick one in Settings → Agent, then retry.'
+      '*You have no runtime to run this message on, so it was not run.* ' +
+      'Sign in to a runtime on a computer you can use in Nuphos, or pick one in Settings → Computers, then retry.'
     )
   }
   if (err.code === 'claude_code_runtime_starting') {
     return (
       '*Claude Code is not online yet, so this message was not run.* ' +
-      'Ask a workspace administrator to check Nuphos Settings → Agent, wait for Runtime status to show Online, then retry.'
+      'Ask a team administrator to check Nuphos Settings → Computers, wait for the runtime to show Online, then retry.'
     )
   }
   if (err.code === 'claude_code_runtime_unavailable') {
     return (
       '*The Claude Code runtime attached to this conversation is unavailable, so this message was not run.* ' +
-      'Ask a workspace administrator to restore it from Nuphos Settings → Agent, then retry after Runtime status shows Online.'
+      'Ask a team administrator to restore it from Nuphos Settings → Computers, then retry after the runtime shows Online.'
     )
   }
 

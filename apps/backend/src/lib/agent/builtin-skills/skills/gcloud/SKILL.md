@@ -74,7 +74,7 @@ bash skills/gcloud/scripts/install.sh
 If `setup-credentials.sh` returns HTTP 403, your member account does not have
 Access to the selected service account binding, or the service account was not
 selected for this agent session. Ask a team admin to add your member account to
-the binding's Access allow list in Settings -> Integrations, or choose another
+the binding's Access allow list in Settings -> Connectors, or choose another
 service account already enabled for this session. Retry the setup command after
 the allow list changes.
 
@@ -162,7 +162,7 @@ Do the parts you can and leave only the click:
    for the team's workload identity principal with the user's own authenticated
    `gcloud` — through `local_exec` when it is available, otherwise by handing the
    user the exact commands.
-3. Tell the user to bind it in the Nuphos app under Settings -> Integrations,
+3. Tell the user to bind it in the Nuphos app under Settings -> Connectors,
    giving them the service account email and project id to enter, then retry.
 
 ## Common operations

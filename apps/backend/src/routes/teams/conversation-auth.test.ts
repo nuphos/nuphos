@@ -387,7 +387,7 @@ describe('conversation denial message', () => {
 
     expect(message).toContain('POST on /gcp-projects')
     expect(message).toContain('gcp-projects binding is deliberately reserved for a person')
-    expect(message).toContain('Settings -> Integrations')
+    expect(message).toContain('Settings -> Connectors')
   })
 
   test('sends a denied connector read to the connector skill, not to a rebind', () => {
@@ -395,7 +395,7 @@ describe('conversation denial message', () => {
 
     expect(message).toContain('GET on /aws-accounts')
     expect(message).toContain('do not send the user off to rebind')
-    expect(message).not.toContain('Settings -> Integrations')
+    expect(message).not.toContain('Settings -> Connectors')
   })
 
   test('says the denial is not about the user role, for every denied shape', () => {

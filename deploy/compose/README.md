@@ -123,7 +123,7 @@ The desktop app's sign-in is stored in `~/.config/nuphos/desktop.yaml` (on macOS
 
 Cloud and database CLIs are not baked into the image: the runtime installs each one the first time the agent needs it, into the `runtime-home` volume, so later uses and restarts skip the download.
 
-The console lists every team connection with who made it, and revoking one there disconnects only that team. Removing the runtime from Settings → Agent revokes its connection on the runtime too.
+The console lists every team connection with who made it, and revoking one there disconnects only that team. Removing the runtime from Settings → Computers revokes its connection on the runtime too.
 
 ## Verify
 

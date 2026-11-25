@@ -97,11 +97,11 @@ const defaultDeps: PanelRuntimeDeps = {
 export const NO_RUNTIME_MESSAGE =
   "Runtimes on your own computer can't run dashboard panels. A team runtime or a computer from Nuphos can. Ask a team admin to rent one, then refresh."
 export const UNREACHABLE_RUNTIME_MESSAGE =
-  "None of this team's agents could be reached. Check that an agent is online in Settings → Agent, then refresh."
+  "None of this team's runtimes could be reached. Check that a runtime is online in Settings → Computers, then refresh."
 export const PARTLY_UNREACHABLE_RUNTIME_MESSAGE =
-  "Some of this team's agents could not be reached, and the reachable ones run an image that cannot run dashboard panels. Bring an agent online or update one to the latest image in Settings → Agent, then refresh."
+  "Some of this team's runtimes could not be reached, and the reachable ones run an image that cannot run dashboard panels. Bring a runtime online or update one to the latest image in Settings → Computers, then refresh."
 export const OUTDATED_RUNTIME_MESSAGE =
-  "This team's agents run an image that cannot run dashboard panels. Update an agent to the latest image in Settings → Agent, then refresh."
+  "This team's runtimes run an image that cannot run dashboard panels. Update a runtime to the latest image in Settings → Computers, then refresh."
 
 export async function selectPanelRuntime(
   context: PanelRuntimeContext,

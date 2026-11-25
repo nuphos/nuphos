@@ -217,7 +217,7 @@ export function orderRefused(error: unknown, ownAccount: boolean): AppError {
     return new AppError(
       409,
       'instabox_key_rejected',
-      'Your instabox account no longer accepts its API key. A team administrator can replace the key under Settings → Integrations.',
+      'Your instabox account no longer accepts its API key. A team administrator can replace the key under Settings → Connectors.',
     )
 
   return new AppError(
