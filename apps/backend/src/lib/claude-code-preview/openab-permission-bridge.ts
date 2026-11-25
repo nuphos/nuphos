@@ -78,8 +78,15 @@ function allowOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | 
   return options.find((option) => option.kind === 'allow_once')
 }
 
-function rejectOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | undefined {
-  return options.find((option) => option.kind === 'reject_once')
+/** A reject lets the turn go on with the refusal; a cancel ends it. */
+function deniedOutcome(
+  options: OpenAbPermissionOption[],
+  answer: 'cancel' | 'reject',
+): OpenAbPermissionOutcome {
+  const rejected =
+    answer === 'reject' ? options.find((option) => option.kind === 'reject_once') : undefined
+
+  return rejected ? { outcome: { outcome: 'selected', optionId: rejected.optionId } } : cancelled()
 }
 
 export async function handleOpenAbPermissionRequest(
@@ -172,11 +179,8 @@ export async function handleOpenAbPermissionRequest(
       tool_call_id: toolCallId,
       reason: errorText,
     })
-    const rejected = answer === 'reject' ? rejectOnce(request.options) : undefined
 
-    return rejected
-      ? { outcome: { outcome: 'selected', optionId: rejected.optionId } }
-      : cancelled()
+    return deniedOutcome(request.options, answer)
   }
 
   // Nobody is there to answer, so asking would only time out. A reject, not a cancel,
@@ -248,11 +252,10 @@ export async function handleOpenAbPermissionRequest(
   })
 
   if (resolved.timedOut || args.signal?.aborted) {
-    return settleDenied(
-      resolved.timedOut && resolved.reason === 'timeout'
-        ? PERMISSION_TIMED_OUT_TEXT
-        : PERMISSION_CANCELLED_TEXT,
-    )
+    // An unanswered headless turn goes on and says it was not run.
+    return resolved.timedOut && resolved.reason === 'timeout'
+      ? settleDenied(PERMISSION_TIMED_OUT_TEXT, unattended.unanswered)
+      : settleDenied(PERMISSION_CANCELLED_TEXT)
   }
   args.onDecision?.(resolved.decision)
   const { payload } = resolved.decision

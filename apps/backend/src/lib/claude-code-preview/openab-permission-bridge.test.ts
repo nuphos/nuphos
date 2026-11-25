@@ -617,4 +617,28 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
     expect(waits).toEqual(['tool-dangerous'])
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
   })
+
+  test('an unanswered request in a headless turn is rejected, so the turn can still reply', async () => {
+    const tools: Record<string, unknown>[] = []
+    const outcome = await handleOpenAbPermissionRequest(
+      {
+        userId: 'owner-1',
+        conversationId: 'conversation-1',
+        request,
+        emit: () => undefined,
+        handleTool: (update) => tools.push(update),
+        run: { deadlineAt: 1, trace: { route: 'agent.thread' } },
+      },
+      {
+        getSessionBypass: async () => false,
+        registerWait: async (wait) => ({ ...wait, waitId: 'wait-1', createdAt: 1 }),
+        awaitDecision: async () => ({ timedOut: true as const, reason: 'timeout' }),
+      },
+    )
+
+    expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
+    expect(tools.find((update) => update.status === 'failed')?.contentText).toBe(
+      PERMISSION_TIMED_OUT_TEXT,
+    )
+  })
 })
