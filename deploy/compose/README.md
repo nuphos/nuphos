@@ -222,7 +222,8 @@ log line; it never blocks a request.
 
 The Desktop and iOS apps send usage analytics only while they are connected to
 Nuphos Cloud. Connected to your instance they send none, and Desktop crash
-reports go to your own backend.
+reports go to your own backend. [`docs/privacy.md`](../../docs/privacy.md)
+lists everything the apps and the backend send.
 
 ## Reset
 

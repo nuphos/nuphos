@@ -120,6 +120,17 @@ What to know before you plan around it:
 Not available self-hosted: managed runtime provisioning, managed backups, and
 the operational tooling that comes with running this as a service.
 
+## Telemetry
+
+Connected to Nuphos Cloud, Desktop and iOS send usage data, and Desktop sends
+crash reports. Each app has a setting to turn this off. Connected to a
+self-hosted backend, the apps send no usage data to Nuphos, and Desktop crash
+reports go to your own backend. A self-hosted backend sends Nuphos nothing
+unless you turn on its optional
+[health telemetry](deploy/compose/README.md#health-telemetry-optional-off-by-default).
+[`docs/privacy.md`](docs/privacy.md) lists what each app and the backend send,
+and how to turn it off.
+
 ## Connected accounts
 
 The GUI panes are not screenshots — the agent operates the accounts behind
