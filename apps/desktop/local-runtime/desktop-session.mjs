@@ -24,6 +24,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   openSync,
@@ -190,12 +191,33 @@ export function teardown(pool, display) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+/**
+ * Xvnc on `display`, unless it already runs with its own RFB socket. One an older
+ * runtime started without that socket is replaced. True when it started one.
+ */
+export async function startXvnc(pool, display, env) {
+  const x = `/tmp/.X11-unix/X${String(display)}`
+  const vnc = vncSocket(pool, display)
+  const up = () => existsSync(x) && existsSync(vnc)
+
+  if (up()) return false
+  kill(`^Xvnc :${String(display)} `)
+  for (let i = 0; i < 25 && existsSync(x); i++) await sleep(200)
+  for (const stale of [x, vnc, `/tmp/.X${String(display)}-lock`]) rmSync(stale, { force: true })
+  writeXauthority(xauthority(pool, display))
+  spawn('Xvnc', xvncArgs(pool, display), { env, detached: true, stdio: 'ignore' }).unref()
+  for (let i = 0; i < 50 && !up(); i++) await sleep(200)
+  if (!up()) throw new Error(`Xvnc :${String(display)} did not start`)
+
+  return true
+}
+
 /** Xvnc, a session bus and XFCE on `display`, detached, under `home`; idempotent. */
 export async function startDisplay(pool, display, home) {
-  const socket = `/tmp/.X11-unix/X${String(display)}`
   const xdg = xdgDir(pool, display)
 
   mkdirSync(xdg, { recursive: true, mode: 0o700 })
+  chmodSync(xdg, 0o700)
   mkdirSync(home, { recursive: true, mode: 0o700 })
   const env = {
     PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
@@ -217,13 +239,9 @@ export async function startDisplay(pool, display, home) {
   const detached = (command, args) =>
     spawn(command, args, { env, detached: true, stdio: 'ignore' }).unref()
 
-  if (!existsSync(socket)) {
-    rmSync(`/tmp/.X${String(display)}-lock`, { force: true })
-    writeXauthority(env.XAUTHORITY)
-    detached('Xvnc', xvncArgs(pool, display))
-    for (let i = 0; i < 50 && !existsSync(socket); i++) await sleep(200)
-    if (!existsSync(socket)) throw new Error(`Xvnc :${String(display)} did not start`)
-  }
+  // A desktop the old Xvnc ran ends with it; wait so a fresh one starts below.
+  if (await startXvnc(pool, display, env))
+    for (let i = 0; i < 25 && running('xfce4-session', display); i++) await sleep(200)
   if (!existsSync(`${xdg}/bus`)) {
     spawnSync(
       'dbus-daemon',

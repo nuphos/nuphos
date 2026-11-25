@@ -3,14 +3,13 @@
 // the owner opens it by hand, and the card names that display. Only on a
 // computer no one else uses, so the desktop a person signs in on stays theirs.
 import { getConversationBySessionId } from '@/lib/agent/db'
-import { deviceOwner } from '@/lib/agent/devices/box-access'
+import { onlyUsedBy } from '@/lib/agent/devices/box-access'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import { openRuntimeDesktop } from './runtime-desktop'
 
 import type { ComputerDesktop } from '@/lib/agent/db/pending-decision'
-import type { AgentDevice } from '@/lib/agent/devices/store'
 
 export const NO_DESKTOP =
   'This conversation has no desktop to hand over: it runs on a computer without a desktop pool, or that computer is offline. ' +
@@ -19,17 +18,6 @@ export const NO_DESKTOP =
 export const SHARED_DESKTOP =
   'This conversation runs on a computer other people can use, so its desktop is not private to the person: do not hand it to them. ' +
   'Ask them to do that step on their own computer instead, with another category such as `preference`, and continue once they say it is done.'
-
-/** Whether no one but `userId` owns, uses or manages the computer, in any team. */
-function onlyUsedBy(device: AgentDevice, userId: string): boolean {
-  return (
-    deviceOwner(device) === userId &&
-    (device.access ?? []).every(
-      (grant) =>
-        !grant.everyone && [...grant.userIds, ...grant.managerIds].every((id) => id === userId),
-    )
-  )
-}
 
 /** The display a `computer` card shows, or why there is none. */
 export async function computerDesktop(

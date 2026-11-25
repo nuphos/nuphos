@@ -24,6 +24,7 @@ import {
   lockFile,
   readLock,
   reap,
+  startXvnc,
   vncSocket,
   writeXauthority,
   xauthority,
@@ -302,6 +303,43 @@ test(
       assert.equal((await firstRead(x, xHello(cookie)))[0], 1)
     } finally {
       xvnc.kill()
+    }
+  },
+)
+
+// A display an older runtime started listens on a TCP port with no cookie. The next
+// start replaces it, so it ends up on its own socket like a fresh one.
+test(
+  'a display started without its own RFB socket is replaced by one with it',
+  { skip: spawnSync('Xvnc', ['-version']).error ? 'needs Xvnc' : false },
+  async () => {
+    const pool = mkdtempSync(path.join(os.tmpdir(), 'pool-'))
+    const display = 80 + Math.floor(Math.random() * 9)
+    const old = spawn(
+      'Xvnc',
+      [
+        `:${String(display)}`,
+        '-rfbport',
+        String(5900 + display),
+        '-localhost',
+        '-SecurityTypes',
+        'None',
+      ],
+      { stdio: 'ignore' },
+    )
+
+    try {
+      for (let i = 0; i < 50 && !existsSync(`/tmp/.X11-unix/X${String(display)}`); i++)
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      assert.match(String(await firstRead([5900 + display, '127.0.0.1'])), /^RFB/u)
+      mkdirSync(xdgDir(pool, display), { mode: 0o700 })
+      assert.equal(await startXvnc(pool, display, process.env), true)
+      assert.match(String(await firstRead([vncSocket(pool, display)])), /^RFB 003\.008/u)
+      assert.equal(await firstRead([5900 + display, '127.0.0.1']), 'ECONNREFUSED')
+      assert.equal(await startXvnc(pool, display, process.env), false)
+    } finally {
+      old.kill()
+      spawnSync('pkill', ['-TERM', '-f', `^Xvnc :${String(display)} `])
     }
   },
 )
