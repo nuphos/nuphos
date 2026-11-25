@@ -88,6 +88,15 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         var questions: [DecisionQuestion]? = nil
         /// ISO time its owner snoozed it until: out of their Inbox till then, still answerable where it was asked.
         var snoozedUntil: String? = nil
+        /// The desktop a `computer` question hands over: answered with I'm done or Skip, beside it live.
+        var desktop: ComputerDesktop? = nil
+    }
+
+    /// The Box display a `computer` question hands over, and the title its card shows.
+    struct ComputerDesktop: Codable, Equatable, Hashable, Sendable {
+        let deviceId: String
+        let display: Int
+        let title: String
     }
 
     /// One input of a card that asks for a web form's details: its file name and what the person reads.

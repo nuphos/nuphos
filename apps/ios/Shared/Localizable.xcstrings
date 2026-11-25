@@ -7474,6 +7474,52 @@
         }
       }
     },
+    "Computer · %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computadora · %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Komputer · %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コンピューター · %@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "컴퓨터 · %@"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คอมพิวเตอร์ · %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "电脑 · %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦 · %@"
+          }
+        }
+      }
+    },
     "Computers" : {
       "localizations" : {
         "es" : {
@@ -13893,6 +13939,98 @@
         }
       }
     },
+    "Handed back after %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Devuelto después de %@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dikembalikan setelah %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 操作して返却しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 동안 조작한 후 돌려주었습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งคืนหลังจาก %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作 %@ 后已交还"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作 %@ 後已交還"
+          }
+        }
+      }
+    },
+    "Handed back by %@ after %@" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ lo devolvió después de %2$@"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dikembalikan oleh %1$@ setelah %2$@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ が %2$@ 操作して返却しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 님이 %2$@ 동안 조작한 후 돌려주었습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ ส่งคืนหลังจาก %2$@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 操作 %2$@ 后已交还"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 操作 %2$@ 後已交還"
+          }
+        }
+      }
+    },
     "Hide" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -14676,6 +14814,53 @@
         }
       }
     },
+    "I’m done" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ya terminé"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saya sudah selesai"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "완료했습니다"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เสร็จแล้ว"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我完成了"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我完成了"
+          }
+        }
+      }
+    },
     "Join" : {
       "localizations" : {
         "es" : {
@@ -15089,6 +15274,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已達上限"
+          }
+        }
+      }
+    },
+    "Live" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "En vivo"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Live"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "실시간"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "สด"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "实时"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即時"
           }
         }
       }
@@ -28712,7 +28943,6 @@
       }
     },
     "Take over" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -36303,6 +36533,52 @@
         }
       }
     },
+    "You sign in on %@, %@’s computer, and it stays signed in there. The site may email you about a sign-in from a new device." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Inicias sesión en %1$@, la computadora de %2$@, y la sesión queda iniciada allí. El sitio puede enviarte un correo sobre un inicio de sesión desde un dispositivo nuevo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda masuk di %1$@, komputer milik %2$@, dan tetap masuk di sana. Situs mungkin mengirim email tentang proses masuk dari perangkat baru."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@ のコンピューター %1$@ でサインインし、サインイン状態はそこに残ります。新しいデバイスからのサインインについてサイトからメールが届く場合があります。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$@의 컴퓨터인 %1$@에서 로그인하며, 로그인 상태는 그곳에 유지됩니다. 사이트에서 새 기기 로그인 안내 메일을 보낼 수 있습니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณลงชื่อเข้าใช้บน %1$@ ซึ่งเป็นคอมพิวเตอร์ของ %2$@ และจะยังคงลงชื่อเข้าใช้อยู่ที่นั่น เว็บไซต์อาจส่งอีเมลแจ้งการลงชื่อเข้าใช้จากอุปกรณ์ใหม่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在 %2$@ 的电脑 %1$@ 上登录，登录状态会保留在那里。该网站可能会发邮件通知你有新设备登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你在 %2$@ 的電腦 %1$@ 上登入，登入狀態會留在那裡。該網站可能會寄信通知你有新裝置登入。"
+          }
+        }
+      }
+    },
     "You're all caught up" : {
       "localizations" : {
         "es" : {
@@ -36793,6 +37069,52 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的登入已過期。請重新登入。"
+          }
+        }
+      }
+    },
+    "You’re in control" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tienes el control"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Anda yang mengendalikan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作中です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직접 조작 중"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "คุณกำลังควบคุมอยู่"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由你操作中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由你操作中"
           }
         }
       }
