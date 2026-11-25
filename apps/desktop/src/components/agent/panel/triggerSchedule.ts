@@ -59,6 +59,9 @@ export function cardSchedule(expression: string, timeZone: string, now: Date = n
 /**
  * A trigger's schedule in a few words. A rule kept in a zone other than UTC already counts its
  * hours there, so its clock is shown as written with that zone's offset: "Mon at 09:00 UTC+8".
+ * The offset is the one in effect at `now`, as the Triggers calendar labels its zone: in a zone
+ * that observes daylight saving, a run on the far side of a change keeps its 09:00 but its
+ * offset shifts by an hour, which the next-run time beside it already accounts for.
  */
 export function triggerSchedule(
   trigger: { triggerType?: 'cron' | 'webhook'; cronExpression?: string; timeZone?: string },

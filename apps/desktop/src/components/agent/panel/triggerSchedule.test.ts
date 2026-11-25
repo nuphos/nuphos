@@ -48,3 +48,16 @@ test('a UTC rule reads as the card always did', () => {
     'Weekdays at 9:00 AM your time (16:00 UTC)',
   )
 })
+
+const zoned = (timeZone: string, now = NOW) =>
+  triggerSchedule({ triggerType: 'cron', cronExpression: '0 9 * * 1', timeZone }, 'UTC', now)
+
+test('the offset reads for zones behind UTC and for half-hour zones', () => {
+  assert.equal(zoned('America/Los_Angeles'), 'Mon at 09:00 UTC-7')
+  assert.equal(zoned('Asia/Kolkata'), 'Mon at 09:00 UTC+5:30')
+})
+
+test('a zone with daylight saving shows the offset in effect now', () => {
+  assert.equal(zoned('America/New_York'), 'Mon at 09:00 UTC-4')
+  assert.equal(zoned('America/New_York', new Date('2026-01-14T12:00:00Z')), 'Mon at 09:00 UTC-5')
+})
