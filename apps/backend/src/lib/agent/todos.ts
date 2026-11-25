@@ -80,7 +80,7 @@ export async function turnPending(teamId: string, taskId: string): Promise<strin
 }
 
 const DESCRIPTION =
-  "This Task's to-do list, kept across turns and restarts. Everything that needs your attention belongs in it, including the work you are doing now: add it when you take it on, mark it done when it is finished, and remove what is no longer needed by marking it done. " +
+  "This Task's to-do list, kept across turns and restarts. Everything that needs your attention belongs in it, including the work you are doing now: add it when you take it on. A request from the user stays open until they say it is done or no longer needs following up; only then mark it done. " +
   "Use list to see what is open (the oldest 100). Each turn's prompt carries a Pending: line while anything is open."
 
 export function createTodoTools(
