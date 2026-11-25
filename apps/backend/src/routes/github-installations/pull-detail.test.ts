@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, spyOn, test } from 'bun:test'
+import { afterEach, describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 
 import { useByosGithub } from '@/lib/test/doubles/byos-github'
@@ -73,7 +73,7 @@ app.use('*', async (c, next) => {
 registerGithubPullDetailRoute(app)
 
 afterEach(() => {
-  mock.restore()
+  ;(globalThis.fetch as unknown as { mockRestore?: () => void }).mockRestore?.()
 })
 
 describe('GET /repositories/:owner/:repo/pulls/:pullNumber', () => {
