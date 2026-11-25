@@ -6,6 +6,8 @@ import {
   handleOpenAbPermissionRequest,
 } from './openab-permission-bridge'
 
+import type { KnownTool } from './unattended-permission'
+
 type BridgeDeps = NonNullable<Parameters<typeof handleOpenAbPermissionRequest>[1]>
 
 const request = {
@@ -512,7 +514,10 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
     registerWait: () => Promise.reject(new Error('an automatic turn asks nobody')),
     awaitDecision: () => Promise.reject(new Error('an automatic turn waits for nobody')),
   }
-  const ask = (toolCall: { toolCallId: string; title: string; rawInput?: unknown }) => {
+  const ask = (
+    toolCall: { toolCallId: string; title: string; rawInput?: unknown },
+    knownTool?: KnownTool,
+  ) => {
     const frames: Record<string, unknown>[] = []
     const tools: Record<string, unknown>[] = []
     const outcome = handleOpenAbPermissionRequest(
@@ -520,6 +525,7 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
         userId: 'owner-1',
         conversationId: 'conversation-1',
         request: { ...request, toolCall },
+        knownTool,
         emit: (frame) => frames.push(frame),
         handleTool: (update) => tools.push(update),
         run: { deadlineAt: 1, channelIds: ['woke-1'], trace: { route: 'agent.resource' } },
@@ -567,6 +573,28 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
 
     expect(String(failed?.contentText)).toContain('Full Access')
     expect(String(failed?.contentText)).not.toContain(PERMISSION_TIMED_OUT_TEXT)
+  })
+
+  // codex-acp asks about an MCP call by its id alone (#5133); the call's own update named it.
+  const unnamed = { toolCallId: 'codex-1', title: 'OpenAB tool request' }
+
+  test('runs an unnamed request for a reply to the channel that woke it', async () => {
+    const { outcome } = ask(unnamed, {
+      mcpToolName: 'channel_post',
+      input: { channelId: 'woke-1', text: 'hi' },
+    })
+
+    expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
+  })
+
+  test.each([
+    undefined,
+    { mcpToolName: 'channel_post', input: { channelId: 'other-2', text: 'hi' } },
+    { mcpToolName: 'memory_get', input: { query: 'q' } },
+  ])('fails an unnamed request that is not a reply there (%o)', async (knownTool) => {
+    const { outcome } = ask(unnamed, knownTool)
+
+    expect(await outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 
   test("a sub-Task's request still asks, for a person to answer from the sidebar", async () => {
