@@ -221,6 +221,27 @@ describe('decision tool module', () => {
     expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('channelId')
   })
 
+  test('a question a Slack channel woke is never recorded in that channel', async () => {
+    const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
+
+    storedConversation = {
+      metadata: {
+        version: 1,
+        sender: { type: 'system', id: 'slack-channel:slack-1', displayName: '#shared' },
+        source: 'agent.resource',
+        sentAt: '2026-11-12T00:00:00Z',
+      },
+    }
+    foundConversations = []
+    await tools.request_user_decision!({
+      label: 'Ask',
+      category: 'approval',
+      question: 'Change the patrol?',
+      body: 'Internal.',
+    })
+    expect(JSON.stringify(conversationUpdates.at(-1))).not.toContain('slack-1')
+  })
+
   test("a question no channel woke is asked in the Bot's one chat with its owner", async () => {
     const tools = decisionToolModule({ publish: () => Promise.resolve() }).handlers(ctx)
     const ask = () =>
@@ -250,6 +271,7 @@ describe('decision tool module', () => {
       userId: 'u1',
       kind: 'channel',
       agentSessionIds: ['conv-1'],
+      external: { $exists: false },
       archivedAt: { $exists: false },
     })
     expect(conversationUpdates.at(-1)?.[1]).toMatchObject({

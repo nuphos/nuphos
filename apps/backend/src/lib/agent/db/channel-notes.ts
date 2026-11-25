@@ -25,6 +25,10 @@ export function noticeChannelId(senderId: string | undefined): string | undefine
   return prefix && senderId ? senderId.slice(prefix.length) || undefined : undefined
 }
 
+/** Who may read a Slack channel (#3702): its wake says so instead of OWNER_DECISION_NOTE. */
+export const EXTERNAL_CHANNEL_NOTE =
+  'Its members may be customers or other people outside your team: post only what they are meant to see, and keep internal work (questions for your owner, Trigger or setting changes, reports to your owner) out of it.'
+
 /** How an agent in a channel asks its owner; shared by the channel wake and the system prompt. */
 export const OWNER_DECISION_NOTE =
   "When you need this conversation's owner (the person you work for) to choose, approve, or give you information, open a request_user_decision card for it and post at most one short sentence pointing to that card, never the question itself: a question in a post scrolls away and never reaches their Inbox."

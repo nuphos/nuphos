@@ -160,7 +160,9 @@ test("a question asked in a channel gets the answerer's replies there, one per q
   })
   // One wake, the asking agent's: the posts themselves wake no one.
   expect(turns).toHaveLength(1)
-  expect(turns[0]!.text).toContain('reply there with channel_post')
+  // The notice names no place to post: a channel can be external, its members customers.
+  expect(turns[0]!.text).not.toContain('channel_post')
+  expect(turns[0]!.text).toContain('Continue the task with this answer.')
 })
 
 test('an answer given on its card in the chat is a reply that names no Inbox', async () => {
