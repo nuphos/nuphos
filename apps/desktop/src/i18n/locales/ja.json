@@ -4234,6 +4234,7 @@
   "Secureframe integration": "Secureframe 連携",
   "Security & compliance": "セキュリティとコンプライアンス",
   "Security & compliance automation.": "セキュリティとコンプライアンスの自動化。",
+  "See earlier messages with {name}": "{name} との以前の会話を見る",
   "See the YAML tab for full spec.": "spec の全体は YAML タブで確認してください。",
   "See the output, or run the command on the machine yourself.": "出力を確認するか、マシン上で自分でコマンドを実行してください。",
   "Sees the team’s pages, but can’t change its connections, dashboards or settings, or use its cloud credentials.": "チームのページを閲覧できますが、接続、ダッシュボード、設定の変更や、クラウドの認証情報の使用はできません。",

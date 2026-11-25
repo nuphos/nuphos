@@ -3,7 +3,6 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
-import { botIsOnboarding } from '../../lib/agentInputRequests'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
@@ -15,7 +14,6 @@ import { FileDropZone } from '../agent/panel/FileDropZone'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
-import { useAgentSessions } from '../sidebar/agentSessions'
 import { HeaderEdge } from '../ui/header-edge'
 import { toast } from '../ui/toast'
 
@@ -28,7 +26,7 @@ import { ReplyingBanner } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotComposerControls } from './useBotComposerControls'
-import { useBotTaskAccess } from './useBotTaskAccess'
+import { useBotTaskEntry } from './useBotTaskEntry'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
 
@@ -86,10 +84,7 @@ export function ChannelPane({
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const lent = { manage: fixes?.onOpenAgentSettings, agents }
   const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
-  const sessions = useAgentSessions(teamId).data
-  const settingUp = sessions?.some((row) => row.sessionId === bot && botIsOnboarding(row))
-  const taskAccess = useBotTaskAccess(teamId, bot, botOwned)
-  const canOpenTask = taskAccess && !settingUp
+  const { canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
 
   useEffect(() => {
     if (!bot) return
@@ -220,6 +215,9 @@ export function ChannelPane({
                   preparingFirstReply={preparingFirstReply}
                   firstReplyFailed={firstReplyFailed}
                   banner={questions.banner}
+                  onOpenEarlier={
+                    earlier && bot ? () => (onOpenTask ?? onOpenSession)(bot) : undefined
+                  }
                 />
               )}
               {detail && (

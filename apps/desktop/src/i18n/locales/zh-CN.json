@@ -4234,6 +4234,7 @@
   "Secureframe integration": "Secureframe 集成",
   "Security & compliance": "安全与合规",
   "Security & compliance automation.": "安全与合规自动化。",
+  "See earlier messages with {name}": "查看之前与 {name} 的对话",
   "See the YAML tab for full spec.": "完整规格请查看 YAML 标签页。",
   "See the output, or run the command on the machine yourself.": "请查看输出内容，或自行在该机器上运行命令。",
   "Sees the team’s pages, but can’t change its connections, dashboards or settings, or use its cloud credentials.": "可以查看团队的页面，但不能更改其连接、仪表盘或设置，也不能使用其云凭据。",

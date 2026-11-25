@@ -4234,6 +4234,7 @@
   "Secureframe integration": "การผสานรวม Secureframe",
   "Security & compliance": "ความปลอดภัยและการปฏิบัติตามข้อกำหนด",
   "Security & compliance automation.": "ระบบอัตโนมัติด้านความปลอดภัยและการปฏิบัติตามข้อกำหนด",
+  "See earlier messages with {name}": "ดูข้อความก่อนหน้ากับ {name}",
   "See the YAML tab for full spec.": "ดูสเปกฉบับเต็มได้ที่แท็บ YAML",
   "See the output, or run the command on the machine yourself.": "ดูผลลัพธ์ หรือรันคำสั่งบนเครื่องนั้นด้วยตนเอง",
   "Sees the team’s pages, but can’t change its connections, dashboards or settings, or use its cloud credentials.": "ดูหน้าของทีมได้ แต่เปลี่ยนการเชื่อมต่อ แดชบอร์ด หรือการตั้งค่า หรือใช้ข้อมูลรับรองคลาวด์ของทีมไม่ได้",
