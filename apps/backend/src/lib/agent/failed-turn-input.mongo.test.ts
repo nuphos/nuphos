@@ -5,10 +5,14 @@
 // Against a real MongoDB.
 // Runs when TEST_MONGODB_URI is set, with MONGODB_URI pointing at the same server.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { closeDb, connectDb } from '@/lib/db'
+import { registerAdminAgentRoutes } from '@/routes/admin/agent'
 import { turnInputMessages } from '@/routes/agent/turn-start-frame'
+import { buildMessagesForLarkTurn } from '@/routes/lark/transcript'
+import { buildMessagesForRenderedTurn } from '@/routes/slack/messages'
 
 import { setupAgentIndexes } from './db/events'
 import { agentConversations, agentMessages } from './db/shared'
@@ -21,6 +25,8 @@ import {
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+
+import type { AdminVars } from '@/routes/admin/auth'
 
 const SESSION = new ObjectId().toHexString()
 const OWNER = new ObjectId().toHexString()
@@ -107,6 +113,70 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       }
 
       expect(inputs).toEqual(wakes.map((message) => [message.id]))
+    })
+
+    // Slack and Lark rebuild the history of their turns themselves.
+    const failedTurn = () => {
+      const input = new ObjectId().toHexString()
+
+      return {
+        input,
+        stored: [
+          { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
+          {
+            id: new ObjectId().toHexString(),
+            role: 'assistant',
+            parts: [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }],
+          },
+        ],
+      }
+    }
+
+    test('a Slack turn after a failed one answers only its own message', async () => {
+      const { stored } = failedTurn()
+
+      await store(stored)
+      const messages = await buildMessagesForRenderedTurn({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        messageId: 'slack-next',
+        renderedText: 'next',
+      })
+
+      expect(turnInputMessages(messages).map((m) => m.id)).toEqual(['slack-next'])
+    })
+
+    test('a Lark turn after a failed one answers only its own message', async () => {
+      const { stored } = failedTurn()
+
+      await store(stored)
+      const messages = await buildMessagesForLarkTurn({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        renderedText: 'next',
+        metadata: systemSender('nuphos', 'Nuphos'),
+        carried: [],
+      })
+
+      expect(turnInputMessages(messages).map((m) => m.id)).toEqual([messages.at(-1)!.id])
+    })
+
+    test('an admin rewake re-runs the input of a failed last turn', async () => {
+      const { input, stored } = failedTurn()
+
+      await store(stored)
+      const admin = new Hono<{ Variables: AdminVars }>()
+
+      registerAdminAgentRoutes(admin)
+      const response = await admin.request(`/agent/conversations/${SESSION}/rewake`, {
+        method: 'POST',
+      })
+
+      expect(response.status).toBe(200)
+      await Bun.sleep(50)
+      expect(inputs).toEqual([[input]])
     })
 
     test('a conversation stored before this fix answers only its next message', async () => {

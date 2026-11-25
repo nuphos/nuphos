@@ -5,6 +5,7 @@ import {
   getAdminFeedback,
   listAgentEvents,
 } from '@/lib/agent/db'
+import { turnRunner } from '@/lib/agent/turn-runner'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
@@ -14,8 +15,7 @@ import {
   parseLimit,
   serializeConversation,
 } from '@/routes/admin/helpers'
-import { claimAgentRunForSession, runAgentForTrigger } from '@/routes/agent'
-import { persistedMessageToUiMessage } from '@/routes/slack'
+import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import type { AdminVars } from '@/routes/admin/auth'
 import type { UIMessage } from 'ai'
@@ -117,18 +117,14 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
     const { conversation, messages } = result
 
     const uiMessages = messages
-      .map((message) =>
-        persistedMessageToUiMessage({
-          messageId: message.messageId,
-          role: message.role,
-          parts: message.parts,
-          metadata: message.metadata,
-        }),
-      )
+      .map(persistedMessageToUiMessage)
       .filter((message): message is UIMessage => message !== null)
-    const last = uiMessages[uiMessages.length - 1]
 
-    if (!last || last.role !== 'user') {
+    // A last reply that kept nothing, a failed turn's, left its input unanswered.
+    if (uiMessages.at(-1)?.parts.length === 0) uiMessages.pop()
+    const last = uiMessages.at(-1)
+
+    if (last?.role !== 'user') {
       throw new AppError(
         409,
         'nothing_to_rewake',
@@ -138,7 +134,7 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
 
     // Same per-session claim as interactive/Slack turns: never race a run the
     // user's own client (or another admin) already has in flight.
-    const release = await claimAgentRunForSession(conversation.userId, sessionId)
+    const release = await turnRunner.claimAgentRunForSession(conversation.userId, sessionId)
 
     if (!release) {
       throw new AppError(409, 'run_in_flight', 'An agent run is already active for this session.')
@@ -157,7 +153,7 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
 
     void (async () => {
       try {
-        await runAgentForTrigger({
+        await turnRunner.runAgentForTrigger({
           userId: conversation.userId,
           // Short-lived token scoped to the session owner: the rewoken turn runs
           // with exactly the permissions the user's own retry would have had.
