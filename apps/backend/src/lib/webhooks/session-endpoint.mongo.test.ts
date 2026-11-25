@@ -102,6 +102,23 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('a session started for one webhoo
     expect(await queued(await session(undefined, task))).toEqual([a])
   })
 
+  // #4972: a Bot nested under another conversation is never part of its subtree.
+  test('a Bot under that session, and its Tasks, report only to a webhook the Bot was started with', async () => {
+    const own = await session(a)
+    const bot = await session(undefined, own)
+    const botWithHook = await session(a, own)
+
+    await agentConversations().updateMany(
+      { sessionId: { $in: [bot, botWithHook] } },
+      { $set: { avatar: '07-ada' } },
+    )
+
+    expect(await queued(bot, 30)).toEqual([])
+    expect(await queued(await session(undefined, bot), 30)).toEqual([])
+    expect(await queued(botWithHook)).toEqual([a])
+    expect(await queued(await session(undefined, own))).toEqual([a])
+  })
+
   // #4928: no team-wide fan-out; a session nobody started for an endpoint reports nowhere.
   test('a session started without a webhook sends no events', async () => {
     expect(await queued(await session(), 30)).toEqual([])
