@@ -707,6 +707,11 @@ final class AgentStore {
         if let cached = LaunchCache.read(LaunchCache.Agents.self), cached.accountKey == LaunchCache.accountKey(token) {
             selectedTeam = cached.team
             conversations = cached.conversations
+            if let channels = cached.channels, let bots = cached.bots {
+                self.channels = channels
+                self.bots = bots
+                channelsLoaded = true
+            }
             selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
             phase = .loaded
         }
@@ -825,7 +830,9 @@ final class AgentStore {
             conversations = rows
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: rows, accountKey: LaunchCache.accountKey(token)))
+                LaunchCache.write(LaunchCache.Agents(
+                    team: team, conversations: rows, accountKey: LaunchCache.accountKey(token),
+                    channels: channelsLoaded ? channels : nil, bots: channelsLoaded ? bots : nil))
             }
         } catch {
             guard generation == loadGeneration else { return }

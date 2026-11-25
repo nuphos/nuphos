@@ -16,6 +16,10 @@ import Foundation
         await aLateFailureAfterSignOutShowsNoError()
         await aLateAnswerAfterSignOutStaysSignedOut()
         await aSignInWithTwoFactorWaitsForTheCode()
+        await aSavedAccountOpensHomeFromTheCache()
+        await aSavedAccountStaysOpenOffline()
+        await aRejectedSavedAccountSignsOut()
+        await anotherAccountsCacheIsNotShown()
         print("Auth session launch check passed")
     }
 
@@ -265,5 +269,71 @@ import Foundation
         precondition(session.state == .signedOut(error: nil))
         precondition(session.user == nil)
         precondition(SharedShareSession.publishedToken == nil, "late restore must not resurrect shared sign-in")
+    }
+
+    /// Signs `name` in and starts a fresh launch for it: the saved account, its cached
+    /// user, and an `/auth/me` that waits for the returned closure.
+    private static func relaunch(as name: String) async -> (AuthSession, (Result<NuphosUser, Error>) async -> Void) {
+        Keychain.items = [:]
+        LaunchCache.user = nil
+        NuphosAPI.me = { token in NuphosUser(id: "u-\(token)", email: "", name: "", username: "", avatarURL: "") }
+        await signIn(AuthSession(), as: name)
+        var answer: CheckedContinuation<NuphosUser, Error>?
+        NuphosAPI.me = { _ in try await withCheckedThrowingContinuation { answer = $0 } }
+        let session = AuthSession()
+        let restoring = Task { await session.restore() }
+        while answer == nil { await Task.yield() }
+        return (session, { result in
+            answer?.resume(with: result)
+            await restoring.value
+        })
+    }
+
+    private static func aSavedAccountOpensHomeFromTheCache() async {
+        let (session, reply) = await relaunch(as: "alice")
+        precondition(session.user?.id == "u-alice", "a saved account must open Home before /auth/me answers")
+        precondition(session.token == "alice")
+        await reply(.success(NuphosUser(id: "u-alice", email: "", name: "Alice", username: "", avatarURL: "")))
+        precondition(session.user?.name == "Alice", "the verified user replaces the cached one")
+        precondition(SharedShareSession.publishedToken == "alice")
+    }
+
+    private static func aSavedAccountStaysOpenOffline() async {
+        let (session, reply) = await relaunch(as: "alice")
+        await reply(.failure(URLError(.notConnectedToInternet)))
+        precondition(session.user?.id == "u-alice", "going offline must not sign a cached account out")
+        precondition(session.token == "alice")
+        precondition(LaunchCache.user != nil, "going offline must keep the cache")
+        // Back in the app, the unchecked token is checked again and a rejection signs out.
+        precondition(session.unverified, "an offline launch must leave the token to check again")
+        NuphosAPI.me = { _ in throw NuphosAPI.Failure.unauthorized }
+        await session.restore()
+        precondition(session.state == .signedOut(error: "This account's session expired. Sign in again."))
+        precondition(!session.unverified)
+    }
+
+    private static func aRejectedSavedAccountSignsOut() async {
+        let (session, reply) = await relaunch(as: "alice")
+        await reply(.failure(NuphosAPI.Failure.unauthorized))
+        precondition(session.state == .signedOut(error: "This account's session expired. Sign in again."))
+        precondition(session.token == nil)
+        precondition(session.savedAccounts.accounts.first?.token == nil, "the rejected token must be forgotten")
+        precondition(LaunchCache.user == nil, "a rejected account's cache must go")
+    }
+
+    private static func anotherAccountsCacheIsNotShown() async {
+        Keychain.items = [:]
+        NuphosAPI.me = { token in NuphosUser(id: "u-\(token)", email: "", name: "", username: "", avatarURL: "") }
+        await signIn(AuthSession(), as: "alice")
+        LaunchCache.user = .init(user: cached, aiConsentVersion: AccountAPI.aiConsentVersion)
+        var answer: CheckedContinuation<NuphosUser, Error>?
+        NuphosAPI.me = { _ in try await withCheckedThrowingContinuation { answer = $0 } }
+        let session = AuthSession()
+        let restoring = Task { await session.restore() }
+        while answer == nil { await Task.yield() }
+        precondition(session.user == nil, "another account's cached user must not open Home")
+        answer?.resume(returning: NuphosUser(id: "u-alice", email: "", name: "", username: "", avatarURL: ""))
+        await restoring.value
+        precondition(session.user?.id == "u-alice")
     }
 }

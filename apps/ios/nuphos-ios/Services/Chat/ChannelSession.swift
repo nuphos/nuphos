@@ -53,6 +53,12 @@ final class ChannelSession {
         self.channelId = channelId
         self.title = title
         questions = OpenQuestions(token: token, teamId: teamId)
+        // The chat opens on its last read, as a messaging app does; `refresh` reads it again.
+        if let detail = NuphosAPI.cachedConversationDetail(token: token, sessionId: channelId) {
+            let agents = LaunchCache.chat(Self.agentsName(channelId), token: token)
+                .flatMap { try? JSONDecoder().decode(AgentsEnvelope.self, from: $0).agents }
+            apply(detail, agents: agents ?? [])
+        }
     }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
@@ -183,11 +189,16 @@ final class ChannelSession {
                                        query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
     }
 
+    private struct AgentsEnvelope: Decodable { let agents: [ChannelAgent] }
+    private static func agentsName(_ channelId: String) -> String { "\(channelId).agents" }
+
     private static func listAgents(token: String, teamId: String, channelId: String) async throws -> [ChannelAgent] {
-        struct Envelope: Decodable { let agents: [ChannelAgent] }
-        let envelope: Envelope = try await WorkspaceAPI.request(
-            "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
-        return envelope.agents
+        let data = try await AgentChatAPI.send(
+            "GET", "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: JSONValue?.none, timeout: 60)
+        let agents = try JSONDecoder().decode(AgentsEnvelope.self, from: data).agents
+        LaunchCache.storeChat(data, as: agentsName(channelId), token: token)
+        return agents
     }
 
     // MARK: - Questions
