@@ -127,21 +127,24 @@ afterAll(() => {
   sessionsByConversation.delete(`${TEAM}:conversation`)
 })
 
-let prompts = 0
-// A new system prompt each time makes an open session load again (session/resume).
-const send = () =>
-  runClaudeCodePreviewPrompt({
+// Context delivered long ago makes an open session load again (session/resume).
+const send = () => {
+  const open = sessionsByConversation.get(`${TEAM}:conversation`)
+
+  if (open) open.contextDeliveredAt = 0
+
+  return runClaudeCodePreviewPrompt({
     teamId: TEAM,
     conversationId: 'conversation',
     userId: 'user-test',
     locale: 'en-US',
     message: '',
     text: 'hello',
-    systemPrompt: `turn ${String(++prompts)}`,
     endpoint,
     signal: new AbortController().signal,
     onTextDelta: () => {},
   })
+}
 const signedInComputer = (provider: 'codex' | 'claude-code') => ({
   provider,
   local: {

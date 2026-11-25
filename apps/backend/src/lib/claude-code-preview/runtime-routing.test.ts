@@ -405,3 +405,31 @@ describe('defaultConversationRuntimeId', () => {
     expect(defaultConversationRuntimeId([codex], ME, { provider: 'codex' })).toBe('codex')
   })
 })
+
+test('only a Codex prompt carries changed standing instructions in its meta, and only when it has them', async () => {
+  const { promptMeta } = await import('./openab-acp-session')
+  const context = {
+    mcpServers: [],
+    systemPrompt: 'Nuphos context',
+    runtime: { provider: 'codex' as const },
+  }
+  // As sent over JSON-RPC.
+  const sessionMetaOf = (meta: Record<string, unknown>) =>
+    (JSON.parse(JSON.stringify(meta._meta)) as Record<string, Record<string, unknown>>)[
+      'dev.openab/sessionMeta'
+    ]
+
+  expect(
+    sessionMetaOf(promptMeta(false, { ...context, instructionsUpdate: 'Follow beta.' })),
+  ).toMatchObject({ 'ai.nuphos/instructionsUpdate': 'Follow beta.' })
+  for (const instructionsUpdate of [undefined, ''])
+    expect(sessionMetaOf(promptMeta(false, { ...context, instructionsUpdate }))).not.toHaveProperty(
+      'ai.nuphos/instructionsUpdate',
+    )
+  // Claude Code reads it in the prompt text instead.
+  const claude = { ...context, runtime: { provider: 'claude-code' as const } }
+
+  expect(
+    sessionMetaOf(promptMeta(false, { ...claude, instructionsUpdate: 'Follow beta.' })),
+  ).not.toHaveProperty('ai.nuphos/instructionsUpdate')
+})

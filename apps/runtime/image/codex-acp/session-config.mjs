@@ -117,3 +117,17 @@ export async function nuphosReleaseMovedThread(client, threadId, meta, processEn
 export function nuphosRememberThreadHome(threadId, meta, processEnv = process.env) {
   nuphosThreadHomes.set(threadId, nuphosThreadHome(meta, processEnv))
 }
+
+// Codex follows a change of standing instructions only when the developer makes
+// it, so the prompt that carries one injects it as a developer message first.
+export async function nuphosInjectInstructions(codexClient, request) {
+  const text = request._meta?.['ai.nuphos/instructionsUpdate']
+  if (typeof text !== 'string' || !text) return
+  await codexClient.sendRequest({
+    method: 'thread/inject_items',
+    params: {
+      threadId: request.sessionId,
+      items: [{ type: 'message', role: 'developer', content: [{ type: 'input_text', text }] }],
+    },
+  })
+}

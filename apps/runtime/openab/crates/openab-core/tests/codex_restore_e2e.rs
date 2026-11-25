@@ -88,9 +88,12 @@ async fn a_codex_session_is_restored_after_its_agent_is_dropped() {
         .with_connection(key, |conn| {
             Box::pin(async move {
                 let (mut rx, request_id) = conn
-                    .session_prompt(vec![ContentBlock::Text {
-                        text: "hello".into(),
-                    }])
+                    .session_prompt(
+                        vec![ContentBlock::Text {
+                            text: "hello".into(),
+                        }],
+                        None,
+                    )
                     .await?;
                 // The turn ends with the id-bearing response (here an error: the key is rejected).
                 tokio::time::timeout(Duration::from_secs(90), async {

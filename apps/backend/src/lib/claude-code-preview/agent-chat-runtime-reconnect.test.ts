@@ -24,7 +24,6 @@ let sendAllowed = true
 let phase: string | undefined
 let phaseAfterLoad: string | undefined
 let loaded = false
-let loadedPrompt: string | undefined
 let prompted: string | undefined
 let promptError: Error | undefined
 let probeError: Error | undefined
@@ -33,8 +32,7 @@ const replacement = {
   getSessionExecutionState: () => {
     throw new Error('Session is not attached to this connection')
   },
-  loadSession: async (_id: string, _cwd: string, _servers: unknown, prompt?: string) => {
-    loadedPrompt = prompt
+  loadSession: async () => {
     calls.push('load')
     loaded = true
 
@@ -258,15 +256,16 @@ test('a refused turn leaves the durable mark for the turn that lands', async () 
   expect(workLost).toBe('session_lost')
 })
 
-test('changed identity instructions reload an already attached session before prompting', async () => {
+// Agents keep the system prompt their session started with, so a reload could not deliver it.
+test('a changed system prompt alone does not reload an attached session', async () => {
   const session = sessionsByConversation.get('team:conversation')!
 
   session.client = replacement
   session.contextDeliveredAt = Date.now()
   session.systemPrompt = 'old identity instructions'
+  loaded = true
   expect(await run('new identity instructions')).toEqual({ stopReason: 'end_turn' })
-  expect(calls).toEqual(['observe-control', 'load', 'prompt'])
-  expect(loadedPrompt).toBe('new identity instructions')
+  expect(calls).toEqual(['observe-control', 'prompt'])
 })
 
 test('a state check that times out fails as an agent host away, which the queue waits out for its grace', async () => {
