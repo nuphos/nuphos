@@ -26,12 +26,12 @@ impl JsonRpcRequest {
 #[derive(Debug, Serialize)]
 pub struct JsonRpcResponse {
     pub jsonrpc: &'static str,
-    pub id: u64,
+    pub id: Value,
     pub result: Value,
 }
 
 impl JsonRpcResponse {
-    pub fn new(id: u64, result: Value) -> Self {
+    pub fn new(id: Value, result: Value) -> Self {
         Self {
             jsonrpc: "2.0",
             id,
@@ -44,7 +44,9 @@ impl JsonRpcResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct JsonRpcMessage {
-    pub id: Option<u64>,
+    /// A number or a string, as JSON-RPC allows: our own requests use numbers, but an
+    /// agent picks the ids of its requests to us (Antigravity's are strings).
+    pub id: Option<Value>,
     pub method: Option<String>,
     pub result: Option<Value>,
     pub error: Option<JsonRpcError>,
