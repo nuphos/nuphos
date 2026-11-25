@@ -50,7 +50,7 @@ struct BotRuntimeCard: View {
             .accessibilityIdentifier("bot-details-model")
         }
         .buttonStyle(.plain)
-        // Again once the Bot's own read lands: its model is not read before that.
+        // Again once the Bot's own read settles: a model read that failed with it gets another try.
         .task(id: bot.loaded) {
             await store.loadRuntimes()
             await bot.refreshSessionConfig()

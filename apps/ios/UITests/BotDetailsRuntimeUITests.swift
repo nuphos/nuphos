@@ -4,7 +4,7 @@ import XCTest
 final class BotDetailsRuntimeUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
-    private func launch(owner: Bool, botReadDelayMs: Int? = nil) throws -> XCUIApplication {
+    private func launch(owner: Bool, botRead adjust: (inout [String: Any]) -> Void = { _ in }) throws -> XCUIApplication {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/bot-desktop-responses.json")
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
@@ -23,7 +23,7 @@ final class BotDetailsRuntimeUITests: XCTestCase {
         bot["canManage"] = owner
         bot["readOnly"] = !owner
         var botRead: [String: Any] = ["status": 200, "body": bot]
-        botRead["delayMs"] = botReadDelayMs
+        adjust(&botRead)
         responses["GET /agent/conversations/bot-plain"] = botRead
         responses["GET /agent/conversations/chat-bot-plain/agents"] = ["status": 200, "body": ["agents": [[
             "sessionId": "bot-plain", "title": "Release notes",
@@ -86,7 +86,7 @@ final class BotDetailsRuntimeUITests: XCTestCase {
 
     /// A Bot whose own read is slow still shows what it runs, and its model once the read lands.
     func testRuntimeShowsWhileBotLoads() throws {
-        let app = try launch(owner: true, botReadDelayMs: 8000)
+        let app = try launch(owner: true) { $0["delayMs"] = 8000 }
         openDetails(app)
         let labels = app.descendants(matching: .any).matching(identifier: "bot-details-runtime")
             .allElementsBoundByIndex.map(\.label).joined(separator: " ")
@@ -98,6 +98,20 @@ final class BotDetailsRuntimeUITests: XCTestCase {
         XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 30), .completed, "The Bot's model never showed: \(model.label)")
         XCTAssertTrue(app.buttons["bot-details-runtime"].exists, "The owner cannot move the Bot once it has loaded")
         shot("bot-details-ios-loaded")
+    }
+
+    /// A Bot whose own read fails still shows what it runs and its model.
+    func testRuntimeAndModelShowWhenBotReadFails() throws {
+        let app = try launch(owner: true) { $0 = ["status": 500, "body": ["error": "internal"]] }
+        openDetails(app)
+        shot("bot-details-ios-failed")
+        let labels = app.descendants(matching: .any).matching(identifier: "bot-details-runtime")
+            .allElementsBoundByIndex.map(\.label).joined(separator: " ")
+        XCTAssertTrue(labels.contains("Preview Box"), "The Bot's runtime is missing: \(labels)")
+        let model = app.buttons["bot-details-model"]
+        let picked = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Sonnet'"), object: model)
+        XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 15), .completed, "The Bot's model never showed: \(model.label)")
+        shot("bot-details-ios-failed-model")
     }
 
     private func shot(_ name: String) {
