@@ -37,8 +37,8 @@ function setInstructions(stack: Stack, instructions: string | null): string | nu
   return JSON.parse(out.toString()) as string | null
 }
 
-/** Sends a turn to the Bot and returns the rule its agent held then, from the system prompt it
- *  last opened or loaded with, and its session. */
+/** Sends a turn to the Bot and returns the rule its agent held then, from the latest of the
+ *  system prompt it opened or loaded with and the updates its turns carried, and its session. */
 async function askRule(stack: Stack, page: Parameters<Scenario['run']>[0], marker: string) {
   await send(page, `Which rule do you follow? E2E_DELIVERY:${marker}`)
   let log: ReturnType<typeof agentLog> = []
@@ -54,11 +54,15 @@ async function askRule(stack: Stack, page: Parameters<Scenario['run']>[0], marke
     return log.some((line) => line.event === 'finish' && line.marker === `E2E_DELIVERY:${marker}`)
   })
   const { sessionId } = log[start] ?? { sessionId: '' }
-  const loaded = log
-    .slice(0, start)
-    .findLast((line) => line.sessionId === sessionId && ['session', 'loaded'].includes(line.event))
+  const held = log
+    .slice(0, start + 1)
+    .findLast(
+      (line) =>
+        line.sessionId === sessionId &&
+        (['session', 'loaded'].includes(line.event) || Boolean(line.update)),
+    )
 
-  return { rule: loaded?.rule ?? 'none', sessionId }
+  return { rule: (held?.event === 'start' ? held.update : held?.rule) ?? 'none', sessionId }
 }
 
 /** How often the fixture agent opened or loaded this session. */
@@ -90,7 +94,7 @@ const scenario: Scenario = {
 
     try {
       await openBotChat(page)
-      // The first turn after the change: the running agent is restarted onto it.
+      // The first turn after the change carries it to the running agent.
       const first = await askRule(stack, page, 'rule-alpha')
 
       if (first.rule !== 'alpha') throw new Error(`The Bot followed ${String(first.rule)}`)
@@ -103,7 +107,9 @@ const scenario: Scenario = {
       if (opens(stack, first.sessionId) !== opened)
         throw new Error('A turn with the same instructions reloaded the agent')
 
-      // The owner rewrites them while the session runs: the next turn follows the new ones.
+      // The owner rewrites them while the session runs: the next turn follows the new ones,
+      // which reach the running agent with that turn. Reloading would not: agents keep the
+      // system prompt their session started with.
       setInstructions(stack, 'Answer by the rule E2E_RULE:beta.')
       const changed = await askRule(stack, page, 'rule-beta')
 
@@ -111,10 +117,8 @@ const scenario: Scenario = {
         throw new Error(`After the edit the Bot still followed ${String(changed.rule)}`)
       if (changed.sessionId !== first.sessionId)
         throw new Error('The edit started a new conversation instead of loading this one')
-      if (opens(stack, first.sessionId) !== opened + 1)
-        throw new Error(
-          `The edit loaded the agent ${String(opens(stack, first.sessionId) - opened)} times`,
-        )
+      if (opens(stack, first.sessionId) !== opened)
+        throw new Error('The edit reloaded the agent instead of telling it in the turn')
 
       // A woken turn (an answer on its question card) between the person's own turns runs on the
       // same agent: nothing that changes from turn to turn is in its system prompt or env.

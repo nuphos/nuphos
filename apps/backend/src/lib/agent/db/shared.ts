@@ -146,6 +146,8 @@ export type AgentConversation = ConversationTaskState & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
+  /** sha256 of the standing instructions the attached agent was last given (see `instructionsUpdate`). */
+  instructionsDigest?: string
   /** `started` is the legacy one-time introduction, not an active setup lifecycle. */
   botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   metadata?: {

@@ -16,6 +16,15 @@ const INITIALIZE = {
 export const ruleIn = (params) =>
   /E2E_RULE:([a-z]+)/.exec(JSON.stringify(params._meta ?? {}))?.[1] ?? 'none'
 
+/** The E2E_RULE a turn's standing-instructions update names, in its text or (Codex) its `_meta`. */
+export function updatedRule(text, meta) {
+  const update = /<nuphos_instructions_update>[\s\S]*?<\/nuphos_instructions_update>/.exec(
+    text + JSON.stringify(meta ?? {}),
+  )?.[0]
+
+  return update && (/E2E_RULE:([a-z]+)/.exec(update)?.[1] ?? 'none')
+}
+
 /** The system prompt a session opens or loads with, in any of the backend's _meta shapes. */
 const promptOf = (meta = {}) =>
   meta.systemPrompt?.append ??

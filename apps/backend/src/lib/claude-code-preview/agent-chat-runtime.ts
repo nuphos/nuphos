@@ -1,5 +1,6 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { instructionsUpdate } from '@/lib/instructions/prompt'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -205,11 +206,8 @@ async function promptTurn(args: {
     // credentials or personal context.
     const rebind = session.client !== client || principalChanged
 
-    if (
-      rebind ||
-      nextContext.systemPrompt !== session.systemPrompt ||
-      sessionContextStale(session, Date.now())
-    ) {
+    // A changed system prompt is no reason to load: agents keep the one their session started with.
+    if (rebind || sessionContextStale(session, Date.now())) {
       const { alive } = await client.loadSession(
         session.openabSessionId,
         RUNTIME_CWD,
@@ -235,12 +233,14 @@ async function promptTurn(args: {
     )
 
     if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
+    const update = await instructionsUpdate(args.teamId, args.userId, args.conversationId, fresh)
     // The lead ends with the current message's header, nearest its words.
     const lead = [
       attachments.length
         ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
         : '',
       await retractedPrompt(session, fresh),
+      session.endpoint.provider === 'codex' ? '' : update,
       await backgroundWorkPrompt(session, fresh, args),
     ]
       .filter(Boolean)
@@ -278,7 +278,7 @@ async function promptTurn(args: {
           session.activeTurn = activeTurn
           if (activeTurn.cancelled) client.cancel(session.openabSessionId)
         },
-        nextContext,
+        { ...nextContext, instructionsUpdate: session.endpoint.provider === 'codex' ? update : '' },
         attachments,
         lead,
       )

@@ -995,9 +995,11 @@ impl AdapterRouter {
         let (idle_tx, mut idle_rx) = tokio::sync::mpsc::channel(ACP_NOTIFICATION_CAPACITY);
         let idle_adapter = adapter.clone();
         let idle_channel = thread_channel.clone();
+        let instructions_update = self.pool.instructions_update(thread_key).await;
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();
+                let instructions_update = instructions_update.clone();
                 // Redacted out here, not in the async block: `with_connection` returns a future
                 // that outlives any borrow of `thread_key`, so it may only capture owned values.
                 let redacted_thread_key = crate::redact::redact_session_ids(thread_key);
@@ -1012,7 +1014,9 @@ impl AdapterRouter {
                         .acp_session_id
                         .clone()
                         .ok_or_else(|| anyhow::anyhow!("no session"))?;
-                    let (mut rx, request_id) = conn.session_prompt(content_blocks).await?;
+                    let (mut rx, request_id) = conn
+                        .session_prompt(content_blocks, instructions_update)
+                        .await?;
                     // The settings the session reported when it opened (or last changed) go
                     // up with every turn, so a client shows what this session runs while
                     // the turn is still going, not only once it ends (#3789).

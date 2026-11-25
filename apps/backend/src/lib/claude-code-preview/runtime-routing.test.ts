@@ -405,3 +405,25 @@ describe('defaultConversationRuntimeId', () => {
     expect(defaultConversationRuntimeId([codex], ME, { provider: 'codex' })).toBe('codex')
   })
 })
+
+test('a prompt carries changed standing instructions only when it has them', async () => {
+  const { promptMeta } = await import('./openab-acp-session')
+  const context = {
+    mcpServers: [],
+    systemPrompt: 'Nuphos context',
+    runtime: { provider: 'codex' as const },
+  }
+  // As sent over JSON-RPC.
+  const sessionMetaOf = (meta: Record<string, unknown>) =>
+    (JSON.parse(JSON.stringify(meta._meta)) as Record<string, Record<string, unknown>>)[
+      'dev.openab/sessionMeta'
+    ]
+
+  expect(
+    sessionMetaOf(promptMeta(false, { ...context, instructionsUpdate: 'Follow beta.' })),
+  ).toMatchObject({ 'ai.nuphos/instructionsUpdate': 'Follow beta.' })
+  for (const instructionsUpdate of [undefined, ''])
+    expect(sessionMetaOf(promptMeta(false, { ...context, instructionsUpdate }))).not.toHaveProperty(
+      'ai.nuphos/instructionsUpdate',
+    )
+})

@@ -509,8 +509,6 @@ pub struct AcpConnection {
     /// The MCP servers this agent's session was opened with. The agent reads
     /// their tool lists only then, so a later declaration needs a new process.
     pub mcp_servers: Vec<serde_json::Value>,
-    /// The system prompt its session opened with, in whichever `_meta` shape the agent reads.
-    pub system_prompt: Option<serde_json::Value>,
     /// Its env as it opened, without the credentials refreshed through files on every prompt.
     pub stable_env: Option<serde_json::Value>,
     pub supports_load_session: bool,
@@ -950,7 +948,6 @@ impl AcpConnection {
             idle_notify_tx,
             acp_session_id: None,
             mcp_servers: Vec::new(),
-            system_prompt: None,
             stable_env: None,
             supports_load_session: false,
             supports_resume_session: false,
@@ -1159,7 +1156,6 @@ impl AcpConnection {
         info!(session_id = %session_id, "session created");
         self.acp_session_id = Some(session_id.clone());
         self.mcp_servers = mcp_servers.to_vec();
-        self.system_prompt = meta_system_prompt(session_meta).cloned();
         self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
@@ -1326,6 +1322,7 @@ impl AcpConnection {
     pub async fn session_prompt(
         &mut self,
         content_blocks: Vec<ContentBlock>,
+        instructions_update: Option<String>,
     ) -> Result<(mpsc::Receiver<JsonRpcMessage>, u64)> {
         self.last_active = Instant::now();
         self.activity.touch();
@@ -1345,13 +1342,19 @@ impl AcpConnection {
         // Convert content blocks to JSON
         let prompt_json: Vec<Value> = content_blocks.iter().map(|b| b.to_json()).collect();
 
+        let mut params = json!({
+            "sessionId": session_id,
+            "prompt": prompt_json,
+        });
+        // An agent that ignores instruction changes in a user message (Codex) receives
+        // them out of band, for its adapter to inject as the developer.
+        if let Some(update) = instructions_update {
+            params["_meta"] = json!({ (INSTRUCTIONS_UPDATE_META_KEY): update });
+        }
         let req = JsonRpcRequest::new(
             id,
             "session/prompt",
-            Some(json!({
-                "sessionId": session_id,
-                "prompt": prompt_json,
-            })),
+            Some(params),
         );
         let data = serde_json::to_string(&req)?;
 
@@ -1460,7 +1463,6 @@ impl AcpConnection {
         info!(session_id, "session loaded");
         self.acp_session_id = Some(session_id.to_string());
         self.mcp_servers = mcp_servers.to_vec();
-        self.system_prompt = meta_system_prompt(session_meta).cloned();
         self.stable_env = meta_stable_env(session_meta);
         if let Some(result) = resp.result.as_ref() {
             self.config_options = parse_config_options(result);
@@ -1485,16 +1487,10 @@ impl AcpConnection {
     }
 }
 
-/// The system prompt in a client's `_meta`: Claude Code's `systemPrompt`, Codex's
-/// developer instructions, or the ACP shim's session prompt (backend `sessionMeta`).
-pub(crate) fn meta_system_prompt(meta: Option<&serde_json::Value>) -> Option<&serde_json::Value> {
-    let meta = meta?;
-    meta.get("systemPrompt")
-        .or_else(|| meta.get("ai.nuphos/codex")?.get("developerInstructions"))
-        .or_else(|| meta.get("ai.nuphos/session")?.get("systemPrompt"))
-}
+/// Changed standing instructions, carried by one prompt's session meta.
+pub(crate) const INSTRUCTIONS_UPDATE_META_KEY: &str = "ai.nuphos/instructionsUpdate";
 
-/// The env in a client's `_meta`, in the same three shapes as the system prompt, without the
+/// The env in a client's `_meta`, in any of the backend's three shapes, without the
 /// credentials it also hands over to be refreshed as files: those change on every prompt.
 pub(crate) fn meta_stable_env(meta: Option<&serde_json::Value>) -> Option<serde_json::Value> {
     let meta = meta?;

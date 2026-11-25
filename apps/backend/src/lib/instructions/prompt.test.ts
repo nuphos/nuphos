@@ -19,10 +19,27 @@ useModels({
   },
 })
 
+// A running Bot's instructions, and what its conversation stores for `instructionsUpdate`.
+let editedInstructions = 'Ship on Fridays.'
+const digests = new Map<string, string>()
+
 useAgentDb({
+  swapConversationInstructionsDigest: (sessionId, _teamId, digest) => {
+    const changed = digests.get(sessionId) !== digest
+
+    digests.set(sessionId, digest)
+
+    return Promise.resolve(changed)
+  },
   getConversationBySessionId: (sessionId) =>
     Promise.resolve(
       {
+        'edited-bot': {
+          sessionId,
+          title: 'Release Helper',
+          avatar: '07-ada',
+          instructions: editedInstructions,
+        },
         'bot-session': {
           sessionId,
           title: 'Release Helper',
@@ -38,7 +55,8 @@ useAgentDb({
     ),
 })
 
-const { loadInstructionsBlock, renderInstructionsBlock } = await import('@/lib/instructions/prompt')
+const { instructionsUpdate, loadInstructionsBlock, renderInstructionsBlock } =
+  await import('@/lib/instructions/prompt')
 
 let clock = 0
 
@@ -200,4 +218,38 @@ test('setup context survives saved instructions and disappears after explicit co
   expect(renderInstructionsBlock([], [], { ...bot, botOnboarding: 'completed' })).not.toContain(
     'onboardingComplete: true',
   )
+})
+
+describe('instructionsUpdate', () => {
+  const next = (fresh = false) =>
+    instructionsUpdate(TEAM_ID.toHexString(), 'u1', 'edited-bot', fresh)
+
+  beforeEach(() => {
+    editedInstructions = 'Ship on Fridays.'
+    digests.clear()
+  })
+
+  test('a running Bot gets its edited instructions in its next turn, once', async () => {
+    // The first turn starts the session, whose system prompt carries them.
+    expect(await next(true)).toBe('')
+    expect(await next()).toBe('')
+
+    editedInstructions = 'Ship on Mondays.'
+    const update = await next()
+
+    expect(update).toStartWith('<nuphos_instructions_update>')
+    expect(update).toContain('"Release Helper"')
+    expect(update).toContain('Ship on Mondays.')
+    expect(update).not.toContain('Ship on Fridays.')
+    expect(await next()).toBe('')
+  })
+
+  test('a failed read is never reported as a change', async () => {
+    expect(await next(true)).toBe('')
+    failReads = true
+    editedInstructions = 'Ship on Mondays.'
+    expect(await next()).toBe('')
+    failReads = false
+    expect(await next()).toContain('Ship on Mondays.')
+  })
 })

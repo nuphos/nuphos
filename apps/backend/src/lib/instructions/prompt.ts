@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto'
+
 import { ObjectId } from 'mongodb'
 
-import { getConversationBySessionId } from '@/lib/agent/db'
+import { getConversationBySessionId, swapConversationInstructionsDigest } from '@/lib/agent/db'
 import { findScopeInstructions } from '@/lib/instructions/service'
 import { logEvent } from '@/lib/observability'
 
@@ -76,6 +78,38 @@ export function renderInstructionsBlock(
   return blocks.length ? blocks.join('\n\n') : null
 }
 
+type Conversation = Awaited<ReturnType<typeof getConversationBySessionId>>
+
+async function renderFor(
+  teamOid: ObjectId,
+  userId: string | null | undefined,
+  pending: Promise<Conversation>,
+): Promise<string | null> {
+  const [team, personal, conversation] = await Promise.all([
+    findScopeInstructions(teamOid, 'team', ''),
+    userId ? findScopeInstructions(teamOid, 'personal', userId) : Promise.resolve([]),
+    pending,
+  ])
+
+  const block = renderInstructionsBlock(
+    team.filter((doc) => doc.enabled),
+    personal.filter((doc) => doc.enabled),
+    conversation?.avatar
+      ? {
+          name: conversation.title,
+          instructions: conversation.instructions,
+          botOnboarding: conversation.botOnboarding,
+        }
+      : null,
+  )
+
+  const worker = conversation?.parentSessionId
+    ? '\n\n<nuphos_task_reporting>\nYou are a delegated Task. Keep following the original request and its permission boundaries. Use report_task to report a useful result, readiness for review, or a material blocker to your current parent; routine progress needs no notification. Ask human questions through request_user_decision, never through an agent relay. Report ready while review is pending and done only after verification.\n</nuphos_task_reporting>'
+    : ''
+
+  return block || worker ? (block ?? '') + worker : null
+}
+
 /**
  * Enabled team and personal instructions for one member, plus the Bot's own
  * when this conversation is a Bot, rendered as a system context block. Returns null when there are none, and fails soft so a store
@@ -88,31 +122,12 @@ export async function loadInstructionsBlock(
 ): Promise<string | null> {
   if (!ObjectId.isValid(teamId)) return null
   try {
-    const teamOid = new ObjectId(teamId)
-    const [team, personal, conversation] = await Promise.all([
-      findScopeInstructions(teamOid, 'team', ''),
-      userId ? findScopeInstructions(teamOid, 'personal', userId) : Promise.resolve([]),
+    return await renderFor(
+      new ObjectId(teamId),
+      userId,
       // Losing the Bot section must never cost the team and personal ones.
       sessionId ? getConversationBySessionId(sessionId).catch(() => null) : Promise.resolve(null),
-    ])
-
-    const block = renderInstructionsBlock(
-      team.filter((doc) => doc.enabled),
-      personal.filter((doc) => doc.enabled),
-      conversation?.avatar
-        ? {
-            name: conversation.title,
-            instructions: conversation.instructions,
-            botOnboarding: conversation.botOnboarding,
-          }
-        : null,
     )
-
-    const worker = conversation?.parentSessionId
-      ? '\n\n<nuphos_task_reporting>\nYou are a delegated Task. Keep following the original request and its permission boundaries. Use report_task to report a useful result, readiness for review, or a material blocker to your current parent; routine progress needs no notification. Ask human questions through request_user_decision, never through an agent relay. Report ready while review is pending and done only after verification.\n</nuphos_task_reporting>'
-      : ''
-
-    return block || worker ? (block ?? '') + worker : null
   } catch (error) {
     logEvent('warn', 'agent.instructions.load_failed', {
       teamId,
@@ -121,4 +136,49 @@ export async function loadInstructionsBlock(
 
     return null
   }
+}
+
+/**
+ * The current standing instructions, for a turn whose running agent was given others. An agent
+ * reads its system prompt only when its session starts: neither Claude Code nor Codex replaces it
+ * on session/load, so an edit or `update_self` reaches a running session only as part of a turn.
+ * Empty when the agent already has them, as a `fresh` session does. A failed read is no change.
+ */
+export async function instructionsUpdate(
+  teamId: string,
+  userId: string,
+  sessionId: string,
+  fresh: boolean,
+): Promise<string> {
+  if (!ObjectId.isValid(teamId)) return ''
+  try {
+    const block = await renderFor(
+      new ObjectId(teamId),
+      userId,
+      getConversationBySessionId(sessionId),
+    )
+    const digest = createHash('sha256')
+      .update(block ?? '')
+      .digest('hex')
+
+    if (!(await swapConversationInstructionsDigest(sessionId, teamId, digest)) || fresh) return ''
+
+    return render(block)
+  } catch (error) {
+    logEvent('warn', 'agent.instructions.update_failed', {
+      teamId,
+      message: error instanceof Error ? error.message : String(error),
+    })
+
+    return ''
+  }
+}
+
+function render(block: string | null): string {
+  return [
+    '<nuphos_instructions_update>',
+    'Your standing Nuphos instructions changed after this session started. This version replaces every earlier <nuphos_instructions>, <nuphos_bot_identity> and <nuphos_task_reporting> block, including the one in your system prompt. Follow it from now on.',
+    block ?? 'There are none now: disregard the earlier ones.',
+    '</nuphos_instructions_update>',
+  ].join('\n\n')
 }

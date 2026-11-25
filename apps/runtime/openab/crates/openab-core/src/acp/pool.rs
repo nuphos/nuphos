@@ -144,17 +144,7 @@ fn remove_if_same_handle<T>(
     }
 }
 
-/// A new system prompt reaches a live agent only through a respawn that loads its session:
-/// it reads the prompt when the session opens. An absent one leaves the agent as it is.
-fn system_prompt_changed(
-    started: Option<&serde_json::Value>,
-    session_meta: Option<&serde_json::Value>,
-) -> bool {
-    super::connection::meta_system_prompt(session_meta)
-        .is_some_and(|prompt| Some(prompt) != started)
-}
-
-/// Env, like the system prompt, is read when the agent spawns. Credentials refreshed through
+/// Env is read when the agent spawns. Credentials refreshed through
 /// files on every prompt are left out, so only a real change, such as a new setting, respawns.
 fn env_changed(
     started: Option<&serde_json::Value>,
@@ -618,6 +608,14 @@ impl SessionPool {
         .map_err(anyhow::Error::from)?
     }
 
+    /// The changed standing instructions the session's latest prompt carries, if any.
+    pub async fn instructions_update(&self, thread_id: &str) -> Option<String> {
+        let state = self.state.read().await;
+        let meta = state.session_meta.get(thread_id)?;
+        let update = meta.get(super::connection::INSTRUCTIONS_UPDATE_META_KEY)?;
+        update.as_str().map(str::to_owned)
+    }
+
     pub async fn execution_snapshot(&self, thread_id: &str) -> serde_json::Value {
         let state = self.state.read().await;
         let loading = state
@@ -922,7 +920,7 @@ impl SessionPool {
         .await
     }
 
-    /// Removes an idle live connection whose MCP declaration or system prompt is out of date, keeping its
+    /// Removes an idle live connection whose MCP declaration or env is out of date, keeping its
     /// native session resumable and its admission slot for the replacement spawn.
     /// Returns that session id, or `None` and leaves the agent running when nothing changed,
     /// it cannot resume its session, or a turn is still live.
@@ -939,7 +937,6 @@ impl SessionPool {
         // Without session/load the replacement would start a new conversation.
         if !conn.supports_load_session
             || !(mcp_declaration_changed(&conn.mcp_servers, declared)
-                || system_prompt_changed(conn.system_prompt.as_ref(), session_meta)
                 || env_changed(conn.stable_env.as_ref(), session_meta))
         {
             return None;
@@ -959,7 +956,7 @@ impl SessionPool {
             return None;
         }
         remove_if_same_handle(&mut state.active, thread_id, handle)?;
-        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers, system prompt or env changed, respawning idle session");
+        info!(thread_id = %crate::redact::redact_session_ids(thread_id), "MCP servers or env changed, respawning idle session");
         suspend_entry(&mut state, thread_id, &sid);
         let mapping = self.snapshot_mapping(&state.persisted);
         drop(state);
@@ -1073,7 +1070,7 @@ impl SessionPool {
                 return Ok(false);
             };
             if conn.alive() {
-                // The agent read its MCP tool lists and system prompt when it
+                // The agent read its MCP tool lists and env when it
                 // started. When either has changed since, suspend it between
                 // turns, as the idle sweep does, so the spawn below resumes the
                 // same conversation with them. Never mid-turn.
@@ -1927,7 +1924,7 @@ mod tests {
         better_candidate, candidate_awaiting_permission, candidate_in_flight, candidate_relaying,
         classify_hung, classify_idle, env_changed, get_or_insert_gate, mcp_declaration_changed,
         meta_working_dir, purge_session_entries, relay_is_streaming, remove_if_same_handle,
-        system_prompt_changed, PoolState, AGENT_RELAY_GRACE_SECS,
+        PoolState, AGENT_RELAY_GRACE_SECS,
     };
     use crate::acp::connection::SessionActivity;
     use crate::acp::protocol::JsonRpcError;
@@ -2291,36 +2288,6 @@ mod tests {
             &[server("https://x/mcp-tools?tools=b", "t1")]
         ));
         assert!(mcp_declaration_changed(&[], &started));
-    }
-
-    #[test]
-    fn system_prompt_changes_respawn_only_when_the_text_differs() {
-        let claude =
-            |text: &str| serde_json::json!({"systemPrompt": {"append": text}, "creds": "t1"});
-        let started = serde_json::json!({"append": "be terse"});
-        // Same text, other per-turn fields (credentials) changed: no respawn.
-        let mut same = claude("be terse");
-        same["creds"] = serde_json::json!("t2");
-        assert!(!system_prompt_changed(Some(&started), Some(&same)));
-        // No meta, or meta without a prompt, never respawns.
-        assert!(!system_prompt_changed(Some(&started), None));
-        assert!(!system_prompt_changed(
-            Some(&started),
-            Some(&serde_json::json!({"creds": "t"}))
-        ));
-        assert!(system_prompt_changed(
-            Some(&started),
-            Some(&claude("be thorough"))
-        ));
-        assert!(system_prompt_changed(None, Some(&claude("be terse"))));
-        // Codex and the ACP shim carry it in their own shapes.
-        let codex = |text: &str| serde_json::json!({"ai.nuphos/codex": {"developerInstructions": text, "env": {"T": "1"}}});
-        let shim = |text: &str| serde_json::json!({"ai.nuphos/session": {"systemPrompt": text}});
-        let old = serde_json::json!("old");
-        assert!(!system_prompt_changed(Some(&old), Some(&codex("old"))));
-        assert!(system_prompt_changed(Some(&old), Some(&codex("new"))));
-        assert!(!system_prompt_changed(Some(&old), Some(&shim("old"))));
-        assert!(system_prompt_changed(Some(&old), Some(&shim("new"))));
     }
 
     #[test]

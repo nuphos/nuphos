@@ -36,6 +36,7 @@ export {
   setConversationPromptSuggestion,
   stampConversationAgentRuntime,
   stampConversationRuntimeInstance,
+  swapConversationInstructionsDigest,
 } from './db/conversations-runtime'
 export {
   buildEmptyContentFilteredReplyEvent,

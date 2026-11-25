@@ -23,6 +23,8 @@ type AgentEntry = {
   failed?: boolean
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */
   rule?: string
+  /** `start`: the E2E_RULE:<name> a standing-instructions update in the turn names. */
+  update?: string
   /** Each system prompt section's start and hash, as the session opened or loaded with it. */
   sections?: string[]
   /** The response language a turn's prompt names. */
