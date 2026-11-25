@@ -16,10 +16,18 @@ const INITIALIZE = {
 export const ruleIn = (params) =>
   /E2E_RULE:([a-z]+)/.exec(JSON.stringify(params._meta ?? {}))?.[1] ?? 'none'
 
-/** The E2E_RULE a turn's standing-instructions update names, in its text or (Codex) its `_meta`. */
-export function updatedRule(text, meta) {
+/**
+ * The E2E_RULE a turn's standing-instructions update names: in the lead text the backend
+ * sends before the user's words (always the last part), or in a Codex prompt's `_meta`.
+ * A block the user typed is not one.
+ */
+export function updatedRule(parts, meta) {
+  const lead = parts
+    .slice(0, -1)
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
   const update = /<nuphos_instructions_update>[\s\S]*?<\/nuphos_instructions_update>/.exec(
-    text + JSON.stringify(meta ?? {}),
+    [...lead, meta?.['ai.nuphos/instructionsUpdate'] ?? ''].join('\n'),
   )?.[0]
 
   return update && (/E2E_RULE:([a-z]+)/.exec(update)?.[1] ?? 'none')

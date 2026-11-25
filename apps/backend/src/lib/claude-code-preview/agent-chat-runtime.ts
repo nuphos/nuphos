@@ -206,7 +206,6 @@ async function promptTurn(args: {
     // credentials or personal context.
     const rebind = session.client !== client || principalChanged
 
-    // A changed system prompt is no reason to load: agents keep the one their session started with.
     if (rebind || sessionContextStale(session, Date.now())) {
       const { alive } = await client.loadSession(
         session.openabSessionId,
@@ -240,7 +239,7 @@ async function promptTurn(args: {
         ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
         : '',
       await retractedPrompt(session, fresh),
-      session.endpoint.provider === 'codex' ? '' : update,
+      session.endpoint.provider === 'codex' ? '' : update.text,
       await backgroundWorkPrompt(session, fresh, args),
     ]
       .filter(Boolean)
@@ -275,10 +274,11 @@ async function promptTurn(args: {
           // Runtime admission, not a backend flag, selects the command whose
           // principal and cancellation route own subsequent output.
           Object.assign(session, nextContext)
+          void update.given()
           session.activeTurn = activeTurn
           if (activeTurn.cancelled) client.cancel(session.openabSessionId)
         },
-        { ...nextContext, instructionsUpdate: session.endpoint.provider === 'codex' ? update : '' },
+        { ...nextContext, instructionsUpdate: update.text },
         attachments,
         lead,
       )

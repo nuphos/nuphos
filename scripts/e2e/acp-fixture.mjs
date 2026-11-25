@@ -103,7 +103,7 @@ async function prompt({ sessionId, prompt: parts, _meta }) {
     marker,
     markers,
     event: 'start',
-    update: updatedRule(text, _meta),
+    update: updatedRule(parts, _meta),
     ...turnFacts(text),
     model: currentModel(sessionId),
   })

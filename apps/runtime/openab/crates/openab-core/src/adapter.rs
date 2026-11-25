@@ -995,7 +995,7 @@ impl AdapterRouter {
         let (idle_tx, mut idle_rx) = tokio::sync::mpsc::channel(ACP_NOTIFICATION_CAPACITY);
         let idle_adapter = adapter.clone();
         let idle_channel = thread_channel.clone();
-        let instructions_update = self.pool.instructions_update(thread_key).await;
+        let instructions_update = self.pool.take_instructions_update(thread_key).await;
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();

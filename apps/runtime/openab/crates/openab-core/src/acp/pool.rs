@@ -608,11 +608,12 @@ impl SessionPool {
         .map_err(anyhow::Error::from)?
     }
 
-    /// The changed standing instructions the session's latest prompt carries, if any.
-    pub async fn instructions_update(&self, thread_id: &str) -> Option<String> {
-        let state = self.state.read().await;
-        let meta = state.session_meta.get(thread_id)?;
-        let update = meta.get(super::connection::INSTRUCTIONS_UPDATE_META_KEY)?;
+    /// Takes the changed standing instructions the session's latest prompt carries, so a
+    /// later prompt that brings no session meta, or a restore, cannot deliver them again.
+    pub async fn take_instructions_update(&self, thread_id: &str) -> Option<String> {
+        let mut state = self.state.write().await;
+        let meta = state.session_meta.get_mut(thread_id)?.as_object_mut()?;
+        let update = meta.remove(super::connection::INSTRUCTIONS_UPDATE_META_KEY)?;
         update.as_str().map(str::to_owned)
     }
 
@@ -2119,6 +2120,40 @@ mod tests {
         let file = crate::acp::session_credentials::session_credentials_dir(&root, "session")
             .join("TOKEN");
         assert_eq!(std::fs::read_to_string(file).unwrap(), expected_token);
+    }
+
+    /// A prompt that brings no session meta, or a restore, keeps the stored meta; the
+    /// instructions update in it must reach the agent once, not again on those turns.
+    #[tokio::test]
+    async fn an_instructions_update_is_delivered_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut state = empty_pool_state();
+        state.session_meta.insert(
+            "session".into(),
+            serde_json::json!({ "ai.nuphos/instructionsUpdate": "Ship on Mondays." }),
+        );
+        let pool = super::SessionPool {
+            state: Arc::new(tokio::sync::RwLock::new(state)),
+            config: crate::config::AgentConfig::default(),
+            max_sessions: 4,
+            admission: Arc::new(tokio::sync::Semaphore::new(4)),
+            hung_threshold_secs: 60,
+            mapping_path: dir.path().join("thread_map.json"),
+            meta_path: dir.path().join("session_meta.json"),
+            mapping_order: Arc::new(super::OrderedFile::default()),
+            meta_order: Arc::new(super::OrderedFile::default()),
+            credentials_root: dir.path().join("credentials"),
+            credentials_locks: std::sync::Mutex::new(HashMap::new()),
+            default_config_options: HashMap::new(),
+            session_registrar: None,
+            facade_url: None,
+        };
+        assert_eq!(
+            pool.take_instructions_update("session").await.as_deref(),
+            Some("Ship on Mondays.")
+        );
+        assert_eq!(pool.take_instructions_update("session").await, None);
+        assert_eq!(pool.take_instructions_update("unknown").await, None);
     }
 
     /// F3: replacing a hung predecessor's token revokes the predecessor's EXACT token and leaves

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 
 import { ObjectId } from 'mongodb'
 
-import { getConversationBySessionId, swapConversationInstructionsDigest } from '@/lib/agent/db'
+import { getConversationBySessionId, setConversationInstructionsDigest } from '@/lib/agent/db'
 import { findScopeInstructions } from '@/lib/instructions/service'
 import { logEvent } from '@/lib/observability'
 
@@ -138,39 +138,53 @@ export async function loadInstructionsBlock(
   }
 }
 
+/** What a turn tells its agent about its standing instructions, and how to record that it was told. */
+export type InstructionsUpdate = { text: string; given: () => Promise<void> }
+
+const UNCHANGED: InstructionsUpdate = { text: '', given: () => Promise.resolve() }
+
 /**
  * The current standing instructions, for a turn whose running agent was given others. An agent
  * reads its system prompt only when its session starts: neither Claude Code nor Codex replaces it
  * on session/load, so an edit or `update_self` reaches a running session only as part of a turn.
- * Empty when the agent already has them, as a `fresh` session does. A failed read is no change.
+ * Call `given` once the runtime accepts the turn; until then the next turn carries it again. A
+ * session that just started has them already, as does one from before they were recorded. A
+ * failed read is no change.
  */
 export async function instructionsUpdate(
   teamId: string,
   userId: string,
   sessionId: string,
   fresh: boolean,
-): Promise<string> {
-  if (!ObjectId.isValid(teamId)) return ''
+): Promise<InstructionsUpdate> {
+  if (!ObjectId.isValid(teamId)) return UNCHANGED
   try {
-    const block = await renderFor(
-      new ObjectId(teamId),
-      userId,
-      getConversationBySessionId(sessionId),
-    )
+    const conversation = await getConversationBySessionId(sessionId)
+    const block = await renderFor(new ObjectId(teamId), userId, Promise.resolve(conversation))
     const digest = createHash('sha256')
       .update(block ?? '')
       .digest('hex')
+    const known = conversation?.instructionsDigest
 
-    if (!(await swapConversationInstructionsDigest(sessionId, teamId, digest)) || fresh) return ''
+    if (known === digest) return UNCHANGED
 
-    return render(block)
+    return {
+      text: fresh || known === undefined ? '' : render(block),
+      given: () =>
+        setConversationInstructionsDigest(sessionId, teamId, digest).catch((error: unknown) => {
+          logEvent('warn', 'agent.instructions.record_failed', {
+            teamId,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        }),
+    }
   } catch (error) {
     logEvent('warn', 'agent.instructions.update_failed', {
       teamId,
       message: error instanceof Error ? error.message : String(error),
     })
 
-    return ''
+    return UNCHANGED
   }
 }
 

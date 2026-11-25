@@ -214,7 +214,9 @@ export function promptMeta(
       ? {
           'dev.openab/sessionMeta': {
             ...(sessionMeta(context.systemPrompt, context.runtime)._meta as object),
-            'ai.nuphos/instructionsUpdate': context.instructionsUpdate || undefined,
+            // Other agents read it in the prompt text.
+            'ai.nuphos/instructionsUpdate':
+              (context.runtime?.provider === 'codex' && context.instructionsUpdate) || undefined,
           },
           'dev.openab/mcpServers': context.mcpServers,
         }

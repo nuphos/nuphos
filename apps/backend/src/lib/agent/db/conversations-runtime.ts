@@ -198,17 +198,14 @@ export async function consumeConversationRetracted(
   return Boolean(previous)
 }
 
-/** Records the standing instructions this conversation's agent has from now on. True when they changed. */
-export async function swapConversationInstructionsDigest(
+/** Records the standing instructions this conversation's agent was given. */
+export async function setConversationInstructionsDigest(
   sessionId: string,
   teamId: string,
   digest: string,
-): Promise<boolean> {
-  const previous = await agentConversations().findOneAndUpdate(
-    { sessionId, teamId, instructionsDigest: { $ne: digest } },
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, teamId },
     { $set: { instructionsDigest: digest } },
-    { projection: { _id: 1 } },
   )
-
-  return Boolean(previous)
 }
