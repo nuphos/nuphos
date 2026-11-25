@@ -18,6 +18,7 @@
     "e2e:agent-reset": "bun scripts/e2e/run-agent-reset.ts",
     "e2e:replica-handoff": "bun scripts/e2e/run-replica-handoff.ts",
     "e2e:ci-wake": "bun scripts/e2e/run-ci-wake.ts",
+    "e2e:answer-restart": "bun scripts/e2e/run-answer-restart.ts",
     "e2e:printed-key": "bun scripts/e2e/run-printed-key.ts",
     "e2e:slack-silent": "bun scripts/e2e/run-slack-silent.ts",
     "dev:stop": "bun scripts/dev-stack-cli.ts stop",
