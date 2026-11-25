@@ -14,11 +14,17 @@ type Device = {
   state: 'pending' | 'enrolled'
   computer: boolean
 }
-type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] }
+type Item = {
+  ciphertext: string
+  keys: { deviceId: string; wrapped: string }[]
+  updatedAt: string
+}
 
 // The backend's vault routes, in memory.
 const backend = { devices: [] as Device[], items: new Map<string, Item>(), calls: [] as string[] }
 const fail = (status: number) => Object.assign(new Error(String(status)), { status })
+let clock = 0
+const tick = () => new Date(Date.UTC(2026, 0, 1, 0, 0, ++clock)).toISOString()
 
 function route(method: string, url: string, body: Record<string, unknown>) {
   const [, , kind, id, action] = url.split('/')
@@ -55,13 +61,19 @@ function route(method: string, url: string, body: Record<string, unknown>) {
     return {
       items: [...backend.items].map(([name, item]) => ({
         name,
+        updatedAt: item.updatedAt,
         deviceIds: item.keys.map((k) => k.deviceId),
       })),
     }
   const item = backend.items.get(id)
 
   if (method === 'GET' && item) return { item }
-  if (method === 'PUT') return backend.items.set(id, body as Item) && {}
+  if (method === 'PUT') {
+    if ((item?.updatedAt ?? null) !== body.updatedAt) throw fail(409)
+    const { ciphertext, keys } = body as Item
+
+    return backend.items.set(id, { ciphertext, keys, updatedAt: tick() }) && {}
+  }
   if (method === 'DELETE') return backend.items.delete(id) && {}
   throw fail(404)
 }
@@ -125,6 +137,7 @@ function otherDevice(state: Device['state'], computer = false) {
 }
 
 const holders = (name: string) => backend.items.get(name)?.keys.map((k) => k.deviceId)
+const at = (name: string) => backend.items.get(name)?.updatedAt as string
 
 test('the first device is trusted, and only the devices picked can open what it saves', async () => {
   const status = await vault.enroll()
@@ -134,7 +147,7 @@ test('the first device is trusted, and only the devices picked can open what it 
   const other = otherDevice('enrolled')
 
   otherDevice('enrolled')
-  await vault.setItem('github-token', 'ghp_example', [mine, other.device.id])
+  await vault.setItem('github-token', 'ghp_example', [mine, other.device.id], null)
   assert.equal(await vault.getItem('github-token'), 'ghp_example')
   assert.deepEqual(holders('github-token'), [mine, other.device.id])
   const wrapped = backend.items
@@ -149,10 +162,11 @@ test('sharing wraps the same key for a device added and drops the one left out',
   const mine = (await vault.enroll()).thisDeviceId as string
   const box = otherDevice('enrolled', true)
 
-  await vault.setItem('deploy', 'secret', [mine])
+  await vault.setItem('deploy', 'secret', [mine], null)
   const before = backend.items.get('deploy')?.ciphertext
+  const first = at('deploy')
 
-  await vault.shareItem('deploy', [mine, box.device.id])
+  await vault.shareItem('deploy', [mine, box.device.id], first)
   const shared = backend.items.get('deploy')
 
   assert.equal(shared?.ciphertext, before)
@@ -161,17 +175,25 @@ test('sharing wraps the same key for a device added and drops the one left out',
   assert.ok(wrapped)
   assert.equal(unwrap(wrapped.wrapped, 'deploy', box.privateKey).length, 32)
 
-  await vault.shareItem('deploy', [mine])
+  await vault.shareItem('deploy', [mine], at('deploy'))
+  assert.deepEqual(holders('deploy'), [mine])
+  // A choice made on an older read is refused, so it cannot undo the change above.
+  await assert.rejects(vault.shareItem('deploy', [mine, box.device.id], first), /409/)
+  await assert.rejects(vault.setItem('deploy', 'new', [mine], null), /409/)
   assert.deepEqual(holders('deploy'), [mine])
   // A device not given the item cannot open it from here either.
-  backend.items.set('other', { ciphertext: 'c', keys: [{ deviceId: box.device.id, wrapped: 'w' }] })
+  backend.items.set('other', {
+    ciphertext: 'c',
+    keys: [{ deviceId: box.device.id, wrapped: 'w' }],
+    updatedAt: tick(),
+  })
   await assert.rejects(vault.getItem('other'), /not shared with this device/)
 })
 
 test('approve wraps keys only for the key whose fingerprint was compared', async () => {
   const mine = (await vault.enroll()).thisDeviceId as string
 
-  await vault.setItem('github-token', 'ghp_example', [mine])
+  await vault.setItem('github-token', 'ghp_example', [mine], null)
   const pending = otherDevice('pending')
   const shown = fingerprint(Buffer.from(pending.device.publicKey, 'base64'))
 
@@ -220,7 +242,7 @@ test('a pending device cannot read, and removing this device forgets its key', a
 test('names and sizes are checked before anything is sent', async () => {
   await vault.enroll()
   backend.calls = []
-  await assert.rejects(vault.setItem('../x', 'v', []), /A name is/)
-  await assert.rejects(vault.setItem('big', 'x'.repeat(64 * 1024 + 1), []), /at most 64 KiB/)
+  await assert.rejects(vault.setItem('../x', 'v', [], null), /A name is/)
+  await assert.rejects(vault.setItem('big', 'x'.repeat(64 * 1024 + 1), [], null), /at most 64 KiB/)
   assert.ok(!backend.calls.some((c) => c.startsWith('PUT')))
 })

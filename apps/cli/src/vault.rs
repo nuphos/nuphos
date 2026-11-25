@@ -340,7 +340,8 @@ pub async fn set(ctx: &Ctx, name: &str) -> Result<()> {
         keys.push(json!({ "deviceId": d["id"], "wrapped": wrap(&item_key, name, &public_key_of(d)?)? }));
     }
     let ciphertext = seal(&item_key, name, &value)?;
-    ctx.api.vault_put_item(name, &ciphertext, &keys).await?;
+    let seen = existing.and_then(|i| i["updatedAt"].as_str());
+    ctx.api.vault_put_item(name, &ciphertext, &keys, seen).await?;
     if !ctx.json {
         println!("Saved {} for {} device(s).", clean(name), keys.len());
     }

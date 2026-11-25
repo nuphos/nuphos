@@ -14,7 +14,7 @@ import { vaultItemsQuery } from '../../lib/query/vault'
 import { inputClasses } from './styles'
 import { vaultCard } from './VaultDevices'
 
-import type { VaultDevice } from '../../types/vault'
+import type { VaultDevice, VaultItemSummary } from '../../types/vault'
 
 /** Enrolled devices to pick from, computers marked: an item reaches only the ones picked. */
 function DevicePicker({
@@ -44,7 +44,11 @@ function DevicePicker({
   )
 }
 
-type Sharing = { name: string; was: string[]; chosen: string[] }
+/** True when one of this person's own devices is picked, so they can still open the item. */
+const ownPicked = (devices: VaultDevice[], ids: string[]) =>
+  devices.some((d) => !d.computer && ids.includes(d.id))
+
+type Sharing = { item: VaultItemSummary; chosen: string[] }
 
 /** Picks the devices an item is shared with; one left out may have kept what it read. */
 function ShareDialog({
@@ -56,12 +60,12 @@ function ShareDialog({
   sharing: Sharing | null
   devices: VaultDevice[]
   onChange: (sharing: Sharing | null) => void
-  onSave: (sharing: Sharing) => void
+  onSave: (sharing: Sharing) => Promise<void>
 }) {
   return (
     <ConfirmDialog
       open={sharing !== null}
-      title={t('Who can open {name}?', { name: sharing?.name ?? '' })}
+      title={t('Who can open {name}?', { name: sharing?.item.name ?? '' })}
       description={
         sharing && (
           <>
@@ -73,7 +77,7 @@ function ShareDialog({
               chosen={sharing.chosen}
               onChange={(ids) => onChange({ ...sharing, chosen: ids })}
             />
-            {sharing.was.some((id) => !sharing.chosen.includes(id)) && (
+            {sharing.item.deviceIds.some((id) => !sharing.chosen.includes(id)) && (
               <span className="mt-3 block text-main">
                 {t(
                   'A device you remove may have kept the value it already read. Change the secret where it was issued, then save the new value here.',
@@ -84,9 +88,12 @@ function ShareDialog({
         )
       }
       confirmLabel={t('Save')}
-      onConfirm={() => {
-        if (sharing?.chosen.length) onSave(sharing)
-        onChange(null)
+      // A refusal is shown in the dialog, which stays open.
+      onConfirm={async () => {
+        if (!sharing) return
+        if (!ownPicked(devices, sharing.chosen))
+          throw new Error(t('Pick at least one of your own devices.'))
+        await onSave(sharing)
       }}
       onClose={() => onChange(null)}
     />
@@ -107,10 +114,9 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
   const [value, setValue] = useState('')
   // Picked for the item being saved; until then, what it is shared with now.
   const [picked, setPicked] = useState<string[] | null>(null)
+  const existing = items.data?.find((item) => item.name === name.trim())
   const chosen =
-    picked ??
-    items.data?.find((item) => item.name === name.trim())?.deviceIds ??
-    enrolled.filter((d) => !d.computer).map((d) => d.id)
+    picked ?? existing?.deviceIds ?? enrolled.filter((d) => !d.computer).map((d) => d.id)
   const [sharing, setSharing] = useState<Sharing | null>(null)
   // Values read on request, never in the query cache.
   const [revealed, setRevealed] = useState<Record<string, string>>({})
@@ -118,7 +124,8 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.vaultItems(userId) })
 
   const save = useMutation({
-    mutationFn: () => api.vaultSet(name.trim(), value, chosen),
+    // A change made elsewhere since the list was read is refused, then the list refreshes.
+    mutationFn: () => api.vaultSet(name.trim(), value, chosen, existing?.updatedAt ?? null),
     onSuccess: () => {
       toast.success(t('Saved {name}', { name: name.trim() }))
       setRevealed(({ [name.trim()]: _, ...rest }) => rest)
@@ -130,9 +137,8 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
     onError: (err) => toast.apiError(t('Could not save the item'), err),
   })
   const share = useMutation({
-    mutationFn: ({ name: item, chosen: ids }: Sharing) => api.vaultShare(item, ids),
+    mutationFn: ({ item, chosen: ids }: Sharing) => api.vaultShare(item.name, ids, item.updatedAt),
     onSettled: refresh,
-    onError: (err) => toast.apiError(t('Could not change who can open the item'), err),
   })
   const remove = useMutation({
     mutationFn: (item: string) => api.vaultDelete(item),
@@ -167,7 +173,10 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
           placeholder={t('Name, e.g. github-token')}
           value={name}
           maxLength={128}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            setName(e.target.value)
+            setPicked(null)
+          }}
         />
         <textarea
           aria-label={t('Value')}
@@ -184,7 +193,7 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
           <Button
             type="submit"
             size="sm"
-            disabled={!name.trim() || !value || !chosen.length || save.isPending}
+            disabled={!name.trim() || !value || !ownPicked(enrolled, chosen) || save.isPending}
           >
             {t('Save')}
           </Button>
@@ -208,9 +217,7 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
                 type="button"
                 size="sm"
                 variant="secondary"
-                onClick={() =>
-                  setSharing({ name: item.name, was: item.deviceIds, chosen: item.deviceIds })
-                }
+                onClick={() => setSharing({ item, chosen: item.deviceIds })}
               >
                 {t('Devices')}
               </Button>
@@ -243,7 +250,7 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
         sharing={sharing}
         devices={enrolled}
         onChange={setSharing}
-        onSave={(next) => share.mutate(next)}
+        onSave={(next) => share.mutateAsync(next)}
       />
       <ConfirmDialog
         open={deleting !== null}

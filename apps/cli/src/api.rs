@@ -262,9 +262,16 @@ impl Api {
         self.call(Method::GET, &format!("/vault/computer/items/{}", name), &[("user", user)], None).await
     }
 
-    /// `keys` wraps the item key for every enrolled device: `[{ deviceId, wrapped }]`.
-    pub async fn vault_put_item(&self, name: &str, ciphertext: &str, keys: &[Value]) -> Result<Value, ApiError> {
-        let body = json!({ "ciphertext": ciphertext, "keys": keys });
+    /// `keys` wraps the item key for each device it is shared with: `[{ deviceId, wrapped }]`.
+    /// `updated_at` is the item's as last read (None for a new one); a changed item is refused.
+    pub async fn vault_put_item(
+        &self,
+        name: &str,
+        ciphertext: &str,
+        keys: &[Value],
+        updated_at: Option<&str>,
+    ) -> Result<Value, ApiError> {
+        let body = json!({ "ciphertext": ciphertext, "keys": keys, "updatedAt": updated_at });
         let path = format!("/vault/items/{}", name);
         Ok(self.call(Method::PUT, &path, &[], Some(&body)).await?["item"].take())
     }

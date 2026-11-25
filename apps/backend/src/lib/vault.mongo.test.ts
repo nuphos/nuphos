@@ -18,11 +18,18 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
+import type { VaultKey } from '@/lib/vault'
 import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
 
 const KEY = Buffer.alloc(32, 1).toString('base64')
 const keysFor = (...ids: string[]) =>
   ids.map((deviceId) => ({ deviceId, wrapped: `w-${deviceId}` }))
+/** Writes as a client that read the item just before. */
+const put = async (user: string, name: string, ciphertext: string, keys: VaultKey[]) => {
+  const seen = await db().collection('vault_items').findOne({ userId: user, name })
+
+  return putVaultItem(user, name, ciphertext, keys, seen?.updatedAt.toISOString() ?? null)
+}
 const fails = async (promise: Promise<unknown>) => {
   try {
     await promise
@@ -48,15 +55,17 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
 
     expect([first.state, second.state]).toEqual(['enrolled', 'pending'])
 
-    await putVaultItem(user, 'token', 'c1', keysFor(first.id))
+    await put(user, 'token', 'c1', keysFor(first.id))
     // A pending device holds no key, so a write that wraps for it is refused.
-    expect(
-      await fails(putVaultItem(user, 'token', 'c2', keysFor(first.id, second.id))),
-    ).toMatchObject({ status: 409, code: 'vault_devices_changed' })
+    expect(await fails(put(user, 'token', 'c2', keysFor(first.id, second.id)))).toMatchObject({
+      status: 409,
+      code: 'vault_devices_changed',
+    })
     // Nor twice for one device.
-    expect(
-      await fails(putVaultItem(user, 'token', 'c2', keysFor(first.id, first.id))),
-    ).toMatchObject({ status: 409, code: 'vault_devices_changed' })
+    expect(await fails(put(user, 'token', 'c2', keysFor(first.id, first.id)))).toMatchObject({
+      status: 409,
+      code: 'vault_devices_changed',
+    })
     // An approval wraps some items, each once.
     expect(
       await fails(
@@ -73,7 +82,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
       await fails(approveVaultDevice(user, second.id, [{ name: 'token', wrapped: 'again' }])),
     ).toMatchObject({ status: 409, code: 'vault_device_enrolled' })
     // Unsharing from one device is a write without its key.
-    await putVaultItem(user, 'token', 'c3', keysFor(second.id))
+    await put(user, 'token', 'c3', keysFor(second.id))
     expect(await holders()).toEqual([second.id])
     expect((await listVaultItems(user))[0]).toMatchObject({ name: 'token', deviceIds: [second.id] })
     // The only device that can open it stays; the other one may go.
@@ -90,7 +99,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     const first = await addVaultDevice(user, 'laptop', KEY)
     const second = await addVaultDevice(user, 'desktop', KEY)
 
-    await putVaultItem(user, 'token', 'c1', keysFor(first.id))
+    await put(user, 'token', 'c1', keysFor(first.id))
     await approveVaultDevice(user, second.id, [])
     expect((await getVaultItem(user, 'token')).keys.map((key) => key.deviceId)).toEqual([first.id])
   })
@@ -101,7 +110,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     const device = await addVaultDevice(owner, 'laptop', KEY)
     const pending = await addVaultDevice(owner, 'phone', KEY)
 
-    await putVaultItem(owner, 'token', 'c1', keysFor(device.id))
+    await put(owner, 'token', 'c1', keysFor(device.id))
 
     expect(await listVaultItems(other)).toEqual([])
     expect(await fails(getVaultItem(other, 'token'))).toMatchObject({ status: 404 })
@@ -118,13 +127,13 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     const locks = db().collection<{ _id: string; token: string; until: Date }>('vault_locks')
 
     await locks.insertOne({ _id: user, token: 'other', until: new Date(Date.now() + 60_000) })
-    expect(await fails(putVaultItem(user, 'token', 'c1', keysFor(device.id)))).toMatchObject({
+    expect(await fails(put(user, 'token', 'c1', keysFor(device.id)))).toMatchObject({
       status: 409,
       code: 'vault_busy',
     })
     // A holder that never released it frees the vault once its lock expires.
     await locks.updateOne({ _id: user }, { $set: { until: new Date(Date.now() - 1) } })
-    await putVaultItem(user, 'token', 'c1', keysFor(device.id))
+    await put(user, 'token', 'c1', keysFor(device.id))
     expect(await locks.countDocuments({ _id: user })).toBe(0)
   })
 
@@ -133,7 +142,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     const first = await addVaultDevice(user, 'laptop', KEY)
     const second = await addVaultDevice(user, 'desktop', KEY)
     const results = await Promise.allSettled([
-      putVaultItem(user, 'new', 'c1', keysFor(first.id)),
+      put(user, 'new', 'c1', keysFor(first.id)),
       removeVaultDevice(user, first.id),
       approveVaultDevice(user, second.id, []),
     ])
@@ -154,11 +163,44 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     }
   })
 
+  test('a write based on an older read is refused', async () => {
+    const user = randomUUID()
+    const laptop = await addVaultDevice(user, 'laptop', KEY)
+    const desktop = await addVaultDevice(user, 'desktop', KEY)
+    const changed = { status: 409, code: 'vault_item_changed' }
+    const first = await putVaultItem(user, 'token', 'c1', keysFor(laptop.id), null)
+
+    // A new item must not exist yet.
+    expect(await fails(putVaultItem(user, 'token', 'c1', keysFor(laptop.id), null))).toMatchObject(
+      changed,
+    )
+    // Approving a device changes the item: a share read before would drop that device.
+    await approveVaultDevice(user, desktop.id, [{ name: 'token', wrapped: 'w-desktop' }])
+    expect(
+      await fails(putVaultItem(user, 'token', 'c1', keysFor(laptop.id), first.updatedAt)),
+    ).toMatchObject(changed)
+    // A share racing a rotation of the same read: one lands, the other is refused.
+    const seen = (await getVaultItem(user, 'token')).updatedAt
+    const results = await Promise.allSettled([
+      putVaultItem(user, 'token', 'rotated', keysFor(laptop.id, desktop.id), seen),
+      putVaultItem(user, 'token', 'c1', keysFor(laptop.id), seen),
+    ])
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    // Sequential, the late share still cannot bring the old value back.
+    const after = await getVaultItem(user, 'token')
+
+    expect(await fails(putVaultItem(user, 'token', 'c1', keysFor(laptop.id), seen))).toMatchObject(
+      changed,
+    )
+    expect(await getVaultItem(user, 'token')).toEqual(after)
+  })
+
   test('the last device that can read items stays', async () => {
     const user = randomUUID()
     const device = await addVaultDevice(user, 'laptop', KEY)
 
-    await putVaultItem(user, 'token', 'c1', keysFor(device.id))
+    await put(user, 'token', 'c1', keysFor(device.id))
     expect(await fails(removeVaultDevice(user, device.id))).toMatchObject({
       status: 409,
       code: 'vault_last_device',
@@ -201,12 +243,12 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
           updatedAt: new Date(),
         })) as never,
       )
-    expect(await fails(putVaultItem(user, 'one-more', 'c', keysFor(device.id)))).toMatchObject({
+    expect(await fails(put(user, 'one-more', 'c', keysFor(device.id)))).toMatchObject({
       status: 409,
       code: 'vault_item_limit',
     })
     // An existing item can still change.
-    await putVaultItem(user, 'item-0', 'c2', keysFor(device.id))
+    await put(user, 'item-0', 'c2', keysFor(device.id))
   })
 
   test('a computer added from afar waits for approval and reads only its own key', async () => {
@@ -226,18 +268,22 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     // Adding it again offers the same key: still one device.
     expect(await addVaultDevice(user, 'box', KEY, box)).toMatchObject({ id: added.id })
     expect(await listVaultDevices(user)).toHaveLength(2)
-    await putVaultItem(user, 'token', 'c1', keysFor(laptop.id))
+    await put(user, 'token', 'c1', keysFor(laptop.id))
     expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
 
+    // Older clients wrap every item for a computer they approve: refused.
+    expect(
+      await fails(approveVaultDevice(user, added.id, [{ name: 'token', wrapped: 'w-box' }])),
+    ).toMatchObject({ status: 409, code: 'vault_computer_keys' })
     // Approved with no items, it reads none until one is shared with it.
     await approveVaultDevice(user, added.id, [])
     expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
     // Never with a computer alone: nobody could share or rotate it again.
-    expect(await fails(putVaultItem(user, 'token', 'c1', keysFor(added.id)))).toMatchObject({
+    expect(await fails(put(user, 'token', 'c1', keysFor(added.id)))).toMatchObject({
       status: 409,
       code: 'vault_no_personal_device',
     })
-    await putVaultItem(user, 'token', 'c1', [
+    await put(user, 'token', 'c1', [
       ...keysFor(laptop.id),
       { deviceId: added.id, wrapped: 'w-box' },
     ])
@@ -254,7 +300,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
       status: 404,
     })
     // Unshared, it reads it no more.
-    await putVaultItem(user, 'token', 'c2', keysFor(laptop.id))
+    await put(user, 'token', 'c2', keysFor(laptop.id))
     expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
   })
 

@@ -151,15 +151,18 @@ vaultRoutes.put(
         .array(z.object({ deviceId: z.string().uuid(), wrapped }))
         .min(1)
         .max(MAX_DEVICES),
+      /** The item's `updatedAt` as the writer read it, null for a new item. */
+      updatedAt: z.string().datetime().nullable(),
     }),
   ),
   async (c) => {
-    const { ciphertext, keys } = c.req.valid('json')
+    const { ciphertext, keys, updatedAt } = c.req.valid('json')
     const item = await putVaultItem(
       c.get('userId'),
       nameParam(c.req.param('name')),
       ciphertext,
       keys,
+      updatedAt,
     )
 
     return c.json({ item })
