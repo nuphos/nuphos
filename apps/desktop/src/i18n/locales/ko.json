@@ -4228,6 +4228,7 @@
   "Secureframe integration": "Secureframe 연동",
   "Security & compliance": "보안 및 규정 준수",
   "Security & compliance automation.": "보안 및 컴플라이언스 자동화.",
+  "See earlier messages with {name}": "{name}와(과)의 이전 대화 보기",
   "See the YAML tab for full spec.": "전체 spec은 YAML 탭에서 확인하세요.",
   "See the output, or run the command on the machine yourself.": "출력을 확인하거나 머신에서 직접 명령을 실행하세요.",
   "Sees the team’s pages, but can’t change its connections, dashboards or settings, or use its cloud credentials.": "팀의 페이지를 볼 수 있지만 연결, 대시보드, 설정을 변경하거나 클라우드 자격 증명을 사용할 수는 없습니다.",
