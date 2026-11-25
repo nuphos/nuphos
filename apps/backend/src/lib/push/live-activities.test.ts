@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 
 import {
-  LIVE_ACTIVITY_DISMISS_S,
   LIVE_ACTIVITY_RETRY_MS,
   liveActivityPhase,
   recordLiveActivityState,
   registerLiveActivityToken,
 } from './live-activities'
+import {
+  forgetLiveActivityToken,
+  LIVE_ACTIVITY_IDLE_S,
+  LIVE_ACTIVITY_OFFLINE_S,
+} from './live-activity-idle'
 
 import type { ApnsRequest, ApnsResponse } from './apns'
 import type { PendingLiveActivityRow, PushDevice } from './devices'
@@ -201,7 +205,7 @@ describe('liveActivityPhase', () => {
 })
 
 describe('Live Activity pushes', () => {
-  test('an idle runtime ends a card with nothing else running', async () => {
+  test('an idle card stays up for the next turn and ends after its idle window', async () => {
     await record('session-1', IDLE)
 
     expect(sent.map((r) => r.deviceToken)).toEqual(['la-1', 'la-2'])
@@ -213,14 +217,47 @@ describe('Live Activity pushes', () => {
       payload: {
         aps: {
           timestamp: 100,
-          event: 'end',
+          event: 'update',
           'content-state': card([['session-1', 'One', 'done']], 0),
-          'dismissal-date': 100 + LIVE_ACTIVITY_DISMISS_S,
+          'stale-date': 100 + LIVE_ACTIVITY_IDLE_S,
         },
       },
     })
+    expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+    expect(scheduled.map((s) => s.delayMs)).toEqual([
+      LIVE_ACTIVITY_IDLE_S * 1000,
+      LIVE_ACTIVITY_IDLE_S * 1000,
+    ])
+
+    sent = []
+    await runScheduled()
+    expect(contentOf('la-1')).toEqual({
+      timestamp: 100,
+      event: 'end',
+      'content-state': card([['session-1', 'One', 'done']], 0),
+      'dismissal-date': 100,
+    })
     expect(tokensOf('session-1')).toEqual([])
     expect(tokensOf('session-2')).toEqual(['la-other'])
+  })
+
+  test('a turn starting within the idle window keeps the card', async () => {
+    await record('session-1', IDLE)
+    await record('session-1', RUNNING)
+    sent = []
+    await runScheduled()
+
+    expect(sent).toEqual([])
+    expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+  })
+
+  test('an idle end APNs rejects keeps the token; its stale date still applies', async () => {
+    await record('session-1', IDLE)
+    responses = { 'la-1': { status: 429 }, 'la-2': { status: 410, reason: 'Unregistered' } }
+    await runScheduled()
+
+    expect(tokensOf('session-1')).toEqual(['la-1'])
+    expect(scheduled).toEqual([])
   })
 
   test('a lost runtime connection shows Unavailable without ending the card', async () => {
@@ -232,11 +269,14 @@ describe('Live Activity pushes', () => {
       timestamp: 100,
       event: 'update',
       'content-state': card([['session-1', 'One', 'unavailable']], 0),
+      'stale-date': 100 + LIVE_ACTIVITY_OFFLINE_S,
     })
     expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+    expect(scheduled[0]?.delayMs).toBe(LIVE_ACTIVITY_OFFLINE_S * 1000)
 
     await record('session-1', RUNNING)
-    expect(contentOf('la-1')).toMatchObject({
+    expect(contentOf('la-1')).toEqual({
+      timestamp: 100,
       event: 'update',
       'content-state': card([['session-1', 'One', 'running']], 1),
     })
@@ -249,7 +289,7 @@ describe('Live Activity pushes', () => {
     expect(sent.map((r) => r.deviceToken)).toEqual(['la-1', 'la-2'])
   })
 
-  test('one card lists all its conversations and ends only with the last', async () => {
+  test('one card lists all its conversations and goes idle only with the last', async () => {
     await store.addToken('session-2', token('la-1'), row('Two'))
     await record('session-1', IDLE)
 
@@ -264,13 +304,14 @@ describe('Live Activity pushes', () => {
         1,
       ),
     })
-    expect(contentOf('la-2')).toMatchObject({ event: 'end' })
+    expect(contentOf('la-2')).toMatchObject({ 'stale-date': 100 + LIVE_ACTIVITY_IDLE_S })
     expect(tokensOf('session-2')).toEqual(['la-other', 'la-1'])
 
     await record('session-2', runtime('active', { phase: 'resume_disconnected' }))
 
-    expect(contentOf('la-1')).toMatchObject({
-      event: 'end',
+    expect(contentOf('la-1')).toEqual({
+      timestamp: 100,
+      event: 'update',
       'content-state': card(
         [
           ['session-2', 'Two', 'stopped'],
@@ -278,9 +319,9 @@ describe('Live Activity pushes', () => {
         ],
         0,
       ),
+      'stale-date': 100 + LIVE_ACTIVITY_IDLE_S,
     })
-    expect(tokensOf('session-1')).toEqual([])
-    expect(tokensOf('session-2')).toEqual([])
+    expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
   })
 
   test('shows the three newest conversations and counts the rest', async () => {
@@ -325,7 +366,7 @@ describe('Live Activity pushes', () => {
     }
   })
 
-  test('a throttled or failed end keeps the token and is retried until it lands', async () => {
+  test('a throttled or failed update keeps the token and is retried until it lands', async () => {
     responses = { 'la-1': { status: 429, reason: 'TooManyRequests' }, 'la-2': new Error('reset') }
     await record('session-1', IDLE)
 
@@ -337,15 +378,15 @@ describe('Live Activity pushes', () => {
     await runScheduled()
     expect(sent.map((r) => r.deviceToken)).toEqual(['la-1', 'la-2'])
     expect(contentOf('la-1')).toMatchObject({
-      event: 'end',
+      event: 'update',
       'content-state': card([['session-1', 'One', 'done']], 0),
     })
-    expect(tokensOf('session-1')).toEqual(['la-2'])
-
-    responses = {}
-    await runScheduled()
-    expect(tokensOf('session-1')).toEqual([])
-    expect(scheduled).toEqual([])
+    // la-1 landed and waits out its idle window; la-2 is retried.
+    expect(scheduled.map((s) => s.delayMs).sort((a, b) => a - b)).toEqual([
+      LIVE_ACTIVITY_RETRY_MS[1]!,
+      LIVE_ACTIVITY_IDLE_S * 1000,
+    ])
+    expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
   })
 
   test('gives up after the last retry without dropping the token', async () => {
@@ -360,7 +401,6 @@ describe('Live Activity pushes', () => {
   test('a retry never overwrites a newer phase', async () => {
     responses = { 'la-1': { status: 503 } }
     await record('session-1', IDLE)
-    expect(tokensOf('session-1')).toEqual(['la-1'])
 
     responses = {}
     await record('session-1', RUNNING)
@@ -396,6 +436,14 @@ describe('Live Activity pushes', () => {
     await recordLiveActivityState({ ...deps, credentials: () => null }, 'session-1', IDLE)
 
     expect(sent).toEqual([])
+  })
+
+  test('forgets a dismissed card only for the user who owns it', async () => {
+    await forgetLiveActivityToken(deps, 'someone-else', 'la-1')
+    expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+
+    await forgetLiveActivityToken(deps, 'viewer', 'la-1')
+    expect(tokensOf('session-1')).toEqual(['la-2'])
   })
 
   test('a conversation without activities only keeps its phase', async () => {
@@ -476,6 +524,19 @@ describe('Live Activities for watched conversations', () => {
     expect(tokensOf('session-5')).toContain('la-v')
   })
 
+  test('the next turn reuses an idle card instead of starting one', async () => {
+    devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
+    await store.addToken('session-1', { ...token('la-v'), deviceId: 'phone-v' }, row('One'))
+    await record('session-1', IDLE)
+    await record('session-5', RUNNING)
+    sent = []
+    await runScheduled()
+
+    expect(sent).toEqual([])
+    expect(tokensOf('session-5')).toContain('la-v')
+    expect(tokensOf('session-1')).toContain('la-v')
+  })
+
   test('a card older than its iOS lifetime gets a new one instead', async () => {
     devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
     await store.addToken(
@@ -525,15 +586,16 @@ describe('Live Activities for watched conversations', () => {
 })
 
 describe('Live Activity registration', () => {
-  test('a runtime that went idle before the token arrived ends the card on registration', async () => {
+  test('a runtime that went idle before the token arrived shows done and starts the idle window', async () => {
     await registerLiveActivityToken(deps, 'session-3', token('late'), row('Three'), IDLE)
 
     expect(sent.map((r) => r.deviceToken)).toEqual(['late'])
     expect(contentOf('late')).toMatchObject({
-      event: 'end',
+      event: 'update',
       'content-state': card([['session-3', 'Three', 'done']], 0),
+      'stale-date': 100 + LIVE_ACTIVITY_IDLE_S,
     })
-    expect(tokensOf('session-3')).toEqual([])
+    expect(scheduled.map((s) => s.delayMs)).toEqual([LIVE_ACTIVITY_IDLE_S * 1000])
   })
 
   test('a running runtime keeps the card running; an unknown one pushes nothing', async () => {

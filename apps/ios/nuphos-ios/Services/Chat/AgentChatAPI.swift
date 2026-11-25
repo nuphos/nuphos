@@ -137,6 +137,11 @@ enum AgentChatAPI {
         try await send("PUT", "push/live-activities", token: token, body: activity, timeout: 15)
     }
 
+    /// `DELETE /push/live-activities/:token`: the card was dismissed or ended.
+    static func unregisterLiveActivity(token: String, liveActivityToken: String) async throws {
+        try await send("DELETE", "push/live-activities/\(liveActivityToken)", token: token, body: Optional<Int>.none, timeout: 10)
+    }
+
     /// `DELETE /push/devices/:token`.
     static func unregisterPushDevice(token: String, deviceToken: String) async throws {
         try await send("DELETE", "push/devices/\(deviceToken)", token: token, body: Optional<Int>.none, timeout: 10)

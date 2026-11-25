@@ -9,6 +9,7 @@ import { getTeamMembership } from '@/lib/identity'
 import { computerSubscriptions } from '@/lib/push/computer-subscriptions'
 import { pushDeviceStore } from '@/lib/push/devices'
 import { liveActivityDeps, registerLiveActivityToken } from '@/lib/push/live-activities'
+import { forgetLiveActivityToken } from '@/lib/push/live-activity-idle'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
 
@@ -113,6 +114,8 @@ export function createLiveActivityRoutes(
     state: SessionExecutionState | null,
   ) => Promise<void>,
   readConversation: ReadConversation,
+  /** Drops a card the user dismissed or that ended; a token the user does not own is ignored. */
+  forget: (userId: string, token: string) => Promise<void>,
 ) {
   const routes = new Hono<{ Variables: AuthVariables }>()
 
@@ -132,6 +135,16 @@ export function createLiveActivityRoutes(
 
     return c.json({ ok: true })
   })
+
+  routes.delete(
+    '/live-activities/:token',
+    zv('param', z.object({ token: apnsToken })),
+    async (c) => {
+      await forget(c.get('userId'), c.req.valid('param').token.toLowerCase())
+
+      return c.json({ ok: true })
+    },
+  )
 
   return routes
 }
@@ -181,5 +194,6 @@ pushRoutes.route(
     (sessionId, token, row, state) =>
       registerLiveActivityToken(liveActivityDeps, sessionId, token, row, state),
     readConversation,
+    (userId, token) => forgetLiveActivityToken(liveActivityDeps, userId, token),
   ),
 )

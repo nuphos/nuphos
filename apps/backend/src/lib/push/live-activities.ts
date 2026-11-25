@@ -3,6 +3,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
+import { idleWindow, scheduleIdleEnd } from './live-activity-idle'
 import { liveActivityStore } from './live-activity-store'
 import { conversationTitle } from './turn-outcome'
 import { watcherCanRead } from './watchers'
@@ -27,8 +28,6 @@ export type {
   LiveActivityToken,
 } from './live-activity-store'
 
-// How long the card stays on the Lock Screen once nothing runs.
-export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
 // Rows on the card; the rest are counted.
 export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
@@ -63,8 +62,6 @@ export type LiveActivityDeps = {
 
 const isActive = (phase?: LiveActivityPhase) =>
   !phase || phase === 'running' || phase === 'approval'
-// An unavailable runtime may come back, and an ended card can no longer show it.
-const isFinished = (phase?: LiveActivityPhase) => phase === 'done' || phase === 'stopped'
 
 /** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
  *  registered before its run reported a phase is running. */
@@ -81,11 +78,11 @@ export function liveActivityCard(sessions: LiveActivitySession[]) {
   }
 }
 
-/** Sends each token its whole card. Once every row is done or stopped the
- *  card ends; until then it updates. A token is dropped only once
- *  it has ended or APNs says it is dead; anything else is retried, so a
- *  throttled end still reaches the phone, unless the phase changed meanwhile
- *  (its own delivery covers those tokens). */
+/** Sends each token its whole card as an update: the card stays up between
+ *  turns so the next one reuses it, and ends once it has sat idle (see
+ *  `live-activity-idle`). A token is dropped only once APNs says it is dead;
+ *  anything else is retried unless the phase changed meanwhile (its own
+ *  delivery covers those tokens). */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
@@ -103,7 +100,7 @@ async function deliver(
       try {
         const listed = await deps.liveActivities.forToken(token.token)
         const card = liveActivityCard(listed)
-        const ends = listed.every((s) => isFinished(s.phase))
+        const idle = idleWindow(listed)
         const response = await deps.send(credentials, {
           deviceToken: token.token,
           environment: token.environment,
@@ -112,16 +109,18 @@ async function deliver(
           payload: {
             aps: {
               timestamp: now,
-              event: ends ? 'end' : 'update',
+              event: 'update',
               'content-state': card,
-              ...(ends ? { 'dismissal-date': now + LIVE_ACTIVITY_DISMISS_S } : {}),
+              ...(idle === null ? {} : { 'stale-date': now + idle }),
             },
           },
         })
 
-        if (isDeadToken(response) || (ends && response.status === 200)) {
+        if (isDeadToken(response)) {
           await deps.liveActivities.removeToken(token.token)
-        } else if (response.status !== 200) {
+        } else if (response.status === 200) {
+          if (idle !== null) scheduleIdleEnd(deps, token, listed, card, idle)
+        } else {
           logEvent('warn', 'push.live_activity.rejected', {
             status: response.status,
             reason: response.reason ?? null,

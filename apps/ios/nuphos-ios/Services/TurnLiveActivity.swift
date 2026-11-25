@@ -53,6 +53,20 @@ enum TurnLiveActivity {
                 }
             }
         }
+        // The backend keeps a card up between turns; once it is swiped away or
+        // ended, the next turn should start a new one instead of updating it.
+        Task {
+            for await state in activity.activityStateUpdates where state == .dismissed || state == .ended {
+                if let data = activity.pushToken { unregister(token: hex(data)) }
+                break
+            }
+        }
+    }
+
+    private static func unregister(token: String) {
+        registered = registered.filter { !$0.hasPrefix(token) }
+        guard let authToken = SavedAccounts().active?.token else { return }
+        Task { try? await AgentChatAPI.unregisterLiveActivity(token: authToken, liveActivityToken: token) }
     }
 
     /// Tells the backend this card lists the conversation. Read from the
