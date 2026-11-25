@@ -54,10 +54,12 @@ function start(userId: string, sessionId: string, released = false): void {
 /**
  * A session's run or claim was let go. Whatever was queued behind it starts
  * the next turn. Both locks call this, and only the last one to go can claim.
- * While a retry is scheduled, that retry starts it instead.
+ * While a retry is scheduled, that retry starts it instead. `released` is false
+ * when nothing was let go (a message joined an idle queue): a head waiting out a
+ * refusal keeps waiting.
  */
-export function sessionReleased(userId: string, sessionId: string): void {
-  if (!backoff.get(backoffKey(userId, sessionId))?.timer) start(userId, sessionId, true)
+export function sessionReleased(userId: string, sessionId: string, released = true): void {
+  if (!backoff.get(backoffKey(userId, sessionId))?.timer) start(userId, sessionId, released)
 }
 
 /** The queue could not run now. Look again later, waiting longer each time. */
