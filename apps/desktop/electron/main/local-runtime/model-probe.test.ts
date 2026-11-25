@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -266,6 +266,143 @@ test('an effort level with no choices to pick is not a catalog', async () => {
       probeLocalModels({ nodeExecPath: process.execPath, adapter, cwd: dir, env: {} }),
       /did not advertise any models/,
     )
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// Cursor lists ~50 models, each id carrying its settings, and offers no effort or fast control.
+const CURSOR_LIKE_ADAPTER = `
+  import { writeFileSync } from 'node:fs';
+  import readline from 'node:readline';
+  const options = [{ value: 'default[]', name: 'Auto' }].concat(
+    Array.from({ length: 48 }, (_, i) => ({ value: 'model-' + i + '[effort=high]', name: 'Model ' + i })),
+  );
+  let sets = 0;
+  for await (const line of readline.createInterface({ input: process.stdin })) {
+    const { id, method, params } = JSON.parse(line);
+    if (method === 'session/set_config_option') sets++;
+    const result = method === 'initialize' ? {} : {
+      sessionId: 'test', configOptions: [
+        { id: 'mode', currentValue: 'agent', options: [{ value: 'agent', name: 'Agent' }] },
+        { id: 'model', category: 'model', currentValue: params?.value ?? 'default[]', options },
+      ],
+    };
+    if (method === 'session/set_config_option') writeFileSync(process.env.SETS_FILE, String(sets));
+    console.log(JSON.stringify({ id, result }));
+  }
+`
+
+test('a runtime with no per-model controls lists all its models after one set, not one per model', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+  const setsFile = path.join(dir, 'sets')
+
+  writeFileSync(adapter, CURSOR_LIKE_ADAPTER)
+  try {
+    const catalog = await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: { SETS_FILE: setsFile },
+    })
+
+    assert.equal(catalog.models.length, 49)
+    assert.equal(catalog.defaultModel, 'default[]')
+    // The default's controls came with the session; one more model showing none ends the read.
+    assert.equal(readFileSync(setsFile, 'utf8'), '1')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a default model without controls still has every other model read', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+
+  // Claude offers no effort for Haiku, so a Haiku default shows none until another model is set.
+  writeFileSync(
+    adapter,
+    `
+    import readline from 'node:readline';
+    const options = [{ value: 'haiku', name: 'Haiku' }, { value: 'sonnet', name: 'Sonnet' }, { value: 'opus', name: 'Opus' }];
+    for await (const line of readline.createInterface({ input: process.stdin })) {
+      const { id, method, params } = JSON.parse(line);
+      const model = params?.value ?? 'haiku';
+      const effort = model === 'haiku' ? [] : [{ id: 'effort', currentValue: 'high', options: [{ value: 'high', name: 'High' }] }];
+      const result = method === 'initialize' ? {} : {
+        sessionId: 'test',
+        configOptions: [{ id: 'model', category: 'model', currentValue: model, options }, ...effort],
+      };
+      console.log(JSON.stringify({ id, result }));
+    }
+  `,
+  )
+  try {
+    const catalog = await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: {},
+    })
+
+    assert.deepEqual(
+      catalog.models.map(({ id }) => id),
+      ['haiku', 'sonnet', 'opus'],
+    )
+    assert.equal(catalog.controls.sonnet?.defaultEffort, 'high')
+    assert.equal(catalog.controls.opus?.defaultEffort, 'high')
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+// cursor-agent outlives a closed stdin, and an adapter need not pass a kill on to it.
+const ORPHANING_ADAPTER = `
+  import { spawn } from 'node:child_process';
+  import { writeFileSync } from 'node:fs';
+  import readline from 'node:readline';
+  const agent = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: ['pipe', 'ignore', 'ignore'] });
+  writeFileSync(process.env.AGENT_PID_FILE, String(agent.pid));
+  for await (const line of readline.createInterface({ input: process.stdin })) {
+    const { id, method, params } = JSON.parse(line);
+    const result = method === 'initialize' ? {} : {
+      sessionId: 'test', configOptions: [
+        { id: 'model', category: 'model', currentValue: params?.value ?? 'a',
+          options: [{ value: 'a', name: 'A' }, { value: 'b', name: 'B' }] },
+      ],
+    };
+    console.log(JSON.stringify({ id, result }));
+  }
+`
+
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+test('the agent an adapter started does not outlive the probe', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+  const pidFile = path.join(dir, 'agent-pid')
+
+  writeFileSync(adapter, ORPHANING_ADAPTER)
+  try {
+    await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: { AGENT_PID_FILE: pidFile },
+    })
+    const pid = Number(readFileSync(pidFile, 'utf8'))
+
+    for (let wait = 0; wait < 20 && alive(pid); wait++) await new Promise((r) => setTimeout(r, 50))
+    assert.equal(alive(pid), false)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }
