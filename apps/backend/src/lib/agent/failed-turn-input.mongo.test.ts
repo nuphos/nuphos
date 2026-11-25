@@ -5,10 +5,15 @@
 // Against a real MongoDB.
 // Runs when TEST_MONGODB_URI is set, with MONGODB_URI pointing at the same server.
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test } from 'bun:test'
+import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { closeDb, connectDb } from '@/lib/db'
+import { errorHandler } from '@/lib/errors'
+import { registerAdminAgentRoutes } from '@/routes/admin/agent'
 import { turnInputMessages } from '@/routes/agent/turn-start-frame'
+import { buildMessagesForLarkTurn } from '@/routes/lark/transcript'
+import { buildMessagesForRenderedTurn } from '@/routes/slack/messages'
 
 import { setupAgentIndexes } from './db/events'
 import { agentConversations, agentMessages } from './db/shared'
@@ -20,7 +25,10 @@ import {
   enqueuePendingUserMessage,
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
+import { claimAgentRunForSession } from './run-admission'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
+
+import type { AdminVars } from '@/routes/admin/auth'
 
 const SESSION = new ObjectId().toHexString()
 const OWNER = new ObjectId().toHexString()
@@ -49,6 +57,17 @@ const wake = () =>
     actorUserId: OWNER,
     metadata: systemSender('nuphos', 'Nuphos'),
   })
+
+// A turn whose reply kept nothing: its input, then that reply.
+const replyOfFailed = [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }]
+const turnThatKeptNothing = (parts: unknown[] = replyOfFailed) => {
+  const input = new ObjectId().toHexString()
+
+  return [
+    { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
+    { id: new ObjectId().toHexString(), role: 'assistant', parts },
+  ]
+}
 
 describe.skipIf(!process.env.TEST_MONGODB_URI)(
   'a turn after ones whose replies kept nothing',
@@ -107,6 +126,59 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       }
 
       expect(inputs).toEqual(wakes.map((message) => [message.id]))
+    })
+
+    // Slack and Lark rebuild the history of their turns themselves.
+    test.each([
+      ['failed', replyOfFailed],
+      ['said nothing', []],
+    ])('a Slack turn after one that %s answers only its own message', async (_, parts) => {
+      await store(turnThatKeptNothing(parts))
+      const messages = await buildMessagesForRenderedTurn({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        messageId: 'slack-next',
+        renderedText: 'next',
+      })
+
+      expect(turnInputMessages(messages).map((m) => m.id)).toEqual(['slack-next'])
+    })
+
+    test.each([
+      ['failed', replyOfFailed],
+      ['said nothing', []],
+    ])('a Lark turn after one that %s answers only its own message', async (_, parts) => {
+      await store(turnThatKeptNothing(parts))
+      const messages = await buildMessagesForLarkTurn({
+        sessionId: SESSION,
+        userId: OWNER,
+        teamId: TEAM,
+        renderedText: 'next',
+        metadata: systemSender('nuphos', 'Nuphos'),
+        carried: [],
+      })
+
+      expect(turnInputMessages(messages).map((m) => m.id)).toEqual([messages.at(-1)!.id])
+    })
+
+    test('an admin rewake still finds the input of a failed last turn pending', async () => {
+      await store(turnThatKeptNothing())
+      const admin = new Hono<{ Variables: AdminVars }>()
+
+      admin.onError(errorHandler)
+      registerAdminAgentRoutes(admin)
+      // A run already holds the session, so rewake stops right after deciding
+      // there is a pending turn, without starting one.
+      const release = await claimAgentRunForSession(OWNER, SESSION)
+      const response = await admin.request(`/agent/conversations/${SESSION}/rewake`, {
+        method: 'POST',
+      })
+
+      release?.()
+      expect(((await response.json()) as { error: { code: string } }).error.code).toBe(
+        'run_in_flight',
+      )
     })
 
     test('a conversation stored before this fix answers only its next message', async () => {

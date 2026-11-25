@@ -1,61 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { getConversationWithMessages } from '@/lib/agent/db'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { UIMessage } from 'ai'
-
-// ─── Transcript rebuild (shared shape with Slack) ────────────────────────────
-function persistedPartToUiMessagePart(part: unknown): unknown[] {
-  if (!part || typeof part !== 'object') return []
-  const value = part as Record<string, unknown>
-
-  if (value.type === 'text' && typeof value.text === 'string')
-    return [{ type: 'text', text: value.text }]
-  if (value.type === 'step-start') return [{ type: 'step-start' }]
-  if (
-    value.type === 'tool' &&
-    typeof value.toolName === 'string' &&
-    typeof value.toolCallId === 'string' &&
-    typeof value.state === 'string'
-  ) {
-    return [
-      {
-        type: `tool-${value.toolName}`,
-        toolCallId: value.toolCallId,
-        state: value.state,
-        ...(value.input !== undefined ? { input: value.input } : {}),
-        ...(value.output !== undefined ? { output: value.output } : {}),
-        ...(typeof value.errorText === 'string' ? { errorText: value.errorText } : {}),
-      },
-    ]
-  }
-  if (typeof value.type === 'string' && value.type.startsWith('tool-')) return [value]
-
-  return []
-}
-
-function persistedMessageToUiMessage(message: {
-  messageId: string
-  role: string
-  parts: unknown[]
-  metadata?: unknown
-}): UIMessage | null {
-  if (message.role !== 'user' && message.role !== 'assistant') return null
-  const parts = message.parts.flatMap(persistedPartToUiMessagePart)
-
-  if (parts.length === 0) return null
-  const metadata = parseMessageMetadata(message.metadata)
-
-  return {
-    id: message.messageId,
-    role: message.role,
-    parts,
-    ...(metadata ? { metadata } : {}),
-  } as UIMessage
-}
 
 export async function buildMessagesForLarkTurn(args: {
   sessionId: string

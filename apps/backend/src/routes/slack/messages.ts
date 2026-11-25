@@ -1,82 +1,10 @@
+import { getConversationWithMessages } from '@/lib/agent/db'
+import { createMessageMetadata } from '@/lib/agent/message-attribution'
+import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
+
 import type { AgentMessageOrigin } from '@/lib/agent/message-origin'
 import type { PendingUserMessage } from '@/lib/agent/pending-messages'
 import type { UIMessage } from 'ai'
-
-import { getConversationWithMessages } from '@/lib/agent/db'
-import { createMessageMetadata } from '@/lib/agent/message-attribution'
-import { parseMessageMetadata } from '@/lib/agent/message-metadata'
-import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
-
-// Exported for the Slack-bound chat merge (routes/agent/chat-slack-bound.ts),
-// which reuses the tool-part expansion but passes unknown parts through
-// verbatim instead of dropping them.
-export function persistedPartToUiMessagePart(part: unknown): unknown[] {
-  if (!part || typeof part !== 'object') return []
-  const value = part as Record<string, unknown>
-
-  if (value.type === 'text' && typeof value.text === 'string') {
-    return [{ type: 'text', text: value.text }]
-  }
-  if (value.type === 'step-start') return [{ type: 'step-start' }]
-  if (
-    value.type === 'tool' &&
-    typeof value.toolName === 'string' &&
-    typeof value.toolCallId === 'string' &&
-    typeof value.state === 'string'
-  ) {
-    return [
-      {
-        type: `tool-${value.toolName}`,
-        toolCallId: value.toolCallId,
-        state: value.state,
-        ...(value.input !== undefined ? { input: value.input } : {}),
-        ...(value.output !== undefined ? { output: value.output } : {}),
-        ...(typeof value.errorText === 'string' ? { errorText: value.errorText } : {}),
-      },
-    ]
-  }
-  if (typeof value.type === 'string' && value.type.startsWith('tool-')) {
-    return [value]
-  }
-
-  return []
-}
-
-// Exported for the admin rewake endpoint (routes/admin.ts), which rebuilds a
-// session's UIMessage history from the stored transcript the same way Slack
-// turns do.
-export function persistedMessageToUiMessage(message: {
-  messageId: string
-  role: string
-  parts: unknown[]
-  metadata?: unknown
-  origin?: unknown
-  turnKind?: unknown
-}): UIMessage | null {
-  if (message.role !== 'user' && message.role !== 'assistant') return null
-  const parts = message.parts.flatMap(persistedPartToUiMessagePart)
-
-  if (parts.length === 0) return null
-  // Carried back onto metadata so a re-sync of this history preserves where
-  // each message originally arrived from instead of blanking it.
-  const origin = parseAgentMessageOrigin(message.origin)
-  const attribution = parseMessageMetadata(message.metadata)
-
-  return {
-    id: message.messageId,
-    role: message.role,
-    parts,
-    ...(attribution || origin || message.turnKind === 'plan-approval'
-      ? {
-          metadata: {
-            ...attribution,
-            ...(origin ? { origin } : {}),
-            ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' } : {}),
-          },
-        }
-      : {}),
-  } as UIMessage
-}
 
 // Prior persisted turns + one new user message whose text is already fully
 // rendered. Used both for real Slack messages (rendered via
