@@ -36,6 +36,10 @@ const registrationSchema = z.preprocess(
       bundleId: z.string().trim().max(200).optional(),
       liveActivityStartToken: apnsToken.optional(),
       computerAlerts: z.boolean().optional(),
+      appIcon: z
+        .string()
+        .regex(/^[A-Z]\d?$/)
+        .optional(),
     }),
     z.object({
       token: fcmToken,

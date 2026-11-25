@@ -19,6 +19,8 @@ export type PushDevice = {
   liveActivityPending?: PendingLiveActivityRow[]
   /** Legacy phone flag, retained for older clients. Explicit account subscriptions govern delivery. */
   computerAlerts?: boolean
+  /** The app icon the person picked (`AppIconPicker`), which the Live Activity shows (iOS). */
+  appIcon?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -35,6 +37,7 @@ export type PushDeviceRegistration = Pick<
   | 'projectId'
   | 'liveActivityStartToken'
   | 'computerAlerts'
+  | 'appIcon'
 >
 
 export type PushDeviceStore = {

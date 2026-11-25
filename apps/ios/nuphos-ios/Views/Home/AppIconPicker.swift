@@ -32,6 +32,7 @@ struct AppIconPicker: View {
                         #if !NUPHOS_SHARE_EXTENSION
                         UIApplication.shared.setAlternateIconName(icon.id == "B2" ? nil : "AppIcon-\(icon.id)") { error in
                             if error != nil { selected = Self.current }
+                            PushNotifications.shared.appIconChanged()
                         }
                         #endif
                     } label: {

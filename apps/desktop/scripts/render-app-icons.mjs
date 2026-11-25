@@ -2,7 +2,7 @@
 // SVGs. Nothing is drawn by hand: each icon is one avatar placed by one of three layouts
 // (the LogoFilm compositions in nuphos/studio) and frozen at a pose of the product's own
 // idle loop. B2 is the bundled icon on every platform. Icon A, the original mark, is
-// a committed asset and is not rendered here.
+// a committed asset (with its Live Activity copy) and is not rendered here.
 //
 //   node apps/desktop/scripts/render-app-icons.mjs
 //
@@ -19,6 +19,8 @@ import sharp from 'sharp'
 const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repo = path.resolve(desktop, '../..')
 const iosAssets = path.join(repo, 'apps/ios/nuphos-ios/Assets.xcassets')
+// The Live Activity shows the icon the person picked (`TurnCardMark`).
+const widgetAssets = path.join(repo, 'apps/ios/NuphosWidgets/Assets.xcassets')
 const androidRes = path.join(repo, 'apps/android/app/src/main/res')
 
 const CHARACTERS = {
@@ -166,6 +168,14 @@ async function writeIos(id, square) {
   write(
     path.join(iosAssets, `AppIconPreview/AppIconPreview-${id}.imageset/Contents.json`),
     json({ images: [{ filename: 'preview.png', idiom: 'universal', scale: '3x' }], info: xcode }),
+  )
+  write(
+    path.join(widgetAssets, `LiveActivityIcon-${id}.imageset/icon.png`),
+    await sharp(png).resize(96).png().toBuffer(),
+  )
+  write(
+    path.join(widgetAssets, `LiveActivityIcon-${id}.imageset/Contents.json`),
+    json({ images: [{ filename: 'icon.png', idiom: 'universal', scale: '3x' }], info: xcode }),
   )
 }
 
