@@ -21,6 +21,9 @@ struct AssistantMarkdown: View {
     /// Each typed line stays a line, as in any chat app; Markdown would
     /// join a single newline into a space. For people's chat posts.
     var keepsLineBreaks = false
+    /// Links underlined, so they read as links where the theme's link colour
+    /// is close to the text's.
+    var underlinesLinks = false
     /// A menu action starts a selection in the first text segment.
     var selectionRequest = 0
     /// A tapped link. Absent, links do nothing.
@@ -57,7 +60,7 @@ struct AssistantMarkdown: View {
     }
 
     private func markdown(_ text: String, selectionRequest: Int) -> some View {
-        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, keepsLineBreaks: keepsLineBreaks, selectable: true, selectionRequest: selectionRequest, onLink: onLink)
+        MarkdownTextRepresentable(text: text, theme: theme, typeSize: typeSize, plain: false, keepsLineBreaks: keepsLineBreaks, underlinesLinks: underlinesLinks, selectable: true, selectionRequest: selectionRequest, onLink: onLink)
     }
 
     static var theme: MarkdownTheme {
@@ -100,7 +103,7 @@ struct PlainMessageText: View {
     @Environment(\.dynamicTypeSize) private var typeSize
 
     var body: some View {
-        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, keepsLineBreaks: false, selectable: selectable, onLink: nil)
+        MarkdownTextRepresentable(text: text, theme: Self.theme, typeSize: typeSize, plain: true, keepsLineBreaks: false, underlinesLinks: false, selectable: selectable, onLink: nil)
     }
 
     /// Every line break is a paragraph end to the label, so no paragraph gap.
@@ -162,12 +165,13 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
     /// The text as typed rather than parsed as Markdown.
     let plain: Bool
     let keepsLineBreaks: Bool
+    let underlinesLinks: Bool
     let selectable: Bool
     var selectionRequest = 0
     let onLink: ((URL) -> Void)?
 
     func makeUIView(context: Context) -> MarkdownTextView {
-        let view = MarkdownTextView()
+        let view = LinkUnderliningMarkdownTextView()
         view.theme = theme
         view.setContentHuggingPriority(.required, for: .vertical)
         view.setContentCompressionResistancePriority(.required, for: .vertical)
@@ -188,6 +192,7 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         context.coordinator.onLink = onLink
         context.coordinator.plain = plain
         context.coordinator.keepsLineBreaks = keepsLineBreaks
+        (view as? LinkUnderliningMarkdownTextView)?.underlinesLinks = underlinesLinks
         view.textLabelView.isSelectable = selectable
         context.coordinator.setTextThrottled(text, theme: theme, on: view)
         context.coordinator.selectText(request: selectionRequest, in: view)
@@ -336,6 +341,25 @@ private struct MarkdownTextRepresentable: UIViewRepresentable {
         }
     }
 }
+
+/// Underlines every link in the document it shows. The package colours links
+/// but has no underline option, and it can show a document again on its own
+/// (a new width or theme), so the underline is added where it is shown.
+private final class LinkUnderliningMarkdownTextView: MarkdownTextView {
+    var underlinesLinks = false
+
+    override func applyDocument(_ document: NSAttributedString, newContextViews: [UIView], animated: Bool) {
+        guard underlinesLinks else {
+            super.applyDocument(document, newContextViews: newContextViews, animated: animated)
+            return
+        }
+        let underlined = NSMutableAttributedString(attributedString: document)
+        underlined.enumerateAttribute(.link, in: NSRange(location: 0, length: underlined.length)) { link, range, _ in
+            if link != nil { underlined.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: range) }
+        }
+        super.applyDocument(underlined, newContextViews: newContextViews, animated: animated)
+    }
+}
 #else
 private struct MarkdownTextRepresentable: View {
     let text: String
@@ -343,6 +367,7 @@ private struct MarkdownTextRepresentable: View {
     let typeSize: DynamicTypeSize
     let plain: Bool
     let keepsLineBreaks: Bool
+    let underlinesLinks: Bool
     let selectable: Bool
     let onLink: ((URL) -> Void)?
     var body: some View {
