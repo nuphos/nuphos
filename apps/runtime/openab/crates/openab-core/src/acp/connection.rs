@@ -2169,6 +2169,50 @@ mod reader_loop_tests {
         handle.await.unwrap();
     }
 
+    /// JSON-RPC lets an agent pick string ids for its own requests, and Antigravity does
+    /// for `session/request_permission`. Such a request must reach the subscriber (which
+    /// answers it with the same id), not vanish as an unparsable line and leave the
+    /// agent waiting for an answer until the inactivity timeout.
+    #[tokio::test]
+    async fn agent_request_with_a_string_id_is_forwarded() {
+        let (mut agent_stdout_writer, agent_stdout_reader) = duplex(8 * 1024);
+        let pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let notify_tx: Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>> =
+            Arc::new(Mutex::new(None));
+        let (sub_tx, mut sub_rx) = mpsc::channel(ACP_NOTIFICATION_CAPACITY);
+        *notify_tx.lock().await = Some(sub_tx);
+
+        let handle = tokio::spawn(run_reader_loop(
+            agent_stdout_reader,
+            pending.clone(),
+            notify_tx.clone(),
+            Arc::new(Mutex::new(None)),
+        ));
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": "front:3",
+            "method": "session/request_permission",
+            "params": {"sessionId": "s1", "options": [{"optionId": "allow", "kind": "allow_once"}]},
+        });
+        agent_stdout_writer
+            .write_all(format!("{request}\n").as_bytes())
+            .await
+            .unwrap();
+        agent_stdout_writer.flush().await.unwrap();
+
+        let forwarded = tokio::time::timeout(std::time::Duration::from_secs(2), sub_rx.recv())
+            .await
+            .expect("the permission request should reach the subscriber")
+            .expect("subscriber channel should not be closed");
+        assert_eq!(json!(forwarded.id), json!("front:3"));
+        assert_eq!(forwarded.method.as_deref(), Some("session/request_permission"));
+
+        drop(agent_stdout_writer);
+        handle.await.unwrap();
+    }
+
     /// Matched-id path: when a response's id is in `pending`, the loop must
     /// resolve the oneshot AND forward a copy to the subscriber so the
     /// adapter's recv loop sees the completion. Guards against regressions
