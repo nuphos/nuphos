@@ -6,8 +6,9 @@ import type { LocalRuntimePresence } from '@/lib/agent/devices/local-runtime/pre
  * The oldest Nuphos a computer should run. Below it, its card and chats say it is out of date
  * and how to update; nothing refuses its turns. Desktop 0.133.2 is the first that installs a
  * downloaded update by itself: 0.127.0 starts it while idle (#3829), but before 0.133.2 the quit
- * that installs it hangs (#4524), so an older one stays behind until someone quits it (#5081). CLI 0.20.0 is the first that bundles runtime 0.1.62; before it, the first message
- * of every new conversation fails with "Session not found".
+ * that installs it hangs (#4524), so an older one stays behind until someone quits it (#5081).
+ * CLI 0.20.0 is the first that bundles runtime 0.1.62; before it, the first message of every new
+ * conversation fails with "Session not found".
  */
 export const MINIMUM_HOST_VERSION = { desktop: '0.133.2', cli: '0.20.0' } as const
 
