@@ -511,6 +511,7 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
     getSessionBypass: async () => false,
     registerWait: () => Promise.reject(new Error('an automatic turn asks nobody')),
     awaitDecision: () => Promise.reject(new Error('an automatic turn waits for nobody')),
+    inOwnerBotChat: async () => false,
   }
   const ask = (toolCall: { toolCallId: string; title: string; rawInput?: unknown }) => {
     const frames: Record<string, unknown>[] = []
@@ -640,5 +641,68 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
     expect(tools.find((update) => update.status === 'failed')?.contentText).toBe(
       PERMISSION_TIMED_OUT_TEXT,
     )
+  })
+
+  describe("in the owner's own chat with the Bot", () => {
+    const woken = (userId: string, inChat = true) => {
+      const frames: Record<string, unknown>[] = []
+      const chats: unknown[] = []
+      const outcome = handleOpenAbPermissionRequest(
+        {
+          userId,
+          conversationOwnerUserId: 'owner-1',
+          conversationId: 'bot-1',
+          request,
+          emit: (frame) => frames.push(frame),
+          handleTool: () => undefined,
+          run: { deadlineAt: 1, channelIds: ['chat-1'], trace: { route: 'agent.resource' } },
+        },
+        {
+          getSessionBypass: async () => false,
+          registerWait: async (wait) => ({ ...wait, waitId: 'wait-1', createdAt: 1 }),
+          awaitDecision: async () => ({
+            timedOut: false as const,
+            decision: { payload: { decision: 'rejected' } } as never,
+          }),
+          hasPendingMessages: async () => false,
+          inOwnerBotChat: async (args) => {
+            chats.push(args)
+
+            return inChat
+          },
+        },
+      )
+
+      return { outcome, frames, chats }
+    }
+
+    test('asks the owner, and a reject lets the turn reply', async () => {
+      const { outcome, frames, chats } = woken('owner-1')
+
+      expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
+      expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(true)
+      expect(chats).toEqual([
+        {
+          channelIds: ['chat-1'],
+          agentSessionId: 'bot-1',
+          ownerUserId: 'owner-1',
+        },
+      ])
+    })
+
+    test('a group chat or another channel still fails at once', async () => {
+      const { outcome, frames } = woken('owner-1', false)
+
+      expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
+      expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(false)
+    })
+
+    test('a turn someone else runs is not asked, since only the owner can answer there', async () => {
+      const { outcome, frames, chats } = woken('teammate')
+
+      expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
+      expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(false)
+      expect(chats).toEqual([])
+    })
   })
 })

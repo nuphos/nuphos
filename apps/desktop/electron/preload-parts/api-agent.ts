@@ -13,6 +13,12 @@ export const agentApi = {
     reason?: string,
   ) =>
     ipcRenderer.invoke('agent:resolveDecision', sessionId, toolCallId, teamId, resolution, reason),
+  agentDecideToolApproval: (
+    sessionId: string,
+    toolCallId: string,
+    teamId: string | undefined,
+    decision: 'allow' | 'reject',
+  ) => ipcRenderer.invoke('agent:decideToolApproval', sessionId, toolCallId, teamId, decision),
   agentSnoozeDecision: (
     sessionId: string,
     requestId: string,

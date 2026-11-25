@@ -36,6 +36,12 @@ export type AgentDecisionApi = {
     resolution?: 'answered' | 'dismissed',
     reason?: string,
   ): Promise<{ ok: boolean; resolved: boolean }>
+  agentDecideToolApproval(
+    sessionId: string,
+    toolCallId: string,
+    teamId: string | undefined,
+    decision: 'allow' | 'reject',
+  ): Promise<{ ok: boolean }>
   agentSnoozeDecision(
     sessionId: string,
     requestId: string,

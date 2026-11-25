@@ -1,5 +1,6 @@
 // #4147: a Bot out of Full Access, woken by its chat, reads and answers there without
-// asking, and a post to any other channel is rejected at once instead of waiting for nobody.
+// asking. #5133: a post to any other channel asks the owner in that chat, and a Deny
+// there lets the turn go on with the refusal instead of ending it.
 import { agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { openBotChat } from '../channel-quotes.ts'
@@ -10,7 +11,7 @@ import type { Scenario } from '../ui.ts'
 const MARKER = 'E2E_DELIVERY:ask-tools'
 
 const scenario: Scenario = {
-  name: 'a Bot woken by its chat reads and answers there without asking, and fails elsewhere at once',
+  name: 'a Bot woken by its chat answers there without asking, and asks its owner there before posting elsewhere',
   run: async (page, stack) => {
     const api = client(stack.apiUrl, stack.token)
     const bots = await api('GET', `/agent/conversations?teamId=${stack.teamId}&bots=true`)
@@ -46,26 +47,30 @@ const scenario: Scenario = {
             entry.event !== 'permission-asked',
         )
 
-      await until('the Bot to try a post in another channel', async () => {
-        const all = agentLog(stack).filter(
-          (entry) => entry.marker === MARKER && entry.detail === 'mcp__nuphos-tools__channel_post',
+      const posts = () =>
+        agentLog(stack).filter(
+          (entry) =>
+            entry.marker === MARKER &&
+            entry.detail === 'mcp__nuphos-tools__channel_post' &&
+            entry.event !== 'permission-asked',
         )
+      const card = page.locator('[data-decision-card]').filter({ visible: true })
 
-        return all.length >= 2
-      })
-      const [ownPost, elsewhere] = agentLog(stack).filter(
-        (entry) => entry.marker === MARKER && entry.detail === 'mcp__nuphos-tools__channel_post',
-      )
+      // The owner is asked in the chat itself, and denies.
+      await card.getByRole('button', { name: 'Deny' }).waitFor()
+      await card.getByRole('button', { name: 'Deny' }).click()
+      await until('the denied post to be answered', async () => posts().length >= 2)
+      const [ownPost, elsewhere] = posts()
 
       if (answered('channel_read')?.event !== 'permission-allow')
         throw new Error(`channel_read was not allowed: ${JSON.stringify(answered('channel_read'))}`)
       if (ownPost?.event !== 'permission-allow')
         throw new Error(`The answer to its own chat was not allowed: ${JSON.stringify(ownPost)}`)
-      if (elsewhere?.event !== 'permission-reject' || (elsewhere.ms ?? Infinity) > 10_000)
-        throw new Error(`A post elsewhere did not fail at once: ${JSON.stringify(elsewhere)}`)
+      // A reject, not a cancel: the turn goes on and can still say it was not run.
+      if (elsewhere?.event !== 'permission-reject')
+        throw new Error(`The denied post was not rejected: ${JSON.stringify(elsewhere)}`)
       await page.getByText(`POSTED ${MARKER}`).filter({ visible: true }).first().waitFor()
-      if ((await page.getByRole('button', { name: /^Allow/ }).count()) > 0)
-        throw new Error('An approval was shown for a turn nobody was asked about')
+      await card.waitFor({ state: 'detached' })
     } finally {
       await api('PUT', '/agent/auto-mode/bypass', { sessionId: bot.sessionId, bypass: fullAccess })
     }

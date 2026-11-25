@@ -10,6 +10,8 @@ import type { IpcMainInvokeEvent } from 'electron'
 export const agentChannels = {
   'agent:resolveDecision': (_e: unknown, ...args: Parameters<typeof agent.resolveDecision>) =>
     agent.resolveDecision(...args),
+  'agent:decideToolApproval': (_e: unknown, ...args: Parameters<typeof agent.decideToolApproval>) =>
+    agent.decideToolApproval(...args),
   'agent:snoozeDecision': (_e: unknown, ...args: Parameters<typeof agent.snoozeDecision>) =>
     agent.snoozeDecision(...args),
   'agent:getSessionConfig': (_e: unknown, sessionId: string, teamId: string) =>

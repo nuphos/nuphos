@@ -24,6 +24,7 @@ import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
 import { ReplyingBanner } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
+import { toolApprovalRows } from './toolApprovalRows'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotComposerControls } from './useBotComposerControls'
 import { useBotTaskEntry } from './useBotTaskEntry'
@@ -102,6 +103,7 @@ export function ChannelPane({
   const messages = [...stored, ...pending]
   const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
+  const approvals = toolApprovalRows(teamId, bot, botOwned, botState)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -231,7 +233,7 @@ export function ChannelPane({
                   onOpenSession={onOpenSession}
                   onOpenNuphosLink={onOpenNuphosLink}
                   channelId={channelId}
-                  extraRows={questions.rows}
+                  extraRows={[...questions.rows, ...approvals]}
                   fixes={fixes}
                   onReply={
                     detail.readOnly

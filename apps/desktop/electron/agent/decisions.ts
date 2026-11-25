@@ -14,6 +14,20 @@ export function resolveDecision(
   )
 }
 
+/** The owner allows or rejects a tool call their conversation's turn waits on, outside its panel. */
+export function decideToolApproval(
+  sessionId: string,
+  toolCallId: string,
+  teamId: string | undefined,
+  decision: 'allow' | 'reject',
+): Promise<{ ok: boolean }> {
+  return callJson(
+    'POST',
+    `/agent/conversations/${encodeURIComponent(sessionId)}/tool-approvals/${encodeURIComponent(toolCallId)}${teamQuery(teamId)}`,
+    { decision },
+  )
+}
+
 /** The owner sets an open question aside until `until` (ISO), or brings it back with null. */
 export function snoozeDecision(
   sessionId: string,

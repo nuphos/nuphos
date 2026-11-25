@@ -54,6 +54,7 @@ export function unattendedTurn(run: UnattendedRun | undefined) {
     headless: run?.deadlineAt !== undefined,
     wokenChannelIds: run?.channelIds ?? [],
     failFast: run?.trace?.route === 'agent.resource',
-    unanswered: run?.deadlineAt === undefined ? ('cancel' as const) : ('reject' as const),
+    /** A refused or unanswered request: a headless turn goes on to say so, a watched one ends. */
+    refusal: run?.deadlineAt === undefined ? ('cancel' as const) : ('reject' as const),
   }
 }
