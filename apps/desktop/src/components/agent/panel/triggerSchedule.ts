@@ -1,6 +1,6 @@
 import { t } from '../../../i18n/index.ts'
 import { parseCron, pad2, scheduleSummary, WEEKDAYS } from '../../../views/triggers/cron.ts'
-import { utcTimeOfDayInZone } from '../../../views/triggers/cronTime.ts'
+import { utcOffsetLabel, utcTimeOfDayInZone } from '../../../views/triggers/cronTime.ts'
 
 const EVERY_N_MINUTES = /^\*\/(\d{1,2}) \* \* \* \*$/
 
@@ -54,4 +54,36 @@ export function cardSchedule(expression: string, timeZone: string, now: Date = n
   if (timeZone === 'UTC') return t('{days} at {time}', { days: dayLabel(mode.days), time: utc })
 
   return t('{days} at {time} your time ({utc})', { days: dayLabel(localDays), time: local, utc })
+}
+
+/**
+ * A trigger's schedule in a few words. A rule kept in a zone other than UTC already counts its
+ * hours there, so its clock is shown as written with that zone's offset: "Mon at 09:00 UTC+8".
+ */
+export function triggerSchedule(
+  trigger: { triggerType?: 'cron' | 'webhook'; cronExpression?: string; timeZone?: string },
+  viewerZone: string,
+  now: Date = new Date(),
+): string {
+  if (trigger.triggerType !== 'cron') return scheduleSummary(trigger)
+  const zone = trigger.timeZone
+  const expression = trigger.cronExpression ?? ''
+
+  if (!zone || zone === 'UTC') return cardSchedule(expression, viewerZone, now)
+  const mode = parseCron(expression)
+
+  if (mode.kind === 'at-time')
+    return t('{days} at {time}', {
+      days: dayLabel(mode.days),
+      time: `${pad2(mode.hour)}:${pad2(mode.minute)} ${utcOffsetLabel(now, zone)}`,
+    })
+  // Every N minutes or hours reads the same in any zone.
+  if (
+    mode.kind === 'every-n-hours' ||
+    EVERY_N_MINUTES.test(expression.trim()) ||
+    expression.trim() === '* * * * *'
+  )
+    return cardSchedule(expression, viewerZone, now)
+
+  return scheduleSummary(trigger)
 }

@@ -63,7 +63,7 @@ async function render(props: Partial<Props>) {
 test("the card shows the Bot's face and name, with Edit Bot for its owner", async () => {
   const card = await render({ onOpenTask: () => null, canOpenDesktop: true })
 
-  assert.ok(card.container.querySelector('[data-avatar-size="72"]'))
+  assert.ok(card.container.querySelector('[data-avatar-size="56"]'))
   assert.match(card.container.textContent, /Scout/)
   // Where it runs is Bot details' Runtime section, not a line under the name.
   assert.doesNotMatch(card.container.textContent, /Claude Code/)
@@ -91,5 +91,16 @@ test('while the chat loads, the card holds its place without a name', async () =
 
   assert.ok(card.container.querySelector('[aria-busy="true"]'))
   assert.equal(card.button('Edit Bot'), undefined)
+  await card.unmount()
+})
+
+test('the card closes the details it leads, for owners and teammates alike', async () => {
+  let closed = 0
+  const card = await render({ owned: false, onClose: () => closed++ })
+  const close = card.button('Close')
+
+  assert.ok(close)
+  await act(async () => close.click())
+  assert.equal(closed, 1)
   await card.unmount()
 })

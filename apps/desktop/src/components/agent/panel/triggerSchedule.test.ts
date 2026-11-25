@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { cardSchedule } from './triggerSchedule.ts'
+import { cardSchedule, triggerSchedule } from './triggerSchedule.ts'
 
 const NOW = new Date('2026-10-14T12:00:00Z')
 const la = (expr: string) => cardSchedule(expr, 'America/Los_Angeles', NOW)
@@ -26,4 +26,25 @@ test('interval schedules read as intervals', () => {
 
 test('UTC viewers see one time', () => {
   assert.equal(cardSchedule('0 16 * * 1-5', 'UTC', NOW), 'Weekdays at 16:00 UTC')
+})
+
+const taipei = (cronExpression: string) =>
+  triggerSchedule({ triggerType: 'cron', cronExpression, timeZone: 'Asia/Taipei' }, 'UTC', NOW)
+
+test('a rule kept in its own zone shows its clock as written, with the offset', () => {
+  assert.equal(taipei('0 9 * * 1'), 'Mon at 09:00 UTC+8')
+  assert.equal(taipei('30 8 * * 1-5'), 'Weekdays at 08:30 UTC+8')
+  assert.equal(taipei('*/15 * * * *'), 'Every 15 minutes')
+  assert.equal(taipei('0 */2 * * *'), 'Every 2 hours')
+})
+
+test('a UTC rule reads as the card always did', () => {
+  assert.equal(
+    triggerSchedule(
+      { triggerType: 'cron', cronExpression: '0 16 * * 1-5' },
+      'America/Los_Angeles',
+      NOW,
+    ),
+    'Weekdays at 9:00 AM your time (16:00 UTC)',
+  )
 })
