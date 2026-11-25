@@ -703,6 +703,7 @@
   "POST /agent/conversations/:sessionId/secrets": "user",
   "POST /agent/conversations/:sessionId/slack-pickup": "user",
   "POST /agent/conversations/:sessionId/steer": "user",
+  "POST /agent/conversations/:sessionId/tool-approvals/:toolCallId": "user",
   "POST /agent/devices/:deviceId/agents": "user",
   "POST /agent/devices/:deviceId/box/desktop": "user",
   "POST /agent/devices/:deviceId/box/pause": "user",

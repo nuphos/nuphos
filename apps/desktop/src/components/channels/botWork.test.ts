@@ -179,3 +179,19 @@ test('an active plan is shown as a step without inventing a tool', () => {
     title: 'Inspect fictional project',
   })
 })
+
+test("a tool call the Bot's turn waits on asks its owner, by the tool's title", () => {
+  const waiting = turn({
+    requestPending: true,
+    requests: [{ waitId: 'w1', kind: 'agent-permission', ref: 'call-1', createdAt: 1_000 }],
+    tools: [{ id: 'call-1', status: 'pending', title: 'Delete the staging bucket' }],
+  })
+
+  assert.deepEqual(botWorkOf(run('bot', waiting), [], 'c'), {
+    kind: 'asking',
+    question: 'Delete the staging bucket',
+    id: 'call-1',
+    count: 1,
+    kids: [],
+  })
+})
