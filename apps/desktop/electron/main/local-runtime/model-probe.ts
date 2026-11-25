@@ -202,13 +202,14 @@ export function probeLocalModels(options: {
       const controls: Record<string, ModelControls> = {
         [defaultModel as string]: controlsOf(configOptions),
       }
-      let next = 0
+      let tried = 0
 
-      // Cursor names each model's settings in its id and has no control to read, and a
-      // set costs it half a second: across its ~50 models, longer than the probe may take.
-      // So once two models show no control, the rest are listed as advertised.
-      for (; next < models.length && !noModelControls(controls, options.models); next++) {
-        const { id } = models[next]
+      for (const { id } of models) {
+        // Cursor names each model's settings in its id and has no control to read, and a
+        // set costs it half a second: across its ~50 models, longer than the probe may take.
+        // So once two models show no control, the rest are listed as advertised.
+        if (noModelControls(controls, options.models)) break
+        tried++
 
         // Claude validates full model ids with a network call that can fail
         // once; try again before reporting the model without its controls.
@@ -230,7 +231,7 @@ export function probeLocalModels(options: {
         }
       }
       finish(null, {
-        models: models.filter(({ id }, index) => index >= next || controls[id]),
+        models: models.filter(({ id }, index) => index >= tried || controls[id]),
         defaultModel: defaultModel as string,
         controls,
       })
