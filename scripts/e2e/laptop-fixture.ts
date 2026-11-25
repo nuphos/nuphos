@@ -21,6 +21,8 @@ export async function laptopOnline(
     cliVersion,
     restoreFails,
     busy,
+    agentInstances,
+    heard,
     owner = { token: stack.token, deviceId: 'e2e-laptop', label: LAPTOP },
   }: {
     diskPercent?: number
@@ -36,6 +38,10 @@ export async function laptopOnline(
     busy?: boolean
     /** Answer every ACP request after `initialize` as a runtime that cannot restore (#3371). */
     restoreFails?: boolean
+    /** The host adds agents of its own, as Desktop 0.125.0 and later do. */
+    agentInstances?: boolean
+    /** Every message the computer is sent, for checking what reached it. */
+    heard?: string[]
     owner?: { token: string; deviceId: string; label: string }
   } = {},
 ): Promise<() => void> {
@@ -51,6 +57,7 @@ export async function laptopOnline(
 
   tunnel.addEventListener('message', (event: MessageEvent) => {
     tunnel.send(JSON.stringify({ t: 'pong' }))
+    heard?.push(String(event.data))
     if (restoreFails) answerAsOldRuntime(tunnel, String(event.data))
     if (busy) answerAsBusyRuntime(tunnel, String(event.data))
   })
@@ -65,6 +72,7 @@ export async function laptopOnline(
         localMetrics: diskPercent !== undefined,
         app,
         cliVersion,
+        agentInstances,
         agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
       },
     }),
