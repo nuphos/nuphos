@@ -148,6 +148,15 @@ impl SessionSnapshots {
             "idle" | "dormant" | "active" | "unknown" | "interrupted" | "systemError" | "notLoaded"
         ) {
             ("provider_state", format!("Runtime: {provider_state}"))
+        } else if let Some(step) = provider["planStep"].as_str().filter(|_| {
+            // A raw ACP agent can emit a live plan without provider lifecycle metadata.
+            request_pending
+                && operation == "prompt"
+                && provider_state == "idle"
+                && provider["providerDetails"]["source"] == "session_initialized"
+                && tools.is_empty()
+        }) {
+            ("plan", step.to_string())
         } else if request_pending && !executing {
             match provider_state {
                 "idle" if ran => ("finishing", "Finishing the request…".to_string()),
@@ -324,6 +333,30 @@ mod tests {
         assert_eq!(snapshot["phase"], "plan");
         assert_eq!(snapshot["label"], "Inspect fictional project");
         assert_eq!(snapshot["tools"], json!([]));
+    }
+    #[test]
+    fn a_prompt_plan_is_visible_without_a_provider_lifecycle_extension() {
+        let snapshots = SessionSnapshots::default();
+        let mut provider = json!({
+            "state": "idle", "providerState": "idle", "operation": "prompt",
+            "providerDetails": {"source": "session_initialized"},
+            "planStep": "Inspect fictional project", "tools": {},
+        });
+        let live = snapshots.project("raw", provider.clone(), true);
+        assert_eq!(live["providerState"], "idle");
+        assert_eq!(live["phase"], "plan");
+        assert_eq!(live["label"], "Inspect fictional project");
+        assert_eq!(live["tools"], json!([]));
+        assert_eq!(
+            snapshots.project("raw", provider.clone(), false)["phase"],
+            "finishing"
+        );
+
+        provider["providerDetails"] = json!({"state": "idle"});
+        assert_eq!(
+            snapshots.project("raw", provider, true)["phase"],
+            "starting"
+        );
     }
     #[test]
     fn owed_continuation_does_not_block_a_person() {
