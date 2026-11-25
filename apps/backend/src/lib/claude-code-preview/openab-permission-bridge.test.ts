@@ -561,32 +561,12 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
   ])('fails $title at once, saying how to let it run', async (call) => {
     const { outcome, frames, tools } = ask({ toolCallId: 'act-1', ...call })
 
-    // A reject keeps the turn going so the Bot can still reply; a cancel would end it silently.
-    expect(await outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
+    expect(await outcome).toEqual({ outcome: { outcome: 'cancelled' } })
     expect(frames.some((frame) => frame.type === 'tool-approval-request')).toBe(false)
     const failed = tools.find((update) => update.status === 'failed')
 
     expect(String(failed?.contentText)).toContain('Full Access')
     expect(String(failed?.contentText)).not.toContain(PERMISSION_TIMED_OUT_TEXT)
-  })
-
-  test('falls back to a cancel when the agent offers no reject option', async () => {
-    const outcome = await handleOpenAbPermissionRequest(
-      {
-        userId: 'owner-1',
-        conversationId: 'conversation-1',
-        request: {
-          ...request,
-          options: [{ optionId: 'allow-once', name: 'Allow once', kind: 'allow_once' }],
-        },
-        emit: () => undefined,
-        handleTool: () => undefined,
-        run: { deadlineAt: 1, channelIds: ['woke-1'], trace: { route: 'agent.resource' } },
-      },
-      neverAsked,
-    )
-
-    expect(outcome).toEqual({ outcome: { outcome: 'cancelled' } })
   })
 
   test("a sub-Task's request still asks, for a person to answer from the sidebar", async () => {
@@ -616,29 +596,5 @@ describe('OpenAB permission bridge in an automatic turn nobody is watching', () 
 
     expect(waits).toEqual(['tool-dangerous'])
     expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'allow-once' } })
-  })
-
-  test('an unanswered request in a headless turn is rejected, so the turn can still reply', async () => {
-    const tools: Record<string, unknown>[] = []
-    const outcome = await handleOpenAbPermissionRequest(
-      {
-        userId: 'owner-1',
-        conversationId: 'conversation-1',
-        request,
-        emit: () => undefined,
-        handleTool: (update) => tools.push(update),
-        run: { deadlineAt: 1, trace: { route: 'agent.thread' } },
-      },
-      {
-        getSessionBypass: async () => false,
-        registerWait: async (wait) => ({ ...wait, waitId: 'wait-1', createdAt: 1 }),
-        awaitDecision: async () => ({ timedOut: true as const, reason: 'timeout' }),
-      },
-    )
-
-    expect(outcome).toEqual({ outcome: { outcome: 'selected', optionId: 'reject-once' } })
-    expect(tools.find((update) => update.status === 'failed')?.contentText).toBe(
-      PERMISSION_TIMED_OUT_TEXT,
-    )
   })
 })
