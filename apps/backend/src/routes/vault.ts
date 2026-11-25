@@ -16,6 +16,15 @@ import {
   removeVaultDevice,
 } from '@/lib/vault'
 import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
+import {
+  addTeamVaultDevice,
+  deleteTeamVaultItem,
+  getTeamVaultItem,
+  listTeamVaultDevices,
+  listTeamVaultItems,
+  putTeamVaultItem,
+  removeTeamVaultDevice,
+} from '@/lib/vault-team'
 import { requireAuth } from '@/middleware/auth'
 import { liveDevice } from '@/routes/agent/router'
 
@@ -74,6 +83,7 @@ export async function readComputerItem(
       c.req.query('user') ?? '',
       { userId, deviceId },
       nameParam(c.req.param('name') ?? ''),
+      c.req.query('team'),
     ),
   )
 }
@@ -93,6 +103,18 @@ const x25519Key = base64(44).refine((value) => Buffer.from(value, 'base64').leng
 const itemName = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/)
 // A wrapped 32-byte key: HPKE encapsulated key, ciphertext and tag.
 const wrapped = base64(256)
+
+const itemBody = z.object({
+  // 64 KiB of plaintext, base64 with nonce and tag.
+  ciphertext: base64(90_000),
+  keys: z
+    .array(z.object({ deviceId: z.string().uuid(), wrapped }))
+    .min(1)
+    .max(MAX_DEVICES),
+})
+const approveBody = z.object({
+  keys: z.array(z.object({ name: itemName, wrapped })).max(MAX_ITEMS),
+})
 
 function nameParam(value: string): string {
   if (!itemName.safeParse(value).success) throw new AppError(404, 'not_found', 'Item not found')
@@ -114,19 +136,15 @@ vaultRoutes.post(
   },
 )
 
-vaultRoutes.post(
-  '/devices/:id/approve',
-  zv('json', z.object({ keys: z.array(z.object({ name: itemName, wrapped })).max(MAX_ITEMS) })),
-  async (c) => {
-    const device = await approveVaultDevice(
-      c.get('userId'),
-      c.req.param('id'),
-      c.req.valid('json').keys,
-    )
+vaultRoutes.post('/devices/:id/approve', zv('json', approveBody), async (c) => {
+  const device = await approveVaultDevice(
+    c.get('userId'),
+    c.req.param('id'),
+    c.req.valid('json').keys,
+  )
 
-    return c.json({ device })
-  },
-)
+  return c.json({ device })
+})
 
 vaultRoutes.delete('/devices/:id', async (c) => {
   await removeVaultDevice(c.get('userId'), c.req.param('id'))
@@ -140,34 +158,72 @@ vaultRoutes.get('/items/:name', async (c) =>
   c.json({ item: await getVaultItem(c.get('userId'), nameParam(c.req.param('name'))) }),
 )
 
-vaultRoutes.put(
-  '/items/:name',
-  zv(
-    'json',
-    z.object({
-      // 64 KiB of plaintext, base64 with nonce and tag.
-      ciphertext: base64(90_000),
-      keys: z
-        .array(z.object({ deviceId: z.string().uuid(), wrapped }))
-        .min(1)
-        .max(MAX_DEVICES),
-    }),
-  ),
-  async (c) => {
-    const { ciphertext, keys } = c.req.valid('json')
-    const item = await putVaultItem(
+vaultRoutes.put('/items/:name', zv('json', itemBody), async (c) => {
+  const { ciphertext, keys } = c.req.valid('json')
+  const item = await putVaultItem(c.get('userId'), nameParam(c.req.param('name')), ciphertext, keys)
+
+  return c.json({ item })
+})
+
+vaultRoutes.delete('/items/:name', async (c) => {
+  await deleteVaultItem(c.get('userId'), nameParam(c.req.param('name')))
+
+  return c.body(null, 204)
+})
+
+// The team's shared vault (nuphos/nuphos#5080): the same item format, wrapped for
+// the devices in the team vault. Every route checks the caller is a member.
+vaultRoutes.get('/teams/:teamId/devices', async (c) =>
+  c.json({ devices: await listTeamVaultDevices(c.req.param('teamId'), c.get('userId')) }),
+)
+
+vaultRoutes.post('/teams/:teamId/devices/:id/add', zv('json', approveBody), async (c) => {
+  await addTeamVaultDevice(
+    c.req.param('teamId'),
+    c.get('userId'),
+    c.req.param('id'),
+    c.req.valid('json').keys,
+  )
+
+  return c.body(null, 204)
+})
+
+vaultRoutes.delete('/teams/:teamId/devices/:id', async (c) => {
+  await removeTeamVaultDevice(c.req.param('teamId'), c.get('userId'), c.req.param('id'))
+
+  return c.body(null, 204)
+})
+
+vaultRoutes.get('/teams/:teamId/items', async (c) =>
+  c.json({ items: await listTeamVaultItems(c.req.param('teamId'), c.get('userId')) }),
+)
+
+vaultRoutes.get('/teams/:teamId/items/:name', async (c) =>
+  c.json({
+    item: await getTeamVaultItem(
+      c.req.param('teamId'),
+      c.get('userId'),
+      nameParam(c.req.param('name')),
+    ),
+  }),
+)
+
+vaultRoutes.put('/teams/:teamId/items/:name', zv('json', itemBody), async (c) => {
+  const { ciphertext, keys } = c.req.valid('json')
+
+  return c.json({
+    item: await putTeamVaultItem(
+      c.req.param('teamId'),
       c.get('userId'),
       nameParam(c.req.param('name')),
       ciphertext,
       keys,
-    )
+    ),
+  })
+})
 
-    return c.json({ item })
-  },
-)
-
-vaultRoutes.delete('/items/:name', async (c) => {
-  await deleteVaultItem(c.get('userId'), nameParam(c.req.param('name')))
+vaultRoutes.delete('/teams/:teamId/items/:name', async (c) => {
+  await deleteTeamVaultItem(c.req.param('teamId'), c.get('userId'), nameParam(c.req.param('name')))
 
   return c.body(null, 204)
 })

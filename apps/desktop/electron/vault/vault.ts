@@ -4,16 +4,9 @@
 // asked for.
 
 import { randomBytes } from 'node:crypto'
-import fs from 'node:fs/promises'
 import os from 'node:os'
-import path from 'node:path'
 
-import { signedIn } from '../account-request.ts'
 import { call } from '../atlas/client.ts'
-import { buildAtlasError } from '../atlas/error.ts'
-import { keychainFor, secureStorageEnabled } from '../auth/token-store.ts'
-import { readYaml, writeYaml } from '../auth/yaml-file.ts'
-import { DESKTOP_CONFIG_PATH } from '../cli-config-path.ts'
 
 import {
   MAX_VALUE,
@@ -26,6 +19,7 @@ import {
   validName,
   wrap,
 } from './crypto.ts'
+import { fail, forgetDevice, loadDevice, saveDevice } from './device-store.ts'
 
 import type { VaultDevice, VaultItemSummary, VaultStatus } from '../../src/types/vault'
 
@@ -35,61 +29,25 @@ type RemoteDevice = {
   publicKey: string
   state: 'pending' | 'enrolled'
 }
-type Device = { deviceId: string; privateKey: string }
+type TeamDevice = Omit<RemoteDevice, 'state'> & { userName: string; shared: boolean }
 
-/** This app's own item: the CLI's is `ai.nuphos.vault.device`, so neither asks for the other's. */
-const keychain = keychainFor('ai.nuphos.desktop.vault')
-
-/** A failure worth showing as written: the toast shows only errors with a code. */
-const fail = (message: string) => buildAtlasError(message, 'vault_desktop')
-
-async function account() {
-  const { api, userId } = await signedIn()
-
-  if (!userId) throw fail('Sign in again to use the vault.')
-
-  return {
-    item: `${userId}@${api}`,
-    file: path.join(path.dirname(DESKTOP_CONFIG_PATH), `vault-${userId}.yaml`),
-  }
-}
-
-// Where the packaged app keeps the session token, it keeps the key; a dev
-// build keeps it in a file only this user can read.
-async function loadDevice(): Promise<Device | null> {
-  const { item, file } = await account()
-
-  if (secureStorageEnabled()) {
-    const stored = await keychain.get(item)
-
-    return stored ? (JSON.parse(stored) as Device) : null
-  }
-  const stored = await readYaml<Partial<Device>>(file)
-
-  return stored?.deviceId && stored.privateKey ? (stored as Device) : null
-}
-
-async function saveDevice(device: Device): Promise<void> {
-  const { item, file } = await account()
-
-  if (secureStorageEnabled()) await keychain.set(item, JSON.stringify(device))
-  else await writeYaml(file, device)
-}
-
-async function forgetDevice(): Promise<void> {
-  const { item, file } = await account()
-
-  if (secureStorageEnabled()) await keychain.delete(item).catch(() => null)
-  else await fs.rm(file, { force: true })
-}
+/**
+ * Where a vault's items live: the person's own, or a team's shared vault
+ * (nuphos/nuphos#5080), whose items are wrapped for the devices in it instead.
+ */
+export const base = (teamId?: string) =>
+  teamId ? `/vault/teams/${encodeURIComponent(teamId)}` : '/vault'
 
 const devices = async () =>
   (await call<{ devices: RemoteDevice[] }>('GET', '/vault/devices')).devices
-const item = async (name: string) =>
+
+export const teamDevices = async (teamId: string) =>
+  (await call<{ devices: TeamDevice[] }>('GET', `${base(teamId)}/devices`)).devices
+const item = async (name: string, teamId?: string) =>
   (
     await call<{ item: { ciphertext: string; keys: { deviceId: string; wrapped: string }[] } }>(
       'GET',
-      `/vault/items/${name}`,
+      `${base(teamId)}/items/${name}`,
     )
   ).item
 
@@ -112,7 +70,7 @@ async function thisDevice(remote: RemoteDevice[]) {
     : null
 }
 
-async function enrolledKey() {
+export async function enrolledKey() {
   const mine = await thisDevice(await devices())
 
   if (mine?.state !== 'enrolled')
@@ -121,8 +79,12 @@ async function enrolledKey() {
   return mine
 }
 
-async function itemKey(name: string, mine: { deviceId: string; privateKey: Buffer }) {
-  const found = await item(name)
+async function itemKey(
+  name: string,
+  mine: { deviceId: string; privateKey: Buffer },
+  teamId?: string,
+) {
+  const found = await item(name, teamId)
   const wrapped = found.keys.find((k) => k.deviceId === mine.deviceId)
 
   if (!wrapped) throw fail(`${name} has no key for this device.`)
@@ -218,20 +180,34 @@ export async function approve(deviceId: string, confirmed: string): Promise<void
   const target = (await devices()).find((d) => d.id === deviceId)
 
   if (target?.state !== 'pending') throw fail('That device is no longer waiting for approval.')
-  const to = Buffer.from(target.publicKey, 'base64')
+  await call(
+    'POST',
+    `/vault/devices/${encodeURIComponent(deviceId)}/approve`,
+    { keys: await wrapEveryItem(mine, target.publicKey, confirmed) },
+    { retry: false },
+  )
+}
+
+/** Every item's key, wrapped for the key whose fingerprint the person compared. */
+export async function wrapEveryItem(
+  mine: { deviceId: string; privateKey: Buffer },
+  publicKey: string,
+  confirmed: string,
+  teamId?: string,
+) {
+  const to = Buffer.from(publicKey, 'base64')
 
   if (fingerprint(to) !== confirmed)
     throw fail('That device’s key changed since you compared it. Nothing was approved.')
   const keys = []
 
-  for (const { name } of await items())
-    keys.push({ name, wrapped: wrap((await itemKey(checkName(name), mine)).itemKey, name, to) })
-  await call(
-    'POST',
-    `/vault/devices/${encodeURIComponent(deviceId)}/approve`,
-    { keys },
-    { retry: false },
-  )
+  for (const { name } of await items(teamId))
+    keys.push({
+      name,
+      wrapped: wrap((await itemKey(checkName(name), mine, teamId)).itemKey, name, to),
+    })
+
+  return keys
 }
 
 /** Items are not re-keyed: a removed device that kept a copy of a key can still open that copy. */
@@ -242,17 +218,17 @@ export async function removeDevice(deviceId: string): Promise<void> {
   if ((await loadDevice())?.deviceId === deviceId) await forgetDevice()
 }
 
-export async function items(): Promise<VaultItemSummary[]> {
-  return (await call<{ items: VaultItemSummary[] }>('GET', '/vault/items')).items
+export async function items(teamId?: string): Promise<VaultItemSummary[]> {
+  return (await call<{ items: VaultItemSummary[] }>('GET', `${base(teamId)}/items`)).items
 }
 
-export async function getItem(name: string): Promise<string> {
-  const { itemKey: key, ciphertext } = await itemKey(checkName(name), await enrolledKey())
+export async function getItem(name: string, teamId?: string): Promise<string> {
+  const { itemKey: key, ciphertext } = await itemKey(checkName(name), await enrolledKey(), teamId)
 
   return open(key, name, ciphertext).toString('utf-8')
 }
 
-export async function setItem(name: string, value: string): Promise<void> {
+export async function setItem(name: string, value: string, teamId?: string): Promise<void> {
   checkName(name)
   await enrolledKey()
   const plain = Buffer.from(value, 'utf-8')
@@ -260,18 +236,23 @@ export async function setItem(name: string, value: string): Promise<void> {
   if (plain.length > MAX_VALUE)
     throw fail(`A vault item holds at most ${String(MAX_VALUE / 1024)} KiB.`)
   const key = randomBytes(32)
-  const keys = (await devices())
-    .filter((d) => d.state === 'enrolled')
-    .map((d) => ({ deviceId: d.id, wrapped: wrap(key, name, Buffer.from(d.publicKey, 'base64')) }))
+  // A person's item is wrapped for their enrolled devices, a team's for the team vault's.
+  const readers = teamId
+    ? (await teamDevices(teamId)).filter((d) => d.shared)
+    : (await devices()).filter((d) => d.state === 'enrolled')
+  const keys = readers.map((d) => ({
+    deviceId: d.id,
+    wrapped: wrap(key, name, Buffer.from(d.publicKey, 'base64')),
+  }))
 
   await call(
     'PUT',
-    `/vault/items/${name}`,
+    `${base(teamId)}/items/${name}`,
     { ciphertext: seal(key, name, plain), keys },
     { retry: false },
   )
 }
 
-export async function deleteItem(name: string): Promise<void> {
-  await call('DELETE', `/vault/items/${checkName(name)}`, undefined, { retry: false })
+export async function deleteItem(name: string, teamId?: string): Promise<void> {
+  await call('DELETE', `${base(teamId)}/items/${checkName(name)}`, undefined, { retry: false })
 }

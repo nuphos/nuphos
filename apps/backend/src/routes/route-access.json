@@ -1017,5 +1017,12 @@
   "POST /vault/computer/devices": "user",
   "POST /vault/devices": "user",
   "POST /vault/devices/:id/approve": "user",
-  "PUT /vault/items/:name": "user"
+  "PUT /vault/items/:name": "user",
+  "GET /vault/teams/:teamId/devices": "user",
+  "POST /vault/teams/:teamId/devices/:id/add": "user",
+  "DELETE /vault/teams/:teamId/devices/:id": "user",
+  "GET /vault/teams/:teamId/items": "user",
+  "GET /vault/teams/:teamId/items/:name": "user",
+  "PUT /vault/teams/:teamId/items/:name": "user",
+  "DELETE /vault/teams/:teamId/items/:name": "user"
 }

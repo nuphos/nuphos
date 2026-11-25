@@ -49,6 +49,7 @@ import { setupLiveActivityIndexes } from '@/lib/push/live-activity-store'
 import { setupSlackAgentIndexes } from '@/lib/slack/agent-bot'
 import { unwatchExternalChats } from '@/lib/slack/external-chats'
 import { setupVaultIndexes } from '@/lib/vault'
+import { setupTeamVaultIndexes } from '@/lib/vault-team'
 import { setupWebhookIndexes } from '@/lib/webhooks/store'
 import { setupCoreIndexes } from '@/models/indexes-core'
 import { agentInstructions } from '@/models/instructions'
@@ -87,6 +88,7 @@ export async function setupIndexes(): Promise<void> {
     ['identity', setupIdentityIndexes],
     ['email-otp', setupEmailOtpIndexes],
     ['vault', setupVaultIndexes],
+    ['vault-team', setupTeamVaultIndexes],
     ['token-revocation', setupTokenRevocationIndexes],
     ['password-login', setupPasswordIndexes],
     ['download-link-email', setupDownloadLinkEmailIndexes],

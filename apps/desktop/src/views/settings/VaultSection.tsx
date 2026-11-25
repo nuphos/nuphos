@@ -9,15 +9,17 @@ import { queryKeys } from '../../lib/query/keys'
 import { vaultStatusQuery } from '../../lib/query/vault'
 
 import { SectionHeader } from './shared'
+import { TeamVault } from './TeamVault'
 import { VaultDevices, vaultCard } from './VaultDevices'
 import { VaultItems } from './VaultItems'
 
+import type { AtlasTeam } from '../../types'
 import type { VaultDevice } from '../../types/vault'
 
 const VAULT_DOCS_URL = 'https://docs.nuphos.ai/security/vault'
 
 /** Vault: secrets encrypted on the user's own devices. Keys stay in the main process. */
-export function VaultSection({ userId }: { userId: string }) {
+export function VaultSection({ userId, team }: { userId: string; team: AtlasTeam | undefined }) {
   const status = useQuery(vaultStatusQuery(userId))
   const devices = status.data?.devices ?? []
   const mine = devices.find((d) => d.id === status.data?.thisDeviceId)
@@ -52,6 +54,7 @@ export function VaultSection({ userId }: { userId: string }) {
       {status.isSuccess && <ThisComputer userId={userId} mine={mine} first={!devices.length} />}
       {devices.length > 0 && <VaultDevices userId={userId} devices={devices} mine={mine} />}
       {mine?.state === 'enrolled' && <VaultItems userId={userId} />}
+      {mine?.state === 'enrolled' && team && <TeamVault userId={userId} team={team} />}
     </div>
   )
 }

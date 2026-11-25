@@ -353,8 +353,9 @@ fn computer_key(saved: Option<Device>) -> Result<(PrivateKey, bool)> {
 }
 
 /// `nuphos vault get NAME --computer`: reads with this computer's own device
-/// credential, so it needs no sign-in, and only once it was approved.
-pub async fn get_on_computer(name: &str, user: Option<String>) -> Result<()> {
+/// credential, so it needs no sign-in, and only once it was approved. With
+/// `team`, from that team's shared vault, once this computer was added to it.
+pub async fn get_on_computer(name: &str, user: Option<String>, team: Option<&str>) -> Result<()> {
     let name = check_name(name)?;
     let path = crate::agent::agent_home()?.join("device-credential.json");
     let text = std::fs::read_to_string(&path).context("this computer has no device credential")?;
@@ -363,7 +364,8 @@ pub async fn get_on_computer(name: &str, user: Option<String>) -> Result<()> {
     let user = user.unwrap_or_else(|| field("userId"));
     let device = load_device(&user)?
         .ok_or_else(|| anyhow!("this computer has no vault key: add it to the vault from Desktop"))?;
-    let found = crate::api::Api::new(field("apiUrl"), field("credential")).vault_computer_item(name, &user).await?;
+    let found =
+        crate::api::Api::new(field("apiUrl"), field("credential")).vault_computer_item(name, &user, team).await?;
     std::io::stdout().write_all(&open_computer_item(&found, name, device.key)?)?;
     Ok(())
 }

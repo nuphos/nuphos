@@ -4,17 +4,14 @@
 // does enforce is that every item stays readable by every enrolled device.
 import { randomUUID } from 'node:crypto'
 
-import { MongoServerError } from 'mongodb'
-
 import { db } from '@/lib/db'
 import { AppError } from '@/lib/errors'
+import { exclusive } from '@/lib/vault-lock'
 
 import type { Collection } from 'mongodb'
 
 export const MAX_DEVICES = 50
 export const MAX_ITEMS = 1000
-/** Longer than any write here takes; a crashed holder frees the vault after it. */
-const LOCK_MS = 30_000
 
 export type VaultDeviceState = 'pending' | 'enrolled'
 
@@ -39,6 +36,7 @@ export type VaultKey = { deviceId: string; wrapped: string }
 
 type VaultItemDoc = {
   _id: string
+  /** The owner: a user id, or `team:<teamId>` for a team's vault (see vault-team.ts). */
   userId: string
   name: string
   ciphertext: string
@@ -49,38 +47,6 @@ type VaultItemDoc = {
 
 export const devices = (): Collection<VaultDeviceDoc> => db().collection('vault_devices')
 export const items = (): Collection<VaultItemDoc> => db().collection('vault_items')
-const locks = (): Collection<{ _id: string; token: string; until: Date }> =>
-  db().collection('vault_locks')
-
-/**
- * Runs one write of a user's vault at a time. Every write reads the device set
- * or the item names and then writes against it, so two at once could leave an
- * item without a key for an enrolled device.
- */
-async function exclusive<T>(userId: string, body: () => Promise<T>): Promise<T> {
-  const token = randomUUID()
-  const now = new Date()
-
-  try {
-    // Matches only an expired lock; a held one makes the upsert collide on _id.
-    await locks().updateOne(
-      { _id: userId, until: { $lt: now } },
-      { $set: { token, until: new Date(now.getTime() + LOCK_MS) } },
-      { upsert: true },
-    )
-  } catch (error) {
-    if (error instanceof MongoServerError && error.code === 11000) {
-      throw new AppError(409, 'vault_busy', 'Another change to this vault is in progress; retry')
-    }
-    throw error
-  }
-  try {
-    return await body()
-  } finally {
-    await locks().deleteOne({ _id: userId, token })
-  }
-}
-
 export async function setupVaultIndexes(): Promise<void> {
   await Promise.all([
     devices().createIndex({ userId: 1 }),
@@ -184,24 +150,7 @@ export function approveVaultDevice(
     if (device.state !== 'pending') {
       throw new AppError(409, 'vault_device_enrolled', 'Device is already enrolled')
     }
-    const names = (await items().find({ userId }).project({ name: 1 }).toArray()).map(
-      (doc) => doc.name as string,
-    )
-
-    if (
-      !coversExactly(
-        keys.map((key) => key.name),
-        names,
-      )
-    ) {
-      throw new AppError(409, 'vault_items_changed', 'Wrap the key of every vault item, once each')
-    }
-    for (const key of keys) {
-      await items().updateOne(
-        { userId, name: key.name, 'keys.deviceId': { $ne: deviceId } },
-        { $push: { keys: { deviceId, wrapped: key.wrapped } } },
-      )
-    }
+    await wrapEveryItemFor(userId, deviceId, keys)
     const enrolledAt = new Date()
 
     await devices().updateOne(
@@ -211,6 +160,30 @@ export function approveVaultDevice(
 
     return deviceView({ ...device, state: 'enrolled', enrolledAt })
   })
+}
+
+/** Adds a device's key to every item of `owner`'s vault; the caller holds its lock. */
+export async function wrapEveryItemFor(
+  owner: string,
+  deviceId: string,
+  keys: { name: string; wrapped: string }[],
+) {
+  const names = await items().distinct('name', { userId: owner })
+
+  if (
+    !coversExactly(
+      keys.map((key) => key.name),
+      names,
+    )
+  ) {
+    throw new AppError(409, 'vault_items_changed', 'Wrap the key of every vault item, once each')
+  }
+  for (const key of keys) {
+    await items().updateOne(
+      { userId: owner, name: key.name, 'keys.deviceId': { $ne: deviceId } },
+      { $push: { keys: { deviceId, wrapped: key.wrapped } } },
+    )
+  }
 }
 
 /**
@@ -258,37 +231,51 @@ export async function getVaultItem(userId: string, name: string) {
 }
 
 export function putVaultItem(userId: string, name: string, ciphertext: string, keys: VaultKey[]) {
-  return exclusive(userId, async () => {
-    if (
-      !coversExactly(
-        keys.map((key) => key.deviceId),
-        await enrolledIds(userId),
-      )
-    ) {
-      throw new AppError(
-        409,
-        'vault_devices_changed',
-        'Wrap the item key for every enrolled device, once each',
-      )
-    }
-    if (
-      !(await items().countDocuments({ userId, name }, { limit: 1 })) &&
-      (await items().countDocuments({ userId })) >= MAX_ITEMS
-    ) {
-      throw new AppError(409, 'vault_item_limit', `A vault holds at most ${MAX_ITEMS} items`)
-    }
-    const now = new Date()
-    const doc = await items().findOneAndUpdate(
-      { userId, name },
-      {
-        $set: { ciphertext, keys, updatedAt: now },
-        $setOnInsert: { _id: randomUUID(), createdAt: now },
-      },
-      { upsert: true, returnDocument: 'after' },
-    )
+  return exclusive(userId, async () =>
+    writeVaultItem(userId, name, ciphertext, keys, await enrolledIds(userId)),
+  )
+}
 
-    return itemView(doc as VaultItemDoc)
-  })
+/**
+ * Writes an item of `owner`'s vault, a user's or a team's, wrapped for exactly
+ * `readers`. The caller holds the vault's lock.
+ */
+export async function writeVaultItem(
+  owner: string,
+  name: string,
+  ciphertext: string,
+  keys: VaultKey[],
+  readers: string[],
+) {
+  if (
+    !coversExactly(
+      keys.map((key) => key.deviceId),
+      readers,
+    )
+  ) {
+    throw new AppError(
+      409,
+      'vault_devices_changed',
+      'Wrap the item key for every enrolled device, once each',
+    )
+  }
+  if (
+    !(await items().countDocuments({ userId: owner, name }, { limit: 1 })) &&
+    (await items().countDocuments({ userId: owner })) >= MAX_ITEMS
+  ) {
+    throw new AppError(409, 'vault_item_limit', `A vault holds at most ${MAX_ITEMS} items`)
+  }
+  const now = new Date()
+  const doc = await items().findOneAndUpdate(
+    { userId: owner, name },
+    {
+      $set: { ciphertext, keys, updatedAt: now },
+      $setOnInsert: { _id: randomUUID(), createdAt: now },
+    },
+    { upsert: true, returnDocument: 'after' },
+  )
+
+  return itemView(doc as VaultItemDoc)
 }
 
 export function deleteVaultItem(userId: string, name: string): Promise<void> {

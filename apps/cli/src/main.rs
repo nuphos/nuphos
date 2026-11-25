@@ -208,6 +208,9 @@ enum VaultCommand {
         /// With --computer: whose vault (default: the computer's owner).
         #[arg(long, requires = "computer")]
         user: Option<String>,
+        /// With --computer: read from this team's shared vault instead (its id).
+        #[arg(long, requires = "computer")]
+        team: Option<String>,
     },
     /// List item names.
     List,
@@ -314,8 +317,8 @@ async fn run(args: Args) -> Result<i32> {
         }
         // A computer added to a vault from Desktop needs no sign-in of its own.
         Some(Command::Vault { command: VaultCommand::Keygen { user } }) => return vault::keygen(user).map(|_| 0),
-        Some(Command::Vault { command: VaultCommand::Get { name, computer: true, user } }) => {
-            return vault::get_on_computer(name, user.clone()).await.map(|_| 0);
+        Some(Command::Vault { command: VaultCommand::Get { name, computer: true, user, team } }) => {
+            return vault::get_on_computer(name, user.clone(), team.as_deref()).await.map(|_| 0);
         }
         Some(Command::Token { command }) => {
             let (api, _, _) = sign_in(false).await?;
@@ -792,6 +795,12 @@ mod vault_args {
             Some(Command::Vault { command: VaultCommand::Get { computer: true, user: Some(u), .. } }) if u == "u1"
         ));
         assert!(Args::try_parse_from(["nuphos", "vault", "get", "token", "--user", "u1"]).is_err());
+        let args = Args::try_parse_from(["nuphos", "vault", "get", "claude", "--computer", "--team", "t1"]).unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::Vault { command: VaultCommand::Get { computer: true, team: Some(t), .. } }) if t == "t1"
+        ));
+        assert!(Args::try_parse_from(["nuphos", "vault", "get", "claude", "--team", "t1"]).is_err());
         let args = Args::try_parse_from(["nuphos", "vault", "keygen", "--user", "u1"]).unwrap();
         assert!(
             matches!(args.command, Some(Command::Vault { command: VaultCommand::Keygen { user } }) if user == "u1")

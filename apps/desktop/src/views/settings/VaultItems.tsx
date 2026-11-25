@@ -7,25 +7,28 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { queryKeys } from '../../lib/query/keys'
 import { vaultItemsQuery } from '../../lib/query/vault'
 
 import { inputClasses } from './styles'
 import { vaultCard } from './VaultDevices'
 
-/** The vault's items, for an enrolled device. A value is read only when asked for. */
-export function VaultItems({ userId }: { userId: string }) {
+/**
+ * The vault's items, for an enrolled device: the person's own, or with `teamId` the
+ * team's shared ones. A value is read only when asked for.
+ */
+export function VaultItems({ userId, teamId }: { userId: string; teamId?: string }) {
   const queryClient = useQueryClient()
-  const items = useQuery(vaultItemsQuery(userId))
+  const query = vaultItemsQuery(userId, teamId)
+  const items = useQuery(query)
   const [name, setName] = useState('')
   const [value, setValue] = useState('')
   // Values read on request, never in the query cache.
   const [revealed, setRevealed] = useState<Record<string, string>>({})
   const [deleting, setDeleting] = useState<string | null>(null)
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.vaultItems(userId) })
+  const refresh = () => queryClient.invalidateQueries({ queryKey: query.queryKey })
 
   const save = useMutation({
-    mutationFn: () => api.vaultSet(name.trim(), value),
+    mutationFn: () => api.vaultSet(name.trim(), value, teamId),
     onSuccess: () => {
       toast.success(t('Saved {name}', { name: name.trim() }))
       setRevealed(({ [name.trim()]: _, ...rest }) => rest)
@@ -36,7 +39,7 @@ export function VaultItems({ userId }: { userId: string }) {
     onError: (err) => toast.apiError(t('Could not save the item'), err),
   })
   const remove = useMutation({
-    mutationFn: (item: string) => api.vaultDelete(item),
+    mutationFn: (item: string) => api.vaultDelete(item, teamId),
     onSettled: refresh,
     onError: (err) => toast.apiError(t('Could not delete the item'), err),
   })
@@ -44,7 +47,7 @@ export function VaultItems({ userId }: { userId: string }) {
   async function reveal(item: string) {
     if (item in revealed) return setRevealed(({ [item]: _, ...rest }) => rest)
     try {
-      const plain = await api.vaultGet(item)
+      const plain = await api.vaultGet(item, teamId)
 
       setRevealed((r) => ({ ...r, [item]: plain }))
     } catch (err) {
@@ -88,7 +91,9 @@ export function VaultItems({ userId }: { userId: string }) {
       </form>
       <div className="space-y-2">
         {items.data?.length === 0 && (
-          <p className="text-[12.5px] text-tertiary">{t('Your vault is empty.')}</p>
+          <p className="text-[12.5px] text-tertiary">
+            {teamId ? t('The team vault is empty.') : t('Your vault is empty.')}
+          </p>
         )}
         {items.data?.map((item) => (
           <div key={item.name} className={vaultCard}>

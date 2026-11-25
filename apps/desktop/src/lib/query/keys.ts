@@ -54,6 +54,9 @@ export const queryKeys = {
   /** The signed-in user's vault: its devices, and its item names. */
   vault: (userId: string) => ['user', userId, 'vault'] as const,
   vaultItems: (userId: string) => [...queryKeys.vault(userId), 'items'] as const,
+  /** The team's shared vault: its members' devices, and under it its item names. */
+  teamVault: (teamId: string) => [...queryKeys.team(teamId), 'vault'] as const,
+  teamVaultItems: (teamId: string) => [...queryKeys.teamVault(teamId), 'items'] as const,
   /** A cloud resource list, by its `withResourceListCache` key. */
   resourceList: (cacheKey: string) => ['resource-list', cacheKey] as const,
 }

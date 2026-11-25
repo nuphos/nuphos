@@ -12,10 +12,36 @@ type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] 
 
 // The backend's vault routes, in memory.
 const backend = { devices: [] as Device[], items: new Map<string, Item>(), calls: [] as string[] }
+// One team's shared vault: which of the members' devices are in it, and its items.
+const team = { shared: new Set<string>(), items: new Map<string, Item>() }
 const fail = (status: number) => Object.assign(new Error(String(status)), { status })
 
+function teamRoute(method: string, [kind, id, action]: string[], body: Record<string, unknown>) {
+  if (kind === 'devices' && method === 'GET')
+    return {
+      devices: backend.devices.map((d) => ({
+        ...d,
+        userName: 'Alex',
+        shared: team.shared.has(d.id),
+      })),
+    }
+  if (kind === 'devices' && action === 'add') {
+    for (const { name, wrapped } of body.keys as { name: string; wrapped: string }[])
+      team.items.get(name)?.keys.push({ deviceId: id, wrapped })
+    team.shared.add(id)
+
+    return {}
+  }
+  if (kind === 'items' && !id) return { items: [...team.items.keys()].map((name) => ({ name })) }
+  if (method === 'GET' && team.items.has(id)) return { item: team.items.get(id) }
+  if (method === 'PUT') return team.items.set(id, body as Item) && {}
+  throw fail(404)
+}
+
 function route(method: string, url: string, body: Record<string, unknown>) {
-  const [, , kind, id, action] = url.split('/')
+  const [, , kind, id, action, ...rest] = url.split('/')
+
+  if (kind === 'teams') return teamRoute(method, [action, ...rest], body)
 
   if (kind === 'devices' && method === 'GET') return { devices: backend.devices }
   if (kind === 'devices' && method === 'POST' && !id) {
@@ -86,11 +112,14 @@ mock.module('../cli-config-path.ts', {
 })
 
 const vault = await import('./vault.ts')
+const teamVault = await import('./team.ts')
 
 beforeEach(() => {
   backend.devices = []
   backend.items.clear()
   backend.calls = []
+  team.shared.clear()
+  team.items.clear()
   Object.assign(keychain, { failSet: false, secure: false, entries: new Map() })
   fs.rmSync(path.join(dir, 'vault-u1.yaml'), { force: true })
 })
@@ -174,4 +203,37 @@ test('names and sizes are checked before anything is sent', async () => {
   await assert.rejects(vault.setItem('../x', 'v'), /A name is/)
   await assert.rejects(vault.setItem('big', 'x'.repeat(64 * 1024 + 1)), /at most 64 KiB/)
   assert.ok(!backend.calls.some((c) => c.startsWith('PUT')))
+})
+
+test('a team vault starts with this device, and adds another only for the compared key', async () => {
+  const { thisDeviceId } = await vault.enroll()
+  const other = otherDevice('enrolled')
+  const mine = (await teamVault.teamStatus('t1')).devices.find((d) => d.id === thisDeviceId)
+
+  assert.ok(mine && !mine.shared)
+  await teamVault.addTeamDevice('t1', mine.id, mine.fingerprint)
+  await vault.setItem('claude-token', 'sk-example', 't1')
+  // Wrapped for the team vault's devices only, and kept apart from the person's own.
+  assert.deepEqual(
+    team.items.get('claude-token')?.keys.map((k) => k.deviceId),
+    [thisDeviceId],
+  )
+  assert.equal(backend.items.size, 0)
+  assert.equal(await vault.getItem('claude-token', 't1'), 'sk-example')
+
+  const shown = fingerprint(Buffer.from(other.device.publicKey, 'base64'))
+
+  other.device.publicKey = generateDeviceKey().publicKey.toString('base64')
+  await assert.rejects(teamVault.addTeamDevice('t1', other.device.id, shown), /key changed/)
+  const real = otherDevice('enrolled')
+
+  await teamVault.addTeamDevice(
+    't1',
+    real.device.id,
+    fingerprint(Buffer.from(real.device.publicKey, 'base64')),
+  )
+  const wrapped = team.items.get('claude-token')?.keys.find((k) => k.deviceId === real.device.id)
+
+  assert.ok(wrapped)
+  assert.equal(unwrap(wrapped.wrapped, 'claude-token', real.privateKey).length, 32)
 })

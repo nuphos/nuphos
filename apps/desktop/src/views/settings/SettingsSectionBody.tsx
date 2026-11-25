@@ -42,7 +42,7 @@ const SECTIONS: Partial<Record<string, (props: SectionProps) => ReactNode>> = {
   ),
   'account.devices': ({ onSignOut }) => <SignedInDevicesSection onSignOut={onSignOut} />,
   'account.mfa': ({ onSignOut }) => <TwoFactorSection onSignOut={onSignOut} />,
-  'account.vault': ({ user }) => <VaultSection userId={user.id} />,
+  'account.vault': ({ user, team }) => <VaultSection userId={user.id} team={team} />,
   'device.appearance': () => <AppearanceSection />,
   'device.updates': () => <UpdatesSection />,
   'device.privacy': () => <PrivacySection />,

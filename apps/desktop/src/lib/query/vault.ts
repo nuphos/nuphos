@@ -18,6 +18,16 @@ export const vaultStatusQuery = (userId: string) =>
         : false,
   })
 
-/** The item names; values are read one at a time when asked for. */
-export const vaultItemsQuery = (userId: string) =>
-  queryOptions({ queryKey: queryKeys.vaultItems(userId), queryFn: () => api.vaultItems() })
+/** The item names, the person's own or a team's; values are read one at a time when asked for. */
+export const vaultItemsQuery = (userId: string, teamId?: string) =>
+  queryOptions({
+    queryKey: teamId ? queryKeys.teamVaultItems(teamId) : queryKeys.vaultItems(userId),
+    queryFn: () => api.vaultItems(teamId),
+  })
+
+/** The team's shared vault (nuphos/nuphos#5080): which members' devices are in it. */
+export const teamVaultStatusQuery = (teamId: string) =>
+  queryOptions({
+    queryKey: queryKeys.teamVault(teamId),
+    queryFn: () => api.vaultTeamStatus(teamId),
+  })

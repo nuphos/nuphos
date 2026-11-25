@@ -9,6 +9,7 @@ import { dispatchLocalExec } from '@/lib/agent/devices/dispatch'
 import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { AppError } from '@/lib/errors'
 import { addVaultDevice, devices, itemView, items } from '@/lib/vault'
+import { teamOwner, teamVaultReader } from '@/lib/vault-team'
 
 import type { LocalExecDispatchOutcome } from '@/lib/agent/devices/dispatch'
 import type { Computer } from '@/lib/vault'
@@ -86,16 +87,25 @@ export const offerComputerKey = (
 
 /**
  * An item as a computer reads it with its device credential: only when the vault's
- * owner approved a device linked to that computer, and only that device's key.
+ * owner approved a device linked to that computer, and only that device's key. With
+ * `teamId`, an item of that team's vault, when the owner is still a member and the
+ * device is in the team vault (nuphos/nuphos#5080).
  */
-export async function getVaultItemForComputer(userId: string, computer: Computer, name: string) {
+export async function getVaultItemForComputer(
+  userId: string,
+  computer: Computer,
+  name: string,
+  teamId?: string,
+) {
   const device = await devices().findOne({
     userId,
     state: 'enrolled',
     'computer.userId': computer.userId,
     'computer.deviceId': computer.deviceId,
   })
-  const doc = device && (await items().findOne({ userId, name }))
+  const reads = device && (!teamId || (await teamVaultReader(teamId, userId, device._id)))
+  const doc =
+    reads && (await items().findOne({ userId: teamId ? teamOwner(teamId) : userId, name }))
 
   if (!device || !doc) throw new AppError(404, 'not_found', 'Item not found')
 

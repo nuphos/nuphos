@@ -258,8 +258,13 @@ impl Api {
     }
 
     /// An item as a computer reads it with its device credential: `{ deviceId, item }`.
-    pub async fn vault_computer_item(&self, name: &str, user: &str) -> Result<Value, ApiError> {
-        self.call(Method::GET, &format!("/vault/computer/items/{}", name), &[("user", user)], None).await
+    /// With `team`, the item is that team's shared one (nuphos/nuphos#5080).
+    pub async fn vault_computer_item(&self, name: &str, user: &str, team: Option<&str>) -> Result<Value, ApiError> {
+        let mut query = vec![("user", user)];
+        if let Some(team) = team {
+            query.push(("team", team));
+        }
+        self.call(Method::GET, &format!("/vault/computer/items/{}", name), &query, None).await
     }
 
     /// `keys` wraps the item key for every enrolled device: `[{ deviceId, wrapped }]`.

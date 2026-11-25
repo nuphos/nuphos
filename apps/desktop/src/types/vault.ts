@@ -14,3 +14,15 @@ export type VaultStatus = {
 }
 
 export type VaultItemSummary = { name: string; updatedAt: string }
+
+/** An enrolled device of a team member, and whether it is in the team's shared vault. */
+export type TeamVaultDevice = {
+  id: string
+  name: string
+  /** The member it belongs to. */
+  userName: string
+  shared: boolean
+  fingerprint: string
+}
+
+export type TeamVaultStatus = { thisDeviceId: string | null; devices: TeamVaultDevice[] }
