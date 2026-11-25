@@ -121,6 +121,7 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       conversationOwnerUserId: userId,
       conversationId: sessionId,
       request,
+      knownTool: toolLog.states.get(request.toolCall.toolCallId),
       emit: state.emit,
       handleTool,
       signal: state.signal,
@@ -207,7 +208,6 @@ export async function runClaudeCodePreviewChatTurn(args: PreviewChatTurnArgs): P
       emit: state.emit,
       provider: args.endpoint.provider ?? 'claude-code',
     })
-
   const prompt = promptOnce()
 
   try {

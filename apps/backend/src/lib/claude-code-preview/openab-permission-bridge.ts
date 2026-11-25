@@ -17,7 +17,7 @@ import type {
   OpenAbPermissionRequest,
 } from './openab-acp-session'
 import type { PreviewAgentUpdate } from './preview-agent-update'
-import type { UnattendedRun } from './unattended-permission'
+import type { KnownTool, UnattendedRun } from './unattended-permission'
 
 // OpenAB's ACP gateway currently gives a prompt roughly three minutes to
 // finish. Keep the human decision inside that envelope so a missed approval
@@ -84,6 +84,8 @@ export async function handleOpenAbPermissionRequest(
     conversationOwnerUserId?: string
     conversationId: string
     request: OpenAbPermissionRequest
+    /** What the call itself already said: codex-acp asks about an MCP call by its id alone. */
+    knownTool?: KnownTool
     emit: (frame: Record<string, unknown>) => void
     handleTool: (update: Extract<PreviewAgentUpdate, { kind: 'tool' }>) => void
     /** Stops waiting when the turn is stopped; the agent is then answered with a cancel. */
@@ -148,7 +150,10 @@ export async function handleOpenAbPermissionRequest(
   }
 
   if (bypass) return allow('bypass', 'Full Access is enabled for this conversation.')
-  if (unattended.headless && allowedUnattended(request.toolCall, unattended.wokenChannelIds))
+  if (
+    unattended.headless &&
+    allowedUnattended(request.toolCall, unattended.wokenChannelIds, args.knownTool)
+  )
     return allow('unattended', 'An automatic turn may read, and reply where it was called.')
 
   const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
