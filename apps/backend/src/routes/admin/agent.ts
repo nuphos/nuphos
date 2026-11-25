@@ -5,7 +5,6 @@ import {
   getAdminFeedback,
   listAgentEvents,
 } from '@/lib/agent/db'
-import { turnRunner } from '@/lib/agent/turn-runner'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError, logEvent } from '@/lib/observability'
@@ -15,6 +14,7 @@ import {
   parseLimit,
   serializeConversation,
 } from '@/routes/admin/helpers'
+import { claimAgentRunForSession, runAgentForTrigger } from '@/routes/agent'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import type { AdminVars } from '@/routes/admin/auth'
@@ -134,7 +134,7 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
 
     // Same per-session claim as interactive/Slack turns: never race a run the
     // user's own client (or another admin) already has in flight.
-    const release = await turnRunner.claimAgentRunForSession(conversation.userId, sessionId)
+    const release = await claimAgentRunForSession(conversation.userId, sessionId)
 
     if (!release) {
       throw new AppError(409, 'run_in_flight', 'An agent run is already active for this session.')
@@ -153,7 +153,7 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
 
     void (async () => {
       try {
-        await turnRunner.runAgentForTrigger({
+        await runAgentForTrigger({
           userId: conversation.userId,
           // Short-lived token scoped to the session owner: the rewoken turn runs
           // with exactly the permissions the user's own retry would have had.

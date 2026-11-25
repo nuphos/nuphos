@@ -9,6 +9,7 @@ import { Hono } from 'hono'
 import { ObjectId } from 'mongodb'
 
 import { closeDb, connectDb } from '@/lib/db'
+import { errorHandler } from '@/lib/errors'
 import { registerAdminAgentRoutes } from '@/routes/admin/agent'
 import { turnInputMessages } from '@/routes/agent/turn-start-frame'
 import { buildMessagesForLarkTurn } from '@/routes/lark/transcript'
@@ -24,6 +25,7 @@ import {
   enqueuePendingUserMessage,
 } from './pending-messages'
 import { startQueuedTurn } from './queued-turn'
+import { claimAgentRunForSession } from './run-admission'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
 import type { AdminVars } from '@/routes/admin/auth'
@@ -55,6 +57,23 @@ const wake = () =>
     actorUserId: OWNER,
     metadata: systemSender('nuphos', 'Nuphos'),
   })
+
+// A turn that failed: its input, then a reply that kept nothing.
+const failedTurn = () => {
+  const input = new ObjectId().toHexString()
+
+  return {
+    input,
+    stored: [
+      { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
+      {
+        id: new ObjectId().toHexString(),
+        role: 'assistant',
+        parts: [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }],
+      },
+    ],
+  }
+}
 
 describe.skipIf(!process.env.TEST_MONGODB_URI)(
   'a turn after ones whose replies kept nothing',
@@ -116,22 +135,6 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
     })
 
     // Slack and Lark rebuild the history of their turns themselves.
-    const failedTurn = () => {
-      const input = new ObjectId().toHexString()
-
-      return {
-        input,
-        stored: [
-          { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
-          {
-            id: new ObjectId().toHexString(),
-            role: 'assistant',
-            parts: [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }],
-          },
-        ],
-      }
-    }
-
     test('a Slack turn after a failed one answers only its own message', async () => {
       const { stored } = failedTurn()
 
@@ -163,20 +166,25 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       expect(turnInputMessages(messages).map((m) => m.id)).toEqual([messages.at(-1)!.id])
     })
 
-    test('an admin rewake re-runs the input of a failed last turn', async () => {
-      const { input, stored } = failedTurn()
+    test('an admin rewake still finds the input of a failed last turn pending', async () => {
+      const { stored } = failedTurn()
 
       await store(stored)
       const admin = new Hono<{ Variables: AdminVars }>()
 
+      admin.onError(errorHandler)
       registerAdminAgentRoutes(admin)
+      // A run already holds the session, so rewake stops right after deciding
+      // there is a pending turn, without starting one.
+      const release = await claimAgentRunForSession(OWNER, SESSION)
       const response = await admin.request(`/agent/conversations/${SESSION}/rewake`, {
         method: 'POST',
       })
 
-      expect(response.status).toBe(200)
-      await Bun.sleep(50)
-      expect(inputs).toEqual([[input]])
+      release?.()
+      expect(((await response.json()) as { error: { code: string } }).error.code).toBe(
+        'run_in_flight',
+      )
     })
 
     test('a conversation stored before this fix answers only its next message', async () => {
