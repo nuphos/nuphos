@@ -104,12 +104,26 @@ export function controlsOf(options: ConfigOption[]): ModelControls {
   }
 }
 
+const isBare = (controls: ModelControls) => !controls.effort.length && !controls.fast.length
+
+/**
+ * Two models read and neither offers a control: the runtime has none per model.
+ * A custom provider's ids are never cut short, since setting each finds the ones refused.
+ */
+function noModelControls(controls: Record<string, ModelControls>, custom?: string[]) {
+  const read = Object.values(controls)
+
+  if (custom?.length) return false
+
+  return read.length > 1 && read.every(isBare)
+}
+
 /** A runtime's settings when it lists no models, or null when it offers no choices. */
 function settingsOnlyCatalog(configOptions: ConfigOption[]): LocalModelCatalog | null {
   const controls = controlsOf(configOptions)
 
   // Choices only: an empty level is nothing to pick, so it would open an empty popover.
-  if (!controls.effort.length && !controls.fast.length) return null
+  if (isBare(controls)) return null
 
   return {
     models: [],
@@ -188,8 +202,14 @@ export function probeLocalModels(options: {
       const controls: Record<string, ModelControls> = {
         [defaultModel as string]: controlsOf(configOptions),
       }
+      let next = 0
 
-      for (const { id } of models) {
+      // Cursor names each model's settings in its id and has no control to read, and a
+      // set costs it half a second: across its ~50 models, longer than the probe may take.
+      // So once two models show no control, the rest are listed as advertised.
+      for (; next < models.length && !noModelControls(controls, options.models); next++) {
+        const { id } = models[next]
+
         // Claude validates full model ids with a network call that can fail
         // once; try again before reporting the model without its controls.
         for (let attempt = 0; attempt < 2 && !controls[id]; attempt++) {
@@ -210,7 +230,7 @@ export function probeLocalModels(options: {
         }
       }
       finish(null, {
-        models: models.filter(({ id }) => controls[id]),
+        models: models.filter(({ id }, index) => index >= next || controls[id]),
         defaultModel: defaultModel as string,
         controls,
       })
