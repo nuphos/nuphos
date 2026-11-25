@@ -90,6 +90,14 @@ describe('push device routes', () => {
     ])
   })
 
+  test('stores a known app icon and rejects any other', async () => {
+    const device = { token: TOKEN, deviceId: 'd', environment: 'sandbox' }
+
+    expect((await put({ ...device, appIcon: 'Z9' })).status).toBe(400)
+    expect((await put({ ...device, appIcon: 'C2' })).status).toBe(200)
+    expect(registered.map((r) => r.device.appIcon)).toEqual(['C2'])
+  })
+
   test('rejects a malformed token or environment', async () => {
     expect((await put({ token: 'nope', deviceId: 'd', environment: 'sandbox' })).status).toBe(400)
     expect((await put({ token: TOKEN, deviceId: 'd', environment: 'staging' })).status).toBe(400)
