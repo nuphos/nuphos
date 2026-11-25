@@ -356,3 +356,54 @@ test('a default model without controls still has every other model read', async 
     rmSync(dir, { recursive: true, force: true })
   }
 })
+
+// cursor-agent outlives a closed stdin, and an adapter need not pass a kill on to it.
+const ORPHANING_ADAPTER = `
+  import { spawn } from 'node:child_process';
+  import { writeFileSync } from 'node:fs';
+  import readline from 'node:readline';
+  const agent = spawn(process.execPath, ['-e', "process.on('SIGTERM', () => {}); setInterval(() => {}, 1000)"], { stdio: ['pipe', 'ignore', 'ignore'] });
+  writeFileSync(process.env.AGENT_PID_FILE, String(agent.pid));
+  for await (const line of readline.createInterface({ input: process.stdin })) {
+    const { id, method, params } = JSON.parse(line);
+    const result = method === 'initialize' ? {} : {
+      sessionId: 'test', configOptions: [
+        { id: 'model', category: 'model', currentValue: params?.value ?? 'a',
+          options: [{ value: 'a', name: 'A' }, { value: 'b', name: 'B' }] },
+      ],
+    };
+    console.log(JSON.stringify({ id, result }));
+  }
+`
+
+function alive(pid: number) {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+test('the agent an adapter started does not outlive the probe', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'model-probe-'))
+  const adapter = path.join(dir, 'adapter.mjs')
+  const pidFile = path.join(dir, 'agent-pid')
+
+  writeFileSync(adapter, ORPHANING_ADAPTER)
+  try {
+    await probeLocalModels({
+      nodeExecPath: process.execPath,
+      adapter,
+      cwd: dir,
+      env: { AGENT_PID_FILE: pidFile },
+    })
+    const pid = Number(readFileSync(pidFile, 'utf8'))
+
+    for (let wait = 0; wait < 20 && alive(pid); wait++) await new Promise((r) => setTimeout(r, 50))
+    assert.equal(alive(pid), false)
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})

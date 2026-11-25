@@ -7,6 +7,7 @@ import { adapterRpc } from './model-probe-rpc.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { ProbeModelsRun } from './controller-types.ts'
 import type { KeyStore } from './custom-provider.ts'
+import type { ChildProcess } from 'node:child_process'
 
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
@@ -134,6 +135,28 @@ function settingsOnlyCatalog(configOptions: ConfigOption[]): LocalModelCatalog |
 }
 
 /**
+ * Ends the adapter and the agent it started. Killing the adapter alone can orphan the
+ * agent: cursor-agent keeps running after its stdin closes.
+ */
+function endTree(child: ChildProcess) {
+  if (child.pid == null) return
+  if (process.platform === 'win32') {
+    const taskkill = `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\taskkill.exe`
+
+    spawn(taskkill, ['/pid', String(child.pid), '/T', '/F']).on('error', () => {
+      // No taskkill: nothing else can end the tree.
+    })
+
+    return
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch {
+    // Already gone.
+  }
+}
+
+/**
  * Opens one disposable session on the adapter, never prompts it, and reads the
  * models and per-model controls it advertises.
  */
@@ -153,6 +176,8 @@ export function probeLocalModels(options: {
       env: { ...options.env, ...options.secretEnv },
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
+      // Its own process group on POSIX, so endTree reaches the agent the adapter starts.
+      detached: process.platform !== 'win32',
     })
     let settled = false
     const timer = setTimeout(() => {
@@ -166,7 +191,7 @@ export function probeLocalModels(options: {
       settled = true
       clearTimeout(timer)
       rpc.stop(error ?? new Error('Model discovery finished'))
-      child.kill()
+      endTree(child)
       if (error) reject(error)
       else if (catalog) resolve(catalog)
     }
