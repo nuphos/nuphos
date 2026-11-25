@@ -151,7 +151,8 @@ export const subscriptionUsageScenarios: Scenario[] = [
         width: window.innerWidth,
         height: window.innerHeight,
       }))
-      const strip = page.getByText('At limit, last 7 days', { exact: true })
+      // Its ticks share the element, so the text is not exact.
+      const strip = page.getByText('At limit, last 7 days')
 
       try {
         // The page read the history before these readings were written; it keeps it for minutes.
