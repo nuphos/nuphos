@@ -58,21 +58,15 @@ const wake = () =>
     metadata: systemSender('nuphos', 'Nuphos'),
   })
 
-// A turn that failed: its input, then a reply that kept nothing.
-const failedTurn = () => {
+// A turn whose reply kept nothing: its input, then that reply.
+const replyOfFailed = [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }]
+const turnThatKeptNothing = (parts: unknown[] = replyOfFailed) => {
   const input = new ObjectId().toHexString()
 
-  return {
-    input,
-    stored: [
-      { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
-      {
-        id: new ObjectId().toHexString(),
-        role: 'assistant',
-        parts: [{ type: 'turn-interrupted', id: 'x', reason: 'error', message: 'failed' }],
-      },
-    ],
-  }
+  return [
+    { id: input, role: 'user', parts: [{ type: 'text', text: 'posted' }] },
+    { id: new ObjectId().toHexString(), role: 'assistant', parts },
+  ]
 }
 
 describe.skipIf(!process.env.TEST_MONGODB_URI)(
@@ -135,10 +129,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
     })
 
     // Slack and Lark rebuild the history of their turns themselves.
-    test('a Slack turn after a failed one answers only its own message', async () => {
-      const { stored } = failedTurn()
-
-      await store(stored)
+    test.each([
+      ['failed', replyOfFailed],
+      ['said nothing', []],
+    ])('a Slack turn after one that %s answers only its own message', async (_, parts) => {
+      await store(turnThatKeptNothing(parts))
       const messages = await buildMessagesForRenderedTurn({
         sessionId: SESSION,
         userId: OWNER,
@@ -150,10 +145,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
       expect(turnInputMessages(messages).map((m) => m.id)).toEqual(['slack-next'])
     })
 
-    test('a Lark turn after a failed one answers only its own message', async () => {
-      const { stored } = failedTurn()
-
-      await store(stored)
+    test.each([
+      ['failed', replyOfFailed],
+      ['said nothing', []],
+    ])('a Lark turn after one that %s answers only its own message', async (_, parts) => {
+      await store(turnThatKeptNothing(parts))
       const messages = await buildMessagesForLarkTurn({
         sessionId: SESSION,
         userId: OWNER,
@@ -167,9 +163,7 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)(
     })
 
     test('an admin rewake still finds the input of a failed last turn pending', async () => {
-      const { stored } = failedTurn()
-
-      await store(stored)
+      await store(turnThatKeptNothing())
       const admin = new Hono<{ Variables: AdminVars }>()
 
       admin.onError(errorHandler)
