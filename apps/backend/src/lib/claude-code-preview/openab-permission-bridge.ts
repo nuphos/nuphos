@@ -78,6 +78,17 @@ function allowOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | 
   return options.find((option) => option.kind === 'allow_once')
 }
 
+/** A reject lets the turn go on with the refusal; a cancel ends it. */
+function deniedOutcome(
+  options: OpenAbPermissionOption[],
+  answer: 'cancel' | 'reject',
+): OpenAbPermissionOutcome {
+  const rejected =
+    answer === 'reject' ? options.find((option) => option.kind === 'reject_once') : undefined
+
+  return rejected ? { outcome: { outcome: 'selected', optionId: rejected.optionId } } : cancelled()
+}
+
 export async function handleOpenAbPermissionRequest(
   args: {
     userId: string
@@ -156,7 +167,10 @@ export async function handleOpenAbPermissionRequest(
   )
     return allow('unattended', 'An automatic turn may read, and reply where it was called.')
 
-  const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
+  const settleDenied = (
+    errorText: string,
+    answer: 'cancel' | 'reject' = 'cancel',
+  ): OpenAbPermissionOutcome => {
     args.handleTool({
       kind: 'tool',
       toolCallId,
@@ -171,12 +185,13 @@ export async function handleOpenAbPermissionRequest(
       reason: errorText,
     })
 
-    return cancelled()
+    return deniedOutcome(request.options, answer)
   }
 
-  // Nobody is there to answer, so asking would only time out. A sub-Task's request
-  // still asks: a person answers it from the sidebar.
-  if (unattended.failFast) return settleDenied(unattendedDeniedText(request.toolCall.title))
+  // Nobody is there to answer, so asking would only time out. A reject, not a cancel,
+  // lets the turn go on and reply; a sub-Task's request still asks from the sidebar.
+  if (unattended.failFast)
+    return settleDenied(unattendedDeniedText(request.toolCall.title), 'reject')
 
   const wait = await deps.registerWait({
     userId: args.userId,
@@ -242,11 +257,10 @@ export async function handleOpenAbPermissionRequest(
   })
 
   if (resolved.timedOut || args.signal?.aborted) {
-    return settleDenied(
-      resolved.timedOut && resolved.reason === 'timeout'
-        ? PERMISSION_TIMED_OUT_TEXT
-        : PERMISSION_CANCELLED_TEXT,
-    )
+    // An unanswered headless turn goes on and says it was not run.
+    return resolved.timedOut && resolved.reason === 'timeout'
+      ? settleDenied(PERMISSION_TIMED_OUT_TEXT, unattended.unanswered)
+      : settleDenied(PERMISSION_CANCELLED_TEXT)
   }
   args.onDecision?.(resolved.decision)
   const { payload } = resolved.decision

@@ -1,5 +1,5 @@
 // #4147: a Bot out of Full Access, woken by its chat, reads and answers there without
-// asking, and a post to any other channel fails at once instead of waiting for nobody.
+// asking, and a post to any other channel is rejected at once instead of waiting for nobody.
 import { agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { openBotChat } from '../channel-quotes.ts'
@@ -61,7 +61,7 @@ const scenario: Scenario = {
         throw new Error(`channel_read was not allowed: ${JSON.stringify(answered('channel_read'))}`)
       if (ownPost?.event !== 'permission-allow')
         throw new Error(`The answer to its own chat was not allowed: ${JSON.stringify(ownPost)}`)
-      if (elsewhere?.event !== 'permission-cancelled' || (elsewhere.ms ?? Infinity) > 10_000)
+      if (elsewhere?.event !== 'permission-reject' || (elsewhere.ms ?? Infinity) > 10_000)
         throw new Error(`A post elsewhere did not fail at once: ${JSON.stringify(elsewhere)}`)
       await page.getByText(`POSTED ${MARKER}`).filter({ visible: true }).first().waitFor()
       if ((await page.getByRole('button', { name: /^Allow/ }).count()) > 0)
