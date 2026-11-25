@@ -35,10 +35,10 @@
     <string name="agent_collapsed">折りたたみ済み</string>
     <string name="agent_expanded">展開済み</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">サブエージェント %1$d 件を表示</item>
+        <item quantity="other">サブタスク %1$d 件を表示</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">サブエージェント %1$d 件を非表示</item>
+        <item quantity="other">サブタスク %1$d 件を非表示</item>
     </plurals>
     <string name="agent_unread_reply">未読の返信</string>
     <string name="agent_archived">アーカイブ済み</string>

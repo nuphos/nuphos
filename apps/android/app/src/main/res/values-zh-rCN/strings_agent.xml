@@ -35,10 +35,10 @@
     <string name="agent_collapsed">已折叠</string>
     <string name="agent_expanded">已展开</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">显示 %1$d 个子 Agent</item>
+        <item quantity="other">显示 %1$d 个子任务</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">隐藏 %1$d 个子 Agent</item>
+        <item quantity="other">隐藏 %1$d 个子任务</item>
     </plurals>
     <string name="agent_unread_reply">未读回复</string>
     <string name="agent_archived">已归档</string>
