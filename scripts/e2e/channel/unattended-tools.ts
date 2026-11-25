@@ -54,7 +54,8 @@ const scenario: Scenario = {
             entry.detail === 'mcp__nuphos-tools__channel_post' &&
             entry.event !== 'permission-asked',
         )
-      const card = page.locator('[data-decision-card]').filter({ visible: true })
+      // Only the tool approval: an earlier scenario's question card may still be open.
+      const card = page.locator('[data-tool-approval]').filter({ visible: true })
 
       // The owner is asked in the chat itself, and denies.
       await card.getByRole('button', { name: 'Deny' }).waitFor()

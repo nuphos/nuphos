@@ -37,6 +37,7 @@ export function BotChatToolApproval({
   return (
     <div
       data-decision-card=""
+      data-tool-approval={approval.toolCallId}
       className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2.5"
     >
       <div className="flex items-start gap-1.5 text-[12px] text-main">
