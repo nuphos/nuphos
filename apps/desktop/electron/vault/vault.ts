@@ -34,7 +34,6 @@ type RemoteDevice = {
   name: string
   publicKey: string
   state: 'pending' | 'enrolled'
-  computer: boolean
 }
 type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] }
 type Device = { deviceId: string; privateKey: string }
@@ -145,7 +144,6 @@ export async function status(): Promise<VaultStatus> {
       id: d.id,
       name: d.name,
       state: d.state,
-      computer: d.computer,
       // This device's print comes from the key it holds, never from what
       // the backend returned, so a swapped key cannot show a matching one.
       fingerprint: fingerprint(
@@ -174,7 +172,6 @@ export async function addComputer(deviceId: string, teamId: string): Promise<Vau
     id: device.id,
     name: device.name,
     state: device.state,
-    computer: device.computer,
     fingerprint: fingerprint(Buffer.from(device.publicKey, 'base64')),
   }
 }
@@ -217,30 +214,19 @@ async function addThisDevice(): Promise<VaultStatus> {
 }
 
 /**
- * Wraps for a pending device the key of every item this device can open; for a computer,
- * none: it gets items shared with it one by one (nuphos/nuphos#5088). Only to the key
- * whose fingerprint the person compared: one swapped in since then is refused.
+ * Approves a pending device, only with the key whose fingerprint the person compared: one
+ * swapped in since then is refused. It wraps nothing: the device gets items as they are
+ * shared with it (nuphos/nuphos#5088).
  */
 export async function approve(deviceId: string, confirmed: string): Promise<void> {
-  const mine = await enrolledKey()
   const target = (await devices()).find((d) => d.id === deviceId)
 
   if (target?.state !== 'pending') throw fail('That device is no longer waiting for approval.')
-  const to = Buffer.from(target.publicKey, 'base64')
-
-  if (fingerprint(to) !== confirmed)
+  if (fingerprint(Buffer.from(target.publicKey, 'base64')) !== confirmed)
     throw fail('That device’s key changed since you compared it. Nothing was approved.')
-  const keys = []
-
-  for (const { name, deviceIds } of target.computer ? [] : await items())
-    if (deviceIds.includes(mine.deviceId))
-      keys.push({ name, wrapped: wrap(itemKey(checkName(name), await item(name), mine), name, to) })
-  await call(
-    'POST',
-    `/vault/devices/${encodeURIComponent(deviceId)}/approve`,
-    { keys },
-    { retry: false },
-  )
+  await call('POST', `/vault/devices/${encodeURIComponent(deviceId)}/approve`, undefined, {
+    retry: false,
+  })
 }
 
 /** Items are not re-keyed: a removed device that kept a copy of a key can still open that copy. */

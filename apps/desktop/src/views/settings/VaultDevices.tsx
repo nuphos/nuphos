@@ -84,13 +84,9 @@ export function VaultDevices({
               title: t('Approve {name}?', { name: confirming.device.name }),
               description: (
                 <>
-                  {confirming.device.computer
-                    ? t(
-                        'Approve only if the computer shows this fingerprint. It reads only the items you share with it.',
-                      )
-                    : t(
-                        'Approve only if the device shows this fingerprint. It will read every item this device can open.',
-                      )}
+                  {t(
+                    'Approve only if the device shows this fingerprint. It reads only the items you share with it.',
+                  )}
                   <span className="mt-2 block font-mono text-main">
                     {confirming.device.fingerprint}
                   </span>

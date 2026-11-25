@@ -5,7 +5,6 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import {
   MAX_DEVICES,
-  MAX_ITEMS,
   addVaultDevice,
   approveVaultDevice,
   deleteVaultItem,
@@ -116,13 +115,9 @@ vaultRoutes.post(
 
 vaultRoutes.post(
   '/devices/:id/approve',
-  zv('json', z.object({ keys: z.array(z.object({ name: itemName, wrapped })).max(MAX_ITEMS) })),
+  // Approval wraps nothing; an older client's `keys` are dropped unread.
   async (c) => {
-    const device = await approveVaultDevice(
-      c.get('userId'),
-      c.req.param('id'),
-      c.req.valid('json').keys,
-    )
+    const device = await approveVaultDevice(c.get('userId'), c.req.param('id'))
 
     return c.json({ device })
   },

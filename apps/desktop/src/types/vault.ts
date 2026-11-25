@@ -3,8 +3,6 @@ export type VaultDevice = {
   id: string
   name: string
   state: 'pending' | 'enrolled'
-  /** Added from the Computers page; it gets only the items shared with it. */
-  computer: boolean
   /** Compared on both screens before a device is approved. */
   fingerprint: string
 }

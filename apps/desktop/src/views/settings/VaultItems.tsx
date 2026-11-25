@@ -16,7 +16,7 @@ import { vaultCard } from './VaultDevices'
 
 import type { VaultDevice, VaultItemSummary } from '../../types/vault'
 
-/** Enrolled devices to pick from, computers marked: an item reaches only the ones picked. */
+/** Enrolled devices to pick from: an item reaches only the ones picked. */
 function DevicePicker({
   devices,
   chosen,
@@ -37,17 +37,13 @@ function DevicePicker({
             }
           />
           {device.name}
-          {device.computer && <span className="text-tertiary">{t('computer')}</span>}
         </label>
       ))}
     </div>
   )
 }
 
-/** True when one of this person's own devices is picked, so they can still open the item. */
-const ownPicked = (devices: VaultDevice[], ids: string[]) =>
-  devices.some((d) => !d.computer && ids.includes(d.id))
-
+type Props = { userId: string; thisDeviceId: string; devices: VaultDevice[] }
 type Sharing = { item: VaultItemSummary; chosen: string[] }
 
 /** Picks the devices an item is shared with; one left out may have kept what it read. */
@@ -69,9 +65,7 @@ function ShareDialog({
       description={
         sharing && (
           <>
-            <span className="mb-3 block">
-              {t('Only the devices you pick get its key. A computer reads it with its own key.')}
-            </span>
+            <span className="mb-3 block">{t('Only the devices you pick get its key.')}</span>
             <DevicePicker
               devices={devices}
               chosen={sharing.chosen}
@@ -91,8 +85,7 @@ function ShareDialog({
       // A refusal is shown in the dialog, which stays open.
       onConfirm={async () => {
         if (!sharing) return
-        if (!ownPicked(devices, sharing.chosen))
-          throw new Error(t('Pick at least one of your own devices.'))
+        if (!sharing.chosen.length) throw new Error(t('Pick at least one device.'))
         await onSave(sharing)
       }}
       onClose={() => onChange(null)}
@@ -102,10 +95,10 @@ function ShareDialog({
 
 /**
  * The vault's items, for an enrolled device. A value is read only when asked for. Each
- * item is shared with the devices it picks (nuphos/nuphos#5088): by default this
- * person's own devices, never a computer until it is picked.
+ * item is shared with the devices it picks (nuphos/nuphos#5088): by default, the one
+ * that saves it.
  */
-export function VaultItems({ userId, devices }: { userId: string; devices: VaultDevice[] }) {
+export function VaultItems({ userId, thisDeviceId, devices }: Props) {
   const queryClient = useQueryClient()
   const items = useQuery(vaultItemsQuery(userId))
   const enrolled = devices.filter((d) => d.state === 'enrolled')
@@ -115,8 +108,7 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
   // Picked for the item being saved; until then, what it is shared with now.
   const [picked, setPicked] = useState<string[] | null>(null)
   const existing = items.data?.find((item) => item.name === name.trim())
-  const chosen =
-    picked ?? existing?.deviceIds ?? enrolled.filter((d) => !d.computer).map((d) => d.id)
+  const chosen = picked ?? existing?.deviceIds ?? [thisDeviceId]
   const [sharing, setSharing] = useState<Sharing | null>(null)
   // Values read on request, never in the query cache.
   const [revealed, setRevealed] = useState<Record<string, string>>({})
@@ -193,7 +185,7 @@ export function VaultItems({ userId, devices }: { userId: string; devices: Vault
           <Button
             type="submit"
             size="sm"
-            disabled={!name.trim() || !value || !ownPicked(enrolled, chosen) || save.isPending}
+            disabled={!name.trim() || !value || !chosen.length || save.isPending}
           >
             {t('Save')}
           </Button>

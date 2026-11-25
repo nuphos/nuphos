@@ -1,7 +1,7 @@
 // Nuphos Vault: a user's secrets, encrypted on their own devices. The backend keeps
 // public keys, ciphertext and item keys wrapped for the devices an item is shared
-// with (#5088), never a private key or plaintext, and keeps every item readable by a
-// personal device, so it can always be shared again or rotated.
+// with (#5088), never a private key or plaintext, and keeps every item readable by at
+// least one device, so it can always be shared again or rotated.
 import { randomUUID } from 'node:crypto'
 
 import { MongoServerError } from 'mongodb'
@@ -90,7 +90,6 @@ function deviceView(doc: VaultDeviceDoc) {
     name: doc.name,
     publicKey: doc.publicKey,
     state: doc.state,
-    computer: Boolean(doc.computer),
     createdAt: doc.createdAt.toISOString(),
     ...(doc.enrolledAt ? { enrolledAt: doc.enrolledAt.toISOString() } : {}),
   }
@@ -161,40 +160,14 @@ export function addVaultDevice(
   })
 }
 
-/** Wraps item keys, which the backend never holds, for a device; none for a computer. */
-export function approveVaultDevice(
-  userId: string,
-  deviceId: string,
-  keys: { name: string; wrapped: string }[],
-) {
+/** Approval wraps nothing: a device gets only the items shared with it later. */
+export function approveVaultDevice(userId: string, deviceId: string) {
   return exclusive(userId, async () => {
     const device = await devices().findOne({ _id: deviceId, userId })
 
     if (!device) throw new AppError(404, 'not_found', 'Device not found')
     if (device.state !== 'pending') {
       throw new AppError(409, 'vault_device_enrolled', 'Device is already enrolled')
-    }
-    if (device.computer && keys.length) {
-      throw new AppError(409, 'vault_computer_keys', 'Approve a computer without item keys')
-    }
-    const docs = await items()
-      .find({ userId })
-      .project<VaultItemDoc>({ name: 1, updatedAt: 1 })
-      .toArray()
-    const updated = new Map(docs.map((doc) => [doc.name, doc.updatedAt]))
-    const keyNames = keys.map((key) => key.name)
-
-    if (!distinctWithin(keyNames, [...updated.keys()])) {
-      throw new AppError(409, 'vault_items_changed', 'Wrap item keys once each')
-    }
-    for (const key of keys) {
-      await items().updateOne(
-        { userId, name: key.name, 'keys.deviceId': { $ne: deviceId } },
-        {
-          $push: { keys: { deviceId, wrapped: key.wrapped } },
-          $set: { updatedAt: later(updated.get(key.name)) },
-        },
-      )
     }
     const enrolledAt = new Date()
 
@@ -207,18 +180,15 @@ export function approveVaultDevice(
   })
 }
 
-/** Drops a device and its wraps, unless it is the last personal device to open an item. */
+/** Drops a device and its wraps, unless it is the only one an item is shared with. */
 export function removeVaultDevice(userId: string, deviceId: string): Promise<void> {
   return exclusive(userId, async () => {
     const device = await devices().findOne({ _id: deviceId, userId })
 
     if (!device) throw new AppError(404, 'not_found', 'Device not found')
-    // Only personal devices, not computers, can share an item or write it.
-    const others = (await enrolled(userId))
-      .filter((doc) => !doc.computer && doc._id !== deviceId)
-      .map((doc) => doc._id)
+    const others = (await enrolled(userId)).map((doc) => doc._id).filter((id) => id !== deviceId)
 
-    // `$nin` on an array matches an item none of whose keys is for another personal device.
+    // `$nin` on an array matches an item none of whose keys is for another device.
     if (await items().countDocuments({ userId, 'keys.deviceId': { $nin: others } }, { limit: 1 })) {
       throw new AppError(409, 'vault_last_device', 'Share or delete what only it can open')
     }
@@ -259,15 +229,10 @@ export function putVaultItem(
 ) {
   return exclusive(userId, async () => {
     const ids = keys.map((key) => key.deviceId)
-    const all = await enrolled(userId)
-    const personal = all.filter((doc) => !doc.computer).map((doc) => doc._id)
-    const enrolledIds = all.map((doc) => doc._id)
+    const enrolledIds = (await enrolled(userId)).map((doc) => doc._id)
 
     if (!distinctWithin(ids, enrolledIds)) {
       throw new AppError(409, 'vault_devices_changed', 'Wrap for enrolled devices, once each')
-    }
-    if (!ids.some((id) => personal.includes(id))) {
-      throw new AppError(409, 'vault_no_personal_device', 'Share with a device of yours too')
     }
     const current = await items().findOne({ userId, name }, { projection: { updatedAt: 1 } })
 

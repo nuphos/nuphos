@@ -12,7 +12,6 @@ type Device = {
   name: string
   publicKey: string
   state: 'pending' | 'enrolled'
-  computer: boolean
 }
 type Item = {
   ciphertext: string
@@ -36,7 +35,6 @@ function route(method: string, url: string, body: Record<string, unknown>) {
       name: body.name as string,
       publicKey: body.publicKey as string,
       state: backend.devices.length ? 'pending' : 'enrolled',
-      computer: false,
     }
 
     backend.devices.push(device)
@@ -46,8 +44,6 @@ function route(method: string, url: string, body: Record<string, unknown>) {
   const device = backend.devices.find((d) => d.id === id)
 
   if (kind === 'devices' && action === 'approve' && device) {
-    for (const { name, wrapped } of body.keys as { name: string; wrapped: string }[])
-      backend.items.get(name)?.keys.push({ deviceId: device.id, wrapped })
     device.state = 'enrolled'
 
     return {}
@@ -121,14 +117,13 @@ beforeEach(() => {
 })
 
 /** A device that is not this app: a CLI, say, with its own key. */
-function otherDevice(state: Device['state'], computer = false) {
+function otherDevice(state: Device['state']) {
   const key = generateDeviceKey()
   const device: Device = {
     id: randomUUID(),
     name: 'other',
     publicKey: key.publicKey.toString('base64'),
     state,
-    computer,
   }
 
   backend.devices.push(device)
@@ -160,7 +155,7 @@ test('the first device is trusted, and only the devices picked can open what it 
 
 test('sharing wraps the same key for a device added and drops the one left out', async () => {
   const mine = (await vault.enroll()).thisDeviceId as string
-  const box = otherDevice('enrolled', true)
+  const box = otherDevice('enrolled')
 
   await vault.setItem('deploy', 'secret', [mine], null)
   const before = backend.items.get('deploy')?.ciphertext
@@ -190,7 +185,7 @@ test('sharing wraps the same key for a device added and drops the one left out',
   await assert.rejects(vault.getItem('other'), /not shared with this device/)
 })
 
-test('approve wraps keys only for the key whose fingerprint was compared', async () => {
+test('approve sends only the key whose fingerprint was compared, and wraps nothing', async () => {
   const mine = (await vault.enroll()).thisDeviceId as string
 
   await vault.setItem('github-token', 'ghp_example', [mine], null)
@@ -205,16 +200,8 @@ test('approve wraps keys only for the key whose fingerprint was compared', async
   const real = otherDevice('pending')
 
   await vault.approve(real.device.id, fingerprint(Buffer.from(real.device.publicKey, 'base64')))
-  const wrapped = backend.items.get('github-token')?.keys.find((k) => k.deviceId === real.device.id)
-
-  assert.ok(wrapped)
-  assert.equal(unwrap(wrapped.wrapped, 'github-token', real.privateKey).length, 32)
-
-  // A computer is approved with no items: it gets the ones shared with it later.
-  const box = otherDevice('pending', true)
-
-  await vault.approve(box.device.id, fingerprint(Buffer.from(box.device.publicKey, 'base64')))
-  assert.ok(!holders('github-token')?.includes(box.device.id))
+  // It gets items as they are shared with it.
+  assert.deepEqual(holders('github-token'), [mine])
 })
 
 test('a device whose key could not be kept is taken back out of the vault', async () => {

@@ -239,11 +239,10 @@ pub async fn devices(ctx: &Ctx) -> Result<()> {
 }
 
 /// `nuphos vault approve DEVICE`: once the person confirms its fingerprint
-/// matches the one it showed, wraps for a pending device the key of every item
-/// this device can open; for a computer, none: it gets items shared with it one
-/// by one from Desktop (nuphos/nuphos#5088).
+/// matches the one it showed, enrolls a pending device. It wraps nothing: the
+/// device gets items as they are shared with it (nuphos/nuphos#5088).
 pub async fn approve(ctx: &Ctx, wanted: &str, yes: bool) -> Result<()> {
-    let device = enrolled_device(ctx)?;
+    enrolled_device(ctx)?;
     let devices = ctx.api.vault_devices().await?;
     let target = devices
         .iter()
@@ -254,14 +253,12 @@ pub async fn approve(ctx: &Ctx, wanted: &str, yes: bool) -> Result<()> {
     }
     let public = public_key_of(target)?;
     let print = fingerprint(&public.to_bytes());
-    let computer = target["computer"] == true;
     if !yes {
         if !std::io::stdin().is_terminal() {
             bail!("confirm the fingerprint from a terminal, or pass --yes");
         }
-        let reads = if computer { "only the items you share with it" } else { "every item this device can open" };
         eprint!(
-            "Approve {} with fingerprint {print}? It will read {reads}. [y/N] ",
+            "Approve {} with fingerprint {print}? It will read only the items you share with it. [y/N] ",
             clean(target["name"].as_str().unwrap_or_default())
         );
         std::io::stderr().flush()?;
@@ -271,20 +268,11 @@ pub async fn approve(ctx: &Ctx, wanted: &str, yes: bool) -> Result<()> {
             bail!("not approved");
         }
     }
-    let mut keys = Vec::new();
-    for listed in ctx.api.vault_items().await?.iter().filter(|_| !computer) {
-        if !shared_with(listed, &device.id) {
-            continue;
-        }
-        let name = listed["name"].as_str().unwrap_or_default();
-        let item = ctx.api.vault_item(name).await?;
-        keys.push(json!({ "name": name, "wrapped": wrap(&item_key(&item, name, &device)?, name, &public)? }));
-    }
-    let approved = ctx.api.vault_approve_device(wanted, &keys).await?;
+    let approved = ctx.api.vault_approve_device(wanted).await?;
     if ctx.json {
         ctx.print_json(&approved);
     } else {
-        println!("Approved {} with {} item(s).", clean(wanted), keys.len());
+        println!("Approved {}. Share items with it from Desktop.", clean(wanted));
     }
     Ok(())
 }
@@ -308,14 +296,14 @@ fn shared_with(listed: &Value, id: &str) -> bool {
 }
 
 /// The devices `set` wraps a value for: the ones the item is shared with now,
-/// or for a new item every enrolled device that is not a computer.
-fn recipients<'a>(devices: &'a [Value], existing: Option<&Value>) -> Vec<&'a Value> {
+/// or for a new item the device saving it.
+fn recipients<'a>(devices: &'a [Value], existing: Option<&Value>, mine: &str) -> Vec<&'a Value> {
     devices
         .iter()
         .filter(|d| d["state"] == "enrolled")
-        .filter(|d| match existing {
-            Some(item) => shared_with(item, d["id"].as_str().unwrap_or_default()),
-            None => d["computer"] != true,
+        .filter(|d| {
+            let id = d["id"].as_str().unwrap_or_default();
+            existing.map_or(id == mine, |item| shared_with(item, id))
         })
         .collect()
 }
@@ -324,7 +312,7 @@ fn recipients<'a>(devices: &'a [Value], existing: Option<&Value>) -> Vec<&'a Val
 /// the shell history. A new value gets a new key: also how a secret is rotated.
 pub async fn set(ctx: &Ctx, name: &str) -> Result<()> {
     let name = check_name(name)?;
-    enrolled_device(ctx)?;
+    let device = enrolled_device(ctx)?;
     let mut value = Vec::new();
     std::io::stdin().take(MAX_VALUE as u64 + 1).read_to_end(&mut value)?;
     if value.len() > MAX_VALUE {
@@ -336,7 +324,7 @@ pub async fn set(ctx: &Ctx, name: &str) -> Result<()> {
     let listed = ctx.api.vault_items().await?;
     let existing = listed.iter().find(|i| i["name"].as_str() == Some(name));
     let mut keys = Vec::new();
-    for d in recipients(&devices, existing) {
+    for d in recipients(&devices, existing, &device.id) {
         keys.push(json!({ "deviceId": d["id"], "wrapped": wrap(&item_key, name, &public_key_of(d)?)? }));
     }
     let ciphertext = seal(&item_key, name, &value)?;
@@ -512,17 +500,17 @@ mod tests {
     }
 
     #[test]
-    fn a_new_value_keeps_its_devices_and_a_new_item_skips_computers() {
+    fn a_new_value_keeps_its_devices_and_a_new_item_goes_to_the_device_saving_it() {
         let devices = vec![
-            json!({ "id": "laptop", "state": "enrolled", "computer": false }),
-            json!({ "id": "box", "state": "enrolled", "computer": true }),
-            json!({ "id": "phone", "state": "pending", "computer": false }),
+            json!({ "id": "laptop", "state": "enrolled" }),
+            json!({ "id": "box", "state": "enrolled" }),
+            json!({ "id": "phone", "state": "pending" }),
         ];
         let ids =
             |picked: Vec<&Value>| picked.iter().map(|d| d["id"].as_str().unwrap().to_string()).collect::<Vec<_>>();
-        assert_eq!(ids(recipients(&devices, None)), ["laptop"]);
+        assert_eq!(ids(recipients(&devices, None, "box")), ["box"]);
         let shared = json!({ "name": "deploy", "deviceIds": ["box", "laptop", "gone"] });
-        assert_eq!(ids(recipients(&devices, Some(&shared))), ["laptop", "box"]);
+        assert_eq!(ids(recipients(&devices, Some(&shared), "box")), ["laptop", "box"]);
     }
 
     #[test]

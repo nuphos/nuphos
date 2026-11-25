@@ -237,11 +237,9 @@ impl Api {
         Ok(self.call(Method::POST, "/vault/devices", &[], Some(&body)).await?["device"].take())
     }
 
-    /// `keys` wraps every item's key for the device: `[{ name, wrapped }]`.
-    pub async fn vault_approve_device(&self, id: &str, keys: &[Value]) -> Result<Value, ApiError> {
-        let body = json!({ "keys": keys });
+    pub async fn vault_approve_device(&self, id: &str) -> Result<Value, ApiError> {
         let path = format!("/vault/devices/{}/approve", id);
-        Ok(self.call(Method::POST, &path, &[], Some(&body)).await?["device"].take())
+        Ok(self.call(Method::POST, &path, &[], None).await?["device"].take())
     }
 
     pub async fn vault_remove_device(&self, id: &str) -> Result<(), ApiError> {
