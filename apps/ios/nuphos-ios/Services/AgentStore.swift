@@ -891,7 +891,7 @@ final class AgentStore {
         session.me = me
         session.userId = userId
         session.presetPermissionMode(permissionMode)
-        session.credentialAccess = credentialSelection.isEmpty ? nil : credentialSelection
+        session.credentialAccess = credentialSelection.isBlank ? nil : credentialSelection
         session.runtime = newConversationRuntime
         if newModelRuntimeId == newConversationRuntime?.id { session.presetSessionConfig(newModelConfig, pick: newModelPick) }
         return session
