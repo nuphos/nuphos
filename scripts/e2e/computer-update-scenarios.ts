@@ -55,7 +55,7 @@ export const computerUpdateScenarios: Scenario[] = [
         await page.screenshot({ path: join(artifacts, 'add-cursor-too-old.png') })
         if (heard.some((message) => message.includes('create') && message.includes('cursor')))
           throw new Error('The computer was asked to add Cursor')
-        await page.keyboard.press('Escape')
+        await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
         await page.getByText('Back to app', { exact: true }).click()
       } finally {
         goOffline()
