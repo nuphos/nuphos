@@ -32,6 +32,8 @@ export const computerUpdateScenarios: Scenario[] = [
   {
     // #5082: Desktop before 0.137.0 does not know Cursor and refused it as an invalid instance.
     name: 'adding an agent a computer is too old for says to update it, and asks the computer nothing',
+    // The backend refuses the addition on purpose.
+    expected: /"status":409,"error_code":"runtime_outdated"/u,
     run: async (page, stack) => {
       const heard: string[] = []
       const goOffline = await laptopOnline(stack, {
