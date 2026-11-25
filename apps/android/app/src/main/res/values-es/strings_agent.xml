@@ -35,12 +35,12 @@
     <string name="agent_collapsed">Contraído</string>
     <string name="agent_expanded">Expandido</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="one">Mostrar %1$d subagente</item>
-        <item quantity="other">Mostrar %1$d subagentes</item>
+        <item quantity="one">Mostrar %1$d subtarea</item>
+        <item quantity="other">Mostrar %1$d subtareas</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="one">Ocultar %1$d subagente</item>
-        <item quantity="other">Ocultar %1$d subagentes</item>
+        <item quantity="one">Ocultar %1$d subtarea</item>
+        <item quantity="other">Ocultar %1$d subtareas</item>
     </plurals>
     <string name="agent_unread_reply">Respuesta no leída</string>
     <string name="agent_archived">Archivado</string>

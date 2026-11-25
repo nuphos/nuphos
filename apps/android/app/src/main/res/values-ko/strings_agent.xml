@@ -35,10 +35,10 @@
     <string name="agent_collapsed">접힘</string>
     <string name="agent_expanded">펼쳐짐</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">하위 에이전트 %1$d개 보기</item>
+        <item quantity="other">하위 작업 %1$d개 보기</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">하위 에이전트 %1$d개 숨기기</item>
+        <item quantity="other">하위 작업 %1$d개 숨기기</item>
     </plurals>
     <string name="agent_unread_reply">읽지 않은 답장</string>
     <string name="agent_archived">보관됨</string>

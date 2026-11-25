@@ -35,10 +35,10 @@
     <string name="agent_collapsed">ยุบอยู่</string>
     <string name="agent_expanded">ขยายอยู่</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">แสดงเอเจนต์ย่อย %1$d ตัว</item>
+        <item quantity="other">แสดงงานย่อย %1$d งาน</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">ซ่อนเอเจนต์ย่อย %1$d ตัว</item>
+        <item quantity="other">ซ่อนงานย่อย %1$d งาน</item>
     </plurals>
     <string name="agent_unread_reply">การตอบกลับที่ยังไม่ได้อ่าน</string>
     <string name="agent_archived">เก็บถาวรแล้ว</string>

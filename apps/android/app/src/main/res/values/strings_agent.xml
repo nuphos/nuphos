@@ -37,14 +37,13 @@
     <string name="agent_archive_bot">Archive Bot</string>
     <string name="agent_collapsed">Collapsed</string>
     <string name="agent_expanded">Expanded</string>
-    <!-- English keeps "sub-agents" for one, as before. -->
     <plurals name="agent_show_sub_agents">
-        <item quantity="one">Show %1$d sub-agents</item>
-        <item quantity="other">Show %1$d sub-agents</item>
+        <item quantity="one">Show %1$d sub-task</item>
+        <item quantity="other">Show %1$d sub-tasks</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="one">Hide %1$d sub-agents</item>
-        <item quantity="other">Hide %1$d sub-agents</item>
+        <item quantity="one">Hide %1$d sub-task</item>
+        <item quantity="other">Hide %1$d sub-tasks</item>
     </plurals>
     <string name="agent_unread_reply">Unread reply</string>
     <string name="agent_archived">Archived</string>

@@ -142,13 +142,13 @@ class ConversationNestingFixtureDeviceTest {
         render()
         compose.onNodeWithText("Synthetic parent").assertExists()
         compose.onNodeWithText("Synthetic child").assertExists()
-        compose.onNodeWithContentDescription("Hide 2 sub-agents").performClick()
+        compose.onNodeWithContentDescription("Hide 2 sub-tasks").performClick()
         compose.onNodeWithText("Synthetic child").assertDoesNotExist()
         compose.onNodeWithText("My tasks").assertDoesNotExist()
         compose.onNodeWithText("Shared").assertDoesNotExist()
         compose.onNode(SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Unread reply")).assertExists()
         shot("collapsed")
-        compose.onNodeWithContentDescription("Show 2 sub-agents").performClick()
+        compose.onNodeWithContentDescription("Show 2 sub-tasks").performClick()
         compose.onNodeWithText("Synthetic child").assertExists()
         shot("expanded")
         compose.onNodeWithText("Synthetic child").performClick()
@@ -157,7 +157,7 @@ class ConversationNestingFixtureDeviceTest {
     }
     @Test fun syntheticFoldedLastPageStillOffersExplicitPagination() {
         render()
-        compose.onNodeWithContentDescription("Hide 2 sub-agents").performClick()
+        compose.onNodeWithContentDescription("Hide 2 sub-tasks").performClick()
         compose.runOnIdle {
             state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent")) +
                 (0 until 20).map { AgentConversation("child-$it", "A", "Hidden $it", parentSessionId = "normal") }
