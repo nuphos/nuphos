@@ -58,14 +58,15 @@ export type Answerer = { displayName: string; owner: boolean }
 /** The conversation that asked, when the notice goes to one its question is `about`. */
 export type Asker = { sessionId: string; title?: string }
 
-/** What the woken agent does next with the answer. */
-function nextStep(request: InputRequest, who: Answerer, asker?: Asker): string {
+/**
+ * What the woken agent does next with the answer. It names no channel to post
+ * in: where a question was asked says nothing of who may read a reply there.
+ */
+function nextStep(who: Answerer, asker?: Asker): string {
   if (asker)
     return who.owner
       ? 'Act on this answer where it concerns your own work; the asking conversation carries on with its part.'
       : 'Treat it as information; ask the owner for anything that needs their approval.'
-  if (request.channelId)
-    return `You asked it in channel ${request.channelId}: reply there with channel_post.`
 
   return who.owner
     ? 'Continue the task with this answer.'
@@ -102,7 +103,7 @@ export function answerNotice(
     'Answer:',
     ...answerLines(request, answer).map((line) => `- ${line}`),
     ...(request.about?.length ? [`About: ${request.about.join(', ')}`] : []),
-    nextStep(request, who, asker),
+    nextStep(who, asker),
   ].join('\n')
 }
 
