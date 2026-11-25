@@ -21,13 +21,15 @@ const agents = {}
 
 describe('the oldest Nuphos a computer may run', () => {
   test('a Desktop below the floor is out of date, one at it is not', () => {
-    // #3829: before 0.127.0 a downloaded update waits for a manual restart.
-    expect(MINIMUM_HOST_VERSION.desktop).toBe('0.127.0')
+    // #5081: before 0.133.2 a downloaded update waits for someone to quit Nuphos by hand.
+    expect(MINIMUM_HOST_VERSION.desktop).toBe('0.133.2')
     expect(hostOutdated({ client: 'nuphos-desktop/0.119.2' })).toBe('desktop')
     expect(hostOutdated({ client: 'nuphos-desktop/0.124.0' })).toBe('desktop')
     expect(hostOutdated({ client: 'nuphos-desktop/0.126.0' })).toBe('desktop')
-    expect(hostOutdated({ client: 'nuphos-desktop/0.127.0' })).toBeUndefined()
-    expect(hostOutdated({ client: 'nuphos-desktop/0.130.1' })).toBeUndefined()
+    expect(hostOutdated({ client: 'nuphos-desktop/0.132.0' })).toBe('desktop')
+    expect(hostOutdated({ client: 'nuphos-desktop/0.133.1' })).toBe('desktop')
+    expect(hostOutdated({ client: 'nuphos-desktop/0.133.2' })).toBeUndefined()
+    expect(hostOutdated({ client: 'nuphos-desktop/0.137.0' })).toBeUndefined()
   })
 
   test('a CLI host is held to the CLI’s own floor', () => {
