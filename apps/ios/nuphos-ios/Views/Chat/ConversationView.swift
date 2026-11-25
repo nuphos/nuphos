@@ -692,15 +692,24 @@ struct SendingBubble: View {
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             HStack(spacing: 10) {
-                // Progress is read, not stored: the bubble re-reads it twice a second.
-                TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-                    Text(label).font(Theme.Text.label).foregroundStyle(Theme.muted).monospacedDigit()
-                }
+                UploadProgressLabel(progress: progress)
                 Button("Cancel", action: onCancel).font(Theme.Text.label)
             }
         }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.leading, 56)
+    }
+}
+
+/// How far a message's attachments have uploaded.
+struct UploadProgressLabel: View {
+    let progress: Progress
+
+    var body: some View {
+        // Progress is read, not stored: the label re-reads it twice a second.
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
+            Text(label).font(Theme.Text.label).foregroundStyle(Theme.muted).monospacedDigit()
+        }
     }
 
     private var label: String {
