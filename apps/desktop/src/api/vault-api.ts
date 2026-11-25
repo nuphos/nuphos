@@ -8,6 +8,8 @@ export const vaultApi = {
   vaultRemoveDevice: (deviceId: string) => window.api.vaultRemoveDevice(deviceId),
   vaultItems: () => window.api.vaultItems(),
   vaultGet: (name: string) => window.api.vaultGet(name),
-  vaultSet: (name: string, value: string) => window.api.vaultSet(name, value),
+  vaultSet: (name: string, value: string, deviceIds: string[]) =>
+    window.api.vaultSet(name, value, deviceIds),
+  vaultShare: (name: string, deviceIds: string[]) => window.api.vaultShare(name, deviceIds),
   vaultDelete: (name: string) => window.api.vaultDelete(name),
 }

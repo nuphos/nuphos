@@ -10,6 +10,7 @@ const device = (id: string, state: 'pending' | 'enrolled') => ({
   id,
   name: id,
   state,
+  computer: false,
   fingerprint: 'AAAA',
 })
 const interval = (data: VaultStatus | undefined) => {

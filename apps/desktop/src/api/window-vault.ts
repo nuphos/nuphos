@@ -8,6 +8,7 @@ export type WindowVaultApi = {
   vaultRemoveDevice(deviceId: string): Promise<void>
   vaultItems(): Promise<VaultItemSummary[]>
   vaultGet(name: string): Promise<string>
-  vaultSet(name: string, value: string): Promise<void>
+  vaultSet(name: string, value: string, deviceIds: string[]): Promise<void>
+  vaultShare(name: string, deviceIds: string[]): Promise<void>
   vaultDelete(name: string): Promise<void>
 }

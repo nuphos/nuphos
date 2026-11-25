@@ -1,5 +1,5 @@
-// The vault's rules against a real MongoDB: every item stays wrapped for
-// exactly the enrolled devices, one write at a time, within each user's vault.
+// The vault's rules against a real MongoDB: every item is wrapped only for enrolled
+// devices, at least one of them personal, one write at a time, within each user's vault.
 // Runs when TEST_MONGODB_URI is set, with MONGODB_URI pointing at the same server.
 import { randomUUID } from 'node:crypto'
 
@@ -40,10 +40,11 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     await closeDb()
   })
 
-  test('enroll, approve, write and remove keep every item wrapped for each enrolled device', async () => {
+  test('an item is shared with the enrolled devices its key is wrapped for', async () => {
     const user = randomUUID()
     const first = await addVaultDevice(user, 'laptop', KEY)
     const second = await addVaultDevice(user, 'desktop', KEY)
+    const holders = async () => (await getVaultItem(user, 'token')).keys.map((key) => key.deviceId)
 
     expect([first.state, second.state]).toEqual(['enrolled', 'pending'])
 
@@ -52,27 +53,45 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     expect(
       await fails(putVaultItem(user, 'token', 'c2', keysFor(first.id, second.id))),
     ).toMatchObject({ status: 409, code: 'vault_devices_changed' })
-    // An approval must wrap every existing item.
-    expect(await fails(approveVaultDevice(user, second.id, []))).toMatchObject({
-      status: 409,
-      code: 'vault_items_changed',
-    })
+    // Nor twice for one device.
+    expect(
+      await fails(putVaultItem(user, 'token', 'c2', keysFor(first.id, first.id))),
+    ).toMatchObject({ status: 409, code: 'vault_devices_changed' })
+    // An approval wraps some items, each once.
+    expect(
+      await fails(
+        approveVaultDevice(user, second.id, [
+          { name: 'token', wrapped: 'a' },
+          { name: 'token', wrapped: 'b' },
+        ]),
+      ),
+    ).toMatchObject({ status: 409, code: 'vault_items_changed' })
 
     await approveVaultDevice(user, second.id, [{ name: 'token', wrapped: 'w-second' }])
-    expect((await getVaultItem(user, 'token')).keys.map((key) => key.deviceId)).toEqual([
-      first.id,
-      second.id,
-    ])
+    expect(await holders()).toEqual([first.id, second.id])
     expect(
       await fails(approveVaultDevice(user, second.id, [{ name: 'token', wrapped: 'again' }])),
     ).toMatchObject({ status: 409, code: 'vault_device_enrolled' })
-    // Now a write that leaves out the new device is refused.
-    expect(await fails(putVaultItem(user, 'token', 'c3', keysFor(first.id)))).toMatchObject({
+    // Unsharing from one device is a write without its key.
+    await putVaultItem(user, 'token', 'c3', keysFor(second.id))
+    expect(await holders()).toEqual([second.id])
+    expect((await listVaultItems(user))[0]).toMatchObject({ name: 'token', deviceIds: [second.id] })
+    // The only device that can open it stays; the other one may go.
+    expect(await fails(removeVaultDevice(user, second.id))).toMatchObject({
       status: 409,
-      code: 'vault_devices_changed',
+      code: 'vault_last_device',
     })
+    await removeVaultDevice(user, first.id)
+    expect(await holders()).toEqual([second.id])
+  })
 
-    await removeVaultDevice(user, second.id)
+  test('a personal device approved after an item was saved may get none', async () => {
+    const user = randomUUID()
+    const first = await addVaultDevice(user, 'laptop', KEY)
+    const second = await addVaultDevice(user, 'desktop', KEY)
+
+    await putVaultItem(user, 'token', 'c1', keysFor(first.id))
+    await approveVaultDevice(user, second.id, [])
     expect((await getVaultItem(user, 'token')).keys.map((key) => key.deviceId)).toEqual([first.id])
   })
 
@@ -109,12 +128,13 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     expect(await locks.countDocuments({ _id: user })).toBe(0)
   })
 
-  test('concurrent writes never leave an item without a key for an enrolled device', async () => {
+  test('concurrent writes never leave an item wrapped for a device that is not enrolled', async () => {
     const user = randomUUID()
     const first = await addVaultDevice(user, 'laptop', KEY)
     const second = await addVaultDevice(user, 'desktop', KEY)
     const results = await Promise.allSettled([
       putVaultItem(user, 'new', 'c1', keysFor(first.id)),
+      removeVaultDevice(user, first.id),
       approveVaultDevice(user, second.id, []),
     ])
 
@@ -129,8 +149,8 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     for (const item of await db().collection('vault_items').find({ userId: user }).toArray()) {
       const holders = (item.keys as { deviceId: string }[]).map((key) => key.deviceId)
 
-      expect(holders).toHaveLength(enrolled.length)
-      expect(new Set(holders)).toEqual(new Set(enrolled))
+      expect(holders.length).toBeGreaterThan(0)
+      expect(holders.every((id) => enrolled.includes(id))).toBe(true)
     }
   })
 
@@ -209,11 +229,23 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     await putVaultItem(user, 'token', 'c1', keysFor(laptop.id))
     expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
 
-    await approveVaultDevice(user, added.id, [{ name: 'token', wrapped: 'w-box' }])
+    // Approved with no items, it reads none until one is shared with it.
+    await approveVaultDevice(user, added.id, [])
+    expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
+    // Never with a computer alone: nobody could share or rotate it again.
+    expect(await fails(putVaultItem(user, 'token', 'c1', keysFor(added.id)))).toMatchObject({
+      status: 409,
+      code: 'vault_no_personal_device',
+    })
+    await putVaultItem(user, 'token', 'c1', [
+      ...keysFor(laptop.id),
+      { deviceId: added.id, wrapped: 'w-box' },
+    ])
     expect(await getVaultItemForComputer(user, box, 'token')).toMatchObject({
       deviceId: added.id,
       item: { name: 'token', ciphertext: 'c1', keys: [{ deviceId: added.id, wrapped: 'w-box' }] },
     })
+    expect((await listVaultDevices(user)).map((device) => device.computer)).toEqual([false, true])
     // Another computer, or the same computer for another person's vault, reads nothing.
     expect(await fails(getVaultItemForComputer(user, other, 'token'))).toMatchObject({
       status: 404,
@@ -221,6 +253,9 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     expect(await fails(getVaultItemForComputer(randomUUID(), box, 'token'))).toMatchObject({
       status: 404,
     })
+    // Unshared, it reads it no more.
+    await putVaultItem(user, 'token', 'c2', keysFor(laptop.id))
+    expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
   })
 
   test('a computer that joined offers one key, even when two offers race', async () => {

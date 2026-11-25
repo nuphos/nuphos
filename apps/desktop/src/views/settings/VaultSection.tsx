@@ -51,7 +51,7 @@ export function VaultSection({ userId }: { userId: string }) {
       )}
       {status.isSuccess && <ThisComputer userId={userId} mine={mine} first={!devices.length} />}
       {devices.length > 0 && <VaultDevices userId={userId} devices={devices} mine={mine} />}
-      {mine?.state === 'enrolled' && <VaultItems userId={userId} />}
+      {mine?.state === 'enrolled' && <VaultItems userId={userId} devices={devices} />}
     </div>
   )
 }

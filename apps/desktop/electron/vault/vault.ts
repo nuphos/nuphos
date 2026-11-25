@@ -34,7 +34,9 @@ type RemoteDevice = {
   name: string
   publicKey: string
   state: 'pending' | 'enrolled'
+  computer: boolean
 }
+type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] }
 type Device = { deviceId: string; privateKey: string }
 
 /** This app's own item: the CLI's is `ai.nuphos.vault.device`, so neither asks for the other's. */
@@ -86,12 +88,7 @@ async function forgetDevice(): Promise<void> {
 const devices = async () =>
   (await call<{ devices: RemoteDevice[] }>('GET', '/vault/devices')).devices
 const item = async (name: string) =>
-  (
-    await call<{ item: { ciphertext: string; keys: { deviceId: string; wrapped: string }[] } }>(
-      'GET',
-      `/vault/items/${name}`,
-    )
-  ).item
+  (await call<{ item: Item }>('GET', `/vault/items/${name}`)).item
 
 function checkName(name: string): string {
   if (!validName(name))
@@ -121,13 +118,25 @@ async function enrolledKey() {
   return mine
 }
 
-async function itemKey(name: string, mine: { deviceId: string; privateKey: Buffer }) {
-  const found = await item(name)
+function itemKey(name: string, found: Item, mine: { deviceId: string; privateKey: Buffer }) {
   const wrapped = found.keys.find((k) => k.deviceId === mine.deviceId)
 
-  if (!wrapped) throw fail(`${name} has no key for this device.`)
+  if (!wrapped) throw fail(`${name} is not shared with this device.`)
 
-  return { itemKey: unwrap(wrapped.wrapped, name, mine.privateKey), ciphertext: found.ciphertext }
+  return unwrap(wrapped.wrapped, name, mine.privateKey)
+}
+
+/** Wraps `key` for each of `deviceIds` that is enrolled, reusing the wraps `kept` has. */
+async function wrapFor(name: string, key: () => Buffer, deviceIds: string[], kept: Item['keys']) {
+  return (await devices())
+    .filter((d) => d.state === 'enrolled' && deviceIds.includes(d.id))
+    .map(
+      (d) =>
+        kept.find((k) => k.deviceId === d.id) ?? {
+          deviceId: d.id,
+          wrapped: wrap(key(), name, Buffer.from(d.publicKey, 'base64')),
+        },
+    )
 }
 
 export async function status(): Promise<VaultStatus> {
@@ -140,6 +149,7 @@ export async function status(): Promise<VaultStatus> {
       id: d.id,
       name: d.name,
       state: d.state,
+      computer: d.computer,
       // This device's print comes from the key it holds, never from what
       // the backend returned, so a swapped key cannot show a matching one.
       fingerprint: fingerprint(
@@ -168,6 +178,7 @@ export async function addComputer(deviceId: string, teamId: string): Promise<Vau
     id: device.id,
     name: device.name,
     state: device.state,
+    computer: device.computer,
     fingerprint: fingerprint(Buffer.from(device.publicKey, 'base64')),
   }
 }
@@ -210,8 +221,10 @@ async function addThisDevice(): Promise<VaultStatus> {
 }
 
 /**
- * Wraps every item's key for a pending device. Only to the key whose
- * fingerprint the person compared: one swapped in since then is refused.
+ * Wraps for a pending device the key of every item this device can open; for a
+ * computer, none: it gets items shared with it one by one (nuphos/nuphos#5088).
+ * Only to the key whose fingerprint the person compared: one swapped in since
+ * then is refused.
  */
 export async function approve(deviceId: string, confirmed: string): Promise<void> {
   const mine = await enrolledKey()
@@ -224,8 +237,9 @@ export async function approve(deviceId: string, confirmed: string): Promise<void
     throw fail('That device’s key changed since you compared it. Nothing was approved.')
   const keys = []
 
-  for (const { name } of await items())
-    keys.push({ name, wrapped: wrap((await itemKey(checkName(name), mine)).itemKey, name, to) })
+  for (const { name, deviceIds } of target.computer ? [] : await items())
+    if (deviceIds.includes(mine.deviceId))
+      keys.push({ name, wrapped: wrap(itemKey(checkName(name), await item(name), mine), name, to) })
   await call(
     'POST',
     `/vault/devices/${encodeURIComponent(deviceId)}/approve`,
@@ -247,12 +261,14 @@ export async function items(): Promise<VaultItemSummary[]> {
 }
 
 export async function getItem(name: string): Promise<string> {
-  const { itemKey: key, ciphertext } = await itemKey(checkName(name), await enrolledKey())
+  const mine = await enrolledKey()
+  const found = await item(checkName(name))
 
-  return open(key, name, ciphertext).toString('utf-8')
+  return open(itemKey(name, found, mine), name, found.ciphertext).toString('utf-8')
 }
 
-export async function setItem(name: string, value: string): Promise<void> {
+/** Saves a value under a new key, wrapped for `deviceIds`: also how a secret is rotated. */
+export async function setItem(name: string, value: string, deviceIds: string[]): Promise<void> {
   checkName(name)
   await enrolledKey()
   const plain = Buffer.from(value, 'utf-8')
@@ -260,16 +276,20 @@ export async function setItem(name: string, value: string): Promise<void> {
   if (plain.length > MAX_VALUE)
     throw fail(`A vault item holds at most ${String(MAX_VALUE / 1024)} KiB.`)
   const key = randomBytes(32)
-  const keys = (await devices())
-    .filter((d) => d.state === 'enrolled')
-    .map((d) => ({ deviceId: d.id, wrapped: wrap(key, name, Buffer.from(d.publicKey, 'base64')) }))
 
-  await call(
-    'PUT',
-    `/vault/items/${name}`,
-    { ciphertext: seal(key, name, plain), keys },
-    { retry: false },
-  )
+  await putItem(name, seal(key, name, plain), await wrapFor(name, () => key, deviceIds, []))
+}
+
+const putItem = (name: string, ciphertext: string, keys: Item['keys']) =>
+  call('PUT', `/vault/items/${name}`, { ciphertext, keys }, { retry: false })
+
+/** Shares an item with exactly `deviceIds`; one left out keeps what it read until `setItem`. */
+export async function shareItem(name: string, deviceIds: string[]): Promise<void> {
+  const mine = await enrolledKey()
+  const found = await item(checkName(name))
+  const keys = await wrapFor(name, () => itemKey(name, found, mine), deviceIds, found.keys)
+
+  await putItem(name, found.ciphertext, keys)
 }
 
 export async function deleteItem(name: string): Promise<void> {
