@@ -25,7 +25,6 @@ useAgentDb({
     return state.stored.slice(0, count)
   },
   agentMessages: () => ({
-    countDocuments: () => Promise.resolve(state.stored.length),
     find: () => ({ toArray: () => Promise.resolve([]) }),
   }),
 })
@@ -134,34 +133,32 @@ describe('acceptClientTail', () => {
     expect(state.headReads).toBe(0)
   })
 
-  test('still answers 409 with the stored count when a send is ahead of the store', async () => {
-    state.stored = [stored('m1')]
-    const error = await acceptClientTail(
-      { id: 'sess', messages: tail, baseIndex: 2 },
-      'sess',
-      'owner',
-      conversation,
-    ).then(
-      () => null,
-      (err: unknown) => err as AppError,
-    )
-
-    expect(error?.status).toBe(409)
-    expect(error?.details).toEqual({ storedMessageCount: 1 })
-  })
-
-  // #2984: a card answer starts a server turn before the answer is stored, and
-  // the client attaching to it sends a window that already shows the answer.
-  test('lets a resume attach even when its window is ahead of the store', async () => {
+  // #4394: a message sent while a turn ends shows that turn's reply, which the
+  // store has not written yet. The turn plan reads the store, so this is fine.
+  test('accepts a send whose window is ahead of the store', async () => {
     state.stored = [stored('m1')]
     const view = await acceptClientTail(
-      { id: 'sess', messages: tail, baseIndex: 2, resume: true },
+      { id: 'sess', messages: tail, baseIndex: 2 },
       'sess',
       'owner',
       conversation,
     )
 
     expect(view.map((message) => message.id)).toEqual(['m3'])
+  })
+
+  test('answers 409 when a send stands on a conversation that does not exist', async () => {
+    const error = await acceptClientTail(
+      { id: 'sess', messages: tail, baseIndex: 2 },
+      'sess',
+      'owner',
+      null,
+    ).then(
+      () => null,
+      (err: unknown) => err as AppError,
+    )
+
+    expect(error?.status).toBe(409)
   })
 })
 
