@@ -4,7 +4,7 @@
 import { agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { openBotChat } from '../channel-quotes.ts'
-import { until } from '../processes.ts'
+import { artifacts, until } from '../processes.ts'
 
 import type { Scenario } from '../ui.ts'
 
@@ -59,6 +59,9 @@ const scenario: Scenario = {
 
       // The owner is asked in the chat itself, and denies.
       await card.getByRole('button', { name: 'Deny' }).waitFor()
+      await page.emulateMedia({ colorScheme: 'light' })
+      await page.screenshot({ path: `${artifacts}/bot-chat-tool-approval-light.png` })
+      await page.emulateMedia({ colorScheme: null })
       await card.getByRole('button', { name: 'Deny' }).click()
       await until('the denied post to be answered', async () => posts().length >= 2)
       const [ownPost, elsewhere] = posts()
@@ -72,6 +75,9 @@ const scenario: Scenario = {
         throw new Error(`The denied post was not rejected: ${JSON.stringify(elsewhere)}`)
       await page.getByText(`POSTED ${MARKER}`).filter({ visible: true }).first().waitFor()
       await card.waitFor({ state: 'detached' })
+      await page.emulateMedia({ colorScheme: 'light' })
+      await page.screenshot({ path: `${artifacts}/bot-chat-tool-approval-denied-light.png` })
+      await page.emulateMedia({ colorScheme: null })
     } finally {
       await api('PUT', '/agent/auto-mode/bypass', { sessionId: bot.sessionId, bypass: fullAccess })
     }
