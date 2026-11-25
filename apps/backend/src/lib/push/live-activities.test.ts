@@ -209,6 +209,7 @@ describe('Live Activity pushes', () => {
       deviceToken: 'la-1',
       environment: 'production',
       pushType: 'liveactivity',
+      priority: 5,
       payload: {
         aps: {
           timestamp: 100,
@@ -310,7 +311,18 @@ describe('Live Activity pushes', () => {
         'content-state': card([['session-1', 'One', 'approval']], 1),
       },
     })
+    expect(sent[0]?.priority).toBe(10)
     expect(tokensOf('session-1')).toEqual(['la-1', 'la-2'])
+  })
+
+  test('a running update goes at priority 5 and never alerts', async () => {
+    await record('session-1', RUNNING)
+
+    expect(sent.length).toBeGreaterThan(0)
+    for (const request of sent) {
+      expect(request.priority).toBe(5)
+      expect((request.payload as { aps: Record<string, unknown> }).aps.alert).toBeUndefined()
+    }
   })
 
   test('a throttled or failed end keeps the token and is retried until it lands', async () => {
@@ -441,6 +453,7 @@ describe('Live Activities for watched conversations', () => {
       deviceToken: 'start-t',
       environment: 'production',
       pushType: 'liveactivity',
+      priority: 5,
       payload: {
         aps: {
           timestamp: 100,
@@ -448,7 +461,6 @@ describe('Live Activities for watched conversations', () => {
           'attributes-type': 'TurnActivityAttributes',
           attributes: {},
           'content-state': card([['session-5', 'Five', 'running']], 1),
-          alert: { title: 'Five', body: 'Running' },
         },
       },
     })
