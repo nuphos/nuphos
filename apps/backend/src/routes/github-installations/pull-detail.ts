@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { latestRuns } from '@/lib/agent/github-pull-health'
 import { GithubApiError, getInstallationToken } from '@/lib/byos/github'
 import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
@@ -223,7 +224,9 @@ export function registerGithubPullDetailRoute(
             committedAt: commit.commit.committer?.date ?? pr.created_at,
             htmlUrl: commit.html_url,
           })),
-          checks: rawChecks.check_runs.map((check) => ({
+          // A run replaced on the same commit, such as one cancelled by
+          // `cancel-in-progress`, would otherwise show as a failed check.
+          checks: latestRuns(rawChecks.check_runs).map((check) => ({
             id: check.id,
             name: check.name,
             status: check.status,

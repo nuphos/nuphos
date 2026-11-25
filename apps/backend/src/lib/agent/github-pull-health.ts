@@ -95,8 +95,8 @@ type CommitStatus = { id: number; context: string; state: string }
  * so a run that a later workflow run replaced on the same commit, such as one
  * cancelled by `cancel-in-progress`, still comes back beside its replacement.
  */
-function latestRuns(runs: CheckRun[]): CheckRun[] {
-  const newest = new Map<string, CheckRun>()
+export function latestRuns<T extends { id: number; name: string }>(runs: T[]): T[] {
+  const newest = new Map<string, T>()
 
   for (const run of runs) if (run.id > (newest.get(run.name)?.id ?? -1)) newest.set(run.name, run)
 
