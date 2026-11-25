@@ -85,7 +85,6 @@ final class ChatSession {
     private(set) var sessionConfigSaving = false
     private(set) var pendingModelSettings: [String: String] = [:]
     private var sessionConfigRequest = UUID()
-    private var sessionConfigReading = false
 
     private(set) var initialModelTitle: String?
     /// Settings picked before this conversation existed; the first message carries them.
@@ -667,11 +666,9 @@ final class ChatSession {
 
     func refreshSessionConfig() async {
         // Reading model settings is allowed for conversation participants; writes remain owner-only.
-        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving, !sessionConfigReading else { return }
+        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving else { return }
         let request = UUID()
         sessionConfigRequest = request
-        sessionConfigReading = true
-        defer { sessionConfigReading = false }
         do {
             let incoming = try await AgentChatAPI.sessionConfig(token: token, teamId: teamId, sessionId: sessionId)
             guard sessionConfigRequest == request else { return }
