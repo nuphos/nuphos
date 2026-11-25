@@ -76,7 +76,20 @@ export const threadScenarios: Scenario[] = [
         await page.waitForTimeout(500)
         await page.getByRole('button', { name: 'Turn on fast mode' }).click()
         await page.keyboard.press('Escape')
-        await page.waitForTimeout(1_000)
+        // Picked right after a reply, before the Desktop hears the runtime is idle, they wait
+        // for the next reply; the message below must not overtake them.
+        const parent = agentLog(stack).find(
+          (entry) => entry.marker === 'E2E_DELIVERY:inherit-parent',
+        )?.sessionId
+        const took = (detail: string) =>
+          agentLog(stack).some(
+            (entry) =>
+              entry.event === 'setting' && entry.sessionId === parent && entry.detail === detail,
+          )
+
+        await until("the parent's session to take the picks", async () =>
+          ['model=fixture-small', 'fast=on'].every(took),
+        )
       } finally {
         stopOffering()
       }
