@@ -119,6 +119,7 @@ describe.skipIf(!client)('redisQuota against a real Redis', () => {
 
   test('the window is set with the first increment, so the key is never left without one', async () => {
     const windowSec = 60
+
     expect(await redisQuota(KEY, 20, windowSec)).toBe(true)
     const ttl = await client!.ttl(KEY)
 
@@ -130,6 +131,7 @@ describe.skipIf(!client)('redisQuota against a real Redis', () => {
   test('refused calls increment nothing, so the counter stops at the limit', async () => {
     const attempts = 100
     const limit = 20
+
     for (let call = 0; call < attempts; call++) await redisQuota(KEY, limit, 60)
     const counter = await client!.get(KEY)
 
