@@ -2368,6 +2368,7 @@
   "Issues and comments authored by you.": "Issue และความคิดเห็นจะถูกสร้างในนามของคุณ",
   "Issues could not be loaded.": "โหลด issue ไม่ได้",
   "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "งานนี้จะหายไปจากรายการของคุณ และคนอื่นจะเห็นว่าคุณออกแล้ว หากคุณใช้คอมพิวเตอร์ของงานนี้ไม่ได้ คุณจะต้องขอให้เจ้าของเชิญคุณกลับมา",
+  "It downloads {name} from its maker, which can take a few minutes on a slow connection.": "ระบบจะดาวน์โหลด {name} จากผู้พัฒนา ซึ่งอาจใช้เวลาหลายนาทีหากการเชื่อมต่อช้า",
   "It may be installed by a package manager that updates it separately.": "อาจติดตั้งด้วยตัวจัดการแพ็กเกจที่อัปเดตแยกต่างหาก",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "แชทนี้อาจเป็นแบบส่วนตัว หรืออาจถูกลบไปแล้ว หากมีคนแชร์ให้คุณ โปรดขอให้เขาเชิญคุณ",
   "It starts once Bots and tasks on this runtime finish replying.": "จะเริ่มเมื่อบอทและงานบนรันไทม์นี้ตอบกลับเสร็จ",

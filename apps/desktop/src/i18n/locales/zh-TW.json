@@ -2368,6 +2368,7 @@
   "Issues and comments authored by you.": "Issue 與留言都以你的身分發出。",
   "Issues could not be loaded.": "無法載入 Issue。",
   "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "它會從你的清單中消失，其他人會看到你已離開。如果你無法使用它的電腦，需要請擁有者重新邀請你。",
+  "It downloads {name} from its maker, which can take a few minutes on a slow connection.": "這會從 {name} 的官方來源下載，網路較慢時可能需要幾分鐘。",
   "It may be installed by a package manager that updates it separately.": "它可能是由套件管理工具安裝，並由其另行更新。",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "此對話可能是私人的，也可能已被刪除。如果是別人分享給你的，請對方邀請你。",
   "It starts once Bots and tasks on this runtime finish replying.": "待此執行環境上的 Bot 與任務回覆完畢後便會開始。",

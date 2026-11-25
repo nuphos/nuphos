@@ -2368,6 +2368,7 @@
   "Issues and comments authored by you.": "Issues y comentarios firmados por ti.",
   "Issues could not be loaded.": "No se pudieron cargar los issues.",
   "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "Desaparecerá de tu lista y los demás verán que saliste. Si no puedes usar su computadora, tendrás que pedirle al propietario que te vuelva a invitar.",
+  "It downloads {name} from its maker, which can take a few minutes on a slow connection.": "Descarga {name} de su creador, lo que puede tardar unos minutos con una conexión lenta.",
   "It may be installed by a package manager that updates it separately.": "Puede que lo haya instalado un administrador de paquetes que lo actualiza por separado.",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "Puede que sea privado o que se haya eliminado. Si alguien lo compartió contigo, pídele que te invite.",
   "It starts once Bots and tasks on this runtime finish replying.": "Se iniciará cuando los Bots y las tareas de este entorno de ejecución terminen de responder.",

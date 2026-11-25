@@ -2368,6 +2368,7 @@
   "Issues and comments authored by you.": "Issue とコメントをあなた自身として作成します。",
   "Issues could not be loaded.": "Issue を読み込めませんでした。",
   "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "リストから消え、ほかの人にはあなたが退出したことが表示されます。そのコンピューターを使えない場合は、オーナーに再度招待してもらう必要があります。",
+  "It downloads {name} from its maker, which can take a few minutes on a slow connection.": "{name} を提供元からダウンロードします。回線が遅い場合は数分かかることがあります。",
   "It may be installed by a package manager that updates it separately.": "パッケージマネージャーでインストールされており、別途更新される可能性があります。",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "非公開か、削除された可能性があります。共有された場合は、共有した人に招待を依頼してください。",
   "It starts once Bots and tasks on this runtime finish replying.": "このランタイム上のボットやタスクの返信が完了すると開始されます。",

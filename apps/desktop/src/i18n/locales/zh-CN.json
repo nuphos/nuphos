@@ -2368,6 +2368,7 @@
   "Issues and comments authored by you.": "Issue 和评论都以你的身份发出。",
   "Issues could not be loaded.": "无法加载议题。",
   "It disappears from your list, and the others see that you left. If you can't use its computer, you'll need the owner to invite you back.": "它会从你的列表中消失，其他人会看到你已离开。如果你无法使用它的电脑，需要请所有者重新邀请你。",
+  "It downloads {name} from its maker, which can take a few minutes on a slow connection.": "这会从 {name} 的官方来源下载，网络较慢时可能需要几分钟。",
   "It may be installed by a package manager that updates it separately.": "它可能由包管理器安装，需单独更新。",
   "It may be private, or it may have been deleted. If someone shared it with you, ask them to invite you.": "此对话可能是私人的，也可能已被删除。如果是别人分享给你的，请让对方邀请你。",
   "It starts once Bots and tasks on this runtime finish replying.": "此运行环境上的 Bot 和任务完成回复后即会开始。",

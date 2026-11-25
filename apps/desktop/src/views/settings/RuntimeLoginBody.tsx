@@ -1,6 +1,7 @@
 import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+import { formatElapsed } from '../../components/agent/panel/voiceDictation'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
@@ -68,6 +69,36 @@ function DeviceCode({
         )}
       </p>
     </>
+  )
+}
+
+/** A vendor's installer prints nothing Nuphos shows, so the time it has run says it is moving. */
+function Installing({ name, computer }: { name: string; computer: string }) {
+  const [start] = useState(Date.now)
+  const [now, setNow] = useState(start)
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000)
+
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-3 text-[13px] text-secondary">
+        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+        <span className="flex-1">{t('Installing {name} on {computer}…', { name, computer })}</span>
+        <span className="tabular-nums text-tertiary">{formatElapsed(now - start)}</span>
+      </div>
+      <p className="pl-7 text-xs leading-5 text-tertiary">
+        {t(
+          'It downloads {name} from its maker, which can take a few minutes on a slow connection.',
+          {
+            name,
+          },
+        )}
+      </p>
+    </div>
   )
 }
 
@@ -151,19 +182,19 @@ export function RuntimeLoginBody({
         <p className="text-[13px] leading-5 text-error">
           {login?.error ?? error ?? t('Sign-in was cancelled.')}
         </p>
+      ) : login?.installing ? (
+        <Installing
+          name={agentProvider(instance.provider).label}
+          computer={instance.local?.deviceLabel ?? ''}
+        />
       ) : (
         <div className="flex items-center gap-3 text-[13px] text-secondary">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-          {login?.installing
-            ? t('Installing {name} on {computer}…', {
-                name: agentProvider(instance.provider).label,
-                computer: instance.local?.deviceLabel ?? '',
-              })
-            : reachable
-              ? t('Preparing secure sign-in…')
-              : t(
-                  'Starting your runtime… You can close this and sign in from its card once it is running.',
-                )}
+          {reachable
+            ? t('Preparing secure sign-in…')
+            : t(
+                'Starting your runtime… You can close this and sign in from its card once it is running.',
+              )}
         </div>
       )}
       {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
