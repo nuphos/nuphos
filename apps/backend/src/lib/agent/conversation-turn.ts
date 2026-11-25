@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { isRuntimeRefusal, outOfUsageUntilReset } from '@/lib/claude-code-preview/runtime-refusal'
+import { outOfUsageUntilReset, refusedForNow } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
@@ -180,7 +180,7 @@ export async function runTurn(
         const requeued = { ...head, offlineSince }
         const usage = limited && { until: await usageResetsAtOf(target).catch(() => undefined) }
 
-        if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
+        if (!offline && !draining && !limited && !refusedForNow(error)) throw error
         taken = []
         await unmarkRead?.()
         await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, usage)
