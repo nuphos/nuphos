@@ -463,7 +463,7 @@ test('an expired session is refused', async () => {
   expect(await realIdentity.authenticateToken(token)).toBeNull()
 })
 
-test('sign-in JWTs issued before sessions work until they expire; longer ones are refused', async () => {
+test('only JWTs signed for a day or less verify; 30-day sign-in JWTs are refused', async () => {
   // Re-signs a run token with a longer lifetime, as the old sign-in code did.
   const forge = (lifetimeSec: number) => {
     const [header, payload] = signNuphosToken(USER, 60).split('.')
@@ -478,15 +478,12 @@ test('sign-in JWTs issued before sessions work until they expire; longer ones ar
     return `${header}.${body}.${sig}`
   }
 
-  const legacy = await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))
+  expect(await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))).toBeNull()
+  expect(await realIdentity.authenticateToken(forge(24 * 60 * 60 + 1))).toBeNull()
+  const current = await realIdentity.authenticateToken(signNuphosToken(USER, 8 * 60 * 60))
 
-  expect(legacy?.user.id).toBe(String(USER))
-  expect(legacy?.agentRun).toBeUndefined()
-  expect((await realIdentity.authenticateToken(signNuphosToken(USER, 8 * 60 * 60)))?.agentRun).toBe(
-    true,
-  )
-  expect(await realIdentity.authenticateToken(forge(31 * 24 * 60 * 60))).toBeNull()
-  expect((await realIdentity.authenticateToken(forge(8 * 60 * 60)))?.user.id).toBe(String(USER))
+  expect(current?.user.id).toBe(String(USER))
+  expect(current?.agentRun).toBe(true)
   expect(() => signNuphosToken(USER, 30 * 24 * 60 * 60)).toThrow()
 })
 

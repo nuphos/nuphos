@@ -21,14 +21,6 @@ type NuphosRunClaims = {
  */
 export const MAX_RUN_TOKEN_TTL_SEC = 24 * 60 * 60
 
-/**
- * Sign-in JWTs issued before sessions existed lived 30 days. They are accepted
- * until they expire on their own; anything signed for longer is refused. Once
- * the last of them has expired, verify against MAX_RUN_TOKEN_TTL_SEC instead.
- * To end them all sooner, rotate NUPHOS_JWT_SECRET.
- */
-const LEGACY_SIGN_IN_TTL_SEC = 30 * 24 * 60 * 60
-
 export function signNuphosToken(userId: ObjectId | string, ttlSec: number): string {
   const secret = requireJwtSecret()
   const sub = typeof userId === 'string' ? userId : userId.toHexString()
@@ -84,7 +76,7 @@ export function verifyNuphosToken(token: string): NuphosRunClaims | null {
     claims.from !== 'nuphos' ||
     !claims.sub ||
     claims.exp <= now ||
-    claims.exp - claims.iat > LEGACY_SIGN_IN_TTL_SEC
+    claims.exp - claims.iat > MAX_RUN_TOKEN_TTL_SEC
   )
     return null
 
