@@ -13,8 +13,8 @@ import PostHog
         let sdk = PostHogSDK.shared
         let alice = NuphosUser(id: "alice", email: "private@example.com", name: "Private", username: "private", avatarURL: "")
         let bob = NuphosUser(id: "bob", email: "", name: "", username: "", avatarURL: "")
-        UserDefaults.standard.removeObject(forKey: Analytics.sendUsageDataKey)
-        defer { UserDefaults.standard.removeObject(forKey: Analytics.sendUsageDataKey) }
+        Analytics.defaults.removeObject(forKey: Analytics.sendUsageDataKey)
+        defer { Analytics.defaults.removeObject(forKey: Analytics.sendUsageDataKey) }
         precondition(analytics.sendUsageData, "Usage data is on until the person turns it off")
         analytics.setActive(true)
         analytics.screen("agent")
@@ -26,12 +26,12 @@ import PostHog
         analytics.screen("agent")
         precondition(sdk.configs.isEmpty && sdk.events.isEmpty, "Self-hosted must never start Cloud telemetry")
         NuphosAPI.baseURL = NuphosAPI.defaultBaseURL
-        UserDefaults.standard.set(false, forKey: Analytics.sendUsageDataKey)
+        Analytics.defaults.set(false, forKey: Analytics.sendUsageDataKey)
         analytics.identify(alice)
         analytics.screen("agent")
         analytics.track("login")
         precondition(sdk.configs.isEmpty && sdk.events.isEmpty, "Usage data off never starts Cloud telemetry")
-        UserDefaults.standard.removeObject(forKey: Analytics.sendUsageDataKey)
+        Analytics.defaults.removeObject(forKey: Analytics.sendUsageDataKey)
         analytics.identify(alice)
         #if DEBUG
         analytics.screen("agent")
@@ -98,19 +98,22 @@ import PostHog
         let onResets = sdk.resets
         analytics.setSendUsageData(false, user: alice)
         precondition(sdk.resets == onResets + 1, "Turning usage data off drops the identity")
-        precondition(UserDefaults.standard.object(forKey: Analytics.sendUsageDataKey) as? Bool == false, "The choice is saved")
+        precondition(sdk.closes == 1, "Turning usage data off stops the queue")
+        precondition(Analytics.defaults.object(forKey: Analytics.sendUsageDataKey) as? Bool == false, "The choice is saved")
         analytics.track("agent_message_sent", teamID: "team-a")
         analytics.screen("inbox", teamID: "team-a")
+        let flushes = sdk.flushes
         analytics.setActive(false)
         analytics.setActive(true)
         analytics.identify(bob)
+        precondition(sdk.flushes == flushes, "Nothing is uploaded while usage data is off")
         precondition(sdk.events.count == onCount, "Turning usage data off stops every capture at once")
         analytics.setSendUsageData(true, user: nil)
         precondition(sdk.events.count == onCount, "Turning it on before sign-in sends nothing")
         analytics.setSendUsageData(true, user: alice)
         precondition(sdk.events.count == onCount + 1 && sdk.events.last?.name == "app_active", "Turning it on resumes")
         precondition(sdk.events.last?.user == "alice" && sdk.events.last?.properties["team_id"] == nil, "Resumes for the signed-in account, no old screen")
-        precondition(sdk.configs.count == 1, "Resuming reuses the SDK")
+        precondition(sdk.configs.count == 2, "Resuming sets the closed SDK up again")
         print("Analytics identity, foreground, screen, team, endpoint and usage data setting tests passed")
         #endif
     }

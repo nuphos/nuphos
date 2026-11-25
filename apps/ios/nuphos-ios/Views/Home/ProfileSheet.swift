@@ -13,7 +13,7 @@ struct ProfileSheet: View {
     var openTwoFactor = false
     private var currentUser: NuphosUser { session.user ?? user }
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
-    @AppStorage(Analytics.sendUsageDataKey) private var sendUsageData = true
+    @AppStorage(Analytics.sendUsageDataKey, store: Analytics.defaults) private var sendUsageData = true
 
     @State private var editing = false
     @State private var showAppIcons = false
