@@ -78,6 +78,10 @@ function allowOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | 
   return options.find((option) => option.kind === 'allow_once')
 }
 
+function rejectOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | undefined {
+  return options.find((option) => option.kind === 'reject_once')
+}
+
 export async function handleOpenAbPermissionRequest(
   args: {
     userId: string
@@ -151,7 +155,10 @@ export async function handleOpenAbPermissionRequest(
   if (unattended.headless && allowedUnattended(request.toolCall, unattended.wokenChannelIds))
     return allow('unattended', 'An automatic turn may read, and reply where it was called.')
 
-  const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
+  const settleDenied = (
+    errorText: string,
+    answer: 'cancel' | 'reject' = 'cancel',
+  ): OpenAbPermissionOutcome => {
     args.handleTool({
       kind: 'tool',
       toolCallId,
@@ -165,13 +172,17 @@ export async function handleOpenAbPermissionRequest(
       tool_call_id: toolCallId,
       reason: errorText,
     })
+    const rejected = answer === 'reject' ? rejectOnce(request.options) : undefined
 
-    return cancelled()
+    return rejected
+      ? { outcome: { outcome: 'selected', optionId: rejected.optionId } }
+      : cancelled()
   }
 
-  // Nobody is there to answer, so asking would only time out. A sub-Task's request
-  // still asks: a person answers it from the sidebar.
-  if (unattended.failFast) return settleDenied(unattendedDeniedText(request.toolCall.title))
+  // Nobody is there to answer, so asking would only time out. A reject, not a cancel,
+  // lets the turn go on and reply; a sub-Task's request still asks from the sidebar.
+  if (unattended.failFast)
+    return settleDenied(unattendedDeniedText(request.toolCall.title), 'reject')
 
   const wait = await deps.registerWait({
     userId: args.userId,
