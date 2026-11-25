@@ -10,10 +10,9 @@
 // the agent's input tools on that display. The stream closing hands it back.
 // Links carry ids only: the route is the authorization. It admits the owner, and a
 // teammate who may reply in it to watch; they take over only what a `computer` card hands.
-// That does not isolate desktops on a shared Box: every session there runs as one
-// Unix user against an X server and VNC without authentication, so any agent on
-// the Box can reach another session's display. The team accepts this until each
-// session gets its own Unix user (see the host's desktop-session.mjs). A Mac asks
+// Every session on a Box runs as one Unix user, so a card hands over a desktop only
+// on a Box no one else uses (computer-desktop.ts, desktop-invitation.ts; the host's
+// desktop-session.mjs keeps each display to that user). A Mac asks
 // for no account: it shows its screen only to the Nuphos process that started
 // its host, and that process streams it only to the account signed in on the Mac.
 import { getReadableConversation } from '@/lib/agent/db'

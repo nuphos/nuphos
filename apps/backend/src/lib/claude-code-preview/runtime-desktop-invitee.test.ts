@@ -7,6 +7,7 @@ import { createLocalTunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { createMemoryPresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { holderChannel, streamChannel } from '@/lib/agent/devices/local-runtime/protocol'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
+import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
@@ -62,6 +63,11 @@ useRuntimeCatalog({
   }) as never,
 })
 
+// The Box itself: only its owner uses it unless a test shares it.
+let device: Record<string, unknown>
+
+useAgentDeviceStore({ getAgentDevice: (async () => device) as never })
+
 const presence = createMemoryPresenceStore()
 const status = {
   agents: {},
@@ -98,6 +104,7 @@ beforeEach(async () => {
     },
   )
   boxUsers = new Set(['mate'])
+  device = { userId: 'owner', deviceId: 'box', access: [] }
   await presence.claim('owner', 'box', 'conn')
   await presence.put('owner', 'box', { conn: 'conn', status, seenAt: Date.now() })
 })
@@ -240,6 +247,24 @@ test('once the card is answered, the Box goes back to the agent and the teammate
   send(human)
   await settle()
   expect(state.toHost).toEqual([human, agent, agent])
+  end()
+})
+
+test('a Box shared with anyone else hands over nothing, even while a card is open', async () => {
+  const { state, send, end } = await watch('mate')
+
+  send(human)
+  await settle()
+  expect(state.toHost).toEqual([human])
+  device = {
+    ...device,
+    access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
+  }
+  await settle()
+  // Shared after the card was raised: the next recheck hands the Box back to the agent.
+  expect(state.toHost).toEqual([human, agent])
+  expect(state.closed).toBeUndefined()
+  expect((await reach('mate', 'chat', '2')).invited).toBe('view')
   end()
 })
 
