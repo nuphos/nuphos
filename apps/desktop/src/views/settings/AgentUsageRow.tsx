@@ -13,9 +13,9 @@ import type { MetricPoint } from './MetricChart'
 import type { RuntimeInstance, RuntimeQuota } from '../../types/runtime'
 
 /** Shared by the header and every row so the columns line up. The 7-day strip needs the
- *  width a wide page has. */
+ *  width a wide page has; narrower, the name and its computer stack so neither is cut. */
 export const AGENT_USAGE_COLUMNS =
-  'grid-cols-[minmax(0,1fr)_150px_40px] gap-4 @3xl:grid-cols-[minmax(0,1fr)_170px_minmax(140px,200px)_40px]'
+  'grid-cols-[minmax(0,1fr)_120px_40px] gap-4 @3xl:grid-cols-[minmax(0,1fr)_170px_minmax(140px,200px)_40px]'
 
 /** The used-up orange is a token the theme leaves alone. */
 const LIMIT_FILL = 'rgba(var(--color-status-attention), 0.7)'
@@ -68,7 +68,10 @@ function PlanUsed({ quota }: { quota: RuntimeQuota | undefined }) {
         />
       </span>
       <span
-        className={clsx('w-9 shrink-0 text-right font-mono', atLimit ? 'text-error' : 'text-main')}
+        className={clsx(
+          'w-9 shrink-0 text-right tabular-nums',
+          atLimit ? 'text-error' : 'text-main',
+        )}
       >
         {atLimit ? t('Limit') : `${String(used)}%`}
       </span>
@@ -106,22 +109,24 @@ export function AgentUsageRow({
     >
       <span className="flex min-w-0 items-center gap-2">
         <AgentProviderIcon provider={instance.provider} className="h-3.5 w-3.5 shrink-0" />
-        <span className="truncate text-[13px] font-medium text-main">
-          {agentDisplayName(instance)}
-        </span>
-        <span className="flex min-w-0 shrink items-center gap-1.5 rounded border border-line-control/70 px-1.5 py-0.5 text-[11px] text-secondary">
-          <span
-            className={clsx(
-              'h-1.5 w-1.5 shrink-0 rounded-full',
-              instance.status === 'active' && !agentOffline(instance, quota)
-                ? STATUS_DOT.online
-                : STATUS_DOT.off,
-            )}
-          />
-          <span className="truncate">
-            {instance.status === 'active'
-              ? agentRunsOn(instance, thisComputer, quota)
-              : t('Disabled')}
+        <span className="flex min-w-0 flex-col items-start gap-0.5 @3xl:flex-row @3xl:items-center @3xl:gap-2">
+          <span className="max-w-full truncate text-[13px] font-medium text-main">
+            {agentDisplayName(instance)}
+          </span>
+          <span className="flex max-w-full min-w-0 shrink items-center gap-1.5 rounded border border-line-control/70 px-1.5 py-0.5 text-[11px] text-secondary">
+            <span
+              className={clsx(
+                'h-1.5 w-1.5 shrink-0 rounded-full',
+                instance.status === 'active' && !agentOffline(instance, quota)
+                  ? STATUS_DOT.online
+                  : STATUS_DOT.off,
+              )}
+            />
+            <span className="truncate">
+              {instance.status === 'active'
+                ? agentRunsOn(instance, thisComputer, quota)
+                : t('Disabled')}
+            </span>
           </span>
         </span>
       </span>
@@ -142,7 +147,7 @@ export function AgentUsageRow({
       </span>
       <span
         className={clsx(
-          'text-right font-mono text-[11px]',
+          'text-right text-[11px] tabular-nums',
           hours > 0 ? 'text-error' : 'text-tertiary',
         )}
       >

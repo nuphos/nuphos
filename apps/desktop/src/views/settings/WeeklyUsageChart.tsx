@@ -210,13 +210,18 @@ export function WeeklyUsageChart({
               fill="rgb(var(--color-background-surface))"
               stroke={pace.kind === 'usedUp' ? LIMIT : ACCENT}
               strokeWidth={1.5}
-              label={{
-                value: `${String(used)}%`,
-                position: 'left',
-                fill: 'rgb(var(--color-text-primary))',
-                fontSize: 10,
-                offset: 8,
-              }}
+              // Used up, the heading says so and the label would sit on the limit line.
+              label={
+                pace.kind === 'usedUp'
+                  ? undefined
+                  : {
+                      value: `${String(used)}%`,
+                      position: 'left',
+                      fill: 'rgb(var(--color-text-primary))',
+                      fontSize: 10,
+                      offset: 8,
+                    }
+              }
             />
             {pace.kind === 'runsOut' && (
               <ReferenceDot
