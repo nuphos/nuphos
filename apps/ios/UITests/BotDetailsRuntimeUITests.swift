@@ -84,19 +84,20 @@ final class BotDetailsRuntimeUITests: XCTestCase {
         shot("bot-details-ios-member-model")
     }
 
-    /// A Bot whose own read is slow still shows what it runs, and its model once the read lands.
+    /// A Bot whose own read is slow still shows what it runs and its model while that read is on its way.
     func testRuntimeShowsWhileBotLoads() throws {
-        let app = try launch(owner: true) { $0["delayMs"] = 8000 }
+        let app = try launch(owner: true) { $0["delayMs"] = 15000 }
         openDetails(app)
         let labels = app.descendants(matching: .any).matching(identifier: "bot-details-runtime")
             .allElementsBoundByIndex.map(\.label).joined(separator: " ")
         XCTAssertFalse(labels.contains("Choose runtime"), "The runtime read as unset: \(labels)")
         XCTAssertTrue(labels.contains("Preview Box"), "The Bot's runtime is missing: \(labels)")
-        shot("bot-details-ios-loading")
         let model = app.buttons["bot-details-model"]
         let picked = XCTNSPredicateExpectation(predicate: NSPredicate(format: "label CONTAINS 'Sonnet'"), object: model)
-        XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 30), .completed, "The Bot's model never showed: \(model.label)")
-        XCTAssertTrue(app.buttons["bot-details-runtime"].exists, "The owner cannot move the Bot once it has loaded")
+        XCTAssertEqual(XCTWaiter().wait(for: [picked], timeout: 6), .completed, "The Bot's model did not show while it loads: \(model.label)")
+        XCTAssertFalse(app.buttons["bot-details-runtime"].exists, "The Bot's read landed before the check")
+        shot("bot-details-ios-loading")
+        XCTAssertTrue(app.buttons["bot-details-runtime"].waitForExistence(timeout: 30), "The owner cannot move the Bot once it has loaded")
         shot("bot-details-ios-loaded")
     }
 
