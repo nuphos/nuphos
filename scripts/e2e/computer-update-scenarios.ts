@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { backendLines, backendLog } from './backend-log.ts'
 import { forgetComputer } from './computer-scenarios.ts'
-import { laptopOnline } from './laptop-fixture.ts'
+import { LAPTOP, laptopOnline } from './laptop-fixture.ts'
 import { artifacts, until } from './processes.ts'
 import { startSecondComputer } from './second-computer.ts'
 import { openComputers } from './ui.ts'
@@ -29,6 +29,41 @@ async function settingsSwitch(page: Page, label: string) {
 const NO_PUBLIC_URL = 'no public URL for a computer from Nuphos to reach'
 
 export const computerUpdateScenarios: Scenario[] = [
+  {
+    // #5082: Desktop before 0.137.0 does not know Cursor and refused it as an invalid instance.
+    name: 'adding an agent a computer is too old for says to update it, and asks the computer nothing',
+    // The backend refuses the addition on purpose.
+    expected: /"status":409,"error_code":"runtime_outdated"/u,
+    run: async (page, stack) => {
+      const heard: string[] = []
+      const goOffline = await laptopOnline(stack, {
+        client: 'nuphos-desktop/0.136.0',
+        app: { version: '0.136.0' },
+        agentInstances: true,
+        heard,
+      })
+
+      try {
+        await openComputers(page)
+        await page.getByRole('button', { name: `New runtime on ${LAPTOP}` }).click()
+        await page.getByRole('menuitem', { name: /^Cursor/ }).click()
+        await page.getByRole('button', { name: 'Continue' }).click()
+        await page
+          .getByRole('region', { name: 'Notifications' })
+          .getByText(
+            'Nuphos on this computer is too old to add Cursor. Update it there, then try again.',
+          )
+          .waitFor()
+        await page.screenshot({ path: join(artifacts, 'add-cursor-too-old.png') })
+        if (heard.some((message) => message.includes('create') && message.includes('cursor')))
+          throw new Error('The computer was asked to add Cursor')
+        await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+        await page.getByText('Back to app', { exact: true }).click()
+      } finally {
+        goOffline()
+      }
+    },
+  },
   {
     // The switch is the computer's: its host keeps it in auto-update.json, and the card shows
     // what the computer reports, not what the dialog last sent.
