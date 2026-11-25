@@ -47,6 +47,7 @@ export const computerUpdateScenarios: Scenario[] = [
         await page.getByRole('menuitem', { name: /^Cursor/ }).click()
         await page.getByRole('button', { name: 'Continue' }).click()
         await page
+          .getByRole('region', { name: 'Notifications' })
           .getByText(
             'Nuphos on this computer is too old to add Cursor. Update it there, then try again.',
           )
