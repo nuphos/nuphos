@@ -124,7 +124,7 @@ export function boxToolModule(
           if (!account || !accounts.some((a) => a.id === account))
             throw new Error(
               accounts.length === 0
-                ? 'No instabox account is available here: a team administrator binds one under Settings → Integrations, and the conversation must not have deselected it.'
+                ? 'No instabox account is available here: a team administrator binds one under Settings → Connectors, and the conversation must not have deselected it.'
                 : 'Pass an accountId from list_boxes: this conversation may use several instabox accounts.',
             )
           if ((await deviceAccessDeps.role(ctx.userId, ctx.teamId)) !== 'ADMINISTRATOR')

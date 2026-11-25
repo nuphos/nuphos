@@ -19,7 +19,7 @@ describe('assertClaudeCodeSetupConfigured', () => {
     expect(() => assertClaudeCodeSetupConfigured(true)).not.toThrow()
   })
 
-  test('returns an actionable product error when no agent is set up', () => {
+  test('returns an actionable product error when no runtime is set up', () => {
     try {
       assertClaudeCodeSetupConfigured(false)
       throw new Error('expected setup to be refused')
@@ -28,7 +28,7 @@ describe('assertClaudeCodeSetupConfigured', () => {
 
       expect(appError.status).toBe(409)
       expect(appError.code).toBe('claude_code_setup_required')
-      expect(appError.message).toContain('add an agent')
+      expect(appError.message).toContain('add a runtime')
       expect(appError.message).toContain('Runtimes page')
     }
   })

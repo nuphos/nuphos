@@ -81,10 +81,10 @@ describe('Discord channel management command admission', () => {
     const member = dependencies({ findMembership: async () => ({ role: 'MEMBER' }) })
 
     expect(await handleDiscordChannelCommand(interaction('enable'), unlinked.value)).toContain(
-      'workspace administrator',
+      'team administrator',
     )
     expect(await handleDiscordChannelCommand(interaction('disable'), member.value)).toContain(
-      'workspace administrator',
+      'team administrator',
     )
     expect(unlinked.calls).toEqual({ enabled: [], disabled: [] })
     expect(member.calls).toEqual({ enabled: [], disabled: [] })
