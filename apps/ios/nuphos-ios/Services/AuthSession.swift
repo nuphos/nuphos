@@ -50,6 +50,9 @@ final class AuthSession {
         return SavedAccounts()
     }()
     private(set) var generation = 0
+    /// Home was painted from the cache but the launch check could not reach
+    /// Nuphos, so the token is still unchecked. RootView checks again on return.
+    private(set) var unverified = false
     private(set) var accountError: String?
     private(set) var addingAccount = false
     private var returnAccountID: String?
@@ -141,6 +144,7 @@ final class AuthSession {
 
         let expected = generation
         token = saved
+        unverified = false
         if let cached = LaunchCache.read(LaunchCache.User.self), cached.aiConsentVersion == AccountAPI.aiConsentVersion,
            account == nil || cached.user.id == account?.user.id {
             aiConsentAccepted = true
@@ -168,7 +172,8 @@ final class AuthSession {
             state = .signedOut(error: String(localized: "This account's session expired. Sign in again."))
         } catch {
             // Offline: a Home painted from the cache stays, as a chat app's does.
-            guard generation == expected, token == saved, self.user == nil else { return }
+            guard generation == expected, token == saved else { return }
+            if self.user != nil { unverified = true; return }
             token = nil
             state = .signedOut(error: String(localized: "We could not reach Nuphos. Check your connection and try again."))
         }
@@ -314,6 +319,7 @@ final class AuthSession {
         SharedShareSession.revoke()
         PushNotifications.shared.invalidateRouting()
         generation += 1
+        unverified = false
         webSession?.cancel()
         webSession = nil
         let previous = pushCleanup

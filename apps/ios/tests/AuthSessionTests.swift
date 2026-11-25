@@ -304,6 +304,12 @@ import Foundation
         precondition(session.user?.id == "u-alice", "going offline must not sign a cached account out")
         precondition(session.token == "alice")
         precondition(LaunchCache.user != nil, "going offline must keep the cache")
+        // Back in the app, the unchecked token is checked again and a rejection signs out.
+        precondition(session.unverified, "an offline launch must leave the token to check again")
+        NuphosAPI.me = { _ in throw NuphosAPI.Failure.unauthorized }
+        await session.restore()
+        precondition(session.state == .signedOut(error: "This account's session expired. Sign in again."))
+        precondition(!session.unverified)
     }
 
     private static func aRejectedSavedAccountSignsOut() async {
