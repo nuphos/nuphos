@@ -80,8 +80,22 @@ test('the row shows the busiest window used now and no hours at a limit', async 
   assert.match(text, /–$/u)
 })
 
+test('a window just short of its limit is not shown as used up', async () => {
+  const nearly = {
+    ...quota,
+    windows: [{ id: 'seven_day', label: 'Weekly', usedPercent: 99.6, resetsAt: null }],
+  }
+  const { text } = await row(nearly)
+
+  assert.match(text, /99%/u)
+  assert.doesNotMatch(text, /Limit/u)
+})
+
 test('a used-up window reads Limit, and hours at a limit add up', async () => {
-  const usedUp = { ...quota, windows: [{ ...quota.windows[1]!, usedPercent: 100 }] }
+  const usedUp = {
+    ...quota,
+    windows: [{ id: 'seven_day', label: 'Weekly', usedPercent: 100, resetsAt: null }],
+  }
   const { text, fill } = await row(usedUp, hours([60, 100, 100, 80, 100]))
 
   assert.equal(fill, '100%')

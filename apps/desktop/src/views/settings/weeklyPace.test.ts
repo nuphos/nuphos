@@ -32,8 +32,10 @@ test('the weekly window is the one the chart draws', () => {
     windows: [{ id: 'five_hour', label: '5-hour', usedPercent: 90, resetsAt }, weekly(40)],
   } as RuntimeQuota
 
-  assert.equal(weeklyWindow(quota)?.id, 'seven_day')
-  assert.equal(weeklyWindow({ ...quota, available: false }), null)
+  assert.equal(weeklyWindow(quota, now)?.id, 'seven_day')
+  assert.equal(weeklyWindow({ ...quota, available: false }, now), null)
+  // Read before a reset that has since passed: that week is over.
+  assert.equal(weeklyWindow(quota, Date.parse(resetsAt) + 1), null)
 })
 
 test('a pace that spends the rest before the reset says when it runs out', () => {

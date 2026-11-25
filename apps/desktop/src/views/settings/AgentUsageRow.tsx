@@ -42,8 +42,9 @@ function PlanUsed({ quota }: { quota: RuntimeQuota | undefined }) {
 
   if (!worst)
     return <span className="truncate text-[11px] text-tertiary">{quotaNote(quota) ?? '—'}</span>
-  const used = Math.min(100, Math.round(worst.usedPercent))
-  const atLimit = used >= 100
+  // Rounded down, so only a used-up window reads Limit.
+  const atLimit = worst.usedPercent >= 100
+  const used = atLimit ? 100 : Math.floor(worst.usedPercent)
   const now = new Date()
 
   return (

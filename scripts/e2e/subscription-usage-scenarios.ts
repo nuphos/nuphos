@@ -4,7 +4,6 @@ import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { resolve } from 'node:path'
 
-import { me } from './box-scenarios.ts'
 import { computerWithUsage } from './channel-helpers.ts'
 import { rest } from './leave-helpers.ts'
 import { artifacts } from './processes.ts'
@@ -98,7 +97,6 @@ export const subscriptionUsageScenarios: Scenario[] = [
   {
     name: 'Subscription usage charts the selected runtime’s week in each pace state, wide and narrow',
     run: async (page, stack) => {
-      const userId = await me(stack)
       const now = Date.now()
       const at = (hoursAgo: number) => new Date(now - hoursAgo * HOUR).toISOString()
       const computers = states.map((state) => ({
@@ -106,7 +104,6 @@ export const subscriptionUsageScenarios: Scenario[] = [
         label: `E2E usage ${state.name}`,
         deviceId: randomUUID(),
       }))
-      const runtimeIds = computers.map(({ deviceId }) => `local_${userId}_${deviceId}`)
       const forget = await Promise.all(
         computers.map(({ label, deviceId, used, resetHoursAgo }) =>
           computerWithUsage(stack, label, deviceId, undefined, {
@@ -116,12 +113,20 @@ export const subscriptionUsageScenarios: Scenario[] = [
         ),
       )
       const owner = rest(stack, stack.token)
-      const fallback = (
-        await owner<{ runtimes: { id: string; label: string }[] }>(
-          'GET',
-          `/teams/${stack.teamId}/agent-runtimes`,
-        )
-      ).runtimes.find((runtime) => runtime.label === 'E2E second agent')
+      const { runtimes } = await owner<{ runtimes: { id: string; label: string }[] }>(
+        'GET',
+        `/teams/${stack.teamId}/agent-runtimes`,
+      )
+      const fallback = runtimes.find((runtime) => runtime.label === 'E2E second agent')
+      const runtimeIds = computers.map(({ deviceId }) => {
+        const id = runtimes.find((runtime) => runtime.id.includes(deviceId))?.id
+
+        if (!id) throw new Error(`The computer ${deviceId} is not listed`)
+
+        return id
+      })
+      // A local runtime's id is `local_<owner>_<device>…`.
+      const userId = runtimeIds[0].split('_')[1]
 
       if (!fallback) throw new Error('E2E second agent is not listed')
       seed(stack, runtimeIds, {
@@ -149,6 +154,8 @@ export const subscriptionUsageScenarios: Scenario[] = [
       const strip = page.getByText('At limit, last 7 days', { exact: true })
 
       try {
+        // The page read the history before these readings were written; it keeps it for minutes.
+        await page.reload()
         await page.evaluate(() => {
           document.documentElement.classList.remove('dark')
           document.documentElement.classList.add('light')

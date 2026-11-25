@@ -62,10 +62,10 @@ function AgentUsageTable({
         ])
       : [],
   )
+  const weekly = (i: RuntimeInstance) => history && weeklyWindow(quotas.get(i.id), history.nowMs)
   const charted =
-    instances.find((i) => i.id === selectedId && weeklyWindow(quotas.get(i.id))) ??
-    instances.find((i) => weeklyWindow(quotas.get(i.id)))
-  const window = charted && weeklyWindow(quotas.get(charted.id))
+    instances.find((i) => i.id === selectedId && weekly(i)) ?? instances.find((i) => weekly(i))
+  const window = charted && weekly(charted)
   const fallback = charted && instances.find((i) => i.id === fallbacks?.[charted.id])
 
   return (

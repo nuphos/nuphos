@@ -19,10 +19,18 @@ export type WeeklyPace =
   | { kind: 'tooFew' }
 
 /** The window the chart draws: the plan's weekly one, when the agent reports it. */
-export function weeklyWindow(quota: RuntimeQuota | undefined): RuntimeQuotaWindow | null {
+export function weeklyWindow(
+  quota: RuntimeQuota | undefined,
+  nowMs: number,
+): RuntimeQuotaWindow | null {
   if (!quota?.available) return null
 
-  return quota.windows.find((window) => window.label === 'Weekly' && window.resetsAt) ?? null
+  // A reading whose reset has passed is of a week that is over.
+  return (
+    quota.windows.find(
+      (window) => window.label === 'Weekly' && Date.parse(window.resetsAt ?? '') > nowMs,
+    ) ?? null
+  )
 }
 
 /** Every hour of the last 7 days with that window's highest reading, null where none. */
