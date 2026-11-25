@@ -125,7 +125,7 @@ export async function probeExecutionState(
 export async function cancelConversationRuntime(conversation: AgentConversation): Promise<void> {
   const attachment = liveAttachment(conversation)
 
-  if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
+  if (!attachment || !conversation.teamId) return
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
     purpose: 'control',
   })
