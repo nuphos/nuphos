@@ -32,7 +32,6 @@ function deps(overrides: Partial<VaultComputerDeps> = {}) {
         name: 'Build box',
         publicKey: KEY,
         state: 'pending',
-        computer: true,
         createdAt: '',
       }
     },
@@ -126,7 +125,6 @@ describe('offerComputerKey', () => {
             name: 'Studio Mac',
             publicKey: KEY,
             state: 'pending',
-            computer: true,
             createdAt: '',
           }
         },

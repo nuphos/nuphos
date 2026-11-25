@@ -28,10 +28,10 @@ let token = ''
 let desktop: Desktop | undefined
 let failed = false
 
-const call = async (method: string, path: string, body?: unknown) => {
+const call = async (method: string, path: string, body?: unknown, bearer = token) => {
   const response = await fetch(apiUrl + path, {
     method,
-    headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${bearer}` },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   })
 
@@ -51,6 +51,17 @@ const check = (label: string, pass: boolean) => {
 const holders = async () =>
   ((await ok('GET', '/vault/items')).items as Json[]).find((i) => i.name === 'github-token')
     ?.deviceIds as string[]
+/** Whether `privateKey` opens `item` to VALUE, with the one key wrapped for it. */
+const opens = (item: Json, privateKey: Buffer) =>
+  (item.keys as Json[]).some((k) => {
+    try {
+      const key = unwrap(k.wrapped as string, item.name as string, privateKey)
+
+      return open(key, item.name as string, item.ciphertext as string).toString() === VALUE
+    } catch {
+      return false
+    }
+  })
 const shot = (name: string) => desktop!.page.screenshot({ path: `${artifacts}/${name}.png` })
 
 /** User settings, Vault; `fresh` reloads the window first, as opening the app again would. */
@@ -169,13 +180,8 @@ try {
   await confirm.getByRole('button', { name: 'Save' }).click()
   await until('the share', async () => (await holders()).length === 2)
   const item = (await ok('GET', '/vault/items/github-token')).item as Json
-  const wrapped = (item.keys as Json[]).find((k) => k.deviceId === added.id)!.wrapped as string
-  const key = unwrap(wrapped, 'github-token', studio.privateKey)
 
-  check(
-    'the device it is shared with opens it with its own key',
-    open(key, 'github-token', item.ciphertext as string).toString() === VALUE,
-  )
+  check('the device it is shared with opens it with its own key', opens(item, studio.privateKey))
 
   // At least one device, and leaving one out warns that it may have kept the value.
   await page.getByRole('button', { name: 'Devices', exact: true }).click()
@@ -188,7 +194,7 @@ try {
   await shot('5-unshare-warning')
   await confirm.getByRole('button', { name: 'Save' }).click()
   await until('the unshare', async () => (await holders()).join() === added.id)
-  check('an item may be shared with another computer alone', true)
+  check('an item may be shared with another computer alone', (await holders()).join() === added.id)
 
   // Its only device stays.
   await page.getByRole('button', { name: 'Remove', exact: true }).nth(1).click()
@@ -196,31 +202,88 @@ try {
   await page.getByText('Could not update the device').first().waitFor()
   await confirm.waitFor({ state: 'hidden' })
   await shot('6-only-device-stays')
-  const refused = await call('DELETE', `/vault/devices/${String(added.id)}`)
+  check(
+    'the only device an item is shared with cannot be removed',
+    (await call('DELETE', `/vault/devices/${String(added.id)}`)).status === 409,
+  )
 
-  check('the only device an item is shared with cannot be removed', refused.status === 409)
+  // An older client's write, without the read it is based on.
+  const { ciphertext, keys } = item
 
-  // Older clients: a write without the read it is based on, and keys sent with an approval.
-  const stale = await call('PUT', '/vault/items/github-token', {
-    ciphertext: item.ciphertext,
-    keys: [{ deviceId: mine, wrapped }],
+  check(
+    'a write that names no earlier read is refused',
+    (await call('PUT', '/vault/items/github-token', { ciphertext, keys })).status === 400,
+  )
+
+  // A computer joined with a device credential reads an item only once it is shared with it.
+  const label = 'Build box'
+  const { token: joinToken } = await ok('POST', '/agent/devices/join-tokens', { label })
+  const joined = await ok('POST', '/auth/devices/join', {
+    token: joinToken,
+    label,
+    platform: 'linux',
   })
+  const build = generateDeviceKey()
+  const asBox = (method: string, path: string, body?: unknown) =>
+    call(method, path, body, String(joined.credential))
+  const publicKey = build.publicKey.toString('base64')
+  const box = (await asBox('POST', '/vault/computer/devices', { publicKey })).body.device as Json
 
-  check('a write that names no earlier read is refused', stale.status === 400)
-  const late = (
-    await ok('POST', '/vault/devices', {
-      name: 'Old laptop',
-      publicKey: generateDeviceKey().publicKey.toString('base64'),
-    })
-  ).device as Json
-
-  await ok('POST', `/vault/devices/${String(late.id)}/approve`, {
-    keys: [{ name: 'github-token', wrapped }],
+  // An older client sends keys with an approval; they are ignored.
+  await ok('POST', `/vault/devices/${String(box.id)}/approve`, {
+    keys: [{ name: 'github-token', wrapped: (keys as Json[])[0]!.wrapped }],
   })
   check('keys sent with an approval are ignored', (await holders()).join() === added.id)
+  const read = () => asBox('GET', `/vault/computer/items/deploy-key?user=${String(joined.userId)}`)
+
   await openVault(true)
-  await page.getByText('Old laptop').first().waitFor()
-  await shot('7-items-and-devices')
+  await page.getByRole('textbox', { name: 'Name' }).fill('deploy-key')
+  await page.getByRole('textbox', { name: 'Value' }).fill(VALUE)
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByText('Saved deploy-key').waitFor()
+  check('a computer cannot read an item not shared with it', (await read()).status === 404)
+  const devicesOf = (name: string) =>
+    page
+      .getByText(name, { exact: true })
+      .locator('xpath=ancestor::div[.//button[normalize-space()="Devices"]][1]')
+      .getByRole('button', { name: 'Devices', exact: true })
+
+  await devicesOf('deploy-key').click()
+  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
+  await confirm.getByRole('button', { name: 'Save' }).click()
+  await confirm.waitFor({ state: 'hidden' })
+  check(
+    'a computer reads an item shared with it, with its own key',
+    opens((await read()).body.item as Json, build.privateKey),
+  )
+
+  // A share chosen from an older read is refused, and the dialog stays open to say so.
+  await devicesOf('deploy-key').click()
+  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
+  const current = (await ok('GET', '/vault/items/deploy-key')).item as Json
+
+  await ok('PUT', '/vault/items/deploy-key', {
+    ciphertext: current.ciphertext,
+    keys: current.keys,
+    updatedAt: current.updatedAt,
+  })
+  await confirm.getByRole('button', { name: 'Save' }).click()
+  await confirm.getByText('The item changed since it was read').waitFor()
+  await shot('7-stale-share-refused')
+  check('a share based on an older read is refused', (await read()).status === 200)
+  await confirm.getByRole('button', { name: 'Cancel' }).click()
+
+  // Read again, the unshare goes through and the computer can no longer read it.
+  await openVault(true)
+  await devicesOf('deploy-key').click()
+  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
+  await confirm.getByRole('button', { name: 'Save' }).click()
+  await confirm.waitFor({ state: 'hidden' })
+  check('a computer cannot read an item after it is unshared', (await read()).status === 404)
+
+  await openVault(true)
+  await page.getByText('Build box').first().waitFor()
+  await shot('8-items-and-devices')
 } catch (error) {
   failed = true
   console.error(error)
