@@ -551,7 +551,7 @@ async fn handle_permission_request(
         return false;
     }
 
-    let Some(request_id) = message.id else {
+    let Some(request_id) = message.id.clone() else {
         warn!("agent emitted session/request_permission without an id; ignoring invalid request");
         return true;
     };
@@ -580,7 +580,7 @@ fn is_current_prompt_activity(message: &JsonRpcMessage, request_id: u64, session
     if message.method.as_deref() == Some("session/request_permission") {
         return is_permission_for_session(message, session_id);
     }
-    if message.id == Some(request_id) {
+    if message.id.as_ref().and_then(serde_json::Value::as_u64) == Some(request_id) {
         return true;
     }
 
@@ -1332,8 +1332,8 @@ impl AdapterRouter {
                         if handled_permission {
                             continue;
                         }
-                        if let Some(notification_id) = notification.id {
-                            if notification_id != request_id {
+                        if let Some(notification_id) = &notification.id {
+                            if notification_id.as_u64() != Some(request_id) {
                                 // Stale response from a previously-abandoned prompt.
                                 // No automated test seam: this path only triggers when a
                                 // real subprocess emits a late response after the broker

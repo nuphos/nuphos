@@ -483,7 +483,7 @@ pub struct PermissionResponder {
 }
 
 impl PermissionResponder {
-    pub async fn respond(&self, request_id: u64, outcome: Value) -> Result<()> {
+    pub async fn respond(&self, request_id: Value, outcome: Value) -> Result<()> {
         let reply = JsonRpcResponse::new(request_id, outcome);
         let data = serde_json::to_string(&reply)?;
         let mut stdin = self.stdin.lock().await;
@@ -615,7 +615,7 @@ pub(crate) async fn run_reader_loop_with_state<R>(
         // "(no response)" and leaving the agent blocked forever on an answer
         // that never comes.
         if msg.method.is_none() {
-            if let Some(id) = msg.id {
+            if let Some(id) = msg.id.as_ref().and_then(Value::as_u64) {
                 let mut map = pending.lock().await;
                 if let Some(tx) = map.remove(&id) {
                     // Forward to subscriber so they see the completion
@@ -623,7 +623,7 @@ pub(crate) async fn run_reader_loop_with_state<R>(
                         // Clone the essential fields for the subscriber
                         let _ = ntx
                             .send(JsonRpcMessage {
-                                id: Some(id),
+                                id: Some(id.into()),
                                 method: None,
                                 result: msg.result.clone(),
                                 error: msg.error.clone(),
@@ -646,7 +646,7 @@ pub(crate) async fn run_reader_loop_with_state<R>(
         // dropped there, leaving the agent to wait out the inactivity timeout in silence.
         // Refused at once, the agent carries on without it.
         if let (Some(id), Some(method), Some(stdin)) =
-            (msg.id, msg.method.as_deref(), stdin.clone())
+            (msg.id.clone(), msg.method.as_deref(), stdin.clone())
         {
             if method != "session/request_permission" {
                 let refusal = json!({
@@ -1994,7 +1994,7 @@ mod reader_loop_tests {
                 .await
                 .expect("permission request must not be consumed by the broker")
                 .expect("subscriber must remain connected");
-        assert_eq!(forwarded.id, Some(41));
+        assert_eq!(forwarded.id, Some(41.into()));
         assert_eq!(
             forwarded.method.as_deref(),
             Some("session/request_permission")
@@ -2162,8 +2162,52 @@ mod reader_loop_tests {
             .await
             .expect("subscriber should receive stale message before timeout")
             .expect("subscriber channel should not be closed");
-        assert_eq!(forwarded.id, Some(42));
+        assert_eq!(forwarded.id, Some(42.into()));
         assert!(pending.lock().await.is_empty());
+
+        drop(agent_stdout_writer);
+        handle.await.unwrap();
+    }
+
+    /// JSON-RPC lets an agent pick string ids for its own requests, and Antigravity does
+    /// for `session/request_permission`. Such a request must reach the subscriber (which
+    /// answers it with the same id), not vanish as an unparsable line and leave the
+    /// agent waiting for an answer until the inactivity timeout.
+    #[tokio::test]
+    async fn agent_request_with_a_string_id_is_forwarded() {
+        let (mut agent_stdout_writer, agent_stdout_reader) = duplex(8 * 1024);
+        let pending: Arc<Mutex<HashMap<u64, oneshot::Sender<JsonRpcMessage>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let notify_tx: Arc<Mutex<Option<mpsc::Sender<JsonRpcMessage>>>> =
+            Arc::new(Mutex::new(None));
+        let (sub_tx, mut sub_rx) = mpsc::channel(ACP_NOTIFICATION_CAPACITY);
+        *notify_tx.lock().await = Some(sub_tx);
+
+        let handle = tokio::spawn(run_reader_loop(
+            agent_stdout_reader,
+            pending.clone(),
+            notify_tx.clone(),
+            Arc::new(Mutex::new(None)),
+        ));
+
+        let request = json!({
+            "jsonrpc": "2.0",
+            "id": "front:3",
+            "method": "session/request_permission",
+            "params": {"sessionId": "s1", "options": [{"optionId": "allow", "kind": "allow_once"}]},
+        });
+        agent_stdout_writer
+            .write_all(format!("{request}\n").as_bytes())
+            .await
+            .unwrap();
+        agent_stdout_writer.flush().await.unwrap();
+
+        let forwarded = tokio::time::timeout(std::time::Duration::from_secs(2), sub_rx.recv())
+            .await
+            .expect("the permission request should reach the subscriber")
+            .expect("subscriber channel should not be closed");
+        assert_eq!(json!(forwarded.id), json!("front:3"));
+        assert_eq!(forwarded.method.as_deref(), Some("session/request_permission"));
 
         drop(agent_stdout_writer);
         handle.await.unwrap();
@@ -2202,13 +2246,13 @@ mod reader_loop_tests {
             .await
             .expect("oneshot should resolve")
             .expect("oneshot should not be cancelled");
-        assert_eq!(resolved.id, Some(7));
+        assert_eq!(resolved.id, Some(7.into()));
 
         let forwarded = tokio::time::timeout(std::time::Duration::from_secs(2), sub_rx.recv())
             .await
             .expect("subscriber should receive forwarded copy")
             .expect("subscriber channel should not be closed");
-        assert_eq!(forwarded.id, Some(7));
+        assert_eq!(forwarded.id, Some(7.into()));
         assert!(pending.lock().await.is_empty());
 
         drop(agent_stdout_writer);
@@ -2372,7 +2416,7 @@ mod reader_loop_tests {
         let activity = SessionActivity::new();
         activity.note_stderr("Error: ENOSPC: no space left on device, mkdir '/home/node/x'");
         let bare = JsonRpcMessage {
-            id: Some(7),
+            id: Some(7.into()),
             method: None,
             result: None,
             error: Some(crate::acp::protocol::JsonRpcError {
@@ -2394,7 +2438,7 @@ mod reader_loop_tests {
         let activity = SessionActivity::new();
         activity.note_stderr("unrelated noise");
         let error = |code, data| JsonRpcMessage {
-            id: Some(7),
+            id: Some(7.into()),
             method: None,
             result: None,
             error: Some(crate::acp::protocol::JsonRpcError {
