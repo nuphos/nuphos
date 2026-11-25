@@ -262,6 +262,19 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Other…"].exists, "A plan is answered in words")
     }
 
+    /// The keyboard's return key sends an answer in words, as the arrow beside it does.
+    func testTheReturnKeySendsAnAnswerInWords() throws {
+        app = launch(page: "agent")
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+        openQuestion("Roll out 1.4 to production?")
+        XCTAssertTrue(app.buttons["Other…"].waitForExistence(timeout: 10), "No Other…")
+        app.buttons["Other…"].tap()
+        let words = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not open a text box")
+        words.typeText("Ship after the freeze\n")
+        XCTAssertEqual(try answerBody(session: "agent-ops", request: "q-deploy")["text"] as? String, "Ship after the freeze")
+    }
+
     /// In a Bot's chat too, "Other…" asks for the answer in the card, not in the chat's composer.
     func testOtherAnswersInWordsInABotChat() throws {
         let ask = { (row: [String: Any]) in (row["inputRequests"] as? [[String: Any]])?.first ?? [:] }
