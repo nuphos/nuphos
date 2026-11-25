@@ -95,7 +95,7 @@ async fn a_codex_session_is_restored_after_its_agent_is_dropped() {
                 // The turn ends with the id-bearing response (here an error: the key is rejected).
                 tokio::time::timeout(Duration::from_secs(90), async {
                     while let Some(msg) = rx.recv().await {
-                        if msg.id == Some(request_id) {
+                        if msg.id == Some(request_id.into()) {
                             return;
                         }
                     }
