@@ -283,7 +283,10 @@ final class AgentStore {
     }
 
     /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
-    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
+    /// A pinned row sits in the pin shelf instead, as on Desktop; a search hides the shelf, so it lists them all.
+    var nestedBots: [NestedConversation] {
+        ConversationNesting.nest(search.isEmpty ? botsList.filter { !isPinned($0) } : botsList)
+    }
 
     func isFolded(_ sessionId: String) -> Bool {
         foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
