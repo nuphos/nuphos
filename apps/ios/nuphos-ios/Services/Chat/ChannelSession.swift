@@ -24,8 +24,13 @@ final class ChannelSession {
     private(set) var readOnly = false
     /// Posts shown at once, until the chat returns them under the same id.
     private(set) var sending: [ChannelPost] = []
-    /// What a sending post attached, drawn from the device until it is posted.
-    private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
+    /// What a sending post attached, drawn from the device until it is posted,
+    /// and how far it has uploaded.
+    private(set) var sendingUploads: [String: SendingUpload] = [:]
+    struct SendingUpload {
+        let attachments: [ComposerAttachment]
+        let progress = Progress()
+    }
     /// Each posted file group's files, read once its post shows, so the chat
     /// shows without waiting on them; a card drawn before then reads its own (#3525).
     private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
@@ -158,7 +163,7 @@ final class ChannelSession {
     private func apply(_ detail: AgentConversationDetail, agents listed: [ChannelAgent]) {
         stored = detail.messages.compactMap(ChannelPost.init)
         sending = ChannelPost.stillSending(stored: stored, sending: sending)
-        sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
+        sendingUploads = sendingUploads.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
@@ -234,16 +239,17 @@ final class ChannelSession {
         sending.append(ChannelPost(
             id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
             text: text, sentAt: .now, replyTo: reply, sending: true))
-        if !submission.attachments.isEmpty { sendingAttachments[id] = submission.attachments }
+        let upload = submission.attachments.isEmpty ? nil : SendingUpload(attachments: submission.attachments)
+        sendingUploads[id] = upload
         lastSubmittedRowID = "post.\(id)"
         Task {
             do {
                 var body: [String: JSONValue] = ["text": .string(text), "id": .string(id)]
                 if let replyId = reply?.id { body["replyTo"] = .string(replyId) }
-                if !submission.attachments.isEmpty {
-                    let upload = try await WorkspaceAPI.upload(
-                        token: token, team: teamId, attachments: submission.attachments, progress: Progress())
-                    body["upload"] = .string(upload.groupId)
+                if let upload {
+                    let group = try await WorkspaceAPI.upload(
+                        token: token, team: teamId, attachments: upload.attachments, progress: upload.progress)
+                    body["upload"] = .string(group.groupId)
                 }
                 _ = try await AgentChatAPI.send(
                     "POST", "agent/conversations/\(channelId)/channel-messages",
@@ -252,7 +258,7 @@ final class ChannelSession {
                 await refresh(force: true)
             } catch {
                 sending.removeAll { $0.id == id }
-                sendingAttachments[id] = nil
+                sendingUploads[id] = nil
                 sendError = error.localizedDescription
                 unsent = submission
                 replying = reply

@@ -2,7 +2,7 @@
 // its output streams on a run clients can attach to and lands in the transcript.
 import '@/routes/agent'
 
-import { afterEach, beforeEach, expect, spyOn, test } from 'bun:test'
+import { afterEach, beforeEach, expect, mock, spyOn, test } from 'bun:test'
 
 import { getLocalActiveAgentRun } from '@/lib/agent/run-admission'
 import { localRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
@@ -546,6 +546,20 @@ test('shutdown hands on a force-paused turn still running here, and closes its c
     ownerUserId: 'owner',
     actorUserId: 'actor',
   })
+})
+
+test('shutdown lets go of an idle session too, so a transport it loses later reaches no observer', async () => {
+  // Nothing hands an idle session on. Were it still observed, a computer that
+  // leaves another draining replica after storage closed would run its reattach
+  // against a closed database (#4866).
+  const closed = hold('idle', Promise.resolve({ ...snapshot, state: 'idle', phase: 'idle' }))
+  const stopObserving = mock(() => {})
+
+  sessionsByConversation.get('team:idle')!.stopObserving = stopObserving
+
+  expect(await publishRuntimeHandoffs()).toBe(0)
+  expect(stopObserving).toHaveBeenCalledTimes(1)
+  expect(closed).toEqual(['idle'])
 })
 
 test('a runtime that never answers does not hold up shutdown', async () => {

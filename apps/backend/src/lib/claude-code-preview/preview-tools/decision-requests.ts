@@ -2,6 +2,7 @@
 // the questions it asked while they are still open in the user's Inbox.
 import { channelIdOf } from '@/lib/agent/channel-wake'
 import { agentConversations, agentMessages, getConversationBySessionId } from '@/lib/agent/db'
+import { SLACK_CHANNEL_SENDER_PREFIX } from '@/lib/agent/db/channel-notes'
 import { conversationParticipantIds } from '@/lib/agent/db/participants'
 import {
   listOpenInputRequests,
@@ -168,11 +169,12 @@ export async function aboutRefs(
 }
 
 /**
- * The channel a question is asked in: the one whose post woke the turn that
- * asks it, read from that turn's wake notice. Any other turn (a sub-agent's
- * report, a Trigger, an answer) asks in the Bot's chat with its owner, where
- * they talk to it, when it has exactly one open. Otherwise none is guessed,
- * nor for the questions a card answers by itself.
+ * The channel a question is asked in: the Nuphos channel whose post woke the
+ * turn that asks it, read from that turn's wake notice. Any other turn (a
+ * sub-agent's report, a Trigger, an answer, a Slack post) asks in the Bot's
+ * chat with its owner, where they talk to it, when it has exactly one open.
+ * Otherwise none is guessed, nor for the questions a card answers by itself.
+ * A Slack channel is never one: its members may be people outside the team.
  */
 async function askedInChannel(
   ctx: PreviewToolContext,
@@ -185,9 +187,11 @@ async function askedInChannel(
     { sort: { index: -1 }, projection: { metadata: 1 } },
   )
   const metadata = parseMessageMetadata(latest?.metadata)
-  const channelId =
-    (metadata && channelIdOf({ source: metadata.source, metadata })) ??
-    (await botChat(ctx.sessionId, owner))
+  const woke =
+    metadata && !metadata.sender.id.startsWith(SLACK_CHANNEL_SENDER_PREFIX)
+      ? channelIdOf({ source: metadata.source, metadata })
+      : undefined
+  const channelId = woke ?? (await botChat(ctx.sessionId, owner))
 
   return channelId ? { channelId } : {}
 }
@@ -234,6 +238,7 @@ async function botChat(botId: string, owner: string): Promise<string | undefined
           userId: owner,
           kind: 'channel',
           agentSessionIds: [botId],
+          external: { $exists: false },
           archivedAt: { $exists: false },
         },
         { projection: { sessionId: 1, userId: 1, participantIds: 1 } },
