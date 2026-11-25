@@ -370,7 +370,7 @@ struct ChannelView: View {
             case .post(let post, let first):
                 // A Bot's 1:1 chat names nobody: the header already says who answers.
                 ChannelPostRow(post: post, first: first && post.senderId != channel.botId, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                               upload: channel.sendingUploads[post.id], channel: channel,
                                onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
@@ -506,7 +506,8 @@ private struct ChannelPostRow: View {
     let post: ChannelPost
     let first: Bool
     let mine: Bool
-    let attachments: [ComposerAttachment]
+    /// A post still on its way: its files from the device, and how far they have uploaded.
+    let upload: ChannelSession.SendingUpload?
     /// The chat: its file groups read so far, and fresh links for them. Read
     /// here, not passed in, so a group read after the row was drawn shows.
     let channel: ChannelSession
@@ -542,8 +543,9 @@ private struct ChannelPostRow: View {
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
                                  files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
-                if !attachments.isEmpty { localAttachments }
+                if let upload { localAttachments(upload.attachments) }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
+                if let upload { UploadProgressLabel(progress: upload.progress) }
                 if !downloads.isEmpty {
                     TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
@@ -630,7 +632,7 @@ private struct ChannelPostRow: View {
     }
 
     /// The photos and files of a post still on its way, from the device.
-    private var localAttachments: some View {
+    private func localAttachments(_ attachments: [ComposerAttachment]) -> some View {
         HStack(spacing: 6) {
             ForEach(attachments.prefix(4)) { attachment in
                 AttachmentPreview(attachment: attachment)
