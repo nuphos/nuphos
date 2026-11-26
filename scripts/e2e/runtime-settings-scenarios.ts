@@ -115,9 +115,12 @@ export const runtimeSettingsScenarios: Scenario[] = [
         await page.getByText('The API key was not accepted.').first().waitFor()
         await shot(page, 'runtime-settings-2-key-rejected')
         await signIn('sk-e2e-accepted-000000000000000')
-        await dialog.getByText(/Codex is connected/).waitFor({ timeout: 60_000 })
+        // Signed in, the card drops its sign-in row, and the dialog with it.
+        await card
+          .getByRole('button', { name: 'Sign in with Codex' })
+          .waitFor({ state: 'detached', timeout: 60_000 })
+        await card.getByText('Sign in required').waitFor({ state: 'detached' })
         await shot(page, 'runtime-settings-3-key-accepted')
-        await dialog.getByRole('button', { name: 'Done' }).click()
 
         // The custom provider: the URL rule as it is typed.
         await card.getByRole('button', { name: 'Set up', exact: true }).click()
