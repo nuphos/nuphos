@@ -36,8 +36,8 @@ function CopyButton({ text, label }: { text: string; label: string }) {
 
 export function Bar() {
   return (
-    <div className="mt-2 h-1 overflow-hidden rounded-full bg-state-selected" aria-hidden>
-      <div className="setup-bar h-full w-1/3 rounded-full bg-main/70" />
+    <div className="mt-2 h-0.5 overflow-hidden rounded-full bg-state-selected" aria-hidden>
+      <div className="setup-bar h-full w-1/3 rounded-full" />
     </div>
   )
 }
@@ -104,7 +104,7 @@ export function InstallFailed({ instance, error }: { instance: RuntimeInstance; 
       </p>
       {command && (
         <div className="flex items-center gap-3 rounded-lg border border-line-control bg-state-selected px-3 py-2">
-          <code className="min-w-0 flex-1 break-all font-mono text-xs text-main select-text">
+          <code className="min-w-0 flex-1 break-words font-mono text-xs text-main select-text">
             {command}
           </code>
           <CopyButton text={command} label={t('Copy install command')} />

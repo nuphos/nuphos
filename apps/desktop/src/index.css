@@ -2394,6 +2394,7 @@ html.light {
   }
 }
 .setup-bar {
+  background: linear-gradient(90deg, transparent, rgb(var(--color-text-base)), transparent);
   animation: setup-bar 1.4s ease-in-out infinite;
 }
 @media (prefers-reduced-motion: reduce) {
