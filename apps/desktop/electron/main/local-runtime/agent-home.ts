@@ -13,7 +13,8 @@ import {
 import os from 'node:os'
 import path from 'node:path'
 
-import { applyCodexProvider, claudeProviderSettings } from './custom-provider.ts'
+import { applyCodexProvider } from './custom-provider-codex.ts'
+import { claudeProviderSettings } from './custom-provider.ts'
 import { linkOwnerFile } from './owner-file-link.ts'
 import { agentHomeName, prepareShimHome } from './providers.ts'
 

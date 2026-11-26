@@ -25,6 +25,7 @@ import {
   submitLocalClaudeLoginCode,
   applyLocalApiKey,
   setLocalCustomProvider,
+  checkLocalCustomProvider,
   userEnv,
 } from './local-runtime/index.ts'
 import { setSleepPreferences } from './local-runtime/sleep-prevention-electron.ts'
@@ -54,6 +55,8 @@ export const deviceChannels = {
     applyLocalApiKey(provider, key),
   'localRuntime:setCustomProvider': (_e: unknown, provider: unknown, value: unknown) =>
     setLocalCustomProvider(provider, value),
+  'localRuntime:checkCustomProvider': (_e: unknown, provider: unknown, value: unknown) =>
+    checkLocalCustomProvider(provider, value),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {

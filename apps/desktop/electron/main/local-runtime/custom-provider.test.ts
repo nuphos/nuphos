@@ -7,8 +7,9 @@ import { test } from 'node:test'
 
 import { prepareClaudeHome, prepareIsolatedAgentHome } from './agent-home.ts'
 import { openabConfigToml, openabEnv } from './config.ts'
+import { codexProviderConfig } from './custom-provider-codex.ts'
 import {
-  codexProviderConfig,
+  checkCustomProvider,
   customProviderLaunch,
   parseCustomProvider,
   readCustomProviders,
@@ -18,6 +19,7 @@ import {
 } from './custom-provider.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
+import type { CustomProviderCheck } from './custom-provider-probe.ts'
 import type { KeyStore } from './custom-provider.ts'
 import type { AddressInfo } from 'node:net'
 
@@ -115,6 +117,77 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
     apiKey: 'sk-claude',
   })
   assert.equal(seen.length, 3)
+})
+
+test('Test connection sends each CLI’s one request and says what it found', async (t) => {
+  const store = memoryStore()
+  const seen: { method?: string; url?: string; key?: string }[] = []
+  const server = createServer((req, res) => {
+    seen.push({ method: req.method, url: req.url, key: req.headers['x-api-key'] as string })
+    if (req.headers.authorization !== 'Bearer sk-good') return res.writeHead(401).end()
+    if (req.url === '/v1/models')
+      return res.writeHead(200).end('{"data":[{"id":"model-a"},{"id":"model-c"}]}')
+    res.writeHead(req.url === '/gw/responses' ? 400 : 404).end()
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => server.close())
+  const { port } = server.address() as AddressInfo
+  const base = `http://127.0.0.1:${port}`
+  const host = `127.0.0.1:${port}`
+  const drop = (check: CustomProviderCheck) => {
+    const { ms, ...rest } = check as CustomProviderCheck & { ms?: number }
+
+    assert.ok((ms ?? 0) >= 0)
+
+    return rest
+  }
+
+  // Claude Code lists its models: two given, one answered.
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'claude-code', {
+        baseUrl: base,
+        apiKey: 'sk-good',
+        models: ['model-a', 'model-b'],
+      }),
+    ),
+    { host, reached: true, models: { answered: 1, total: 2 } },
+  )
+  assert.deepEqual(seen.at(-1), { method: 'GET', url: '/v1/models', key: 'sk-good' })
+  // Codex: the Responses API, the key turned down, the wrong path.
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `${base}/gw`, apiKey: 'sk-good' }),
+    ),
+    { host, reached: true },
+  )
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `${base}/gw`, apiKey: 'sk-bad' }),
+    ),
+    {
+      host,
+      reached: true,
+      failure: { reason: 'key', request: 'POST /responses → 401 Unauthorized' },
+    },
+  )
+  // The stored key stands in for an empty field.
+  await store.set('u1:codex', 'sk-good')
+  assert.deepEqual(drop(await checkCustomProvider(store, 'u1', 'codex', { baseUrl: base })), {
+    host,
+    reached: true,
+    failure: { reason: 'api', request: 'POST /responses → 404 Not Found' },
+  })
+  await assert.rejects(
+    checkCustomProvider(store, 'u1', 'claude-code', { baseUrl: base }),
+    /Enter the API key/u,
+  )
+  server.close()
+  assert.deepEqual(
+    await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `http://127.0.0.1:1/v1` }),
+    { host: '127.0.0.1:1', reached: false },
+  )
 })
 
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {
