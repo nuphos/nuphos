@@ -27,7 +27,13 @@ function deps(overrides: Partial<VaultComputerDeps> = {}) {
     addVaultDevice: async (...args) => {
       calls.added.push(args)
 
-      return { id: 'd1', name: 'Build box', publicKey: KEY, state: 'pending', createdAt: '' }
+      return {
+        id: 'd1',
+        name: 'Build box',
+        publicKey: KEY,
+        state: 'pending',
+        createdAt: '',
+      }
     },
     ...overrides,
   }
@@ -114,7 +120,13 @@ describe('offerComputerKey', () => {
         addVaultDevice: async (...args) => {
           added.push(args)
 
-          return { id: 'd1', name: 'Studio Mac', publicKey: KEY, state: 'pending', createdAt: '' }
+          return {
+            id: 'd1',
+            name: 'Studio Mac',
+            publicKey: KEY,
+            state: 'pending',
+            createdAt: '',
+          }
         },
       },
     )

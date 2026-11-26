@@ -10,6 +10,14 @@ export const vaultChannels = {
   'vault:removeDevice': (_e: unknown, deviceId: string) => vault.removeDevice(deviceId),
   'vault:items': () => vault.items(),
   'vault:get': (_e: unknown, name: string) => vault.getItem(name),
-  'vault:set': (_e: unknown, name: string, value: string) => vault.setItem(name, value),
+  'vault:set': (
+    _e: unknown,
+    name: string,
+    value: string,
+    deviceIds: string[],
+    updatedAt: string | null,
+  ) => vault.setItem(name, value, deviceIds, updatedAt),
+  'vault:share': (_e: unknown, name: string, deviceIds: string[], updatedAt: string) =>
+    vault.shareItem(name, deviceIds, updatedAt),
   'vault:delete': (_e: unknown, name: string) => vault.deleteItem(name),
 }
