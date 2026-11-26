@@ -84,7 +84,7 @@ test('each agent gets only its own provider variables, and only those that are s
 
 test('the values reach openab by name; its config file never holds them', async () => {
   const { deps, started } = hostDeps(bedrock)
-  const options = { provider: 'claude-code', agentHome: '/h' } as OpenabProcessOptions
+  const options = { provider: 'claude-code', agentHome: '/h', env: {} } as OpenabProcessOptions
 
   await deps.createProcess().start(options)
   const toml = openabConfigToml(launch(started[0]))
@@ -118,6 +118,15 @@ test('the host provider stands in for the sign-in, named without its secrets', a
   assert.equal(printed.length, 1)
   assert.match(printed[0] ?? '', /AWS_BEARER_TOKEN_BEDROCK.*\n.*OPENAI_API_KEY/u)
   assert.doesNotMatch(printed[0] ?? '', secrets)
+})
+
+test('an agent signed in with a token shared through the Vault gets none of it', async () => {
+  const { deps, started } = hostDeps(bedrock)
+  const shared = { NUPHOS_VAULT_SOCKET: '/s', NUPHOS_VAULT_KEY: 'k' }
+
+  await deps.createProcess().start({ provider: 'claude-code', env: shared } as OpenabProcessOptions)
+  assert.deepEqual(started, [undefined])
+  assert.deepEqual(await deps.probeCli('claude-code', shared, '/h'), signedOut)
 })
 
 test('Codex gets the endpoint as its provider entry, which goes with the variables', (t) => {
