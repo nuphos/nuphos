@@ -9,8 +9,13 @@ import type { IpcMainInvokeEvent } from 'electron'
 export const agentChannelChannels = {
   'agent:getBotImportStatus': (_e: unknown, target: BotImportTarget, id: string) =>
     agent.getBotImportStatus(target, id),
-  'agent:chooseBotImport': (_e: unknown, target: BotImportTarget, newCopy?: boolean) =>
-    agent.chooseBotImport(target, newCopy),
+  'agent:chooseBotImport': (
+    _e: unknown,
+    target: BotImportTarget,
+    newCopy?: boolean | string,
+    template?: { id: string; version: string },
+  ) => agent.chooseBotImport(target, newCopy, template),
+  'agent:listBotTemplates': () => agent.listBotTemplates(),
   'agent:applyBotImport': (
     _e: unknown,
     target: BotImportTarget,

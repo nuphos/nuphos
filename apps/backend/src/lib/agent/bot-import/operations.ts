@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto'
 
 import { createBot } from '@/lib/agent/bots'
-import { postChannelMessage } from '@/lib/agent/channel-chat'
 import {
   agentConversations,
   getConversationBySessionId,
@@ -19,7 +18,7 @@ import { storeAvatar } from '@/lib/identity/avatar-upload'
 
 import { ImportScheduleFailure } from './batch'
 import { importedFileReferences, importBotFiles } from './files'
-import { greetingPost } from './greeting'
+import { startFirstTurn } from './first-turn'
 import { saveTemplateOrigin } from './template-origin'
 
 import type { BotBundleArchive } from './archive'
@@ -204,17 +203,13 @@ export function importOperations(
           kind: 'channel',
         })
         await addChannelAgent(item.privateChatId, item.sessionId)
-        if (source.greeting) {
-          const chat = await getConversationBySessionId(item.privateChatId)
-
-          // A fixed id: a retried apply finds the greeting already posted.
-          if (chat)
-            await postChannelMessage(
-              chat,
-              greetingPost(item, source.name, batch.agentRuntime, source.greeting, created),
-              item.sessionId,
-            )
-        }
+        if (source.greeting)
+          await startFirstTurn(
+            batch,
+            { ...item, privateChatId: item.privateChatId },
+            { ...source, greeting: source.greeting },
+            created,
+          )
       }
 
       return warnings

@@ -86,6 +86,7 @@ export const appApi = {
     window.api.onAgentChatDeepLink(cb),
   onAppOpenDeepLink: (cb: (payload: AppOpenDeepLinkPayload) => void) =>
     window.api.onAppOpenDeepLink(cb),
+  onBotTemplateDeepLink: (cb: (payload: { id: string; version: string }) => void) => window.api.onBotTemplateDeepLink(cb),
   onConnectAgentDeepLink: (cb: (payload: ConnectAgentLink) => void) =>
     window.api.onConnectAgentDeepLink(cb),
   onConnectorStaleDeepLink: (cb: (payload: { name: string }) => void) =>

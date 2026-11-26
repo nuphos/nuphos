@@ -1,4 +1,4 @@
-import { Plus, Upload } from 'lucide-react'
+import { LayoutTemplate, Plus, Upload } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 
 import { t } from '../../i18n'
@@ -9,6 +9,7 @@ import type { CSSProperties, ReactNode } from 'react'
 
 export function BotStartIntro({
   onCreate,
+  onTemplate,
   onImport,
   visible = true,
   firstBot = false,
@@ -16,6 +17,7 @@ export function BotStartIntro({
   visible?: boolean
   firstBot?: boolean
   onCreate: () => void
+  onTemplate: () => void
   onImport: () => void
 }) {
   const intro = useRef<HTMLElement>(null)
@@ -72,6 +74,10 @@ export function BotStartIntro({
           <Button onClick={onCreate}>
             <Plus className="size-4" strokeWidth={1.8} />
             {t('New Bot')}
+          </Button>
+          <Button variant="secondary" onClick={onTemplate}>
+            <LayoutTemplate className="size-4" strokeWidth={1.8} />
+            {t('Start from a template')}
           </Button>
           <Button variant="secondary" onClick={onImport}>
             <Upload className="size-4" strokeWidth={1.8} />

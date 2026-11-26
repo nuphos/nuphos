@@ -99,7 +99,6 @@ test("the banner says only that the Bot has no computer, under an empty chat's i
       faces: [],
       title: 'Ada',
       bot: true,
-      preparingFirstReply: false,
       firstReplyFailed: false,
       banner: createElement(ChooseAccessBanner),
     }),

@@ -13,6 +13,9 @@ let peek: string | null = null
 // Asks to show a Bot's Access section; the section scrolls itself into view and takes the ask.
 let accessAsks = 0
 let accessAsked = false
+// Asks to show one of a Bot's Triggers; its row opens, scrolls into view and takes the ask.
+let triggerAsks = 0
+let triggerAsked: string | null = null
 
 function saved(): boolean {
   if (open === undefined) {
@@ -86,6 +89,22 @@ export function takeBotAccessAsk(): boolean {
   return asked
 }
 
+/** Opens Bot details at one Trigger, as a chat line naming it does. */
+export function showBotTrigger(bot: string, triggerId: string): void {
+  triggerAsks++
+  triggerAsked = triggerId
+  setBotDetailsOpen(bot, true)
+}
+
+/** The Trigger asked for since the section last looked, if it is one of `ids`. */
+export function takeBotTriggerAsk(ids: string[]): string | null {
+  const asked = triggerAsked && ids.includes(triggerAsked) ? triggerAsked : null
+
+  if (asked) triggerAsked = null
+
+  return asked
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
 
@@ -104,6 +123,14 @@ export function useBotAccessAsks(): number {
   return useSyncExternalStore(
     subscribe,
     () => accessAsks,
+    () => 0,
+  )
+}
+
+export function useBotTriggerAsks(): number {
+  return useSyncExternalStore(
+    subscribe,
+    () => triggerAsks,
     () => 0,
   )
 }

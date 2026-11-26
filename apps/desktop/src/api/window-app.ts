@@ -123,6 +123,7 @@ export type WindowAppApi = {
   openAgentChatSkillsFolder(target: AgentChatSkillTarget): Promise<void>
   onAgentChatDeepLink(cb: (payload: AgentChatDeepLinkPayload) => void): () => void
   onAppOpenDeepLink(cb: (payload: AppOpenDeepLinkPayload) => void): () => void
+  onBotTemplateDeepLink(cb: (payload: { id: string; version: string }) => void): () => void
   onConnectAgentDeepLink(cb: (payload: ConnectAgentLink) => void): () => void
   onConnectorStaleDeepLink(cb: (payload: { name: string }) => void): () => void
   onWebUrlDeepLink(cb: (url: string) => void): () => void

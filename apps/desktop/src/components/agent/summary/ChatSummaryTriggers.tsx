@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
+import { takeBotTriggerAsk, useBotTriggerAsks } from '../../../lib/botDetailsPanel'
 import { nextOccurrencesAfter } from '../../../views/triggers/calendar/occurrences'
 import { viewerTimeZone } from '../../../views/triggers/cronTime'
 import { Switch } from '../../ui/Switch'
@@ -48,7 +49,7 @@ function TriggerRow({
   const next = nextRunLabel(trigger, new Date())
 
   return (
-    <div>
+    <div id={`trigger-row-${trigger.id}`}>
       <div className="flex items-center gap-2">
         {/* The row opens what the Trigger sends; the switch beside it stays a sibling. */}
         <button
@@ -135,6 +136,19 @@ export function ChatSummaryTriggers({
   const mounted = useRef(true)
   const revision = useRef(0)
   const updating = useRef(new Set<string>())
+  const asks = useBotTriggerAsks()
+
+  // A chat line naming a Trigger asked for it, before or after the rows loaded.
+  useEffect(() => {
+    const asked = takeBotTriggerAsk(triggers.map((trigger) => trigger.id))
+
+    if (!asked) return
+    // Not cancelled on cleanup: the ask is already taken, so a rerun would lose it.
+    requestAnimationFrame(() => {
+      setOpenId(asked)
+      document.getElementById(`trigger-row-${asked}`)?.scrollIntoView({ block: 'nearest' })
+    })
+  }, [asks, triggers])
 
   useEffect(() => {
     mounted.current = true
