@@ -268,7 +268,8 @@ export const k8sAppApi = {
     subscribeDeepLink('deep-link:agent-chat', cb),
   onAppOpenDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:app-open', cb),
-  onBotTemplateDeepLink: (cb: (payload: unknown) => void) => subscribeDeepLink('deep-link:bot-template', cb),
+  onBotTemplateDeepLink: (cb: (payload: unknown) => void) =>
+    subscribeDeepLink('deep-link:bot-template', cb),
   onConnectAgentDeepLink: (cb: (payload: unknown) => void) =>
     subscribeDeepLink('deep-link:connect-agent', cb),
   onConnectorStaleDeepLink: (cb: (payload: unknown) => void) =>
