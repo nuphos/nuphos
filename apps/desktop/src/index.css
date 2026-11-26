@@ -2397,8 +2397,19 @@ html.light {
   background: linear-gradient(90deg, transparent, rgb(var(--color-text-base)), transparent);
   animation: setup-bar 1.4s ease-in-out infinite;
 }
+/* Dots that run from the agent's maker to the computer while it downloads. */
+@keyframes setup-route {
+  to {
+    background-position-x: 8px;
+  }
+}
+.setup-route {
+  background: radial-gradient(circle, currentColor 1px, transparent 1.5px) 0 50% / 8px 4px repeat-x;
+  animation: setup-route 0.6s linear infinite;
+}
 @media (prefers-reduced-motion: reduce) {
-  .setup-bar {
+  .setup-bar,
+  .setup-route {
     animation: none;
   }
 }

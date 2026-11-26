@@ -40,6 +40,26 @@ function pendingInstance(agent: DeviceAgentInstance, device: AgentDevice): Runti
   }
 }
 
+/** Where the dialog is: choosing the agent, then installing and signing in. */
+function Stepper({ step }: { step: number }) {
+  return (
+    <ol className="grid grid-cols-2 gap-1.5 px-5 text-xs">
+      {[t('Choose'), t('Install & sign in')].map((name, index) => (
+        <li
+          key={name}
+          aria-current={index === step ? 'step' : undefined}
+          className={index === step ? 'font-medium text-main' : 'text-tertiary'}
+        >
+          <span
+            className={`mb-1.5 block h-0.5 rounded-full ${index <= step ? 'bg-[rgb(var(--color-text-base))]' : 'bg-state-selected'}`}
+          />
+          {name}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 /**
  * A new agent on a Box, in one dialog: its settings, then its sign-in. It exists only once
  * signed in: made pending when the settings are confirmed, and removed again unless the
@@ -136,11 +156,13 @@ export function BoxAgentSetup({
             ? t('Sign in with {account}', { account })
             : t('New {name} runtime', { name: label })
       }
-      description={
-        created
-          ? t('Step 2 of 2 · Sign in · {computer}', { computer: device.label })
-          : t('Step 1 of 2 · Settings · {computer}', { computer: device.label })
+      description={t('{name} · {computer}', { name: label, computer: device.label })}
+      headerLeading={
+        <span className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line-control">
+          <AgentProviderIcon provider={provider} className="h-5 w-5" />
+        </span>
       }
+      headerDivider={ready}
       closeOnBackdrop={false}
       footer={
         ready ? (
@@ -164,6 +186,7 @@ export function BoxAgentSetup({
         )
       }
     >
+      {!ready && <Stepper step={created ? 1 : 0} />}
       {ready ? (
         <div className="flex flex-col items-center gap-2 px-5 py-8 text-center" role="status">
           <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-success text-white">
@@ -193,10 +216,6 @@ export function BoxAgentSetup({
             if (name.trim() && !creating) void create()
           }}
         >
-          <div className="flex items-center gap-2 text-[13px] text-main">
-            <AgentProviderIcon provider={provider} className="h-4 w-4" />
-            {label}
-          </div>
           <Field
             label={t('Name')}
             hint={

@@ -59,13 +59,17 @@ export function Installing({
     <div className="mt-2">
       {install && (
         <div className="flex items-center gap-3 rounded-lg border border-line-control px-3 py-2.5">
-          <AgentProviderIcon provider={instance.provider} className="h-5 w-5 shrink-0" />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line-control">
+            <AgentProviderIcon provider={instance.provider} className="h-4 w-4" />
+          </span>
           <div className="min-w-0">
             <div className="truncate text-[13px] text-main">{name}</div>
             <div className="truncate text-xs text-tertiary">{install.maker}</div>
           </div>
-          <span className="flex-1 border-t border-dashed border-line-control" aria-hidden />
-          <Laptop className="h-5 w-5 shrink-0 text-secondary" />
+          <span className="setup-route h-1 min-w-6 flex-1 text-tertiary" aria-hidden />
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-line-control">
+            <Laptop className="h-4 w-4 text-secondary" />
+          </span>
           <div className="min-w-0 truncate text-[13px] text-main">
             {instance.local?.deviceLabel}
           </div>
