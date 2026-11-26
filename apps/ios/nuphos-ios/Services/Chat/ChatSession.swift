@@ -319,9 +319,10 @@ final class ChatSession {
         backlogFlushTask = nil
     }
 
-    /// A run we aborted, or one we attached to that is over. The conversation
+    /// A run we aborted, or one whose stream ended or is gone. The conversation
     /// can go on naming it as active; neither the idle poll nor a reread
     /// attaches to it again, or each attach would end the same way (#5248).
+    /// A connection that failed says nothing about the run, so it stays followable.
     private var endedStreamId: String?
     /// The server said it owns this transcript (native runtime or Slack);
     /// PUTs are pointless from then on.
@@ -988,8 +989,6 @@ final class ChatSession {
         case follow(String)
         case failed(String)
         case aborted
-
-        var isAborted: Bool { if case .aborted = self { true } else { false } }
     }
 
     private struct Paused {
@@ -1026,7 +1025,7 @@ final class ChatSession {
             while true {
                 let result = await runTurn(options)
                 guard !Task.isCancelled, currentStreamId == options.streamId else { return }
-                if options.explicitResume, !result.isAborted { endedStreamId = options.streamId }
+                if case .completed = result { endedStreamId = options.streamId }
                 switch result {
                 case .aborted:
                     // A cancelled URL request without task cancellation is only a lost subscription.
@@ -1295,6 +1294,7 @@ final class ChatSession {
                     resumeFrom += 1
                     if type == "error" {
                         let code = frame["errorCode"]?.stringValue
+                        if code == "stream_unresumable" { endedStreamId = options.streamId }
                         if code == "stream_unresumable", sawTurnComplete { continue }
                         lastErrorText = frame["errorText"]?.stringValue ?? "The agent hit an error."
                         // A signed-out or out-of-usage agent runtime is not transient:
@@ -1391,6 +1391,7 @@ final class ChatSession {
                     await adoptServerTranscript()
                     return .failed("This task changed elsewhere and was reloaded. Retry to send your message.")
                 default:
+                    if case .streamNotResumable = conflict { endedStreamId = options.streamId }
                     // Only a send the server refused, never one it queued or already runs.
                     if !accepted && !shouldResume && reconnects == 0 { rejectUnadmittedSubmission(options.submission) }
                     return .failed(conflict.localizedDescription)

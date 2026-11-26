@@ -16,7 +16,8 @@ final class Analytics {
 
 /// A conversation that still names a run whose stream is over. Resuming it
 /// answers as the session id says: the stream is gone, it is no longer
-/// resumable (409), or it just ends. Counts each conversation's resumes.
+/// resumable (409), or it just ends; `unavailable` first fails with a 500 that
+/// says nothing about the run, then is gone. Counts each conversation's resumes.
 private final class Backend: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var resumes: [String: Int] = [:]
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -30,6 +31,9 @@ private final class Backend: URLProtocol, @unchecked Sendable {
             switch id {
             case "not-resumable":
                 answer(url, 409, #"{"error":{"code":"stream_not_resumable","message":"The agent stream is no longer resumable"}}"#, "application/json")
+            case "unavailable" where Backend.resumes[id] == 1:
+                // A failure that says nothing about the run: it may still be live.
+                answer(url, 500, #"{"error":{"message":"Synthetic failure"}}"#, "application/json")
             case "ended":
                 answer(url, 200, "data: {\"type\":\"atlas-stream-done\"}\n\n", "text/event-stream")
             default:
@@ -112,6 +116,14 @@ enum EndedRunTests {
             check(!session.transportStreaming, "\(id): the chat still shows the run over as live")
             check(session.messages.last?.text == "Stored reply", "\(id): the stored transcript is not shown")
         }
+
+        // A failed attach is not an ended run: the idle poll attaches again, once.
+        let session = ChatSession(token: "test-token", teamId: "team", sessionId: "unavailable")
+        await session.load()
+        let poll = Task { await session.pollWhileIdle() }
+        try? await Task.sleep(for: .seconds(8))
+        poll.cancel()
+        check(Backend.resumes["unavailable"] == 2, "unavailable: resumed \(Backend.resumes["unavailable"] ?? 0) times, not again after a failed attach and then once")
 
         LaunchCache.clear()
         print("EndedRunTests passed")
