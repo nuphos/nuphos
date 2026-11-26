@@ -22,6 +22,7 @@ import {
   wakeAfterTurn,
 } from './channel-chat'
 import { replyQuote } from './channel-reply'
+import { unansweredNotice } from './db/channel-notes'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
@@ -716,6 +717,76 @@ describe('waking a channel’s agents', () => {
     await seed('other-channel', { kind: 'channel' })
     await say('hello')
     expect(wokenSessions()).toEqual(['agent-a'])
+  })
+})
+
+describe('a person’s post a turn ended without answering', () => {
+  // What each turn was given, by agent; the agents named in `answering` reply with channel_post.
+  let turns: { sessionId: string; text: string }[] = []
+  let answering = new Set<string>()
+
+  beforeEach(() => {
+    turns = []
+    answering = new Set()
+    // Every agent is idle: each wake runs as its own turn, ending normally.
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId, messages }) => {
+        const part = messages.at(-1)?.parts[0]
+
+        turns.push({ sessionId, text: part?.type === 'text' ? part.text : '' })
+        if (answering.has(sessionId))
+          await postAsAgent('channel', { sessionId, title: `${sessionId} title` }, 'Done.')
+
+        return { status: 'completed', finishReason: 'stop' }
+      },
+    })
+  })
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
+  const oneToOne = () =>
+    agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'] } },
+    )
+
+  test('wakes the Bot once more to answer in its chat, and only once', async () => {
+    await oneToOne()
+    await say('Is the deploy done?')
+    await settle()
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['agent-a', 'agent-a'])
+    expect(turns[1]!.text).toStartWith(unansweredNotice({ sessionId: 'channel' }))
+    // The post it left unanswered is shown again.
+    expect(turns[1]!.text).toContain('Is the deploy done?')
+    // A new post is a new question: it may be reminded of that one too.
+    await say('Hello?')
+    await settle()
+    expect(turns).toHaveLength(4)
+  })
+
+  test('a Bot that answered is not woken again', async () => {
+    await oneToOne()
+    answering.add('agent-a')
+    await say('Is the deploy done?')
+    await settle()
+    expect(turns).toHaveLength(1)
+  })
+
+  test('in a group, only its lead is woken again', async () => {
+    await say('Anyone?')
+    await settle()
+    expect(turns).toHaveLength(2)
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { leadAgentSessionId: 'agent-b' } },
+    )
+    await say('Lead?')
+    await settle()
+    expect(
+      turns
+        .slice(2)
+        .map((turn) => turn.sessionId)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['agent-a', 'agent-b', 'agent-b'])
   })
 })
 

@@ -6,7 +6,7 @@ import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { channelIdOf, withChannelPosts } from './channel-wake'
+import { channelIdOf, remindUnanswered, withChannelPosts } from './channel-wake'
 import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
@@ -193,10 +193,10 @@ export async function runTurn(
       })
 
     if (!outcome) return
-
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     await recordFiresRan(fresh)
+    await remindUnanswered(target, fresh, outcome.finishReason)
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
