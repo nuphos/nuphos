@@ -78,6 +78,7 @@ test('the owner reaches a display the Box reports as this conversation’s; a te
     sessionId: 'chat',
     display: 2,
     viewer: 'owner',
+    may: 'control',
   })
   for (const [user, display] of [
     ['mate', '2'],

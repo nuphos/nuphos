@@ -12,8 +12,8 @@ import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
 
 export type Invited = 'view' | 'control'
 
-/** How often a teammate's open stream re-runs the check that let them in. */
-export const INVITE_RECHECK_MS = 5_000
+/** How often an open stream re-runs the check that let its viewer in. */
+export const INVITE_RECHECK_MS = 2_000
 
 /** What `userId`, who is not the owner, may do with the conversation's `display`: nothing, watch, or take over. */
 export async function desktopInvitation(
