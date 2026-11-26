@@ -2384,6 +2384,24 @@ html.light {
   }
 }
 
+/* A bar for work with no known end: a third of the track sweeps across it. */
+@keyframes setup-bar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+.setup-bar {
+  animation: setup-bar 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .setup-bar {
+    animation: none;
+  }
+}
+
 /*
  * The workspace is a sheet on a desk: the sidebar and window chrome sit on the
  * canvas, and each working area is one raised sheet, separated by its edge and

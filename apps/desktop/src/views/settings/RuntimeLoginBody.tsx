@@ -10,6 +10,7 @@ import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
 import { signsInWithApiKey } from './apiKeyProviders'
 import { BrowserCodeEntry } from './BrowserCodeEntry'
 import { RuntimeLoginStep } from './RuntimeLoginStep'
+import { SetupSteps } from './SetupSteps'
 
 import type { RuntimeLogin } from './useRuntimeLogin'
 import type { RuntimeLoginStatus, RuntimeInstance } from '../../types/runtime'
@@ -79,7 +80,7 @@ export function RuntimeLoginBody({
   instance: RuntimeInstance
   state: RuntimeLogin
 }) {
-  const { login, error, reachable, awaiting, authorizationUrl, verificationUri, failed } = state
+  const { login, error, awaiting, authorizationUrl, verificationUri, failed } = state
   const [keyEntry, setKeyEntry] = useState(false)
   // The attempt a key went to; a new attempt starts over.
   const [keyFor, setKeyFor] = useState<string | null>(null)
@@ -124,49 +125,35 @@ export function RuntimeLoginBody({
       />
     )
 
+  const signIn =
+    awaiting && login?.step ? (
+      <RuntimeLoginStep
+        key={JSON.stringify(login.step)}
+        step={login.step}
+        submitted={login.codeSubmitted === true}
+        onSubmit={state.submitCode}
+      />
+    ) : authorizationUrl && login ? (
+      <BrowserCodeEntry
+        provider={instance.provider}
+        url={authorizationUrl}
+        submitted={login.codeSubmitted === true}
+        onSubmit={state.submitCode}
+      />
+    ) : awaiting && login ? (
+      <DeviceCode instance={instance} login={login} verificationUri={verificationUri} />
+    ) : null
+
   return (
     <>
-      {awaiting && login?.step ? (
-        <RuntimeLoginStep
-          key={JSON.stringify(login.step)}
-          step={login.step}
-          submitted={login.codeSubmitted === true}
-          onSubmit={state.submitCode}
-        />
-      ) : authorizationUrl && login ? (
-        <BrowserCodeEntry
-          provider={instance.provider}
-          url={authorizationUrl}
-          submitted={login.codeSubmitted === true}
-          onSubmit={state.submitCode}
-        />
-      ) : awaiting && login ? (
-        <DeviceCode
-          key={state.retry}
-          instance={instance}
-          login={login}
-          verificationUri={verificationUri}
-        />
-      ) : failed ? (
-        <p className="text-[13px] leading-5 text-error">
-          {login?.error ?? error ?? t('Sign-in was cancelled.')}
-        </p>
-      ) : (
-        <div className="flex items-center gap-3 text-[13px] text-secondary">
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-          {login?.installing
-            ? t('Installing {name} on {computer}…', {
-                name: agentProvider(instance.provider).label,
-                computer: instance.local?.deviceLabel ?? '',
-              })
-            : reachable
-              ? t('Preparing secure sign-in…')
-              : t(
-                  'Starting your runtime… You can close this and sign in from its card once it is running.',
-                )}
-        </div>
-      )}
-      {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
+      <SetupSteps key={state.retry} instance={instance} state={state}>
+        {signIn && (
+          <>
+            {signIn}
+            {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
+          </>
+        )}
+      </SetupSteps>
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}
     </>
   )
