@@ -153,7 +153,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     fun receive(data: Map<String, String>) {
         // Rendered before the lock, so registration and binding never wait on an SVG decode.
         val sender = if (data["kind"] == "badge") null else NotificationSender.from(data)
-        val face = sender?.let { NotificationAvatars.bitmap(app, it.avatarFile) }
+        val face = sender?.let { NotificationAvatars.bitmap(app, it) }
         synchronized(bindingLock) {
             if (!prefs.getBoolean("consent_granted", false)) return
             val savedToken = app.tokenStore.read() ?: return

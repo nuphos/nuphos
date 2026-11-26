@@ -11,7 +11,7 @@ const MAX_RETRY_MS = 30_000
 /**
  * The signed-in user's devices. Loads on mount, on `reload` and when the window shows again;
  * polls again after the delay `poll` returns (0: not at all), never while the window is hidden, and backs off after
- * failures. A first load that fails (an older backend) is not retried. A new `key` starts over
+ * failures until a list arrives, even when `poll` would not poll it. A new `key` starts over
  * from no list, so a caller never reads one taken before its change.
  */
 export function useAgentDevices(
@@ -54,7 +54,7 @@ export function useAgentDevices(
         list: current?.key === key ? current.list : null,
         error: true,
       }))
-      if (!last || pollRef.current(last) === 0) return
+      if (last && pollRef.current(last) === 0) return
       failures += 1
       schedule(Math.min(BOX_CREATING_POLL_MS * 2 ** failures, MAX_RETRY_MS))
     }

@@ -126,7 +126,7 @@ export function InstructionEditorDialog({
       open={target !== null}
       onClose={onClose}
       title={target ? dialogTitle(target) : ''}
-      description={t('Markdown. Injected at the start of every new task.')}
+      description={t('Markdown. Given to new tasks, and to running tasks from their next turn.')}
       width={640}
       closeOnBackdrop={readOnly}
       footer={

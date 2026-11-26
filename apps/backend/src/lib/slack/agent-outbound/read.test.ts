@@ -71,6 +71,7 @@ async function context() {
     {
       userId: 'user-1',
       teamId,
+      sessionId: 'conv-1',
       placeFiles: (files) => {
         placed.push(files.map((file) => ({ fileName: file.fileName, bytes: file.bytes.length })))
 

@@ -65,11 +65,12 @@ export const installScenarios: Scenario[] = [
         await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click()
         await shot(page, 'remote-1-settings')
         await page.getByRole('button', { name: 'Continue' }).click()
-        await page.getByText(`Installing Claude Code on ${label}…`).waitFor({ timeout: 60_000 })
+        await page.getByText('Installing Claude Code', { exact: true }).waitFor({ timeout: 60_000 })
         await shot(page, 'remote-2-installing')
         await pasteCode(page, 'remote-3-sign-in')
-        await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
+        await page.getByText(`Claude Code is ready on ${label}`).waitFor({ timeout: 60_000 })
         await shot(page, 'remote-4-added')
+        await page.getByRole('button', { name: 'Done', exact: true }).click()
         await page.getByText('Back to app', { exact: true }).click()
 
         // The agent it just installed runs a turn there.
@@ -132,11 +133,12 @@ export const installScenarios: Scenario[] = [
       await page.getByRole('menuitem', { name: 'Claude Code', exact: true }).click()
       await shot(page, 'local-1-new-runtime')
       await page.getByRole('button', { name: 'Continue' }).click()
-      await page.getByText(/^Installing Claude Code on /).waitFor({ timeout: 60_000 })
+      await page.getByText('Installing Claude Code', { exact: true }).waitFor({ timeout: 60_000 })
       await shot(page, 'local-2-installing')
       await pasteCode(page, 'local-3-sign-in')
-      await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
+      await page.getByText(/^Claude Code is ready on /).waitFor({ timeout: 60_000 })
       await shot(page, 'local-4-added')
+      await page.getByRole('button', { name: 'Done', exact: true }).click()
       await page.getByText('Back to app', { exact: true }).click()
     },
   },

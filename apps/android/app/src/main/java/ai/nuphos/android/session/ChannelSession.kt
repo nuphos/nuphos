@@ -44,6 +44,8 @@ class ChannelSession(
         suspend fun attachment(groupId: String): TransferDownloadGroup
         /** Uploads a post's files to the transfer store and returns their group. */
         suspend fun upload(attachments: List<ComposerAttachment>): String
+        /** [upload], telling [onProgress] how far the files have gone. */
+        suspend fun upload(attachments: List<ComposerAttachment>, onProgress: (AttachmentTransfers.Progress) -> Unit): String = upload(attachments)
         /** `POST …/channel-messages` with `{text, id, upload, replyTo}`; a repeated id is not posted twice. */
         suspend fun post(text: String, id: String, upload: String?, replyTo: String?)
         /** Retry after an agent could not reply: it reads again what it has not read yet. */
@@ -61,9 +63,10 @@ class ChannelSession(
         override suspend fun agents() = NuphosApi.channelAgents(token, teamId, channelId)
         override suspend fun attachment(groupId: String) = NuphosApi.channelAttachment(token, teamId, channelId, groupId)
         private val transfers = AttachmentTransfers()
-        override suspend fun upload(attachments: List<ComposerAttachment>): String {
+        override suspend fun upload(attachments: List<ComposerAttachment>) = upload(attachments) {}
+        override suspend fun upload(attachments: List<ComposerAttachment>, onProgress: (AttachmentTransfers.Progress) -> Unit): String {
             val pending = transfers.retain(attachments)
-            return transfers.prepare(token, teamId, pending, allowed = { AiAccess.bind(token)() }).groupId
+            return transfers.prepare(token, teamId, pending, allowed = { AiAccess.bind(token)() }, onProgress = onProgress).groupId
         }
         override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
             val body = buildList {
@@ -143,6 +146,12 @@ class ChannelSession(
     /** What a sending post attached, drawn from the device until it is posted. */
     var sendingAttachments by mutableStateOf<Map<String, List<ComposerAttachment>>>(emptyMap())
         private set
+    /**
+     * How far a sending post's files have uploaded, shown under it as in a Task's chat. Once they
+     * are all out it holds [AttachmentTransfers.Progress.filesSent] until the chat returns the post.
+     */
+    var sendingProgress by mutableStateOf<Map<String, AttachmentTransfers.Progress>>(emptyMap())
+        private set
     /** A post that could not be sent goes back into the composer. */
     var unsent by mutableStateOf<ComposerSubmission?>(null)
     /** The post the next one answers, quoted above the composer. */
@@ -219,10 +228,17 @@ class ChannelSession(
         fun drop() {
             sending = sending.filter { it.id != id }
             sendingAttachments = sendingAttachments - id
+            sendingProgress = sendingProgress - id
         }
         scope.launch {
             try {
-                val upload = if (submission.attachments.isEmpty()) null else transport.upload(submission.attachments)
+                val upload = if (submission.attachments.isEmpty()) null else transport.upload(submission.attachments) { progress ->
+                    // A post already dropped keeps no progress behind.
+                    if (sending.any { it.id == id }) sendingProgress = sendingProgress + (id to progress)
+                }
+                // The files are up; the post itself is on its way, and reads as sending until the chat has it.
+                if (upload != null && sending.any { it.id == id }) sendingProgress = sendingProgress +
+                    (id to AttachmentTransfers.Progress(AttachmentTransfers.Stage.Ready, filesSent = true))
                 // The account, workspace, consent or chat may have changed while files uploaded.
                 currentCoroutineContext().ensureActive()
                 if (!allowed() || readOnly) { drop(); return@launch }
@@ -367,6 +383,7 @@ class ChannelSession(
         stored = detail.messages.mapNotNull(ChannelPost::from)
         sending = ChannelPost.stillSending(stored, sending)
         sendingAttachments = sendingAttachments.filterKeys { id -> sending.any { it.id == id } }
+        sendingProgress = sendingProgress.filterKeys { id -> sending.any { it.id == id } }
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.

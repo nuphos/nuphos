@@ -28,7 +28,12 @@ import type { useSessionConfig } from './useSessionConfig'
 export type ModelControl = Pick<
   ReturnType<typeof useSessionConfig>,
   'data' | 'loading' | 'slow' | 'saving' | 'error' | 'writeError' | 'queued' | 'open' | 'select'
-> & { setOpen: (open: boolean) => void; refresh: () => void }
+> & {
+  setOpen: (open: boolean) => void
+  refresh: () => void
+  teamId?: string
+  runtimeId?: string
+}
 
 function chipLabel(name: string, fast: string | undefined) {
   if (fast === 'on') return t('Model settings: {name}, fast mode on', { name })
@@ -242,7 +247,7 @@ export function ModelSelector({
         footer={
           <>
             {(effort || fast) && (
-              <div className={clsx(model && 'border-t border-line-control/60')}>
+              <div className={clsx((model || effort) && 'border-t border-line-control/60')}>
                 <ModelEffortPanel
                   effort={effort}
                   fast={fast}
@@ -266,7 +271,21 @@ export function ModelSelector({
           </>
         }
       >
-        {model && <ModelMenu model={model} blocked={blocked} onSelect={pickModel} />}
+        {model ? (
+          <ModelMenu
+            model={model}
+            blocked={blocked}
+            onSelect={pickModel}
+            teamId={control.teamId}
+            runtimeId={control.runtimeId}
+          />
+        ) : (
+          effort && (
+            <p className="px-3 py-2 text-[13px] text-secondary">
+              {t('This runtime picks its model itself.')}
+            </p>
+          )
+        )}
       </MenuPanel>
     </Menu>
   )

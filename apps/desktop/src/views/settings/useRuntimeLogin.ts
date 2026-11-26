@@ -21,8 +21,8 @@ export function useRuntimeLogin(
   instance: RuntimeInstance | null,
   onConnected: () => void,
   immediate = false,
-  /** The runtime removed its API key, as asked. */
-  onSignedOut?: () => void,
+  /** The runtime removed its API key, as asked; `restart` starts a new sign-in instead of ending. */
+  onSignedOut?: (restart: () => void) => void,
 ) {
   const [login, setLogin] = useState<RuntimeLoginStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +34,7 @@ export function useRuntimeLogin(
   const request = useRef<Promise<RuntimeLoginStatus> | null>(null)
   const complete = useStableCallback((signedOut: boolean) => {
     window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
-    if (signedOut) onSignedOut?.()
+    if (signedOut) onSignedOut?.(restart)
     else onConnected()
   })
 

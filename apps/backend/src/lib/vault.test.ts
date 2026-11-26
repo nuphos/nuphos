@@ -1,17 +1,16 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 
-import { coversExactly } from '@/lib/vault'
+import { distinctWithin } from '@/lib/vault'
 
-describe('coversExactly', () => {
-  test('accepts every expected name once, in any order', () => {
-    expect(coversExactly(['b', 'a'], ['a', 'b'])).toBe(true)
-    expect(coversExactly([], [])).toBe(true)
+describe('distinctWithin', () => {
+  it('accepts some of the allowed names, each once', () => {
+    expect(distinctWithin(['b', 'a'], ['a', 'b'])).toBe(true)
+    expect(distinctWithin(['a'], ['a', 'b'])).toBe(true)
+    expect(distinctWithin([], ['a'])).toBe(true)
   })
 
-  test('rejects a missing, extra or repeated name', () => {
-    expect(coversExactly(['a'], ['a', 'b'])).toBe(false)
-    expect(coversExactly(['a', 'b', 'c'], ['a', 'b'])).toBe(false)
-    expect(coversExactly(['a', 'a'], ['a', 'b'])).toBe(false)
-    expect(coversExactly(['a', 'a', 'b'], ['a', 'b'])).toBe(false)
+  it('refuses a repeated or unknown name', () => {
+    expect(distinctWithin(['a', 'c'], ['a', 'b'])).toBe(false)
+    expect(distinctWithin(['a', 'a'], ['a', 'b'])).toBe(false)
   })
 })

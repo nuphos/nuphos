@@ -250,21 +250,15 @@ test('once the card is answered, the Box goes back to the agent and the teammate
   end()
 })
 
-test('a Box shared with anyone else hands over nothing, even while a card is open', async () => {
+test('a Box shared with anyone else still hands over the display an open card names', async () => {
+  device = { ...device, access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }] }
   const { state, send, end } = await watch('mate')
 
   send(human)
   await settle()
   expect(state.toHost).toEqual([human])
-  device = {
-    ...device,
-    access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
-  }
-  await settle()
-  // Shared after the card was raised: the next recheck hands the Box back to the agent.
-  expect(state.toHost).toEqual([human, agent])
   expect(state.closed).toBeUndefined()
-  expect((await reach('mate', 'chat', '2')).invited).toBe('view')
+  expect((await reach('mate', 'chat', '2')).invited).toBe('control')
   end()
 })
 

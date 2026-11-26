@@ -51,3 +51,19 @@ test('an apply that throws leaves no unhandled rejection, and the checks go on',
   expect(applied).toBeGreaterThan(1)
   expect(rejections).toEqual([])
 })
+
+test('a check slower than the interval but within the wait still answers', async () => {
+  const answers: (Invited | undefined)[] = []
+  const stop = recheckInvitation(
+    () => new Promise((resolve) => setTimeout(() => resolve('view'), 15)),
+    5,
+    (now) => answers.push(now),
+    100,
+  )
+
+  await settle()
+  await settle()
+  stop()
+  expect(answers.length).toBeGreaterThan(0)
+  expect(answers.every((now) => now === 'view')).toBe(true)
+})

@@ -1,4 +1,5 @@
 // #3273: a question is its card's one-line title; what to decide from goes in its body.
+// A long body is cut at a whole line, and Show more opens the rest.
 import { must } from './binding-access-scenarios.ts'
 import { calledTool } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
@@ -12,6 +13,68 @@ const lines = (element: Locator) =>
   element.evaluate((el) =>
     Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)),
   )
+
+const BODIES: [string, string][] = [
+  [
+    'Retire the old staging bucket now?',
+    [
+      '**Why**: the staging bucket has had no writes since the March migration, and the new bucket has served every deploy since then. ',
+      'Its lifecycle rule still keeps every object version, so the bill grows each month even though nothing reads it. ',
+      'Two dashboards still point at it, both unused for a quarter. ',
+      'Retiring it removes the cost and the stale dashboards; restoring from the nightly snapshot takes about ten minutes if anything turns out to need it.',
+    ].join(''),
+  ],
+  [
+    '要停用舊的測試儲存桶嗎？',
+    '**原因**：測試儲存桶自三月遷移後就沒有任何寫入，新的儲存桶已經接手所有部署。它的生命週期規則仍保留每個物件版本，所以即使沒有人讀取，帳單每月仍在增加。另外有兩個儀表板還指向它，但已經一季沒有人使用。停用後可以省下這筆費用並清掉過時的儀表板；若之後發現仍需要，從每晚快照還原大約十分鐘。停用前會先匯出物件清單與存取紀錄，保存九十天，方便日後查核是誰在什麼時候讀過哪些檔案。兩個儀表板會改指向新的儲存桶，原本的告警規則也一併搬過去，所以值班的同事不需要調整任何設定。如果這週內有人提出異議，可以延後到下個月的維護時段再處理，期間費用會照常計算。停用當天會在團隊頻道公告時間與影響範圍，並在完成後附上新的儲存桶位置與還原步驟的文件連結。若還原後發現有遺漏的檔案，可以從匯出的物件清單逐一比對，找出缺少的部分再個別補回，不必整個重新還原。整個流程預計在一個工作天內完成，不會影響正式環境的任何服務。',
+  ],
+  // Paragraphs and a list: the cut counts lines across blocks, not within one paragraph.
+  [
+    'Retire the staging bucket and its dashboards?',
+    [
+      '**Why**: the staging bucket has had no writes since March.',
+      'What retiring it changes:',
+      '- the monthly bill drops by the cost of every kept object version\n- two unused dashboards that point at it go away\n- its alert rules move to the new bucket',
+      'Restoring from the nightly snapshot takes about ten minutes if anything turns out to need it.',
+    ].join('\n\n'),
+  ],
+]
+
+/** The body's lines the card's own clip cuts through, and those it hides; the conversation's scroll does not count. */
+const clippedLines = (card: Locator) =>
+  card.evaluate((card) => {
+    const p = card.querySelector('p')!
+    let clip: Element = p
+
+    while (clip !== card && getComputedStyle(clip).overflowY === 'visible')
+      clip = clip.parentElement!
+    const bottom = clip === card ? Infinity : clip.getBoundingClientRect().bottom
+    const walker = document.createTreeWalker(p.parentElement!, NodeFilter.SHOW_TEXT)
+    const lines: DOMRect[] = []
+
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange()
+
+      range.selectNodeContents(node)
+      lines.push(...[...range.getClientRects()].filter((rect) => rect.height > 0))
+    }
+
+    return {
+      half: lines.filter((rect) => rect.top < bottom - 1 && rect.bottom > bottom + 1).length,
+      hidden: lines.filter((rect) => rect.top >= bottom - 1).length,
+    }
+  })
+
+/** Waits until the card stops moving, as the conversation scrolls to follow it, so a shot of it is whole. */
+const settled = async (card: Locator) => {
+  for (let last = ''; ;) {
+    const box = JSON.stringify(await card.boundingBox())
+
+    if (box === last) return
+    last = box
+    await card.page().waitForTimeout(200)
+  }
+}
 
 export const decisionTitleScenarios: Scenario[] = [
   {
@@ -66,6 +129,92 @@ export const decisionTitleScenarios: Scenario[] = [
         `the Inbox question to be one line, got ${String(await lines(heading))}`,
       )
       await page.screenshot({ path: `${artifacts}/decision-one-line-inbox.png` })
+    },
+  },
+  {
+    name: 'a long decision body is cut at a whole line and Show more opens the rest',
+    run: async (page) => {
+      await newTask(page)
+      for (const [index, [question, body]] of BODIES.entries()) {
+        const args = { label: 'Ask', category: 'approval', question, body, options: ['Yes', 'No'] }
+
+        await send(
+          page,
+          `Ask it E2E_CALL request_user_decision ${JSON.stringify(args)} E2E_DELIVERY:long-body-${String(index)}`,
+        )
+        const card = page.locator(`[data-decision-question="${question}"]:visible`).last()
+
+        await card.getByRole('button', { name: 'Yes' }).waitFor()
+        const shot = `${artifacts}/decision-body-${String(index)}`
+
+        await settled(card)
+        await card.screenshot({ path: `${shot}-collapsed.png` })
+        const collapsed = await clippedLines(card)
+
+        must(collapsed.half === 0, `no line cut through, got ${String(collapsed.half)}`)
+        must(collapsed.hidden > 0, 'a body longer than four lines to be cut')
+        const more = card.getByRole('button', { name: 'Show more' })
+
+        must(await more.isVisible(), 'a cut body to offer Show more')
+        await more.click()
+        await card.getByRole('button', { name: 'Show less' }).waitFor()
+        const open = await clippedLines(card)
+
+        must(
+          open.half + open.hidden === 0,
+          `the opened body to show all of it, got ${JSON.stringify(open)}`,
+        )
+        await settled(card)
+        await card.screenshot({ path: `${shot}-expanded.png` })
+      }
+    },
+  },
+  {
+    name: 'a long decision body laid out while its conversation is hidden still offers Show more',
+    run: async (page, stack) => {
+      const question = 'Retire the staging bucket while I look at the Inbox?'
+      const args = {
+        label: 'Ask',
+        category: 'approval',
+        question,
+        body: BODIES[0][1],
+        options: ['Yes', 'No'],
+      }
+      // The agent starts only once the Inbox hides the conversation, so the card arrives hidden.
+      const release = stack.holdSessionOpening()
+
+      await newTask(page)
+      await send(
+        page,
+        `Ask it E2E_CALL request_user_decision ${JSON.stringify(args)} E2E_DELIVERY:hidden-body`,
+      )
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      release()
+      const hidden = page.locator(`[data-decision-question="${question}"]`).first()
+
+      await hidden.waitFor({ state: 'attached' })
+      must(!(await hidden.isVisible()), 'the card to arrive while its conversation is hidden')
+      await page.getByRole('tab', { name: 'Tasks' }).click()
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E_CALL' }).first().click()
+      const card = page.locator(`[data-decision-question="${question}"]:visible`).last()
+
+      await card.getByRole('button', { name: 'Yes' }).waitFor()
+      await settled(card)
+      await card.screenshot({ path: `${artifacts}/decision-body-hidden-collapsed.png` })
+      const more = card.getByRole('button', { name: 'Show more' })
+
+      must(await more.isVisible(), 'a body cut while hidden to offer Show more once shown')
+      must((await clippedLines(card)).half === 0, 'no line cut through once shown')
+      await more.click()
+      await card.getByRole('button', { name: 'Show less' }).waitFor()
+      const open = await clippedLines(card)
+
+      must(
+        open.half + open.hidden === 0,
+        `the opened body to show all of it, got ${JSON.stringify(open)}`,
+      )
+      await settled(card)
+      await card.screenshot({ path: `${artifacts}/decision-body-hidden-expanded.png` })
     },
   },
 ]

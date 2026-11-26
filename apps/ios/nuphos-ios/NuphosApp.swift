@@ -9,7 +9,20 @@ struct NuphosApp: App {
     @State private var session = AuthSession()
 
     #if DEBUG
-    init() { PreviewIsolation.installIfPreview() }
+    init() {
+        PreviewIsolation.installIfPreview()
+        // `-open-links <url>…`: open each link as if tapped, two seconds apart from
+        // launch. A link tapped at launch waits for the workspace, not for its lists.
+        if let i = CommandLine.arguments.firstIndex(of: "-open-links") {
+            let links = CommandLine.arguments[(i + 1)...].prefix { !$0.hasPrefix("-") }.compactMap(URL.init(string:))
+            Task { @MainActor in
+                for link in links {
+                    try? await Task.sleep(for: .seconds(2))
+                    PushNotifications.shared.open(link)
+                }
+            }
+        }
+    }
     #endif
 
     var body: some Scene {

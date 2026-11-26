@@ -184,9 +184,15 @@ final class ChannelSession {
         let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
         await withTaskGroup(of: (String, [TransferDownloadGroup.File]?).self) { group in
             for id in missing {
-                group.addTask { [self] in (id, (try? await transferGroup(id))?.readyFiles) }
+                group.addTask { [self] in
+                    do { return (id, try await transferGroup(id).readyFiles) }
+                    // Gone for good (expired, or purged at its expiry): no files, so the
+                    // card shows it expired and no refresh reads it again.
+                    catch AgentChatAPI.Conflict.other(_, _, let status) where status == 404 || status == 410 { return (id, []) }
+                    catch { return (id, nil) }
+                }
             }
-            // A failed read stays out, so the next refresh, or the card itself, tries again.
+            // Any other failed read stays out, so the next refresh, or the card itself, tries again.
             for await (id, ready) in group { if let ready { files[id] = ready } }
         }
     }

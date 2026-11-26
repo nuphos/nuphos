@@ -160,7 +160,7 @@ class BotsPageFixtureDeviceTest {
                     composable("list") { page(nav) }
                     composable("channel/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
-                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() })
+                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() }, onLink = {})
                         else Text("Opened $id")
                     }
                 }
