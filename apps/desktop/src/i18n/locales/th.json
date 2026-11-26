@@ -368,6 +368,7 @@
   "Answered {answered} from the Inbox": "ตอบเมื่อ {answered} จากกล่องข้อความ",
   "Answered: {answer}": "ตอบแล้ว: {answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity ใช้การลงชื่อเข้าใช้ Google ร่วมกับแอป Antigravity อื่นภายใต้บัญชี OS เดียวกัน การลงชื่อเข้าใช้หรือออกจากระบบผ่าน CLI อาจส่งผลต่อแอปเหล่านั้น ไม่รองรับบัญชีแยกสำหรับแต่ละรันไทม์",
+  "Anyone who can use a computer you share with can read this item.": "ทุกคนที่ใช้คอมพิวเตอร์ที่คุณแชร์ด้วยได้ จะอ่านรายการนี้ได้",
   "App": "แอป",
   "App ID": "App ID",
   "App ID should start with cli_.": "App ID ควรขึ้นต้นด้วย cli_",

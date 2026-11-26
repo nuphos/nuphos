@@ -368,6 +368,7 @@
   "Answered {answered} from the Inbox": "Respondido {answered} desde la Bandeja de entrada",
   "Answered: {answer}": "Respondido: {answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity comparte el inicio de sesión de Google con otras aplicaciones de Antigravity de la misma cuenta del sistema operativo. Iniciar sesión o cerrarla desde la CLI puede afectarlas. No se admiten cuentas independientes por entorno de ejecución.",
+  "Anyone who can use a computer you share with can read this item.": "Cualquiera que pueda usar una computadora con la que compartes puede leer este elemento.",
   "App": "App",
   "App ID": "App ID",
   "App ID should start with cli_.": "El App ID debe empezar con cli_.",

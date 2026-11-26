@@ -368,6 +368,7 @@
   "Answered {answered} from the Inbox": "{answered} 在收件箱回答",
   "Answered: {answer}": "已回答：{answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity 与同一 OS 账号下的其他 Antigravity 应用共享 Google 登录。登录或使用 CLI 退出可能影响它们。不支持各运行环境使用独立账号。",
+  "Anyone who can use a computer you share with can read this item.": "凡是能使用你所分享电脑的人，都能读取此项目。",
   "App": "应用",
   "App ID": "App ID",
   "App ID should start with cli_.": "App ID 应以 cli_ 开头。",

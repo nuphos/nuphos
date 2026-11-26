@@ -368,6 +368,7 @@
   "Answered {answered} from the Inbox": "{answered} 받은 편지함에서 답변",
   "Answered: {answer}": "답변함: {answer}",
   "Antigravity shares Google sign-in with other Antigravity apps under the same OS account. Signing in or using the CLI to sign out may affect them. Separate runtime accounts are not supported.": "Antigravity는 같은 OS 계정의 다른 Antigravity 앱과 Google 로그인을 공유합니다. 로그인하거나 CLI에서 로그아웃하면 해당 앱에 영향을 줄 수 있습니다. 런타임별 독립 계정은 지원되지 않습니다.",
+  "Anyone who can use a computer you share with can read this item.": "공유한 컴퓨터를 사용할 수 있는 사람은 누구나 이 항목을 읽을 수 있습니다.",
   "App": "앱",
   "App ID": "App ID",
   "App ID should start with cli_.": "앱 ID는 cli_로 시작해야 합니다.",
