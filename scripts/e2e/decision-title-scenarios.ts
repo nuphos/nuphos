@@ -30,14 +30,31 @@ const BODIES: [string, string][] = [
   ],
 ]
 
-/** The body's clip box: how far its last drawn line falls short of a whole line. */
-const partialLine = (body: Locator) =>
-  body.evaluate((el) => {
-    const box = el.getBoundingClientRect()
-    const line = parseFloat(getComputedStyle(el.querySelector('p') ?? el).lineHeight)
+/** The body's lines of text the box that clips it cuts through, and those it hides entirely. */
+const clippedLines = (card: Locator) =>
+  card
+    .locator('p')
+    .first()
+    .evaluate((p) => {
+      let clip: Element | null = p
 
-    return { height: box.height, line, cut: box.height % line }
-  })
+      while (clip && getComputedStyle(clip).overflowY === 'visible') clip = clip.parentElement
+      const bottom = clip?.getBoundingClientRect().bottom ?? Infinity
+      const walker = document.createTreeWalker(p.parentElement!, NodeFilter.SHOW_TEXT)
+      const lines: DOMRect[] = []
+
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const range = document.createRange()
+
+        range.selectNodeContents(node)
+        lines.push(...[...range.getClientRects()].filter((rect) => rect.height > 0))
+      }
+
+      return {
+        half: lines.filter((rect) => rect.top < bottom - 1 && rect.bottom > bottom + 1).length,
+        hidden: lines.filter((rect) => rect.top >= bottom - 1).length,
+      }
+    })
 
 export const decisionTitleScenarios: Scenario[] = [
   {
@@ -108,26 +125,24 @@ export const decisionTitleScenarios: Scenario[] = [
         const card = page.locator(`[data-decision-question="${question}"]:visible`).last()
 
         await card.getByRole('button', { name: 'Yes' }).waitFor()
-        // The box that clips the markdown body.
-        const clip = card.locator('.selectable').first().locator('..')
         const shot = `${artifacts}/decision-body-${String(index)}`
 
         await card.screenshot({ path: `${shot}-collapsed.png` })
-        const collapsed = await partialLine(clip)
+        const collapsed = await clippedLines(card)
 
-        console.log(`decision body ${String(index)} collapsed: ${JSON.stringify(collapsed)}`)
-        must(
-          collapsed.cut < 0.5 || collapsed.line - collapsed.cut < 0.5,
-          `the collapsed body to end on a whole line, got ${JSON.stringify(collapsed)}`,
-        )
+        must(collapsed.half === 0, `no line cut through, got ${String(collapsed.half)}`)
+        must(collapsed.hidden > 0, 'a body longer than four lines to be cut')
         const more = card.getByRole('button', { name: 'Show more' })
 
         must(await more.isVisible(), 'a cut body to offer Show more')
         await more.click()
         await card.getByRole('button', { name: 'Show less' }).waitFor()
-        const hidden = await clip.evaluate((el) => el.scrollHeight - el.clientHeight)
+        const open = await clippedLines(card)
 
-        must(hidden <= 1, `the opened body to show all of it, ${String(hidden)}px still hidden`)
+        must(
+          open.half + open.hidden === 0,
+          `the opened body to show all of it, got ${JSON.stringify(open)}`,
+        )
         await card.screenshot({ path: `${shot}-expanded.png` })
       }
     },
