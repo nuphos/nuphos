@@ -74,9 +74,9 @@ const AGENT_ENV_PASSTHROUGH = [
   'NUPHOS_DESKTOP_SESSION',
   'NUPHOS_DESKTOP_POOL',
   'NUPHOS_DESKTOP_POOL_SIZE',
-  'NUPHOS_VAULT_SOCKET', // Where the host hands over the Claude Code token shared
-  'NUPHOS_VAULT_KEY', // with this computer from the vault (vault-token.ts).
 ]
+// Claude Code alone also learns where its host hands over the vault's token (vault-token.ts).
+const CLAUDE_ENV = [...AGENT_ENV_PASSTHROUGH, 'NUPHOS_VAULT_SOCKET', 'NUPHOS_VAULT_KEY']
 
 /** Must match `deriveRuntimeControlKey` in the backend and `nuphos-runtime-start`. */
 export function deriveControlKey(authKey: string): string {
@@ -111,7 +111,7 @@ function providerEnv(launch: AgentCliLaunch): Record<string, string> {
 /** The same filtered login environment for status probes and the running adapter. */
 export function agentCliEnv(launch: AgentCliLaunch): Record<string, string> {
   const passthrough = Object.fromEntries(
-    AGENT_ENV_PASSTHROUGH.flatMap((key) => {
+    (launch.provider === 'claude-code' ? CLAUDE_ENV : AGENT_ENV_PASSTHROUGH).flatMap((key) => {
       // A copied Windows environment keeps its own casing, such as Path.
       const value = envValue(launch.env, key)
 
