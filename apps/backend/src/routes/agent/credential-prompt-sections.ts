@@ -30,10 +30,8 @@ export function appendGcpServiceAccountLines(
   if (gcpServiceAccounts.length === 0) return
   lines.push('', 'GCP service accounts:')
   for (const account of gcpServiceAccounts) {
-    const projectBase = `/teams/${teamId}/gcp-projects/${account.projectId}`
-
     lines.push(
-      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"; firebaseProjectEndpoint="${projectBase}/firebase/project"; firebaseAppsEndpoint="${projectBase}/firebase/apps"; gceInstancesEndpoint="${projectBase}/gce-instances"; clustersEndpoint="${projectBase}/clusters"; vpcsEndpoint="${projectBase}/vpcs"; firewallsEndpoint="${projectBase}/firewalls"`,
+      `- projectId=${account.projectId}; serviceAccountId=${account.serviceAccountId}; serviceAccountEmail=${account.serviceAccountEmail}; setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${teamId} ${account.projectId} ${account.serviceAccountId}"`,
     )
   }
 }
@@ -73,7 +71,7 @@ export function appendLinodeAccountLines(
   lines.push('', 'Linode accounts:')
   for (const account of linodeAccounts) {
     lines.push(
-      `- accountId=${account.accountId}; label=${account.label}; setupCommand="bash skills/linode/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; instancesEndpoint="/teams/${teamId}/linode-accounts/${account.accountId}/instances"; lkeClustersEndpoint="/teams/${teamId}/linode-accounts/${account.accountId}/lke-clusters"`,
+      `- accountId=${account.accountId}; label=${account.label}; setupCommand="bash skills/linode/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -87,7 +85,7 @@ export function appendHetznerAccountLines(
   lines.push('', 'Hetzner accounts:')
   for (const account of hetznerAccounts) {
     lines.push(
-      `- accountId=${account.accountId}; label=${account.label}; setupCommand="bash skills/hetzner/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; serversEndpoint="/teams/${teamId}/hetzner-accounts/${account.accountId}/servers"`,
+      `- accountId=${account.accountId}; label=${account.label}; setupCommand="bash skills/hetzner/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -103,7 +101,7 @@ export function appendTencentAccountLines(
     const label = safePromptField(account.label)
 
     lines.push(
-      `- accountId=${account.accountId}; label=${label}; roleArn=${account.roleArn}; setupCommand="bash skills/tencent/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; clustersEndpoint="/teams/${teamId}/tencent-accounts/${account.accountId}/clusters"; cvmInstancesEndpoint="/teams/${teamId}/tencent-accounts/${account.accountId}/cvm-instances"`,
+      `- accountId=${account.accountId}; label=${label}; roleArn=${account.roleArn}; setupCommand="bash skills/tencent/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -119,7 +117,7 @@ export function appendAliyunAccountLines(
     const label = safePromptField(account.label)
 
     lines.push(
-      `- accountId=${account.accountId}; label=${label}; roleArn=${account.roleArn}; setupCommand="bash skills/aliyun/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; clustersEndpoint="/teams/${teamId}/aliyun-accounts/${account.accountId}/clusters"; ecsInstancesEndpoint="/teams/${teamId}/aliyun-accounts/${account.accountId}/ecs-instances"; swasInstancesEndpoint="/teams/${teamId}/aliyun-accounts/${account.accountId}/swas-instances"`,
+      `- accountId=${account.accountId}; label=${label}; roleArn=${account.roleArn}; setupCommand="bash skills/aliyun/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -135,7 +133,7 @@ export function appendVolcengineAccountLines(
     const label = safePromptField(account.label)
 
     lines.push(
-      `- accountId=${account.accountId}; label=${label}; roleTrn=${account.roleTrn}; setupCommand="bash skills/volcengine/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; clustersEndpoint="/teams/${teamId}/volcengine-accounts/${account.accountId}/clusters"; ecsInstancesEndpoint="/teams/${teamId}/volcengine-accounts/${account.accountId}/ecs-instances"`,
+      `- accountId=${account.accountId}; label=${label}; roleTrn=${account.roleTrn}; setupCommand="bash skills/volcengine/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -151,7 +149,7 @@ export function appendAzureAccountLines(
     const label = safePromptField(account.label)
 
     lines.push(
-      `- accountId=${account.accountId}; label=${label}; subscriptionId=${account.subscriptionId}; setupCommand="bash skills/azure/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; clustersEndpoint="/teams/${teamId}/azure-accounts/${account.accountId}/clusters"`,
+      `- accountId=${account.accountId}; label=${label}; subscriptionId=${account.subscriptionId}; setupCommand="bash skills/azure/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -181,7 +179,7 @@ export function appendBetterStackIntegrationLines(
   lines.push('', 'Better Stack integrations:')
   for (const integration of betterStackIntegrations) {
     lines.push(
-      `- integrationId=${integration.integrationId}; label=${integration.label}; hasUptimeApiToken=${String(integration.hasUptimeApiToken)}; hasTelemetryApiToken=${String(integration.hasTelemetryApiToken)}; setupCommand="bash skills/betterstack/scripts/setup-credentials.sh ${teamId} ${integration.integrationId}"; monitorsEndpoint="/teams/${teamId}/betterstack-integrations/${integration.integrationId}/uptime/monitors"; sourcesEndpoint="/teams/${teamId}/betterstack-integrations/${integration.integrationId}/telemetry/sources"; collectorsEndpoint="/teams/${teamId}/betterstack-integrations/${integration.integrationId}/telemetry/collectors"`,
+      `- integrationId=${integration.integrationId}; label=${integration.label}; hasUptimeApiToken=${String(integration.hasUptimeApiToken)}; hasTelemetryApiToken=${String(integration.hasTelemetryApiToken)}; setupCommand="bash skills/betterstack/scripts/setup-credentials.sh ${teamId} ${integration.integrationId}"`,
     )
   }
 }
@@ -192,14 +190,17 @@ export function appendUptimeKumaInstanceLines(
   teamId: string,
 ) {
   if (uptimeKumaInstances.length === 0) return
-  lines.push('', 'Uptime Kuma instances:')
+  lines.push(
+    '',
+    'Uptime Kuma instances (GET/POST monitorsEndpoint; PATCH/DELETE monitorsEndpoint/<monitorId>; POST monitorsEndpoint/<monitorId>/pause or /resume):',
+  )
   for (const instance of uptimeKumaInstances) {
     const base = `/teams/${teamId}/uptime-kuma-instances/${instance.instanceId}`
     const label = safePromptField(instance.label)
     const baseUrl = safePromptField(instance.baseUrl)
 
     lines.push(
-      `- instanceId=${instance.instanceId}; label=${label}; baseUrl=${baseUrl}; authType=${instance.authType}; monitorsEndpoint="${base}/monitors"; monitorEndpointTemplate="${base}/monitors/<monitorId>"; createMonitor="POST ${base}/monitors"; updateMonitor="PATCH ${base}/monitors/<monitorId>"; pauseMonitor="POST ${base}/monitors/<monitorId>/pause"; resumeMonitor="POST ${base}/monitors/<monitorId>/resume"; deleteMonitor="DELETE ${base}/monitors/<monitorId>"`,
+      `- instanceId=${instance.instanceId}; label=${label}; baseUrl=${baseUrl}; authType=${instance.authType}; monitorsEndpoint="${base}/monitors"`,
     )
   }
 }
