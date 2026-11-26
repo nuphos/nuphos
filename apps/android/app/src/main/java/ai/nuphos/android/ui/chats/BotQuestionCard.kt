@@ -31,6 +31,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -197,6 +207,12 @@ private fun QuestionOptions(
     // Only an open text box answers its question.
     val answers = questions.indices.map { if (open[it]) words[it].trim() else "" }
     val complete = questions.indices.all { picked[it].isNotEmpty() || answers[it].isNotEmpty() }
+    val sendable = if (pick) complete else answers[0].isNotEmpty()
+    // Send, from its button or the keyboard's return key.
+    val send = {
+        if (sendable) { if (pick) onForm(BotQuestion.formAnswer(questions, picked.toList(), answers)) else onAnswer(answers[0]) }
+    }
+    val aboveKeyboard = rememberAboveKeyboard()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         questions.forEachIndexed { index, item ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -220,15 +236,18 @@ private fun QuestionOptions(
                     ) { open[index] = true }
                     if (index == questions.lastIndex) trailing()
                 }
-                if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().testTag("bot-question-answer"),
-                    placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium)
+                // One line, so the return key sends, as iOS's: a multi-line box takes it as a new line (#5112).
+                if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().then(aboveKeyboard.field).testTag("bot-question-answer"),
+                    placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium,
+                    singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(onSend = { send() }))
 
             }
         }
         if (pick || open.any { it }) Button(
-            onClick = { if (pick) onForm(BotQuestion.formAnswer(questions, picked.toList(), answers)) else onAnswer(answers[0]) },
-            enabled = if (pick) complete else answers[0].isNotEmpty(),
-            modifier = Modifier.testTag("bot-question-send"),
+            onClick = send,
+            enabled = sendable,
+            modifier = aboveKeyboard.buttons.testTag("bot-question-send"),
             // The row's one ink button, the pills' radius, as Desktop and iOS draw Send.
             shape = RoundedCornerShape(9.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface,
@@ -265,16 +284,32 @@ private fun SetAside(onDismiss: ((String?) -> Unit)?, asksReason: Boolean, onSno
 /** Dismiss's optional reason for the agent, under the row, sent with Dismiss or put away with Cancel. */
 @Composable
 private fun DismissReason(reason: String, onReason: (String) -> Unit, onDismiss: (String?) -> Unit, onCancel: () -> Unit) {
+    val aboveKeyboard = rememberAboveKeyboard()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(reason, { onReason(it.take(DISMISS_REASON_LIMIT)) }, Modifier.fillMaxWidth().testTag("bot-question-dismiss-reason"),
-            label = { Text(stringResource(R.string.chats_question_dismiss_reason)) }, textStyle = MaterialTheme.typography.bodyMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+        // One line, and return dismisses with it, as iOS's and as Dismiss beside it (#5112).
+        OutlinedTextField(reason, { onReason(it.take(DISMISS_REASON_LIMIT)) }, Modifier.fillMaxWidth().then(aboveKeyboard.field).testTag("bot-question-dismiss-reason"),
+            label = { Text(stringResource(R.string.chats_question_dismiss_reason)) }, textStyle = MaterialTheme.typography.bodyMedium,
+            singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardActions = KeyboardActions(onSend = { onDismiss(reason) }))
+        Row(Modifier.fillMaxWidth().then(aboveKeyboard.buttons), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
             TextButton(onClick = onCancel) { Text(stringResource(R.string.cancel)) }
             Button(onClick = { onDismiss(reason) }, modifier = Modifier.testTag("bot-question-dismiss-send")) {
                 Text(stringResource(R.string.chats_question_dismiss))
             }
         }
     }
+}
+
+/** A text field's modifier, and its buttons' below it: they stay above the keyboard as it opens on a short screen. */
+private class AboveKeyboard(val field: Modifier, val buttons: Modifier)
+
+@Composable
+private fun rememberAboveKeyboard(): AboveKeyboard {
+    val requester = remember { BringIntoViewRequester() }
+    var typing by remember { mutableStateOf(false) }
+    val keyboard = WindowInsets.ime.getBottom(LocalDensity.current)
+    LaunchedEffect(typing, keyboard) { if (typing && keyboard > 0) requester.bringIntoView() }
+    return AboveKeyboard(Modifier.onFocusChanged { typing = it.isFocused }, Modifier.bringIntoViewRequester(requester))
 }
 
 /**
