@@ -194,12 +194,12 @@ class BotDesktopFixtureDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    if (!taskNavigation) ChannelScreen(chatId, onBack = { fail("The chat closed itself") })
+                    if (!taskNavigation) ChannelScreen(chatId, onBack = { fail("The chat closed itself") }, onLink = {})
                     else {
                         val nav = rememberNavController()
                         NavHost(nav, startDestination = "chat") {
                             composable("chat") {
-                                ChannelScreen(chatId, onBack = { fail("The retained chat closed itself") },
+                                ChannelScreen(chatId, onBack = { fail("The retained chat closed itself") }, onLink = {},
                                     onOpenTask = { id -> nav.navigate("task/$id") })
                             }
                             composable("task/{id}") { entry ->

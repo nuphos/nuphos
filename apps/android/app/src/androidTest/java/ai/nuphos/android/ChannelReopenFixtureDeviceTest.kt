@@ -118,7 +118,7 @@ class ChannelReopenFixtureDeviceTest {
         compose.setContent {
             NuphosTheme {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen(open.value, onBack = { fail("A chat closed itself") })
+                    ChannelScreen(open.value, onBack = { fail("A chat closed itself") }, onLink = {})
                 }
             }
         }

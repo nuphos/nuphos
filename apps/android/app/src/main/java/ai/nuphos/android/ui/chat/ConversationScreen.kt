@@ -81,7 +81,6 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.ui.platform.testTag
@@ -98,7 +97,6 @@ import ai.nuphos.android.model.ChatPart
 import ai.nuphos.android.model.ChatRow
 import ai.nuphos.android.model.ChatTime
 import ai.nuphos.android.model.MessageAttribution
-import ai.nuphos.android.model.PlanLink
 import ai.nuphos.android.session.ChatSession
 import ai.nuphos.android.ui.LocalAuthSession
 import ai.nuphos.android.ui.LocalAgentStore
@@ -130,7 +128,7 @@ fun ConversationScreen(
     }
     // A chat named by a link before the list knew it: show it as a chat once its detail says so.
     if (session.isChannel) {
-        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack,
+        ai.nuphos.android.ui.chats.ChannelScreen(sessionId = sessionId, onBack = onBack, onLink = rememberLinkHandler(nav),
             onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
         return
     }
@@ -238,7 +236,7 @@ fun ConversationScreen(
         onDispose { session.bindLocalSender(null) { null } }
     }
     val rows = ChatRow.rows(session, ai.nuphos.android.ui.agent.rememberComputerPresence(auth.token, session.teamId, session.runtimeId))
-    val uriHandler = LocalUriHandler.current
+    val openLink = rememberLinkHandler(nav)
 
     var showTriggers by remember(sessionId) { mutableStateOf(false) }
     if (showTriggers && auth.token != null) {
@@ -349,13 +347,7 @@ fun ConversationScreen(
                             ChatRowView(
                                 row = row,
                                 session = session,
-                                onLink = { url ->
-                                    val target = PlanLink.target(url)
-                                    val conversation = ai.nuphos.android.session.ConversationLink.parse(url)
-                                    if (target != null) nav.navigate("plan/${target.planId}")
-                                    else if (conversation != null) app.conversationLinks.offer(conversation)
-                                    else uriHandler.openUri(url)
-                                },
+                                onLink = openLink,
                                 onAlwaysAllow = {
                                     alwaysRule = it.authorization?.get("suggestedRule")?.stringValue.orEmpty()
                                     alwaysTarget = it

@@ -106,7 +106,7 @@ import androidx.compose.ui.res.stringResource
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit = {}, onOpenTask: ((String) -> Unit)? = null) {
+fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit, onOpenTask: ((String) -> Unit)? = null) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val teamId = store.selectedTeam?.id
