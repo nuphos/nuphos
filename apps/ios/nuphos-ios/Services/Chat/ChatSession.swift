@@ -319,8 +319,10 @@ final class ChatSession {
         backlogFlushTask = nil
     }
 
-    /// A run we aborted; the idle poll must not re-attach to it.
-    private var lastStoppedStreamId: String?
+    /// A run we aborted, or one we attached to that is over. The conversation
+    /// can go on naming it as active; neither the idle poll nor a reread
+    /// attaches to it again, or each attach would end the same way (#5248).
+    private var endedStreamId: String?
     /// The server said it owns this transcript (native runtime or Slack);
     /// PUTs are pointless from then on.
     private var transcriptOwnedByServer = false
@@ -397,7 +399,7 @@ final class ChatSession {
                 permissionMode = bypass ? .bypass : .auto
             }
 
-            if let run = detail.activeRun {
+            if let run = detail.activeRun, run.streamId != endedStreamId {
                 // Whatever assistant content is stored may be stale; the
                 // replay from frame 0 rebuilds it.
                 if !isNativeRuntime, let lastUser = msgs.lastIndex(where: { $0.role == .user }) {
@@ -928,7 +930,7 @@ final class ChatSession {
         phaseLabel = "Stopping…"
         queued = []
         guard let streamId = currentStreamId else { forceLocalStop(); return }
-        lastStoppedStreamId = streamId
+        endedStreamId = streamId
         Task { [weak self] in
             guard let self else { return }
             let status = await AgentChatAPI.abort(token: token, streamId: streamId)
@@ -986,6 +988,8 @@ final class ChatSession {
         case follow(String)
         case failed(String)
         case aborted
+
+        var isAborted: Bool { if case .aborted = self { true } else { false } }
     }
 
     private struct Paused {
@@ -1022,6 +1026,7 @@ final class ChatSession {
             while true {
                 let result = await runTurn(options)
                 guard !Task.isCancelled, currentStreamId == options.streamId else { return }
+                if options.explicitResume, !result.isAborted { endedStreamId = options.streamId }
                 switch result {
                 case .aborted:
                     // A cancelled URL request without task cancellation is only a lost subscription.
@@ -1186,7 +1191,7 @@ final class ChatSession {
             // tail (hundreds of KB, decoded on the main thread) is read only
             // when the conversation moved or a run is live.
             guard let head = try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId, tail: 1, displayed: false) else { continue }
-            let moved = head.activeRun != nil || ServerTail(head) != serverTail
+            let moved = (head.activeRun.map { $0.streamId != endedStreamId } ?? false) || ServerTail(head) != serverTail
             guard let detail = moved ? try? await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: sessionId) : head else { continue }
             guard !Task.isCancelled else { return }
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
@@ -1195,7 +1200,7 @@ final class ChatSession {
             if !serverQueued.isEmpty { await refreshQueue() }
             if !pendingModelSettings.isEmpty { await refreshSessionConfig() }
             guard moved, !submitting, attachedStreamId == attached else { continue }
-            let follow = RuntimeTranscript.runToFollow(active: detail.activeRun?.streamId, attached: attached, stopped: lastStoppedStreamId)
+            let follow = RuntimeTranscript.runToFollow(active: detail.activeRun?.streamId, attached: attached, stopped: endedStreamId)
             let mayMove = attached == nil ? signature() == previousSignature : isNativeRuntime && !awaitingAdmission
             if let follow, mayMove {
                 RuntimeTranscript.adopt(
