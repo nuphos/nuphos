@@ -32,6 +32,14 @@ struct HomeView: View {
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
     private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
+    /// Collapsed, an open chat or question is on top even before a list is on screen to select it.
+    private var compactColumn: Binding<NavigationSplitViewColumn> {
+        Binding(get: { openChat != nil || inbox?.selected != nil ? .detail : .sidebar }) { column in
+            guard column == .sidebar else { return }
+            openChat = nil
+            inbox?.selected = nil
+        }
+    }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
         return { open in desktopOpen = open }
@@ -48,7 +56,7 @@ struct HomeView: View {
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView(columnVisibility: columns) {
+        NavigationSplitView(columnVisibility: columns, preferredCompactColumn: compactColumn) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent

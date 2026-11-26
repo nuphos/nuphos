@@ -38,11 +38,16 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
         let data = (entry?["bodyBase64"] as? String).flatMap { Data(base64Encoded: $0) }
             ?? Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
+        let headers = (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"]
+        let respond = { [self] in
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didLoad: data)
+            client?.urlProtocolDidFinishLoading(self)
+        }
         // `delayMs` holds a response, to look at what is on screen while a write is on its way.
-        if let delay = entry?["delayMs"] as? Int { Thread.sleep(forTimeInterval: Double(delay) / 1000) }
-        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: data)
-        client?.urlProtocolDidFinishLoading(self)
+        // A timer on this loading thread, not a sleep: a sleep held every other request too.
+        guard let delay = entry?["delayMs"] as? Int else { return respond() }
+        RunLoop.current.add(Timer(timeInterval: Double(delay) / 1000, repeats: false) { _ in respond() }, forMode: .common)
     }
     override func stopLoading() {}
 
