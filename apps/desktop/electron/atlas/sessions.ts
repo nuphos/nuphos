@@ -3,7 +3,7 @@ import { call } from './client'
 import type { SignInSession } from '../../src/types/team'
 
 // The signed-in member's own sign-ins. Only a sign-in session may call these;
-// one from before sessions existed gets `session_required`.
+// any other credential gets `session_required`.
 export async function listSignInSessions(): Promise<SignInSession[]> {
   const res = await call<{ sessions: SignInSession[] }>('GET', '/auth/sessions')
 

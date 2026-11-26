@@ -11,8 +11,10 @@ at once when revoked.
 - `DELETE /auth/sessions/:id` ends one; `current` signs this client out.
 - `DELETE /auth/sessions` signs out every other device.
 
-These need a sign-in session. A sign-in from before sessions existed gets
-`403 session_required` and should be asked to sign in again.
+These need a sign-in session. A CLI token or an agent run token has none and
+gets a `403`. A sign-in from before sessions existed is no longer accepted at
+all: every request with it gets `401 unauthorized`, and the user has to sign in
+again.
 
 ## Two-factor authentication
 

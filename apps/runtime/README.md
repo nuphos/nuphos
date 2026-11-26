@@ -346,11 +346,12 @@ runtime's address and asks which team to connect it to. Only teams you administe
 can be picked. Confirm, and that team gets its own key for this runtime. To add the
 runtime to another team, press **Connect to Nuphos** again.
 
-If Nuphos Desktop does not open, go to **Settings → Agent → Connect your own**,
-choose the pairing code option, and enter the agent URL and pairing code the console
-shows. A code works once and expires after 10 minutes. Plain `ws://` is accepted only
-for an in-cluster `*.svc` host; anything reached over the internet has to be
-`wss://`.
+The link carries a pairing code that works once and expires after 10 minutes. If
+Nuphos Desktop does not open, check that it is installed and signed in, then press
+**Connect to Nuphos** again. A Desktop run from source handles `nuphos://` links only
+with `ATLAS_REGISTER_NUPHOS_PROTOCOL=1`. **Settings → Computers → Add computer** does
+not accept a runtime's address or pairing code. Plain `ws://` is accepted only for an
+in-cluster `*.svc` host; anything reached over the internet has to be `wss://`.
 
 The URL Nuphos connects to is taken from the address you opened the console at. If
 Nuphos reaches the runtime at a different address, set it under **Agent URL Nuphos
