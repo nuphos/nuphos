@@ -38,16 +38,19 @@ nonisolated final class PreviewTransport: URLProtocol, @unchecked Sendable {
         let folder = URL(fileURLWithPath: file).deletingLastPathComponent().path
         let data = (entry?["bodyBase64"] as? String).flatMap { Data(base64Encoded: $0) }
             ?? Data((String(data: json, encoding: .utf8) ?? "").replacingOccurrences(of: "$FIXTURE_DIR", with: folder).utf8)
-        let headers = (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"]
         let respond = { [self] in
-            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers)!, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: (entry?["headers"] as? [String: String]) ?? ["Content-Type": "application/json"])!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocol(self, didLoad: data)
             client?.urlProtocolDidFinishLoading(self)
         }
-        // `delayMs` holds a response, to look at what is on screen while a write is on its way.
-        // A timer on this loading thread, not a sleep: a sleep held every other request too.
+        // `delayMs` holds this response only, to look at what is on screen while it is on its way;
+        // the others answer meanwhile, as a slow server would. It lands on the thread that asked.
         guard let delay = entry?["delayMs"] as? Int else { return respond() }
-        RunLoop.current.add(Timer(timeInterval: Double(delay) / 1000, repeats: false) { _ in respond() }, forMode: .common)
+        let loop = CFRunLoopGetCurrent()
+        DispatchQueue.global().asyncAfter(deadline: .now() + .milliseconds(delay)) {
+            CFRunLoopPerformBlock(loop, CFRunLoopMode.commonModes.rawValue, respond)
+            CFRunLoopWakeUp(loop)
+        }
     }
     override func stopLoading() {}
 
