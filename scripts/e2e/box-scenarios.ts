@@ -113,12 +113,7 @@ export const boxScenarios: Scenario[] = [
           ),
         )
 
-        await page
-          .getByRole('button', { name: /^Search/ })
-          .first()
-          .click()
-        await page.keyboard.type('Computers')
-        await page.getByRole('option', { name: 'Computers' }).first().click()
+        await openComputers(page)
         await page.getByText(label).filter({ visible: true }).first().waitFor()
         await page.getByRole('status').filter({ hasText: NOTICE }).waitFor()
         // The cards fade in; the picture is taken once they have.

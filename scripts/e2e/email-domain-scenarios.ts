@@ -65,7 +65,7 @@ async function openAllowedDomains(page: Page) {
     .getByRole('button', { name: /^Search/ })
     .first()
     .click()
-  await page.keyboard.type('Team settings')
+  await page.getByRole('combobox', { name: 'Search Bots and tasks' }).fill('Team settings')
   await page.getByRole('option', { name: 'Team settings' }).first().click()
   const heading = page.getByRole('heading', { name: 'Allowed email domains' })
 
