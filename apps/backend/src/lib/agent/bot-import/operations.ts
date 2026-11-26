@@ -169,11 +169,12 @@ export function importOperations(
       if (!isOpenAbProvider(batch.agentRuntime)) throw new Error('Unsupported destination')
       const existing = await getConversationBySessionId(item.sessionId)
 
+      // A person chose to import it, so it starts in Full Access as a Bot made with "+" does.
       if (!existing)
         await createBot(
           batch.userId,
           batch.teamId,
-          false,
+          true,
           {
             source: { via: 'bot_import' },
             title: source.name,

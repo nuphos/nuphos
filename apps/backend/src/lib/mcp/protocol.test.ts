@@ -6,6 +6,7 @@ import {
   handleMcpHttpPayload,
   handleMcpMessage,
   toolResult,
+  usesTools,
 } from './protocol'
 
 import type { ToolHandler } from './protocol'
@@ -229,4 +230,16 @@ test('calledToolName names the tool of a tools/call and nothing else', () => {
   expect(calledToolName({ method: 'tools/call', params: { name: 7 } })).toBeUndefined()
   expect(calledToolName([call])).toBeUndefined()
   expect(calledToolName(null)).toBeUndefined()
+})
+
+test('usesTools is false for the handshake and true once tools are listed or called', () => {
+  const message = (method: string, id?: number) => ({ jsonrpc: '2.0', method, id })
+
+  expect(usesTools(message('initialize', 1))).toBe(false)
+  expect(usesTools(message('notifications/initialized'))).toBe(false)
+  expect(usesTools(message('ping', 2))).toBe(false)
+  expect(usesTools(null)).toBe(false)
+  expect(usesTools(message('tools/list', 3))).toBe(true)
+  expect(usesTools(message('tools/call', 4))).toBe(true)
+  expect(usesTools([message('ping', 5), message('tools/list', 6)])).toBe(true)
 })

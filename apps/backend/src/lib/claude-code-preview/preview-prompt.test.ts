@@ -200,8 +200,8 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   )
   expect(box).toContain("local_exec is for the user's other devices, only when they ask for one")
   expect(box).not.toContain('inside the team sandbox')
-  // A sign-in only the user can do is handed to them on this desktop.
-  expect(box).toContain('handed to them with a request_user_decision `computer` card')
+  // Not offered a `computer` card while the gate is off.
+  expect(box).not.toContain('`computer` card')
   expect(await on('mac')).not.toContain('nuphos-desktop')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
   expect(await on('gone')).toContain('inside the team sandbox')

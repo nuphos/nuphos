@@ -64,3 +64,18 @@ test('an uploaded photo is not given a background', async () => {
     /data-avatar-background/,
   )
 })
+
+/** The runtime badge's width on a face of this size. */
+async function badge(size: number) {
+  const html = await render({ provider: 'claude', size })
+
+  return /bottom-0 right-0[^>]*style="width: (\d+)px; height: \1px/.exec(html)?.[1]
+}
+
+test('the runtime badge keeps to about a third of a large face, and its old sizes below', async () => {
+  assert.equal(await badge(24), '9')
+  assert.equal(await badge(28), '12')
+  assert.equal(await badge(36), '12')
+  assert.equal(await badge(56), '19')
+  assert.equal(await badge(72), '24')
+})

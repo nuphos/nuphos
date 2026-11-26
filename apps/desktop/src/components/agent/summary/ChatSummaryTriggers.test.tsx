@@ -101,3 +101,14 @@ test('a Trigger row opens its details, and its switch does not', async () => {
   assert.deepEqual(updates, [{ id: 'trg-1', patch: { enabled: false } }])
   assert.equal(row.getAttribute('aria-expanded'), 'false', 'the switch leaves the row closed')
 })
+
+test('a zoned schedule stays on one short line, and a paused row says nothing the switch does not', async () => {
+  trigger.cronExpression = '0 9 * * 1'
+  trigger.timeZone = 'Asia/Taipei'
+  trigger.enabled = false
+  const container = await mount()
+
+  assert.ok(container.textContent?.includes('Mon at 09:00 UTC+8'))
+  assert.ok(!container.textContent?.includes('Runs on schedule'))
+  assert.ok(!container.textContent?.includes('Turn it on to resume'))
+})

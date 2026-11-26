@@ -73,8 +73,8 @@ export function isPersonalCredentialRef(value: unknown): value is PersonalCreden
 /** A `computer` card's answers, which its clients draw as its own buttons. */
 export const COMPUTER_OPTIONS = ["I'm done", 'Skip'] as const
 
-/** Whether agents are offered `computer` cards, now that its clients show the desktop live (#4977). */
-export const COMPUTER_CARDS = true
+/** Whether agents are offered `computer` cards: off pending a follow-up (#4977). */
+export const COMPUTER_CARDS = false
 
 const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
   ConnectableProvider,
