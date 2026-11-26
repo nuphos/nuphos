@@ -35,7 +35,8 @@ struct HomeView: View {
     /// Collapsed, an open chat or question is on top even before a list is on screen to select it.
     private var compactColumn: Binding<NavigationSplitViewColumn> {
         Binding(get: { openChat != nil || inbox?.selected != nil ? .detail : .sidebar }) { column in
-            guard column == .sidebar else { return }
+            // Back from a Bot's Task also reports the sidebar; it returns to the Bot chat.
+            guard column == .sidebar, !showBotTask else { return }
             openChat = nil
             inbox?.selected = nil
         }
