@@ -20,6 +20,7 @@ import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botImportModeScenarios } from './bot-import-mode-scenarios.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
+import { computerCardScenarios } from './computer-card-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
@@ -205,7 +206,7 @@ const later: Scenario[] = [
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
-  // computerCardScenarios returns with the computer card gate (COMPUTER_CARDS).
+  ...computerCardScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
