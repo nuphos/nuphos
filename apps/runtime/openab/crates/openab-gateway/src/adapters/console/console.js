@@ -228,8 +228,8 @@
       $('pairing-url').textContent = minted.url || '';
       $('pairing-code').textContent = minted.code;
       $('pairing-hint').textContent = minted.deepLink
-        ? 'Nuphos Desktop should open now. If it does not, go to Settings → Agent → Connect your own in Nuphos and enter this URL and pairing code.'
-        : 'In Nuphos, go to Settings → Agent → Connect your own and enter this URL and pairing code.';
+        ? 'Nuphos Desktop should open now. If it does not, check that it is installed and signed in, then press Connect to Nuphos again.'
+        : 'Nuphos Desktop cannot be opened from here. Check that the Agent URL Nuphos connects to is set. A runtime image without a connect link cannot open Desktop.';
       startExpiry(minted.expiresAt);
       if (minted.deepLink) window.location.href = minted.deepLink;
     } catch (error) {

@@ -93,7 +93,11 @@ export async function beginNuphosSlackTurn(args: {
 
     return null
   }
-  const runtime = { botToken: bot.botToken, botUserId: bot.botUserId }
+  const runtime = {
+    botToken: bot.botToken,
+    botUserId: bot.botUserId,
+    slackWorkspaceId: thread.slackWorkspaceId,
+  }
   // Prefer the sender's Slack identity so the thread reads like the person
   // spoke; the Nuphos name covers unmapped users. The mapping is a local
   // lookup, but the display name is a Slack HTTP call (10s timeout) — it must
@@ -163,6 +167,7 @@ export async function beginNuphosSlackTurn(args: {
         channel: thread.slackChannelId,
         threadTs: thread.slackThreadTs,
         text,
+        from: { sessionId: thread.sessionId, slackWorkspaceId: thread.slackWorkspaceId },
       })
     },
     (status) => {

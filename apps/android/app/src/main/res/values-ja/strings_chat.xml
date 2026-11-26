@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">割り込みを再試行</string>
     <string name="chat_attachment_message">添付ファイル付きメッセージ</string>
     <string name="chat_upload_preparing">アップロードを準備中…</string>
-    <string name="chat_upload_progress">アップロード中 %1$d / %2$d バイト</string>
+    <string name="chat_upload_progress">アップロード中 %1$s / %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$sバイト</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">アップロードしたファイルを確認中…</string>
+    <string name="chat_upload_sending">送信中…</string>
     <string name="chat_upload_ready">ファイルの準備ができました</string>
     <string name="chat_upload_cancel">アップロードをキャンセル</string>
     <string name="chat_upload_retry">添付ファイル付きメッセージを再試行</string>

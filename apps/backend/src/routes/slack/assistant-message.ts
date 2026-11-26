@@ -60,6 +60,7 @@ export async function handleAssistantMessage(envelope: SlackEventEnvelope): Prom
   const runtime: SlackRuntime = {
     botToken: botContext.botToken,
     botUserId: botContext.botUserId,
+    slackWorkspaceId,
   }
 
   // Never reply to our own messages or system/bot subtypes.

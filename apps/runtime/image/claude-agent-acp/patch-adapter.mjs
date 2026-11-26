@@ -48,7 +48,7 @@ patched = patched
     envEnd,
     envEnd.replace(
       '};',
-      `}, userProvidedOptions?.env);
+      `}, userProvidedOptions?.env, process.env, Date.now(), await nuphosVaultToken());
         // Settings env overrides the child environment in Claude Code. Pin the
         // session paths at the programmatic tier too, just like provider routing.
         if (env.NUPHOS_SESSION_HOME) {
@@ -113,6 +113,36 @@ for (const [banner, step] of compactionBanners) {
   if (patched.split(banner).length !== 2) throw new Error('Expected one Claude compaction banner.')
   patched = patched.replace(banner, step)
 }
+// `result.modelUsage` is a running total that Claude Code restores from the
+// transcript when it resumes a session, but the adapter starts every session
+// with an empty reading, so the first turn after a resume was charged the whole
+// session's history. A resumed session's first reading only seeds the baseline;
+// that turn is counted from the result's own per-turn `usage`, as upstream 0.112
+// does. Its sub-agent spend goes unlisted rather than over-listed.
+const resumedSession = '                lastModelUsageReading: {},\n'
+const modelUsageIncrement =
+  '                            const resultModelUsage = modelUsageIncrement(modelUsageReading, session.lastModelUsageReading ?? {});\n'
+if (patched.split(resumedSession).length !== 2 || patched.split(modelUsageIncrement).length !== 2)
+  throw new Error('Expected one Claude model usage baseline.')
+patched = patched
+  .replace(
+    resumedSession,
+    '                lastModelUsageReading: creationOpts.resume !== undefined ? undefined : {},\n',
+  )
+  .replace(
+    modelUsageIncrement,
+    `                            const resumedModel = lastAssistantModel &&
+                                (getMatchingModelUsage(message.modelUsage ?? {}, lastAssistantModel)?.key ?? lastAssistantModel);
+                            const resultModelUsage = session.lastModelUsageReading === undefined
+                                ? modelUsageIncrement(resumedModel ? normalizeModelUsage({ [resumedModel]: {
+                                    inputTokens: message.usage.input_tokens,
+                                    outputTokens: message.usage.output_tokens,
+                                    cacheReadInputTokens: message.usage.cache_read_input_tokens,
+                                    cacheCreationInputTokens: message.usage.cache_creation_input_tokens,
+                                } }) : {}, {})
+                                : modelUsageIncrement(modelUsageReading, session.lastModelUsageReading);
+`,
+  )
 // Only user settings load; the working directory's CLAUDE.md is appended as text.
 const instructionsAnchor =
   '        const permissionMode = resolvePermissionMode(settingsManager.getSettings().permissions?.defaultMode, this.logger);\n'

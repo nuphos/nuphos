@@ -346,8 +346,6 @@
   "slack.nuphos_turn.finalize_error",
   "slack.nuphos_turn.mirror_unavailable",
   "slack.nuphos_turn.sender_resolve_error",
-  "slack.outbound.reply_thread_failed",
-  "slack.outbound.transcript_append_failed",
   "slack.permission.decide.error",
   "slack.reaction.add_failed",
   "slack.reinstall.workspace_mismatch",

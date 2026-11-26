@@ -1,5 +1,4 @@
 import { createSlackPostBudget } from '@/lib/slack/agent-outbound/budget'
-import { finalizeSlackPostDelivery } from '@/lib/slack/agent-outbound/finalize-delivery'
 import { routeSlackDestination } from '@/lib/slack/agent-outbound/route-destination'
 
 import type {
@@ -18,7 +17,6 @@ export function createSlackOutboundPost(setup: {
   const budget = createSlackPostBudget()
 
   return async (input) => {
-    const forkThread = input.replyThread
     const rejectedEarly = budget.beginCall()
 
     if (rejectedEarly) return rejectedEarly
@@ -35,17 +33,18 @@ export function createSlackOutboundPost(setup: {
 
       if (!route.ok) return rejectBeforeDelivery(route.error)
       const { sendToken, sendWorkspaceId } = route
-      const selfMapping = await dependencies.getSelfMapping(
-        sendWorkspaceId,
-        args.teamId!,
-        args.userId,
-        sendToken,
-      )
 
       let channelId: string
       let label: string
 
       if (input.destination.type === 'dm_self') {
+        const selfMapping = await dependencies.getSelfMapping(
+          sendWorkspaceId,
+          args.teamId!,
+          args.userId,
+          sendToken,
+        )
+
         if (!selfMapping) {
           return rejectBeforeDelivery(
             'Your Slack account is not linked to this Nuphos team, so I cannot DM you. Link it in Settings → Slack first.',
@@ -56,6 +55,11 @@ export function createSlackOutboundPost(setup: {
       } else {
         const joined = await dependencies.getChannel(sendToken, input.destination.channelId)
 
+        if (!(await dependencies.mayPostIn(args.sessionId, sendWorkspaceId, joined.id))) {
+          return rejectBeforeDelivery(
+            `#${joined.name} is another Bot's chat. Only that Bot and its Tasks post there.`,
+          )
+        }
         channelId = joined.id
         label = `#${joined.name}`
       }
@@ -67,6 +71,7 @@ export function createSlackOutboundPost(setup: {
         token: sendToken,
         channel: channelId,
         text,
+        from: { sessionId: args.sessionId, slackWorkspaceId: sendWorkspaceId },
       })
       const messageTs = response.ts
       const responseChannel =
@@ -76,21 +81,11 @@ export function createSlackOutboundPost(setup: {
         throw new Error('Slack accepted the message but did not return its channel and timestamp')
       }
 
-      return await finalizeSlackPostDelivery({
-        dependencies,
-        userId: args.userId,
-        teamId: args.teamId!,
-        destinationType: input.destination.type,
-        label,
-        text,
-        sendToken,
-        sendWorkspaceId,
-        channelId,
-        responseChannel,
+      return {
+        ok: true,
+        destination: { type: input.destination.type, channelId: responseChannel, label },
         messageTs,
-        selfMapping,
-        forkThread,
-      })
+      }
     } catch (err) {
       attempt.countUncommittedThrow()
 

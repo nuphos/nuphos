@@ -47,7 +47,10 @@ const scenario: Scenario = {
 
     await openBotChat(page)
     // The chat in front: a Bot chat stays mounted, inert, behind other pages.
-    const answers = page.locator('.group\\/post:not([inert] *):visible', { hasText: ANSWER })
+    // A person's answers, not the Bot's own post answering them (#5162).
+    const answers = page.locator('.group\\/post:not([inert] *):visible', {
+      has: page.locator('.user-message-bubble', { hasText: ANSWER }),
+    })
     const post = answers.last()
     const bubble = post.locator('.user-message-bubble')
 
@@ -67,10 +70,12 @@ const scenario: Scenario = {
     if ((await page.locator('[data-decision-record]:visible').count()) > 0)
       throw new Error('An answer left the old "answered:" line instead of a post')
 
-    // The posts were written, not posted: no channel notice woke the Bot for them.
+    // The posts were written, not posted: no channel notice woke the Bot for them. Its answer
+    // turn ended without channel_post, so Nuphos reminds it once to answer there (#5162).
+    await until('the reminder to wake the Bot', async () => channelWakes(stack) > wakes)
     await page.waitForTimeout(3_000)
-    if (channelWakes(stack) !== wakes)
-      throw new Error(`The answer's posts woke the Bot: ${String(channelWakes(stack) - wakes)}`)
+    if (channelWakes(stack) !== wakes + 1)
+      throw new Error(`Expected one reminder wake, got ${String(channelWakes(stack) - wakes)}`)
 
     await post.scrollIntoViewIfNeeded()
     const themed = await page.evaluate(() => document.documentElement.className)

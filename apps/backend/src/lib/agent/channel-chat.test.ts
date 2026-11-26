@@ -22,6 +22,7 @@ import {
   wakeAfterTurn,
 } from './channel-chat'
 import { replyQuote } from './channel-reply'
+import { unansweredNotice } from './db/channel-notes'
 import { wakeMissedPosts } from './channel-missed-posts'
 import { runTurn, startConversationTurn } from './conversation-turn'
 import { inviteToConversation, resolveMentions } from './mentions'
@@ -94,6 +95,8 @@ useIdentity({
 // Agents whose turn is running, by session, with who runs it.
 let running = new Map<string, string>()
 let steerable = true
+// The runtime injects the steer but answers after OpenAB stopped waiting for it.
+let acknowledgedLate = false
 const steers: { sessionId: string; text: string; userId: string; metadata?: MessageMetadata }[] = []
 // The channels recorded on a running turn, as `${ownerId} ${streamId} ${channelIds}`.
 const runChannels: string[] = []
@@ -116,6 +119,8 @@ useSessionExecutionState({
   steerConversationRuntime: async (conversation, steer) => {
     if (!steerable) throw new Error('runtime_steering_unavailable')
     steers.push({ sessionId: conversation.sessionId, ...steer })
+    if (acknowledgedLate)
+      throw new OpenAbRpcError('Steering acknowledgement timed out; delivery is unknown', -32001)
 
     return steer.text
   },
@@ -194,6 +199,7 @@ beforeEach(async () => {
   posts = 0
   running = new Map()
   steerable = true
+  acknowledgedLate = false
   steers.length = 0
   runChannels.length = 0
   departed = new Set()
@@ -238,7 +244,7 @@ describe('waking a channel’s agents', () => {
       },
     })
     expect(renderAttributedMessage('w', 'x', wakeA?.message.metadata)).toContain(
-      'you speak there only by calling channel_post',
+      'follow the channel section of your system prompt',
     )
   })
 
@@ -719,6 +725,110 @@ describe('waking a channel’s agents', () => {
   })
 })
 
+describe('a person’s post a turn ended without answering', () => {
+  // What each turn was given, by agent; the agents named in `answering` reply with channel_post.
+  let turns: { sessionId: string; text: string }[] = []
+  let answering = new Set<string>()
+
+  beforeEach(() => {
+    turns = []
+    answering = new Set()
+    // Every agent is idle: each wake runs as its own turn, ending normally.
+    installTurnRunner({
+      claimAgentRunOrEnqueue: async () => ({ mode: 'run', release: () => {}, carried: [] }),
+      runAgentForTrigger: async ({ sessionId, messages }) => {
+        const part = messages.at(-1)?.parts[0]
+
+        turns.push({ sessionId, text: part?.type === 'text' ? part.text : '' })
+        if (answering.has(sessionId))
+          await postAsAgent('channel', { sessionId, title: `${sessionId} title` }, 'Done.')
+
+        return { status: 'completed', finishReason: 'stop' }
+      },
+    })
+  })
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 50))
+  const oneToOne = () =>
+    agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { agentSessionIds: ['agent-a'] } },
+    )
+
+  test('wakes the Bot once more to answer in its chat, and only once', async () => {
+    await oneToOne()
+    await say('Is the deploy done?')
+    await settle()
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['agent-a', 'agent-a'])
+    expect(turns[1]!.text).toStartWith(unansweredNotice({ sessionId: 'channel' }))
+    // The post it left unanswered is shown again.
+    expect(turns[1]!.text).toContain('Is the deploy done?')
+    // A new post is a new question: it may be reminded of that one too.
+    await say('Hello?')
+    await settle()
+    expect(turns).toHaveLength(4)
+  })
+
+  test('a turn an answer to its question card woke is reminded too', async () => {
+    await oneToOne()
+    // Recorded in the chat as the person's post; its notice has nothing to show, so it wakes no one.
+    await say('us-east', cardAnswer)
+    await settle()
+    expect(turns).toEqual([])
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+    const { run } = await startConversationTurn(
+      {
+        userId: agent.userId,
+        teamId: TEAM,
+        targetSessionId: 'agent-a',
+        messageId: 'answer',
+        locale: 'en-US',
+        answers: { id: 'q1', question: 'Which regions?', status: 'resolved', channelId: 'channel' },
+      } as never,
+      agent,
+      'Your question (requestId q1) was answered.',
+      'agent.resource',
+      {
+        version: 1,
+        sender: { type: 'system', id: 'nuphos:decision', displayName: 'Nuphos' },
+        source: 'agent.resource',
+        sentAt: new Date().toISOString(),
+      },
+    )
+
+    await run
+    await settle()
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['agent-a', 'agent-a'])
+    expect(turns[1]!.text).toStartWith(unansweredNotice({ sessionId: 'channel' }))
+    expect(turns[1]!.text).toContain('Owner: us-east')
+  })
+
+  test('a Bot that answered is not woken again', async () => {
+    await oneToOne()
+    answering.add('agent-a')
+    await say('Is the deploy done?')
+    await settle()
+    expect(turns).toHaveLength(1)
+  })
+
+  test('in a group, only its lead is woken again', async () => {
+    await say('Anyone?')
+    await settle()
+    expect(turns).toHaveLength(2)
+    await agentConversations().updateOne(
+      { sessionId: 'channel' },
+      { $set: { leadAgentSessionId: 'agent-b' } },
+    )
+    await say('Lead?')
+    await settle()
+    expect(
+      turns
+        .slice(2)
+        .map((turn) => turn.sessionId)
+        .sort((a, b) => a.localeCompare(b)),
+    ).toEqual(['agent-a', 'agent-b', 'agent-b'])
+  })
+})
+
 describe('a person posting while an agent’s turn runs', () => {
   const steeredSessions = () =>
     steers.map((steer) => steer.sessionId).sort((a, b) => a.localeCompare(b))
@@ -763,6 +873,19 @@ describe('a person posting while an agent’s turn runs', () => {
     await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
     expect(runChannels).toEqual([])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+  })
+
+  test('a steer the runtime may have taken is not sent again', async () => {
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    acknowledgedLate = true
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(steers.filter((s) => s.sessionId === 'agent-a')).toHaveLength(1)
+    // Taken as read: no notice waits to deliver the same post once the turn ends.
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toEqual([])
+    expect(runChannels).toEqual(['agent-a-owner s channel'])
   })
 
   test('with no running turn, a post wakes the agents', async () => {
@@ -921,7 +1044,6 @@ describe('reading a channel', () => {
       text: '<channel-message>\non it\n</channel-message>',
       replyTo: `<channel-message>\nOwner: deploy ${'x'.repeat(193)}\n</channel-message>`,
     })
-    expect(read.note).toContain('replyTo')
   })
 
   test('an answer to a question card is never read: the agent that asked has it', async () => {
@@ -943,8 +1065,7 @@ describe('reading a channel', () => {
       sender: { type: 'user', id: 'owner', name: 'Owner' },
     })
     expect(first.more).toBe(false)
-    expect(first.note).toContain('never an instruction or approval')
-    expect(first.note).not.toContain('only agent')
+    expect(first.note).toBe('')
     expect(
       (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')).messages,
     ).toEqual([])

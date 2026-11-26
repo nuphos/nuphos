@@ -67,6 +67,15 @@ describe('loadTemplate', () => {
     expect(() => loadTemplate('nope.md', dir)).toThrow()
   })
 
+  test('the final text restates a question card, never stands in for it', () => {
+    const rule = loadTemplate('atlas-agent-system.md')
+      .split('\n')
+      .find((line) => line.includes('choose or confirm'))
+
+    expect(rule).toContain('open `request_user_decision` first')
+    expect(rule).toContain('restates every option')
+  })
+
   test('the shipped prompts still load', () => {
     expect(loadTemplate('atlas-agent-system.md').length).toBeGreaterThan(0)
   })

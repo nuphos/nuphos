@@ -80,7 +80,8 @@ export async function newTaskOn(page: Page, label: string) {
   await code.waitFor({ timeout: 60_000 })
   await code.fill('e2e-code#e2e-state')
   await page.keyboard.press('Enter')
-  await page.getByText(/is ready\./).waitFor({ timeout: 60_000 })
+  await page.getByText(`Claude Code is ready on ${label}`).waitFor({ timeout: 60_000 })
+  await page.getByRole('button', { name: 'Done', exact: true }).click()
   await page.getByText('Back to app', { exact: true }).click()
 
   await newTask(page)

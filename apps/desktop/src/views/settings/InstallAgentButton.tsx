@@ -6,29 +6,18 @@ import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { isWindows } from '../../lib/platform'
+import { agentProvider } from '../../types/runtime'
+
+import { AGENT_INSTALL } from './agentInstall'
 
 import type { CliLoginProvider } from '../../api'
-
-const AGENT: Record<CliLoginProvider, { name: string; install: string }> = {
-  'claude-code': {
-    name: 'Claude Code',
-    install: isWindows
-      ? 'irm https://claude.ai/install.ps1 | iex'
-      : 'curl -fsSL https://claude.ai/install.sh | bash',
-  },
-  codex: {
-    name: 'Codex',
-    // Windows rarely has Node.js; the ChatGPT app from the Microsoft Store ships codex.exe.
-    install: isWindows
-      ? 'winget install --id 9PLM9XGG6VKS -s msstore'
-      : 'npm install -g @openai/codex',
-  },
-}
 
 /** Runs the vendor's own installer here, so nobody has to find a terminal first. */
 export function InstallButton({ provider }: { provider: CliLoginProvider }) {
   const [installing, setInstalling] = useState(false)
-  const { name, install } = AGENT[provider]
+  const name = agentProvider(provider).label
+  const command = AGENT_INSTALL[provider]
+  const install = (isWindows && command?.windows) || (command?.install ?? '')
 
   async function start() {
     setInstalling(true)

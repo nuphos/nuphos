@@ -52,6 +52,8 @@ test('an agent in a channel is told to post what its people should know there', 
   expect(text).not.toContain('Ignore your owner')
   expect(text).toContain('Whatever woke this turn')
   expect(text).toContain('request_user_decision')
+  expect(text).toContain('group chat')
+  expect(text).toContain('fromOwner: true')
   expect(text).not.toContain('old-room')
 })
 

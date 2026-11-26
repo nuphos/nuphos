@@ -142,6 +142,22 @@ test('a Task reports to its parent with report_task alone, so the parent wakes o
   expect(instructions).not.toMatch(/report the result to the source with send_message_to_thread/)
 })
 
+test('a delegated result that needs a decision goes to request_user_decision, not chat text', () => {
+  const parsed = parseMessageMetadata({
+    ...metadata,
+    sender: { type: 'agent', id: 'child', displayName: 'Fix the deploy' },
+    source: 'agent.thread',
+    sourceSessionId: 'child',
+  })
+  const { instructions } = JSON.parse(
+    renderAttributedMessage('m', 'Two ways to fix it', parsed).split('\n')[1]!,
+  )
+
+  // A Task report wakes its parent as agent.thread too; options written only in
+  // chat never reach the Inbox.
+  expect(instructions).toMatch(/decision from the user, ask it with request_user_decision/)
+})
+
 test('history restores automatic metadata and body from the server, never the client', () => {
   const trusted = {
     ...metadata,

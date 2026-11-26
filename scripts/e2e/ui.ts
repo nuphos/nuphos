@@ -131,6 +131,8 @@ export async function openComputers(page: Page) {
     .getByRole('button', { name: /^Search/ })
     .first()
     .click()
-  await page.keyboard.type('Computers')
+  // fill waits for the field: the dialog opens a frame after the click, and keys typed before
+  // that are lost (#4394).
+  await page.getByRole('combobox', { name: 'Search Bots and tasks' }).fill('Computers')
   await page.getByRole('option', { name: 'Computers' }).first().click()
 }

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -7,8 +7,9 @@ import { test } from 'node:test'
 
 import { prepareClaudeHome, prepareIsolatedAgentHome } from './agent-home.ts'
 import { openabConfigToml, openabEnv } from './config.ts'
+import { codexProviderConfig } from './custom-provider-codex.ts'
 import {
-  codexProviderConfig,
+  checkCustomProvider,
   customProviderLaunch,
   parseCustomProvider,
   readCustomProviders,
@@ -18,6 +19,7 @@ import {
 } from './custom-provider.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
+import type { CustomProviderCheck } from './custom-provider-probe.ts'
 import type { KeyStore } from './custom-provider.ts'
 import type { AddressInfo } from 'node:net'
 
@@ -46,6 +48,7 @@ function tempDir(t: { after: (fn: () => void) => void }) {
 }
 
 const gateway = { baseUrl: 'https://gw.example.com/anthropic', models: ['glm-4.6', 'kimi-k2'] }
+const codexGateway = { baseUrl: 'https://gw.example.com/v1', models: ['glm-4.6'] }
 
 test('a base URL is HTTPS, or HTTP to this computer, and never carries credentials', () => {
   assert.deepEqual(parseCustomProvider({ ...gateway, models: [' glm-4.6 ', '', 'glm-4.6'] }), {
@@ -59,6 +62,27 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   for (const baseUrl of ['http://gw.example.com', 'https://u:p@gw.example.com', 'gw.example.com'])
     assert.throws(() => parseCustomProvider({ baseUrl }))
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
+})
+
+test('Codex takes one model ID, and one saved with more keeps the first', (t) => {
+  const dir = tempDir(t)
+
+  assert.throws(
+    () => parseCustomProvider(gateway, 'codex'),
+    /^Error: Enter one model ID without spaces\.$/u,
+  )
+  assert.throws(
+    () => parseCustomProvider({ ...codexGateway, models: ['kimi-k2 glm-4.6'] }, 'codex'),
+    /^Error: Enter one model ID without spaces\.$/u,
+  )
+  assert.throws(
+    () => parseCustomProvider({ ...gateway, models: ['two words'] }, 'claude-code'),
+    /^Error: Enter up to 50 model IDs, one per line, without spaces\.$/u,
+  )
+  assert.deepEqual(parseCustomProvider(gateway, 'claude-code').models, gateway.models)
+  mkdirSync(dir, { recursive: true })
+  writeFileSync(path.join(dir, 'custom-providers.json'), JSON.stringify({ codex: gateway }))
+  assert.deepEqual(readCustomProviders(dir).codex?.models, ['glm-4.6'])
 })
 
 const realFetch = globalThis.fetch
@@ -104,7 +128,7 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   assert.equal(readCustomProviders(dir).codex, undefined)
 
   // An edit without a key is asked with the stored one; Claude Code is not asked at all.
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   await assert.rejects(
     saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
     /Responses API/u,
@@ -117,13 +141,84 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   assert.equal(seen.length, 3)
 })
 
+test('Test connection sends each CLI’s one request and says what it found', async (t) => {
+  const store = memoryStore()
+  const seen: { method?: string; url?: string; key?: string }[] = []
+  const server = createServer((req, res) => {
+    seen.push({ method: req.method, url: req.url, key: req.headers['x-api-key'] as string })
+    if (req.headers.authorization !== 'Bearer sk-good') return res.writeHead(401).end()
+    if (req.url === '/v1/models')
+      return res.writeHead(200).end('{"data":[{"id":"model-a"},{"id":"model-c"}]}')
+    res.writeHead(req.url === '/gw/responses' ? 400 : 404).end()
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  t.after(() => server.close())
+  const { port } = server.address() as AddressInfo
+  const base = `http://127.0.0.1:${port}`
+  const host = `127.0.0.1:${port}`
+  const drop = (check: CustomProviderCheck) => {
+    const { ms, ...rest } = check as CustomProviderCheck & { ms?: number }
+
+    assert.ok((ms ?? 0) >= 0)
+
+    return rest
+  }
+
+  // Claude Code lists its models: two given, one answered.
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'claude-code', {
+        baseUrl: base,
+        apiKey: 'sk-good',
+        models: ['model-a', 'model-b'],
+      }),
+    ),
+    { host, reached: true, models: { answered: 1, total: 2 } },
+  )
+  assert.deepEqual(seen.at(-1), { method: 'GET', url: '/v1/models', key: 'sk-good' })
+  // Codex: the Responses API, the key turned down, the wrong path.
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `${base}/gw`, apiKey: 'sk-good' }),
+    ),
+    { host, reached: true },
+  )
+  assert.deepEqual(
+    drop(
+      await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `${base}/gw`, apiKey: 'sk-bad' }),
+    ),
+    {
+      host,
+      reached: true,
+      failure: { reason: 'key', request: 'POST /responses → 401 Unauthorized' },
+    },
+  )
+  // The stored key stands in for an empty field.
+  await store.set('u1:codex', 'sk-good')
+  assert.deepEqual(drop(await checkCustomProvider(store, 'u1', 'codex', { baseUrl: base })), {
+    host,
+    reached: true,
+    failure: { reason: 'api', request: 'POST /responses → 404 Not Found' },
+  })
+  await assert.rejects(
+    checkCustomProvider(store, 'u1', 'claude-code', { baseUrl: base }),
+    /Enter the API key/u,
+  )
+  server.close()
+  assert.deepEqual(
+    await checkCustomProvider(store, 'u1', 'codex', { baseUrl: `http://127.0.0.1:1/v1` }),
+    { host: '127.0.0.1:1', reached: false },
+  )
+})
+
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {
   const dir = tempDir(t)
   const store = memoryStore()
 
-  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', gateway), /API key/u)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw-secret' })
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, models: ['kimi-k2'] })
+  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', codexGateway), /API key/u)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw-secret' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, models: ['kimi-k2'] })
 
   assert.equal(store.items.get('u1:codex'), 'sk-gw-secret')
   assert.doesNotMatch(readFileSync(path.join(dir, 'custom-providers.json'), 'utf8'), /sk-gw/u)
@@ -251,7 +346,7 @@ test('a saved provider stands in for the sign-in, and its key reaches only opena
 
   assert.deepEqual(await probe('codex', {}, home), signedOut)
   await process.start(options)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   assert.deepEqual(await probe('codex', {}, home), {
     ...signedOut,
     loggedIn: true,
@@ -266,7 +361,7 @@ test('a key the store will not delete keeps the provider listed; a key already g
   const store = memoryStore()
   const remove = store.delete
 
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   store.delete = () => Promise.reject(new Error('User canceled the operation.'))
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', null), /canceled/u)
   assert.ok(readCustomProviders(dir).codex)

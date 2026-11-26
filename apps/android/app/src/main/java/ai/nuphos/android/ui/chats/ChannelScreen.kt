@@ -106,7 +106,7 @@ import androidx.compose.ui.res.stringResource
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit = {}, onOpenTask: ((String) -> Unit)? = null) {
+fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit, onOpenTask: ((String) -> Unit)? = null) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val teamId = store.selectedTeam?.id
@@ -616,6 +616,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                         MarkdownText(shown, onLink = onLink, compact = true)
                     } else MarkdownText(shown, onLink = onLink, compact = true)
                 }
+            }
+            // A post on its way says how far its files have uploaded, then that it is sending, as on iOS.
+            if (post.sending) session.sendingProgress[post.id]?.let { progress ->
+                Text(if (progress.filesSent) stringResource(R.string.chat_upload_sending) else ai.nuphos.android.ui.chat.uploadProgressText(progress), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp).testTag("channel-upload-progress"))
             }
             // An agent's files show below its words, every group in one grid.
             if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {

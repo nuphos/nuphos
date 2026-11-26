@@ -6,7 +6,7 @@ import { IpcVncChannel } from '../lib/ipcVncChannel'
 import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
 import type RFB from '@novnc/novnc'
 
-/** How long a connected desktop has to show its first picture. */
+/** How long an attempt has to show its first picture, the handshake included. */
 const FIRST_PICTURE_MS = 8_000
 
 /**
@@ -65,19 +65,18 @@ export function useLiveDesktop(
         rfb.scaleViewport = true
         rfb.background = 'transparent'
         // Connected once the desktop shows: a stream that never draws counts as a failed
-        // attempt, so it says so instead of staying blank.
-        let stopWaiting: (() => void) | undefined
+        // attempt, so it says so instead of staying blank. The clock starts with the
+        // attempt, not the handshake: a stream that opens and then never answers would
+        // otherwise leave it waiting forever.
+        const stopWaiting = awaitPicture(element, opened, closed)
 
-        rfb.addEventListener('connect', () => {
-          stopWaiting = awaitPicture(element, opened, closed)
-        })
         rfb.addEventListener('disconnect', closed)
         rfbRef.current = rfb
         channelRef.current = channel
         setHolding(false)
 
         return () => {
-          stopWaiting?.()
+          stopWaiting()
           rfb.removeEventListener('disconnect', closed)
           rfb.disconnect()
           if (rfbRef.current === rfb) rfbRef.current = null

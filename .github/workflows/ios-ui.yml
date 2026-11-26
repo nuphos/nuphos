@@ -76,15 +76,19 @@ jobs:
     name: iOS UI tests (simulator)
     needs: scope
     if: needs.scope.outputs.run == 'true'
-    # One run at a time across all pull requests and manual runs, so they hold at most
-    # one of the org's macOS runners and leave the rest to merge groups and releases.
-    # The others wait their turn in order. The nightly run keeps a group of its own.
+    # The maintainers' Macs (label nuphos-m1) take one job each, so runs go in parallel
+    # up to the number of Macs and queue for a free one beyond that. A fork's pull
+    # request never reaches them (their job-started hook refuses it too), nor does a
+    # ci/ios-ui-pr-<n> branch, which carries a fork's code for a run dispatched by hand.
+    # Those take the hosted runner, one run at a time, so they hold at most one of the
+    # org's macOS runners.
     concurrency:
-      group: ios-ui-${{ inputs.nightly && 'nightly' || 'shared' }}
+      group: ios-ui-${{ ((github.event.pull_request && github.event.pull_request.head.repo.full_name != github.repository) || startsWith(github.ref, 'refs/heads/ci/ios-ui-pr-')) && 'shared' || github.run_id }}
       queue: max
-    # Same Xcode as the iOS build in ci.yml.
-    runs-on: xcode-27
-    timeout-minutes: 150
+    # Same choice and Xcode as the iOS build in ci.yml.
+    runs-on: ${{ ((github.event.pull_request && github.event.pull_request.head.repo.full_name != github.repository) || startsWith(github.ref, 'refs/heads/ci/ios-ui-pr-')) && 'xcode-27' || 'nuphos-m1' }}
+    # The full suite takes about an hour on the M5 and over two on the M1.
+    timeout-minutes: 200
     permissions:
       contents: read
       # To download main's latest nightly results on a pull request.
@@ -92,7 +96,7 @@ jobs:
       # To read which tests the pull request's own diff adds.
       pull-requests: read
     env:
-      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
+      DEVELOPER_DIR: ${{ ((github.event.pull_request && github.event.pull_request.head.repo.full_name != github.repository) || startsWith(github.ref, 'refs/heads/ci/ios-ui-pr-')) && '/Applications/Xcode_27.1.app/Contents/Developer' || '/Applications/Xcode.app/Contents/Developer' }}
     steps:
       # A run can wait hours for the runner, and a pull request merged or closed meanwhile
       # no longer needs it.
@@ -145,8 +149,9 @@ jobs:
           xcrun simctl ui "$udid" appearance light
           # The shell stops at the first failed command, so keep the test status for the end.
           status=0
+          # In English whatever the Mac's own language, which a new simulator would take.
           xcodebuild test -project nuphos-ios.xcodeproj -scheme nuphos-ios -destination "id=$udid" \
-            -parallel-testing-enabled NO "${only[@]}" \
+            -testLanguage en -testRegion US -parallel-testing-enabled NO "${only[@]}" \
             -resultBundlePath "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/xcodebuild.log" 2>&1 || status=$?
           xcrun xcresulttool get test-results tests --path "$RUNNER_TEMP/ui.xcresult" > "$RUNNER_TEMP/tests.json"
           grep -E "^Test Case .*(passed|failed)|TEST (FAILED|SUCCEEDED)" "$RUNNER_TEMP/xcodebuild.log" || true
@@ -189,12 +194,15 @@ jobs:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
           retention-days: 7
-      # The full result bundle, with screen recordings, only when something failed.
+      # The full result bundle, with screen recordings, and xcodebuild's log, only when
+      # something failed or the run timed out, so a slow run shows where the time went.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
+        if: failure() || cancelled()
         with:
           name: ios-ui-xcresult
-          path: ${{ runner.temp }}/ui.xcresult
+          path: |
+            ${{ runner.temp }}/ui.xcresult
+            ${{ runner.temp }}/xcodebuild.log
           retention-days: 7
 
   report:

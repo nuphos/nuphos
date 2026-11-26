@@ -1,11 +1,6 @@
-import { randomUUID } from 'node:crypto'
-
-import {
-  appendSlackThreadMessage,
-  bindSlackAgentThread,
-  listSlackChannelMappings,
-} from '@/lib/slack/agent-bot'
+import { listSlackChannelMappings } from '@/lib/slack/agent-bot'
 import { postAgentSlackMessage } from '@/lib/slack/agent-message'
+import { mayPostToSlackChannel } from '@/lib/slack/external-chat-post'
 import {
   fetchSlackChannelHistory,
   fetchSlackChannelMembers,
@@ -47,9 +42,6 @@ export const defaultDependencies: SlackOutboundDependencies = {
 
     return (await getTeamMembership(userId, teamId))?.role === 'ADMINISTRATOR'
   },
-  bindThread: bindSlackAgentThread,
-  appendThreadMessage: appendSlackThreadMessage,
-  newSessionId: randomUUID,
   listChannels: listJoinedSlackChannels,
   getChannel: getJoinedSlackChannel,
   openDm: openSlackDm,
@@ -57,6 +49,7 @@ export const defaultDependencies: SlackOutboundDependencies = {
   // the way out. Deliberately at the wiring seam, not inside post.ts: the
   // stored transcript copy stays the text the agent actually wrote.
   postMessage: postAgentSlackMessage,
+  mayPostIn: mayPostToSlackChannel,
   readHistory: fetchSlackChannelHistory,
   readReplies: fetchSlackThreadReplies,
   listMembers: fetchSlackChannelMembers,

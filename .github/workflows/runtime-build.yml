@@ -11,8 +11,8 @@ name: Build runtime image
 # Each provider builds for linux/amd64 and linux/arm64 on native runners; the
 # publish job tags the two as one multi-architecture image and signs it.
 #
-# ⚠️ Publishing does NOT roll anything out. A Nuphos workspace administrator
-# must point each runtime at the new digest in Settings → Agent.
+# ⚠️ Publishing does NOT roll anything out. Each runtime keeps its current image
+# until its own deployment is changed to the new digest.
 #
 # The base layer is always pushed: the toolset build is a separate Buildx
 # invocation that resolves BASE_IMAGE through its registry tag, so a base merely
@@ -399,7 +399,7 @@ jobs:
             echo "- tags: \`${RUNTIME_TAGS}\`"
             echo "- immutable: \`${RUNTIME_IMAGE}@${DIGEST}\`"
             echo ""
-            echo "Assign the immutable reference above to the intended runtime(s) in Settings → Agent."
+            echo "Point the intended runtime deployment(s) at the immutable reference above."
           } >> "$GITHUB_STEP_SUMMARY"
 
   release-notes:

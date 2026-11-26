@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 
 import { botEnv } from './fixture-settings.mjs'
+import { takesSteers } from './fixture-steering.mjs'
 
 /** What this agent offers when it starts. */
 const INITIALIZE = {
@@ -57,7 +58,7 @@ let probing = false
 export function initialize(params) {
   probing = params?.clientInfo?.name === 'nuphos-model-discovery'
 
-  return INITIALIZE
+  return takesSteers() ? { ...INITIALIZE, _meta: { steering: { supported: true } } } : INITIALIZE
 }
 
 /** Whether this session/new is a model probe that fails, as a CLI that cannot list

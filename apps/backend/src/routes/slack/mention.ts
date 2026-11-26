@@ -31,7 +31,7 @@ export async function handleAppMention(envelope: SlackEventEnvelope): Promise<vo
     return
   }
   await postSenderNotice(
-    { botToken: bot.botToken, botUserId: bot.botUserId },
+    { botToken: bot.botToken, botUserId: bot.botUserId, slackWorkspaceId },
     event.channel,
     event.thread_ts,
     event.user,

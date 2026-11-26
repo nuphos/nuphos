@@ -21,6 +21,10 @@ export const deviceApi = {
     provider: CliLoginProvider,
     value: { baseUrl: string; apiKey?: string; models: string[] } | null,
   ) => window.api.localRuntimeSetCustomProvider(provider, value),
+  localRuntimeCheckCustomProvider: (
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] },
+  ) => window.api.localRuntimeCheckCustomProvider(provider, value),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
