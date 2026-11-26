@@ -82,6 +82,8 @@ export async function startDesktop(
 
     return page
   })
+  // A new dev server builds the whole renderer first, which can outlast a 30 s action (#4394).
+  await page!.waitForLoadState('load', { timeout: 180_000 })
 
   const tracing = page!.context().tracing
   let started = false
