@@ -902,7 +902,8 @@ final class AgentStore {
             sessionId: conversation.sessionId,
             title: conversation.displayTitle,
             agentRuntime: conversation.agentRuntime,
-            runtimeLabel: conversation.runtimeLabel
+            runtimeLabel: conversation.runtimeLabel,
+            isBot: conversation.isBot
         )
         session.me = me
         session.userId = userId

@@ -325,16 +325,17 @@ final class ChatSession {
     /// PUTs are pointless from then on.
     private var transcriptOwnedByServer = false
 
-    /// `agentRuntime` / `runtimeLabel` are what the list already knows about
-    /// the conversation; carrying them in means the chat can say which agent
-    /// answers before its detail arrives. `load()` refines them.
+    /// `agentRuntime` / `runtimeLabel` / `isBot` are what the list already knows
+    /// about the conversation; carrying them in means the chat can say which agent
+    /// answers before its detail arrives, or if it never does. `load()` refines them.
     init(
         token: String,
         teamId: String,
         sessionId: String = UUID().uuidString.lowercased(),
         title: String = String(localized: "New task"),
         agentRuntime: String? = nil,
-        runtimeLabel: String? = nil
+        runtimeLabel: String? = nil,
+        isBot: Bool = false
     ) {
         self.token = token
         observations = RuntimeObservations.forAccount(token)
@@ -343,6 +344,7 @@ final class ChatSession {
         self.title = title
         self.agentRuntime = agentRuntime
         self.runtimeLabel = runtimeLabel
+        self.isBot = isBot
         // The chat opens on its last read, as a messaging app does; `load()` reads it again.
         if let cached = NuphosAPI.cachedConversationDetail(token: token, sessionId: sessionId) {
             adopt(cached)
@@ -681,7 +683,7 @@ final class ChatSession {
 
     func refreshSessionConfig() async {
         // Reading model settings is allowed for conversation participants; writes remain owner-only.
-        guard loaded, (!isNew || isBot), isNativeRuntime, !sessionConfigSaving else { return }
+        guard !isNew || isBot, isNativeRuntime, !sessionConfigSaving else { return }
         let request = UUID()
         sessionConfigRequest = request
         do {
