@@ -1,6 +1,7 @@
 // How the fixture agent starts, and what a session's system prompt tells it.
 import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 import { botEnv } from './fixture-settings.mjs'
 
@@ -57,8 +58,14 @@ let probing = false
 export function initialize(params) {
   probing = params?.clientInfo?.name === 'nuphos-model-discovery'
 
-  return INITIALIZE
+  // A session that opens while `slow-steer` exists beside the ACP log takes steers.
+  return existsSync(slowSteer())
+    ? { ...INITIALIZE, _meta: { steering: { supported: true } } }
+    : INITIALIZE
 }
+
+/** The flag file that makes a new session take steers, and acknowledge each one late. */
+export const slowSteer = () => join(dirname(process.env.E2E_ACP_LOG ?? ''), 'slow-steer')
 
 /** Whether this session/new is a model probe that fails, as a CLI that cannot list
  *  its models does (#4261). Every attempt is logged, probe or not. */

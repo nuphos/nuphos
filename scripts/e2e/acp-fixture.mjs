@@ -251,6 +251,19 @@ async function answer(request) {
       log({ sessionId: request.params.sessionId, event: 'loaded', ...opening(request.params) })
 
       return {}
+    case '_session/steering': {
+      const text = JSON.stringify(request.params.prompt)
+
+      log({
+        sessionId: request.params.sessionId,
+        event: 'steered',
+        markers: text.match(/E2E_DELIVERY:[a-z0-9-]+/g) ?? [],
+      })
+      // Injected, but acknowledged after OpenAB's 10s wait, as a busy agent can.
+      await new Promise((resolve) => setTimeout(resolve, 12_000))
+
+      return { outcome: 'injected' }
+    }
     case 'session/set_mode':
       return {}
     case 'session/set_config_option': {
