@@ -4,7 +4,7 @@ import type { MessageMetadata } from './message-metadata'
 /** An agent's channel post where the channel's people are in Slack: a Slack message. */
 export async function slackPost(
   channel: AgentConversation,
-  agent: Pick<AgentConversation, 'title'>,
+  agent: Pick<AgentConversation, 'sessionId'>,
   text: string,
   files: object[],
   quote: MessageMetadata['replyTo'],
