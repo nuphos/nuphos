@@ -13,4 +13,9 @@ export type VaultStatus = {
   devices: VaultDevice[]
 }
 
-export type VaultItemSummary = { name: string; updatedAt: string }
+export type VaultItemSummary = {
+  name: string
+  updatedAt: string
+  /** The devices it is shared with: the only ones holding its key. */
+  deviceIds: string[]
+}

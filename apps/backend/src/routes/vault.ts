@@ -5,7 +5,6 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import {
   MAX_DEVICES,
-  MAX_ITEMS,
   addVaultDevice,
   approveVaultDevice,
   deleteVaultItem,
@@ -116,13 +115,9 @@ vaultRoutes.post(
 
 vaultRoutes.post(
   '/devices/:id/approve',
-  zv('json', z.object({ keys: z.array(z.object({ name: itemName, wrapped })).max(MAX_ITEMS) })),
+  // Approval wraps nothing; an older client's `keys` are dropped unread.
   async (c) => {
-    const device = await approveVaultDevice(
-      c.get('userId'),
-      c.req.param('id'),
-      c.req.valid('json').keys,
-    )
+    const device = await approveVaultDevice(c.get('userId'), c.req.param('id'))
 
     return c.json({ device })
   },
@@ -151,15 +146,18 @@ vaultRoutes.put(
         .array(z.object({ deviceId: z.string().uuid(), wrapped }))
         .min(1)
         .max(MAX_DEVICES),
+      /** The item's `updatedAt` as the writer read it, null for a new item. */
+      updatedAt: z.string().datetime().nullable(),
     }),
   ),
   async (c) => {
-    const { ciphertext, keys } = c.req.valid('json')
+    const { ciphertext, keys, updatedAt } = c.req.valid('json')
     const item = await putVaultItem(
       c.get('userId'),
       nameParam(c.req.param('name')),
       ciphertext,
       keys,
+      updatedAt,
     )
 
     return c.json({ item })

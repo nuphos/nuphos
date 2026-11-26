@@ -13,7 +13,7 @@ useAgentDb({
 })
 useAgentDeviceStore({ getAgentDevice: async () => device })
 
-const { computerDesktop, NO_DESKTOP, SHARED_DESKTOP } = await import('./computer-desktop')
+const { computerDesktop, NO_DESKTOP } = await import('./computer-desktop')
 
 const box = localRuntimeId({ userId: 'owner', deviceId: 'dev-1', provider: 'claude-code' })
 
@@ -56,33 +56,21 @@ test('a conversation with no desktop to hand over is told so', async () => {
   expect(await computerDesktop('t1', 'conv-1', async () => ({ display: 1 }))).toBe(NO_DESKTOP)
 })
 
-test('a computer someone else owns, uses or manages hands its desktop to no one', async () => {
-  const opened: unknown[] = []
-  const open = async (...args: unknown[]) => {
-    opened.push(args)
-
-    return { display: 12 }
-  }
+test('a computer other people own, use or manage still hands its desktop over', async () => {
+  const open = async () => ({ display: 12 })
 
   for (const shared of [
+    {},
     { box: { createdBy: 'other' } },
     { access: [grant({ everyone: true })] },
     { access: [grant({}), grant({ teamId: 't2', userIds: ['other'] })] },
     { access: [grant({ managerIds: ['other'] })] },
   ]) {
     device = { userId: 'owner', deviceId: 'dev-1', label: 'Box 1', ...shared }
-    expect(await computerDesktop('t1', 'conv-1', open)).toBe(SHARED_DESKTOP)
+    expect(await computerDesktop('t1', 'conv-1', open)).toEqual({
+      deviceId: 'dev-1',
+      display: 12,
+      title: 'Box 1',
+    })
   }
-  expect(opened).toEqual([])
-  device = {
-    userId: 'owner',
-    deviceId: 'dev-1',
-    label: 'Box 1',
-    access: [grant({ userIds: ['owner'] })],
-  }
-  expect(await computerDesktop('t1', 'conv-1', open)).toEqual({
-    deviceId: 'dev-1',
-    display: 12,
-    title: 'Box 1',
-  })
 })

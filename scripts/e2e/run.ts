@@ -17,6 +17,7 @@ import {
 } from './bot-chat-scenarios.ts'
 import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
+import { botImportModeScenarios } from './bot-import-mode-scenarios.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
@@ -234,6 +235,8 @@ const later: Scenario[] = [
   ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
+  // Imports a Bot of its own and makes another with "+".
+  ...botImportModeScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
   formScenario,

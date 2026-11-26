@@ -21,6 +21,7 @@
     "e2e:answer-restart": "bun scripts/e2e/run-answer-restart.ts",
     "e2e:printed-key": "bun scripts/e2e/run-printed-key.ts",
     "e2e:slack-silent": "bun scripts/e2e/run-slack-silent.ts",
+    "e2e:vault": "bun scripts/e2e/run-vault.ts",
     "dev:stop": "bun scripts/dev-stack-cli.ts stop",
     "dev:reset": "bun scripts/dev-stack-cli.ts reset",
     "dev:logs": "bun scripts/dev-stack-cli.ts logs",

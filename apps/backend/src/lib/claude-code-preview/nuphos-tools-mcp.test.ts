@@ -73,6 +73,12 @@ describe('the tools version', () => {
     )
   })
 
+  test('changes when a tool stops being deferred, so idle agents load it', () => {
+    expect(toolsHash([tool({ model: {} })])).not.toBe(
+      toolsHash([{ ...tool({ model: {} }), _meta: { 'anthropic/alwaysLoad': true } }]),
+    )
+  })
+
   test('ignores descriptions, which carry per-turn data', () => {
     expect(toolsHash([tool({ model: {} }, 'Today is Monday.')])).toBe(
       toolsHash([tool({ model: {} }, 'Today is Tuesday.')]),
