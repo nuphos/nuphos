@@ -1,4 +1,4 @@
-import { spawn as nuphosSpawn } from 'node:child_process'
+import { execFileSync as nuphosExecFile, spawn as nuphosSpawn } from 'node:child_process'
 import { createHash as nuphosHomeHash } from 'node:crypto'
 import {
   mkdirSync as nuphosMkdir,
@@ -133,13 +133,35 @@ export function nuphosClaudeSessionEnv(
   const configDir =
     runtimeEnv.CLAUDE_CONFIG_DIR ||
     nuphosJoin(runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome(), '.claude')
-  // A token already in the environment was set on purpose and wins. Every spawn gets
-  // it, a session-less one (the model probe) too, or that one would refresh the old login.
-  const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN ? null : nuphosLongLivedToken(configDir, now)
+  // A token already in the environment was set on purpose and wins, then one the owner
+  // shared with this computer from their vault. Every spawn gets it, a session-less one
+  // (the model probe) too, or that one would refresh the old login.
+  const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN
+    ? null
+    : (nuphosVaultToken(runtimeEnv) ?? nuphosLongLivedToken(configDir, now))
   const withToken = token ? { ...env, CLAUDE_CODE_OAUTH_TOKEN: token } : env
   const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)
   if (!isolated.HOME) return withToken
   return { ...withToken, CLAUDE_CONFIG_DIR: configDir, ...isolated }
+}
+
+// The setup token the computer's owner shared with it in their vault (nuphos/nuphos#5187),
+// opened here with the computer's own key. Read at every session start, so unsharing it
+// stops new sessions getting it. Only in the child's environment: never written or logged.
+export function nuphosVaultToken(runtimeEnv = process.env) {
+  const cli = runtimeEnv.NUPHOS_CLI_EXE
+  if (!cli || !runtimeEnv.NUPHOS_AGENT_HOME) return null // Not a computer `nuphos agent` runs.
+  try {
+    const value = nuphosExecFile(cli, ['vault', 'get', 'claude-code-oauth-token', '--computer'], {
+      env: runtimeEnv,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5000,
+    }).trim()
+    return value || null
+  } catch {
+    return null // Not shared with this computer, offline, or an older CLI: as before.
+  }
 }
 
 // The one-year token claude-login.mjs --long-lived stores. It never refreshes, so

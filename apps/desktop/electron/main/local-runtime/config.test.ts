@@ -72,6 +72,17 @@ test('Claude keeps the host home for Keychain access and filters the owner’s e
   assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined)
 })
 
+test('a computer `nuphos agent` runs tells the adapter where its CLI and credential are', () => {
+  const env = agentEnv({
+    ...launch,
+    env: { ...launch.env, NUPHOS_CLI_EXE: '/usr/bin/nuphos', NUPHOS_AGENT_HOME: '/data/agent' },
+  })
+
+  assert.equal(env.NUPHOS_CLI_EXE, '/usr/bin/nuphos')
+  assert.equal(env.NUPHOS_AGENT_HOME, '/data/agent')
+  assert.equal(agentEnv(launch).NUPHOS_CLI_EXE, undefined)
+})
+
 test('openab listens on loopback only, with a control key it cannot confuse with the password', () => {
   const env = openabEnv(launch)
 

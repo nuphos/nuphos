@@ -74,6 +74,8 @@ const AGENT_ENV_PASSTHROUGH = [
   'NUPHOS_DESKTOP_SESSION',
   'NUPHOS_DESKTOP_POOL',
   'NUPHOS_DESKTOP_POOL_SIZE',
+  'NUPHOS_CLI_EXE', // `nuphos agent`'s CLI and credential: the adapter reads the vault's
+  'NUPHOS_AGENT_HOME', // Claude Code token with them (nuphos/nuphos#5187).
 ]
 
 /** Must match `deriveRuntimeControlKey` in the backend and `nuphos-runtime-start`. */
@@ -152,17 +154,15 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
 }
 
 /**
- * The agent's own sign-in, run by openab when Nuphos asks (the same dialog as a
- * cloud agent). openab's child inherits openab's env, so this carries only the
- * command and the provider's config-dir variables, so the login lands in the
- * runtime's own login. `OPENAB_RUNTIME_LOGIN_COMMAND` is whitespace-split argv, so
- * a CLI path with a space cannot be expressed; such a computer keeps signing in
- * from its own UI.
+ * The agent's own sign-in, run by openab when Nuphos asks (the same dialog as a cloud agent).
+ * openab's child inherits openab's env, so this carries only the command and the provider's
+ * config-dir variables, so the login lands in the runtime's own login. A CLI path with a space
+ * cannot be expressed, as `OPENAB_RUNTIME_LOGIN_COMMAND` is whitespace-split argv; such a computer
+ * keeps signing in from its own UI.
  */
 export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string> {
   const name = launch.provider === 'claude-code' ? 'claude' : launch.provider
   const wrapper = path.join(launch.bundle.root, `${name}-login.mjs`)
-  const cliEnv = agentCliEnv(launch)
 
   if (!existsSync(wrapper) || /\s/u.test(launch.nodeExecPath + wrapper)) return {}
   // openab's own HOME is isolated; a macOS login still needs the user's Keychain.
@@ -173,7 +173,7 @@ export function agentLoginEnv(launch: LocalRuntimeLaunch): Record<string, string
     process.platform === 'darwin' ? ['/usr/bin/env', `HOME=${home}`, `USERPROFILE=${home}`] : []
 
   return {
-    ...cliEnv,
+    ...agentCliEnv(launch),
     ...(launch.provider === 'codex'
       ? { CODEX_EXECUTABLE: launch.cliPath, NUPHOS_CODEX_AUTH_DIRECTORY: launch.agentHome }
       : {}),
