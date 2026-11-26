@@ -14,9 +14,9 @@ enum HistoryTimeTests {
         precondition(HistoryTime.stamp(ago(days: 1), now: now) == "Yesterday")
         precondition(HistoryTime.stamp(ago(days: 1, hour: 0), now: now) == "Yesterday")
         precondition(HistoryTime.stamp(ago(days: 6), now: now) == ago(days: 6).formatted(.dateTime.weekday(.wide)))
-        // A week back and older, the date with a two-digit year.
+        // A week back and older, the date with a two-digit year, in the locale's order.
         let old = HistoryTime.stamp(ago(days: 7), now: now)
-        precondition(old.hasSuffix("26") && !old.contains("2026"), old)
+        precondition(old.contains("26") && !old.contains("2026"), old)
         print("History time passed")
     }
 }

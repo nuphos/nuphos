@@ -209,11 +209,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         for gone in ["Release Lead", "Docs Bot", "Helper Bot", "Check the CI flake", "Rerun the iOS job", "Fix broken links", "Collect crash logs"] {
             XCTAssertFalse(app.staticTexts[gone].exists, "\(gone) is listed in Tasks")
         }
-        // A question first, then each family by its newest activity: the rollout lifts Release ops.
+        // Rows that need the viewer first, then each family by its newest activity: the rollout lifts Release ops.
         let ops = app.staticTexts["Release ops"].firstMatch
-        let notes = app.staticTexts["Write the changelog"].firstMatch
+        let review = app.staticTexts["Review the migration"].firstMatch
         XCTAssertLessThan(staging.frame.minY, ops.frame.minY)
-        XCTAssertLessThan(ops.frame.minY, notes.frame.minY)
+        XCTAssertLessThan(ops.frame.minY, review.frame.minY)
         XCTAssertTrue(app.descendants(matching: .any)["Needs your input"].exists, "The waiting Task has no mark")
         shot("3-tasks")
     }
