@@ -278,6 +278,7 @@ export function RuntimeInstanceCard({
           teamId={teamId}
           instance={instance}
           apiKey={runtime?.apiKey === true}
+          signedIn={runtime?.authenticated === true}
           onClose={() => setSigningIn(false)}
         />
       )}

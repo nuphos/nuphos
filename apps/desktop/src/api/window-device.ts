@@ -9,6 +9,7 @@ import type {
   BoxUsage,
   BoxUsageHistory,
   CliLoginProvider,
+  CustomProviderCheck,
   DeviceAgentInstance,
   InstaboxAccount,
   SleepPreferences,
@@ -43,6 +44,10 @@ export type WindowDeviceApi = {
     provider: CliLoginProvider,
     value: { baseUrl: string; apiKey?: string; models: string[] } | null,
   ): Promise<LocalRuntimeState>
+  localRuntimeCheckCustomProvider(
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] },
+  ): Promise<CustomProviderCheck>
   localRuntimeSubmitClaudeLoginCode(code: string): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
   localRuntimeCancelClaudeLogin(): Promise<void>

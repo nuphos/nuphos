@@ -6,7 +6,8 @@
 
 import path from 'node:path'
 
-import { applyCodexProvider, PROVIDER_KEY_ENV } from './custom-provider.ts'
+import { applyCodexProvider } from './custom-provider-codex.ts'
+import { PROVIDER_KEY_ENV } from './custom-provider.ts'
 
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { LocalAgentProvider } from './providers.ts'

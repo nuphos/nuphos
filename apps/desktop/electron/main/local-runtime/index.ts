@@ -29,6 +29,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  checkCustomProvider,
   notSaved,
   saveCustomProvider,
   withProviderKey,
@@ -263,6 +264,15 @@ export async function setLocalCustomProvider(
   await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()
+}
+
+/** Tests a provider for one agent with one request, before or without saving it. */
+export function checkLocalCustomProvider(provider: unknown, value: unknown) {
+  const { userId } = controller.state()
+
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+
+  return checkCustomProvider(providerKeys, userId, provider, value).catch(notSaved)
 }
 
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {

@@ -1,4 +1,4 @@
-import type { AgentProvider } from '../../types/runtime.ts'
+import type { AgentProvider, RuntimeLoginStep } from '../../types/runtime.ts'
 
 /** The pages each agent's sign-in may send the user to, and nothing a runtime could substitute. */
 const AUTHORIZE_PAGES: Partial<Record<AgentProvider, (url: URL) => boolean>> = {
@@ -72,4 +72,17 @@ export function timeLeft(expiresAt: string, now: number): string | null {
   if (Number.isNaN(seconds) || seconds <= 0) return null
 
   return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+/** A question the sign-in already asked, and how it was answered. */
+export type Answered = { question: string; answer: string }
+
+/** How an answer reads back: a picked option's name, and never a secret. */
+export function answered(step: RuntimeLoginStep, answer: string): Answered | null {
+  if (step.kind === 'browser') return null
+  if (step.kind === 'input')
+    return { question: step.message, answer: step.secret ? '••••' : answer }
+  const option = step.options.find((candidate) => candidate.value === answer)
+
+  return { question: step.message, answer: option?.label ?? answer }
 }
