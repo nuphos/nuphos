@@ -28,7 +28,7 @@ const instance = { provider: 'cursor', local: { deviceLabel: 'Atlas Studio' } }
 const COUNT = /\d:\d\d/
 
 /** Renders the sign-in as its hook would report `login`, on a clock the test moves. */
-async function setup() {
+async function setup(extra: Record<string, unknown> = {}) {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -42,6 +42,7 @@ async function setup() {
       root.render(
         createElement(RuntimeLoginBody, {
           instance,
+          ...extra,
           state: {
             login,
             error: null,
@@ -50,6 +51,7 @@ async function setup() {
             failed,
             retry: 0,
             submitCode: async () => {},
+            ...(extra.state as object | undefined),
           },
         } as unknown as Props),
       ),
@@ -193,6 +195,105 @@ test('a sign-in that fails after asking keeps the install done', async () => {
     assert.match(view.text(), /Sign-in did not finish/)
     assert.match(view.text(), /Sign-in was cancelled\./)
     assert.equal(view.container.querySelector('details'), null)
+  } finally {
+    await view.done()
+  }
+})
+
+const claude = {
+  provider: 'claude-code',
+  label: 'Claude Code',
+  local: { deviceLabel: 'Atlas Studio' },
+}
+const waiting = { attemptId: 'a', state: 'awaiting_authorization', userCode: 'ABCD-1234' }
+
+function click(container: Element, name: string) {
+  const button = Array.from(container.querySelectorAll('button')).find(
+    (element) => element.textContent?.trim() === name,
+  )
+
+  assert.ok(button, `no ${name} button`)
+  act(() => (button as unknown as HTMLElement).click())
+}
+
+function type(container: Element, value: string) {
+  const input = container.querySelector('input') as unknown as HTMLInputElement
+  const setter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(input), 'value')?.set
+
+  act(() => {
+    setter?.call(input, value)
+    input.dispatchEvent(new dom.Event('input', { bubbles: true }) as unknown as Event)
+  })
+}
+
+test('an API key is entered from the sign-in step, its prefix only a hint', async () => {
+  const sent: string[] = []
+  const view = await setup({
+    instance: claude,
+    state: { submitCode: async (code: string) => void sent.push(code) },
+  })
+
+  try {
+    await view.show(waiting)
+    await view.wait(700)
+    assert.match(view.text(), /Claude account/)
+    assert.match(view.text(), /ABCD–1234/)
+    click(view.container, 'API key')
+    assert.match(view.text(), /Anthropic API key/)
+    assert.match(view.text(), /Get a key in the Anthropic Console/)
+    type(view.container, 'not-a-key')
+    assert.match(view.text(), /Anthropic keys usually start with sk-ant-/)
+    type(view.container, `sk-ant-${'x'.repeat(24)}`)
+    assert.match(view.text(), /Looks like an Anthropic key/)
+    await act(async () => {
+      view.container.querySelector('form')?.requestSubmit()
+      await Promise.resolve()
+    })
+    assert.deepEqual(sent, [`sk-ant-${'x'.repeat(24)}`])
+    assert.match(view.text(), /Verifying your sign-in/)
+  } finally {
+    await view.done()
+  }
+})
+
+test('a saved key is removed after a confirmation, or swapped for the account', async () => {
+  const calls: boolean[] = []
+  const view = await setup({
+    instance: claude,
+    current: 'key',
+    onSignOut: async (switching: boolean) => void calls.push(switching),
+  })
+
+  try {
+    await view.show(waiting)
+    await view.wait(700)
+    assert.match(view.text(), /Signed inAPI key/)
+    click(view.container, 'Remove key')
+    assert.match(view.text(), /Remove the API key\?/)
+    assert.match(view.text(), /Claude Code signs out/)
+    click(view.container, 'Remove key')
+    assert.deepEqual(calls, [false])
+
+    click(view.container, 'Claude account')
+    assert.match(view.text(), /The key is removed from the runtime first/)
+    assert.doesNotMatch(view.text(), /ABCD–1234/)
+    click(view.container, 'Continue with Claude')
+    assert.deepEqual(calls, [false, true])
+  } finally {
+    await view.done()
+  }
+})
+
+test('a key in place of an account says what it signs out of', async () => {
+  const view = await setup({ instance: claude, current: 'account' })
+
+  try {
+    await view.show(waiting)
+    await view.wait(700)
+    assert.match(view.text(), /Signed inClaude account/)
+    click(view.container, 'API key')
+    assert.match(view.text(), /signs Claude Code out of its Claude account/)
+    assert.match(view.text(), /Use this key/)
   } finally {
     await view.done()
   }

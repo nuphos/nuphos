@@ -5,13 +5,19 @@ export type ApiKeyProvider = 'claude-code' | 'codex'
 
 export const API_KEY: Record<
   ApiKeyProvider,
-  { vendor: string; pattern: RegExp; placeholder: string }
+  { vendor: string; pattern: RegExp; prefix: string; keys: { url: string; place: string } }
 > = {
-  codex: { vendor: 'OpenAI', pattern: /^sk-(?!ant-)[\w-]{20,400}$/u, placeholder: 'sk-…' },
+  codex: {
+    vendor: 'OpenAI',
+    pattern: /^sk-(?!ant-)[\w-]{20,400}$/u,
+    prefix: 'sk-',
+    keys: { url: 'https://platform.openai.com/api-keys', place: 'OpenAI Platform' },
+  },
   'claude-code': {
     vendor: 'Anthropic',
     pattern: /^sk-ant-[\w-]{20,400}$/u,
-    placeholder: 'sk-ant-…',
+    prefix: 'sk-ant-',
+    keys: { url: 'https://console.anthropic.com/settings/keys', place: 'Anthropic Console' },
   },
 }
 
