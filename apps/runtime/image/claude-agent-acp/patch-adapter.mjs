@@ -48,7 +48,7 @@ patched = patched
     envEnd,
     envEnd.replace(
       '};',
-      `}, userProvidedOptions?.env);
+      `}, userProvidedOptions?.env, process.env, Date.now(), await nuphosVaultToken());
         // Settings env overrides the child environment in Claude Code. Pin the
         // session paths at the programmatic tier too, just like provider routing.
         if (env.NUPHOS_SESSION_HOME) {

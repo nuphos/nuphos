@@ -74,8 +74,8 @@ const AGENT_ENV_PASSTHROUGH = [
   'NUPHOS_DESKTOP_SESSION',
   'NUPHOS_DESKTOP_POOL',
   'NUPHOS_DESKTOP_POOL_SIZE',
-  'NUPHOS_CLI_EXE', // `nuphos agent`'s CLI and credential: the adapter reads the vault's
-  'NUPHOS_AGENT_HOME', // Claude Code token with them (nuphos/nuphos#5187).
+  'NUPHOS_VAULT_SOCKET', // Where the host hands over the Claude Code token shared
+  'NUPHOS_VAULT_KEY', // with this computer from the vault (vault-token.ts).
 ]
 
 /** Must match `deriveRuntimeControlKey` in the backend and `nuphos-runtime-start`. */

@@ -13,9 +13,14 @@ import {
 } from 'node:fs'
 import { tmpdir, userInfo } from 'node:os'
 import { join, dirname, relative } from 'node:path'
+import { createServer } from 'node:net'
 import test from 'node:test'
 
-import { nuphosSessionHomeEnv, nuphosClaudeSessionEnv } from '../image/session-home.mjs'
+import {
+  nuphosSessionHomeEnv,
+  nuphosClaudeSessionEnv,
+  nuphosVaultToken,
+} from '../image/session-home.mjs'
 import { nuphosCodexSessionConfig } from '../image/codex-acp/session-config.mjs'
 import { agentEnv } from '../image/acp-shim.mjs'
 
@@ -331,48 +336,55 @@ test('sessions get the long-lived token until it lapses, and an explicit one win
   assert.equal(nuphosClaudeSessionEnv({}, context, host, now).CLAUDE_CODE_OAUTH_TOKEN, undefined)
 })
 
-// A stand-in for `nuphos vault get NAME --computer`: prints the value when the item is
-// shared with this computer (a `shared` file holds it), fails as the CLI does otherwise.
-function fakeCli(host) {
-  const cli = join(host.HOME, 'nuphos')
-  put(
-    cli,
-    `#!/bin/sh
-[ "$*" = "vault get claude-code-oauth-token --computer" ] || exit 2
-[ -f "$NUPHOS_AGENT_HOME/shared" ] || { echo "Item not found, or not shared with this computer" >&2; exit 1; }
-cat "$NUPHOS_AGENT_HOME/shared"
-`,
+// A stand-in for the host's vault socket (vault-token.ts): answers the right key with
+// whatever `shared` holds now, nothing once it is unshared.
+async function fakeHost(t, shared) {
+  const dir = mkdtempSync(join(tmpdir(), 'nuphos-vault-'))
+  const pipe = join(dir, 'token.sock')
+  const server = createServer((socket) =>
+    socket.once('data', (chunk) =>
+      chunk.toString() === 'fictional-key' ? socket.end(shared.value ?? '') : socket.destroy(),
+    ),
   )
-  chmodSync(cli, 0o700)
-  const agentHome = join(host.HOME, 'agent')
-  mkdirSync(agentHome)
-  return { env: { ...host, NUPHOS_CLI_EXE: cli, NUPHOS_AGENT_HOME: agentHome }, agentHome }
+  await new Promise((resolve) => server.listen(pipe, resolve))
+  t.after(() => {
+    server.close()
+    rmSync(dir, { recursive: true, force: true })
+  })
+  return { NUPHOS_VAULT_SOCKET: pipe, NUPHOS_VAULT_KEY: 'fictional-key' }
 }
 
-test('a computer’s sessions get the Claude Code token its owner shared from the vault', (t) => {
-  const { env, agentHome } = fakeCli(runtime(t))
+test('a computer’s sessions get the Claude Code token its owner shared from the vault', async (t) => {
+  const host = runtime(t)
+  const shared = { value: null }
+  const env = { ...host, ...(await fakeHost(t, shared)) }
   const context = { NUPHOS_SESSION_ID: 'vault' }
-  const token = (runtimeEnv = env) =>
-    nuphosClaudeSessionEnv({}, context, runtimeEnv).CLAUDE_CODE_OAUTH_TOKEN
+  const token = async (runtimeEnv = env) =>
+    nuphosClaudeSessionEnv({}, context, runtimeEnv, Date.now(), await nuphosVaultToken(runtimeEnv))
+      .CLAUDE_CODE_OAUTH_TOKEN
 
   // Not shared: as before, no token.
-  assert.equal(token(), undefined)
-  put(join(agentHome, 'shared'), 'sk-ant-oat01-fictional-vault\n')
-  assert.equal(token(), 'sk-ant-oat01-fictional-vault')
+  assert.equal(await token(), undefined)
+  shared.value = 'sk-ant-oat01-fictional-vault\n'
+  assert.equal(await token(), 'sk-ant-oat01-fictional-vault')
   // The vault's token wins over the long-lived one; an explicit one wins over both.
   put(
-    join(env.HOME, '.claude', '.nuphos-oauth-token.json'),
+    join(host.HOME, '.claude', '.nuphos-oauth-token.json'),
     JSON.stringify({ token: 'sk-ant-oat01-fixture', expiresAt: '2999-01-01T00:00:00Z' }),
   )
-  assert.equal(token(), 'sk-ant-oat01-fictional-vault')
-  assert.equal(token({ ...env, CLAUDE_CODE_OAUTH_TOKEN: 'set-on-purpose' }), undefined)
+  assert.equal(await token(), 'sk-ant-oat01-fictional-vault')
+  assert.equal(await token({ ...env, CLAUDE_CODE_OAUTH_TOKEN: 'set-on-purpose' }), undefined)
   // Unshared: the next session no longer gets it.
-  rmSync(join(agentHome, 'shared'))
-  assert.equal(token(), 'sk-ant-oat01-fixture')
-  // Not a computer `nuphos agent` runs, or the CLI is missing: the vault is never asked.
-  put(join(agentHome, 'shared'), 'sk-ant-oat01-fictional-vault')
-  assert.equal(token({ ...env, NUPHOS_AGENT_HOME: '' }), 'sk-ant-oat01-fixture')
-  assert.equal(token({ ...env, NUPHOS_CLI_EXE: join(env.HOME, 'missing') }), 'sk-ant-oat01-fixture')
+  shared.value = null
+  assert.equal(await token(), 'sk-ant-oat01-fixture')
+  // A wrong key, no host or a host that is gone: no vault token, as before.
+  shared.value = 'sk-ant-oat01-fictional-vault'
+  assert.equal(await token({ ...env, NUPHOS_VAULT_KEY: 'other' }), 'sk-ant-oat01-fixture')
+  assert.equal(await token(host), 'sk-ant-oat01-fixture')
+  assert.equal(
+    await token({ ...env, NUPHOS_VAULT_SOCKET: join(host.HOME, 'gone.sock') }),
+    'sk-ant-oat01-fixture',
+  )
 })
 
 test('a restored Task gets a distinct home generation across all adapters', (t) => {

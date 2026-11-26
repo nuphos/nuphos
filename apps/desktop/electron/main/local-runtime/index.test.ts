@@ -44,6 +44,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../auth-status.ts': { unverifiedTokenSubject: noop },
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
+  '../../vault/vault.ts': { getItem: noop },
   '../app-paths.ts': { leftAloneDir: null },
   // Electron's side of the automatic update switch (Settings > Updates).
   '../auto-update-electron.ts': {
@@ -97,6 +98,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './model-probe.ts': { bundledModelProbe: () => noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},
+  './vault-token.ts': { CLAUDE_TOKEN_ITEM: 'claude-code-oauth-token', serveVaultToken: () => ({}) },
 }
 
 for (const [name, namedExports] of Object.entries(boundaries)) mock.module(name, { namedExports })
