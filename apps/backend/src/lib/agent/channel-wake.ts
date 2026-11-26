@@ -58,7 +58,12 @@ export async function steerRunningTurn(
     ])
   const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
 
-  if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) return false
+  if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) {
+    logError('agent.channel.steer_skipped', new Error(active ? 'other actor' : 'no active run'), {
+      session_id: agent.sessionId,
+    })
+    return false
+  }
   const notice = { source: 'agent.resource', metadata, renderedText: channelNotice(channel) }
   const { messages, markRead } = await withChannelPosts(agent.sessionId, agent.userId, [notice])
 
@@ -70,7 +75,8 @@ export async function steerRunningTurn(
       { text: messages[0].renderedText, userId: agent.userId, metadata: messages[0].metadata },
       randomUUID(),
     )
-  } catch {
+  } catch (error) {
+    logError('agent.channel.steer_refused', error, { session_id: agent.sessionId })
     return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
