@@ -26,47 +26,61 @@ function DeviceCode({
 }) {
   const [copied, setCopied] = useState(false)
   const account = agentProvider(instance.provider).account
+  const code = login.userCode ?? ''
 
   return (
     <>
       <p className="text-[13px] leading-5 text-secondary">
-        {t('Copy this one-time code, then enter it on the {account} sign-in page.', { account })}
+        {t('Enter this one-time code on the {account} sign-in page.', { account })}
       </p>
-      <button
-        type="button"
-        aria-label={t('Copy sign-in code')}
-        onClick={() => {
-          void navigator.clipboard.writeText(login.userCode ?? '').then(
-            () => setCopied(true),
-            () => toast.error(t('Could not copy code')),
-          )
-        }}
-        className="flex w-full items-center justify-between gap-4 rounded-lg border border-line-control bg-state-selected px-4 py-4 text-main hover:bg-state-hover"
-      >
-        <code className="text-2xl font-semibold tracking-widest">{login.userCode}</code>
-        <span className="flex items-center gap-1.5 text-xs text-secondary">
-          {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-          {copied ? t('Copied') : t('Copy')}
-        </span>
-      </button>
-      {verificationUri && (
-        <Button
-          size="md"
-          className="w-full"
-          nativeButton={false}
-          render={<a href={verificationUri} target="_blank" rel="noopener noreferrer" />}
+      <div className="flex items-center justify-between gap-4">
+        <code className="flex gap-1.5 font-mono text-lg font-semibold text-main" aria-label={code}>
+          {Array.from(code, (char) => char).map((char, index) => (
+            <span
+              key={index}
+              aria-hidden
+              className={
+                char === '-'
+                  ? 'flex w-3 items-center justify-center text-tertiary'
+                  : 'flex h-10 w-8 items-center justify-center rounded-md border border-line-control bg-state-selected'
+              }
+            >
+              {char === '-' ? '–' : char}
+            </span>
+          ))}
+        </code>
+        <button
+          type="button"
+          aria-label={t('Copy sign-in code')}
+          onClick={() => {
+            void navigator.clipboard.writeText(code).then(
+              () => setCopied(true),
+              () => toast.error(t('Could not copy code')),
+            )
+          }}
+          className="flex shrink-0 items-center gap-1.5 text-xs text-secondary hover:text-main"
         >
-          {t('Open {account}', { account })} <ExternalLink className="h-3.5 w-3.5" />
-        </Button>
-      )}
-      <p className="flex items-center gap-2 text-[13px] text-secondary">
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-        {t('Waiting for approval…')}
-      </p>
-      <p className="text-xs leading-5 text-tertiary">
-        {t(
-          'We’ll connect the runtime automatically after you approve. Keep this window open; leaving it cancels sign-in. The code expires in 15 minutes.',
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? t('Copied') : t('Copy')}
+        </button>
+      </div>
+      <div className="flex items-center gap-3">
+        {verificationUri && (
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={<a href={verificationUri} target="_blank" rel="noopener noreferrer" />}
+          >
+            {t('Open {account}', { account })} <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
         )}
+        <span className="flex items-center gap-2 text-[13px] text-secondary">
+          <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" />
+          {t('Waiting for approval…')}
+        </span>
+      </div>
+      <p className="text-xs leading-5 text-tertiary">
+        {t('Keep this window open; leaving it cancels sign-in.')}
       </p>
     </>
   )

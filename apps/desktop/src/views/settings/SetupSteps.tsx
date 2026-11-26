@@ -5,6 +5,7 @@ import { formatElapsed } from '../../components/agent/panel/voiceDictation'
 import { t } from '../../i18n'
 import { agentProvider } from '../../types/runtime'
 
+import { timeLeft } from './runtimeLogin'
 import { Bar, InstallFailed, Installing } from './SetupInstall'
 
 import type { RuntimeLogin } from './useRuntimeLogin'
@@ -56,6 +57,29 @@ function Mark({ status }: { status: Status }) {
       <Icon className="h-3 w-3" strokeWidth={3} />
     </span>
   )
+}
+
+/**
+ * A step's time: how long it ran, once that is worth saying. A sign-in waiting on a one-time
+ * code says instead what is left of the code.
+ */
+function clock(
+  step: Phase,
+  current: Status,
+  ms: number,
+  login: RuntimeLoginStatus | null,
+  now: number,
+): ReactNode {
+  const left =
+    step === 'signin' && current === 'active' && login?.userCode
+      ? timeLeft(login.expiresAt, now)
+      : null
+  let text: string | null = null
+
+  if (left) text = t('{time} left', { time: left })
+  else if (current !== 'pending' && ms >= COUNT_AFTER) text = formatElapsed(ms)
+
+  return text && <span className="shrink-0 text-xs tabular-nums text-tertiary">{text}</span>
 }
 
 const TITLE_CLASS: Record<Status, string> = {
@@ -198,11 +222,7 @@ export function SetupSteps({
                 <span className={`text-[13px] leading-5 ${TITLE_CLASS[current]}`}>
                   {title[step][current]}
                 </span>
-                {current !== 'pending' && ms >= COUNT_AFTER && (
-                  <span className="shrink-0 text-xs tabular-nums text-tertiary">
-                    {formatElapsed(ms)}
-                  </span>
-                )}
+                {clock(step, current, ms, login, now)}
               </div>
               {body(step, current, ms)}
             </div>

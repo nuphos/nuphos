@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { authorizeUrl, devicePage, pastedSignInReady } from './runtimeLogin.ts'
+import { authorizeUrl, devicePage, pastedSignInReady, timeLeft } from './runtimeLogin.ts'
 
 const GOOGLE =
   'https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=http%3A%2F%2F127.0.0.1%3A41234%2F&state=s'
@@ -63,4 +63,15 @@ test('Antigravity supports the official CLI authorization page and callback', ()
     pastedSignInReady('antigravity', 'https://antigravity.google.evil/oauth-callback?code=x'),
     false,
   )
+})
+
+test('a sign-in counts down to when it expires, then shows nothing', () => {
+  const at = Date.parse('2026-01-01T00:15:00Z')
+
+  assert.equal(timeLeft('2026-01-01T00:15:00Z', at - 900_000), '15:00')
+  assert.equal(timeLeft('2026-01-01T00:15:00Z', at - 61_500), '1:02')
+  assert.equal(timeLeft('2026-01-01T00:15:00Z', at - 500), '0:01')
+  assert.equal(timeLeft('2026-01-01T00:15:00Z', at), null)
+  assert.equal(timeLeft('2026-01-01T00:15:00Z', at + 5_000), null)
+  assert.equal(timeLeft('not a date', at), null)
 })

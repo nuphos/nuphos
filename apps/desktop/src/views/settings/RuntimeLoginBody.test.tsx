@@ -92,9 +92,33 @@ test('a fast setup moves through its steps with no bar or count', async () => {
     await view.show({ attemptId: 'a', state: 'awaiting_authorization', userCode: 'ABCD-1234' })
     await view.wait(700)
     assert.match(view.text(), /Cursor installed/)
-    assert.match(view.text(), /ABCD-1234/)
+    assert.match(view.text(), /ABCD–1234/)
     assert.doesNotMatch(view.text(), COUNT)
     assert.doesNotMatch(view.text(), /Still going/)
+  } finally {
+    await view.done()
+  }
+})
+
+test('a one-time code counts down to its expiry on the sign-in row', async () => {
+  const view = await setup()
+  const code = (ms: number) => ({
+    attemptId: 'a',
+    state: 'awaiting_authorization',
+    userCode: 'ABCD-1234',
+    expiresAt: new Date(view.clock.now + ms).toISOString(),
+  })
+
+  try {
+    await view.show(code(90_000))
+    await view.wait(700)
+    assert.match(view.text(), /1:30 left/)
+    view.clock.now += 31_000
+    await view.wait(250)
+    assert.match(view.text(), /0:59 left/)
+    view.clock.now += 60_000
+    await view.wait(250)
+    assert.doesNotMatch(view.text(), / left/)
   } finally {
     await view.done()
   }
