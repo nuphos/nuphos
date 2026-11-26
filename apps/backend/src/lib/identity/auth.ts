@@ -7,7 +7,7 @@ import { AppError } from '@/lib/errors'
 import { getGoogleAccessToken, getGoogleProfile } from '@/lib/identity/google'
 import { findLiveSession, isSessionToken } from '@/lib/identity/sessions'
 import { mapUser, teams, users } from '@/lib/identity/shared'
-import { MAX_RUN_TOKEN_TTL_SEC, verifyNuphosToken } from '@/lib/identity/token'
+import { verifyNuphosToken } from '@/lib/identity/token'
 
 import type { NuphosUserDoc } from '@/lib/identity/shared'
 import type { AuthenticatedIdentity, NuphosUser } from '@/lib/identity/types'
@@ -28,10 +28,9 @@ export async function setupIdentityIndexes(): Promise<void> {
 }
 
 /**
- * A sign-in session (`nus_…`), or a JWT: a short-lived one the backend minted
- * for an agent run, or a 30-day sign-in from before sessions. Only a session
- * carries `sessionId`. Anything signed for a day or less is an agent run, which
- * `requireAuth` keeps off routes that mint credentials.
+ * A sign-in session (`nus_…`), or a short-lived JWT the backend minted for an
+ * agent run. Only a session carries `sessionId`; only a JWT is an agent run,
+ * which `requireAuth` keeps off routes that mint credentials.
  */
 export async function authenticateToken(token: string): Promise<AuthenticatedIdentity | null> {
   const session = isSessionToken(token) ? await findLiveSession(token) : null
@@ -51,7 +50,7 @@ export async function authenticateToken(token: string): Promise<AuthenticatedIde
     cacheHit: false,
     provider: 'nuphos',
     ...(session ? { sessionId: session._id.toHexString() } : {}),
-    ...(claims && claims.exp - claims.iat <= MAX_RUN_TOKEN_TTL_SEC ? { agentRun: true } : {}),
+    ...(claims ? { agentRun: true } : {}),
   }
 }
 

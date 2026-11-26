@@ -83,7 +83,7 @@ export async function requireRecentVerification(
   const mfa = await isMfaEnabled(userId)
 
   if (!mfa && !forEveryAccount) return
-  // A sign-in from before sessions has nothing to verify against.
+  // Only a sign-in session has a verification time to check.
   if (!sessionId) throw new AppError(403, 'session_required', 'Sign in again to continue')
   const session = await userSessions().findOne(
     { _id: new ObjectId(sessionId) },
