@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
-import { logError } from '@/lib/observability'
+import { logError, logEvent } from '@/lib/observability'
 
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
 import { newestPost } from './channel-newest-post'
@@ -59,8 +59,9 @@ export async function steerRunningTurn(
   const active = await getActiveAgentRunForSession(agent.userId, agent.sessionId)
 
   if (!active || (active.actorUserId && active.actorUserId !== agent.userId)) {
-    logError('agent.channel.steer_skipped', new Error(active ? 'other actor' : 'no active run'), {
+    logEvent('info', 'agent.channel.steer_skipped', {
       session_id: agent.sessionId,
+      reason: active ? 'other actor' : 'no active run',
     })
     return false
   }
@@ -76,7 +77,13 @@ export async function steerRunningTurn(
       randomUUID(),
     )
   } catch (error) {
-    logError('agent.channel.steer_refused', error, { session_id: agent.sessionId })
+    logEvent('info', 'agent.channel.steer_refused', {
+      session_id: agent.sessionId,
+      error:
+        error instanceof Error
+          ? `${error.name} ${String((error as { code?: number }).code)} ${error.message}`
+          : String(error),
+    })
     return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
