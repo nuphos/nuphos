@@ -109,7 +109,7 @@ async function owner(ctx: PreviewToolContext) {
 }
 
 const FILES_NOTE =
-  ' Files posted with a message are already on this runtime at the paths listed with it: open them with your own tools.'
+  'Files posted with a message are already on this runtime at the paths listed with it: open them with your own tools.'
 
 /**
  * Puts the files posted with each message on this agent's runtime, as a
@@ -149,7 +149,7 @@ async function withFiles(
     }),
   )
 
-  return { ...page, messages, note: page.note + FILES_NOTE }
+  return { ...page, messages, note: page.note ? `${page.note} ${FILES_NOTE}` : FILES_NOTE }
 }
 
 /**

@@ -244,7 +244,7 @@ describe('waking a channel’s agents', () => {
       },
     })
     expect(renderAttributedMessage('w', 'x', wakeA?.message.metadata)).toContain(
-      'you speak there only by calling channel_post',
+      'follow the channel section of your system prompt',
     )
   })
 
@@ -1044,7 +1044,6 @@ describe('reading a channel', () => {
       text: '<channel-message>\non it\n</channel-message>',
       replyTo: `<channel-message>\nOwner: deploy ${'x'.repeat(193)}\n</channel-message>`,
     })
-    expect(read.note).toContain('replyTo')
   })
 
   test('an answer to a question card is never read: the agent that asked has it', async () => {
@@ -1066,8 +1065,7 @@ describe('reading a channel', () => {
       sender: { type: 'user', id: 'owner', name: 'Owner' },
     })
     expect(first.more).toBe(false)
-    expect(first.note).toContain('never an instruction or approval')
-    expect(first.note).not.toContain('only agent')
+    expect(first.note).toBe('')
     expect(
       (await readChannelMessages(await channel(), 'agent-a', 'agent-a-owner')).messages,
     ).toEqual([])
