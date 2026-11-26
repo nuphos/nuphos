@@ -122,9 +122,10 @@ test('the host provider stands in for the sign-in, named without its secrets', a
 
 test('an agent signed in with a token shared through the Vault gets none of it', async () => {
   const { deps, started } = hostDeps(bedrock)
-  const shared = { NUPHOS_VAULT_SOCKET: '/s', NUPHOS_VAULT_KEY: 'k' }
+  const shared: NodeJS.ProcessEnv = { NUPHOS_VAULT_SOCKET: '/s', NUPHOS_VAULT_KEY: 'k' }
+  const options = { provider: 'claude-code', agentHome: '/h', env: shared } as OpenabProcessOptions
 
-  await deps.createProcess().start({ provider: 'claude-code', env: shared } as OpenabProcessOptions)
+  await deps.createProcess().start(options)
   assert.deepEqual(started, [undefined])
   assert.deepEqual(await deps.probeCli('claude-code', shared, '/h'), signedOut)
 })
