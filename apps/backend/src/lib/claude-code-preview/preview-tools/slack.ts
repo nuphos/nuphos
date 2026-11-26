@@ -68,6 +68,7 @@ async function outboundTools(ctx: PreviewToolContext): Promise<Record<string, un
     createSlackOutboundContext({
       userId: ctx.userId,
       teamId: ctx.teamId,
+      sessionId: ctx.sessionId,
       placeFiles: (files) => placeFiles(ctx, files),
     }),
     createLarkOutboundContext({ teamId: ctx.teamId }),
