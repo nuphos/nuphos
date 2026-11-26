@@ -87,7 +87,8 @@ jobs:
       queue: max
     # Same choice and Xcode as the iOS build in ci.yml.
     runs-on: ${{ ((github.event.pull_request && github.event.pull_request.head.repo.full_name != github.repository) || startsWith(github.ref, 'refs/heads/ci/ios-ui-pr-')) && 'xcode-27' || 'nuphos-m1' }}
-    timeout-minutes: 150
+    # The full suite takes about an hour on the M5 and over two on the M1.
+    timeout-minutes: 200
     permissions:
       contents: read
       # To download main's latest nightly results on a pull request.
