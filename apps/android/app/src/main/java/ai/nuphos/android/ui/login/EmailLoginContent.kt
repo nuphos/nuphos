@@ -126,33 +126,36 @@ internal fun EmailLoginContent(
 
     if (codeScreen) {
         BackHandler { leaveCodeScreen() }
-        Column(modifier.fillMaxSize().systemBarsPadding().imePadding()
-            .verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text(stringResource(R.string.shell_check_email), style = MaterialTheme.typography.headlineLarge)
-            Text(stringResource(R.string.shell_code_sent_to), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            val differentEmail = stringResource(R.string.shell_use_different_email)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(sentEmail, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
-                TextButton(onClick = { leaveCodeScreen() }, enabled = !sending,
-                    modifier = Modifier.semantics { contentDescription = differentEmail }) { Text(stringResource(R.string.shell_change)) }
+        Column(modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+            Column(
+                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(stringResource(R.string.shell_check_email), style = MaterialTheme.typography.headlineLarge)
+                Text(stringResource(R.string.shell_code_sent_to), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                val differentEmail = stringResource(R.string.shell_use_different_email)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(sentEmail, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f, fill = false))
+                    TextButton(onClick = { leaveCodeScreen() }, enabled = !sending,
+                        modifier = Modifier.semantics { contentDescription = differentEmail }) { Text(stringResource(R.string.shell_change)) }
+                }
+                VerificationCodeField(code, isError = shownError != null, enabled = !waiting && !expired) {
+                    // The sixth digit signs in, so the keyboard never has to be dismissed to reach the button.
+                    val completed = it.length == 6 && it != code
+                    code = it; if (shownError != null) clearFeedback()
+                    if (completed) submitCode()
+                }
+                shownError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(stringResource(R.string.shell_no_code), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (seconds > 0) Text(stringResource(R.string.shell_resend_code_in, seconds), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
+                    else TextButton(onClick = { send() }, enabled = !waiting) { Text(stringResource(R.string.shell_resend_code)) }
+                    Text(if (expired) stringResource(R.string.shell_code_expired) else stringResource(R.string.shell_code_expires),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            VerificationCodeField(code, isError = shownError != null, enabled = !waiting && !expired) {
-                // The sixth digit signs in, so the keyboard never has to be dismissed to reach the button.
-                val completed = it.length == 6 && it != code
-                code = it; if (shownError != null) clearFeedback()
-                if (completed) submitCode()
-            }
-            shownError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.shell_no_code), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (seconds > 0) Text(stringResource(R.string.shell_resend_code_in, seconds), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(vertical = 12.dp))
-                else TextButton(onClick = { send() }, enabled = !waiting) { Text(stringResource(R.string.shell_resend_code)) }
-                Text(if (expired) stringResource(R.string.shell_code_expired) else stringResource(R.string.shell_code_expires),
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.height(8.dp))
-            Button(onClick = { submitCode() }, enabled = !waiting && !expired && code.length == 6, modifier = Modifier.fillMaxWidth().height(52.dp)) {
+            Button(onClick = { submitCode() }, enabled = !waiting && !expired && code.length == 6, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp).height(52.dp)) {
                 Text(if (waiting) stringResource(R.string.shell_please_wait) else stringResource(R.string.sign_in))
             }
         }
