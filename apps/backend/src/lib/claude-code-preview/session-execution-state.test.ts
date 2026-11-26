@@ -180,6 +180,10 @@ for (const [failure, state] of [
   [new AppError(409, 'runtime_disabled', 'This conversation’s agent is disabled.'), 'dormant'],
   [new AppError(409, 'claude_code_setup_required', 'Add a runtime first.'), 'dormant'],
   [
+    new AppError(404, 'runtime_not_found', 'This runtime is no longer available to you.'),
+    'dormant',
+  ],
+  [
     new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
     'disconnected',
   ],

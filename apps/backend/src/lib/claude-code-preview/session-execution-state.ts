@@ -47,11 +47,11 @@ type ExecutionStateConversation = Pick<
 export async function conversationExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
-  // Polled, so it waits briefly. Only an agent out of reach lost its link; one refused (disabled, signed out) meets that reason when a send starts.
+  // Polled, so it waits briefly. Only an agent out of reach lost its link; one refused (disabled, signed out, removed) meets that reason when a send starts.
   const state = await probeExecutionState(conversation, 3_000).catch((error: unknown) => {
     const code = error instanceof AppError || error instanceof OpenAbRpcError ? error.code : null
 
-    return error instanceof AppError && error.status === 409 && code !== 'runtime_offline'
+    return error instanceof AppError && error.status < 500 && code !== 'runtime_offline'
       ? READY_FOR_NEXT_MESSAGE
       : ({ state: code === -32601 ? 'unsupported' : 'disconnected' } as const)
   })
