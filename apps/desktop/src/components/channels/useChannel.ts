@@ -49,11 +49,16 @@ export async function loadChannel(client: QueryClient, teamId: string, channelId
 
 /** Loads a Bot chat before it is opened, so it opens from memory. */
 export function prefetchChannel(client: QueryClient, teamId: string, channelId: string) {
+  void loadChannelAhead(client, teamId, channelId)
+}
+
+/** {@link prefetchChannel}, for a caller that waits until the chat is in memory. */
+export async function loadChannelAhead(client: QueryClient, teamId: string, channelId: string) {
   const queryKey = queryKeys.channel(teamId, channelId)
 
   // One that failed (a chat left or deleted) is read again only when it is opened.
   if (client.getQueryState(queryKey)?.status === 'error') return
-  client
+  await client
     .query({
       queryKey,
       queryFn: () => loadChannel(client, teamId, channelId),

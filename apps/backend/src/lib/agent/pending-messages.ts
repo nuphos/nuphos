@@ -13,7 +13,7 @@ import { parkedFor, wakeUpKey } from './pending-message-types'
 
 export { renderInjectedUserMessages } from './pending-message-render'
 
-export { TRANSCRIPT_SOURCES } from './pending-message-types'
+export { TRANSCRIPT_SOURCES, speaksInOf } from './pending-message-types'
 export type { PendingUserMessage } from './pending-message-types'
 import type { PendingUserMessage } from './pending-message-types'
 

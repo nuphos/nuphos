@@ -15,7 +15,6 @@ const view = (onOpenEarlier?: () => void) =>
       faces: [{ id: 'bot', name: 'Ada', agent: {} }],
       title: 'Ada',
       bot: true,
-      preparingFirstReply: false,
       firstReplyFailed: false,
       onOpenEarlier,
     }),

@@ -31,6 +31,19 @@ function parseChannelPost(value: unknown): AgentMessageMetadata['channelPost'] {
   }
 }
 
+function parseCreatedTriggers(value: unknown): AgentMessageMetadata['createdTriggers'] {
+  if (!Array.isArray(value)) return undefined
+  const triggers = value
+    .slice(0, 64)
+    .flatMap((item: { id?: unknown; name?: unknown } | null) =>
+      item && typeof item.id === 'string' && item.id && typeof item.name === 'string' && item.name
+        ? [{ id: item.id, name: item.name }]
+        : [],
+    )
+
+  return triggers.length > 0 ? triggers : undefined
+}
+
 const SOURCES = new Set(['nuphos', 'slack', 'discord', 'lark', 'agent.thread', 'agent.resource'])
 
 function parseReplyTo(value: unknown): AgentMessageMetadata['replyTo'] {
@@ -74,6 +87,8 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
     m.source === 'agent.resource' && m.sender.id.startsWith('channel:')
       ? parseChannelPost(m.channelPost)
       : undefined
+  const createdTriggers =
+    m.source === 'agent.thread' ? parseCreatedTriggers(m.createdTriggers) : undefined
 
   return {
     version: 1,
@@ -100,6 +115,7 @@ export function parseMessageMetadata(value: unknown): AgentMessageMetadata | und
     ...(m.source === 'discord' && m.unattested === true ? { unattested: true as const } : {}),
     ...(mentions ? { mentions } : {}),
     ...(channelPost ? { channelPost } : {}),
+    ...(createdTriggers ? { createdTriggers } : {}),
   }
 }
 

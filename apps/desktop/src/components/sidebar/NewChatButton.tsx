@@ -11,6 +11,8 @@ import { BotIdentityFields } from '../agent/BotIdentityFields'
 import { useNewConversationRuntime } from '../agent/panel/useNewConversationRuntime'
 import { createBotChannel } from '../channels/botChannel'
 import { BotImportDialog } from '../channels/BotImportDialog'
+import { BotTemplateDialog } from '../channels/BotTemplateDialog'
+import { BotTemplatePicker } from '../channels/BotTemplatePicker'
 import { Modal } from '../Modal'
 import { Button } from '../ui/button'
 import { Menu, MenuContent, MenuItem, MenuTrigger } from '../ui/menu'
@@ -40,6 +42,8 @@ export function NewChatButton({
   const [connecting, setConnecting] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const [groupOpen, setGroupOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [template, setTemplate] = useState<{ id: string; version: string } | null>(null)
   const created = (sessionId: string) => {
     setOpen(false)
     onCreated(sessionId)
@@ -52,6 +56,7 @@ export function NewChatButton({
           firstBot={firstBot}
           visible={visible}
           onCreate={() => setOpen(true)}
+          onTemplate={() => setPickerOpen(true)}
           onImport={() => setImportOpen(true)}
         />
       ) : (
@@ -106,16 +111,26 @@ export function NewChatButton({
                 onCreated={created}
                 onNeedRuntime={() => setConnecting(true)}
               />
-              <Button
-                variant="ghost"
-                className="mt-3"
-                onClick={() => {
-                  setOpen(false)
-                  setImportOpen(true)
-                }}
-              >
-                {t('Import from Grok Bot…')}
-              </Button>
+              <div className="mt-3 flex flex-wrap gap-1">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setOpen(false)
+                    setPickerOpen(true)
+                  }}
+                >
+                  {t('Start from a template…')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setOpen(false)
+                    setImportOpen(true)
+                  }}
+                >
+                  {t('Import from Grok Bot…')}
+                </Button>
+              </div>
             </div>
           </div>
         </Modal>
@@ -128,6 +143,24 @@ export function NewChatButton({
             setGroupOpen(false)
             onCreated(sessionId)
           }}
+        />
+      )}
+      {pickerOpen && (
+        <BotTemplatePicker
+          onClose={() => setPickerOpen(false)}
+          onPick={(picked) => {
+            setPickerOpen(false)
+            setTemplate(picked)
+          }}
+        />
+      )}
+      {template && (
+        <BotTemplateDialog
+          key={template.id}
+          teamId={teamId}
+          template={template}
+          onClose={() => setTemplate(null)}
+          onOpen={onCreated}
         />
       )}
       {importOpen && (

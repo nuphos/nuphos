@@ -23,6 +23,7 @@ export type BotImportPreview = {
   avatars?: Record<string, string>
   selection?: Omit<BotImportSelection, 'scheduleActivationConfirmed'>
   manifest: {
+    requirements?: { provider: string; required: boolean; reason: string }[]
     bots: (BotImportSetup & {
       avatar?: string
       skills: { key: string; directory: string }[]
@@ -45,4 +46,21 @@ export type BotImportSelection = {
   chatKeys: string[]
   enableSchedules: boolean
   scheduleActivationConfirmed: boolean
+}
+
+/** A template from the nuphos/bot-templates catalog, as the app shows it before a Bot is added. */
+export type BotTemplate = {
+  id: string
+  version: string
+  name: string
+  author: string
+  official: boolean
+  featured: boolean
+  category: string
+  /** A built-in avatar file name; the app checks it before showing it. */
+  avatar: string
+  summary: string
+  highlights: string[]
+  examples: string[]
+  integrations: { name: string; required: boolean; reason: string }[]
 }

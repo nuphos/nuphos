@@ -5,6 +5,7 @@ export const channelsApi = {
     window.api.agentGetBotImportStatus(...args),
   agentChooseBotImport: (...args: Parameters<typeof window.api.agentChooseBotImport>) =>
     window.api.agentChooseBotImport(...args),
+  agentListBotTemplates: () => window.api.agentListBotTemplates(),
   agentApplyBotImport: (...args: Parameters<typeof window.api.agentApplyBotImport>) =>
     window.api.agentApplyBotImport(...args),
   agentSaveGrokExportSkill: () => window.api.agentSaveGrokExportSkill(),

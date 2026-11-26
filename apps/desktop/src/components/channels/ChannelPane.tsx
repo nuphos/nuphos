@@ -209,12 +209,12 @@ export function ChannelPane({
             {/* The column: one box, so its height says when anything below grows, and
             the one width every row takes, the composer's own. */}
             <ChatColumn>
-              {detail && messages.length === 0 && (
+              {/* A Bot already writing its first message needs no introduction. */}
+              {detail && messages.length === 0 && !preparingFirstReply && (
                 <ChannelEmptyState
                   faces={detail.faces}
                   title={title}
                   bot={Boolean(bot)}
-                  preparingFirstReply={preparingFirstReply}
                   firstReplyFailed={firstReplyFailed}
                   banner={questions.banner}
                   onOpenEarlier={

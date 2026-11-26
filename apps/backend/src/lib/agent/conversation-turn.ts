@@ -9,7 +9,7 @@ import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 import { channelIdOf, remindUnanswered, withChannelPosts } from './channel-wake'
 import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
-import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
+import { buildPendingUserMessage, hasPendingUserMessage, speaksInOf } from './pending-messages'
 import { requeueTurnQueue } from './session-released'
 import { noteReplyFailed, usageResetsAtOf } from './reply-failed'
 import { recordFailedFires } from './trigger-failed-runs'
@@ -35,9 +35,8 @@ type ConversationTurn = {
   locale: string
   /** The Trigger fire this turn answers, when it came from one. */
   trigger?: ConversationTriggerRun
-  /** The question this message answers, when it carries a person's answer to one. */
-  answers?: NonNullable<PendingUserMessage['answers']>
-}
+  // `answers`: the question this message answers, when it carries a person's answer to one.
+} & Pick<PendingUserMessage, 'answers' | 'speaksIn'>
 
 type TurnArgs = [
   data: ConversationTurn,
@@ -78,6 +77,7 @@ export async function startConversationTurn(
     ...buildPendingUserMessage({ renderedText, metadata, source, actorUserId: data.userId }),
     id: data.messageId,
     ...(data.answers ? { answers: data.answers } : {}),
+    ...(data.speaksIn ? { speaksIn: data.speaksIn } : {}),
   }
   const claim = await turnRunner.claimAgentRunOrEnqueue({
     userId: data.userId,
@@ -163,7 +163,7 @@ export async function runTurn(
         // 'user' adds no Full Access default: a thread took its parent's mode at creation.
         origin: source === 'agent.resource' ? 'trigger' : 'user',
         // The channels this turn answers, where a question was answered too: they show it typing.
-        channelIds: fresh.flatMap((m) => channelIdOf(m) ?? m.answers?.channelId ?? []),
+        channelIds: fresh.flatMap((m) => channelIdOf(m) ?? speaksInOf(m) ?? []),
         ...(fresh.every((message) => channelIdOf(message)) ? { channelWoken: true } : {}),
         clientResendsRefusal: true,
         // An answer keeps its own wait, with its question (#3055).

@@ -4,6 +4,7 @@ import { dialog } from 'electron'
 
 import { accountSignal, stillCurrent } from '../account-request'
 
+import { botTemplateBundle } from './bot-templates'
 import { agentAccount, callJson } from './http'
 
 import type {
@@ -50,13 +51,16 @@ async function chosenBytes() {
 
 export async function chooseBotImport(
   target: BotImportTarget,
-  newCopy = false,
+  newCopy: boolean | string = false,
+  template?: { id: string; version: string },
 ): Promise<BotImportPreview | null> {
-  const bytes = await chosenBytes()
+  // A template is always imported as it is now in the catalog, whichever version linked to it.
+  const bytes = template ? await botTemplateBundle(template.id) : await chosenBytes()
 
   if (!bytes) return null
   const account = await agentAccount()
-  const copyQuery = newCopy ? '&copyId=' + crypto.randomUUID() : ''
+  const copyId = typeof newCopy === 'string' ? newCopy : crypto.randomUUID()
+  const copyQuery = newCopy ? `&copyId=${encodeURIComponent(copyId)}` : ''
   const route = `/agent/bot-imports/preview${query(target)}${copyQuery}`
   const response = await fetch(`${account.api}${route}`, {
     method: 'POST',

@@ -44,6 +44,8 @@ export type PendingUserMessage = {
   usageHold?: { until?: string }
   /** The question this notice answers: open again when the notice never runs. */
   answers?: InputRequest
+  /** A chat the turn speaks in though no post woke it there, such as a new Bot's first words: it shows the Bot typing. */
+  speaksIn?: string
 }
 
 // A resource wake-up is only "<event> on <PR>"; the session reads the PR itself.
@@ -56,6 +58,10 @@ export function wakeUpKey(message: PendingUserMessage): string {
 
   return url ? `${url} ${message.renderedText}` : ''
 }
+
+/** A chat a turn shows typing in though no post there woke it: an answered question's, or a new Bot's own. */
+export const speaksInOf = (message: PendingUserMessage) =>
+  message.answers?.channelId ?? message.speaksIn
 
 // Answered in the transcript, so any turn can take them. A channel message
 // (Slack, Lark, Discord) is answered in its channel by the handler that got it.

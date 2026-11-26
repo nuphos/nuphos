@@ -8,7 +8,6 @@ export function ChannelEmptyState({
   faces,
   title,
   bot,
-  preparingFirstReply,
   firstReplyFailed,
   banner,
   onOpenEarlier,
@@ -16,7 +15,6 @@ export function ChannelEmptyState({
   faces: ComponentProps<typeof ChatIcon>['faces']
   title: string
   bot: boolean
-  preparingFirstReply: boolean
   firstReplyFailed: boolean
   /** A line for the Bot's owner, in the intro's column, 16px under it (the gap and pt-1). */
   banner?: ReactNode
@@ -35,16 +33,13 @@ export function ChannelEmptyState({
               { name: title },
             )}
           </p>
-          {!preparingFirstReply &&
-            (firstReplyFailed ? (
-              <p>{t('The first reply could not be sent. Send a message to try again.')}</p>
-            ) : (
-              <p>
-                {t('You can start by telling {name} what you would like to do.', {
-                  name: title,
-                })}
-              </p>
-            ))}
+          {firstReplyFailed ? (
+            <p>{t('The first reply could not be sent. Send a message to try again.')}</p>
+          ) : (
+            <p>
+              {t('You can start by telling {name} what you would like to do.', { name: title })}
+            </p>
+          )}
           {onOpenEarlier && (
             <p>
               <button

@@ -6,6 +6,7 @@ import { captureMain } from '../analytics'
 import * as appOpenDeepLink from '../app-open-deeplink'
 import * as asanaInstall from '../asana-install'
 import * as atlas from '../atlas'
+import { parseBotTemplateUrl } from '../bot-template-deeplink'
 import * as cloudflareInstall from '../cloudflare-install'
 import * as discordInstall from '../discord-install'
 import * as githubInstall from '../github-install'
@@ -67,6 +68,7 @@ function fallbackDeepLinkTarget(): DeepLinkTarget | null {
 
 export function findDeepLinkInArgv(argv: readonly string[]): string | null {
   for (const arg of argv) {
+    if (parseBotTemplateUrl(arg)) return arg
     if (CONNECTOR_CALLBACKS.some(([, install]) => install.isCallbackUrl(arg))) return arg
     if (agentChatDeepLink.isAgentChatUrl(arg)) return arg
     if (appOpenDeepLink.isAppOpenUrl(arg)) return arg
@@ -111,6 +113,13 @@ function queueDeepLink(channel: string, payload: unknown) {
 // Single path for deep links so both delivery routes (open-url on macOS,
 // second-instance on Windows/Linux) emit the same event.
 export function handleDeepLink(url: string) {
+  const template = parseBotTemplateUrl(url)
+
+  if (template) {
+    queueDeepLink('deep-link:bot-template', template)
+
+    return
+  }
   // macOS hands us http(s) links once the user picks Nuphos as the default
   // browser (the app declares both schemes); the workspace opens them like a
   // link clicked in chat. Checked first: several callback matchers below look

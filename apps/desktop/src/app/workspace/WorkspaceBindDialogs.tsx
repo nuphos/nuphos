@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
+import { BotTemplateDialog } from '../../components/channels/BotTemplateDialog'
+import { setSidebarMode } from '../../components/sidebar/sidebarModeStore'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { BindGithubDialog } from '../../views/BindGithubDialog'
@@ -24,6 +26,17 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
     openSettingsSection,
     onSidebarSelect,
   } = ws
+  const [template, setTemplate] = useState<{ id: string; version: string } | null>(() => {
+    if (!import.meta.env.DEV) return null
+    const params = new URLSearchParams(window.location.search)
+
+    const id = params.get('botTemplate')
+    const version = params.get('templateVersion')
+
+    return id && version ? { id, version } : null
+  })
+
+  useEffect(() => api.onBotTemplateDeepLink(setTemplate), [])
   const [connectAgent, setConnectAgent] = useState<ConnectAgentLink | null>(null)
 
   useEffect(() => api.onConnectAgentDeepLink(setConnectAgent), [])
@@ -47,6 +60,19 @@ export function WorkspaceBindDialogs({ ws }: { ws: WorkspaceController }) {
 
   return (
     <>
+      {template && currentTeam && (
+        <BotTemplateDialog
+          key={JSON.stringify([currentTeam.id, template.id, template.version])}
+          teamId={currentTeam.id}
+          template={template}
+          onClose={() => setTemplate(null)}
+          onOpen={(id) => {
+            // Its chat is listed under Bots, so the sidebar turns there as it opens.
+            setSidebarMode(currentTeam.id, 0)
+            ws.workspaceActions.selectSession(id)
+          }}
+        />
+      )}
       {connectAgent && (
         <ConnectAgentDialog
           key={`${connectAgent.url}:${connectAgent.code}`}

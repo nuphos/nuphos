@@ -1,10 +1,20 @@
 import type { ChannelAgent, ChannelMention } from './agent-types.ts'
-import type { BotImportPreview, BotImportSelection, BotImportTarget } from './bot-import-types'
+import type {
+  BotImportPreview,
+  BotImportSelection,
+  BotImportTarget,
+  BotTemplate,
+} from './bot-import-types'
 
 /** Channels: places where people and agents talk. */
 export type WindowChannelsApi = {
   agentGetBotImportStatus(target: BotImportTarget, id: string): Promise<BotImportPreview>
-  agentChooseBotImport(target: BotImportTarget, newCopy?: boolean): Promise<BotImportPreview | null>
+  agentChooseBotImport(
+    target: BotImportTarget,
+    newCopy?: boolean | string,
+    template?: { id: string; version: string },
+  ): Promise<BotImportPreview | null>
+  agentListBotTemplates(): Promise<BotTemplate[]>
   agentApplyBotImport(
     target: BotImportTarget,
     id: string,

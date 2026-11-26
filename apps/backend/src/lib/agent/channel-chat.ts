@@ -8,11 +8,13 @@ import { channelNotice } from './db/channel-notes'
 import { channelNoticeSender, steerQueuedNotice, steerRunningTurn } from './channel-wake'
 import { noteReplyFailed } from './reply-failed'
 import { replyQuote } from './channel-reply'
+import { slackPost } from './channel-slack-post'
 import { chatName, isChannel } from './db/channels'
 import { bumpConversationActivity } from './db/read-state'
 import { clearReplyFailed, pushTimelineEvent } from './db/participants'
 import { agentConversations } from './db/shared'
 import { notePost } from './mentions'
+import { takeCreatedTriggers } from './pending-created-triggers'
 import { listPendingUserMessages } from './pending-queue'
 
 import type { AgentConversation } from './db'
@@ -144,6 +146,7 @@ export async function postAsAgent(
     channel.external === 'slack'
       ? await slackPost(channel, agent, text, files, quote)
       : randomUUID()
+  const createdTriggers = await takeCreatedTriggers(channel.sessionId, agent.sessionId)
 
   await postChannelMessage(
     channel,
@@ -162,25 +165,12 @@ export async function postAsAgent(
         sourceSessionId: agent.sessionId,
         sentAt: new Date().toISOString(),
         ...(shown ? { replyTo: quote } : {}),
+        ...(createdTriggers.length > 0 ? { createdTriggers } : {}),
       },
       files,
     },
     agent.sessionId,
   )
-}
-
-async function slackPost(
-  channel: AgentConversation,
-  agent: Pick<AgentConversation, 'sessionId'>,
-  text: string,
-  files: object[],
-  quote: MessageMetadata['replyTo'],
-) {
-  if (files.length > 0) throw new Error('Files cannot be posted to a Slack channel yet.')
-  // Lazy so importing this does not pull in the Slack client.
-  const { postToSlack } = await import('@/lib/slack/external-chat-post')
-
-  return await postToSlack(channel, agent, text, quote)
 }
 
 /** One more agent-woken turn, if the budget has room for it. */

@@ -244,6 +244,8 @@ export type AgentMessageMetadata = {
   mentions?: AgentMessageMention[]
   /** A channel's wake notice: the newest post it brought. */
   channelPost?: AgentChannelPost
+  /** Triggers a Bot was set up with, created paused. */
+  createdTriggers?: { id: string; name: string }[]
 }
 
 export type AgentPersistedMessage = {

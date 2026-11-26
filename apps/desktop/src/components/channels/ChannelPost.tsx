@@ -1,13 +1,17 @@
 import clsx from 'clsx'
-import { Inbox } from 'lucide-react'
+import { AlarmClock, Inbox } from 'lucide-react'
+import { Fragment } from 'react'
 
-import { t } from '../../i18n'
+import { locale, t } from '../../i18n'
+import { showBotTrigger } from '../../lib/botDetailsPanel'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
 import { AgentAvatar } from '../agent/AgentAvatar'
 import { MessageResponse } from '../agent/MessageResponse'
 import { linkMentions } from '../agent/panel/messageMentionText'
 import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { ReplyQuote } from '../agent/panel/ReplyQuote'
+import { fill } from '../agent/panel/timelineFill'
+import { Rule } from '../agent/panel/timelineParts'
 import { Avatar } from '../Avatar'
 
 import { ChannelFiles } from './ChannelFiles'
@@ -149,62 +153,119 @@ export function ChannelMessage({
       </div>
     )
 
+  const triggers = agentId && metadata.createdTriggers && (
+    <CreatedTriggersLine
+      bot={agentId}
+      name={sender.displayName}
+      triggers={metadata.createdTriggers}
+    />
+  )
+
   return (
-    <div className="group/post flex w-full items-start gap-2.5">
-      <div className="w-7 shrink-0">
-        {first &&
-          (agentId ? (
-            // Your own agent's face and name open its session.
-            open ? (
-              <button type="button" tabIndex={-1} onClick={open} className="rounded-full">
+    <>
+      <div className="group/post flex w-full items-start gap-2.5">
+        <div className="w-7 shrink-0">
+          {first &&
+            (agentId ? (
+              // Your own agent's face and name open its session.
+              open ? (
+                <button type="button" tabIndex={-1} onClick={open} className="rounded-full">
+                  <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
+                </button>
+              ) : (
                 <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
-              </button>
+              )
             ) : (
-              <AgentAvatar agentId={agentId} provider={sender.agentRuntime} size={28} />
-            )
-          ) : (
-            <Avatar
-              src={trustedAvatarURL(sender.avatarURL)}
-              name={sender.displayName}
-              size={28}
-              className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
-            />
-          ))}
+              <Avatar
+                src={trustedAvatarURL(sender.avatarURL)}
+                name={sender.displayName}
+                size={28}
+                className="rounded-full ring-1 ring-black/5 dark:ring-white/10"
+              />
+            ))}
+        </div>
+        <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-start gap-1 rounded-2xl">
+          {first && (
+            <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
+              {open ? (
+                <button
+                  type="button"
+                  title={t('Open session')}
+                  onClick={open}
+                  className="truncate font-medium text-secondary hover:underline"
+                >
+                  {sender.displayName}
+                </button>
+              ) : (
+                <span className="truncate font-medium text-secondary">{sender.displayName}</span>
+              )}
+            </div>
+          )}
+          {!text && quote}
+          {files}
+          {text && (
+            <div
+              className={clsx(
+                'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
+                fresh && 't-bubble-in',
+              )}
+            >
+              {quote}
+              {body}
+            </div>
+          )}
+          {shown({ ...posted, uploads: [] })}
+          {answered}
+        </div>
+        {onReply && <ReplyButton onReply={onReply} />}
       </div>
-      <div {...post} className="flex min-w-0 max-w-[85%] flex-col items-start gap-1 rounded-2xl">
-        {first && (
-          <div className="flex max-w-full items-center gap-2 px-1 text-xs leading-4">
-            {open ? (
-              <button
-                type="button"
-                title={t('Open session')}
-                onClick={open}
-                className="truncate font-medium text-secondary hover:underline"
-              >
-                {sender.displayName}
-              </button>
-            ) : (
-              <span className="truncate font-medium text-secondary">{sender.displayName}</span>
-            )}
-          </div>
-        )}
-        {!text && quote}
-        {files}
-        {text && (
-          <div
-            className={clsx(
-              'max-w-full rounded-2xl rounded-tl-md bg-state-selected px-3.5 py-2 break-words',
-              fresh && 't-bubble-in',
-            )}
-          >
-            {quote}
-            {body}
-          </div>
-        )}
-        {shown({ ...posted, uploads: [] })}
-        {answered}
-      </div>
-      {onReply && <ReplyButton onReply={onReply} />}
+      {triggers}
+    </>
+  )
+}
+
+/**
+ * "Release Notes created ⏰ weekly-draft · Off until you turn them on": the Triggers a Bot
+ * was set up with, as a line between posts. A name opens Bot details at that Trigger.
+ */
+function CreatedTriggersLine({
+  bot,
+  name,
+  triggers,
+}: {
+  bot: string
+  name: string
+  triggers: { id: string; name: string }[]
+}) {
+  const names = triggers.map((trigger) => (
+    <button
+      key={trigger.id}
+      type="button"
+      onClick={() => showBotTrigger(bot, trigger.id)}
+      className="inline-flex min-w-0 items-center gap-1 rounded font-medium text-secondary hover:text-main hover:underline"
+    >
+      <AlarmClock size={12} aria-hidden className="shrink-0" />
+      <span className="truncate">{trigger.name}</span>
+    </button>
+  ))
+  const listed = new Intl.ListFormat(locale, { type: 'conjunction' })
+    .formatToParts(names.map((_, index) => String(index)))
+    .map((part, index) => (
+      <Fragment key={index}>
+        {part.type === 'element' ? names[Number(part.value)] : part.value}
+      </Fragment>
+    ))
+
+  return (
+    <div className="flex justify-center py-1" data-created-triggers="">
+      <Rule>
+        {fill(t('{bot} created {triggers}'), {
+          bot: <span className="font-medium text-secondary">{name}</span>,
+          triggers: listed,
+        })}
+        <span aria-hidden>·</span>
+        <span className="truncate">{t('Off until you turn them on')}</span>
+      </Rule>
     </div>
   )
 }
