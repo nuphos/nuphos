@@ -7,7 +7,7 @@ import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv, signOutInstance } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
-import { syncVaultAgents } from './vault-instances.ts'
+import { watchVaultAgents } from './vault-instances.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
@@ -45,6 +45,8 @@ export class InstanceControllers {
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
   private readonly defaults: DefaultAgentControl
   private userId: string | null = null
+  private watch?: NodeJS.Timeout
+  private readonly instanceDir = (id: string) => path.join(this.deps.dataDir(), 'instances', id)
   constructor(
     deps: LocalRuntimeControllerDeps,
     create: InstanceControllers['create'],
@@ -60,13 +62,14 @@ export class InstanceControllers {
   }
 
   async load(userId: string | null): Promise<void> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
     this.entries.clear()
     this.userId = userId
     if (!userId) return
     for (const metadata of readInstances(userDir(this.deps.dataDir(), userId)))
       this.add(metadata, userId)
-    await syncVaultAgents(this, this.deps.vaultTokens, userId)
+    this.watch = await watchVaultAgents(this, this.deps.vaultTokens, userId)
     await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.setUser(userId)),
     )
@@ -78,6 +81,7 @@ export class InstanceControllers {
   }
 
   async shutdown(): Promise<unknown> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
 
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
@@ -89,7 +93,6 @@ export class InstanceControllers {
         controller.refresh(restart && (!providers || providers.includes(metadata.provider))),
       ),
     )
-    if (this.userId) await syncVaultAgents(this, this.deps.vaultTokens, this.userId, true)
 
     return Promise.all(
       [...this.entries.values()]
@@ -128,10 +131,6 @@ export class InstanceControllers {
     this.expireLater(entry)
 
     return entry
-  }
-
-  private instanceDir(instanceId: string): string {
-    return path.join(this.deps.dataDir(), 'instances', instanceId)
   }
 
   /** A shared token's agent is not stored: what is shared now decides it on each start. */

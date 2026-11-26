@@ -43,3 +43,24 @@ export async function syncVaultAgents(
     if (start) instances.start(entry, userId)
   }
 }
+
+/** How often a running host asks again, so a share or unshare reaches it without a restart. */
+const VAULT_POLL_MS = 60_000
+
+/** Syncs once, then keeps syncing until the returned timer is cleared. */
+export async function watchVaultAgents(
+  instances: Instances,
+  list: (() => Promise<VaultToken[] | null>) | undefined,
+  userId: string,
+): Promise<NodeJS.Timeout | undefined> {
+  await syncVaultAgents(instances, list, userId)
+  if (!list) return undefined
+  const timer = setInterval(
+    () => void syncVaultAgents(instances, list, userId, true),
+    VAULT_POLL_MS,
+  )
+
+  timer.unref()
+
+  return timer
+}

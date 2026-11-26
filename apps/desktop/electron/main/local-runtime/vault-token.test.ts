@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import net from 'node:net'
 import test from 'node:test'
 
-import { syncVaultAgents } from './vault-instances.ts'
+import { syncVaultAgents, watchVaultAgents } from './vault-instances.ts'
 import {
   CLAUDE_TOKEN_ITEM,
   computerVaultTokens,
@@ -102,7 +102,7 @@ test('a computer asks with its own credential who shares the token with it', asy
   assert.equal(await list(), null)
 })
 
-test('the agents follow what is shared now, and a failed listing changes nothing', async () => {
+function fakeInstances() {
   const entries = new Map<string, Entry>()
   const removed: string[] = []
   const started: string[] = []
@@ -123,6 +123,12 @@ test('the agents follow what is shared now, and a failed listing changes nothing
     },
     start: (entry: Entry) => void started.push(entry.metadata.instanceId),
   }
+
+  return { entries, removed, started, instances }
+}
+
+test('the agents follow what is shared now, and a failed listing changes nothing', async () => {
+  const { entries, removed, started, instances } = fakeInstances()
   const own = { metadata: { instanceId: 'own', provider: 'codex', label: 'Codex' } } as Entry
   const alice = vaultInstance(token('alice')).instanceId
   const bob = vaultInstance(token('bob')).instanceId
@@ -141,4 +147,24 @@ test('the agents follow what is shared now, and a failed listing changes nothing
   assert.deepEqual([...entries.keys()], ['own', bob])
   await syncVaultAgents(instances, () => Promise.resolve([]), 'u1')
   assert.deepEqual([...entries.keys()], ['own'])
+})
+
+test('a running host picks up a share within a minute, until the watch is cleared', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] })
+  const { entries, started, instances } = fakeInstances()
+  let shared: VaultToken[] = []
+  const tick = async () => {
+    t.mock.timers.tick(60_000)
+    await new Promise(setImmediate)
+  }
+  const timer = await watchVaultAgents(instances, () => Promise.resolve(shared), 'u1')
+
+  shared = [token('alice')]
+  await tick()
+  assert.deepEqual(started, [vaultInstance(token('alice')).instanceId])
+  clearInterval(timer)
+  shared = []
+  await tick()
+  assert.equal(entries.size, 1)
+  assert.equal(await watchVaultAgents(instances, undefined, 'u1'), undefined)
 })
