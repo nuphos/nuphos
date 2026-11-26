@@ -95,6 +95,8 @@ useIdentity({
 // Agents whose turn is running, by session, with who runs it.
 let running = new Map<string, string>()
 let steerable = true
+// The runtime injects the steer but answers after OpenAB stopped waiting for it.
+let acknowledgedLate = false
 const steers: { sessionId: string; text: string; userId: string; metadata?: MessageMetadata }[] = []
 // The channels recorded on a running turn, as `${ownerId} ${streamId} ${channelIds}`.
 const runChannels: string[] = []
@@ -117,6 +119,8 @@ useSessionExecutionState({
   steerConversationRuntime: async (conversation, steer) => {
     if (!steerable) throw new Error('runtime_steering_unavailable')
     steers.push({ sessionId: conversation.sessionId, ...steer })
+    if (acknowledgedLate)
+      throw new OpenAbRpcError('Steering acknowledgement timed out; delivery is unknown', -32001)
 
     return steer.text
   },
@@ -195,6 +199,7 @@ beforeEach(async () => {
   posts = 0
   running = new Map()
   steerable = true
+  acknowledgedLate = false
   steers.length = 0
   runChannels.length = 0
   departed = new Set()
@@ -868,6 +873,19 @@ describe('a person posting while an agent’s turn runs', () => {
     await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
     expect(runChannels).toEqual([])
     expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toHaveLength(1)
+  })
+
+  test('a steer the runtime may have taken is not sent again', async () => {
+    QUEUED_NOTICE_STEER.attempts = 3
+    QUEUED_NOTICE_STEER.delayMs = 2
+    running.set('agent-a', 'agent-a-owner')
+    acknowledgedLate = true
+    await say('go ahead', { ...person, sender: { ...person.sender, id: 'agent-a-owner' } })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(steers.filter((s) => s.sessionId === 'agent-a')).toHaveLength(1)
+    // Taken as read: no notice waits to deliver the same post once the turn ends.
+    expect(await listPendingUserMessages('agent-a-owner', 'agent-a')).toEqual([])
+    expect(runChannels).toEqual(['agent-a-owner s channel'])
   })
 
   test('with no running turn, a post wakes the agents', async () => {
