@@ -10,6 +10,7 @@ import { authSession } from '../../auth-session.ts'
 import { keychainFor } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
+import { getItem } from '../../vault/vault.ts'
 import { leftAloneDir } from '../app-paths.ts'
 import { readAutoInstall, writeAutoInstall } from '../auto-update-electron.ts'
 import { dialDeviceTunnel, syncDeviceRegistration } from '../device-controller.ts'
@@ -45,6 +46,7 @@ import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
+import { CLAUDE_TOKEN_ITEM, serveVaultToken } from './vault-token.ts'
 
 import type { AccountContext } from '../../auth-session.ts'
 import type { LocalRuntimeBundle } from './config.ts'
@@ -69,8 +71,11 @@ const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
 const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 
+// This app is a device of its owner's vault: what they shared with it, its runtime gets.
+const vaultToken = serveVaultToken(() => getItem(CLAUDE_TOKEN_ITEM))
+
 export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
-  return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}) }
+  return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}), ...vaultToken }
 }
 
 function broadcastState(): void {

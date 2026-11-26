@@ -62,6 +62,9 @@ export function instanceControllerDeps(
     userEnv: async (fresh) => ({
       ...(await deps.userEnv(fresh)),
       ...secureStorageEnv(dir, userId),
+      // It runs on its own login; the vault's Claude Code token is the computer's own runtime's.
+      NUPHOS_VAULT_SOCKET: undefined,
+      NUPHOS_VAULT_KEY: undefined,
     }),
     prepareAgentHome: prepareIsolatedAgentHome,
     readCliCache: () => ({}),
