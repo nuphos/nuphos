@@ -64,3 +64,12 @@ export function pastedSignInReady(provider: AgentProvider, text: string): boolea
     return false
   }
 }
+
+/** What is left of a sign-in that ends at `expiresAt`, as "m:ss"; null once it has ended. */
+export function timeLeft(expiresAt: string, now: number): string | null {
+  const seconds = Math.ceil((Date.parse(expiresAt) - now) / 1000)
+
+  if (Number.isNaN(seconds) || seconds <= 0) return null
+
+  return `${String(Math.floor(seconds / 60))}:${String(seconds % 60).padStart(2, '0')}`
+}

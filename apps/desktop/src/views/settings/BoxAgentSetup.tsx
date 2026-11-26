@@ -1,4 +1,4 @@
-import { Loader2 } from 'lucide-react'
+import { Check, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
@@ -40,6 +40,26 @@ function pendingInstance(agent: DeviceAgentInstance, device: AgentDevice): Runti
   }
 }
 
+/** Where the dialog is: choosing the agent, then installing and signing in. */
+function Stepper({ step }: { step: number }) {
+  return (
+    <ol className="grid grid-cols-2 gap-1.5 px-5 text-xs">
+      {[t('Choose'), t('Install & sign in')].map((name, index) => (
+        <li
+          key={name}
+          aria-current={index === step ? 'step' : undefined}
+          className={index === step ? 'font-medium text-main' : 'text-tertiary'}
+        >
+          <span
+            className={`mb-1.5 block h-0.5 rounded-full ${index <= step ? 'bg-[rgb(var(--color-text-base))]' : 'bg-state-selected'}`}
+          />
+          {name}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 /**
  * A new agent on a Box, in one dialog: its settings, then its sign-in. It exists only once
  * signed in: made pending when the settings are confirmed, and removed again unless the
@@ -62,6 +82,7 @@ export function BoxAgentSetup({
   const [name, setName] = useState(() => defaultAgentName(agents, provider))
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<DeviceAgentInstance | null>(null)
+  const [ready, setReady] = useState(false)
   const left = useRef(false)
   const body = useRef<HTMLDivElement>(null)
   const instance = useMemo(() => created && pendingInstance(created, device), [created, device])
@@ -69,13 +90,9 @@ export function BoxAgentSetup({
   const login = useRuntimeLogin(
     teamId,
     instance,
-    () => {
-      if (!created || !instance) return
-      // Ready rather than signed in: OpenCode's free models finish here with no sign-in, and
-      // an API key is not checked until a turn runs.
-      toast.success(t('{name} is ready.', { name: instance.label }))
-      onDone(created.runtimeId)
-    },
+    // Ready rather than signed in: OpenCode's free models finish here with no sign-in, and
+    // an API key is not checked until a turn runs.
+    () => setReady(true),
     true,
   )
   const { deviceId } = device
@@ -110,6 +127,11 @@ export function BoxAgentSetup({
   }
 
   const leave = async () => {
+    if (created && ready) {
+      onDone(created.runtimeId)
+
+      return
+    }
     if (created) {
       if (!(await login.cancel())) return
       remove(created.instanceId)
@@ -128,18 +150,28 @@ export function BoxAgentSetup({
       open
       onClose={() => void leave()}
       title={
-        created
-          ? t('Sign in with {account}', { account })
-          : t('New {name} runtime', { name: label })
+        ready
+          ? t('{name} runtime added', { name: label })
+          : created
+            ? t('Sign in with {account}', { account })
+            : t('New {name} runtime', { name: label })
       }
-      description={
-        created
-          ? t('Step 2 of 2 · Sign in · {computer}', { computer: device.label })
-          : t('Step 1 of 2 · Settings · {computer}', { computer: device.label })
+      description={t('{name} · {computer}', { name: label, computer: device.label })}
+      headerLeading={
+        <span className="mr-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-line-control">
+          <AgentProviderIcon provider={provider} className="h-5 w-5" />
+        </span>
       }
+      headerDivider={ready}
       closeOnBackdrop={false}
       footer={
-        created ? (
+        ready ? (
+          <div className="flex justify-end px-5 py-3">
+            <Button size="sm" onClick={() => void leave()}>
+              {t('Done')}
+            </Button>
+          </div>
+        ) : created ? (
           <RuntimeLoginActions state={login} onClose={() => void leave()} />
         ) : (
           <div className="flex justify-end gap-2 px-5 py-3">
@@ -154,7 +186,18 @@ export function BoxAgentSetup({
         )
       }
     >
-      {instance ? (
+      {!ready && <Stepper step={created ? 1 : 0} />}
+      {ready ? (
+        <div className="flex flex-col items-center gap-2 px-5 py-8 text-center" role="status">
+          <span className="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-success text-white">
+            <Check className="h-6 w-6" strokeWidth={3} />
+          </span>
+          <p className="text-[15px] font-medium text-main">
+            {t('{name} is ready on {computer}', { name: label, computer: device.label })}
+          </p>
+          <p className="text-[13px] text-secondary">{t('Bots and tasks can now run on it.')}</p>
+        </div>
+      ) : instance ? (
         <div
           ref={body}
           tabIndex={-1}
@@ -173,10 +216,6 @@ export function BoxAgentSetup({
             if (name.trim() && !creating) void create()
           }}
         >
-          <div className="flex items-center gap-2 text-[13px] text-main">
-            <AgentProviderIcon provider={provider} className="h-4 w-4" />
-            {label}
-          </div>
           <Field
             label={t('Name')}
             hint={
