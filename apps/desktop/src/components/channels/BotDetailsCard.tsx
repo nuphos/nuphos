@@ -1,5 +1,5 @@
 import { clsx } from 'clsx'
-import { Monitor, Pencil } from 'lucide-react'
+import { Monitor, Pencil, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -26,6 +26,7 @@ export function BotDetailsCard({
   onOpenTask,
   canOpenDesktop,
   onEdited,
+  onClose,
 }: {
   teamId: string
   bot: string
@@ -36,6 +37,8 @@ export function BotDetailsCard({
   onOpenTask?: () => void
   canOpenDesktop: boolean
   onEdited: () => void
+  /** Hides the details; the chat's heading opens them again. */
+  onClose?: () => void
 }) {
   const [editing, setEditing] = useState(false)
 
@@ -45,7 +48,7 @@ export function BotDetailsCard({
         aria-busy="true"
         className={clsx(sectionClass, 'flex flex-col items-center gap-3 pt-5')}
       >
-        <span className="size-[72px] rounded-full bg-state-hover" />
+        <span className="size-14 rounded-full bg-state-hover" />
         <span className="h-4 w-24 rounded bg-state-hover" />
       </section>
     )
@@ -55,16 +58,20 @@ export function BotDetailsCard({
       aria-label={title}
       className={clsx(sectionClass, 'relative flex flex-col items-center pt-5 text-center')}
     >
-      {owned && (
-        <IconButton
-          label={t('Edit Bot')}
-          icon={<Pencil />}
-          className="absolute top-2 right-2"
-          onClick={() => setEditing(true)}
-        />
+      {(owned || onClose) && (
+        <div className="absolute top-2 right-2 flex items-center gap-0.5">
+          {owned && (
+            <IconButton label={t('Edit Bot')} icon={<Pencil />} onClick={() => setEditing(true)} />
+          )}
+          {onClose && (
+            <IconButton label={t('Close')} shortcut="mod+i" icon={<X />} onClick={onClose} />
+          )}
+        </div>
       )}
-      <AgentAvatar agentId={bot} avatar={agent?.avatar} provider={agent?.provider} size={72} />
-      <p className="mt-3 max-w-full truncate px-6 text-[15px] font-semibold text-main">{title}</p>
+      <AgentAvatar agentId={bot} avatar={agent?.avatar} provider={agent?.provider} size={56} />
+      <p className="mt-2.5 max-w-full truncate px-16 text-[15px] font-semibold text-main">
+        {title}
+      </p>
       {(onOpenTask !== undefined || canOpenDesktop) && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {onOpenTask && (

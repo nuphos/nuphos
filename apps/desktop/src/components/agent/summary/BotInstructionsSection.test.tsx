@@ -130,3 +130,53 @@ test('anyone else reads them with no pencil', async () => {
   assert.ok(view.container.textContent.includes('Old.'))
   await view.unmount()
 })
+
+/** happy-dom lays nothing out: says how tall the clamped box's text is, against its 160px cap. */
+function textHeight(height: number) {
+  const proto = dom.HTMLElement.prototype
+  const saved = ['scrollHeight', 'clientHeight'].map(
+    (name) => [name, Object.getOwnPropertyDescriptor(proto, name)] as const,
+  )
+
+  Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => height })
+  Object.defineProperty(proto, 'clientHeight', {
+    configurable: true,
+    get: () => Math.min(height, 160),
+  })
+
+  return () => {
+    for (const [name, descriptor] of saved)
+      if (descriptor) Object.defineProperty(proto, name, descriptor)
+      else Reflect.deleteProperty(proto, name)
+  }
+}
+
+test('long instructions open in place under Show more, with no scroll box of their own', async () => {
+  const restore = textHeight(600)
+  const view = await mount(bot({ instructions: 'A long brief.' }))
+  const more = view.button('Show more')
+
+  assert.ok(more, 'the clamped text offers to open')
+  assert.equal(more.getAttribute('aria-expanded'), 'false')
+  assert.ok(!view.container.querySelector('.overflow-y-auto'), 'no second scrollbar')
+  await act(() => more.click())
+  const less = view.button('Show less')
+
+  assert.ok(less, 'and to close again')
+  assert.equal(less.getAttribute('aria-expanded'), 'true')
+  assert.ok(!view.container.querySelector('.max-h-40'), 'open, it is not clamped')
+  await act(() => less.click())
+  assert.ok(view.button('Show more'))
+  await view.unmount()
+  restore()
+})
+
+test('short instructions show whole, with no Show more', async () => {
+  const restore = textHeight(60)
+  const view = await mount(bot({ instructions: 'Ship weekly.' }))
+
+  assert.equal(view.button('Show more'), undefined)
+  assert.equal(view.button('Show less'), undefined)
+  await view.unmount()
+  restore()
+})
