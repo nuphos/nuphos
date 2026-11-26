@@ -372,3 +372,47 @@ test('a prompt folded into a task-notification turn completes with its result', 
   await until(() => h.settled.length === 1)
   assert.equal(h.settled[0].stopReason, 'end_turn')
 })
+
+test('the first turn after a resume counts its own usage, not the restored running total', async (t) => {
+  const h = harness(t)
+  // Claude Code restores `modelUsage` from the transcript; the session starts with no reading.
+  h.session.lastModelUsageReading = undefined
+  const restored = {
+    inputTokens: 900,
+    outputTokens: 90,
+    cacheReadInputTokens: 800_000_000,
+    cacheCreationInputTokens: 9_000_000,
+  }
+
+  await h.emit({
+    type: 'assistant',
+    parent_tool_use_id: null,
+    uuid: randomUUID(),
+    session_id: 'test-session',
+    message: {
+      id: 'msg-1',
+      type: 'message',
+      role: 'assistant',
+      model: 'claude-opus-5-5',
+      content: [{ type: 'text', text: 'hi' }],
+      usage: { input_tokens: 10, output_tokens: 5 },
+    },
+  })
+  await h.emit(
+    result('original', {
+      modelUsage: { 'claude-opus-5-5': restored, 'claude-haiku-5-5': restored },
+    }),
+  )
+  await h.emit(idle)
+  await until(() => h.settled.length === 1)
+  assert.deepEqual(
+    h.settled[0]._meta.quota.model_usage.map(({ model, token_count }) => ({
+      model,
+      input: token_count.inputTokens,
+      cached: token_count.cachedInputTokens,
+    })),
+    [{ model: 'claude-opus-5-5', input: 10, cached: 0 }],
+  )
+  // The restored total is the baseline the next result is measured from.
+  assert.equal(h.session.lastModelUsageReading['claude-opus-5-5'].cachedReadTokens, 800_000_000)
+})
