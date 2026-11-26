@@ -2,7 +2,8 @@ import { db } from '@/lib/db'
 import { tokenTeamFilter } from '@/lib/identity/token-team-scope'
 
 import type { SessionResource } from '../session-resources'
-import type { GeneralAccess } from './access'
+import type { CredentialAllFlags, GeneralAccess } from './access'
+import type { ArchiveChange } from './archive-log'
 import type { ChannelFields } from './channels'
 import type { ConversationTaskState } from '../task-state'
 import type { SettingsChange } from './settings-history'
@@ -10,10 +11,10 @@ import type { ConversationTimelineEvent } from './timeline-events'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
 import type { AgentMessageOrigin, AgentSessionOrigin } from '@/lib/agent/message-origin'
 import type { AgentTokenUsageSummary } from '@/lib/agent/token-usage'
-import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { RuntimeDefaults } from '@/lib/claude-code-preview/openab-acp-session'
 import type { OpenAbProvider } from '@/lib/claude-code-preview/runtime-provider'
 import type { SessionConfigOption } from '@/lib/claude-code-preview/session-config-options'
+import type { PersonalCredentialProvider } from '@/models/personal-credentials'
 import type { Collection, ObjectId } from 'mongodb'
 
 export type BackgroundWorkLoss = 'session_lost' | 'unreachable'
@@ -88,6 +89,7 @@ export type AgentConversation = ConversationTaskState & {
   // When it was last un-archived by hand. The idle sweep counts from here as well as from
   // lastActiveAt, so a restored conversation is not filed away again an hour later.
   archiveRestoredAt?: Date
+  archiveLog?: ArchiveChange[] // Each archive and restore, oldest first: who, and through what.
   // Teammates beside its owner, by speaking or by invite alike: it lists for them and they may
   // read it; reply follows its computer (access.ts). Older rows also carry unread managerIds.
   participantIds?: string[]
@@ -107,7 +109,7 @@ export type AgentConversation = ConversationTaskState & {
   compactionSummary?: string
   compactionMessageCount?: number
   parentSessionId?: string // The managing conversation: create_thread's opener or set_thread_parent's choice.
-  webhookId?: string // The team webhook that alone receives this session's events: nuphos_ask's webhook_id.
+  webhookId?: string // The team webhook this session and its Tasks report to: nuphos_ask's webhook_id.
   // Native Mongo parent reference. Legacy vendor fields stay stored but unused.
   conversationTraceParent?: string
   credentialAccess?: AgentCredentialAccess
@@ -144,6 +146,8 @@ export type AgentConversation = ConversationTaskState & {
   // `claudeCodePreview` so a re-attachment write cannot drop it, and durable
   // so the notice survives a backend replica roll. The next prompt consumes it.
   claudeCodePreviewWorkLost?: { at: Date; reason: BackgroundWorkLoss }
+  /** sha256 of the standing instructions the attached agent was last given (see `instructionsUpdate`). */
+  instructionsDigest?: string
   /** `started` is the legacy one-time introduction, not an active setup lifecycle. */
   botOnboarding?: 'pending' | 'active' | 'completed' | 'started'
   metadata?: {
@@ -221,7 +225,7 @@ export type AgentCredentialAccess = {
   personalCredentialIds?: PersonalCredentialProvider[] // the owner's own, with no team binding
   updatedAt: Date
   updatedBy: string
-}
+} & CredentialAllFlags
 
 export type AgentMessage = {
   _id?: ObjectId
@@ -269,18 +273,14 @@ export type AgentEventDoc = {
   data?: Record<string, unknown>
 }
 
-const COLLECTION_NAME = 'agent_conversations'
-const MESSAGE_COLLECTION_NAME = 'agent_messages'
-const EVENT_COLLECTION_NAME = 'agent_events'
-
 export const agentConversations = (): Collection<AgentConversation> =>
-  db().collection<AgentConversation>(COLLECTION_NAME)
+  db().collection<AgentConversation>('agent_conversations')
 
 export const agentMessages = (): Collection<AgentMessage> =>
-  db().collection<AgentMessage>(MESSAGE_COLLECTION_NAME)
+  db().collection<AgentMessage>('agent_messages')
 
 export const agentEvents = (): Collection<AgentEventDoc> =>
-  db().collection<AgentEventDoc>(EVENT_COLLECTION_NAME)
+  db().collection<AgentEventDoc>('agent_events')
 
 // Keep legacy user rows reachable, but scope conversation tokens strictly to their own team.
 export function withTeamScope(

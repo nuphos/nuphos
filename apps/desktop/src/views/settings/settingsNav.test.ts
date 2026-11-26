@@ -4,7 +4,12 @@ import { test } from 'node:test'
 import { withRenamedPage } from '../../app/workspacePersistence.ts'
 import { emptyNavigation, navigationFromAppPath } from '../../lib/appRoutes.ts'
 
-import { settingsLinkTarget, settingsNavGroups, settingsSectionForPage } from './settingsNav.ts'
+import {
+  filterSettingsNavGroups,
+  settingsLinkTarget,
+  settingsNavGroups,
+  settingsSectionForPage,
+} from './settingsNav.ts'
 
 const team = { kind: 'team', teamId: 'aaaaaaaaaaaaaaaaaaaaaaaa' } as const
 
@@ -64,4 +69,16 @@ test('Triggers are managed in conversations, not Team Settings', () => {
       .flatMap((group) => group.items)
       .some((item) => item.key === 'workspace.triggers'),
   )
+})
+
+test('searching for what the Privacy switch turns off finds Privacy', () => {
+  const groups = settingsNavGroups('user')
+  const keys = (query: string) =>
+    filterSettingsNavGroups(groups, query).flatMap((group) => group.items.map((item) => item.key))
+
+  for (const query of ['privacy', 'Usage data', 'crash', 'analytics', 'Telemetry']) {
+    assert.deepEqual(keys(query), ['device.privacy'], query)
+  }
+  assert.deepEqual(keys('two-factor'), ['account.mfa'])
+  assert.deepEqual(keys('no such setting'), [])
 })

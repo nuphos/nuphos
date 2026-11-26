@@ -197,3 +197,15 @@ export async function consumeConversationRetracted(
 
   return Boolean(previous)
 }
+
+/** Records the standing instructions this conversation's agent was given. */
+export async function setConversationInstructionsDigest(
+  sessionId: string,
+  teamId: string,
+  digest: string,
+): Promise<void> {
+  await agentConversations().updateOne(
+    { sessionId, teamId },
+    { $set: { instructionsDigest: digest } },
+  )
+}

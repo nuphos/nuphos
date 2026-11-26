@@ -11,11 +11,14 @@ internal class ServerQueueStore(
     private val current: () -> Boolean,
     private val writable: () -> Boolean,
     private val canSteer: () -> Boolean,
-    private val read: suspend () -> List<AgentChatApi.QueuedMessage>,
+    private val read: suspend () -> AgentChatApi.Queue,
     private val remove: suspend (String) -> AgentChatApi.QueueRecall,
     private val steer: suspend (AgentChatApi.QueuedMessage) -> Unit,
 ) {
     var items by mutableStateOf(emptyList<AgentChatApi.QueuedMessage>())
+        private set
+    /** The agent's usage limit holding the queue, as the last read said. */
+    var held by mutableStateOf<AgentChatApi.UsageHold?>(null)
         private set
     var busy by mutableStateOf(emptySet<String>())
         private set
@@ -30,7 +33,7 @@ internal class ServerQueueStore(
     private var revision = 0L
     private var reading = false
 
-    fun invalidate() { revision++; items = emptyList(); busy = emptySet(); error = null; recoveredText = null; reading = false }
+    fun invalidate() { revision++; items = emptyList(); held = null; busy = emptySet(); error = null; recoveredText = null; reading = false }
 
     suspend fun refresh() {
         if (!current() || reading || busy.isNotEmpty()) return
@@ -38,7 +41,7 @@ internal class ServerQueueStore(
         val epoch = revision
         try {
             val result = read()
-            if (current() && revision == epoch) { items = result.filter { it.mine }.distinctBy { it.id }; error = null }
+            if (current() && revision == epoch) { items = result.messages.filter { it.mine }.distinctBy { it.id }; held = result.held; error = null }
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) { if (current() && revision == epoch) error = "Could not refresh queued messages. Retry to check their current state." }
         finally { if (revision == epoch) reading = false }

@@ -68,6 +68,7 @@ struct DesktopScreen: View {
         // picture takes everything above the fold and the controls start below it.
         let band = fold.flatMap { $0.width >= $0.height ? $0 : nil }
         return VStack(spacing: 8) {
+            handOffStatus
             canvas
                 .frame(height: band.map { max($0.minY - 8, 120) } ?? ((width - 16) / 1.6).rounded())
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -120,6 +121,7 @@ struct DesktopScreen: View {
             canvas
             HStack(spacing: 8) {
                 closeButton
+                handOffStatus
                 Spacer()
                 if desktop.canFitWindow && desktop.controlling { windowButton }
                 if desktop.controlling { keyboardButton }
@@ -187,7 +189,41 @@ struct DesktopScreen: View {
         .accessibilityLabel(keyboard ? "Hide keyboard" : "Show keyboard")
     }
 
-    private var controlButton: some View {
+    /// A `computer` question's desktop, while held: which computer, and that the person holds it.
+    @ViewBuilder private var handOffStatus: some View {
+        if let handOff = desktop.handOff, desktop.controlling {
+            HStack(spacing: 6) {
+                Text(handOff.computer).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                Text(verbatim: "·").foregroundStyle(.white.opacity(0.4))
+                Circle().fill(Theme.success).frame(width: 6, height: 6)
+                Text("You’re in control").foregroundStyle(Theme.success)
+            }
+            .font(Theme.Text.caption.weight(.medium))
+            .frame(minHeight: 28)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("desktop.handOffStatus")
+        }
+    }
+
+    /// Take over and Hand back; a `computer` question's desktop, while held, offers I'm done instead,
+    /// which answers the question and closes it.
+    @ViewBuilder private var controlButton: some View {
+        if let handOff = desktop.handOff, desktop.controlling {
+            Button { handOff.done(); close() } label: {
+                DesignLabel("I’m done", systemImage: "checkmark")
+                    .font(Theme.Text.label.weight(.semibold))
+                    .padding(.horizontal, 16)
+                    .frame(height: 36)
+                    .background(Capsule().fill(Color.white))
+            }
+            .foregroundStyle(Color.black)
+            .accessibilityIdentifier("desktop.done")
+        } else {
+            toggleButton
+        }
+    }
+
+    private var toggleButton: some View {
         Button { desktop.setControlling(!desktop.controlling) } label: {
             DesignLabel(desktop.controlling ? "Hand back" : "Take over", systemImage: desktop.controlling ? "hand.raised.slash" : "hand.point.up.left")
                 .font(Theme.Text.label.weight(.semibold))

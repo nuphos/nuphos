@@ -17,7 +17,6 @@ registerSlackMappingRoutes(slackRoutes)
 registerSlackUserMappingRoutes(slackRoutes)
 
 export { handleAppMention } from '@/routes/slack/mention'
-export { persistedMessageToUiMessage } from '@/routes/slack/messages'
 export { beginNuphosSlackTurn } from '@/routes/slack/nuphos-turn'
 export type { NuphosSlackTurnDelivery, NuphosSlackTurnOutcome } from '@/routes/slack/nuphos-turn'
 export { handlePermissionGrantInteraction } from '@/routes/slack/permission-decide'

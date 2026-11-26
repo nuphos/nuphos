@@ -46,8 +46,12 @@ export function questionPart(question: ReplyQuestion): ToolPart {
       ...(question.questions ? { questions: question.questions } : {}),
       ...(question.secretName ? { secretName: question.secretName } : {}),
       ...(question.fields ? { fields: question.fields, site: question.site } : {}),
+      ...(question.desktop ? { category: 'computer' } : {}),
     },
-    state: 'input-available',
+    // A computer card's desktop is in its result, as the tool returned it.
+    ...(question.desktop
+      ? { state: 'output-available' as const, output: { desktop: question.desktop } }
+      : { state: 'input-available' as const }),
   }
 }
 

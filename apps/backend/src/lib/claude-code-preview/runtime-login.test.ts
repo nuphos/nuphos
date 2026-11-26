@@ -471,7 +471,10 @@ test('a sign-in completed by someone who stopped managing the computer meanwhile
     box: { provider: 'instabox', teamId: 'team' },
     signIns: [{ agent: 'codex', userId: 'lead', teamId: 'team', at }],
   } as unknown as RuntimeLoginDoc)
+  // Signed in at `at`: only the sign-in it checked is ended.
+  setSystemTime(at)
   await performRuntimeLogin(doc, deps)
+  setSystemTime()
 
   expect(computers).toHaveLength(1)
   expect(ended).toEqual([{ agent: 'codex', at, endedAt: { $exists: false } }])

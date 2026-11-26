@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
 import { signsInWithApiKey } from './apiKeyProviders'
@@ -24,7 +24,7 @@ function DeviceCode({
   verificationUri: string | undefined
 }) {
   const [copied, setCopied] = useState(false)
-  const account = AGENT_PROVIDER[instance.provider].account
+  const account = agentProvider(instance.provider).account
 
   return (
     <>
@@ -156,7 +156,7 @@ export function RuntimeLoginBody({
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           {login?.installing
             ? t('Installing {name} on {computer}…', {
-                name: AGENT_PROVIDER[instance.provider].label,
+                name: agentProvider(instance.provider).label,
                 computer: instance.local?.deviceLabel ?? '',
               })
             : reachable

@@ -5,7 +5,6 @@ import { PERSONAL_CREDENTIAL_PROVIDERS } from '@/models/personal-credentials'
 
 import { aboutField } from './decision-about'
 import {
-  QUESTION_MAX_CHARS,
   bodyField,
   bodyRequired,
   multiSelectField,
@@ -70,6 +69,12 @@ export type PersonalCredentialRef = z.infer<typeof PERSONAL_CREDENTIAL_REF>
 export function isPersonalCredentialRef(value: unknown): value is PersonalCredentialRef {
   return PERSONAL_CREDENTIAL_REF.safeParse(value).success
 }
+
+/** A `computer` card's answers, which its clients draw as its own buttons. */
+export const COMPUTER_OPTIONS = ["I'm done", 'Skip'] as const
+
+/** Whether agents are offered `computer` cards: off pending a follow-up (#4977). */
+export const COMPUTER_CARDS = false
 
 const PROVIDER_NAMES = Object.keys(CONNECTABLE_PROVIDERS) as [
   ConnectableProvider,
@@ -161,17 +166,19 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Ask the user a choice only they can make, as a card they answer in the conversation or their Inbox. ' +
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
-        'For an integration or cloud account the task needs that is not connected to the team, or connected but not selected for this conversation, use category `integration` and list it in `providers`: in the Desktop app the user then gets a Connect card for it. ' +
+        'For an integration or cloud account the task needs that is not connected, or not selected for this conversation, use category `integration` with `providers`: the Desktop app shows a Connect card. ' +
         "`providers` asks for any access of that kind: a team binding answers it too. For the member's own credential that list_credentials shows under `notSelected` (provider `personal`), pass it in `credentials` as that (provider, id) pair instead: only selecting it answers the question. Ask for it only when the task needs the member's own token, not to act as them on a team binding. " +
         'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
         'Name only providers the task actually needs. Do not use `providers` when the credential is already selected and a call fails with AccessDenied or 403 (connecting another account does not fix missing permissions), or for MCP servers. ' +
         'For an API key, password or other secret only the user can type, use category `credential` with `secretName`: in the Desktop app the user then gets a masked input that writes the value to a file on this runtime, never into the conversation. Never ask the user to paste a secret into chat. ' +
         "When you are filling in a form on a website and it needs the user's own details (an ID number, a date of birth, a booking reference), ask for all of them in one such card: add `fields`, one per detail, and `site`, the host they will be entered on. Decide the page's other options yourself, then enter the saved values with local_browser `fill`. " +
-        'Put choices in `options`, never in the question text; set `multiSelect` when several may apply. The user can always answer in their own words instead. ' +
-        'Ask related questions together in one call through `questions` rather than one card after another; `question` is then the headline. ' +
+        (COMPUTER_CARDS
+          ? "For a step on your desktop that only the person can do, such as a sign-in whose password you do not have, open the page on your desktop (the nuphos-desktop tools), then use category `computer`: the user gets a card with a live view of that desktop and Take over, I'm done and Skip, and your input tools on it wait while they hold it. Say in `body` what they need to do there. Do not set `options`; the card has its own. "
+          : '') +
+        'Put choices in `options`, never in the question text. The user can always answer in their own words instead. ' +
+        'Ask related questions together in one call through `questions` rather than one card after another. ' +
         "Write `question`, `body` and `options` in the user's language from the Response language section, even when the messages you received are in another language: the user reads the card, not your prompt. " +
-        `\`question\` is the card's one-line title (at most ${String(QUESTION_MAX_CHARS)} characters): one short question, never the explanation. ` +
-        'Put what the user needs to decide in `body`: the findings, what each choice does and its risk. It is listed in the Inbox until answered, so they answer there without reading the chat. `body` is required, except for `credential` and `integration` questions, whose own card explains them. ' +
+        'The card is listed in the Inbox until answered, so `body` must hold all they need to decide, without the chat. It is required, except for `credential` and `integration` questions, whose own card explains them. ' +
         'When it is about a PR or issue linked with bind_session_resource, or another of your conversations (a sub-agent thread, or the session that will act on the answer), name them in `about`: their changes then remind you of the question, to withdraw or update it, and the conversations named are told the answer too, so they need not ask again. ' +
         'The result carries a `requestId`; while the question is open, update_user_decision corrects it and withdraw_user_decision removes it once it no longer applies. ' +
         'After it returns, never make the choice yourself or do the work that depends on it. You may continue with work that does not depend on the answer, or end your turn: the answer arrives as a new message either way.',
@@ -185,6 +192,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
             'credential',
             'integration',
             'risk_tradeoff',
+            ...(COMPUTER_CARDS ? (['computer'] as const) : []),
           ]),
           question: questionField,
           body: bodyField.optional(),
@@ -215,7 +223,8 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         const problem = cardProblem(input)
 
         if (problem) throw new Error(problem)
-        const { label: _label, category, question, body, options, multiSelect, questions } = input
+        const { label: _label, category, question, body, multiSelect, questions } = input
+        const options = category === 'computer' ? [...COMPUTER_OPTIONS] : input.options
         const providers = category === 'integration' ? input.providers : undefined
         const credentials = category === 'integration' ? input.credentials : undefined
         const secretName = category === 'credential' ? input.secretName : undefined
@@ -240,11 +249,13 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
           ...(secretName ? { secretName } : {}),
           ...(fields ? { fields, site: input.site } : {}),
           instruction:
-            providers || credentials
-              ? 'The user sees a Connect card for these below your message; point to it in one short sentence that refers to "the card below" (never "above"). Once one is selected for this conversation, you are told so in a new message and continue from there.'
-              : secretName
-                ? secretInstruction(fields)
-                : 'Do not choose on their behalf or do the work that depends on the answer. Continue only with work that does not depend on it, or end your turn; the answer arrives as a new message.',
+            category === 'computer'
+              ? 'The user sees a card for your desktop below your message; point to it in one short sentence. Leave the desktop as it is and end your turn: when they hand it back or skip the step, you are told in a new message. Then look at the desktop to see what they did.'
+              : providers || credentials
+                ? 'The user sees a Connect card for these below your message; point to it in one short sentence that refers to "the card below" (never "above"). Once one is selected for this conversation, you are told so in a new message and continue from there.'
+                : secretName
+                  ? secretInstruction(fields)
+                  : 'Do not choose on their behalf or do the work that depends on the answer. Continue only with work that does not depend on it, or end your turn; the answer arrives as a new message.',
         }
       },
     })

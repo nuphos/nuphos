@@ -257,6 +257,11 @@ impl Api {
         Ok(self.call(Method::GET, &format!("/vault/items/{}", name), &[], None).await?["item"].take())
     }
 
+    /// An item as a computer reads it with its device credential: `{ deviceId, item }`.
+    pub async fn vault_computer_item(&self, name: &str, user: &str) -> Result<Value, ApiError> {
+        self.call(Method::GET, &format!("/vault/computer/items/{}", name), &[("user", user)], None).await
+    }
+
     /// `keys` wraps the item key for every enrolled device: `[{ deviceId, wrapped }]`.
     pub async fn vault_put_item(&self, name: &str, ciphertext: &str, keys: &[Value]) -> Result<Value, ApiError> {
         let body = json!({ "ciphertext": ciphertext, "keys": keys });

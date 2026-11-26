@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { pastedSignInReady } from './runtimeLogin'
 import { inputClasses } from './styles'
@@ -28,7 +28,7 @@ export function BrowserCodeEntry({
 }) {
   const [code, setCode] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const account = AGENT_PROVIDER[provider].account
+  const account = agentProvider(provider).account
   const loopback =
     provider === 'antigravity' &&
     new URL(url).searchParams.get('redirect_uri')?.startsWith('http://') === true

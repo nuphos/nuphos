@@ -3,26 +3,33 @@ name: CI
 on:
   pull_request:
   merge_group:
-  # Format and lint only, so a regression two merged PRs create together shows on main.
+  # Format, lint and the end-to-end job, so a regression two merged PRs create together,
+  # or one merged before its own end-to-end run finished, shows on main.
   push:
     branches: [main]
   # Runs only the end-to-end job, on any branch: for evidence a pull request cannot carry.
+  # With `nightly`, only the full macOS package instead, since PRs and the queue build
+  # it only when a packaging input changes. A Nuphos Trigger dispatches that on main
+  # every night: GitHub fired this repository's cron hours late or not at all.
   workflow_dispatch:
     inputs:
       real_disk:
         description: Run the isolated real-disk Desktop evidence scenario
         type: boolean
         default: false
-  # The full macOS package every night, since PRs and the queue build it only
-  # when a packaging input changes.
-  schedule:
-    - cron: '0 19 * * *'
+      nightly:
+        description: Build the full macOS package instead of running the end-to-end job
+        type: boolean
+        default: false
 
 # Merge-group refs (gh-readonly-queue/main/pr-N-<sha>) are unique per group, so
 # queued runs never cancel each other; a PR's new push still cancels its old run.
+# A dispatched run has a group of its own, so a push to main does not cancel it.
+# A run on main is the only e2e run of what merged (the merge queue skips e2e), so the
+# next merge does not cancel it; GitHub keeps only the newest of the runs waiting behind it.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 permissions:
   contents: read
@@ -97,7 +104,11 @@ jobs:
       lint_config: ${{ steps.filter.outputs.lint_config == 'true' && steps.bump.outputs.version_only != 'true' }}
       import_cycles: ${{ steps.filter.outputs.import_cycles }}
       e2e: ${{ steps.filter.outputs.e2e == 'true' && steps.bump.outputs.version_only != 'true' }}
+      # Which of the six e2e lanes, 1 to 6, this run waits in; see the e2e job's concurrency.
+      e2e_lane: ${{ steps.lane.outputs.lane }}
     steps:
+      - id: lane
+        run: echo "lane=$((GITHUB_RUN_ID % 6 + 1))" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -469,7 +480,8 @@ jobs:
 
   # The Desktop app driven against a real backend, MongoDB, file store and OpenAB,
   # with a deterministic agent in place of a model: `bun run e2e`, the same command
-  # a contributor runs. It gates pull requests; the merge queue skips it (see `if`).
+  # a contributor runs. It runs on pull requests and on main after a merge; the merge
+  # queue skips it (see `if`).
   e2e:
     # The three parts of the main scenarios (E2E_SHARD in scripts/e2e/run.ts) and the suites
     # that start a stack of their own run side by side; the first part keeps the check name
@@ -480,17 +492,18 @@ jobs:
       matrix:
         part: ['1', '2', bots, standalone]
     needs: changes
-    # On dispatch `changes` is skipped, which skips this job unless the condition says otherwise.
-    # Not in the merge queue: each PR already passed it, and one flaky run there ejects
-    # the PR and rebuilds every group behind it.
-    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
+    # On dispatch and push `changes` is skipped, which skips this job unless the condition says
+    # otherwise. Not in the merge queue: one flaky run there ejects the PR and rebuilds every
+    # group behind it. It is not a required check either (#2930), so a PR can merge before
+    # its own run fails; the run on main after the merge catches that.
+    if: ${{ !cancelled() && (github.event_name == 'workflow_dispatch' && !inputs.nightly || github.event_name == 'push' || github.event_name != 'merge_group' && needs.changes.outputs.e2e == 'true') }}
     # Keep real-disk evidence on hosted runners after the Instabox loop-mount failure.
     # Forks also keep GitHub isolation; other trusted jobs get a fresh Instabox machine.
     runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && 'ubuntu-24.04' || (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && 'instabox-medium' || 'ubuntu-24.04' }}
-    # Partition 1 has three trusted Instabox buckets. The other partitions have two.
-    # Hosted disk and fork runs use separate groups, so they do not use these nine slots.
+    # Trusted pull request runs share six Instabox lanes per part, at most 24 machines (#4152).
+    # The run on main after a merge, hosted real-disk and fork runs each get a group of their own.
     concurrency:
-      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || matrix.part != '1' && (endsWith(github.run_id, '0') || endsWith(github.run_id, '2') || endsWith(github.run_id, '4') || endsWith(github.run_id, '6') || endsWith(github.run_id, '8')) && 'a' || matrix.part != '1' && 'b' || (endsWith(github.run_id, '0') || endsWith(github.run_id, '3') || endsWith(github.run_id, '6') || endsWith(github.run_id, '9')) && 'a' || (endsWith(github.run_id, '1') || endsWith(github.run_id, '4') || endsWith(github.run_id, '7')) && 'b' || 'c' }}-${{ matrix.part }}
+      group: instabox-e2e-${{ github.event_name == 'workflow_dispatch' && inputs.real_disk && format('hosted-{0}', github.run_id) || github.event.pull_request.head.repo.full_name && github.event.pull_request.head.repo.full_name != github.repository && format('fork-{0}', github.run_id) || github.event_name == 'push' && format('main-{0}', github.run_id) || needs.changes.outputs.e2e_lane || 'dispatch' }}-${{ matrix.part }}
       queue: max
     # The first two parts of the main scenarios take about 19 minutes each with openab from the
     # cache, the Bot chats about 12 and the standalone leg about 6. A change to prepare.mjs or the
@@ -727,9 +740,9 @@ jobs:
   desktop:
     name: Desktop (Nuphos macOS package)
     needs: changes
-    # On schedule `changes` is skipped; !cancelled() keeps this job running.
+    # On the nightly dispatch `changes` is skipped; !cancelled() keeps this job running.
     if: >-
-      ${{ !cancelled() && (github.event_name == 'schedule' ||
+      ${{ !cancelled() && (inputs.nightly ||
       (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
       needs.changes.outputs.desktop_package == 'true')) }}
     runs-on: macos-26
@@ -769,7 +782,7 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: false
       # Nobody watches the nightly run, so a failure is posted to the maintainers.
       - name: Report a failed nightly run
-        if: failure() && github.event_name == 'schedule'
+        if: failure() && inputs.nightly
         env:
           WEBHOOK: ${{ secrets.NIGHTLY_MACOS_FAILURE_WEBHOOK }}
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -869,6 +882,8 @@ jobs:
         run: node --test scripts/fill-mobile-locales.test.mjs
       - name: Test that every release runs the provenance gate
         run: node --test scripts/release-workflows.test.mjs
+      - name: Test the e2e job's concurrency lanes
+        run: node --test scripts/ci-e2e-lanes.test.mjs
       - name: iOS UI results comparison tests
         run: node --test scripts/compare-ios-ui-results.test.mjs
       # BLOCKING. The custom comment-discipline rules are only worth having if

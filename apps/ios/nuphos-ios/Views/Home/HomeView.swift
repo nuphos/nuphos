@@ -76,7 +76,7 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if !coverHeader, let store, !store.teams.isEmpty {
+                if !coverHeader, let store, store.selectedTeam != nil {
                     ToolbarItem(placement: .topBarLeading) { teamButton(store) }
                 }
                 // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
@@ -351,7 +351,7 @@ struct HomeView: View {
         if coverHeader {
             measured.safeAreaInset(edge: .top) {
                 HStack {
-                    if let store, !store.teams.isEmpty {
+                    if let store, store.selectedTeam != nil {
                         teamButton(store).buttonStyle(.plain).padding(.horizontal, 12).frame(height: 44)
                             .glass(interactive: true, in: Capsule())
                     }
@@ -472,7 +472,7 @@ private struct GlassGroupSpacer: ToolbarContent {
     }
 }
 
-private extension ToolbarContent {
+extension ToolbarContent {
     /// Drops the shared glass behind an item that draws its own (iOS 26).
     @ToolbarContentBuilder
     func sharedBackgroundHidden() -> some ToolbarContent {

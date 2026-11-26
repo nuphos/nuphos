@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { closeDb, connectDb } from '@/lib/db'
 
 import { findInputRequest, updateInputRequest, withdrawInputRequest } from './pending-decision'
+import { markDesktopTakenOver } from './desktop-takeover'
 import { agentConversations } from './shared'
 
 describe.skipIf(!process.env.TEST_MONGODB_URI)('withdrawing a question on a real database', () => {
@@ -62,5 +63,33 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('withdrawing a question on a real
     await agentConversations().deleteMany({
       sessionId: { $in: [asker, about, unrelated, strangers] },
     })
+  })
+
+  test('a takeover is stamped once, on the open computer card for that display only', async () => {
+    const [owner, session] = [randomUUID(), randomUUID()]
+    const request = (id: string, display: number, category = 'computer') => ({
+      id,
+      category,
+      question: 'Sign in',
+      desktop: { deviceId: 'dev-1', display, title: 'Box · :1' },
+      askedAt: new Date(),
+      status: 'open',
+    })
+
+    await agentConversations().insertOne({
+      sessionId: session,
+      userId: owner,
+      inputRequests: [request('a', 1), request('b', 2), request('c', 1, 'approval')],
+    } as never)
+
+    await markDesktopTakenOver(session, 1, new Date(1_000))
+    await markDesktopTakenOver(session, 1, new Date(9_000))
+    const taken = (id: string) => findInputRequest(session, owner, id).then((r) => r?.takenOverAt)
+
+    expect(await taken('a')).toEqual(new Date(1_000))
+    expect(await taken('b')).toBeUndefined()
+    expect(await taken('c')).toBeUndefined()
+
+    await agentConversations().deleteMany({ sessionId: session })
   })
 })

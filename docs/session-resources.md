@@ -52,9 +52,14 @@ routing events. Enable the corresponding events on the installed GitHub App:
 - Issue comment: created, on PRs only, from humans with write access
 - Check suite: completed, with associated PR numbers. A fork PR's suite names no PRs,
   so like a status its open PRs are found from the head commit. Per-job check runs and workflow
-  completion events are ignored so one CI suite does not produce N+2 wakeups. Each
-  App that reports checks has its own suite, so a push can wake a session once per
-  App; the agent reads the PR's current state on every wake.
+  completion events are ignored so one CI suite does not produce N+2 wakeups. A
+  suite or status wakes the session only once CI on the PR's head has settled, with
+  no check run queued or in progress and no status pending. Each App that reports
+  checks has its own suite, but suites that settle the same result share one wake,
+  so a push wakes the session once, when its last check finishes. A re-run wakes it
+  again. The wake names the head commit and any failed checks, and the agent reads
+  the PR's current state on every wake. If GitHub cannot be read, the CI event does
+  not wake the session.
 - Status: success, failure or error. A commit status names a commit, not a PR, so
   when the repository has a linked PR the router asks GitHub which open PRs have
   that commit as their head; pending statuses are ignored.

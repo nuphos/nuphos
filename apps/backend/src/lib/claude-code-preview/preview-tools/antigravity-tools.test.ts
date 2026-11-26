@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 
 import { createTeamMemoryTools } from '@/lib/agent/memory-native/tools'
+import { createTodoTools } from '@/lib/agent/todos'
 import { createSessionTools } from '@/lib/agent/tools-sessions'
 import { createLocalExecTool } from '@/lib/agent/tools-skilled/local-tools'
 
@@ -31,6 +32,7 @@ function modules() {
       createTeamMemoryTools({ userId: 'u', teamId: 't', conversationId: 's' }),
     ),
     toolModuleFromAiSdkTools(createSessionTools('u', 's', 't')),
+    toolModuleFromAiSdkTools(createTodoTools('u', 's', 't')),
     toolModuleFromAiSdkTools({
       local_exec: createLocalExecTool(
         [{ deviceId: 'mac', label: 'MacBook', ownerUserId: 'u' }],
@@ -60,6 +62,8 @@ describe('Antigravity tools', () => {
     const kept = nuphosToolsSurface(toolModulesForRuntime(modules(), 'antigravity'))
 
     expect(new Set(names(kept.toolDefinitions))).toEqual(new Set(ANTIGRAVITY_TOOLS))
+    // #5017: a Bot that posts to a channel can also read it.
+    expect(names(kept.toolDefinitions)).toContain('channel_read')
     expect(
       names(nuphosToolsSurface(toolModulesForRuntime(modules(), 'codex')).toolDefinitions),
     ).toEqual(names(all))

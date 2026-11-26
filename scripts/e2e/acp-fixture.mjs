@@ -33,7 +33,7 @@ import {
   longReply,
   turnFacts,
 } from './fixture-settings.mjs'
-import { discoveryFails, initialize, opening } from './fixture-session.mjs'
+import { discoveryFails, initialize, opening, updatedRule } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -90,7 +90,7 @@ const permission = (...args) => askPermission({ send, log }, ...args)
 // Sessions whose answer the first agent refuses as out of usage (#3055).
 const late = new Set()
 
-async function prompt({ sessionId, prompt: parts }) {
+async function prompt({ sessionId, prompt: parts, _meta }) {
   const text = parts
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
@@ -103,6 +103,7 @@ async function prompt({ sessionId, prompt: parts }) {
     marker,
     markers,
     event: 'start',
+    update: updatedRule(parts, _meta),
     ...turnFacts(text),
     model: currentModel(sessionId),
   })

@@ -17,6 +17,7 @@ let sequence = 0
 before(async () => {
   mock.module('react', {
     namedExports: {
+      createContext: () => null,
       useCallback: identity,
       useEffect: () => null,
       useRef: (current: unknown) => ({ current }),
@@ -71,7 +72,6 @@ before(async () => {
   mock.module('./stall.ts', {
     namedExports: { INTERRUPTED_TOOL_MESSAGE: '', uid: () => `id-${++sequence}` },
   })
-  mock.module('./toUiMessages.ts', { namedExports: { toPersistedMessages: identity } })
   mock.module('./timelineEvents.ts', { namedExports: { announceTimelineChange: () => null } })
 })
 

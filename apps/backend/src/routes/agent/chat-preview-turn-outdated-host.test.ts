@@ -27,7 +27,7 @@ const desktop = (app: App) => ({
   client: `nuphos-desktop/${app.version}`,
   status: { agents: {}, app },
 })
-// Below the floor (0.127.0), with a newer release downloaded and waiting for a restart.
+// Below the floor (0.133.2), with a newer release downloaded and waiting for a restart.
 const behind = desktop({ version: '0.123.0', update: { version: '0.131.0', ready: true } })
 let presence: object = behind
 let fail: (() => Error) | null = () => new Error(restoreFailed)
@@ -121,8 +121,8 @@ test('a failed turn on a Desktop below the floor with an update waiting says Nup
 test('a failed turn on a computer at or above the floor keeps its error, even with a newer release out', async () => {
   // A timeout on CLI 0.27.3 was told to update, though no update fixes a timeout.
   for (const host of [
-    desktop({ version: '0.127.0' }),
-    desktop({ version: '0.127.0', update: { version: '0.131.0', ready: true } }),
+    desktop({ version: '0.133.2' }),
+    desktop({ version: '0.133.2', update: { version: '0.137.0', ready: true } }),
     { client: 'nuphos-cli/0.27.3', status: { agents: {}, cliVersion: '0.27.3' } },
   ]) {
     presence = host

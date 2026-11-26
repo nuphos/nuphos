@@ -7,8 +7,6 @@ import type { Socket } from 'node:net'
 
 type Listener = (event: SocketEvent) => void
 
-/** Xvnc for display :N listens on this port plus N (desktop-session.mjs). */
-const VNC_BASE_PORT = 5900
 /** The computer-use proxy forgets a human owner 30 s after the last renewal. */
 const CONTROL_RENEW_MS = 20_000
 /** Well inside the reaper's grace for a desktop opened by hand (desktop-session.mjs). */
@@ -37,8 +35,8 @@ export class VncStream implements SocketLike {
   private lost = false
   private held = () => false
   private readonly pool: string
-  /** Where a display listens: Xvnc's TCP port, or a Mac's screen host socket. */
-  private readonly port: (display: number) => number | string
+  /** The socket a display serves RFB on: its Xvnc's, or a Mac's screen host. */
+  private readonly socketPath: (display: number) => string
 
   /** Told when the viewer takes the desktop over or hands it back. */
   private readonly handedOver?: (human: boolean) => void
@@ -47,12 +45,13 @@ export class VncStream implements SocketLike {
 
   constructor(
     pool: string,
-    port: (display: number) => number | string = (display) => VNC_BASE_PORT + display,
+    socketPath: (display: number) => string = (display) =>
+      path.join(pool, `${String(display)}.xdg`, 'vnc'),
     handedOver?: (human: boolean) => void,
     owner?: () => string | null,
   ) {
     this.pool = pool
-    this.port = port
+    this.socketPath = socketPath
     this.handedOver = handedOver
     this.owner = owner
     queueMicrotask(() => {
@@ -128,8 +127,7 @@ export class VncStream implements SocketLike {
 
     touch()
     this.watching = setInterval(touch, WATCHING_MS)
-    const target = this.port(display)
-    const socket = typeof target === 'string' ? connect(target) : connect(target, '127.0.0.1')
+    const socket = connect(this.socketPath(display))
 
     this.socket = socket
     socket.on('data', (chunk: Buffer) => {

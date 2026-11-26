@@ -44,6 +44,18 @@ class NewBoxStoreTest {
         rows = listOf(row); store.refresh(); assertEquals(NewBox.Phase.Ready, store.phase)
         store.close(); store.create(); advanceUntilIdle(); assertEquals(1, api.labels.size)
     }
+    @Test fun listsANewBoxsRuntimesInAFixedOrder() = runTest {
+        val api = Api(); api.result = BoxInventory(listOf(device), true); var rows = emptyList<AgentRuntime>()
+        val store = NewBoxStore(api, { rows }, this, { true }, {})
+        store.refresh(); store.create(); advanceUntilIdle()
+        fun runtime(provider: String, id: String) = row.copy(id = id, provider = provider)
+        val first = listOf(runtime("grok", "g"), runtime("pi", "p"))
+        val later = first + listOf(runtime("opencode", "o"), runtime("claude-code", "c"))
+        rows = first; store.refresh(); assertEquals(listOf("g", "p"), store.agents.map { it.id })
+        rows = later; store.refresh()
+        assertEquals("Runtimes take Desktop's LOCAL_AGENT_PROVIDERS slots, whatever order they join in", listOf("c", "g", "o", "p"), store.agents.map { it.id })
+        rows = later.reversed(); store.refresh(); assertEquals(listOf("c", "g", "o", "p"), store.agents.map { it.id })
+    }
     @Test fun uncertainOrderCannotBeRepeatedAnd402KeepsReason() = runTest {
         val api = Api(); api.failure = java.io.IOException("lost response")
         val store = NewBoxStore(api, { emptyList() }, this, { true }, {})

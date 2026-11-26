@@ -12,9 +12,10 @@ import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
 import { queryKeys } from '../../lib/query/keys'
 import { useRuntimeStatusQuery } from '../../lib/query/runtime'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { AgentAddedBy, AgentSignedInBy } from './AgentAddedBy'
+import { CustomProviderSettings } from './CustomProviderSettings'
 import { agentName, localSignIn, managesRuntime, ownSignedInCli } from './agentPresentation'
 import { LocalAgentSignInRow } from './LocalAgentSignInRow'
 import { RuntimeActionsMenu } from './RuntimeActionsMenu'
@@ -26,6 +27,7 @@ import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { removeRuntime } from './runtimeRemoval'
+import { RuntimeSessionList } from './RuntimeSessionList'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
@@ -113,7 +115,7 @@ export function RuntimeInstanceCard({
                 <InlineRename
                   value={agentName(instance)}
                   {...(instance.local
-                    ? { defaultName: AGENT_PROVIDER[instance.provider].label }
+                    ? { defaultName: agentProvider(instance.provider).label }
                     : {})}
                   canEdit={canEdit}
                   editing={editing}
@@ -139,8 +141,8 @@ export function RuntimeInstanceCard({
               )}
             </div>
             <p className="mt-0.5 truncate text-xs text-tertiary">
-              {AGENT_PROVIDER[instance.provider].label}
-              {AGENT_PROVIDER[instance.provider].preview && <PreviewTag />}
+              {agentProvider(instance.provider).label}
+              {agentProvider(instance.provider).preview && <PreviewTag />}
               {instance.local && <span> · {instance.local.deviceLabel}</span>}
               {runtime?.runtimeVersion && <span> · v{runtime.runtimeVersion}</span>}
             </p>
@@ -218,6 +220,7 @@ export function RuntimeInstanceCard({
           </p>
         ) : (
           <>
+            <CustomProviderSettings instance={instance} />
             {runtime?.credentialRevoked ? (
               <p className="px-4 py-4 text-xs leading-relaxed text-secondary">
                 {t(
@@ -254,13 +257,14 @@ export function RuntimeInstanceCard({
             <div className="px-5 py-6">
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
+            <RuntimeSessionList teamId={teamId} instance={instance} />
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
             {instance.local && ownSignedInCli(instance) && (
               <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
                 {t(
                   'This runtime is the {provider} already signed in on {device}, so it cannot be removed from Nuphos.',
                   {
-                    provider: AGENT_PROVIDER[instance.provider].label,
+                    provider: agentProvider(instance.provider).label,
                     device: instance.local.deviceLabel,
                   },
                 )}

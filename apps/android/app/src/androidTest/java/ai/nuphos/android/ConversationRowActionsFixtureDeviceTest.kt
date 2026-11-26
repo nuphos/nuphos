@@ -94,7 +94,7 @@ class ConversationRowActionsFixtureDeviceTest {
         render()
         compose.onNodeWithText("Unwatch").assertDoesNotExist()
         compose.onNodeWithText("Unlink").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").performClick()
+        compose.onNodeWithContentDescription("Hide 1 sub-task").performClick()
         compose.runOnIdle { assertEquals(1, expands); assertEquals(0, opens) }
         row().performTouchInput { longClick() }
         compose.onNodeWithTag("menu-unlink:child").assertIsDisplayed()

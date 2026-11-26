@@ -88,6 +88,7 @@ nuphos vault enroll [--name N]               # add this device to your end-to-en
 nuphos vault devices | approve ID | remove-device ID
 echo -n "..." | nuphos vault set NAME        # save an item; the value comes from stdin
 nuphos vault get NAME | list | rm NAME
+nuphos vault get NAME --computer [--user ID]  # on a computer added from Desktop's "Add to Vault", once approved
 nuphos login | logout
 nuphos login --device                        # sign in with a code approved on another device
 nuphos login --token -                       # an agent token from nuphos.ai/settings/tokens, on stdin

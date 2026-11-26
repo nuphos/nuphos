@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { client, must } from './binding-access-scenarios.ts'
 import { laptopOnline, LAPTOP } from './laptop-fixture.ts'
 import { artifacts } from './processes.ts'
-import { pickInSubmenu, settingButton } from './ui.ts'
+import { pickInRow, pickInSubmenu, settingButton } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Page } from 'playwright-core'
@@ -66,8 +66,7 @@ export async function replyDiskScenario(page: Page, stack: Stack) {
     await cancel.click()
     await cancel.waitFor({ state: 'hidden' })
     await (await settingButton(page, /^Runtime:/)).click()
-    await page.getByRole('menu').getByText(LAPTOP).first().click()
-    await pickInSubmenu(page, page.getByRole('menuitem', { name: /Claude Code/ }).last())
+    await pickInRow(page, LAPTOP, /Claude Code/)
     switched = true
     await warning.waitFor({ timeout: 60_000 })
     for (const [name, width] of [

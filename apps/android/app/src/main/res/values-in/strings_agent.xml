@@ -35,10 +35,10 @@
     <string name="agent_collapsed">Diciutkan</string>
     <string name="agent_expanded">Diluaskan</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">Tampilkan %1$d subagen</item>
+        <item quantity="other">Tampilkan %1$d subtugas</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">Sembunyikan %1$d subagen</item>
+        <item quantity="other">Sembunyikan %1$d subtugas</item>
     </plurals>
     <string name="agent_unread_reply">Balasan belum dibaca</string>
     <string name="agent_archived">Diarsipkan</string>

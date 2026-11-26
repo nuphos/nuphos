@@ -115,6 +115,7 @@ const deviceCredential = await deviceCredentialFor({
   label: device.label,
   joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
   headers: { [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
+  vaultCli: process.env.NUPHOS_CLI_EXE || 'nuphos',
 })
 const deviceId = deviceCredential?.deviceId ?? device.deviceId
 // Signed out or signed in again since (the token changed): the agents stop.
@@ -185,7 +186,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
-      ...cliBrowser(dataDir, findBrowser()),
+      ...cliBrowser(dataDir, findBrowser(), desktopPool),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 

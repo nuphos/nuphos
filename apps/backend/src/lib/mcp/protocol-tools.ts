@@ -92,9 +92,9 @@ export const TOOL_DEFINITIONS = [
         webhook_id: {
           type: 'string',
           description:
-            "Send a NEW session's events only to this enabled team webhook (an id from " +
-            'nuphos_webhooks), instead of to every endpoint of the team. Its Tasks keep ' +
-            'the usual delivery; their events name it as parent_session_id.',
+            "Send a NEW session's events, and its Tasks' events, to this enabled team " +
+            'webhook (an id from nuphos_webhooks). Sessions started without one send no ' +
+            'webhook events. Task events name their parent as parent_session_id.',
         },
         request_id: {
           type: 'string',

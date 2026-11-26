@@ -200,11 +200,25 @@ enum VaultCommand {
     /// Save an item; the value is read from stdin.
     Set { name: String },
     /// Print an item's value.
-    Get { name: String },
+    Get {
+        name: String,
+        /// On a computer added from Desktop: read with its device credential, without signing in.
+        #[arg(long)]
+        computer: bool,
+        /// With --computer: whose vault (default: the computer's owner).
+        #[arg(long, requires = "computer")]
+        user: Option<String>,
+    },
     /// List item names.
     List,
     /// Delete an item.
     Rm { name: String },
+    /// Make this computer's vault key and print its public key (Desktop's "Add to Vault" runs it).
+    #[command(hide = true)]
+    Keygen {
+        #[arg(long)]
+        user: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -298,6 +312,11 @@ async fn run(args: Args) -> Result<i32> {
             println!("Signed in as {}.", who(&session));
             return Ok(0);
         }
+        // A computer added to a vault from Desktop needs no sign-in of its own.
+        Some(Command::Vault { command: VaultCommand::Keygen { user } }) => return vault::keygen(user).map(|_| 0),
+        Some(Command::Vault { command: VaultCommand::Get { name, computer: true, user } }) => {
+            return vault::get_on_computer(name, user.clone()).await.map(|_| 0);
+        }
         Some(Command::Token { command }) => {
             let (api, _, _) = sign_in(false).await?;
             return token(&api, command, args.json).await;
@@ -355,7 +374,8 @@ async fn run(args: Args) -> Result<i32> {
             VaultCommand::Approve { device, yes } => vault::approve(&ctx, &device, yes).await,
             VaultCommand::RemoveDevice { device } => vault::remove_device(&ctx, &device).await,
             VaultCommand::Set { name } => vault::set(&ctx, &name).await,
-            VaultCommand::Get { name } => vault::get(&ctx, &name).await,
+            VaultCommand::Get { name, .. } => vault::get(&ctx, &name).await,
+            VaultCommand::Keygen { .. } => unreachable!("handled before sign-in"),
             VaultCommand::List => vault::list(&ctx).await,
             VaultCommand::Rm { name } => vault::remove(&ctx, &name).await,
         }
@@ -761,6 +781,20 @@ mod vault_args {
         let args = Args::try_parse_from(["nuphos", "vault", "set", "token"]).unwrap();
         assert!(
             matches!(args.command, Some(Command::Vault { command: VaultCommand::Set { name } }) if name == "token")
+        );
+    }
+
+    #[test]
+    fn a_computer_reads_without_signing_in_and_names_whose_vault() {
+        let args = Args::try_parse_from(["nuphos", "vault", "get", "token", "--computer", "--user", "u1"]).unwrap();
+        assert!(matches!(
+            args.command,
+            Some(Command::Vault { command: VaultCommand::Get { computer: true, user: Some(u), .. } }) if u == "u1"
+        ));
+        assert!(Args::try_parse_from(["nuphos", "vault", "get", "token", "--user", "u1"]).is_err());
+        let args = Args::try_parse_from(["nuphos", "vault", "keygen", "--user", "u1"]).unwrap();
+        assert!(
+            matches!(args.command, Some(Command::Vault { command: VaultCommand::Keygen { user } }) if user == "u1")
         );
     }
 }

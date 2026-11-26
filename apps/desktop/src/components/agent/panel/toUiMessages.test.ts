@@ -7,11 +7,17 @@ let toUiMessages: typeof import('./toUiMessages.ts').toUiMessages
 let toPersistedMessages: typeof import('./toUiMessages.ts').toPersistedMessages
 
 before(async () => {
-  mock.module('./clientTools.ts', {
-    namedExports: { finalizeIncompleteTools: (messages: Message[]) => messages },
+  mock.module('../../../api.ts', { namedExports: { isNetworkError: () => false } })
+  mock.module('../../../i18n/index.ts', { namedExports: { t: (text: string) => text } })
+  mock.module('../../../lib/analytics.ts', {
+    namedExports: { track: () => {}, trackError: () => {} },
   })
-  mock.module('./parts.ts', { namedExports: { isHiddenMemoryIngestPart: () => false } })
-  mock.module('./stall.ts', { namedExports: { INTERRUPTED_TOOL_MESSAGE: 'interrupted' } })
+  mock.module('../../../lib/frontendErrorReporter.ts', {
+    namedExports: { reportFrontendError: () => {} },
+  })
+  mock.module('../../../lib/ownedAgentStreams.ts', {
+    namedExports: { markOwnedAgentStream: () => {} },
+  })
   ;({ toUiMessages, toPersistedMessages } = await import('./toUiMessages.ts'))
 })
 
@@ -70,5 +76,25 @@ test('ready files travel as structured attachments; unfinished uploads never rea
   assert.deepEqual(
     toUiMessages([{ id: 'f', role: 'user', parts: [{ ...transfer, status: 'uploading' }] }]),
     [],
+  )
+})
+
+const memory = (text: string) => ({
+  type: 'memory-ingest' as const,
+  id: text,
+  sessionId: 's',
+  kind: 'ok' as const,
+  text,
+  createdAt: '2026-01-01T00:00:00Z',
+})
+
+test('a queued memory note is not persisted; a finished one is', () => {
+  const messages: Message[] = [
+    { id: 'a', role: 'assistant', parts: [memory('Queued for memory'), memory('Saved 1 memory')] },
+  ]
+
+  assert.deepEqual(
+    toPersistedMessages(messages)[0].parts.map((part) => ('id' in part ? part.id : part.type)),
+    ['Saved 1 memory'],
   )
 })

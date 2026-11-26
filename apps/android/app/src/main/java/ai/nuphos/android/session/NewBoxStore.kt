@@ -17,6 +17,9 @@ object NewBox {
         else -> Phase.Starting
     }
     fun resumable(device: RuntimeDevice) = device.box?.state == "paused" && device.access in setOf("owner", "manage")
+    /** In the New runtime menu's order, Desktop's LOCAL_AGENT_PROVIDERS, so a runtime that joins later never moves the rows already shown. Ties keep a fixed order by id. */
+    fun ordered(runtimes: List<AgentRuntime>): List<AgentRuntime> =
+        runtimes.sortedWith(compareBy({ NewRuntime.providers.indexOf(it.provider).let { i -> if (i < 0) NewRuntime.providers.size else i } }, { it.id }))
 }
 
 /** Scoped to the exact account, team and AI-consent generation. Closing never deletes a paid computer. */
@@ -39,7 +42,7 @@ class NewBoxStore(private val api: BoxTransport, private val catalog: suspend ()
     private var job: Job? = null
     val placeholder get() = NewBox.defaultName(inventory.devices.map { it.label })
     val canCreate get() = active && current() && loaded && inventory.offered && !busy && !uncertain && deviceId == null && name.trim().length <= 200
-    val agents get() = runtimes.filter { it.local?.deviceId == deviceId && it.local?.online == true && it.status == "active" && !it.deleting }
+    val agents get() = NewBox.ordered(runtimes.filter { it.local?.deviceId == deviceId && it.local?.online == true && it.status == "active" && !it.deleting })
     val phase get() = NewBox.phase(madeAt, now, inventory.devices.firstOrNull { it.id == deviceId }?.box?.state, agents.size)
     fun close() { active = false; job?.cancel() }
     private fun valid() = active && current()

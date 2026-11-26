@@ -35,8 +35,10 @@ const homesIn = (dir: string): string[] => {
     return readdirSync(dir, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => path.join(dir, entry.name))
-  } catch {
-    return []
+  } catch (error) {
+    // Only a home with no conversations yet: any other error would leave their logins.
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
+    throw error
   }
 }
 
@@ -81,12 +83,13 @@ export function deleteAgentCredentials(provider: LocalAgentProvider, home: strin
   for (const at of homes) for (const file of files) rmSync(path.join(at, file), { force: true })
   if (provider === 'claude-code')
     dropJsonKeys(path.join(home, 'settings.json'), ['env'], ['ANTHROPIC_API_KEY'])
-  if (provider === 'opencode')
-    dropJsonKeys(
-      path.join(home, '.config', 'opencode', 'opencode.json'),
-      ['provider', 'amazon-bedrock', 'options'],
-      BEDROCK_SECRETS,
-    )
+  if (provider === 'opencode') {
+    const config = path.join(home, '.config', 'opencode', 'opencode.json')
+
+    dropJsonKeys(config, ['provider', 'amazon-bedrock', 'options'], BEDROCK_SECRETS)
+    // The OpenRouter key a new account's free Box comes with (box-openrouter.ts in the backend).
+    dropJsonKeys(config, ['provider', 'openrouter', 'options'], ['apiKey'])
+  }
 }
 
 /** A Box's default agent: also the Codex login its home links to, which a launch would link again. */
@@ -101,6 +104,8 @@ export function deleteDefaultCredentials(
 
 const OPENCODE_SIGNED_IN =
   'OpenCode still holds provider credentials Nuphos cannot remove. Sign them out in OpenCode, then try again'
+const STILL_SIGNED_IN =
+  'The agent is still signed in, for example with an API key set on this computer. Remove it there, then try again'
 const OPENCODE_UNREAD =
   'Nuphos could not read which providers OpenCode is signed in to, so it did not sign it out. Try again'
 
@@ -127,9 +132,10 @@ export async function logoutOpenCode(
 }
 
 /**
- * OpenCode is always signed in, to its free models, so its CLI status cannot tell whether a
- * credential is left: logs each out, then asks OpenCode whether any provider is still
- * connected, so a reset fails rather than reports a sign-out it could not make. Only a list it
+ * Whether the agent is still signed in once its credentials were deleted, so a reset fails
+ * rather than reports a sign-out it could not make: a key in the computer's environment, say.
+ * OpenCode is always signed in, to its free models, so its CLI status cannot tell: logs each
+ * credential out, then asks OpenCode whether any provider is still connected. Only a list it
  * read and found empty will do; a 1.x CLI has no list, its login being the file deleted before
  * this. The error to fail with, or undefined.
  */
@@ -140,8 +146,13 @@ export async function credentialsLeft(
     logout?: typeof logoutOpenCode
   },
 ): Promise<Error | undefined> {
-  if (provider !== 'opencode') return undefined
   const env = await deps.userEnv()
+
+  if (provider !== 'opencode') {
+    const cli = await deps.probeCli(provider, env, home).catch(() => undefined)
+
+    return cli?.installed && cli.loggedIn ? new Error(STILL_SIGNED_IN) : undefined
+  }
   const connected = await (deps.logout ?? logoutOpenCode)(env, home).catch(() => undefined)
 
   if (connected !== undefined) return connected ? new Error(OPENCODE_SIGNED_IN) : undefined

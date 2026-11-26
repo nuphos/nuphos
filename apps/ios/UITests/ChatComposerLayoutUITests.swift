@@ -1,7 +1,7 @@
 import XCTest
 
-/// The composer and the nav bar are see-through and rows scroll on under them,
-/// so they need a backing: whatever is scrolled behind, they look the same.
+/// The composer is see-through and rows scroll on under it, so it needs a backing:
+/// whatever is scrolled behind, it looks the same. Under the header, rows blur out by design.
 /// Uses a copy of the offline chats fixture with release-planning's posts
 /// replaced by a mix of video, words, an image, words and a file.
 final class ChatComposerLayoutUITests: XCTestCase {
@@ -32,11 +32,40 @@ final class ChatComposerLayoutUITests: XCTestCase {
         XCTAssertGreaterThan(changed(rest, scrolled, in: rows, width: width), 0.05, "The transcript did not move between the shots")
         // Glass tints faintly with what scrolls behind it; a row showing through differs far more.
         XCTAssertLessThan(changed(rest, scrolled, in: field, width: width, by: 48), 0.001, "Rows show through the composer")
-        XCTAssertLessThan(changed(rest, scrolled, in: bar, width: width, by: 48), 0.001, "Rows show through the nav bar")
         composer.tap()
         composer.typeText("A longer draft that wraps onto a second line and then a third, to grow the composer.")
         sleep(2)
         shot("keyboard-draft")
+    }
+
+    /// The composer rides the keyboard in every frame as it opens and closes,
+    /// rather than racing ahead of it and sinking behind it. The app measures
+    /// each drawn frame, since a screenshot only comes once the motion is over.
+    func testComposerRidesTheKeyboard() throws {
+        let app = try launch(probe: true)
+        let transcript = app.collectionViews["chat.transcript"]
+        let composer = app.textViews["Message release-planning"].firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10), "No composer")
+        // The field's height above the keyboard in the last frame, and the least and most it has been.
+        func gaps() throws -> [Int] {
+            let value = try XCTUnwrap(transcript.value as? String, "No measurement")
+            return value.split(separator: " ").compactMap { Int($0) }
+        }
+        sleep(2)
+        let resting = try gaps()[0]
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "The keyboard never opened")
+        sleep(2)
+        // The focused composer shows more below the field, so the field rests higher.
+        let focused = try gaps()[0]
+        // A pull down on the composer puts the keyboard away in its own animation.
+        let field = composer.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        field.press(forDuration: 0.05, thenDragTo: field.withOffset(CGVector(dx: 0, dy: 120)))
+        sleep(2)
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "The keyboard did not close")
+        let all = try gaps()
+        XCTAssertGreaterThanOrEqual(all[1], min(resting, focused) - 2, "The composer sank behind the keyboard: \(all)")
+        XCTAssertLessThanOrEqual(all[2], max(resting, focused) + 2, "The composer ran ahead of the keyboard: \(all)")
     }
 
     /// The share of pixels in `rect` (points) where some channel differs by more than `by`.
@@ -59,7 +88,7 @@ final class ChatComposerLayoutUITests: XCTestCase {
         return Double(differing) / Double(max(count, 1))
     }
 
-    private func launch() throws -> XCUIApplication {
+    private func launch(probe: Bool = false) throws -> XCUIApplication {
         let fixtures = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures")
         let live = fixtures.appending(path: "chat-composer-layout-live.json")
@@ -102,7 +131,7 @@ final class ChatComposerLayoutUITests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: live) }
 
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"]
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (probe ? ["-composer-keyboard-probe"] : [])
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
         app.staticTexts["release-planning"].firstMatch.tap()

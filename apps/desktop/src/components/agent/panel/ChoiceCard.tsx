@@ -14,11 +14,9 @@ import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
 import { DecisionOptions, PILL } from './DecisionOptions'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
+import { useDecisionSubmit as useSubmit } from './useDecisionSubmit'
 
-import type { ConnectCardContextValue } from './connectCardContext'
 import type { DecisionQuestion } from './decisionFormModel'
-import type { DecisionCardRef } from './replyTarget'
-import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
 /**
@@ -154,35 +152,6 @@ function SelectToAnswer({ children }: { children: ReactNode }) {
   )
 }
 
-/**
- * Sends a card's answer: the card goes quiet at once, and is live again with
- * an error if the server refuses it or it could not be sent.
- */
-function useSubmit(
-  ctx: ConnectCardContextValue | null,
-  card: DecisionCardRef,
-  recorded: string | undefined,
-) {
-  const [sent, setSent] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const submit = (answer: DecisionAnswer) => {
-    const taken = ctx?.answer?.(answer, card)
-
-    if (taken === false) return false
-    setSent(true)
-    setFailed(false)
-    void Promise.resolve(taken).then((ok) => {
-      if (ok !== false) return
-      setSent(false)
-      setFailed(true)
-    })
-
-    return true
-  }
-
-  return { chosen: sent || recorded !== undefined, failed, submit }
-}
-
 /** What answered the card, that it was dismissed, or that its answer was not taken. */
 function AnswerStatus({
   recorded,
@@ -216,7 +185,7 @@ function AnswerStatus({
  * The question's markdown body: four lines at first, the last fading out, and a
  * full-width "Show more" under them. The collapsed lines open it too.
  */
-function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
+export function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const [overflows, setOverflows] = useState(false)
   const [expanded, setExpanded] = useState(full)

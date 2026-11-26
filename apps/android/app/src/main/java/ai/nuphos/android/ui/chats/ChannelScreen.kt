@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -188,6 +189,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             lead = {
                 BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
                 BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
+                BotInstructionsCard(bot.sessionId)
             },
             canManage = bot.canManage)
     }
@@ -331,6 +333,77 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
             models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
         if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A Bot's standing instructions in full, as on Desktop and iOS (#4084). Only the owner sees them,
+ *  and rewrites them in place; the server's refusal shows under the field. */
+@Composable
+private fun BotInstructionsCard(botId: String) {
+    val store = LocalAgentStore.current
+    if (!store.ownsBot(botId)) return
+    val instructions = store.botRow(botId)?.instructions.orEmpty()
+    var draft by remember(botId) { mutableStateOf<String?>(null) }
+    var saving by remember(botId) { mutableStateOf(false) }
+    var error by remember(botId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    // Cancel and Save stay above the keyboard as it opens, and when a refusal adds a line under the field.
+    val editor = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val keyboard = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+    LaunchedEffect(draft != null, keyboard, error) {
+        if (draft != null) editor.bringIntoView()
+    }
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.chat_bot_instructions), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (draft == null) IconButton(onClick = { draft = instructions; error = null }, modifier = Modifier.size(32.dp).testTag("bot-instructions-edit")) {
+                Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_instructions_edit), stringResource(R.string.chat_bot_instructions_edit), Modifier.size(16.dp))
+            }
+        }
+        val text = draft
+        when {
+            text != null -> {
+                // One target for the field and its buttons, so the field's own scroll into view on focus
+                // falls inside this request instead of cancelling it.
+                Column(Modifier.bringIntoViewRequester(editor), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(text, { draft = it; error = null },
+                        Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
+                        enabled = !saving, isError = error != null,
+                        supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
+                    Row(Modifier.fillMaxWidth().testTag("bot-instructions-actions"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
+                        Button(onClick = {
+                            saving = true
+                            error = null
+                            scope.launch {
+                                try {
+                                    store.setBotInstructions(botId, text)
+                                    draft = null
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    error = e.message ?: e.toString()
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }, enabled = text != instructions && !saving, modifier = Modifier.testTag("bot-instructions-save")) {
+                            if (saving) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(stringResource(R.string.chat_save))
+                        }
+                    }
+                }
+            }
+            instructions.isEmpty() -> Text(stringResource(R.string.chat_bot_instructions_none),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(instructions, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("bot-instructions-text"))
+            }
+        }
     }
 }
 

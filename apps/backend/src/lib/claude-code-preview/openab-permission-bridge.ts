@@ -8,6 +8,7 @@ import {
   registerPreviewWait,
   supersedePendingAgentPermissions,
 } from './decision-waiter'
+import { askableInOwnerBotChat } from './owner-bot-chat'
 import { allowedUnattended, unattendedDeniedText, unattendedTurn } from './unattended-permission'
 
 import type { PreviewDecision, PreviewWait } from './decision-waiter'
@@ -17,7 +18,7 @@ import type {
   OpenAbPermissionRequest,
 } from './openab-acp-session'
 import type { PreviewAgentUpdate } from './preview-agent-update'
-import type { UnattendedRun } from './unattended-permission'
+import type { KnownTool, UnattendedRun } from './unattended-permission'
 
 // OpenAB's ACP gateway currently gives a prompt roughly three minutes to
 // finish. Keep the human decision inside that envelope so a missed approval
@@ -53,6 +54,12 @@ type PermissionBridgeDeps = {
     sessionId: string
     supersededByUserId?: string
   }) => Promise<number>
+  /** Whether a woken turn's channel is its owner's own Bot chat, where the owner can be asked. */
+  inOwnerBotChat?: (args: {
+    channelIds: readonly string[]
+    agentSessionId: string
+    ownerUserId: string
+  }) => Promise<boolean>
 }
 
 const defaultDeps: PermissionBridgeDeps = {
@@ -78,12 +85,25 @@ function allowOnce(options: OpenAbPermissionOption[]): OpenAbPermissionOption | 
   return options.find((option) => option.kind === 'allow_once')
 }
 
+/** A reject lets the turn go on with the refusal; a cancel ends it. */
+function deniedOutcome(
+  options: OpenAbPermissionOption[],
+  answer: 'cancel' | 'reject',
+): OpenAbPermissionOutcome {
+  const rejected =
+    answer === 'reject' ? options.find((option) => option.kind === 'reject_once') : undefined
+
+  return rejected ? { outcome: { outcome: 'selected', optionId: rejected.optionId } } : cancelled()
+}
+
 export async function handleOpenAbPermissionRequest(
   args: {
     userId: string
     conversationOwnerUserId?: string
     conversationId: string
     request: OpenAbPermissionRequest
+    /** What the call itself already said: codex-acp asks about an MCP call by its id alone. */
+    knownTool?: KnownTool
     emit: (frame: Record<string, unknown>) => void
     handleTool: (update: Extract<PreviewAgentUpdate, { kind: 'tool' }>) => void
     /** Stops waiting when the turn is stopped; the agent is then answered with a cancel. */
@@ -148,10 +168,16 @@ export async function handleOpenAbPermissionRequest(
   }
 
   if (bypass) return allow('bypass', 'Full Access is enabled for this conversation.')
-  if (unattended.headless && allowedUnattended(request.toolCall, unattended.wokenChannelIds))
+  if (
+    unattended.headless &&
+    allowedUnattended(request.toolCall, unattended.wokenChannelIds, args.knownTool)
+  )
     return allow('unattended', 'An automatic turn may read, and reply where it was called.')
 
-  const settleDenied = (errorText: string): OpenAbPermissionOutcome => {
+  const settleDenied = (
+    errorText: string,
+    answer: 'cancel' | 'reject' = 'cancel',
+  ): OpenAbPermissionOutcome => {
     args.handleTool({
       kind: 'tool',
       toolCallId,
@@ -166,12 +192,13 @@ export async function handleOpenAbPermissionRequest(
       reason: errorText,
     })
 
-    return cancelled()
+    return deniedOutcome(request.options, answer)
   }
 
-  // Nobody is there to answer, so asking would only time out. A sub-Task's request
-  // still asks: a person answers it from the sidebar.
-  if (unattended.failFast) return settleDenied(unattendedDeniedText(request.toolCall.title))
+  // Nobody is there to answer, so asking would only time out; a reject lets the turn reply.
+  // The owner's own Bot chat, and a sub-Task's sidebar, still ask.
+  if (unattended.failFast && !(await askableInOwnerBotChat(args, deps.inOwnerBotChat)))
+    return settleDenied(unattendedDeniedText(request.toolCall.title), 'reject')
 
   const wait = await deps.registerWait({
     userId: args.userId,
@@ -237,11 +264,10 @@ export async function handleOpenAbPermissionRequest(
   })
 
   if (resolved.timedOut || args.signal?.aborted) {
-    return settleDenied(
-      resolved.timedOut && resolved.reason === 'timeout'
-        ? PERMISSION_TIMED_OUT_TEXT
-        : PERMISSION_CANCELLED_TEXT,
-    )
+    // A headless turn nobody answered goes on and says it was not run.
+    return resolved.timedOut && resolved.reason === 'timeout'
+      ? settleDenied(PERMISSION_TIMED_OUT_TEXT, unattended.refusal)
+      : settleDenied(PERMISSION_CANCELLED_TEXT)
   }
   args.onDecision?.(resolved.decision)
   const { payload } = resolved.decision
@@ -252,9 +278,9 @@ export async function handleOpenAbPermissionRequest(
 
     // A person's deny carries no reason; abandoned waits (runtime Stop, supersede,
     // OpenAB's own cancel) always do.
-    return settleDenied(
-      payload.reason === undefined ? 'Permission denied' : PERMISSION_CANCELLED_TEXT,
-    )
+    return payload.reason === undefined
+      ? settleDenied('Permission denied', unattended.refusal)
+      : settleDenied(PERMISSION_CANCELLED_TEXT)
   }
   const selected =
     payload.selectedOptionId === undefined

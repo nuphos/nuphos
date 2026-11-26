@@ -48,10 +48,28 @@ final class AgentSummaryUITests: XCTestCase {
         app.buttons["Close summary"].tap()
     }
 
+    /// A question answered from the summary closes, and leaves the summary's list.
+    func testAnAnswerClosesTheQuestion() throws {
+        continueAfterFailure = false
+        let app = launch()
+        let button = app.buttons["agent-summary-button"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        button.tap()
+        let question = app.staticTexts["Ship the release after checks pass?"]
+        XCTAssertTrue(question.waitForExistence(timeout: 10))
+        question.tap()
+        XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5))
+        app.buttons["Ship it"].tap()
+        XCTAssertTrue(app.buttons["Close question"].waitForNonExistence(timeout: 5), "The answered question stays open")
+        XCTAssertTrue(app.staticTexts["No questions waiting for you."].waitForExistence(timeout: 5),
+                      "The answered question is still listed")
+    }
+
     private func launch(empty: Bool = false) -> XCUIApplication {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/agent-summary-responses.json")
         var responses = try! JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as! [String: Any]
+        responses["POST /agent/conversations/dock-a/decisions/summary-question/answer"] = ["status": 200, "body": ["ok": true]]
         if empty {
             var detail = responses["GET /agent/conversations/dock-a"] as! [String: Any]
             var body = detail["body"] as! [String: Any]

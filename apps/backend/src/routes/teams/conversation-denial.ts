@@ -83,7 +83,7 @@ export function conversationDenialMessage(method: string, suffix: string | null)
     return `${opening} ${BOUNDARY} Do the work through a capability the conversation already has, or tell the user which step to take in the Nuphos app.`
   }
   if (MUTATIONS.has(normalizedMethod)) {
-    return `${opening} ${BOUNDARY} Creating, editing, or removing a ${collection} binding is deliberately reserved for a person: ask the user to do it in the Nuphos app under Settings -> Integrations, and say exactly which values they need to enter.`
+    return `${opening} ${BOUNDARY} Creating, editing, or removing a ${collection} binding is deliberately reserved for a person: ask the user to do it in the Nuphos app under Settings -> Connectors, and say exactly which values they need to enter.`
   }
 
   return `${opening} ${BOUNDARY} The binding itself may well be fine, so do not send the user off to rebind it: reach this data through the connector's own skill and the credentials selected for this conversation.`

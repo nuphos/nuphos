@@ -1,5 +1,6 @@
 import { getLatestAssistantMessage, getReadableConversation } from '@/lib/agent/db'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
+import { parseAgentMessageOrigin } from '@/lib/agent/message-origin'
 
 import type { UIMessage } from 'ai'
 
@@ -19,7 +20,8 @@ export function partsToText(parts: unknown[]): string {
     .join('')
 }
 
-function persistedPartToUiMessagePart(part: unknown): unknown[] {
+// The one rebuild of a stored message, for every surface that replays history.
+export function persistedPartToUiMessagePart(part: unknown): unknown[] {
   if (!part || typeof part !== 'object') return []
   const value = part as Record<string, unknown>
 
@@ -56,19 +58,33 @@ export function persistedMessageToUiMessage(message: {
   role: string
   parts: unknown[]
   metadata?: unknown
+  origin?: unknown
+  turnKind?: unknown
 }): UIMessage | null {
   if (message.role !== 'user' && message.role !== 'assistant') return null
   const parts = message.parts.flatMap(persistedPartToUiMessagePart)
 
-  if (parts.length === 0) return null
-  // Kept so a history rebuilt from storage still says who sent each message.
-  const metadata = parseMessageMetadata(message.metadata)
+  // A reply that kept nothing, a failed turn's or a silent one's, still ends its turn:
+  // without it, that turn's input would run again with every later one.
+  if (parts.length === 0 && message.role === 'user') return null
+  // Kept so a history rebuilt from storage still says who sent each message,
+  // and where it arrived from.
+  const attribution = parseMessageMetadata(message.metadata)
+  const origin = parseAgentMessageOrigin(message.origin)
 
   return {
     id: message.messageId,
     role: message.role,
     parts,
-    ...(metadata ? { metadata } : {}),
+    ...(attribution || origin || message.turnKind === 'plan-approval'
+      ? {
+          metadata: {
+            ...attribution,
+            ...(origin ? { origin } : {}),
+            ...(message.turnKind === 'plan-approval' ? { turnKind: 'plan-approval' } : {}),
+          },
+        }
+      : {}),
   } as UIMessage
 }
 

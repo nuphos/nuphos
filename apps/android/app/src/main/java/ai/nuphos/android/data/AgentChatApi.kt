@@ -312,16 +312,26 @@ object AgentChatApi {
 
     data class QueuedMessage(val id: String, val mine: Boolean, val text: String)
 
-    suspend fun queue(token: String, teamId: String, sessionId: String): List<QueuedMessage> {
+    /** The agent's usage limit holds the queue until [until], when the server knows the reset. */
+    data class UsageHold(val until: String?)
+
+    /** The session queue in run order, and the usage hold on it, if any. */
+    data class Queue(val messages: List<QueuedMessage>, val held: UsageHold? = null)
+
+    suspend fun queue(token: String, teamId: String, sessionId: String): Queue {
         return decodeQueue(send("GET", "agent/conversations/$sessionId/queue", token, listOf("teamId" to teamId)))
     }
 
-    internal fun decodeQueue(data: String): List<QueuedMessage> {
+    internal fun decodeQueue(data: String): Queue {
         val json = JsonValue.parse(data) ?: throw NuphosApi.Failure.InvalidResponse
-        return json["messages"]?.arrayValue?.map { entry ->
+        val messages = json["messages"]?.arrayValue?.map { entry ->
             QueuedMessage(entry["id"]?.stringValue ?: throw NuphosApi.Failure.InvalidResponse,
                 entry["mine"]?.boolValue == true, entry["text"]?.stringValue.orEmpty())
         } ?: throw NuphosApi.Failure.InvalidResponse
+        // Only a usage limit holds the queue; a reason this build does not know is not shown.
+        val held = json["held"]?.takeIf { it["reason"]?.stringValue == "usage_limit" }
+            ?.let { UsageHold(it["until"]?.stringValue) }
+        return Queue(messages, held)
     }
 
     data class QueueRecall(val text: String, val files: List<ai.nuphos.android.model.ChatPart.File> = emptyList())

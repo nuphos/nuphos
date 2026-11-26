@@ -186,6 +186,29 @@ final class AgentStore {
 
     // MARK: - Archive
 
+    /// The viewer's archived conversations, newest archived first, a page at a time.
+    private(set) var archived: [AgentConversation] = []
+    private(set) var archivedFailed = false
+    private var archivedCursor: String?
+    var archivedHasMore: Bool { archivedCursor != nil }
+
+    func loadArchived(more: Bool = false) async {
+        guard let team = selectedTeam?.id else { return }
+        do {
+            let page = try await NuphosAPI.conversations(
+                token: token, teamId: team, cursor: more ? archivedCursor : nil, archived: true
+            )
+            guard team == selectedTeam?.id else { return }
+            let seen = more ? Set(archived.map(\.sessionId)) : []
+            archived = (more ? archived : []) + page.conversations.filter { !seen.contains($0.sessionId) }
+            archivedCursor = page.hasMore ? page.nextCursor : nil
+            archivedFailed = false
+        } catch {
+            guard team == selectedTeam?.id else { return }
+            archivedFailed = true
+        }
+    }
+
     func archive(sessionId: String, teamId: String?) async {
         guard let teamId = teamId ?? selectedTeam?.id else { return }
         let scope = workspaceScope
@@ -196,7 +219,9 @@ final class AgentStore {
             // An archived Bot comes back folded, as on Desktop.
             updateFolds { _ = $0.remove("bots:\(sessionId)") }
             // A Bot goes with its chat on the server, so the chats list drops it too.
-            await loadChannels()
+            async let chats: () = loadChannels()
+            async let archivedLoad: () = loadArchived()
+            _ = await (chats, archivedLoad)
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }
@@ -250,11 +275,18 @@ final class AgentStore {
 
     /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
+        let team = selectedTeam?.id ?? ""
+        return ConversationNesting.nest(
+            ConversationNesting.withProjects(listedConversations), folded: foldedThreads[team] ?? [],
+            attention: { $0.isWaiting || self.unread.contains(team: $0.teamId ?? team, session: $0.sessionId) }
+        )
     }
 
     /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
-    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
+    /// A pinned row sits in the pin shelf instead, as on Desktop; a search hides the shelf, so it lists them all.
+    var nestedBots: [NestedConversation] {
+        ConversationNesting.nest(search.isEmpty ? botsList.filter { !isPinned($0) } : botsList)
+    }
 
     func isFolded(_ sessionId: String) -> Bool {
         foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
@@ -558,6 +590,9 @@ final class AgentStore {
         channels = []
         bots = []
         favorites = nil
+        archived = []
+        archivedFailed = false
+        archivedCursor = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -675,6 +710,11 @@ final class AgentStore {
         if let cached = LaunchCache.read(LaunchCache.Agents.self), cached.accountKey == LaunchCache.accountKey(token) {
             selectedTeam = cached.team
             conversations = cached.conversations
+            if let channels = cached.channels, let bots = cached.bots {
+                self.channels = channels
+                self.bots = bots
+                channelsLoaded = true
+            }
             selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
             phase = .loaded
         }
@@ -784,15 +824,18 @@ final class AgentStore {
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
         async let pinsLoad: () = loadFavorites()
+        async let archivedLoad: () = loadArchived()
 
         do {
             let rows = try await listConversations(teamId: team.id)
-            _ = await (runtimesLoad, channelsLoad, pinsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad, archivedLoad)
             guard generation == loadGeneration else { return }
             conversations = rows
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: rows, accountKey: LaunchCache.accountKey(token)))
+                LaunchCache.write(LaunchCache.Agents(
+                    team: team, conversations: rows, accountKey: LaunchCache.accountKey(token),
+                    channels: channelsLoaded ? channels : nil, bots: channelsLoaded ? bots : nil))
             }
         } catch {
             guard generation == loadGeneration else { return }

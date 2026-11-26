@@ -1,12 +1,9 @@
-import RFB from '@novnc/novnc'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../api'
 import { parseAtlasError } from '../api/errors'
 import { useWorkspaceTab } from '../hooks/useWorkspaceTab'
 import { t } from '../i18n'
-import { keepDesktopConnected } from '../lib/desktopConnection'
-import { IpcVncChannel } from '../lib/ipcVncChannel'
 import {
   desktopTabSession,
   sessionDesktopTitle,
@@ -14,34 +11,7 @@ import {
 } from '../lib/sessionDesktops'
 
 import { DesktopFrame } from './DesktopFrame'
-
-import type { DesktopAttach, DesktopPhase } from '../lib/desktopConnection'
-
-/** How long a connected desktop has to show its first picture. */
-const FIRST_PICTURE_MS = 8_000
-
-/**
- * Calls `shown` once noVNC's canvas, transparent until a frame lands on it, has a
- * picture, or `failed` if none comes in time; returns how to stop waiting.
- */
-function awaitPicture(host: HTMLElement, shown: () => void, failed: () => void): () => void {
-  const since = Date.now()
-  const timer = setInterval(() => {
-    const canvas = host.querySelector('canvas')
-    const drawn = canvas?.width
-      ? canvas.getContext('2d')?.getImageData(canvas.width >> 1, canvas.height >> 1, 1, 1).data[3]
-      : 0
-
-    if (drawn) shown()
-    else if (Date.now() - since < FIRST_PICTURE_MS) return
-    else failed()
-    clearInterval(timer)
-  }, 250)
-
-  return () => {
-    clearInterval(timer)
-  }
-}
+import { useLiveDesktop } from './useLiveDesktop'
 
 /** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
 const holdingStatus = (display: number) =>
@@ -72,68 +42,14 @@ export function SessionDesktopView({
   const { tabId } = useWorkspaceTab()
   // From the tab, not the chat on screen: a dock keeps other sessions' desktop tabs mounted.
   const conversationId = sessionId ?? desktopTabSession(tabId)
-  const host = useRef<HTMLDivElement>(null)
-  const rfbRef = useRef<RFB | null>(null)
-  const channelRef = useRef<IpcVncChannel | null>(null)
-  const retryRef = useRef<() => void>(() => {})
-  const [phase, setPhase] = useState<DesktopPhase>({ kind: 'connecting' })
-  const [holding, setHolding] = useState(false)
+  const { host, phase, holding, hold, retry } = useLiveDesktop(tabId, {
+    teamId,
+    sessionId: conversationId,
+    display,
+  })
   const title = useSyncExternalStore(subscribeSessionDesktops, () =>
     conversationId ? sessionDesktopTitle(conversationId, display) : undefined,
   )
-
-  useEffect(() => {
-    const target = host.current
-
-    if (!target || !conversationId || !tabId) return
-    // The main process signs each stream with the current token; nothing is held here.
-    const attach: DesktopAttach<null> = (_link, { opened, closed }) => {
-      const channel = new IpcVncChannel(tabId).open({ teamId, sessionId: conversationId, display })
-      const rfb = new RFB(target, channel as unknown as WebSocket, { shared: true })
-
-      rfb.viewOnly = true
-      rfb.scaleViewport = true
-      rfb.background = 'transparent'
-      // Connected once the desktop shows: a stream that never draws counts as a failed
-      // attempt, so the tab says so instead of staying blank.
-      let stopWaiting: (() => void) | undefined
-
-      rfb.addEventListener('connect', () => {
-        stopWaiting = awaitPicture(target, opened, closed)
-      })
-      rfb.addEventListener('disconnect', closed)
-      rfbRef.current = rfb
-      channelRef.current = channel
-      setHolding(false)
-
-      return () => {
-        stopWaiting?.()
-        rfb.removeEventListener('disconnect', closed)
-        rfb.disconnect()
-        if (rfbRef.current === rfb) rfbRef.current = null
-        if (channelRef.current === channel) channelRef.current = null
-      }
-    }
-    const connection = keepDesktopConnected({
-      mint: () => Promise.resolve(null),
-      attach,
-      onPhase: setPhase,
-    })
-
-    retryRef.current = connection.restart
-
-    return () => {
-      connection.stop()
-    }
-  }, [conversationId, tabId, teamId, display])
-
-  const toggle = () => {
-    const next = !holding
-
-    channelRef.current?.control(next ? 'human' : 'agent')
-    if (rfbRef.current) rfbRef.current.viewOnly = !next
-    setHolding(next)
-  }
 
   return (
     <DesktopFrame
@@ -151,14 +67,14 @@ export function SessionDesktopView({
       action={
         <button
           type="button"
-          onClick={toggle}
+          onClick={() => hold(!holding)}
           className="rounded border border-line-control px-2 py-0.5 text-main hover:bg-state-hover"
         >
           {holding ? t('Hand back') : t('Take over')}
         </button>
       }
       switcher={switcher}
-      onRetry={() => retryRef.current()}
+      onRetry={retry}
       host={host}
     />
   )

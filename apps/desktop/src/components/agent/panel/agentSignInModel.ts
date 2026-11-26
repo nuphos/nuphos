@@ -51,14 +51,13 @@ export function signInRoute({
   manages?: (deviceId: string) => boolean
 }): SignInRoute {
   if (!runtimeId) return { kind: 'none' }
-  // Grok Build, OpenCode, DSH, Hermes Agent and Pi sign in with the runtime sign-in below, as
+  // Grok Build, OpenCode, DSH, Hermes Agent, Pi and Cursor sign in with the runtime sign-in below, as
   // in settings, not their own CLI here. An added agent has its own login, which only the runtime
-  // sign-in reaches too, and so does one whose sign-in ended: the backend renews it only from that.
+  // sign-in reaches too. One whose sign-in ended is renewed by the CLI's login like any other.
   if (
     onThisComputer &&
     !instance?.local?.instanceId &&
-    !instance?.local?.signInEnded &&
-    !/_(grok|opencode|dsh|hermes|pi)$/u.test(runtimeId)
+    !/_(grok|opencode|dsh|hermes|pi|cursor)$/u.test(runtimeId)
   )
     return { kind: 'cli', provider: runtimeId.endsWith('_codex') ? 'codex' : 'claude-code' }
   // A Box handed to someone else is theirs to sign in, though its id still names its first owner.

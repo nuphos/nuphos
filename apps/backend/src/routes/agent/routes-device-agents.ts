@@ -20,6 +20,7 @@ import {
   renameDeviceAgent,
 } from '@/lib/agent/devices/agent-registry-store'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
+import { tooOldFor } from '@/lib/agent/devices/local-runtime/first-host-version'
 import { runtimeLabel } from '@/lib/claude-code-preview/runtime-provider'
 import { AppError } from '@/lib/errors'
 import { isTeamIdShape } from '@/lib/team-id'
@@ -160,6 +161,13 @@ export function createDeviceAgentRoutes(
     const body = c.req.valid('json')
     const host = await hostDevice(c, 'manage', body.teamId)
     const { target, device } = host
+
+    if (tooOldFor(host.presence, body.provider))
+      throw new AppError(
+        409,
+        'runtime_outdated',
+        `Nuphos on this computer is too old to add ${runtimeLabel(body.provider)}. Update it there, then try again.`,
+      )
     const { deviceId } = target
     const instanceId = body.instanceId ?? randomUUID()
     // The host answers an id it has as a retry, so only a new agent is noted, and before the

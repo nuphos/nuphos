@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Loader2, Pencil } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { clsx } from 'clsx'
+import { ChevronDown, Loader2, Pencil } from 'lucide-react'
+import { useLayoutEffect, useRef, useState } from 'react'
 
 import { api, decideErrorToast } from '../../../api'
 import { t } from '../../../i18n'
@@ -12,8 +13,82 @@ import { MessageResponse } from '../MessageResponse'
 import { SummarySection } from './ChatSummaryRows'
 
 import type { AgentConversation } from '../../../api/agent-types'
+import type { RefObject } from 'react'
 
 const textClass = 'whitespace-pre-wrap break-words text-[13px] leading-5 text-main'
+
+/**
+ * Long instructions show their first lines and open in place under a "Show more": the panel
+ * scrolls, the text does not, so there is never a second scrollbar inside it.
+ */
+function ClampedInstructions({
+  ref,
+  teamId,
+  instructions,
+}: {
+  ref: RefObject<HTMLDivElement | null>
+  teamId: string
+  instructions: string
+}) {
+  const [overflows, setOverflows] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const clipped = overflows && !expanded
+
+  useLayoutEffect(() => {
+    const el = ref.current
+
+    if (!el || expanded) return
+    const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 1)
+
+    measure()
+    // Markdown and fonts settle after the first paint, and the panel's width can change.
+    const observer = new ResizeObserver(measure)
+
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+
+    return () => observer.disconnect()
+  }, [ref, instructions, expanded])
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Keyboard users open it with the button below. */}
+      <div
+        ref={ref}
+        onClick={clipped ? () => setExpanded(true) : undefined}
+        className={clsx(
+          'min-w-0 max-w-full overflow-hidden',
+          !expanded && 'max-h-40',
+          clipped &&
+            'cursor-pointer [mask-image:linear-gradient(to_bottom,black_calc(100%-32px),transparent)]',
+        )}
+      >
+        {instructions ? (
+          <MessageResponse
+            teamId={teamId}
+            disableRawHtml
+            className="!text-[13px] [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto"
+          >
+            {instructions}
+          </MessageResponse>
+        ) : (
+          <span className="text-tertiary">{t('None yet')}</span>
+        )}
+      </div>
+      {(overflows || expanded) && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((open) => !open)}
+          className="flex h-7 items-center justify-center gap-1 rounded-lg bg-state-hover text-[12.5px] font-medium text-main outline-none hover:bg-state-selected focus-visible:ring-2 focus-visible:ring-line-focus"
+        >
+          {expanded ? t('Show less') : t('Show more')}
+          <ChevronDown aria-hidden className={clsx('size-3.5', expanded && 'rotate-180')} />
+        </button>
+      )}
+    </div>
+  )
+}
 
 /**
  * A Bot's standing instructions in full, which its transcript only shows clipped. Its owner
@@ -74,7 +149,7 @@ export function BotInstructionsSection({
             onClick={() =>
               setDraft({
                 text: instructions,
-                minHeight: Math.max(120, textRef.current?.offsetHeight ?? 0),
+                minHeight: Math.max(120, textRef.current?.scrollHeight ?? 0),
               })
             }
           />
@@ -121,22 +196,7 @@ export function BotInstructionsSection({
           </div>
         </form>
       ) : (
-        <div
-          ref={textRef}
-          className="min-w-0 max-w-full max-h-80 overflow-y-auto overflow-x-hidden"
-        >
-          {instructions ? (
-            <MessageResponse
-              teamId={teamId}
-              disableRawHtml
-              className="!text-[13px] [overflow-wrap:anywhere] [&_pre]:max-w-full [&_pre]:overflow-x-auto"
-            >
-              {instructions}
-            </MessageResponse>
-          ) : (
-            <span className="text-tertiary">{t('None yet')}</span>
-          )}
-        </div>
+        <ClampedInstructions ref={textRef} teamId={teamId} instructions={instructions} />
       )}
     </SummarySection>
   )

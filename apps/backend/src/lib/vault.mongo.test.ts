@@ -13,10 +13,12 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  listVaultDevices,
   listVaultItems,
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
+import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
 
 const KEY = Buffer.alloc(32, 1).toString('base64')
 const keysFor = (...ids: string[]) =>
@@ -185,5 +187,63 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     })
     // An existing item can still change.
     await putVaultItem(user, 'item-0', 'c2', keysFor(device.id))
+  })
+
+  test('a computer added from afar waits for approval and reads only its own key', async () => {
+    const user = randomUUID()
+    const box = { userId: randomUUID(), deviceId: randomUUID() }
+    const other = { userId: box.userId, deviceId: randomUUID() }
+
+    // Never trusted on first use: its key came through Nuphos.
+    expect(await fails(addVaultDevice(user, 'box', KEY, box))).toMatchObject({
+      status: 409,
+      code: 'vault_not_enrolled',
+    })
+    const laptop = await addVaultDevice(user, 'laptop', KEY)
+    const added = await addVaultDevice(user, 'box', KEY, box)
+
+    expect(added.state).toBe('pending')
+    // Adding it again offers the same key: still one device.
+    expect(await addVaultDevice(user, 'box', KEY, box)).toMatchObject({ id: added.id })
+    expect(await listVaultDevices(user)).toHaveLength(2)
+    await putVaultItem(user, 'token', 'c1', keysFor(laptop.id))
+    expect(await fails(getVaultItemForComputer(user, box, 'token'))).toMatchObject({ status: 404 })
+
+    await approveVaultDevice(user, added.id, [{ name: 'token', wrapped: 'w-box' }])
+    expect(await getVaultItemForComputer(user, box, 'token')).toMatchObject({
+      deviceId: added.id,
+      item: { name: 'token', ciphertext: 'c1', keys: [{ deviceId: added.id, wrapped: 'w-box' }] },
+    })
+    // Another computer, or the same computer for another person's vault, reads nothing.
+    expect(await fails(getVaultItemForComputer(user, other, 'token'))).toMatchObject({
+      status: 404,
+    })
+    expect(await fails(getVaultItemForComputer(randomUUID(), box, 'token'))).toMatchObject({
+      status: 404,
+    })
+  })
+
+  test('a computer that joined offers one key, even when two offers race', async () => {
+    const user = randomUUID()
+    const mac = { userId: user, deviceId: randomUUID(), label: 'Studio Mac' }
+    const otherKey = Buffer.alloc(32, 2).toString('base64')
+
+    // No vault yet: nothing is offered.
+    expect(await fails(offerComputerKey(mac, KEY))).toMatchObject({ code: 'vault_not_enrolled' })
+    await addVaultDevice(user, 'laptop', KEY)
+    const results = await Promise.allSettled([
+      offerComputerKey(mac, KEY),
+      offerComputerKey(mac, otherKey),
+    ])
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1)
+    const offered = (await listVaultDevices(user)).filter((device) => device.name === 'Studio Mac')
+
+    expect(offered).toHaveLength(1)
+    expect(offered[0]).toMatchObject({ state: 'pending' })
+    // The same key again is the same device.
+    const again = await offerComputerKey(mac, offered[0]!.publicKey)
+
+    expect(again.id).toBe(offered[0]!.id)
   })
 })

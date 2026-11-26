@@ -9,12 +9,11 @@ import kotlinx.coroutines.*
 import java.util.UUID
 
 object NewRuntime {
-    val providers = listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi")
-    val previews = setOf("dsh", "pi")
+    val providers = listOf("claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi", "cursor")
+    val previews = setOf("dsh", "pi", "cursor")
     sealed interface Action {
         data object Create : Action
         data class SignIn(val runtime: AgentRuntime) : Action
-        data object Unavailable : Action
     }
     fun nameTaken(existing: List<AgentRuntime>, name: String) = existing.any {
         (it.local?.agentLabel ?: RuntimeIdentity.name(it.provider)).equals(name.trim(), ignoreCase = true)
@@ -25,9 +24,10 @@ object NewRuntime {
         while (nameTaken(existing, name)) { n++; name = "$base $n" }
         return name
     }
-    fun action(existing: List<AgentRuntime>, provider: String): Action =
+    /** Null when there is nothing to offer: Antigravity's sign-in is the computer's own, so the list leaves it out. */
+    fun action(existing: List<AgentRuntime>, provider: String): Action? =
         existing.firstOrNull { it.provider == provider && it.signedIn != true }?.let { Action.SignIn(it) }
-            ?: if (provider == "antigravity") Action.Unavailable else Action.Create
+            ?: if (provider == "antigravity") null else Action.Create
 
 }
 
@@ -61,7 +61,7 @@ class NewRuntimeStore(
         when (val action = NewRuntime.action(existing(), candidate)) {
             NewRuntime.Action.Create -> { provider = candidate; name = NewRuntime.defaultName(existing(), candidate) }
             is NewRuntime.Action.SignIn -> { provider = candidate; runtime = action.runtime }
-            NewRuntime.Action.Unavailable -> Unit
+            null -> Unit
         }
     }
     fun create() {

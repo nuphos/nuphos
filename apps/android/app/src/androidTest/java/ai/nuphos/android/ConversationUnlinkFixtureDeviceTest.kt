@@ -196,8 +196,8 @@ class ConversationUnlinkFixtureDeviceTest {
         compose.waitUntil(5_000) { child().parentSessionId == null && store.unlinkingSessionId == null }
         assertEquals(1, deletes())
         assertEquals("child", store.conversations.first { it.sessionId == "leaf" }.parentSessionId)
-        compose.onNodeWithContentDescription("Hide 1 sub-agents").assertExists()
-        compose.onNodeWithContentDescription("Hide 2 sub-agents").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Hide 1 sub-task").assertExists()
+        compose.onNodeWithContentDescription("Hide 2 sub-tasks").assertDoesNotExist()
         compose.onNodeWithText("Synthetic parent").assertExists()
         shot("success-root")
     }

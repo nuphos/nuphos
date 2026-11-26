@@ -4,7 +4,7 @@ import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
-import { AGENT_PROVIDER } from '../../types/runtime'
+import { agentProvider } from '../../types/runtime'
 
 import { RuntimeLoginBody } from './RuntimeLoginBody'
 import { useRuntimeLogin } from './useRuntimeLogin'
@@ -50,7 +50,7 @@ export function RuntimeLoginDialog({
   /** `connected` is true when the sign-in succeeded. */
   onClose: (connected: boolean) => void
 }) {
-  const account = AGENT_PROVIDER[instance.provider].account
+  const account = agentProvider(instance.provider).account
   const state = useRuntimeLogin(
     teamId,
     instance,

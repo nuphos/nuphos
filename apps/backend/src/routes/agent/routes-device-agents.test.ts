@@ -329,3 +329,36 @@ test("removing anyway is for the computer's managers only", async () => {
   expect(response.status).toBe(404)
   expect(calls).toEqual([])
 })
+
+test('an agent the host is too old to know is refused with the update it needs (#5082)', async () => {
+  const host = (client: string, status = {}) =>
+    app({
+      getPresence: async () => ({
+        conn: 'c1',
+        seenAt: Date.now(),
+        client,
+        status: { agents: {}, agentInstances: true, ...status },
+      }),
+    })
+  const old = host('nuphos-desktop/0.136.0')
+  const response = await old.create({ provider: 'cursor' })
+
+  expect(response.status).toBe(409)
+  expect(await response.json()).toEqual({
+    error: 'Nuphos on this computer is too old to add Cursor. Update it there, then try again.',
+  })
+  expect(old.calls).toEqual([])
+  // The version a host reports in its status wins over the one it connected with.
+  expect(
+    (
+      await host('nuphos-desktop/0.137.0', { app: { version: '0.132.0' } }).create({
+        provider: 'cursor',
+      })
+    ).status,
+  ).toBe(409)
+  expect((await host('nuphos-cli/0.29.5').create({ provider: 'cursor' })).status).toBe(409)
+  expect((await old.create({ provider: 'codex' })).status).toBe(201)
+  expect((await host('nuphos-desktop/0.137.0').create({ provider: 'cursor' })).status).toBe(201)
+  expect((await host('nuphos-cli/0.30.0').create({ provider: 'cursor' })).status).toBe(201)
+  expect((await host('nuphos-desktop/dev').create({ provider: 'cursor' })).status).toBe(201)
+})

@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">Tidak dapat memuat pemicu</string>
     <string name="chat_triggers_update_failed">Tidak dapat memperbarui pemicu</string>
     <string name="chat_triggers_title">Pemicu</string>
-    <string name="chat_triggers_empty">Minta agen menjadwalkan pekerjaan rutin dalam percakapan ini.</string>
+    <string name="chat_triggers_empty">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_trigger_paused">Dijeda</string>
     <string name="chat_trigger_next_run">Berikutnya: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Menunggu webhook</string>
@@ -139,7 +139,7 @@
     <string name="chat_always_allow_title">Selalu izinkan</string>
     <string name="chat_always_allow_body">Perintah yang cocok dengan deskripsi ini akan berjalan tanpa bertanya.</string>
     <string name="chat_allow">Izinkan</string>
-    <string name="chat_agent_fallback_title">Agen</string>
+    <string name="chat_agent_fallback_title">Tugas</string>
     <string name="chat_memory_updated">Memori diperbarui</string>
     <string name="chat_reasoning_thinking">Berpikir…</string>
     <string name="chat_reasoning_thought">Selesai berpikir</string>
@@ -195,13 +195,13 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">Perintah</string>
     <string name="chat_summary_running">Berjalan</string>
-    <string name="chat_summary_open">Ringkasan agen</string>
+    <string name="chat_summary_open">Ringkasan tugas</string>
     <string name="chat_summary_output_truncated">Keluaran sebelumnya disembunyikan.</string>
     <string name="chat_summary_changes">Perubahan</string>
     <string name="chat_summary_children">Subtugas</string>
     <string name="chat_summary_files">File</string>
     <string name="chat_summary_triggers">Pemicu</string>
-    <string name="chat_summary_no_triggers">Minta agen menjadwalkan pekerjaan berulang dalam tugas ini.</string>
+    <string name="chat_summary_no_triggers">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_summary_idle">Menganggur</string>
     <string name="chat_bot_details_title">Detail bot</string>
     <string name="chat_bot_state_waiting">%1$d perlu masukan Anda</string>
@@ -209,4 +209,7 @@
     <string name="chat_summary_idle_since">Menganggur · %1$s</string>
     <string name="chat_bot_details_no_triggers">Minta di sini untuk menjadwalkan pekerjaan rutin.</string>
     <string name="chat_summary_paused">Dijeda</string>
+    <string name="chat_bot_instructions">Instruksi Bot</string>
+    <string name="chat_bot_instructions_edit">Edit instruksi</string>
+    <string name="chat_bot_instructions_none">Belum ada</string>
 </resources>

@@ -73,7 +73,8 @@ export const botAccessScenarios: Scenario[] = [
       if (
         !made?.access?.awsRoleIds ||
         !deviceIds.length ||
-        made.access.resendIntegrationIds?.length
+        !made.access.allCredentials ||
+        !made.access.allDevices
       )
         throw new Error(`"+" stored ${JSON.stringify(made?.access)}, not its owner's default`)
       if ((await page.getByText(CHOOSE).count()) > 0)
@@ -120,6 +121,36 @@ export const botAccessScenarios: Scenario[] = [
           ),
       )
 
+      // Custom: All lists nothing; turning it off shows every computer ticked, unticking one
+      // stores what is ticked, and the switch brings All back. This team has no credentials;
+      // mcp-credential-defaults narrows those.
+      await access(page)
+        .getByRole('button', { name: /^Computers/ })
+        .click()
+      const menu = page.getByRole('menu')
+
+      await menu.getByRole('switch').waitFor()
+      if ((await menu.getByRole('menuitemcheckbox').count()) > 0)
+        throw new Error('All still lists the computers')
+      await menu.getByRole('switch').click()
+      await menu.getByRole('menuitemcheckbox', { checked: true }).first().click()
+      await until('unticking a computer to leave All', async () => {
+        const now = botNamed(stack, 'E2E Bot')?.access
+
+        return Boolean(now && !now.allDevices && (now.deviceIds?.length ?? 0) < deviceIds.length)
+      })
+      await shoot(page, 'custom-computers')
+      await menu.getByRole('switch').click()
+      await until('the switch to bring All back', async () =>
+        Boolean(botNamed(stack, 'E2E Bot')?.access?.allDevices),
+      )
+      await page.keyboard.press('Escape')
+      await menu.waitFor({ state: 'detached' })
+      const narrowed = botNamed(stack, 'E2E Bot')?.access
+
+      if (JSON.stringify(narrowed?.deviceIds) !== JSON.stringify(deviceIds))
+        throw new Error(`All again stored ${JSON.stringify(narrowed)}`)
+
       await narrowDetails(page)
 
       // A Task's sidebar lists its pull requests and issues under Changes; Bot details don't.
@@ -135,13 +166,13 @@ export const botAccessScenarios: Scenario[] = [
 
       // The Bot's own page is a Task: its composer keeps every control.
       await openBotTask(page)
-      await page.getByText('Back to conversation').waitFor()
+      await page.getByText('Back to chat').waitFor()
       await composer(page).getByRole('button', { name: 'Authorization mode' }).waitFor()
       if ((await composerAccess(page)) !== 3)
         throw new Error(`The Bot's page composer offers ${String(await composerAccess(page))} of 3`)
       await shoot(page, 'task-composer')
-      await page.getByText('Back to conversation').click()
-      await page.getByText('Back to conversation').waitFor({ state: 'hidden' })
+      await page.getByText('Back to chat').click()
+      await page.getByText('Back to chat').waitFor({ state: 'hidden' })
       await setBotDetails(page, false)
     },
   },

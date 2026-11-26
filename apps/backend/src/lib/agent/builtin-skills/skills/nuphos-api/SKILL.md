@@ -95,7 +95,7 @@ there is no token or approval that turns them on.
 So on `403 conversation_api_forbidden`, do not report it as missing permissions
 and do not ask for the API to be opened. Say plainly that agents cannot perform
 this operation, and name the step the user takes in the Nuphos app (binding a
-cloud account or integration lives under Settings -> Integrations), including
+cloud account or integration lives under Settings -> Connectors), including
 the exact values they need to enter. Do everything you *can* do first — for a
 cloud onboarding that usually means preparing the service account, role, or
 trust policy with the provider skill — so only the human step is left.

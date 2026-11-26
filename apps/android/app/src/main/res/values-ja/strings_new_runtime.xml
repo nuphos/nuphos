@@ -3,7 +3,6 @@
     <string name="new_runtime_title">新しいランタイム</string>
     <string name="new_runtime_sign_in">%1$s にサインイン</string>
     <string name="new_runtime_preview">%1$s · プレビュー</string>
-    <string name="new_runtime_shared_sign_in">Antigravity はこのコンピューターの共有ログインを使用します</string>
     <string name="new_runtime_on_computer">%1$s 上に作成します。次にサインインします。</string>
     <string name="new_runtime_name">ランタイム名</string>
     <string name="new_runtime_name_taken">このコンピュータの別のランタイムがすでにこの名前を使用しています。</string>

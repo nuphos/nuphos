@@ -21,7 +21,6 @@ for (const [key, value] of Object.entries(browser))
   Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
 
 const { AgentUsageRow } = await import('./AgentUsageRow')
-const { RuntimeUsageSection } = await import('./RuntimeOverview')
 const { createRoot } = await import('react-dom/client')
 
 const quota: RuntimeQuota = {
@@ -41,8 +40,8 @@ const instance = {
   status: 'active',
 } as RuntimeInstance
 
-/** Each usage bar's figure and fill, in order. */
-async function readBars(element: ReturnType<typeof createElement>) {
+/** The row's text and its bar's fill. */
+async function render(element: ReturnType<typeof createElement>) {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -52,22 +51,54 @@ async function readBars(element: ReturnType<typeof createElement>) {
     await act(() => root.render(element))
 
     return {
-      figures: (container.textContent ?? '').match(/\d{1,3}% left/gu),
-      fills: [...container.querySelectorAll('[role="progressbar"] > *')].map(
-        (fill) => (fill as unknown as HTMLElement).style.width,
-      ),
+      text: container.textContent ?? '',
+      fill: (container.querySelector('[role="progressbar"] > *') as unknown as HTMLElement | null)
+        ?.style.width,
     }
   } finally {
     await act(() => root.unmount())
   }
 }
 
-test('the Runtimes row and the details panel read the same usage the same way', async () => {
-  const row = await readBars(
-    createElement(AgentUsageRow, { instance, quota, selected: false, onSelect: () => null }),
+const hours = (values: number[]) => values.map((value, i) => ({ at: i * 3_600_000, value }))
+const row = (q: RuntimeQuota, peak?: ReturnType<typeof hours>) =>
+  render(
+    createElement(AgentUsageRow, {
+      instance,
+      quota: q,
+      peak,
+      selected: false,
+      onSelect: () => null,
+    }),
   )
-  const details = await readBars(createElement(RuntimeUsageSection, { quota }))
 
-  assert.deepEqual(details, { figures: ['64% left', '13% left'], fills: ['64%', '13%'] })
-  assert.deepEqual(row, details)
+test('the row shows the busiest window used now and no hours at a limit', async () => {
+  const { text, fill } = await row(quota, hours([20, 40, 87]))
+
+  assert.equal(fill, '87%')
+  assert.match(text, /87%/u)
+  assert.match(text, /–$/u)
+})
+
+test('a window just short of its limit is not shown as used up', async () => {
+  const nearly = {
+    ...quota,
+    windows: [{ id: 'seven_day', label: 'Weekly', usedPercent: 99.6, resetsAt: null }],
+  }
+  const { text } = await row(nearly)
+
+  assert.match(text, /99%/u)
+  assert.doesNotMatch(text, /Limit/u)
+})
+
+test('a used-up window reads Limit, and hours at a limit add up', async () => {
+  const usedUp = {
+    ...quota,
+    windows: [{ id: 'seven_day', label: 'Weekly', usedPercent: 100, resetsAt: null }],
+  }
+  const { text, fill } = await row(usedUp, hours([60, 100, 100, 80, 100]))
+
+  assert.equal(fill, '100%')
+  assert.match(text, /Limit/u)
+  assert.match(text, /3 h$/u)
 })

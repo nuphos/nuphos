@@ -16,9 +16,9 @@ import { TURN_HISTORY_TAIL } from '@/lib/agent/turn-history'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
-// Leaf-module import, NOT the `@/routes/slack` barrel: messages.ts only
-// depends on lib/agent, so this stays cycle-free where the barrel would not.
-import { persistedPartToUiMessagePart } from '@/routes/slack/messages'
+// Leaf-module import: mcp/transcript.ts only depends on lib/agent, so this
+// stays cycle-free where the `@/routes/slack` barrel would not.
+import { persistedPartToUiMessagePart } from '@/routes/mcp/transcript'
 
 import type { AgentChatBody } from './types'
 import type { SlackAgentThread } from '@/lib/slack/agent-bot'

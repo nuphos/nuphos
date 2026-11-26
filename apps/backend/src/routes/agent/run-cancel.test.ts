@@ -72,6 +72,18 @@ describe('stopConversationTurn', () => {
     }
   })
 
+  test('a conversation without a runtime session has nothing to stop', async () => {
+    const spy = spyOn(runStore, 'getActiveAgentRunForSession').mockResolvedValue(null as never)
+    const task = { userId: 'user-1', sessionId: 'session-1', teamId: 'team-1' } as AgentConversation
+
+    try {
+      expect(await stopConversationTurn(task)).toBe('requested')
+      expect(await stopConversationTurn(task)).toBe('requested')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   test('a runtime that does not answer still stops the turn here, with the reason', async () => {
     const cancel = spyOn(runtime, 'cancelConversationRuntime')
     const spies = [

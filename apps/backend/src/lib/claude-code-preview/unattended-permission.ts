@@ -14,12 +14,15 @@ const WAKING_CHANNEL_TOOLS = new Set(['channel_read', 'channel_post'])
 export function allowedUnattended(
   toolCall: OpenAbPermissionRequest['toolCall'],
   wokenChannelIds: readonly string[],
+  // codex-acp asks about an MCP call by its id alone; the call's own update named it (#5133).
+  known?: KnownTool,
 ): boolean {
   const update = parseToolUpdate(toolCall.toolCallId, { ...toolCall })
 
   if (update.kind !== 'tool') return false
-  const tool = nuphosToolName(update.mcpToolId)
-  const channelId = (update.rawInput as { channelId?: unknown } | undefined)?.channelId
+  const tool = nuphosToolName(update.mcpToolId) ?? known?.mcpToolName ?? null
+  const input = update.rawInput ?? known?.input
+  const channelId = (input as { channelId?: unknown } | undefined)?.channelId
 
   return (
     tool !== null &&
@@ -36,6 +39,9 @@ export function unattendedDeniedText(title: string): string {
     "when you're in the conversation."
   )
 }
+
+/** A call as its own tool update described it: the Nuphos tool it runs, and its input. */
+export type KnownTool = { mcpToolName?: string; input?: unknown }
 
 /** The run a turn's permission requests come from, as far as unattended rules go. */
 export type UnattendedRun = {
@@ -54,5 +60,7 @@ export function unattendedTurn(run: UnattendedRun | undefined) {
     headless: run?.deadlineAt !== undefined,
     wokenChannelIds: run?.channelIds ?? [],
     failFast: run?.trace?.route === 'agent.resource',
+    /** A refused or unanswered request: a headless turn goes on to say so, a watched one ends. */
+    refusal: run?.deadlineAt === undefined ? ('cancel' as const) : ('reject' as const),
   }
 }

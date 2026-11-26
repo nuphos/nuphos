@@ -3,7 +3,7 @@ import XCTest
 final class BotPinsUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
-    func testPinnedShelfAndUnpinKeepConversationInRecentList() throws {
+    func testPinnedRowLeavesTheListAndUnpinBringsItBack() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
@@ -30,6 +30,12 @@ final class BotPinsUITests: XCTestCase {
         let pin = shelf.buttons.firstMatch
         XCTAssertTrue(pin.exists)
         XCTAssertFalse(pin.label.isEmpty, "VoiceOver needs the pinned conversation title")
+        // As on Desktop, the pinned chat sits only in the shelf, not in the list below it.
+        let pinnedTitle = app.staticTexts.matching(identifier: "release-planning")
+        XCTAssertTrue(app.staticTexts["design-review"].waitForExistence(timeout: 5))
+        XCTAssertEqual(pinnedTitle.count, shelf.staticTexts.matching(identifier: "release-planning").count,
+                       "A pinned chat must leave the Bots list")
+        shot("pinned-row-leaves-list")
         pin.press(forDuration: 1)
         let unpin = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Unpin'")).firstMatch
         XCTAssertTrue(unpin.waitForExistence(timeout: 5))
@@ -39,6 +45,8 @@ final class BotPinsUITests: XCTestCase {
         responses["GET /teams/\(team)/favorites"] = ["status": 200, "body": ["entries": [], "revision": 2]]
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
         XCTAssertTrue(shelf.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(pinnedTitle.firstMatch.waitForExistence(timeout: 5), "Unpinning returns the chat to the list")
+        shot("unpinned-row-returns")
         let row = app.staticTexts["design-review"].firstMatch
         XCTAssertTrue(row.exists)
         row.press(forDuration: 1)
@@ -49,6 +57,8 @@ final class BotPinsUITests: XCTestCase {
         shot("bot-row-preview")
         pinAction.tap()
         XCTAssertTrue(shelf.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "design-review").count,
+                       shelf.staticTexts.matching(identifier: "design-review").count, "Pinning a chat takes it out of the list")
     }
     func testLongPressingSecondPinUsesItsOwnConversation() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -113,8 +123,11 @@ final class BotPinsUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
-        let entry = app.navigationBars.buttons["chat.botTask"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's header has no Task button")
+        let more = app.buttons["chat.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot chat's header has no More button")
+        more.tap()
+        let entry = app.buttons["Task"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's More has no Task")
         shot("bot-header-task")
         entry.tap()
         XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The header's Task button did not open the Bot's Task")

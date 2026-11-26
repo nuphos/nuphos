@@ -24,8 +24,13 @@ final class ChannelSession {
     private(set) var readOnly = false
     /// Posts shown at once, until the chat returns them under the same id.
     private(set) var sending: [ChannelPost] = []
-    /// What a sending post attached, drawn from the device until it is posted.
-    private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
+    /// What a sending post attached, drawn from the device until it is posted,
+    /// and how far it has uploaded.
+    private(set) var sendingUploads: [String: SendingUpload] = [:]
+    struct SendingUpload {
+        let attachments: [ComposerAttachment]
+        let progress = Progress()
+    }
     /// Each posted file group's files, read once its post shows, so the chat
     /// shows without waiting on them; a card drawn before then reads its own (#3525).
     private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
@@ -53,6 +58,12 @@ final class ChannelSession {
         self.channelId = channelId
         self.title = title
         questions = OpenQuestions(token: token, teamId: teamId)
+        // The chat opens on its last read, as a messaging app does; `refresh` reads it again.
+        if let detail = NuphosAPI.cachedConversationDetail(token: token, sessionId: channelId) {
+            let agents = LaunchCache.chat(Self.agentsName(channelId), token: token)
+                .flatMap { try? JSONDecoder().decode(AgentsEnvelope.self, from: $0).agents }
+            apply(detail, agents: agents ?? [])
+        }
     }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
@@ -152,7 +163,7 @@ final class ChannelSession {
     private func apply(_ detail: AgentConversationDetail, agents listed: [ChannelAgent]) {
         stored = detail.messages.compactMap(ChannelPost.init)
         sending = ChannelPost.stillSending(stored: stored, sending: sending)
-        sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
+        sendingUploads = sendingUploads.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
@@ -183,11 +194,16 @@ final class ChannelSession {
                                        query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
     }
 
+    private struct AgentsEnvelope: Decodable { let agents: [ChannelAgent] }
+    private static func agentsName(_ channelId: String) -> String { "\(channelId).agents" }
+
     private static func listAgents(token: String, teamId: String, channelId: String) async throws -> [ChannelAgent] {
-        struct Envelope: Decodable { let agents: [ChannelAgent] }
-        let envelope: Envelope = try await WorkspaceAPI.request(
-            "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
-        return envelope.agents
+        let data = try await AgentChatAPI.send(
+            "GET", "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: JSONValue?.none, timeout: 60)
+        let agents = try JSONDecoder().decode(AgentsEnvelope.self, from: data).agents
+        LaunchCache.storeChat(data, as: agentsName(channelId), token: token)
+        return agents
     }
 
     // MARK: - Questions
@@ -223,16 +239,17 @@ final class ChannelSession {
         sending.append(ChannelPost(
             id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
             text: text, sentAt: .now, replyTo: reply, sending: true))
-        if !submission.attachments.isEmpty { sendingAttachments[id] = submission.attachments }
+        let upload = submission.attachments.isEmpty ? nil : SendingUpload(attachments: submission.attachments)
+        sendingUploads[id] = upload
         lastSubmittedRowID = "post.\(id)"
         Task {
             do {
                 var body: [String: JSONValue] = ["text": .string(text), "id": .string(id)]
                 if let replyId = reply?.id { body["replyTo"] = .string(replyId) }
-                if !submission.attachments.isEmpty {
-                    let upload = try await WorkspaceAPI.upload(
-                        token: token, team: teamId, attachments: submission.attachments, progress: Progress())
-                    body["upload"] = .string(upload.groupId)
+                if let upload {
+                    let group = try await WorkspaceAPI.upload(
+                        token: token, team: teamId, attachments: upload.attachments, progress: upload.progress)
+                    body["upload"] = .string(group.groupId)
                 }
                 _ = try await AgentChatAPI.send(
                     "POST", "agent/conversations/\(channelId)/channel-messages",
@@ -241,7 +258,7 @@ final class ChannelSession {
                 await refresh(force: true)
             } catch {
                 sending.removeAll { $0.id == id }
-                sendingAttachments[id] = nil
+                sendingUploads[id] = nil
                 sendError = error.localizedDescription
                 unsent = submission
                 replying = reply

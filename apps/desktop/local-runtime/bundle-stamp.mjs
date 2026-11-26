@@ -49,6 +49,7 @@ export const RUNTIME_SOURCES = [
   'pi-session.mjs',
   'pi-acp/package.json',
   'pi-acp/package-lock.json',
+  'cursor-login.mjs',
   'reply-images.mjs',
   'reply-image-stream.mjs',
   'mcp-bridge-config.mjs',

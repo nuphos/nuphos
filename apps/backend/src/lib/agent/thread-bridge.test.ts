@@ -507,7 +507,7 @@ describe('conversation-scoped thread tools', () => {
       openabSessionId: 'live',
       runtimeUrl: 'http://runtime',
       runtimeDefaults: { model: 'default', effort: 'high' },
-    } as never
+    }
     try {
       const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
@@ -602,7 +602,13 @@ describe('conversation-scoped thread tools', () => {
     )
     // Nothing ran; the unused conversation is archived.
     expect(claims).toHaveLength(0)
-    expect(archives).toEqual([[shells[0]?.sessionId, true]])
+    expect(archives).toEqual([
+      [
+        shells[0]?.sessionId,
+        true,
+        { source: 'create_thread', userId: 'owner', agentSessionId: 'source' },
+      ],
+    ])
   })
 
   test('send returns the delivered message id', async () => {
@@ -675,10 +681,13 @@ describe('archive thread', () => {
     target.archivedAt = new Date()
     await setAgentThreadArchived(actor, 'target', false)
     await setAgentThreadArchived(actor, 'source', true)
+    // Each names the agent that did it and the owner it acted for.
+    const by = { source: 'archive_thread', userId: 'owner', agentSessionId: 'source' }
+
     expect(archives).toEqual([
-      ['target', true],
-      ['target', false],
-      ['source', true],
+      ['target', true, by],
+      ['target', false, by],
+      ['source', true, by],
     ])
   })
   test('rejects missing, foreign-owner and cross-team targets without a write', async () => {

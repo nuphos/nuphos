@@ -3,7 +3,7 @@ import type { AgentConversation } from '@/lib/agent/db'
 import type { CliTokenPrincipal } from '@/lib/identity/cli-tokens'
 import type { UIMessage } from 'ai'
 
-import { agentMessages, getConversationMessagesHead } from '@/lib/agent/db'
+import { getConversationMessagesHead } from '@/lib/agent/db'
 import { attributeAppMessages } from '@/lib/agent/message-attribution'
 import {
   validateRequestedAgentRuntime,
@@ -120,10 +120,9 @@ export async function hydrateStoredPrefix(
 
 /**
  * The client sends only the tail from its latest user message on, which holds
- * the whole current turn. The stored prefix is not read back: the turn plan
- * rebuilds the transcript from the store anyway, so reading it here as well
- * cost a full transcript read on every send. Only its count is checked, so a
- * send from a client ahead of the store still gets 409 and rebases.
+ * the whole current turn. The stored prefix is neither read back nor counted:
+ * the turn plan rebuilds the transcript from the store, so a client ahead of
+ * the store (a reply shown before its turn is stored, #4394) needs no rebase.
  */
 export async function acceptClientTail(
   body: AgentChatBody,
@@ -135,18 +134,10 @@ export async function acceptClientTail(
   cliToken?: CliTokenPrincipal,
   teamId?: string,
 ): Promise<UIMessage[]> {
-  const baseIndex = body.baseIndex ?? 0
   const messages = body.messages
 
-  // A resume only attaches to a running stream and never reads the tail, so a
-  // tail ahead of the store (an answer shown before its turn is stored) is fine.
-  if (baseIndex > 0 && !body.resume) {
-    if (!conversationForResume) {
-      throw new AppError(409, 'transcript_out_of_sync', 'Conversation not found for baseIndex')
-    }
-    const stored = await agentMessages().countDocuments({ sessionId, userId: runOwnerUserId })
-
-    if (stored < baseIndex) throw transcriptOutOfSync(stored, baseIndex)
+  if ((body.baseIndex ?? 0) > 0 && !body.resume && !conversationForResume) {
+    throw new AppError(409, 'transcript_out_of_sync', 'Conversation not found for baseIndex')
   }
 
   await attributeAppMessages(

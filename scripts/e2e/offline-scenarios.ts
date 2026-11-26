@@ -6,7 +6,7 @@ import { diskScenarios } from './disk-scenarios.ts'
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
 import { OUTDATED_LINE, backOnFixture } from './outdated-turn-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, pickInRow, send } from './ui.ts'
+import { newTask, openComputers, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -50,8 +50,10 @@ export const offlineScenarios: Scenario[] = [
     expected: new RegExp(RESTORE_FAILED),
     run: async (page, stack) => {
       const goOffline = await laptopOnline(stack, {
-        client: 'nuphos-desktop/0.119.0',
-        app: { version: '0.119.0', update: { version: '0.131.0', ready: true } },
+        // #5081: 0.127.0 to 0.133.1 start an update while idle but hang on the quit that
+        // installs it, so they are out of date too.
+        client: 'nuphos-desktop/0.132.0',
+        app: { version: '0.132.0', update: { version: '0.137.0', ready: true } },
         restoreFails: true,
       })
 
@@ -81,6 +83,14 @@ export const offlineScenarios: Scenario[] = [
         if (await banner.getByRole('button', { name: 'Update' }).count())
           throw new Error('The banner offered an Update that restarts a Desktop older than 0.133.2')
         await backOnFixture(page, 'after-outdated')
+        await openComputers(page)
+        await page.getByText('Nuphos on this computer is out of date').waitFor()
+        await page
+          .getByText('Quit Nuphos fully on it (⌘Q on a Mac) and reopen it.', { exact: false })
+          .first()
+          .waitFor()
+        await page.screenshot({ path: join(artifacts, 'outdated-computer-card.png') })
+        await page.getByText('Back to app', { exact: true }).click()
       } finally {
         goOffline()
       }

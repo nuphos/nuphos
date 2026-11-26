@@ -8,6 +8,7 @@ export const AGENT_PROVIDERS = [
   'hermes',
   'dsh',
   'pi',
+  'cursor',
 ] as const
 
 export type AgentProvider = (typeof AGENT_PROVIDERS)[number]
@@ -25,6 +26,17 @@ export const AGENT_PROVIDER: Record<
   hermes: { label: 'Hermes Agent', account: 'a model provider' },
   dsh: { label: 'DeepSeek Harness', account: 'DeepSeek', preview: true },
   pi: { label: 'Pi', account: 'a model provider', preview: true },
+  cursor: { label: 'Cursor', account: 'Cursor', preview: true },
+}
+
+/**
+ * An agent's entry. A newer backend can list an agent this build does not know yet; it is
+ * named by its id instead of taking the window down.
+ */
+export function agentProvider(provider: string): (typeof AGENT_PROVIDER)[AgentProvider] {
+  return Object.hasOwn(AGENT_PROVIDER, provider)
+    ? AGENT_PROVIDER[provider as AgentProvider]
+    : { label: provider, account: 'a model provider' }
 }
 
 export type LocalRuntimeSummary = {

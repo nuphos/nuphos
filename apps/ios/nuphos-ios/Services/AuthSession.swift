@@ -50,6 +50,9 @@ final class AuthSession {
         return SavedAccounts()
     }()
     private(set) var generation = 0
+    /// Home was painted from the cache but the launch check could not reach
+    /// Nuphos, so the token is still unchecked. RootView checks again on return.
+    private(set) var unverified = false
     private(set) var accountError: String?
     private(set) var addingAccount = false
     private var returnAccountID: String?
@@ -123,18 +126,27 @@ final class AuthSession {
         }
         #endif
 
-        if let active = savedAccounts.active, active.token != nil {
-            await selectAccount(active.id)
-            return
-        }
-        guard !savedAccounts.hasRegistry, savedAccounts.error == nil, let saved = Keychain.read(Self.tokenKey) else {
+        // The active account, or a token from before saved accounts. Both open
+        // the same way, with no reset first: nothing is open to reset, and a
+        // reset would drop the cache this launch paints from.
+        let account = savedAccounts.active
+        let saved: String
+        if let account, let accountToken = account.token {
+            saved = accountToken
+            UserDefaults.standard.set(account.origin, forKey: NuphosAPI.baseURLKey)
+            identityOrigin = account.origin
+        } else if !savedAccounts.hasRegistry, savedAccounts.error == nil, let legacy = Keychain.read(Self.tokenKey) {
+            saved = legacy
+        } else {
             state = .signedOut(error: nil)
             return
         }
 
         let expected = generation
         token = saved
-        if let cached = LaunchCache.read(LaunchCache.User.self), cached.aiConsentVersion == AccountAPI.aiConsentVersion {
+        unverified = false
+        if let cached = LaunchCache.read(LaunchCache.User.self), cached.aiConsentVersion == AccountAPI.aiConsentVersion,
+           account == nil || cached.user.id == account?.user.id {
             aiConsentAccepted = true
             aiConsentVersion = cached.aiConsentVersion
             state = .signedIn(cached.user)
@@ -142,6 +154,7 @@ final class AuthSession {
         do {
             let user = try await NuphosAPI.currentUser(token: saved)
             guard generation == expected, token == saved else { return }
+            if let account, user.id != account.user.id { throw NuphosAPI.Failure.unauthorized }
             try savedAccounts.save(user: user, token: saved, origin: identityOrigin)
             clearLegacyToken()
             await loadAIConsent()
@@ -153,12 +166,16 @@ final class AuthSession {
         } catch NuphosAPI.Failure.unauthorized {
             guard generation == expected, token == saved else { return }
             clearToken()
-            state = .signedOut(error: nil)
+            guard let account else { state = .signedOut(error: nil); return }
+            do { try savedAccounts.invalidate(account.id) }
+            catch { state = .signedOut(error: String(localized: "We could not remove the expired session. Try again.")); return }
+            state = .signedOut(error: String(localized: "This account's session expired. Sign in again."))
         } catch {
+            // Offline: a Home painted from the cache stays, as a chat app's does.
             guard generation == expected, token == saved else { return }
-            if self.user == nil {
-                state = .signedOut(error: String(localized: "We could not reach Nuphos. Check your connection and try again."))
-            }
+            if self.user != nil { unverified = true; return }
+            token = nil
+            state = .signedOut(error: String(localized: "We could not reach Nuphos. Check your connection and try again."))
         }
     }
 
@@ -302,6 +319,7 @@ final class AuthSession {
         SharedShareSession.revoke()
         PushNotifications.shared.invalidateRouting()
         generation += 1
+        unverified = false
         webSession?.cancel()
         webSession = nil
         let previous = pushCleanup

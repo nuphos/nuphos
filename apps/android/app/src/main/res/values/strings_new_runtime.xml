@@ -3,7 +3,6 @@
     <string name="new_runtime_title">New runtime</string>
     <string name="new_runtime_sign_in">Sign in to %1$s</string>
     <string name="new_runtime_preview">%1$s · Preview</string>
-    <string name="new_runtime_shared_sign_in">Antigravity uses this computer’s shared sign-in</string>
     <string name="new_runtime_on_computer">On %1$s. You sign it in next.</string>
     <string name="new_runtime_name">Runtime name</string>
     <string name="new_runtime_name_taken">Another runtime on this computer already has this name.</string>

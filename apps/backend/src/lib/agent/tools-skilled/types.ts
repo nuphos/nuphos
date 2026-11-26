@@ -47,7 +47,7 @@ export type SlackSearchToolResult = {
 }
 
 export type ExplicitUserDecision = {
-  category: 'preference' | 'approval' | 'credential' | 'integration' | 'risk_tradeoff'
+  category: 'preference' | 'approval' | 'credential' | 'integration' | 'risk_tradeoff' | 'computer'
   question: string
   /** Markdown context the user decides from without reading the chat. */
   body?: string

@@ -86,6 +86,10 @@
     <string name="composer_opening_draft">新しい下書きを開いています。まだ何も送信されていません。</string>
     <string name="composer_cancel_share">共有をキャンセル</string>
     <string name="composer_queued_messages">キュー内のメッセージ</string>
+    <string name="composer_queue_usage_held">使用量の上限です。リセットされると実行されます。</string>
+    <string name="composer_queue_usage_held_days">使用量の上限です。%1$d日%2$d時間後にリセットされると実行されます。</string>
+    <string name="composer_queue_usage_held_hours">使用量の上限です。%1$d時間%2$d分後にリセットされると実行されます。</string>
+    <string name="composer_queue_usage_held_minutes">使用量の上限です。%1$d分後にリセットされると実行されます。</string>
     <string name="composer_refresh_queue">キューを更新</string>
     <string name="composer_taken_back">取り消しました。このタスクを離れる前にこのテキストを復元してください。</string>
     <string name="composer_queued_attachment">キュー内の添付ファイル</string>

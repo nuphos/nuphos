@@ -336,6 +336,61 @@ test('the consent version shipped clients send passes auth and can be saved', as
   expect((await app.request('/agent/chat', { method: 'POST', headers })).status).toBe(200)
 })
 
+// #4853: newer clients show the 2026-11-23 notice while shipped ones still show 2026-09-28.
+test('both shown notices pass auth on their own consent and unknown ones are refused', async () => {
+  const app = new Hono().onError(errorHandler)
+
+  app.use('*', requireAuth)
+  app.post('/agent/chat', (c) => c.json({ ran: true }))
+  const chat = (version: string) =>
+    app.request('/agent/chat', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer valid-session', 'x-nuphos-ai-consent-version': version },
+    })
+
+  await saveAIConsent(String(USER), { version: '2026-09-28', accepted: true })
+  expect((await chat('2026-09-28')).status).toBe(200)
+  // Consent to the earlier notice does not cover the later one, so the new client asks again.
+  expect((await chat('2026-11-23')).status).toBe(403)
+  expect(await saveAIConsent(String(USER), { version: '2026-11-23', accepted: true })).toEqual({
+    version: '2026-11-23',
+    accepted: true,
+  })
+  expect((docs('users')[0] as NuphosUserDoc).aiConsent?.version).toBe('2026-11-23')
+  expect((await chat('2026-11-23')).status).toBe(200)
+  // The later notice covers the earlier one, so the old client keeps working.
+  expect((await chat('2026-09-28')).status).toBe(200)
+  expect((await chat('2026-12-31')).status).toBe(403)
+  await expect(
+    saveAIConsent(String(USER), { version: '2026-12-31', accepted: true }),
+  ).rejects.toMatchObject({ code: 'invalid_consent' })
+})
+
+// Clients read which notice to show from GET /auth/ai-consent, so it answers in the version they send.
+test('GET ai-consent answers for the notice the client shows', async () => {
+  const { auth } = await import('@/routes/auth')
+  const app = new Hono().onError(errorHandler).route('/auth', auth)
+  const read = async (version?: string) =>
+    (
+      await app.request('/auth/ai-consent', {
+        headers: {
+          Authorization: 'Bearer valid-session',
+          ...(version && { 'x-nuphos-ai-consent-version': version }),
+        },
+      })
+    ).json()
+
+  await saveAIConsent(String(USER), { version: '2026-09-28', accepted: true })
+  expect(await read('2026-11-23')).toEqual({ version: '2026-11-23', accepted: false })
+  expect(await read('2026-09-28')).toEqual({ version: '2026-09-28', accepted: true })
+  // Shipped clients send no version and keep seeing 2026-09-28.
+  expect(await read()).toEqual({ version: '2026-09-28', accepted: true })
+  expect(await read('2026-12-31')).toEqual({ version: '2026-09-28', accepted: true })
+  await saveAIConsent(String(USER), { version: '2026-11-23', accepted: true })
+  expect(await read('2026-11-23')).toEqual({ version: '2026-11-23', accepted: true })
+  expect(await read()).toEqual({ version: '2026-09-28', accepted: true })
+})
+
 test('password reset revokes earlier sessions and run tokens', async () => {
   const earlier = Date.now() - 60_000
   const clock = spyOn(Date, 'now').mockReturnValue(earlier)
@@ -408,7 +463,7 @@ test('an expired session is refused', async () => {
   expect(await realIdentity.authenticateToken(token)).toBeNull()
 })
 
-test('sign-in JWTs issued before sessions work until they expire; longer ones are refused', async () => {
+test('only JWTs signed for a day or less verify; 30-day sign-in JWTs are refused', async () => {
   // Re-signs a run token with a longer lifetime, as the old sign-in code did.
   const forge = (lifetimeSec: number) => {
     const [header, payload] = signNuphosToken(USER, 60).split('.')
@@ -423,15 +478,12 @@ test('sign-in JWTs issued before sessions work until they expire; longer ones ar
     return `${header}.${body}.${sig}`
   }
 
-  const legacy = await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))
+  expect(await realIdentity.authenticateToken(forge(30 * 24 * 60 * 60))).toBeNull()
+  expect(await realIdentity.authenticateToken(forge(24 * 60 * 60 + 1))).toBeNull()
+  const current = await realIdentity.authenticateToken(signNuphosToken(USER, 8 * 60 * 60))
 
-  expect(legacy?.user.id).toBe(String(USER))
-  expect(legacy?.agentRun).toBeUndefined()
-  expect((await realIdentity.authenticateToken(signNuphosToken(USER, 8 * 60 * 60)))?.agentRun).toBe(
-    true,
-  )
-  expect(await realIdentity.authenticateToken(forge(31 * 24 * 60 * 60))).toBeNull()
-  expect((await realIdentity.authenticateToken(forge(8 * 60 * 60)))?.user.id).toBe(String(USER))
+  expect(current?.user.id).toBe(String(USER))
+  expect(current?.agentRun).toBe(true)
   expect(() => signNuphosToken(USER, 30 * 24 * 60 * 60)).toThrow()
 })
 

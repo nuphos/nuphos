@@ -16,6 +16,20 @@ const INITIALIZE = {
 export const ruleIn = (params) =>
   /E2E_RULE:([a-z]+)/.exec(JSON.stringify(params._meta ?? {}))?.[1] ?? 'none'
 
+// The E2E_RULE a turn's instructions update names, read from the lead before the user's
+// words (always the last part) or Codex `_meta`, never from what the user typed.
+export function updatedRule(parts, meta) {
+  const lead = parts
+    .slice(0, -1)
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+  const update = /<nuphos_instructions_update>[\s\S]*?<\/nuphos_instructions_update>/.exec(
+    [...lead, meta?.['ai.nuphos/instructionsUpdate'] ?? ''].join('\n'),
+  )?.[0]
+
+  return update && (/E2E_RULE:([a-z]+)/.exec(update)?.[1] ?? 'none')
+}
+
 /** The system prompt a session opens or loads with, in any of the backend's _meta shapes. */
 const promptOf = (meta = {}) =>
   meta.systemPrompt?.append ??

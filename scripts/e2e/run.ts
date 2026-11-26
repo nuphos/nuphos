@@ -17,11 +17,13 @@ import {
 } from './bot-chat-scenarios.ts'
 import { botTriggerRowScenarios } from './bot-trigger-row-scenarios.ts'
 import { botTurnScenarios } from './bot-turn-scenarios.ts'
+import { botImportModeScenarios } from './bot-import-mode-scenarios.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
+import { computerSettingsScenarios } from './computer-settings-scenarios.ts'
 import { computerUpdateScenarios } from './computer-update-scenarios.ts'
 import { customProviderScenarios } from './custom-provider-scenarios.ts'
 import { mcpFileScenarios } from './mcp-file-scenarios.ts'
@@ -70,6 +72,7 @@ import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
 import { botFoldScenarios, sidebarScenarios } from './sidebar-scenarios.ts'
 import { signInScenarios } from './sign-in-scenarios.ts'
 import { skillScenarios } from './skill-scenarios.ts'
+import { subscriptionUsageScenarios } from './subscription-usage-scenarios.ts'
 import { splitPaneScenarios } from './split-pane-scenarios.ts'
 import { sessionResourceScenarios } from './session-resource-scenarios.ts'
 import { sessionRevokedScenario } from './session-revoked-scenario.ts'
@@ -84,6 +87,7 @@ import { instructionScenarios } from './instruction-scenarios.ts'
 import { triggerScenarios } from './trigger-scenarios.ts'
 import { usageQueueScenarios } from './usage-queue-scenarios.ts'
 import { triggerLinkScenarios } from './trigger-link-scenarios.ts'
+import { slowPsScenarios } from './slow-ps-scenarios.ts'
 import { tunnelScenarios } from './tunnel-scenarios.ts'
 import { turnScenarios } from './turn-scenarios.ts'
 import { voiceScenarios } from './voice-scenarios.ts'
@@ -193,10 +197,13 @@ const scenarios: Scenario[] = [
 // A scenario that needs something created earlier in the run stays in its creator's part.
 const later: Scenario[] = [
   ...computerScenarios,
+  ...subscriptionUsageScenarios,
   ...computerUpdateScenarios,
+  ...computerSettingsScenarios,
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
+  // computerCardScenarios returns with the computer card gate (COMPUTER_CARDS).
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,
@@ -221,10 +228,13 @@ const later: Scenario[] = [
   ...modelRecoveryScenarios,
   // A second computer of its own, which it stops again.
   ...tunnelScenarios,
+  ...slowPsScenarios,
   // Another app of its own per proxy, reaching the backend only through it, which it quits again.
   ...proxyScenarios,
   ...terminalScenarios,
   ...cliBrowserScenarios,
+  // Imports a Bot of its own and makes another with "+".
+  ...botImportModeScenarios,
   // Last: this computer has Claude Code from then on.
   ...installScenarios,
   formScenario,

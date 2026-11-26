@@ -1,3 +1,4 @@
+import { FolderOpen } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
@@ -6,7 +7,12 @@ import { Button } from '../../components/ui/button'
 import { MenuItem } from '../../components/ui/menu'
 import { Switch } from '../../components/ui/Switch'
 import { toast } from '../../components/ui/toast'
+import { useLocalRuntimeState } from '../../hooks/useLocalRuntimeState'
+import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
+
+import { OpenAtLoginSettings } from './OpenAtLoginSettings'
+import { SleepPreventionSettings } from './SleepPreventionSettings'
 
 import type { AgentDevice } from '../../api'
 
@@ -23,10 +29,36 @@ export function ComputerSettingsMenuItem({
   return <MenuItem onClick={onOpen}>{t('Settings…')}</MenuItem>
 }
 
+const CARD = 'rounded-lg border border-line-control/70 bg-surface'
+
+/** Where this computer's local agents keep their files. */
+function WorkspaceFolder() {
+  const workspace = useLocalRuntimeState()?.workspace
+
+  if (!workspace) return null
+
+  return (
+    <div className={`${CARD} flex items-center justify-between gap-4 px-4 py-3`}>
+      <div className="min-w-0">
+        <div className="text-[13px] text-main">{t('Workspace folder')}</div>
+        <div className="truncate text-[12px] text-tertiary" title={workspace}>
+          {workspace}
+        </div>
+      </div>
+      <Button variant="ghost" size="sm" onClick={() => void api.localRuntimeOpenWorkspace()}>
+        <FolderOpen strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
+        {t('Open')}
+      </Button>
+    </div>
+  )
+}
+
 /**
  * A computer's own settings. Its switch for installing updates by itself when idle is the same
  * one as Settings > Updates on a Desktop; the computer keeps it, so it changes only while the
- * computer is online, and offline the last value it reported is shown.
+ * computer is online, and offline the last value it reported is shown. On the computer itself
+ * it also holds the settings only this Desktop can change: opening at login, staying awake and
+ * its workspace folder.
  */
 export function ComputerSettingsDialog({
   open,
@@ -45,6 +77,7 @@ export function ComputerSettingsDialog({
 }) {
   const [enabled, setEnabled] = useState(device.autoInstall !== false)
   const [saving, setSaving] = useState(false)
+  const here = useThisComputer()?.deviceId === device.deviceId
 
   async function change(next: boolean) {
     setSaving(true)
@@ -72,8 +105,9 @@ export function ComputerSettingsDialog({
         </div>
       }
     >
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-4 rounded-lg border border-line-control/70 bg-surface px-4 py-3.5">
+      <div className="space-y-3 p-5">
+        {here && <OpenAtLoginSettings />}
+        <div className={`${CARD} flex items-start justify-between gap-4 px-4 py-3.5`}>
           <div className="min-w-0">
             <div className="text-[13px] text-main">{t('Install updates automatically')}</div>
             <p className="mt-0.5 text-[12px] text-tertiary">
@@ -94,6 +128,12 @@ export function ComputerSettingsDialog({
             onChange={(next) => void change(next)}
           />
         </div>
+        {here && (
+          <>
+            <SleepPreventionSettings />
+            <WorkspaceFolder />
+          </>
+        )}
       </div>
     </Modal>
   )

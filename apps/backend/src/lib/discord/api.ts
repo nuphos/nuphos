@@ -62,7 +62,7 @@ export const NUPHOS_DISCORD_COMMAND = {
     {
       type: 1,
       name: 'enable',
-      description: 'Allow linked workspace members to mention Nuphos in this channel',
+      description: 'Allow linked team members to mention Nuphos in this channel',
     },
     {
       type: 1,

@@ -125,6 +125,14 @@ function buildApp(box: BoxDeps | null = null) {
       isOnline: async () => onlineNow,
       deleteDevice: async (userId, deviceId) => delete devices[key(userId, deviceId)],
       forgetDeviceShares,
+      forgetOwnSignIn: async (userId, deviceId, provider) => {
+        const device = devices[key(userId, deviceId)]
+
+        if (!device || device.box) return false
+        device.signIns = device.signIns?.filter((entry) => entry.agent !== provider)
+
+        return true
+      },
       renameDevice: async (userId, deviceId, label) => {
         const device = devices[key(userId, deviceId)]
 
@@ -255,6 +263,32 @@ describe('agent device routes', () => {
     expect(new Set(Object.keys(devices))).toEqual(
       new Set([key('user-1', 'b1'), key('someone-else', 'theirs')]),
     )
+  })
+
+  test('a CLI sign-in on its own computer replaces whoever signed its default agent in', async () => {
+    const forget = (deviceId: string, provider = 'claude-code') =>
+      buildApp().request(`/agent/devices/${deviceId}/agents/${provider}/sign-in`, {
+        method: 'DELETE',
+      })
+    const at = new Date('2026-11-13T00:00:00Z')
+
+    registerDevice('user-1', 'mac')
+    devices[key('user-1', 'mac')]!.signIns = [
+      { agent: 'claude-code', userId: 'manager', teamId: 'team-1', at, endedAt: at },
+      { agent: 'codex', userId: 'manager', teamId: 'team-1', at },
+    ]
+    registerDevice('user-1', 'b1')
+    devices[key('user-1', 'b1')]!.box = { provider: 'instabox', teamId: 'team-1' }
+    registerDevice('someone-else', 'theirs')
+
+    expect((await forget('mac')).status).toBe(204)
+    expect(devices[key('user-1', 'mac')]!.signIns).toEqual([
+      { agent: 'codex', userId: 'manager', teamId: 'team-1', at },
+    ])
+    // Only its owner's own computer, and only the agents its CLI login signs in.
+    expect((await forget('b1')).status).toBe(404)
+    expect((await forget('theirs')).status).toBe(404)
+    expect((await forget('mac', 'opencode')).status).toBe(400)
   })
 
   test('DELETE /agent/devices/:id still removes a computer it could not disconnect', async () => {

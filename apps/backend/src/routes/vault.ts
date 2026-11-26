@@ -15,13 +15,68 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
+import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
+import { liveDevice } from '@/routes/agent/router'
 
 import type { AuthVariables } from '@/middleware/auth'
+import type { Context } from 'hono'
 
-// A user's own vault. Only a signed-in user session reaches these: conversation
-// tokens are not accepted by requireAuth, so an agent never reads a vault.
+// A user's own vault, end-to-end encrypted: the server stores only ciphertext, wrapped
+// item keys and device public keys, so it can never decrypt an item. Whatever reaches
+// these routes gets only that. A signed-in session reaches them, except the computer
+// read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
+
+// A computer reaches two routes with its own device credential, registered before
+// requireAuth, which refuses one. When it joins, it offers its own key to its
+// owner's vault; once a device linked to it is approved, it reads an item with that
+// device's key only.
+vaultRoutes.post('/computer/devices', (c) => offerKeyFromComputer(c))
+vaultRoutes.get('/computer/items/:name', (c) => readComputerItem(c))
+
+async function computerOf(c: Context, live: typeof liveDevice) {
+  const found = await live(c.req.header('Authorization'))
+
+  if (!found) throw new AppError(401, 'unauthorized', 'Invalid device credential')
+
+  return found.device
+}
+
+/** Separate from the route so its credential check can be tested without a database. */
+export async function offerKeyFromComputer(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; offer: typeof offerComputerKey } = {
+    liveDevice,
+    offer: offerComputerKey,
+  },
+) {
+  const device = await computerOf(c, deps.liveDevice)
+  const body = z.object({ publicKey: x25519Key }).safeParse(await c.req.json().catch(() => null))
+
+  if (!body.success) throw new AppError(400, 'bad_request', 'Invalid public key')
+
+  return c.json({ device: await deps.offer(device, body.data.publicKey) }, 201)
+}
+
+/** Separate from the route so its credential check can be tested without a database. */
+export async function readComputerItem(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; getItem: typeof getVaultItemForComputer } = {
+    liveDevice,
+    getItem: getVaultItemForComputer,
+  },
+) {
+  const { userId, deviceId } = await computerOf(c, deps.liveDevice)
+
+  return c.json(
+    await deps.getItem(
+      c.req.query('user') ?? '',
+      { userId, deviceId },
+      nameParam(c.req.param('name') ?? ''),
+    ),
+  )
+}
 
 vaultRoutes.use('*', requireAuth)
 

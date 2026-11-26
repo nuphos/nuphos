@@ -181,7 +181,8 @@ export const usageQueueScenarios: Scenario[] = [
         throw new Error('A turn the usage limit stopped while compacting shows as a failed request')
       const takeBack = page.getByRole('button', { name: 'Take back' })
 
-      while ((await takeBack.count()) > 0) await takeBack.first().click()
+      // From the back: taking the held message back first would let the next one start.
+      while ((await takeBack.count()) > 0) await takeBack.last().click()
     },
   },
 ]

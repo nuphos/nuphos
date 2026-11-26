@@ -116,6 +116,8 @@ export async function openBotTask(page: Page) {
 export async function newTask(page: Page) {
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()
+  // Until the Bot chat left behind is gone, its details' controls show beside the new Task's.
+  await page.getByRole('complementary', { name: 'Bot details' }).waitFor({ state: 'hidden' })
 }
 
 /** The team's Computers page, through ⌘K. */

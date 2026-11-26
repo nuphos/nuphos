@@ -100,6 +100,8 @@ export type LocalSkillInfo = {
   files: { relPath: string; realPath: string; size: number; outside: boolean }[]
   fileCount: number
   totalBytes: number
+  /** A walk cap stopped short, so an import would be refused as incomplete. */
+  truncated: boolean
   updatedAt: string
 }
 
@@ -108,7 +110,7 @@ export type LocalSkillImportOutcome = {
   id: string
   name: string
   status: 'imported' | 'skipped' | 'failed'
-  reason?: 'name_taken' | 'builtin' | 'changed' | 'missing' | 'error'
+  reason?: 'name_taken' | 'builtin' | 'changed' | 'missing' | 'error' | 'incomplete' | 'too_large'
   message?: string
   keys: string[]
   /** Files the store would have rejected for size. */

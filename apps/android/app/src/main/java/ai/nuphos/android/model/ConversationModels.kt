@@ -76,6 +76,8 @@ data class AgentConversation(
     /** Open `request_user_decision` questions, oldest first; list rows carry only the open ones. */
     val inputRequests: List<InputRequest>? = null,
     val botOnboarding: String? = null,
+    /** A Bot's standing instructions, in full; its owner rewrites them in Bot details (#4084). */
+    val instructions: String? = null,
 ) {
     @Transient
     val id: String get() = sessionId

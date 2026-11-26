@@ -45,6 +45,12 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
+                if let desktop = question.request.desktop {
+                    ComputerPreview(teamId: inbox.teamId, sessionId: question.sessionId, desktop: desktop, bot: question.title) {
+                        answer(DecisionAnswer(choices: [question.request.options?.first ?? "I'm done"]))
+                    }
+                    .padding(.top, 18)
+                }
                 if wide || !pinned { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
@@ -241,9 +247,9 @@ struct AnswerField: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField(prompt, text: $words, axis: .vertical)
+            // One line, so the return key sends: a vertical field takes it as a new line.
+            TextField(prompt, text: $words)
                 .font(.system(size: 16))
-                .lineLimit(1...5)
                 .focused(focused)
                 .onSubmit(send)
                 .padding(.horizontal, 16)

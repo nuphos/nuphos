@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, test } from 'bun:test'
 import { sessionsByConversation } from '@/lib/claude-code-preview/agent-chat-registry'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationChatRoute } from '@/lib/test/doubles/conversation-chat-route'
+import { useDb } from '@/lib/test/doubles/db'
 import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { startConversationTurn } from './conversation-turn'
@@ -15,6 +16,7 @@ import type { AgentConversation, AgentCredentialAccess } from './db'
 import type { ThreadTurn } from './thread-bridge'
 import type { TurnRunner } from './turn-runner'
 import type { TeamSession } from '@/lib/claude-code-preview/team-openab-runtime'
+import type * as dbActual from '@/lib/db'
 
 const data: ThreadTurn = {
   userId: 'owner',
@@ -45,6 +47,23 @@ useIdentity({
 useConversationChatRoute({
   resolveConversationChatRuntime: async () => ({ runtime: 'claude-code' }),
 })
+// The questions put back on a conversation's open list.
+const reopened: unknown[] = []
+
+useDb({
+  db: (() => ({
+    collection: () => ({
+      updateOne: async (
+        _filter: unknown,
+        update: { $push?: { inputRequests?: { $each: [] } } },
+      ) => {
+        reopened.push(...(update.$push?.inputRequests?.$each ?? []))
+
+        return { matchedCount: 1, modifiedCount: 1 }
+      },
+    }),
+  })) as unknown as typeof dbActual.db,
+})
 useAgentDb({
   agentMessages: () => ({ findOne: async () => null, find: () => ({ toArray: async () => [] }) }),
   getConversationBySessionId: async (id) => ({ ...conversation, sessionId: id }),
@@ -71,6 +90,7 @@ const settle = () => Bun.sleep(10)
 
 beforeEach(() => {
   runs.length = 0
+  reopened.length = 0
   released = 0
   finishReasons = ['connection-lost', 'stop']
   installTurnRunner({
@@ -111,6 +131,33 @@ test('a thread turn lost to a runtime restart tells its sender, once', async () 
     },
   })
   expect(JSON.stringify(runs[1]?.messages.at(-1)?.parts)).toContain('was cut off')
+})
+
+test('an answer whose turn a runtime restart cut off keeps its question answered', async () => {
+  attach(true, 'dormant')
+  await (
+    await startConversationTurn(
+      {
+        ...data,
+        messageId: 'answer',
+        answers: {
+          id: 'q1',
+          category: 'approval',
+          question: 'Publish the draft?',
+          status: 'open',
+          askedAt: new Date(),
+        },
+      },
+      { ...conversation, sessionId: 'child' },
+      'Your question (requestId q1) was answered.',
+      'agent.resource',
+      systemSender('nuphos:decision', 'Nuphos'),
+    )
+  ).run
+  await settle()
+
+  expect(reopened).toHaveLength(0)
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
 })
 
 test('a reattach that did not bring the session back reports nothing', async () => {

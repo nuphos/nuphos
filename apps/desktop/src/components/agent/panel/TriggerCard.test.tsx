@@ -62,12 +62,12 @@ const part: ToolPart = {
 // The chats the sidebar listed: a Bot wears a face, a Task does not.
 const chat = { firstMessage: '', messageCount: 1, createdAt: '', lastActiveAt: '' }
 const listed = [
-  { ...chat, sessionId: 'task-1', title: 'Weekly metrics' },
+  { ...chat, sessionId: 'task-1', title: 'Weekly metrics', agentRuntime: 'claude-code' },
   { ...chat, sessionId: 'bot-1', title: 'Metrics Bot', avatar: '07-ada' },
 ]
 
-/** The card's footer, as it reads, once the trigger running in `to` has loaded. */
-async function footer(to: string) {
+/** The card's footer once the trigger running in `to` has loaded: its text and the icons before the ↗. */
+async function footer(to: string, shownIn = 'task-here') {
   target = to
   const client = new QueryClient()
 
@@ -80,23 +80,37 @@ async function footer(to: string) {
       createElement(
         QueryClientProvider,
         { client },
-        createElement(TriggerCard, { part, teamId: 'team' }),
+        createElement(TriggerCard, { part, teamId: 'team', sessionId: shownIn }),
       ),
     )
   })
   await act(async () => new Promise((resolve) => setTimeout(resolve, 0)))
   assert.ok(container.textContent?.includes('Hourly report'), 'the trigger loaded')
 
-  return container.querySelector('footer')?.textContent ?? null
+  const found = container.querySelector('footer')
+
+  if (!found) return null
+  // A Bot's face is an image; a Runtime icon is an svg before the ↗'s.
+  const icons = [...found.querySelectorAll('img, svg')].map((icon) => icon.tagName.toLowerCase())
+
+  return `${icons.join(' ')}: ${found.textContent}`
 }
 
-// #4301: the footer said "Open conversation", whatever it opened.
-test('a Trigger that runs in a Task links to Open Task', async () => {
-  assert.equal(await footer('task-1'), 'Open Task')
+// #4301 and #4304: the footer said "Open conversation", whatever it opened.
+test("a Trigger card's link names the Task it opens", async () => {
+  assert.equal(await footer('task-1'), 'svg svg: Weekly metrics')
 })
 
-test('a Trigger that runs in a Bot links to Open Bot', async () => {
-  assert.equal(await footer('bot-1'), 'Open Bot')
+test("a Trigger card's link names the Bot it opens", async () => {
+  assert.equal(await footer('bot-1'), 'img svg: Metrics Bot')
+})
+
+test('a target the sidebar has not listed reads Open', async () => {
+  assert.equal(await footer('task-archived'), 'svg: Open')
+})
+
+test('a Trigger that runs in the chat it is shown in has no link', async () => {
+  assert.equal(await footer('task-here', 'task-here'), null)
 })
 
 // #4705: a rule kept in New York read as 09:00 UTC on the card.

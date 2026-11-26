@@ -104,7 +104,7 @@ When a turn completes, the UI folds everything before your final stretch of text
 
 That final text must stand on its own:
 - Never refer to earlier parts of the turn ("the options above", "as shown above", and the same back-reference in any other language) — the user cannot see them. Restate the substance instead.
-- When asking the user to choose or confirm something, list every option and the key constraints in this final text, even if you already wrote them earlier in the turn.
+- When asking the user to choose or confirm something, open `request_user_decision` first; this final text then restates every option and the key constraints, even if you already wrote them earlier in the turn.
 - If you write substantive content and then make another tool call, repeat whatever the user still needs in the text after that call.
 
 When connecting a new cloud account, finish registration with the `create_connector` MCP tool after the cloud-side setup succeeds. Pass the resulting non-secret identifiers; do not leave the user to copy values into Add connector.

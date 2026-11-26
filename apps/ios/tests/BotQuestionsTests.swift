@@ -6,6 +6,7 @@ enum BotQuestionsTests {
         listsTheBotsQuestionsAtAnyDepth()
         leavesOutOtherBotsAndTeammates()
         decodesTheOpenRequestsOfAListRow()
+        decodesTheDesktopAComputerQuestionHandsOver()
         theInboxListsEveryOwnQuestionOnce()
         keepsTheBodyTheAgentWroteToDecideFrom()
         aPlanOrASecretIsNeverAnsweredInWords()
@@ -214,6 +215,21 @@ enum BotQuestionsTests {
         let decoded = try! decoder.decode(AgentConversation.self, from: Data(json.utf8))
         precondition(decoded.inputRequests?.first?.options == ["Yes"])
         precondition(BotQuestions.under(bot: "rollout", rows: [decoded]).map(\.id) == ["canary:q-canary"])
+    }
+
+    private static func decodesTheDesktopAComputerQuestionHandsOver() {
+        let json = """
+        {"sessionId":"chat","title":"Chat","isOwner":true,
+         "inputRequests":[{"id":"q-1","category":"computer","question":"Sign in","options":["I'm done","Skip"],
+         "desktop":{"deviceId":"box-1","display":2,"title":"Studio Box · :2"},
+         "askedAt":"2026-11-09T03:03:00Z","status":"open"}]}
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let decoded = try! decoder.decode(AgentConversation.self, from: Data(json.utf8))
+        let request = decoded.inputRequests?.first
+        precondition(request?.desktop == AgentConversation.ComputerDesktop(deviceId: "box-1", display: 2, title: "Studio Box · :2"))
+        precondition(request?.options == ["I'm done", "Skip"])
     }
 
     private static func theInboxListsEveryOwnQuestionOnce() {

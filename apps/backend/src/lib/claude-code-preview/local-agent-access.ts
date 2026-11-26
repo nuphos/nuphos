@@ -12,19 +12,21 @@ import type { AgentDevice } from '@/lib/agent/devices/store'
 
 /**
  * The computer, when the actor may reach this agent for `purpose`: signing it in takes managing
- * the computer; running it takes using it, and a sign-in that is still current.
+ * the computer; running or steering it takes using it, and a sign-in that is still current.
+ * Other control (stopping or checking a turn) takes only using it, so a turn running when its
+ * sign-in ended can still be stopped.
  */
 export async function requireLocalAgentAccess(
   userId: string,
   teamId: string,
   ref: LocalAgentRef,
-  purpose: 'transport' | 'control' | 'login',
+  purpose: 'transport' | 'steer' | 'control' | 'login',
   access: DeviceAccessDeps,
 ): Promise<AgentDevice> {
   if (purpose === 'login') return requireAgentSignInAccess(userId, teamId, ref.deviceId, access)
   const device = await requireDeviceUse(userId, teamId, ref.deviceId, access)
 
-  if (agentSignIn(device, ref)?.endedAt)
+  if ((purpose === 'transport' || purpose === 'steer') && agentSignIn(device, ref)?.endedAt)
     throw new AppError(
       409,
       'runtime_login_required',
@@ -39,7 +41,8 @@ export type LocalAgentSignIn = {
   signedIn: boolean | null
   /** Who signed it in through Nuphos, while it is signed in. */
   signedInBy?: { userId: string; at: string }
-  /** Its sign-in ended: only a sign-in through Nuphos renews it, not the CLI's own. */
+  /** Its sign-in ended: a new sign-in renews it, through Nuphos or, for a default agent on its
+   * owner's own computer, the CLI's own (forgetOwnSignIn). */
   signInEnded?: true
 }
 

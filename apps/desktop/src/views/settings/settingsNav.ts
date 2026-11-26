@@ -31,6 +31,8 @@ export type SettingsNavItem = {
   key: string
   label: string
   icon: LucideIcon
+  /** Other words the search box finds this section by. */
+  keywords?: string[]
 }
 
 export type SettingsNavGroup = {
@@ -112,8 +114,19 @@ const USER_GROUPS: SettingsNavGroup[] = [
       { key: 'device.appearance', label: t('Appearance'), icon: SunMedium },
       { key: 'device.updates', label: t('Updates'), icon: Download },
       { key: 'device.localExec', label: t('Local exec'), icon: SquareTerminal },
-      { key: 'device.localRuntime', label: t('Local runtime'), icon: Monitor },
-      { key: 'device.privacy', label: t('Privacy'), icon: ShieldCheck },
+      {
+        key: 'device.privacy',
+        label: t('Privacy'),
+        icon: ShieldCheck,
+        // Found by what its switch turns off, and by the English words in any language.
+        keywords: [
+          t('Send crash reports and usage data'),
+          'usage data',
+          'crash reports',
+          'analytics',
+          'telemetry',
+        ],
+      },
     ],
   },
 ]
@@ -137,7 +150,9 @@ export function filterSettingsNavGroups(
   return groups
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => item.label.toLowerCase().includes(needle)),
+      items: group.items.filter((item) =>
+        [item.label, ...(item.keywords ?? [])].some((word) => word.toLowerCase().includes(needle)),
+      ),
     }))
     .filter((group) => group.items.length > 0)
 }

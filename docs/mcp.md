@@ -1,6 +1,6 @@
 # External MCP tools
 
-Connect an MCP client to `POST /mcp` using its authenticated session or MCP OAuth token. `nuphos_list_teams` lists the teams the caller can access. Tools cannot grant access the caller does not have.
+Connect an MCP client to `POST /mcp` using its authenticated session, MCP OAuth token or CLI token. A Bot's agent token (from `POST /auth/cli-tokens`) acts as that Bot and is held to its team, so its tools reach only that team and the prompts it sends are attributed to the Bot. A personal CLI token acts as its person. `nuphos_list_teams` lists the teams the caller can access. Tools cannot grant access the caller does not have.
 
 ## Select GitHub credentials and identity
 

@@ -25,6 +25,12 @@ export const agentApi = {
     resolution?: 'answered' | 'dismissed',
     reason?: string,
   ) => window.api.agentResolveDecision(sessionId, toolCallId, teamId, resolution, reason),
+  agentDecideToolApproval: (
+    sessionId: string,
+    toolCallId: string,
+    teamId: string | undefined,
+    decision: 'allow' | 'reject',
+  ) => window.api.agentDecideToolApproval(sessionId, toolCallId, teamId, decision),
   agentSnoozeDecision: (
     sessionId: string,
     requestId: string,

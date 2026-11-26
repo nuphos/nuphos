@@ -22,12 +22,21 @@ export function fcmProjectId(): string | null {
   return config.fcm.projectId ?? null
 }
 
-/** FCM data values are strings: a Bot's face, as the iOS push carries in `agentIdentity`. */
-function botIdentity(identity: FcmRequest['agentIdentity']): Record<string, string> {
-  if (!identity?.isBot || !identity.avatar) return {}
+/**
+ * FCM data values are strings: a Bot's face and tint, or a Task's runtime, as the
+ * iOS push carries in `agentIdentity`. Fields are only added, since an older
+ * Android app reads `botAvatar` alone.
+ */
+function agentIdentityData(identity: FcmRequest['agentIdentity']): Record<string, string> {
+  if (!identity) return {}
+  if (!identity.isBot) return identity.provider ? { taskProvider: identity.provider } : {}
+  if (!identity.avatar) return {}
 
   return {
     botAvatar: identity.avatar,
+    ...(identity.background && identity.background !== 'none'
+      ? { botBackground: identity.background }
+      : {}),
     ...(identity.provider ? { botProvider: identity.provider } : {}),
   }
 }
@@ -43,7 +52,7 @@ export function fcmMessage(request: FcmRequest) {
         title: request.subtitle ? `${request.title} · ${request.subtitle}` : request.title,
         body: request.body,
         ...(request.badge !== undefined ? { badge: String(request.badge) } : {}),
-        ...botIdentity(request.agentIdentity),
+        ...agentIdentityData(request.agentIdentity),
       },
       android: { priority: 'HIGH', ttl: '3600s', collapse_key: request.sessionId },
     },

@@ -15,7 +15,7 @@ import {
   serializeConversation,
 } from '@/routes/admin/helpers'
 import { claimAgentRunForSession, runAgentForTrigger } from '@/routes/agent'
-import { persistedMessageToUiMessage } from '@/routes/slack'
+import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
 import type { AdminVars } from '@/routes/admin/auth'
 import type { UIMessage } from 'ai'
@@ -117,18 +117,14 @@ export function registerAdminAgentRoutes(adminRoutes: Hono<{ Variables: AdminVar
     const { conversation, messages } = result
 
     const uiMessages = messages
-      .map((message) =>
-        persistedMessageToUiMessage({
-          messageId: message.messageId,
-          role: message.role,
-          parts: message.parts,
-          metadata: message.metadata,
-        }),
-      )
+      .map(persistedMessageToUiMessage)
       .filter((message): message is UIMessage => message !== null)
-    const last = uiMessages[uiMessages.length - 1]
 
-    if (!last || last.role !== 'user') {
+    // A last reply that kept nothing, a failed turn's, left its input unanswered.
+    if (uiMessages.at(-1)?.parts.length === 0) uiMessages.pop()
+    const last = uiMessages.at(-1)
+
+    if (last?.role !== 'user') {
       throw new AppError(
         409,
         'nothing_to_rewake',

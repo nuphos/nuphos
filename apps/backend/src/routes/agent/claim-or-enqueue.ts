@@ -54,9 +54,9 @@ export async function claimAgentRunOrEnqueue(args: {
         : {}),
     }
   }
-  // The queue starts its head; ours runs in arrival order.
+  // The queue starts its head; ours runs in arrival order. Nothing was let go.
   if (fifo) {
-    sessionReleased(args.userId, args.sessionId)
+    sessionReleased(args.userId, args.sessionId, false)
 
     return { mode: 'queued' }
   }

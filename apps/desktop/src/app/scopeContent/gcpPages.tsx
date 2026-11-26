@@ -1,9 +1,16 @@
-import { faChartLine } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { Cloud, Flame, KeyRound, LayoutDashboard, Server, Workflow } from 'lucide-react'
+import {
+  ChartLine as ChartLineIcon,
+  Cloud,
+  Flame,
+  KeyRound,
+  LayoutDashboard,
+  Server,
+  Workflow,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { clusterRowHref } from '../../app/clusterNamespaceStorage'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { t } from '../../i18n'
 import { resourceListCacheKey, withResourceListCache } from '../../lib/resourceListCache'
 import { toAbsoluteAtlasUrl } from '../../lib/webBaseUrl'
@@ -120,7 +127,7 @@ export function renderGcpPages(ctx: ScopeRenderContext): React.ReactNode | undef
     if (active === 'gcp.metrics') {
       return renderActiveNavPage(
         t('Metrics'),
-        <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
+        <UiIcon size={14} icon={ChartLineIcon} className="w-3.5 h-3.5 text-tertiary" />,
         <GcpMetricsExplorerView
           // A tab can switch directly between GCP projects while remaining on
           // this page. Remount so selections and series from the old project

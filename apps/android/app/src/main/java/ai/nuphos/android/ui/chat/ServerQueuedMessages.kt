@@ -21,6 +21,10 @@ internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, ca
         color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(8.dp).heightIn(max = 210.dp).verticalScroll(rememberScrollState())) {
             Text(stringResource(R.string.composer_queued_messages), style = MaterialTheme.typography.labelLarge)
+            usageHoldNotice(queue.held)?.let { notice ->
+                Text(stringResource(notice.text, *notice.args.toTypedArray()), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("server-queue-held"))
+            }
             queue.error?.let { problem ->
                 Text(problem, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 TextButton(onClick = { scope.launch { queue.refresh() } }, enabled = queue.busy.isEmpty()) { Text(stringResource(R.string.composer_refresh_queue)) }
@@ -46,5 +50,19 @@ internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, ca
                 }
             }
         }
+    }
+}
+
+/** The strip's status line while the agent's usage limit holds the queue, as on Desktop. */
+internal data class UsageHoldNotice(val text: Int, val args: List<Int> = emptyList())
+
+internal fun usageHoldNotice(held: ai.nuphos.android.data.AgentChatApi.UsageHold?, now: java.time.Instant = java.time.Instant.now()): UsageHoldNotice? {
+    held ?: return null
+    val reset = ai.nuphos.android.ui.agent.ResetsIn.of(held.until, now)
+        ?: return UsageHoldNotice(R.string.composer_queue_usage_held)
+    return when {
+        reset.days > 0 -> UsageHoldNotice(R.string.composer_queue_usage_held_days, listOf(reset.days.toInt(), reset.hours.toInt()))
+        reset.hours > 0 -> UsageHoldNotice(R.string.composer_queue_usage_held_hours, listOf(reset.hours.toInt(), reset.minutes.toInt()))
+        else -> UsageHoldNotice(R.string.composer_queue_usage_held_minutes, listOf(reset.minutes.toInt()))
     }
 }

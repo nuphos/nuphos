@@ -19,10 +19,26 @@ useModels({
   },
 })
 
+// A running Bot's instructions, and the digest its conversation records for `instructionsUpdate`.
+let editedInstructions = 'Ship on Fridays.'
+const digests = new Map<string, string>()
+
 useAgentDb({
+  setConversationInstructionsDigest: (sessionId, _teamId, digest) => {
+    digests.set(sessionId, digest)
+
+    return Promise.resolve()
+  },
   getConversationBySessionId: (sessionId) =>
     Promise.resolve(
       {
+        'edited-bot': {
+          sessionId,
+          title: 'Release Helper',
+          avatar: '07-ada',
+          instructions: editedInstructions,
+          instructionsDigest: digests.get(sessionId),
+        },
         'bot-session': {
           sessionId,
           title: 'Release Helper',
@@ -38,7 +54,8 @@ useAgentDb({
     ),
 })
 
-const { loadInstructionsBlock, renderInstructionsBlock } = await import('@/lib/instructions/prompt')
+const { instructionsUpdate, loadInstructionsBlock, renderInstructionsBlock } =
+  await import('@/lib/instructions/prompt')
 
 let clock = 0
 
@@ -200,4 +217,75 @@ test('setup context survives saved instructions and disappears after explicit co
   expect(renderInstructionsBlock([], [], { ...bot, botOnboarding: 'completed' })).not.toContain(
     'onboardingComplete: true',
   )
+})
+
+// A turn the runtime accepts records what it told the agent.
+async function turn(fresh = false, userId = 'u1'): Promise<string> {
+  const update = await instructionsUpdate(TEAM_ID.toHexString(), userId, 'edited-bot', fresh)
+
+  await update.given()
+
+  return update.text
+}
+
+describe('instructionsUpdate', () => {
+  beforeEach(() => {
+    editedInstructions = 'Ship on Fridays.'
+    digests.clear()
+  })
+
+  test('a running Bot gets its edited instructions in its next turn, once', async () => {
+    // The first turn starts the session, whose system prompt carries them.
+    expect(await turn(true)).toBe('')
+    expect(await turn()).toBe('')
+
+    editedInstructions = 'Ship on Mondays.'
+    const update = await turn()
+
+    expect(update).toStartWith('<nuphos_instructions_update>')
+    expect(update).toContain('"Release Helper"')
+    expect(update).toContain('Ship on Mondays.')
+    expect(update).not.toContain('Ship on Fridays.')
+    expect(await turn()).toBe('')
+  })
+
+  test('a turn the runtime never accepted leaves the update for the next one', async () => {
+    expect(await turn(true)).toBe('')
+    editedInstructions = 'Ship on Mondays.'
+    const failed = await instructionsUpdate(TEAM_ID.toHexString(), 'u1', 'edited-bot', false)
+
+    expect(failed.text).toContain('Ship on Mondays.')
+    expect(await turn()).toContain('Ship on Mondays.')
+    expect(await turn()).toBe('')
+  })
+
+  test('a session from before digests were recorded is not told its unchanged instructions', async () => {
+    expect(await turn()).toBe('')
+    expect(digests.has('edited-bot')).toBe(true)
+    expect(await turn()).toBe('')
+  })
+
+  // The session holds the personal instructions of whoever it was started or last told for.
+  test("a teammate's turn tells the agent that teammate's personal instructions, not the last one's", async () => {
+    seed({ scope: 'personal', userId: 'u1', title: 'Mine', content: 'Answer in French.' })
+    seed({ scope: 'personal', userId: 'u2', title: 'Mine', content: 'Answer in German.' })
+    expect(await turn(true, 'u1')).toBe('')
+    expect(await turn(false, 'u1')).toBe('')
+
+    const teammate = await turn(false, 'u2')
+
+    expect(teammate).toContain('Answer in German.')
+    expect(teammate).not.toContain('Answer in French.')
+    expect(await turn(false, 'u2')).toBe('')
+    expect(await turn(false, 'u1')).toContain('Answer in French.')
+  })
+
+  test('a failed read is never reported as a change', async () => {
+    expect(await turn(true)).toBe('')
+    failReads = true
+    editedInstructions = 'Ship on Mondays.'
+    expect(await turn()).toBe('')
+    failReads = false
+    expect(await turn()).toContain('Ship on Mondays.')
+  })
 })

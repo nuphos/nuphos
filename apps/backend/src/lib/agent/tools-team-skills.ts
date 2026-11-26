@@ -4,6 +4,12 @@ import { z } from 'zod'
 import { findEmbeddedSecret } from '@/lib/secrets/scan'
 
 import {
+  decodeSkillFileContent,
+  skillFileContentType,
+  skillFileEncodingInput,
+  skillFileSecret,
+} from './skill-file-content'
+import {
   assertSkillNameNotBuiltinOverlay,
   buildSkillMdContent,
   deleteSkillByName,
@@ -25,7 +31,8 @@ const skillFileInputSchema = z.object({
     .describe(
       'Path relative to the skill directory, e.g. "scripts/run.sh" or "references/notes.md".',
     ),
-  content: z.string().describe('UTF-8 text file content.'),
+  content: z.string().describe('File content: UTF-8 text, or base64 with `encoding: "base64"`.'),
+  encoding: skillFileEncodingInput,
 })
 
 type ScopeAccess = (scope: SkillScopeName, need: ScopeNeed) => ReturnType<typeof requireScopeAccess>
@@ -149,7 +156,7 @@ export function createTeamSkillTools(
           return { ok: false, error: `unsafe_content: ${secretHit}` }
         }
 
-        const extraFiles: { key: string; content: string }[] = []
+        const extraFiles: { key: string; body: Buffer; contentType: string }[] = []
 
         for (const file of input.files ?? []) {
           const rel = validateSkillRelativePath(file.path)
@@ -157,12 +164,14 @@ export function createTeamSkillTools(
           if (rel === 'SKILL.md') {
             return { ok: false, error: 'invalid_input: put SKILL.md content in body, not files[]' }
           }
-          const secret = await findEmbeddedSecret(file.content)
+          const body = decodeSkillFileContent(file.path, file.content, file.encoding)
+          const secret = await skillFileSecret(body)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
           extraFiles.push({
             key: skillObjectKeyForName(name, rel),
-            content: file.content,
+            body,
+            contentType: skillFileContentType(file.encoding),
           })
         }
 
@@ -173,11 +182,7 @@ export function createTeamSkillTools(
             body: Buffer.from(skillMd, 'utf8'),
             contentType: 'text/markdown',
           },
-          ...extraFiles.map((file) => ({
-            key: file.key,
-            body: Buffer.from(file.content, 'utf8'),
-            contentType: 'text/plain',
-          })),
+          ...extraFiles,
         ]
 
         await putSkillObjects(scope, writes, mutationContext(toolCallId))
@@ -200,6 +205,7 @@ export function createTeamSkillTools(
       'Create or replace one or more files in an existing (or new) skill: team-shared by default, or with `scope: "personal"` one of the conversation owner\'s personal skills. ' +
       'Each file key must be `skills/<name>/...` relative to the chosen scope. ' +
       'Use to revise SKILL.md, add scripts, or fix playbooks the user asked you to update. ' +
+      'Binary files (images, audio, archives) go in as base64 with `encoding: "base64"`, up to 10 MB each once decoded. ' +
       'Confirm with the user before mutating shared team skills. Never store secrets or private keys in skill files.',
     inputSchema: z.object({
       label,
@@ -211,7 +217,10 @@ export function createTeamSkillTools(
               .string()
               .min(1)
               .describe('Object key relative to the scope, e.g. skills/deploy-checklist/SKILL.md'),
-            content: z.string().describe('UTF-8 text file content.'),
+            content: z
+              .string()
+              .describe('File content: UTF-8 text, or base64 with `encoding: "base64"`.'),
+            encoding: skillFileEncodingInput,
           }),
         )
         .min(1)
@@ -223,7 +232,7 @@ export function createTeamSkillTools(
 
         if (!resolved.ok) return resolved
         const { scope } = resolved
-        const pending: { key: string; content: string }[] = []
+        const pending: { key: string; body: Buffer; contentType: string }[] = []
 
         for (const file of input.files) {
           const key = validateSkillObjectKey(file.key)
@@ -238,21 +247,14 @@ export function createTeamSkillTools(
           const skillName = validateSkillName(parts[1])
 
           await assertSkillNameNotBuiltinOverlay(skillName)
-          const secret = await findEmbeddedSecret(file.content)
+          const body = decodeSkillFileContent(file.key, file.content, file.encoding)
+          const secret = await skillFileSecret(body)
 
           if (secret) return { ok: false, error: `unsafe_content: ${secret}` }
-          pending.push({ key, content: file.content })
+          pending.push({ key, body, contentType: skillFileContentType(file.encoding) })
         }
 
-        await putSkillObjects(
-          scope,
-          pending.map((file) => ({
-            key: file.key,
-            body: Buffer.from(file.content, 'utf8'),
-            contentType: 'text/plain',
-          })),
-          mutationContext(toolCallId),
-        )
+        await putSkillObjects(scope, pending, mutationContext(toolCallId))
 
         return {
           ok: true,
