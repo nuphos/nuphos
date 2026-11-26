@@ -60,7 +60,8 @@ mock.module('../../ui/menu', () => ({
     createElement('div', { role: 'group' }, children),
   MenuGroupLabel: ({ children }: { children: ReactNode }) =>
     createElement('div', { 'data-group-label': '' }, children),
-  MenuItem: ({ children }: { children: ReactNode }) => createElement('div', null, children),
+  MenuItem: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) =>
+    createElement('button', { onClick }, children),
   MenuSeparator: () => null,
   MenuSubmenu: ({ children }: { children: ReactNode }) => createElement('div', null, children),
   MenuSubmenuTrigger: ({ children }: { children: ReactNode }) =>
@@ -89,6 +90,25 @@ mock.module('../../ui/menu', () => ({
       },
       children,
     ),
+}))
+
+// This computer's Claude Code runs on a saved custom provider.
+const LOCAL = 'local_user-1_device-1'
+
+mock.module('../../../hooks/useLocalRuntimeState', () => ({
+  useLocalRuntimeState: () => ({
+    userId: 'user-1',
+    deviceId: 'device-1',
+    customProviders: {
+      'claude-code': { baseUrl: 'https://gateway.acme.example/v1', models: ['claude-sonnet-gw'] },
+    },
+  }),
+}))
+
+const opened: string[] = []
+
+mock.module('../../../app/workspace/openInApp', () => ({
+  openInApp: (href: string) => opened.push(href),
 }))
 
 const dom = new Window()
@@ -149,7 +169,7 @@ const withEffort: SessionConfigState = {
   ],
 }
 
-function mount() {
+function mount(where: { teamId?: string; runtimeId?: string } = {}) {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -175,6 +195,7 @@ function mount() {
             },
             select: (selection) => selected.push(selection),
             refresh: () => {},
+            ...where,
           },
           disabled: Boolean(hint),
           disabledHint: hint,
@@ -366,4 +387,66 @@ test('closing the menu leaves focus where the person already moved it', async ()
   await act(() => picker.root.unmount())
   message.remove()
   runtime.remove()
+})
+
+// Paper board 15: behind a custom provider the list is that provider's, and says so.
+test('a custom provider names its host over the models and links to its settings', async () => {
+  const gateway: SessionConfigState = {
+    status: 'ready',
+    options: [
+      {
+        id: 'model',
+        name: 'Model',
+        kind: 'model',
+        currentValue: 'claude-sonnet-gw',
+        options: [
+          { value: 'claude-sonnet-gw', name: 'claude-sonnet-gw' },
+          { value: 'claude-haiku-gw', name: 'claude-haiku-gw' },
+        ],
+      },
+    ],
+  }
+
+  // Earlier tests leave their chips behind.
+  dom.document.body.innerHTML = ''
+  const picker = mount({ teamId: 'team-1', runtimeId: LOCAL })
+
+  await picker.render(gateway)
+  await act(() => picker.chip().click())
+  const labels = [...dom.document.querySelectorAll('[data-group-label]')].map(
+    (label) => label.textContent,
+  )
+
+  assert.deepEqual(labels, ['gateway.acme.exampleCustom provider'])
+  const edit = [...dom.document.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Edit custom provider…',
+  )
+
+  await act(() => edit?.click())
+  assert.deepEqual(opened, ['/teams/team-1/agents'], 'Settings › Computers')
+  await act(() => picker.root.unmount())
+
+  // Another runtime's list keeps its own groups and no edit row.
+  const other = mount({ teamId: 'team-1', runtimeId: 'runtime-2' })
+
+  await other.render(opencode)
+  await act(() => other.chip().click())
+  assert.doesNotMatch(dom.document.body.textContent ?? '', /Custom provider|Edit custom provider/)
+  await act(() => other.root.unmount())
+})
+
+test('a runtime with effort and no model list says it picks its model itself', async () => {
+  dom.document.body.innerHTML = ''
+  const picker = mount()
+
+  await picker.render({
+    status: 'ready',
+    options: withEffort.options.filter((option) => option.kind === 'effort'),
+  })
+  await act(() => picker.chip().click())
+  assert.match(
+    dom.document.querySelector('[role="menu"]')?.textContent ?? '',
+    /This runtime picks its model itself\./,
+  )
+  await act(() => picker.root.unmount())
 })

@@ -67,6 +67,23 @@ class AttachmentTransfersTest {
         assertEquals(data?.get("files")?.arrayValue?.map { it["fileName"]?.stringValue }, shown.uploads.single().names)
     }
 
+    @Test fun onlyTheCheckAfterEveryByteIsOutSaysTheFilesAreSent() = runTest {
+        val fixture = Fixture()
+        val helper = AttachmentTransfers(fixture) { 0L }
+        val pending = helper.retain(listOf(attachment))
+        val first = mutableListOf<AttachmentTransfers.Progress>()
+        fixture.partial = true
+        assertTrue(runCatching { helper.prepare("token", "team", pending) { first += it } }.isFailure)
+        assertEquals("The check after the PUT says the files are sent",
+            listOf(true), first.filter { it.stage == AttachmentTransfers.Stage.Finalizing }.map { it.filesSent })
+        // A retry checks the group before sending anything: that check is not sending yet.
+        fixture.partial = false
+        val retried = mutableListOf<AttachmentTransfers.Progress>()
+        helper.prepare("token", "team", pending) { retried += it }
+        assertFalse(retried.first { it.stage == AttachmentTransfers.Stage.Finalizing }.filesSent)
+        assertTrue(retried.last().filesSent)
+    }
+
     @Test fun mismatchedSizeAndCancellationBlockReady() = runTest {
         val fixture = Fixture()
         val helper = AttachmentTransfers(fixture) { 0L }

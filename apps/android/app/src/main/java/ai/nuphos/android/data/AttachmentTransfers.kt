@@ -82,7 +82,8 @@ class AttachmentTransfers(
     }
 
     enum class Stage { Intent, Uploading, Finalizing, Ready }
-    data class Progress(val stage: Stage, val attachmentId: String? = null, val bytesWritten: Long = 0, val totalBytes: Long = 0)
+    /** [filesSent] is true once every file's bytes are out, as the store checks them before the message goes. */
+    data class Progress(val stage: Stage, val attachmentId: String? = null, val bytesWritten: Long = 0, val totalBytes: Long = 0, val filesSent: Boolean = false)
     /**
      * [part] is the structured `transfer-upload` a runtime conversation sends, as iOS and Desktop do;
      * [instruction] is the text the built-in agent pulls the files with.
@@ -202,7 +203,7 @@ class AttachmentTransfers(
                 }
             }
             pending.check()
-            onProgress(Progress(Stage.Finalizing))
+            onProgress(Progress(Stage.Finalizing, filesSent = true))
             pending.check()
             val completed = view(transport.api("POST", "$base/${intent.groupId}/finalize", token))
             pending.check()
@@ -218,7 +219,7 @@ class AttachmentTransfers(
     private fun ready(intent: Intent, pending: Pending, progress: (Progress) -> Unit): Ready {
         pending.check()
         if (expiry(intent.expiresAt) <= now()) throw Failure(Words(R.string.convtext_transfer_expired))
-        progress(Progress(Stage.Ready))
+        progress(Progress(Stage.Ready, filesSent = true))
         pending.check()
         val names = pending.payloads.joinToString(", ") { it.name.replace('\n', ' ').replace('\r', ' ') }
         val instruction = "[The user uploaded ${pending.payloads.size} file(s) to the Nuphos file-transfer store (transfer group ${intent.groupId}): $names. To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"\$TEAM\" ${intent.groupId} ./uploads]" +

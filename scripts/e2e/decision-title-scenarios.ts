@@ -169,4 +169,52 @@ export const decisionTitleScenarios: Scenario[] = [
       }
     },
   },
+  {
+    name: 'a long decision body laid out while its conversation is hidden still offers Show more',
+    run: async (page, stack) => {
+      const question = 'Retire the staging bucket while I look at the Inbox?'
+      const args = {
+        label: 'Ask',
+        category: 'approval',
+        question,
+        body: BODIES[0][1],
+        options: ['Yes', 'No'],
+      }
+      // The agent starts only once the Inbox hides the conversation, so the card arrives hidden.
+      const release = stack.holdSessionOpening()
+
+      await newTask(page)
+      await send(
+        page,
+        `Ask it E2E_CALL request_user_decision ${JSON.stringify(args)} E2E_DELIVERY:hidden-body`,
+      )
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      release()
+      const hidden = page.locator(`[data-decision-question="${question}"]`).first()
+
+      await hidden.waitFor({ state: 'attached' })
+      must(!(await hidden.isVisible()), 'the card to arrive while its conversation is hidden')
+      await page.getByRole('tab', { name: 'Tasks' }).click()
+      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E_CALL' }).first().click()
+      const card = page.locator(`[data-decision-question="${question}"]:visible`).last()
+
+      await card.getByRole('button', { name: 'Yes' }).waitFor()
+      await settled(card)
+      await card.screenshot({ path: `${artifacts}/decision-body-hidden-collapsed.png` })
+      const more = card.getByRole('button', { name: 'Show more' })
+
+      must(await more.isVisible(), 'a body cut while hidden to offer Show more once shown')
+      must((await clippedLines(card)).half === 0, 'no line cut through once shown')
+      await more.click()
+      await card.getByRole('button', { name: 'Show less' }).waitFor()
+      const open = await clippedLines(card)
+
+      must(
+        open.half + open.hidden === 0,
+        `the opened body to show all of it, got ${JSON.stringify(open)}`,
+      )
+      await settled(card)
+      await card.screenshot({ path: `${artifacts}/decision-body-hidden-expanded.png` })
+    },
+  },
 ]

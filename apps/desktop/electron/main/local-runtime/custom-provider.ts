@@ -3,12 +3,15 @@
 // URL and model ids are kept in a file; the key only in the OS credential store, and it reaches
 // the agent only through process environments, never a file Nuphos writes.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 
 import { atlasErrorInfo, buildAtlasError } from '../../atlas/error.ts'
 
+import { checkWithKey } from './custom-provider-probe.ts'
+
 import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
+import type { CustomProviderCheck } from './custom-provider-probe.ts'
 import type { LocalAgentProvider } from './providers.ts'
 
 export type CustomProviderAgent = 'claude-code' | 'codex'
@@ -110,20 +113,35 @@ function writeCustomProvider(
   writeFileSync(path.join(userDir, FILE), `${JSON.stringify(saved, null, 2)}\n`, { mode: 0o600 })
 }
 
-/**
- * Whether the provider serves Codex's only API: one that does refuses an empty body (400/422)
- * before any model runs, one that does not answers 404 or 405. An unreachable one may be saved.
- */
-const servesResponsesApi = (endpoint: string, key: string) =>
-  fetch(endpoint, {
-    method: 'POST',
-    headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    body: '{}',
-    signal: AbortSignal.timeout(10_000),
-  }).then(
-    ({ status }) => status !== 404 && status !== 405,
-    () => true,
-  )
+const typedKey = (value: unknown) => {
+  const raw = (value as { apiKey?: unknown }).apiKey
+
+  return typeof raw === 'string' ? raw.trim() : ''
+}
+
+/** The typed key, or else the stored one. */
+const keyFor = async (
+  store: KeyStore,
+  userId: string,
+  provider: CustomProviderAgent,
+  value: unknown,
+) => typedKey(value) || (await store.get(account(userId, provider)).catch(() => null))
+
+/** Tests a provider before it is saved, with the typed key or else the stored one. */
+export async function checkCustomProvider(
+  store: KeyStore,
+  userId: string,
+  provider: unknown,
+  value: unknown,
+): Promise<CustomProviderCheck> {
+  if (!isAgent(provider)) throw new Error('Unknown runtime.')
+  const parsed = parseCustomProvider(value)
+  const key = await keyFor(store, userId, provider, value)
+
+  if (!key) throw new Error('Enter the API key.')
+
+  return checkWithKey(provider, parsed, key)
+}
 
 /** A refusal as the app shows it: coded, since the app shows no uncoded error. */
 export const notSaved = (cause: unknown): never => {
@@ -151,25 +169,29 @@ export async function saveCustomProvider(
     return
   }
   const parsed = parseCustomProvider(value)
-  const raw = (value as { apiKey?: unknown }).apiKey
-  const key = typeof raw === 'string' ? raw.trim() : ''
+  const key = typedKey(value)
 
   if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
-  const probeKey =
-    provider === 'codex' && (key || (await store.get(account(userId, provider)).catch(() => null)))
+  const probeKey = provider === 'codex' && (await keyFor(store, userId, provider, value))
 
-  const endpoint = `${parsed.baseUrl.endsWith('/') ? parsed.baseUrl.slice(0, -1) : parsed.baseUrl}/responses`
+  // An unreachable one may be saved: the gateway may simply not be running yet.
+  const check = probeKey && (await checkWithKey(provider, parsed, probeKey))
 
-  if (probeKey && !(await servesResponsesApi(endpoint, probeKey)))
+  if (check && 'failure' in check && check.failure?.reason === 'api')
     throw new Error(
       'Codex needs the OpenAI Responses API, which this URL doesn’t serve. Use the provider’s base URL, such as https://api.example.com/v1.',
     )
+
   if (key) {
     try {
       await store.set(account(userId, provider), key)
     } catch {
       throw new Error(
-        'This computer has no secure credential store Nuphos can use, so the key was not saved.',
+        `This computer has no secure credential store Nuphos can use, so the key was not saved.${
+          process.platform === 'linux'
+            ? '\n\nOn Linux, install and unlock a Secret Service keyring (GNOME Keyring or KWallet), then try again.'
+            : ''
+        }`,
       )
     }
   } else if (!readCustomProviders(userDir)[provider]) throw new Error('Enter the API key.')
@@ -252,49 +274,4 @@ export function claudeProviderSettings(userDir: string) {
       ? { availableModels: provider.models, model: provider.models[0] }
       : {}),
   }
-}
-
-const BEGIN = '# Nuphos custom provider (begin)'
-const END = '# Nuphos custom provider (end)'
-const CODEX_PROVIDER_ID = 'nuphos-custom'
-
-/**
- * Codex's own `model_providers` entry, as root keys at the top of its config.toml: an inline
- * table needs no table header, so the block is one span that is easy to replace.
- */
-export function codexProviderConfig(contents: string, provider: CustomProvider | undefined) {
-  const begin = contents.indexOf(BEGIN)
-  const end = contents.indexOf(END)
-  const rest =
-    begin === -1 || end < begin
-      ? contents
-      : contents.slice(0, begin) + contents.slice(end + END.length).replace(/^\n/u, '')
-
-  if (!provider) return rest
-  const table = [
-    `name = "Custom provider"`,
-    `base_url = ${JSON.stringify(provider.baseUrl)}`,
-    `env_key = ${JSON.stringify(PROVIDER_KEY_ENV.codex)}`,
-  ].join(', ')
-
-  return [
-    BEGIN,
-    `model_provider = ${JSON.stringify(CODEX_PROVIDER_ID)}`,
-    ...(provider.models[0] ? [`model = ${JSON.stringify(provider.models[0])}`] : []),
-    `model_providers.${CODEX_PROVIDER_ID} = { ${table} }`,
-    END,
-    rest,
-  ].join('\n')
-}
-
-/** Brings a Codex home's config.toml in line with the provider saved beside it, or the one given. */
-export function applyCodexProvider(
-  userDir: string,
-  config: string,
-  provider = readCustomProviders(userDir).codex,
-): void {
-  const current = existsSync(config) ? readFileSync(config, 'utf8') : ''
-  const next = codexProviderConfig(current, provider)
-
-  if (next !== current) writeFileSync(config, next, { mode: 0o600 })
 }

@@ -390,14 +390,7 @@ fun ConversationScreen(
                             Column(Modifier.padding(horizontal = 16.dp)) {
                                 Text(draft.text.ifBlank { stringResource(R.string.chat_attachment_message) }, maxLines = 2)
                                 Text(draft.attachments.joinToString(", ") { it.name }, maxLines = 2)
-                                session.uploadProgress?.let { progress ->
-                                    Text(when (progress.stage) {
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Intent -> stringResource(R.string.chat_upload_preparing)
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Uploading -> stringResource(R.string.chat_upload_progress, progress.bytesWritten, progress.totalBytes)
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Finalizing -> stringResource(R.string.chat_upload_checking)
-                                        ai.nuphos.android.data.AttachmentTransfers.Stage.Ready -> stringResource(R.string.chat_upload_ready)
-                                    })
-                                }
+                                session.uploadProgress?.let { progress -> Text(uploadProgressText(progress)) }
                                 session.uploadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                                 Row {
                                     if (session.uploadBusy) TextButton(onClick = session::cancelUpload) { Text(stringResource(R.string.chat_upload_cancel)) }

@@ -72,6 +72,24 @@ test('Claude keeps the host home for Keychain access and filters the owner’s e
   assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined)
 })
 
+test('only Claude Code learns where its host hands over the vault’s Claude Code token', () => {
+  const vault = {
+    ...launch,
+    env: { ...launch.env, NUPHOS_VAULT_SOCKET: '/run/v/token.sock', NUPHOS_VAULT_KEY: 'k' },
+  }
+  const env = agentEnv(vault)
+
+  assert.equal(env.NUPHOS_VAULT_SOCKET, '/run/v/token.sock')
+  assert.equal(env.NUPHOS_VAULT_KEY, 'k')
+  assert.equal(agentEnv(launch).NUPHOS_VAULT_SOCKET, undefined)
+  for (const provider of ['codex', 'pi'] as const) {
+    const other = agentEnv({ ...vault, provider })
+
+    assert.equal(other.NUPHOS_VAULT_SOCKET, undefined)
+    assert.equal(other.NUPHOS_VAULT_KEY, undefined)
+  }
+})
+
 test('openab listens on loopback only, with a control key it cannot confuse with the password', () => {
   const env = openabEnv(launch)
 

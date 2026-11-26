@@ -28,8 +28,8 @@ useDb({
 })
 useIdentity({
   authenticateToken: (async (token: string) => {
-    // A user without a session, like the 30-day sign-in JWTs from before sessions.
-    if (token === 'old-sign-in') return { user: USER, cacheHit: false, provider: 'nuphos' }
+    // A user without a sign-in session.
+    if (token === 'no-session') return { user: USER, cacheHit: false, provider: 'nuphos' }
     if (token === 'session')
       return { user: USER, cacheHit: false, provider: 'nuphos', sessionId: CURRENT }
     if (token === 'run') return { user: USER, cacheHit: false, provider: 'nuphos', agentRun: true }
@@ -79,8 +79,8 @@ test('signing out the other devices keeps this one', async () => {
   expect(othersRevoked).toEqual([[USER.id, CURRENT]])
 })
 
-test('a sign-in from before sessions is asked to sign in again', async () => {
-  const res = await call('GET', '/auth/sessions', 'old-sign-in')
+test('a credential without a sign-in session is asked to sign in again', async () => {
+  const res = await call('GET', '/auth/sessions', 'no-session')
 
   expect(res.status).toBe(403)
   expect(((await res.json()) as { error: { code: string } }).error.code).toBe('session_required')

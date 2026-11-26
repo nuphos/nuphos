@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
@@ -9,6 +9,7 @@ import { agentProvider } from '../../types/runtime'
 import { RuntimeLoginBody } from './RuntimeLoginBody'
 import { useRuntimeLogin } from './useRuntimeLogin'
 
+import type { SignInMethod } from './ApiKeyEntry'
 import type { RuntimeLogin } from './useRuntimeLogin'
 import type { RuntimeInstance } from '../../types/runtime'
 
@@ -39,6 +40,7 @@ export function RuntimeLoginDialog({
   instance,
   immediate,
   apiKey,
+  signedIn,
   onClose,
 }: {
   teamId: string
@@ -47,10 +49,19 @@ export function RuntimeLoginDialog({
   immediate?: boolean
   /** It is signed in with an API key now, which can be removed from here. */
   apiKey?: boolean
+  /** It is signed in now, with its account unless `apiKey`. */
+  signedIn?: boolean
   /** `connected` is true when the sign-in succeeded. */
   onClose: (connected: boolean) => void
 }) {
   const account = agentProvider(instance.provider).account
+  const [current, setCurrent] = useState<SignInMethod | undefined>(() => {
+    if (apiKey) return 'key'
+
+    return signedIn ? 'account' : undefined
+  })
+  // Switching from a key to the account signs out first, then starts the account sign-in.
+  const switching = useRef(false)
   const state = useRuntimeLogin(
     teamId,
     instance,
@@ -60,7 +71,14 @@ export function RuntimeLoginDialog({
       onClose(true)
     },
     immediate,
-    () => {
+    (restart) => {
+      if (switching.current) {
+        switching.current = false
+        setCurrent(undefined)
+        restart()
+
+        return
+      }
       toast.success(t('API key removed'), instance.label)
       onClose(false)
     },
@@ -90,25 +108,20 @@ export function RuntimeLoginDialog({
         role="status"
         aria-live="polite"
       >
-        {apiKey && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line-control px-4 py-3">
-            <p className="text-[13px] text-secondary">{t('Signed in with an API key.')}</p>
-            <Button
-              size="sm"
-              variant="secondary"
-              type="button"
-              disabled={!state.awaiting || state.login?.codeSubmitted === true}
-              onClick={() =>
-                void state.submitCode('sign-out').catch((cause: unknown) => {
-                  toast.apiError(t('Could not remove the API key'), cause)
-                })
-              }
-            >
-              {t('Remove API key')}
-            </Button>
-          </div>
-        )}
-        <RuntimeLoginBody instance={instance} state={state} />
+        <RuntimeLoginBody
+          instance={instance}
+          state={state}
+          {...(current ? { current } : {})}
+          onSignOut={async (next) => {
+            switching.current = next
+            try {
+              await state.submitCode('sign-out')
+            } catch (cause) {
+              switching.current = false
+              toast.apiError(t('Could not remove the API key'), cause)
+            }
+          }}
+        />
       </div>
     </Modal>
   )

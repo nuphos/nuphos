@@ -400,7 +400,7 @@ class RuntimeControlFixtureDeviceTest {
         compose.onNodeWithText("marker.txt").assertIsDisplayed()
         compose.onNodeWithText("Retry attachment message").performClick()
         compose.waitUntil(10_000) { transport.puts == 1 }
-        compose.onNodeWithText("Uploading 5 / 18 bytes").assertIsDisplayed()
+        compose.onNodeWithText("Uploading 5 bytes of 18 bytes").assertIsDisplayed()
         compose.onNodeWithText("Cancel upload").assertIsDisplayed()
         compose.onNodeWithContentDescription("Send").assertIsNotEnabled()
         transport.release.complete(Unit)
@@ -433,7 +433,7 @@ class RuntimeControlFixtureDeviceTest {
         render(transfers = AttachmentTransfers(transport), retained = draft)
         compose.onNodeWithText("Retry attachment message").performClick()
         compose.waitUntil(10_000) { transport.puts == 1 }
-        compose.onNodeWithText("Uploading 5 / 18 bytes").assertIsDisplayed()
+        compose.onNodeWithText("Uploading 5 bytes of 18 bytes").assertIsDisplayed()
         compose.onNodeWithText("Cancel upload").performClick()
         compose.onNodeWithText("Upload cancelled. Your message and files are retained.").assertIsDisplayed()
         compose.onNodeWithText("Read the retained fixture").assertIsDisplayed()
