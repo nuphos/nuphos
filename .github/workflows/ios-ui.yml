@@ -193,12 +193,15 @@ jobs:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
           retention-days: 7
-      # The full result bundle, with screen recordings, only when something failed.
+      # The full result bundle, with screen recordings, and xcodebuild's log, only when
+      # something failed or the run timed out, so a slow run shows where the time went.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure()
+        if: failure() || cancelled()
         with:
           name: ios-ui-xcresult
-          path: ${{ runner.temp }}/ui.xcresult
+          path: |
+            ${{ runner.temp }}/ui.xcresult
+            ${{ runner.temp }}/xcodebuild.log
           retention-days: 7
 
   report:
