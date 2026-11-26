@@ -6,12 +6,16 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { agentProvider } from '../../types/runtime'
 
-import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
+import { ApiKeyEntry, KeyRejected, MethodSwitch, Note, RemoveKey } from './ApiKeyEntry'
 import { signsInWithApiKey } from './apiKeyProviders'
 import { BrowserCodeEntry } from './BrowserCodeEntry'
+import { AnsweredRows } from './AnsweredRows'
+import { answered } from './runtimeLogin'
 import { RuntimeLoginStep } from './RuntimeLoginStep'
 import { SetupSteps } from './SetupSteps'
 
+import type { SignInMethod } from './ApiKeyEntry'
+import type { Answered } from './runtimeLogin'
 import type { RuntimeLogin } from './useRuntimeLogin'
 import type { RuntimeLoginStatus, RuntimeInstance } from '../../types/runtime'
 
@@ -90,17 +94,27 @@ function DeviceCode({
 export function RuntimeLoginBody({
   instance,
   state,
+  current,
+  onSignOut,
 }: {
   instance: RuntimeInstance
   state: RuntimeLogin
+  /** How it is signed in now, when it is. */
+  current?: SignInMethod
+  /** Signs out of the API key; `switching` when an account sign-in follows. */
+  onSignOut?: (switching: boolean) => Promise<void>
 }) {
   const { login, error, awaiting, authorizationUrl, verificationUri, failed } = state
-  const [keyEntry, setKeyEntry] = useState(false)
+  const [method, setMethod] = useState<SignInMethod>(current ?? 'account')
   // The attempt a key went to; a new attempt starts over.
   const [keyFor, setKeyFor] = useState<string | null>(null)
   const [ignoredFor, setIgnoredFor] = useState<string | null>(null)
   const keySent = login !== null && keyFor === login.attemptId
   const keyIgnored = keySent && ignoredFor === keyFor
+  // What this attempt was already asked; a new attempt asks again.
+  const [answers, setAnswers] = useState<{ attemptId: string; rows: Answered[] } | null>(null)
+  const rows = answers && answers.attemptId === login?.attemptId ? answers.rows : []
+  const { account } = agentProvider(instance.provider)
   // The account sign-in waits; its own CLI can take an API key in its place.
   const keyable =
     awaiting && login && !login.step && signsInWithApiKey(instance.provider)
@@ -115,38 +129,27 @@ export function RuntimeLoginBody({
     return () => clearTimeout(timer)
   }, [keySent, awaiting, keyFor])
 
-  if (keyable && (keyEntry || keySent))
-    return keyIgnored ? (
-      <p className="text-[13px] leading-5 text-error">
-        {t(
-          'The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.',
-        )}
-      </p>
-    ) : keySent ? (
-      <div className="flex items-center gap-3 text-[13px] text-secondary">
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
-        {t('Verifying your sign-in…')}
-      </div>
-    ) : (
-      <ApiKeyEntry
-        provider={keyable}
-        onBack={() => setKeyEntry(false)}
-        onSubmit={async (key) => {
-          await state.submitCode(key)
-          setKeyFor(login?.attemptId ?? null)
-          setKeyEntry(false)
-        }}
-      />
-    )
-
   const signIn =
     awaiting && login?.step ? (
-      <RuntimeLoginStep
-        key={JSON.stringify(login.step)}
-        step={login.step}
-        submitted={login.codeSubmitted === true}
-        onSubmit={state.submitCode}
-      />
+      <>
+        <AnsweredRows
+          rows={rows}
+          onChange={() => void state.cancel().then((cancelled) => cancelled && state.restart())}
+        />
+        <RuntimeLoginStep
+          key={JSON.stringify(login.step)}
+          step={login.step}
+          submitted={login.codeSubmitted === true}
+          onSubmit={async (answer) => {
+            const step = login.step
+
+            await state.submitCode(answer)
+            const row = step && answered(step, answer)
+
+            if (row) setAnswers({ attemptId: login.attemptId, rows: [...rows, row] })
+          }}
+        />
+      </>
     ) : authorizationUrl && login ? (
       <BrowserCodeEntry
         provider={instance.provider}
@@ -158,15 +161,107 @@ export function RuntimeLoginBody({
       <DeviceCode instance={instance} login={login} verificationUri={verificationUri} />
     ) : null
 
+  function byKey(provider: NonNullable<typeof keyable>) {
+    if (keyIgnored)
+      return (
+        <p className="text-[13px] leading-5 text-error">
+          {t(
+            'The runtime did not take the key. Update Nuphos on the computer it runs on, then try again.',
+          )}
+        </p>
+      )
+    if (keySent)
+      return (
+        <div className="flex items-center gap-3 text-[13px] text-secondary">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+          {t('Verifying your sign-in…')}
+        </div>
+      )
+    if (current === 'key' && onSignOut)
+      return <RemoveKey name={instance.label} onRemove={() => onSignOut(false)} />
+
+    return (
+      <ApiKeyEntry
+        provider={provider}
+        {...(current === 'account'
+          ? {
+              note: t(
+                'Using a key signs {name} out of its {account} account. Bots keep running on the key.',
+                { name: instance.label, account },
+              ),
+            }
+          : {})}
+        onSubmit={async (key) => {
+          await state.submitCode(key)
+          setKeyFor(login?.attemptId ?? null)
+        }}
+      />
+    )
+  }
+
+  function byAccount() {
+    if (current !== 'key' || !onSignOut) return signIn
+
+    return (
+      <>
+        <Note>
+          {t(
+            'The key is removed from the runtime first, then you approve on the {account} sign-in page.',
+            { account },
+          )}
+        </Note>
+        <Button size="sm" type="button" onClick={() => void onSignOut(true)}>
+          {t('Continue with {account}', { account })}
+        </Button>
+      </>
+    )
+  }
+
+  function again(next: SignInMethod) {
+    setMethod(next)
+    state.restart()
+  }
+  // A key the vendor turned down fails the sign-in; the way back is another key or the account.
+  const rejected =
+    failed && keySent && login && signsInWithApiKey(instance.provider)
+      ? {
+          title: t('Sign in with an API key'),
+          body: (
+            <KeyRejected
+              provider={instance.provider}
+              account={account}
+              error={login.error}
+              onRetry={again}
+            />
+          ),
+        }
+      : null
+
+  // The API key's way in sits beside an account sign-in the CLI could take a key in place of.
+  function withMethods() {
+    if (!keyable || (login?.codeSubmitted && !keySent)) return signIn
+    if (keySent) return byKey(keyable)
+
+    return (
+      <>
+        {current && (
+          <p className="flex gap-6 rounded-lg bg-state-selected px-3 py-2 text-[13px]">
+            <span className="text-tertiary">{t('Signed in')}</span>
+            <span className="text-main">
+              {current === 'key' ? t('API key') : t('{account} account', { account })}
+            </span>
+          </p>
+        )}
+        <MethodSwitch account={account} value={method} onChange={setMethod} />
+        {method === 'key' ? byKey(keyable) : byAccount()}
+      </>
+    )
+  }
+
   return (
     <>
-      <SetupSteps key={state.retry} instance={instance} state={state}>
-        {signIn && (
-          <>
-            {signIn}
-            {keyable && !login?.codeSubmitted && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
-          </>
-        )}
+      <SetupSteps key={state.retry} instance={instance} state={state} failure={rejected}>
+        {signIn && withMethods()}
       </SetupSteps>
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}
     </>
