@@ -5,9 +5,12 @@
 // Nuphos: no weaker than `nuphos vault enroll` in a Nuphos terminal, weaker than one
 // over the person's own SSH.
 
+import { ObjectId } from 'mongodb'
+
 import { dispatchLocalExec } from '@/lib/agent/devices/dispatch'
 import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { AppError } from '@/lib/errors'
+import { users } from '@/lib/identity/shared'
 import { addVaultDevice, devices, itemView, items } from '@/lib/vault'
 
 import type { LocalExecDispatchOutcome } from '@/lib/agent/devices/dispatch'
@@ -105,4 +108,41 @@ export async function getVaultItemForComputer(userId: string, computer: Computer
     deviceId: device._id,
     item: itemView({ ...doc, keys: doc.keys.filter((key) => key.deviceId === device._id) }),
   }
+}
+
+/**
+ * Whose vaults share an item with this computer: each owner who approved a device linked to
+ * it and wrapped the item's key for that device. Who and their name only, never the item.
+ */
+export async function vaultOwnersSharingWithComputer(computer: Computer, name: string) {
+  const linked = await devices()
+    .find({
+      state: 'enrolled',
+      'computer.userId': computer.userId,
+      'computer.deviceId': computer.deviceId,
+    })
+    .toArray()
+  const shared = linked.length
+    ? await items()
+        .find({ name, userId: { $in: linked.map((device) => device.userId) } })
+        .toArray()
+    : []
+  const owners = shared
+    .filter((item) =>
+      linked.some(
+        (device) =>
+          device.userId === item.userId && item.keys.some((key) => key.deviceId === device._id),
+      ),
+    )
+    .map((item) => item.userId)
+  const ids = owners.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id))
+  const names = new Map(
+    (
+      await users()
+        .find({ _id: { $in: ids } }, { projection: { name: 1 } })
+        .toArray()
+    ).map((user) => [user._id.toHexString(), user.name]),
+  )
+
+  return owners.map((userId) => ({ userId, name: names.get(userId) ?? '' }))
 }

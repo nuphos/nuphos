@@ -14,7 +14,11 @@ import {
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
-import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
+import {
+  getVaultItemForComputer,
+  offerComputerKey,
+  vaultOwnersSharingWithComputer,
+} from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
 import { liveDevice } from '@/routes/agent/router'
 
@@ -27,11 +31,13 @@ import type { Context } from 'hono'
 // read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
 
-// A computer reaches two routes with its own device credential, registered before
+// A computer reaches three routes with its own device credential, registered before
 // requireAuth, which refuses one. When it joins, it offers its own key to its
 // owner's vault; once a device linked to it is approved, it reads an item with that
-// device's key only.
+// device's key only. It also asks whose vaults share an item with it, to run each
+// one's shared Claude Code token as its own agent.
 vaultRoutes.post('/computer/devices', (c) => offerKeyFromComputer(c))
+vaultRoutes.get('/computer/items', (c) => listComputerSharers(c))
 vaultRoutes.get('/computer/items/:name', (c) => readComputerItem(c))
 
 async function computerOf(c: Context, live: typeof liveDevice) {
@@ -75,6 +81,21 @@ export async function readComputerItem(
       nameParam(c.req.param('name') ?? ''),
     ),
   )
+}
+
+/** Separate from the route so its credential check can be tested without a database. */
+export async function listComputerSharers(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; owners: typeof vaultOwnersSharingWithComputer } = {
+    liveDevice,
+    owners: vaultOwnersSharingWithComputer,
+  },
+) {
+  const { userId, deviceId } = await computerOf(c, deps.liveDevice)
+
+  return c.json({
+    owners: await deps.owners({ userId, deviceId }, nameParam(c.req.query('name') ?? '')),
+  })
 }
 
 vaultRoutes.use('*', requireAuth)

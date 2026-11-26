@@ -19,7 +19,11 @@ import {
   removeVaultDevice,
 } from '@/lib/vault'
 import type { VaultKey } from '@/lib/vault'
-import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
+import {
+  getVaultItemForComputer,
+  offerComputerKey,
+  vaultOwnersSharingWithComputer,
+} from '@/lib/vault-computer'
 
 const KEY = Buffer.alloc(32, 1).toString('base64')
 const keysFor = (...ids: string[]) =>
@@ -286,6 +290,44 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     })
     await removeVaultDevice(user, laptop.id)
     expect((await getVaultItemForComputer(user, box, 'token')).item.ciphertext).toBe('c3')
+  })
+
+  test('a computer learns whose vaults share an item with it, and nothing more', async () => {
+    const box = { userId: randomUUID(), deviceId: randomUUID() }
+    const sharing = async (shareIt: boolean) => {
+      const user = randomUUID()
+      const laptop = await addVaultDevice(user, 'laptop', KEY)
+      const added = await addVaultDevice(user, 'box', KEY, box)
+
+      await approveVaultDevice(user, added.id)
+      await put(user, 'token', 'c1', [
+        ...keysFor(laptop.id),
+        ...(shareIt ? [{ deviceId: added.id, wrapped: 'w-box' }] : []),
+      ])
+
+      return user
+    }
+    const alice = await sharing(true)
+    const bob = await sharing(true)
+
+    await sharing(false)
+    // Linked but still pending: not yet a vault it reads.
+    const pending = randomUUID()
+    const laptop = await addVaultDevice(pending, 'laptop', KEY)
+
+    await addVaultDevice(pending, 'box', KEY, box)
+    await put(pending, 'token', 'c1', keysFor(laptop.id))
+
+    const owners = await vaultOwnersSharingWithComputer(box, 'token')
+
+    // Random ids are no users: who they are, with no name.
+    expect(owners).toHaveLength(2)
+    expect(owners).toContainEqual({ userId: alice, name: '' })
+    expect(owners).toContainEqual({ userId: bob, name: '' })
+    expect(await vaultOwnersSharingWithComputer(box, 'other')).toEqual([])
+    expect(
+      await vaultOwnersSharingWithComputer({ ...box, deviceId: randomUUID() }, 'token'),
+    ).toEqual([])
   })
 
   test('a computer that joined offers one key, even when two offers race', async () => {

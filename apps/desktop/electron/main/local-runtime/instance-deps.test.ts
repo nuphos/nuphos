@@ -29,7 +29,7 @@ function added(
     'instance-dir',
     'u1',
     () => seen.push({ ...install }),
-    install,
+    { install },
   )
 
   return { probe: () => deps.probeCli(provider, {}, undefined), install, seen }
@@ -110,15 +110,44 @@ test('an agent this computer already had only probes', async () => {
   assert.equal(calls, 0)
 })
 
-test('an added agent keeps its own login: it is not told where the vault token is', async () => {
+test('a shared token’s agent signs in with that token', async () => {
   const deps = instanceControllerDeps(
     {
-      userEnv: () =>
-        Promise.resolve({
-          PATH: '/bin',
-          NUPHOS_VAULT_SOCKET: '/run/v/token.sock',
-          NUPHOS_VAULT_KEY: 'k',
-        }),
+      userEnv: () => Promise.resolve({ PATH: '/bin' }),
+      probeCli: () => Promise.resolve(present),
+    } as unknown as LocalRuntimeControllerDeps,
+    'instance-dir',
+    'u1',
+    () => undefined,
+    {
+      vault: {
+        owner: 'alice',
+        name: 'Alice',
+        read: () => Promise.resolve('sk-ant-oat01-fictional'),
+      },
+    },
+  )
+  const env = await deps.userEnv()
+
+  assert.equal(env.PATH, '/bin')
+  assert.equal(typeof env.NUPHOS_VAULT_SOCKET, 'string')
+  assert.match(env.NUPHOS_VAULT_KEY ?? '', /^[0-9a-f]{64}$/u)
+  // Its own home holds no login: the token is its sign-in.
+  assert.deepEqual(await deps.probeCli('claude-code', env, undefined), {
+    ...present,
+    loggedIn: true,
+  })
+  assert.deepEqual(await deps.probeCli('claude-code', {}, undefined), {
+    ...present,
+    loggedIn: true,
+  })
+})
+
+test('an added agent of its own login is told of no token', async () => {
+  const deps = instanceControllerDeps(
+    {
+      userEnv: () => Promise.resolve({ PATH: '/bin' }),
+      probeCli: () => Promise.resolve(present),
     } as unknown as LocalRuntimeControllerDeps,
     'instance-dir',
     'u1',
@@ -126,7 +155,6 @@ test('an added agent keeps its own login: it is not told where the vault token i
   )
   const env = await deps.userEnv()
 
-  assert.equal(env.PATH, '/bin')
   assert.equal(env.NUPHOS_VAULT_SOCKET, undefined)
-  assert.equal(env.NUPHOS_VAULT_KEY, undefined)
+  assert.deepEqual(await deps.probeCli('claude-code', env, undefined), present)
 })

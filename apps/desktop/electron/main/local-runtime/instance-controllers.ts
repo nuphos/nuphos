@@ -7,6 +7,7 @@ import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
 import { instanceControllerDeps, secureStorageEnv, signOutInstance } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
+import { watchVaultAgents } from './vault-instances.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
@@ -15,6 +16,7 @@ import type { DefaultAgentControl } from './default-agent.ts'
 import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
+import type { VaultToken } from './vault-token.ts'
 
 /** A sign-in left unfinished this long is abandoned: its login has long expired. */
 export const PENDING_TTL_MS = 20 * 60_000
@@ -32,7 +34,7 @@ export type InstanceControllersOptions = DefaultAgentControl & {
  * sign-in removes it with everything it stored.
  */
 export class InstanceControllers {
-  private readonly entries = new Map<string, Entry>()
+  readonly entries = new Map<string, Entry>()
   private readonly deps: LocalRuntimeControllerDeps
   private readonly create: (
     deps: LocalRuntimeControllerDeps,
@@ -43,6 +45,8 @@ export class InstanceControllers {
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
   private readonly defaults: DefaultAgentControl
   private userId: string | null = null
+  private watch?: NodeJS.Timeout
+  private readonly instanceDir = (id: string) => path.join(this.deps.dataDir(), 'instances', id)
   constructor(
     deps: LocalRuntimeControllerDeps,
     create: InstanceControllers['create'],
@@ -58,12 +62,14 @@ export class InstanceControllers {
   }
 
   async load(userId: string | null): Promise<void> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
     this.entries.clear()
     this.userId = userId
     if (!userId) return
     for (const metadata of readInstances(userDir(this.deps.dataDir(), userId)))
       this.add(metadata, userId)
+    this.watch = await watchVaultAgents(this, this.deps.vaultTokens, userId)
     await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.setUser(userId)),
     )
@@ -75,6 +81,7 @@ export class InstanceControllers {
   }
 
   async shutdown(): Promise<unknown> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
 
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
@@ -112,13 +119,13 @@ export class InstanceControllers {
   }
 
   /** `install`: set for an agent being added, whose missing CLI this computer installs. */
-  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
+  add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall, vault?: VaultToken) {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, { install, vault }),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller, install }
+    const entry: Entry = { metadata, controller, install, vault }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -126,15 +133,18 @@ export class InstanceControllers {
     return entry
   }
 
-  private instanceDir(instanceId: string): string {
-    return path.join(this.deps.dataDir(), 'instances', instanceId)
-  }
-
-  private persist(userId: string): void {
+  /** A shared token's agent is not stored: what is shared now decides it on each start. */
+  private persist(userId: string, added: AgentInstanceRecord[] = []): void {
     writeInstances(
       userDir(this.deps.dataDir(), userId),
-      [...this.entries.values()].map((entry) => entry.metadata),
+      [...this.entries.values()].flatMap((e) => (e.vault ? [] : [e.metadata])).concat(added),
     )
+  }
+
+  start(entry: Entry, userId: string): void {
+    entry.starting = entry.controller.setUser(userId).then(this.changed)
+    entry.starting.catch(() => {}) // The controller reports its own start failure.
+    this.changed()
   }
 
   private expireLater(entry: Entry): void {
@@ -184,7 +194,7 @@ export class InstanceControllers {
     return false
   }
 
-  private async remove(instanceId: string, userId: string): Promise<void> {
+  async remove(instanceId: string, userId: string): Promise<void> {
     const entry = this.entries.get(instanceId)
 
     if (!entry) return
@@ -281,15 +291,8 @@ export class InstanceControllers {
       createdAt: new Date(this.now()).toISOString(),
     }
 
-    writeInstances(
-      userDir(this.deps.dataDir(), userId),
-      [...this.entries.values()].map((entry) => entry.metadata).concat(record),
-    )
-    const entry = this.add(record, userId, {})
-
-    entry.starting = entry.controller.setUser(userId).then(this.changed)
-    entry.starting.catch(() => {}) // The controller reports its own start failure.
-    this.changed()
+    this.persist(userId, [record])
+    this.start(this.add(record, userId, {}), userId)
 
     return { instance: publicMetadata(record) }
   }
