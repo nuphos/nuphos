@@ -28,6 +28,16 @@ const BODIES: [string, string][] = [
     '要停用舊的測試儲存桶嗎？',
     '**原因**：測試儲存桶自三月遷移後就沒有任何寫入，新的儲存桶已經接手所有部署。它的生命週期規則仍保留每個物件版本，所以即使沒有人讀取，帳單每月仍在增加。另外有兩個儀表板還指向它，但已經一季沒有人使用。停用後可以省下這筆費用並清掉過時的儀表板；若之後發現仍需要，從每晚快照還原大約十分鐘。停用前會先匯出物件清單與存取紀錄，保存九十天，方便日後查核是誰在什麼時候讀過哪些檔案。兩個儀表板會改指向新的儲存桶，原本的告警規則也一併搬過去，所以值班的同事不需要調整任何設定。如果這週內有人提出異議，可以延後到下個月的維護時段再處理，期間費用會照常計算。停用當天會在團隊頻道公告時間與影響範圍，並在完成後附上新的儲存桶位置與還原步驟的文件連結。若還原後發現有遺漏的檔案，可以從匯出的物件清單逐一比對，找出缺少的部分再個別補回，不必整個重新還原。整個流程預計在一個工作天內完成，不會影響正式環境的任何服務。',
   ],
+  // Paragraphs and a list: the cut counts lines across blocks, not within one paragraph.
+  [
+    'Retire the staging bucket and its dashboards?',
+    [
+      '**Why**: the staging bucket has had no writes since March.',
+      'What retiring it changes:',
+      '- the monthly bill drops by the cost of every kept object version\n- two unused dashboards that point at it go away\n- its alert rules move to the new bucket',
+      'Restoring from the nightly snapshot takes about ten minutes if anything turns out to need it.',
+    ].join('\n\n'),
+  ],
 ]
 
 /** The body's lines of text the box that clips it cuts through, and those it hides entirely. */
