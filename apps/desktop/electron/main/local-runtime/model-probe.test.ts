@@ -288,7 +288,7 @@ const CURSOR_LIKE_ADAPTER = `
         { id: 'model', category: 'model', currentValue: params?.value ?? 'default[]', options },
       ],
     };
-    if (method === 'session/set_config_option') writeFileSync(process.env.SETS_FILE, String(sets));
+    if (method === 'session/set_config_option') writeFileSync(process.env.SETS_FILE, sets + ' ' + params.value);
     console.log(JSON.stringify({ id, result }));
   }
 `
@@ -309,8 +309,9 @@ test('a runtime with no per-model controls lists all its models after one set, n
 
     assert.equal(catalog.models.length, 49)
     assert.equal(catalog.defaultModel, 'default[]')
-    // The default's controls came with the session; one more model showing none ends the read.
-    assert.equal(readFileSync(setsFile, 'utf8'), '1')
+    // The default's controls came with the session; one more model showing none ends the read,
+    // and a last set puts back the default Cursor would otherwise keep as the user's.
+    assert.equal(readFileSync(setsFile, 'utf8'), '2 default[]')
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

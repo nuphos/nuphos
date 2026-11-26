@@ -224,6 +224,8 @@ export function probeLocalModels(options: {
 
         return
       }
+      const set = (value: unknown) =>
+        call('session/set_config_option', { sessionId, configId: model.id, value })
       const controls: Record<string, ModelControls> = {
         [defaultModel as string]: controlsOf(configOptions),
       }
@@ -240,11 +242,7 @@ export function probeLocalModels(options: {
         // once; try again before reporting the model without its controls.
         for (let attempt = 0; attempt < 2 && !controls[id]; attempt++) {
           try {
-            const updated = await call('session/set_config_option', {
-              sessionId,
-              configId: model.id,
-              value: id,
-            })
+            const updated = await set(id)
 
             configOptions = (updated.configOptions ?? configOptions) as ConfigOption[]
             controls[id] = controlsOf(configOptions)
@@ -255,6 +253,8 @@ export function probeLocalModels(options: {
           }
         }
       }
+      // Cursor keeps the last model set as its CLI default, so put the user's back.
+      if (Object.keys(controls).length > 1) await set(model.currentValue).catch(() => undefined)
       finish(null, {
         models: models.filter(({ id }, index) => index >= tried || controls[id]),
         defaultModel: defaultModel as string,
