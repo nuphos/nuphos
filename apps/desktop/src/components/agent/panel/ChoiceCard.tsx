@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronDown, X } from 'lucide-react'
-import { useContext, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
@@ -182,36 +182,31 @@ function AnswerStatus({
 }
 
 /**
- * The question's markdown body: four lines at first, the last fading out, and a
- * full-width "Show more" under them. The collapsed lines open it too.
+ * The question's markdown body: four whole lines at first, the last ending in an
+ * ellipsis, and a full-width "Show more" under them when that cuts it.
  */
 export function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [overflows, setOverflows] = useState(false)
+  const [cut, setCut] = useState(false)
   const [expanded, setExpanded] = useState(full)
-  const clipped = overflows && !expanded
 
-  useLayoutEffect(() => {
+  // Measured whenever its size changes, so a card laid out while hidden still finds out.
+  useEffect(() => {
     const el = ref.current
 
-    if (el && !expanded) setOverflows(el.scrollHeight > el.clientHeight + 1)
+    if (!el || expanded) return
+    const observer = new ResizeObserver(() => setCut(el.scrollHeight > el.clientHeight + 1))
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
   }, [text, expanded])
 
   if (!text) return null
 
   return (
     <div className="flex flex-col gap-2 pt-1.5">
-      {/* Keyboard users open it with the row below. */}
-      <div
-        ref={ref}
-        onClick={clipped ? () => setExpanded(true) : undefined}
-        className={clsx(
-          'overflow-hidden',
-          !expanded && 'max-h-[88px]',
-          clipped &&
-            'cursor-pointer [mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]',
-        )}
-      >
+      <div ref={ref} className={clsx(!expanded && 'line-clamp-4')}>
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
@@ -219,7 +214,7 @@ export function DecisionBody({ text, full = false }: { text: string | undefined;
           {text}
         </MessageResponse>
       </div>
-      {!full && (overflows || expanded) && (
+      {!full && (cut || expanded) && (
         <button
           type="button"
           aria-expanded={expanded}

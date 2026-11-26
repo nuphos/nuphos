@@ -50,6 +50,7 @@ function setUpDom() {
     HTMLElement: dom.HTMLElement,
     Element: dom.Element,
     Node: dom.Node,
+    ResizeObserver: dom.ResizeObserver,
     IS_REACT_ACT_ENVIRONMENT: true,
   }
 
