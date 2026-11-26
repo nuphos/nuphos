@@ -76,8 +76,7 @@ export async function steerRunningTurn(
     )
   } catch (error) {
     // OpenAB stopped waiting for the agent's answer, not the agent for the steer: the posts
-    // may well be in the turn, so they are read, not sent again (a lost one is left to the
-    // unanswered reminder).
+    // are most likely in the turn, so they are taken as an acknowledged steer, not sent again.
     if (!(error instanceof OpenAbRpcError && error.code === STEER_UNACKNOWLEDGED)) return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
