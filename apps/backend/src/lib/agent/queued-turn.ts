@@ -199,6 +199,9 @@ export async function startQueuedTurn(
 // Busy, timed out, too early, rate limited: each passes with time, however long it takes.
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
 
+// Also 409, but only someone at the computer ends these: a signed-out CLI, or one that cannot run.
+const NEEDS_THE_COMPUTER = new Set(['runtime_login_required', 'runtime_not_installed'])
+
 /**
  * A send that failed to start waits for another try when the failure can pass:
  * a busy or rate-limited runtime. Anything else
@@ -206,7 +209,9 @@ const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
  * its sender is told instead of the queue being held behind it.
  */
 const mayStartLater = (error: unknown) =>
-  error instanceof AppError && RETRYABLE_STATUS.has(error.status)
+  error instanceof AppError &&
+  RETRYABLE_STATUS.has(error.status) &&
+  !NEEDS_THE_COMPUTER.has(error.code)
 
 /**
  * A server error or an offline computer usually passes within moments. It is retried
