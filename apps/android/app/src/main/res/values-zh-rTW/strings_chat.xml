@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">重試引導</string>
     <string name="chat_attachment_message">附件訊息</string>
     <string name="chat_upload_preparing">正在準備上傳…</string>
-    <string name="chat_upload_progress">正在上傳 %1$d / %2$d 位元組</string>
+    <string name="chat_upload_progress">正在上傳 %1$s / %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s byte</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">正在檢查已上傳的檔案…</string>
+    <string name="chat_upload_sending">正在傳送…</string>
     <string name="chat_upload_ready">檔案已就緒</string>
     <string name="chat_upload_cancel">取消上傳</string>
     <string name="chat_upload_retry">重試附件訊息</string>
