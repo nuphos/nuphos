@@ -67,7 +67,18 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
 test('Codex takes one model ID, and one saved with more keeps the first', (t) => {
   const dir = tempDir(t)
 
-  assert.throws(() => parseCustomProvider(gateway, 'codex'), /Codex takes one model ID/u)
+  assert.throws(
+    () => parseCustomProvider(gateway, 'codex'),
+    /^Error: Enter one model ID without spaces\.$/u,
+  )
+  assert.throws(
+    () => parseCustomProvider({ ...codexGateway, models: ['kimi-k2 glm-4.6'] }, 'codex'),
+    /^Error: Enter one model ID without spaces\.$/u,
+  )
+  assert.throws(
+    () => parseCustomProvider({ ...gateway, models: ['two words'] }, 'claude-code'),
+    /^Error: Enter up to 50 model IDs, one per line, without spaces\.$/u,
+  )
   assert.deepEqual(parseCustomProvider(gateway, 'claude-code').models, gateway.models)
   mkdirSync(dir, { recursive: true })
   writeFileSync(path.join(dir, 'custom-providers.json'), JSON.stringify({ codex: gateway }))

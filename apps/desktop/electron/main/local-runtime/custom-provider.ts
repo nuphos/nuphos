@@ -78,9 +78,14 @@ export function parseCustomProvider(
     ),
   ].filter(Boolean)
 
-  if (ids.length > MAX_MODELS || ids.some((id) => !MODEL_ID.test(id)))
-    throw new Error('Enter up to 50 model IDs, one per line, without spaces.')
-  if (provider === 'codex' && ids.length > 1) throw new Error('Codex takes one model ID.')
+  const codex = provider === 'codex'
+
+  if (ids.length > (codex ? 1 : MAX_MODELS) || ids.some((id) => !MODEL_ID.test(id)))
+    throw new Error(
+      codex
+        ? 'Enter one model ID without spaces.'
+        : 'Enter up to 50 model IDs, one per line, without spaces.',
+    )
 
   return { baseUrl: (baseUrl as string).trim(), models: ids }
 }
