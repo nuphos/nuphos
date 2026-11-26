@@ -98,7 +98,6 @@ const boundaries: Record<string, Record<string, unknown>> = {
   './model-probe.ts': { bundledModelProbe: () => noop },
   './openab-process.ts': { OpenabProcess: class {} },
   './sleep-prevention-electron.ts': {},
-  './vault-token.ts': { CLAUDE_TOKEN_ITEM: 'claude-code-oauth-token', serveVaultToken: () => ({}) },
 }
 
 for (const [name, namedExports] of Object.entries(boundaries)) mock.module(name, { namedExports })
