@@ -132,6 +132,18 @@ test('a creating Box that drops out of the list is reported once', () => {
   assert.deepEqual(vanishedBoxes([box('a', 'creating')], [box('a', 'running')]), [])
 })
 
+test('a Box whose host never joined is reported when it drops out of the list', () => {
+  // Ordered, so instabox runs it: the backend removes it once its host misses the join window.
+  assert.deepEqual(
+    vanishedBoxes([box('a', 'connecting')], []).map((device) => device.deviceId),
+    ['a'],
+  )
+})
+
+test('a Box deleted from this window is not reported as failed', () => {
+  assert.deepEqual(vanishedBoxes([box('a', 'connecting')], [], new Set(['a'])), [])
+})
+
 test('a machine reads as its OS and model', () => {
   const mac: AgentDevice = { deviceId: 'm', label: 'Mac', platform: 'darwin', model: 'MacBook Pro' }
 
