@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 
 import { conversationExecutionState, probeExecutionState } from './session-execution-state'
@@ -7,10 +8,13 @@ import { conversationExecutionState, probeExecutionState } from './session-execu
 import type { AgentConversation } from '@/lib/agent/db'
 
 let endpoint = ''
+let refusal: Error | undefined
 
 useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: () =>
-    Promise.resolve([{ url: endpoint, authKey: 'operator-fixture' }]),
+    refusal
+      ? Promise.reject(refusal)
+      : Promise.resolve([{ url: endpoint, authKey: 'operator-fixture' }]),
 })
 
 test('legacy conversation state follows its OpenAB placement and permits a follow-up', async () => {
@@ -167,6 +171,24 @@ test('a conversation moved before the fix is read the same way', async () => {
 
   expect(snapshot.state).toBe('dormant')
   expect(snapshot.actions?.send).toBe(true)
+})
+
+// A queued send read as disconnected waits for the computer to reconnect, then says it did not:
+// a computer that says why its agent cannot run is not reconnecting.
+test('an agent its computer cannot run reads as startable, not as a lost connection', async () => {
+  refusal = new AppError(409, 'runtime_not_installed', 'Claude Code is too old to run here.')
+  const conversation = {
+    sessionId: 'not-installed',
+    teamId: 'team',
+    agentRuntime: 'claude-code',
+  } as AgentConversation
+
+  try {
+    await expect(probeExecutionState(conversation)).rejects.toThrow('too old')
+    expect((await conversationExecutionState(conversation)).state).toBe('dormant')
+  } finally {
+    refusal = undefined
+  }
 })
 
 // A state query that is only slow is not a failure for admission: it waits, and

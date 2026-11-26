@@ -47,13 +47,14 @@ type ExecutionStateConversation = Pick<
 export async function conversationExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
-  // Status reads are polled and fall back to 'disconnected', so they wait briefly.
-  const state = await probeExecutionState(conversation, 3_000).catch(
-    (error: unknown): SessionExecutionState => ({
-      state:
-        error instanceof OpenAbRpcError && error.code === -32601 ? 'unsupported' : 'disconnected',
-    }),
-  )
+  // Status reads are polled and wait briefly. A computer that says its agent cannot run lost no link.
+  const state = await probeExecutionState(conversation, 3_000).catch((error: unknown) => {
+    const code = error instanceof AppError || error instanceof OpenAbRpcError ? error.code : null
+
+    return code === 'runtime_not_installed'
+      ? READY_FOR_NEXT_MESSAGE
+      : ({ state: code === -32601 ? 'unsupported' : 'disconnected' } as const)
+  })
 
   return withSessionDesktops(state, conversation)
 }
