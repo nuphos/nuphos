@@ -447,3 +447,80 @@ test('a pick queued on one agent is sent after a move only if the new agent offe
   await flush()
   assert.deepEqual(writes, ['a'])
 })
+
+const effortOf = (sync: SessionConfigSync) =>
+  sync.getSnapshot().data?.options.find((option) => option.kind === 'effort')?.currentValue
+
+/** The first read lists low and high; a read-back after a write never answers. */
+const confirmedThenSilent = () => {
+  let reads = 0
+
+  return () =>
+    ++reads === 1
+      ? Promise.resolve(offering(['model'], ['low', 'high']))
+      : deferred<SessionConfigState>().promise
+}
+
+test('an effort pick shows while it is saved, and a failed write puts back the confirmed level', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const write = deferred<SessionConfigState>()
+  const sync = new SessionConfigSync({ read: confirmedThenSilent(), write: () => write.promise })
+
+  t.after(sync.start())
+  await flush()
+  const selecting = sync.select({ configId: 'effort', value: 'high' })
+
+  assert.equal(effortOf(sync), 'high')
+  assert.equal(sync.getSnapshot().saving, true)
+  write.reject(new Error('Connection lost'))
+  await selecting
+  assert.equal(effortOf(sync), 'low')
+  assert.match(sync.getSnapshot().writeError ?? '', /not confirmed/)
+})
+
+test('an effort write that is never acknowledged puts back the confirmed level after 40 s', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const write = deferred<SessionConfigState>()
+  const sync = new SessionConfigSync({ read: confirmedThenSilent(), write: () => write.promise })
+
+  t.after(sync.start())
+  await flush()
+  const selecting = sync.select({ configId: 'effort', value: 'high' })
+
+  t.mock.timers.tick(39_999)
+  await flush()
+  assert.equal(effortOf(sync), 'high')
+  t.mock.timers.tick(1)
+  await selecting
+  await flush()
+  assert.equal(effortOf(sync), 'low')
+  assert.equal(sync.getSnapshot().saving, false)
+  // A late acknowledgement does not bring the unconfirmed level back.
+  write.resolve(offering(['model'], ['high', 'low']))
+  await flush()
+  assert.equal(effortOf(sync), 'low')
+})
+
+test('an effort level the runtime does not offer is still sent, never shown, and its refusal is kept', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const write = deferred<SessionConfigState>()
+  let writes = 0
+  const sync = new SessionConfigSync({
+    read: async () => offering(['model'], ['low', 'high']),
+    write: () => {
+      writes++
+
+      return write.promise
+    },
+  })
+
+  t.after(sync.start())
+  await flush()
+  const selecting = sync.select({ configId: 'effort', value: 'invented' })
+
+  assert.equal(writes, 1)
+  assert.equal(effortOf(sync), 'low')
+  write.reject(new Error('Unsupported effort'))
+  await selecting
+  assert.match(sync.getSnapshot().writeError ?? '', /not confirmed/)
+})

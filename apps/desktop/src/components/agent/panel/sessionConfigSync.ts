@@ -180,19 +180,27 @@ export class SessionConfigSync {
     )
       return
     const version = ++this.version
+    const confirmed = this.snapshot.data
 
     clearTimeout(this.poll)
     clearTimeout(this.slowTimer)
     this.pending = false
     // A fresh pick retires the last refusal's reason alongside the connection note.
-    this.publish({ saving: true, slow: false, error: undefined, writeError: undefined })
+    // An effort level shows while it is saved; a failed write puts back what was confirmed.
+    this.publish({
+      data: withEffortPicks(confirmed, { [selection.configId]: selection.value }),
+      saving: true,
+      slow: false,
+      error: undefined,
+      writeError: undefined,
+    })
     try {
       const data = await bounded(this.transport.write(selection), 40_000)
 
       if (this.active && version === this.version) this.publish({ data, loading: false })
     } catch (error) {
       if (this.active && version === this.version)
-        this.publish({ queued: undefined, writeError: writeFailure(error) })
+        this.publish({ data: confirmed, queued: undefined, writeError: writeFailure(error) })
     } finally {
       if (this.active && version === this.version) {
         this.publish({ saving: false })
@@ -200,6 +208,25 @@ export class SessionConfigSync {
         void this.refresh()
       }
     }
+  }
+}
+
+/** `data` with each effort level picked here, by option id, as current where the runtime offers it. */
+export function withEffortPicks(
+  data: SessionConfigState,
+  picks: Partial<Record<string, string>>,
+): SessionConfigState {
+  return {
+    ...data,
+    options: data.options.map((option) => {
+      const picked = picks[option.id]
+
+      return picked !== undefined &&
+        option.kind === 'effort' &&
+        option.options.some((choice) => choice.value === picked)
+        ? { ...option, currentValue: picked }
+        : option
+    }),
   }
 }
 
