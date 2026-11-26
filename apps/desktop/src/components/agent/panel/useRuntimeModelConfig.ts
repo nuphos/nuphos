@@ -60,6 +60,8 @@ export function useRuntimeModelConfig(
     saving: Boolean(shown) && pending,
     error: pending ? undefined : shown?.error,
     queued: undefined,
+    teamId,
+    runtimeId,
     open,
     setOpen: (next: boolean) => {
       setOpen(next)
