@@ -79,6 +79,8 @@ export type LocalRuntimeTunnelStatus = {
     label: string
     /** Pending until its first sign-in; the backend lists only ready agents. */
     state?: 'pending' | 'ready'
+    /** Signed in with a token shared through the Vault: listed only while it is reported. */
+    vault?: true
   } & Partial<NonNullable<LocalRuntimeTunnelStatus['agents']['codex']>>)[]
   backendUrl?: string
   cliVersion?: string

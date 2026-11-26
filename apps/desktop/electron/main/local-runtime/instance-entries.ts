@@ -46,11 +46,12 @@ export function instanceStates(entries: Iterable<Entry>, online: boolean) {
 export function instanceStatus(
   entries: Iterable<Entry>,
 ): NonNullable<LocalRuntimeTunnelStatus['instances']> {
-  return [...entries].map(({ metadata, controller, install }) => {
+  return [...entries].map(({ metadata, controller, install, vault }) => {
     const cli = controller.state().agents[metadata.provider].cli
 
     return {
       ...publicMetadata(metadata),
+      ...(vault && { vault: true as const }),
       ...controller.status().agents[metadata.provider],
       cli: {
         installed: cli?.installed ?? false,
