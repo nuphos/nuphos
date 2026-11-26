@@ -114,14 +114,14 @@ describe('decision tool module', () => {
     expect(metas.port_forward_start).toBeUndefined()
   })
 
-  test('agents are not offered a computer card while the gate is off', () => {
+  test('agents are offered a computer card, now that its live view ships', () => {
     const definition = decisionToolModule({ publish: async () => {} }).definitions.find(
       (tool) => (tool as { name: string }).name === 'request_user_decision',
     ) as { description: string; inputSchema: { properties: { category: { enum: string[] } } } }
 
-    expect(COMPUTER_CARDS).toBe(false)
-    expect(definition.inputSchema.properties.category.enum).not.toContain('computer')
-    expect(definition.description).not.toContain('`computer`')
+    expect(COMPUTER_CARDS).toBe(true)
+    expect(definition.inputSchema.properties.category.enum).toContain('computer')
+    expect(definition.description).toContain('`computer`')
   })
 
   test.skipIf(!COMPUTER_CARDS)(
