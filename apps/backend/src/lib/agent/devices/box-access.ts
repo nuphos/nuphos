@@ -34,17 +34,6 @@ export function deviceOwner(device: AgentDevice): string {
   return device.box?.createdBy ?? device.userId
 }
 
-/** Whether no one but `userId` owns, uses or manages the computer, in any team. */
-export function onlyUsedBy(device: AgentDevice, userId: string): boolean {
-  return (
-    deviceOwner(device) === userId &&
-    (device.access ?? []).every(
-      (grant) =>
-        !grant.everyone && [...grant.userIds, ...grant.managerIds].every((id) => id === userId),
-    )
-  )
-}
-
 /** Who among these members can no longer use the computer under this team's new use list. */
 export function losingUse(
   memberIds: string[],

@@ -10,9 +10,10 @@
 // the agent's input tools on that display. The stream closing hands it back.
 // Links carry ids only: the route is the authorization. It admits the owner, and a
 // teammate who may reply in it to watch; they take over only what a `computer` card hands.
-// Every session on a Box runs as one Unix user, so a card hands over a desktop only
-// on a Box no one else uses (computer-desktop.ts, desktop-invitation.ts; the host's
-// desktop-session.mjs keeps each display to that user). A Mac asks
+// Every session on a Box runs as one Unix user, so whoever may use the Box can already
+// reach its displays through their own agents; a shared Box still hands its desktop over
+// (computer-desktop.ts, desktop-invitation.ts; the host's desktop-session.mjs keeps each
+// display to that user). A Mac asks
 // for no account: it shows its screen only to the Nuphos process that started
 // its host, and that process streams it only to the account signed in on the Mac.
 import { getReadableConversation } from '@/lib/agent/db'
@@ -26,7 +27,7 @@ import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
-import { desktopInvitation, INVITE_RECHECK_MS, recheckInvitation } from './desktop-invitation'
+import { desktopInvitation, recheckInvitation } from './desktop-invitation'
 import { clientInputFilter } from './rfb-client-input'
 import { requireRuntimeInstance } from './runtime-catalog'
 
@@ -268,7 +269,7 @@ export function runtimeDesktopEvents(
       })
       void stream.connect()
       if (invited)
-        stopRecheck = recheckInvitation(invitedNow, deps.recheckMs ?? INVITE_RECHECK_MS, (now) => {
+        stopRecheck = recheckInvitation(invitedNow, deps.recheckMs, (now) => {
           may = now
           try {
             // The card answered or withdrawn: the Box goes back to the agent; they keep watching.

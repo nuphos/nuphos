@@ -41,7 +41,7 @@ import path from 'node:path'
 // Every display runs as the Box's one Unix user. Its X server takes only clients
 // with its cookie and its RFB is served only on a 0600 socket, both in the
 // display's own 0700 dir, with no network listener. Nuphos hands a display to a
-// person only on a Box no one else uses (computer-desktop.ts in the backend).
+// person through the backend's desktop stream (computer-desktop.ts in the backend).
 const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
 const PROXY = '/usr/local/bin/instabox-computer-use-proxy'
