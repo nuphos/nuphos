@@ -97,6 +97,8 @@ describe('turnFailureCause', () => {
       'offline',
     )
     expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
+    // Removed, or its computer no longer shared: only moving the conversation helps.
+    expect(turnFailureCause(new AppError(404, 'runtime_not_found', 'Gone'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
   })
 
