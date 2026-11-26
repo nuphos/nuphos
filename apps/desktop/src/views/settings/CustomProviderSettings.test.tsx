@@ -121,13 +121,16 @@ test('this computer’s own Codex sets up, shows and removes its custom provider
   try {
     assert.ok(container.textContent?.includes('Custom provider'))
     await act(async () => button(container, 'Set up')?.click())
-    const [baseUrl, apiKey] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
-    const models = container.querySelector('textarea') as unknown as HTMLTextAreaElement
+    // Codex takes one model ID, so its field is a single line (#5214).
+    assert.equal(container.querySelector('textarea'), null)
+    const [baseUrl, apiKey, model] = container.querySelectorAll(
+      'input',
+    ) as unknown as HTMLInputElement[]
 
     await act(async () => {
       type(dom, baseUrl!, 'https://gateway.example.com/v1')
       type(dom, apiKey!, 'sk-fictional')
-      type(dom, models, 'model-a\nmodel-b')
+      type(dom, model!, 'model-a')
     })
     await act(async () => {
       container
@@ -139,13 +142,13 @@ test('this computer’s own Codex sets up, shows and removes its custom provider
         'codex',
         {
           baseUrl: 'https://gateway.example.com/v1',
-          models: ['model-a', 'model-b'],
+          models: ['model-a'],
           apiKey: 'sk-fictional',
         },
       ],
     ])
     // Saved: the row now reads the broadcast state.
-    assert.ok(container.textContent?.includes('gateway.example.com · model-a, model-b'))
+    assert.ok(container.textContent?.includes('gateway.example.com · model-a'))
     await act(async () => button(container, 'Remove')?.click())
     assert.deepEqual(calls[1], ['codex', null])
     assert.ok(button(container, 'Set up'))
@@ -201,8 +204,8 @@ test('the form checks the URL as it is typed, tests it, and keeps a refusal in p
 
   try {
     await act(async () => button(container, 'Edit')?.click())
-    // The saved key is not a field until it is replaced.
-    assert.equal(container.querySelectorAll('input').length, 1)
+    // The saved key is not a field until it is replaced: only the URL and the model ID are.
+    assert.equal(container.querySelectorAll('input').length, 2)
     assert.ok(container.textContent?.includes('•••• saved'))
     const [baseUrl] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
 
