@@ -16,11 +16,9 @@ export const OUTDATED_LINE =
 export const NOT_READY_LINE =
   "The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again."
 
-// A new task starts on the runtime the last message went to. Sending one on the fixture agent
-// keeps the scenarios after these off the laptop, which has gone offline by then. Desktop starts
-// the failed turn again a few times before it gives up: wait for the last attempt, or it lands on
-// the laptop after this message and the next new task starts there (#4394).
-// Only this chat's Stop: chats opened before stay mounted, hidden.
+// A new task starts on the runtime the last message went to, so send one on the fixture agent,
+// after Desktop stops retrying the laptop's failed turn (#4394). Only this chat's Stop counts:
+// chats opened before stay mounted, hidden.
 export async function backOnFixture(page: Page, marker: string) {
   await until(
     'the turn to stop retrying',
