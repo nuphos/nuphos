@@ -17,6 +17,12 @@ const scenario: Scenario = {
     await openBotChat(page)
     await send(page, 'Ask me E2E_ASK E2E_DELIVERY:bot-preview')
     await transcriptPost(page, 'POSTED E2E_DELIVERY:bot-preview').waitFor()
+    // The post below is stored as read: stored before the Bot's turn ends, it would be a read
+    // post that turn left unanswered, and Nuphos would remind the Bot of it (#5162).
+    await until('the Bot to finish its turn', async () =>
+      agentEvents(stack).includes('finish E2E_DELIVERY:bot-preview'),
+    )
+    await page.waitForTimeout(2_000)
     const channelId = agentLog(stack).find((entry) => entry.event === 'channel')?.detail
 
     if (!channelId) throw new Error('The Bot has not answered in its chat yet')

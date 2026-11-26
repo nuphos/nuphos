@@ -78,6 +78,21 @@ class QuestionOtherFixtureDeviceTest {
         assertEquals(listOf("After QA signs off"), answers)
     }
 
+    /** #5112: the keyboard's return key sends an answer in words, as Send beside it does, and adds no new line. */
+    @Test fun theReturnKeySendsAnAnswerInWords() {
+        val answers = mutableListOf<String>()
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
+            }
+        }
+        compose.onNodeWithText("Other…").performClick()
+        val words = compose.onNodeWithTag("bot-question-answer")
+        words.performTextInput("Ship after the freeze")
+        words.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+        compose.runOnIdle { assertEquals("Return does not send the answer", listOf("Ship after the freeze"), answers) }
+    }
+
     @Test fun inboxGroupsQuestionsAndAnswersOneAtATime() {
         val answers = mutableListOf<Pair<String, String>>()
         val inbox = OpenQuestions(object : OpenQuestions.Source {

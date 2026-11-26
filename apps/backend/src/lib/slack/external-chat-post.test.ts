@@ -52,6 +52,12 @@ useAgentDb({
 })
 useIdentity({ getTeamMembership: () => Promise.resolve({ role: 'MEMBER' } as never) })
 useSlackAgentBot({
+  getSlackChannelMapping: (slackWorkspaceId: string, slackChannelId: string) =>
+    Promise.resolve(
+      (slackWorkspaceId === 'T1' && slackChannelId === 'C1'
+        ? { slackWorkspaceId, slackChannelId, teamId: TEAM, externalChatId: RECORD, enabled: true }
+        : null) as never,
+    ),
   getSlackChannelMappingByExternalChat: (externalChatId: string) =>
     Promise.resolve(
       (externalChatId === RECORD
@@ -235,5 +241,32 @@ describe("a Bot's post in a Slack channel's external chat", () => {
 
     expect(posted).toEqual([])
     expect(await agentMessages().countDocuments({ sessionId: CHAT })).toBe(1)
+  })
+})
+
+describe("a channel that is a Bot's chat", () => {
+  test('takes posts from its Bot and the Bot’s Tasks, and from no one else', async () => {
+    const { mayPostToSlackChannel } = await import('@/lib/slack/external-chat-post')
+
+    await seed('task', { parentSessionId: 'bot' })
+    await seed('other-bot', { title: 'Other Bot', avatar: '03-kim' })
+    await seed('other-task', { parentSessionId: 'other-bot' })
+    await seed('plain', {})
+
+    const may = async (sessionId: string) => await mayPostToSlackChannel(sessionId, 'T1', 'C1')
+
+    expect(await may('bot')).toBe(true)
+    expect(await may('task')).toBe(true)
+    expect(await may('other-bot')).toBe(false)
+    expect(await may('other-task')).toBe(false)
+    expect(await may('plain')).toBe(false)
+  })
+
+  test('an ordinary channel takes anyone’s post', async () => {
+    const { mayPostToSlackChannel } = await import('@/lib/slack/external-chat-post')
+
+    await seed('plain', {})
+
+    expect(await mayPostToSlackChannel('plain', 'T1', 'C2')).toBe(true)
   })
 })

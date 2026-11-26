@@ -58,6 +58,17 @@ export async function answerChannel({ call, log, sessionId, channelId, text, ask
     while (!existsSync(release)) await new Promise((resolve) => setTimeout(resolve, 100))
   }
 
+  // #5162: E2E_DELIVERY:silent-once ends its first turn without channel_post, as a Bot that
+  // answered only in its own transcript. Only the backend's reminder gets the answer posted.
+  if (
+    marker === 'E2E_DELIVERY:silent-once' &&
+    !text.includes('ended without calling channel_post')
+  ) {
+    log({ sessionId, marker, event: 'channel-silent' })
+
+    return
+  }
+
   // E2E_TWO_POSTS posts twice and works on, as a Bot that reports and keeps going.
   const twice = read.includes('E2E_TWO_POSTS')
 

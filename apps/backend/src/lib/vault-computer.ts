@@ -86,7 +86,8 @@ export const offerComputerKey = (
 
 /**
  * An item as a computer reads it with its device credential: only when the vault's
- * owner approved a device linked to that computer, and only that device's key.
+ * owner approved a device linked to that computer and shared the item with it, and
+ * only that device's key.
  */
 export async function getVaultItemForComputer(userId: string, computer: Computer, name: string) {
   const device = await devices().findOne({
@@ -95,9 +96,10 @@ export async function getVaultItemForComputer(userId: string, computer: Computer
     'computer.userId': computer.userId,
     'computer.deviceId': computer.deviceId,
   })
-  const doc = device && (await items().findOne({ userId, name }))
+  const doc = device && (await items().findOne({ userId, name, 'keys.deviceId': device._id }))
 
-  if (!device || !doc) throw new AppError(404, 'not_found', 'Item not found')
+  if (!device || !doc)
+    throw new AppError(404, 'not_found', 'Item not found, or not shared with this computer')
 
   return {
     deviceId: device._id,

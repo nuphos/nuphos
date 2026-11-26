@@ -81,7 +81,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }
         }
     }
-    val rows = store.botsList
+    val rows = store.listedBots
     var pinRetry by remember(team, store.workspaceRevision) { mutableStateOf<Pair<AgentConversation, Boolean>?>(null) }
     fun pin(row: AgentConversation, pinned: Boolean) {
         pinRetry = row to pinned
@@ -128,7 +128,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     )
     if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt()
     // Like iOS, no "+" either: a Bot would have nothing to run on.
-    else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    else if (!store.channelsLoaded && store.botsList.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     // Without the list's "+", an empty workspace says what a Bot is and offers the first one, as Desktop does.
     } else if (!showCreateButton && rows.isEmpty() && store.search.isEmpty() && store.pins.isEmpty()) ai.nuphos.android.ui.agent.EmptyState(

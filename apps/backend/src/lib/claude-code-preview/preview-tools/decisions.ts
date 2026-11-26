@@ -65,6 +65,9 @@ function definitionsOf(tools: ClassicTools) {
       name,
       description: tool.description ?? name,
       inputSchema: toolInputJsonSchema(tool.inputSchema),
+      // Claude Code defers every MCP tool behind ToolSearch; an agent that has to
+      // look the card up first writes its question in chat instead.
+      ...(name === REQUEST ? { _meta: { 'anthropic/alwaysLoad': true } } : {}),
     }))
 }
 

@@ -197,7 +197,7 @@ class AgentStore(
         read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
         write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
     )
-    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    /** Favorites order is independent of activity order. */
     val pins: List<AgentConversation> get() {
         val rows = botsList.associateBy { it.sessionId }
         return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
@@ -206,6 +206,8 @@ class AgentStore(
     val savingPins get() = botPins.saving
     fun clearPinActionError() = botPins.clearError()
     fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    /** The Bots list rows. A pinned row sits in the pin shelf instead, as on iOS and Desktop; a search hides the shelf, so it lists them all. */
+    val listedBots: List<AgentConversation> get() = if (search.isEmpty()) botsList.filterNot(::isPinned) else botsList
     suspend fun loadFavorites() = botPins.load()
     suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
         val team = selectedTeam?.id ?: return
