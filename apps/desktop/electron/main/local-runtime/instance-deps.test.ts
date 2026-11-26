@@ -109,3 +109,24 @@ test('an agent this computer already had only probes', async () => {
   assert.deepEqual(await deps.probeCli('claude-code', {}, undefined), missing)
   assert.equal(calls, 0)
 })
+
+test('an added agent keeps its own login: it is not told where the vault token is', async () => {
+  const deps = instanceControllerDeps(
+    {
+      userEnv: () =>
+        Promise.resolve({
+          PATH: '/bin',
+          NUPHOS_VAULT_SOCKET: '/run/v/token.sock',
+          NUPHOS_VAULT_KEY: 'k',
+        }),
+    } as unknown as LocalRuntimeControllerDeps,
+    'instance-dir',
+    'u1',
+    () => undefined,
+  )
+  const env = await deps.userEnv()
+
+  assert.equal(env.PATH, '/bin')
+  assert.equal(env.NUPHOS_VAULT_SOCKET, undefined)
+  assert.equal(env.NUPHOS_VAULT_KEY, undefined)
+})
