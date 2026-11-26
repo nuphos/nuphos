@@ -2,6 +2,9 @@
 /* eslint-disable require-atomic-updates -- Each test owns its isolated session and controls the SDK stream. */
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import test from 'node:test'
 
 import { ClaudeAcpAgent } from '../image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js'
@@ -373,10 +376,58 @@ test('a prompt folded into a task-notification turn completes with its result', 
   assert.equal(h.settled[0].stopReason, 'end_turn')
 })
 
+// The usage baseline the adapter's real createSession gives a session, with the
+// SDK query stubbed so no CLI, model or login is used.
+async function createdUsageBaseline(t, creationOpts) {
+  const target = new URL(
+    '../image/claude-agent-acp/node_modules/@agentclientprotocol/claude-agent-acp/dist/acp-agent.js',
+    import.meta.url,
+  )
+  const instrumented = new URL(`./nuphos-usage-baseline-${process.pid}-${randomUUID()}.js`, target)
+  writeFileSync(
+    instrumented,
+    readFileSync(target, 'utf8').replace('const q = query({', 'const q = globalThis.nuphosQuery({'),
+  )
+  const home = mkdtempSync(join(tmpdir(), 'nuphos-usage-baseline-'))
+  const previousHome = process.env.HOME
+  process.env.HOME = home
+  t.after(() => {
+    process.env.HOME = previousHome
+    delete globalThis.nuphosQuery
+    rmSync(instrumented)
+    rmSync(home, { recursive: true, force: true })
+  })
+  const stub = {
+    initializationResult: async () => ({
+      models: [{ value: 'default', displayName: 'Default', description: '' }],
+      commands: [],
+      agents: [],
+    }),
+    close() {},
+    [Symbol.asyncIterator]: () => ({ next: () => new Promise(() => {}) }),
+  }
+  globalThis.nuphosQuery = () =>
+    new Proxy(stub, { get: (o, k) => (k in o ? o[k] : async () => ({})) })
+  const { ClaudeAcpAgent: Agent } = await import(instrumented.href)
+  const agent = new Agent({ sessionUpdate: async () => {} }, { log() {}, error() {} })
+  const { sessionId } = await agent.createSession({ cwd: home, mcpServers: [] }, creationOpts)
+  const session = agent.sessions[sessionId]
+  session.settingsManager.dispose() // its settings file watchers would keep the test alive
+  return session.lastModelUsageReading
+}
+
+test('a new session measures usage from zero', async (t) => {
+  assert.deepEqual(await createdUsageBaseline(t, {}), {})
+})
+
+test('a resumed session has no usage baseline until its first result', async (t) => {
+  assert.equal(await createdUsageBaseline(t, { resume: randomUUID() }), undefined)
+})
+
 test('the first turn after a resume counts its own usage, not the restored running total', async (t) => {
   const h = harness(t)
-  // Claude Code restores `modelUsage` from the transcript; the session starts with no reading.
-  h.session.lastModelUsageReading = undefined
+  // Claude Code restores `modelUsage` from the transcript into the first result.
+  h.session.lastModelUsageReading = await createdUsageBaseline(t, { resume: randomUUID() })
   const restored = {
     inputTokens: 900,
     outputTokens: 90,
