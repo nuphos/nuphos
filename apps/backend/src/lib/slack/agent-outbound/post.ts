@@ -1,5 +1,4 @@
 import { createSlackPostBudget } from '@/lib/slack/agent-outbound/budget'
-import { finalizeSlackPostDelivery } from '@/lib/slack/agent-outbound/finalize-delivery'
 import { routeSlackDestination } from '@/lib/slack/agent-outbound/route-destination'
 
 import type {
@@ -18,7 +17,6 @@ export function createSlackOutboundPost(setup: {
   const budget = createSlackPostBudget()
 
   return async (input) => {
-    const forkThread = input.replyThread
     const rejectedEarly = budget.beginCall()
 
     if (rejectedEarly) return rejectedEarly
@@ -56,6 +54,11 @@ export function createSlackOutboundPost(setup: {
       } else {
         const joined = await dependencies.getChannel(sendToken, input.destination.channelId)
 
+        if (!(await dependencies.mayPostIn(args.sessionId, sendWorkspaceId, joined.id))) {
+          return rejectBeforeDelivery(
+            `#${joined.name} is another Bot's chat. Only that Bot and its Tasks post there.`,
+          )
+        }
         channelId = joined.id
         label = `#${joined.name}`
       }
@@ -67,9 +70,7 @@ export function createSlackOutboundPost(setup: {
         token: sendToken,
         channel: channelId,
         text,
-        ...(args.botName
-          ? { from: { name: args.botName, slackWorkspaceId: sendWorkspaceId } }
-          : {}),
+        from: { sessionId: args.sessionId, slackWorkspaceId: sendWorkspaceId },
       })
       const messageTs = response.ts
       const responseChannel =
@@ -79,21 +80,11 @@ export function createSlackOutboundPost(setup: {
         throw new Error('Slack accepted the message but did not return its channel and timestamp')
       }
 
-      return await finalizeSlackPostDelivery({
-        dependencies,
-        userId: args.userId,
-        teamId: args.teamId!,
-        destinationType: input.destination.type,
-        label,
-        text,
-        sendToken,
-        sendWorkspaceId,
-        channelId,
-        responseChannel,
+      return {
+        ok: true,
+        destination: { type: input.destination.type, channelId: responseChannel, label },
         messageTs,
-        selfMapping,
-        forkThread,
-      })
+      }
     } catch (err) {
       attempt.countUncommittedThrow()
 

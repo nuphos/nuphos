@@ -1,3 +1,5 @@
+import { getConversationBySessionId } from '@/lib/agent/db'
+import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { AppError } from '@/lib/errors'
 import { postSlackMessage } from '@/lib/slack/api'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
@@ -18,26 +20,30 @@ import type { SlackApiResponse } from '@/lib/slack/api'
 // onboarding, notices) is already mrkdwn and keeps calling postSlackMessage
 // directly.
 //
-// `from` names the Bot the words are from, so every path shows it the same
-// way (#3702): as the post's name with chat:write.customize, otherwise as the
-// line the post opens with, since Slack then shows the app's name.
+// `from` is the conversation whose words these are. A Bot's, or a Task's under
+// a Bot, carry that Bot's name the same way on every path (#3702): as the
+// post's name with chat:write.customize, otherwise as the line the post opens
+// with, since Slack then shows the app's name.
 export async function postAgentSlackMessage(args: {
   token: string
   channel: string
   text: string
   threadTs?: string
   blocks?: unknown[]
-  from?: { name: string; slackWorkspaceId: string }
+  from: { sessionId: string; slackWorkspaceId: string }
 }): Promise<SlackApiResponse> {
   const { from, ...message } = args
   const text = toSlackMrkdwn(args.text)
+  const self = await getConversationBySessionId(from.sessionId)
+  const bot = self && (await speakingBot(self).catch(() => null))
 
-  if (!from) return await postSlackMessage({ ...message, text })
+  if (!bot) return await postSlackMessage({ ...message, text })
+  const name = bot.title || 'Nuphos'
   const post = (customize: boolean) =>
     postSlackMessage({
       ...message,
-      text: customize ? text : `*${escapeSlackMrkdwn(from.name)}*\n${text}`,
-      ...(customize ? { username: from.name } : {}),
+      text: customize ? text : `*${escapeSlackMrkdwn(name)}*\n${text}`,
+      ...(customize ? { username: name } : {}),
     })
   // Slack does not say a custom name is ignored without chat:write.customize,
   // so a token that refuses it posts once more without one.

@@ -137,6 +137,7 @@ export function registerSlackEventRoutes(slackRoutes: Hono<{ Variables: AuthVari
             const runtime: SlackRuntime = {
               botToken: botContext.botToken,
               botUserId: botContext.botUserId,
+              slackWorkspaceId: envelope.team_id,
             }
 
             await postThreadMessage(

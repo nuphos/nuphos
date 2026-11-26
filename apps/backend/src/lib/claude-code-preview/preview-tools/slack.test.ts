@@ -1,6 +1,5 @@
 import { describe, expect, test } from 'bun:test'
 
-import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useLarkAgentOutbound } from '@/lib/test/doubles/lark-agent-outbound'
 import { useSlackAgentOutbound } from '@/lib/test/doubles/slack-agent-outbound'
 import { useSlackApi } from '@/lib/test/doubles/slack-api'
@@ -15,14 +14,6 @@ useSlackInstallations({
       slackTeamId === 'T-installed'
         ? { botToken: 'xoxb-test', workspaceName: 'Acme', nuphosTeamId: 'team-1' }
         : null,
-    ),
-})
-useAgentDb({
-  getConversationBySessionId: (sessionId: string) =>
-    Promise.resolve(
-      (sessionId === 'bot-1'
-        ? { title: 'Deploy Bot', avatar: 'robot' }
-        : { title: 'Chat' }) as never,
     ),
 })
 const outboundArgs: unknown[] = []
@@ -48,13 +39,11 @@ const base: PreviewToolContext = {
 }
 
 describe('slack preview tool module', () => {
-  test("slack_post names the Bot it is from, and nothing else's", async () => {
+  test('slack_post posts as the conversation it runs in, so its Bot is named', async () => {
     outboundArgs.length = 0
-    await previewChannelToolSet({ ...base, sessionId: 'bot-1' })
     await previewChannelToolSet(base)
 
-    expect(outboundArgs[0]).toMatchObject({ botName: 'Deploy Bot' })
-    expect(outboundArgs[1]).not.toHaveProperty('botName')
+    expect(outboundArgs[0]).toMatchObject({ sessionId: 'conv-1' })
   })
 
   test('a conversation without a Slack thread gets only the outbound notification tools', async () => {
