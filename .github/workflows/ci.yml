@@ -647,6 +647,13 @@ jobs:
         run: |
           mkdir -p "$E2E_ARTIFACTS"
           bun run e2e:agent-reset
+      - name: A late-acknowledged steer reaches a busy Bot once
+        if: matrix.part == 'standalone' && (github.event_name != 'workflow_dispatch' || !inputs.real_disk)
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/e2e-steer-ack
+        run: |
+          mkdir -p "$E2E_ARTIFACTS"
+          bun scripts/e2e/run-steer-ack.ts
       # Logs and a screenshot after each scenario; the database and the app's sign-in files are left out.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         if: always()
@@ -674,6 +681,9 @@ jobs:
             ${{ runner.temp }}/e2e-agent-reset
             !${{ runner.temp }}/e2e-agent-reset/mongo
             !${{ runner.temp }}/e2e-agent-reset/sign-in
+            ${{ runner.temp }}/e2e-steer-ack
+            !${{ runner.temp }}/e2e-steer-ack/mongo
+            !${{ runner.temp }}/e2e-steer-ack/sign-in
           retention-days: 7
 
   # Typecheck, tests and the bundles do not depend on macOS, so a PR gets them
