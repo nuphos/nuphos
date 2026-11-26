@@ -17,7 +17,6 @@ import { visibleAgent } from './agentPresentation'
 import { BoxSection } from './BoxSection'
 import { ReorderableSections } from './ReorderableSections'
 import { RuntimeInstanceCard } from './RuntimeInstanceCard'
-import { RuntimeQuotaHistory } from './RuntimeQuotaHistory'
 import { AGENT_SECTION_IDS, AGENT_SECTION_LABELS } from './sectionOrderPresentation'
 import { TokenUsage } from './TokenUsage'
 import { useSectionOrder } from './useSectionOrder'
@@ -134,13 +133,13 @@ export function AgentSection({
               ),
               usage: instances.length > 0 && (
                 <div className="t-agents-reveal">
-                  <RuntimeQuotaHistory teamId={teamId} instances={instances} onSelect={select} />
                   <TokenUsage teamId={teamId} instances={instances} />
                 </div>
               ),
               // The retry banner stands in for the list when the catalog failed to load.
               agents: (instances.length > 0 || catalog.loading || !catalog.error) && (
                 <AgentList
+                  teamId={teamId}
                   instances={instances}
                   quotas={quotas}
                   selectedId={panelShown && open ? selectedId : null}

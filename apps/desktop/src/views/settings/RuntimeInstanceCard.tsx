@@ -27,6 +27,7 @@ import { PreviewTag } from './PreviewTag'
 import { RuntimeOverview, RuntimeUsageSection } from './RuntimeOverview'
 import { STATUS_DOT, runtimeRemovalDescription, runtimeStatusView } from './runtimePresentation'
 import { removeRuntime } from './runtimeRemoval'
+import { RuntimeSessionList } from './RuntimeSessionList'
 import { RuntimeSignIn } from './RuntimeSignIn'
 import { RuntimeUpdateNotice } from './RuntimeUpdateNotice'
 import { runtimeUpdatePresentation } from './runtimeUpdatePresentation'
@@ -256,6 +257,7 @@ export function RuntimeInstanceCard({
             <div className="px-5 py-6">
               <RuntimeOverview instance={instance} runtime={runtime} statusError={statusError} />
             </div>
+            <RuntimeSessionList teamId={teamId} instance={instance} />
             {hosted && enabled && <RuntimeMetricsCharts teamId={teamId} runtimeId={instance.id} />}
             {instance.local && ownSignedInCli(instance) && (
               <p className="px-5 py-4 text-xs leading-relaxed text-tertiary">
