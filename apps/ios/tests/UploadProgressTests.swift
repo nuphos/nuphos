@@ -74,7 +74,9 @@ enum UploadProgressTests {
     static func main() async {
         let store = StalledStore()
         await store.start()
-        let sizes = [8 * 1024 * 1024, 4 * 1024 * 1024]
+        // Each file is more than the loopback socket's send and receive buffers can
+        // take while the store holds it (macOS grows each to 4 MB), so it is still going out.
+        let sizes = [16 * 1024 * 1024, 16 * 1024 * 1024]
         let progress = Progress()
         progress.totalUnitCount = Int64(sizes.reduce(0, +))
         var sent: Int64 = 0
