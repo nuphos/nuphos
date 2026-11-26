@@ -157,11 +157,12 @@ function SelectionButton({
           <Icon className={clsx(iconSize, 'text-tertiary')} strokeWidth={devices ? 1.575 : 1.8} />
           <div className="min-w-0 flex-1">
             <div className="text-[12.5px] text-main">{title}</div>
-            <div className="text-[11.5px] text-tertiary">
-              {all
-                ? t('All, including ones added later')
-                : t('{selected}/{total} selected', { selected: selectedCount, total: totalCount })}
-            </div>
+            {/* Under All the switch below already says so. */}
+            {!all && (
+              <div className="text-[11.5px] text-tertiary">
+                {t('{picked} of {total} selected', { picked: selectedCount, total: totalCount })}
+              </div>
+            )}
           </div>
           {saving && (
             <Loader2
@@ -187,7 +188,14 @@ function SelectionButton({
         )}
         {totalCount > 0 && (
           <label className="px-2 pb-1.5 flex items-center gap-2 text-[12px] text-main">
-            <span className="flex-1">{t('Include ones added later')}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block">{devices ? t('All computers') : t('All credentials')}</span>
+              <span className="block text-[11.5px] text-tertiary">
+                {devices
+                  ? t('Includes computers added later.')
+                  : t('Includes credentials added later.')}
+              </span>
+            </span>
             <Switch checked={all} onChange={(on) => save(setAll(stored, options, flag, on))} />
           </label>
         )}
