@@ -18,6 +18,7 @@ Use this skill when the user wants to inspect or change Tencent Cloud resources 
 For anything Nuphos already exposes via its own API — listing TKE clusters, fetching kubeconfigs — call the Nuphos backend route directly instead of `tccli`. Same data, no setup, smaller blast radius:
 
 - List TKE clusters in a bound account → `GET /teams/:teamId/tencent-accounts/:accountId/clusters`
+- List CVM instances → `GET /teams/:teamId/tencent-accounts/:accountId/cvm-instances`
 - Run kubectl against a TKE cluster → its context is `tencent/<account>/<cluster>` in the kubeconfig the kubectl skill sets up
 
 Use this skill when the user asks for something Nuphos does not expose (e.g. COS, CLB, VPC/security-group edits, CVM, Cloud Monitor), or hands you keys for an account Nuphos isn't connected to.

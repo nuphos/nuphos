@@ -45,6 +45,8 @@ This performs setup and returns the project's environments and services together
 returned IDs to build a Plan or perform the requested read. Only enumerate projects when the user
 did not identify one.
 
+To enumerate, prefer the Nuphos list routes over GraphQL: `GET /teams/:teamId/zeabur-providers/:zeaburId/projects` and `GET /teams/:teamId/zeabur-providers/:zeaburId/servers`.
+
 ## Parsing a Zeabur dashboard URL
 
 A deployment URL carries every id you need:
