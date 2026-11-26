@@ -54,7 +54,7 @@ function userDir(userId: string): string {
 export const runtimeSettingsScenarios: Scenario[] = [
   {
     name: 'Codex signs in with an API key from its card, and its custom provider is tested first',
-    run: async (page) => {
+    run: async (page, stack) => {
       // Answers as a Responses API does: 401 for a turned-down key, 400 for an empty body.
       const provider = createServer((req, res) => {
         let status = req.url === '/v1/responses' ? 400 : 404
@@ -79,10 +79,24 @@ export const runtimeSettingsScenarios: Scenario[] = [
       mkdirSync(bin, { recursive: true })
       writeFileSync(codex, CODEX, { mode: 0o755, flag: 'wx' })
       try {
-        const { userId } = await page.evaluate(() => window.api.localRuntimeRefresh())
+        const { userId, deviceId } = await page.evaluate(() => window.api.localRuntimeRefresh())
 
+        await until('this computer’s Codex runtime to be listed', () =>
+          page.evaluate(
+            async ({ teamId, deviceId }) =>
+              (await window.api.atlasListRuntimeInstances(teamId)).some(
+                (instance) =>
+                  instance.provider === 'codex' && instance.local?.deviceId === deviceId,
+              ),
+            { teamId: stack.teamId, deviceId },
+          ),
+        )
         await openComputers(page)
-        await page.getByRole('button', { name: 'Open Codex details' }).first().click()
+        // Signed out, its tile reads "Open Codex · Sign in details".
+        await page
+          .getByRole('button', { name: /^Open Codex\b/u })
+          .first()
+          .click()
         const card = page.getByRole('complementary', { name: /Codex/ })
 
         // Account or key: the key one, a turned-down key first.
