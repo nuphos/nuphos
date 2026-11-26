@@ -149,11 +149,7 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
     '',
-    '[pool]',
-    'session_ttl_hours = 1', // idle agents (~250 MB each) exit after 1 h, not 4
-    // Cursor's first session in a process waits seconds on its backend: keep one warm (#5158).
-    ...(launch.provider === 'cursor' ? ['prewarm = true'] : []),
-    '',
+    `[pool]\nsession_ttl_hours = 1\n${launch.provider === 'cursor' ? 'prewarm = true\n' : ''}`, // idle agents (~250 MB each) exit after 1 h, not 4; Cursor keeps one warm (#5158)
   ].join('\n')
 }
 
