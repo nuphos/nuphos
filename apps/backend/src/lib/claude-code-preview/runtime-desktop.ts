@@ -26,7 +26,7 @@ import { DeviceRuntimeSocket } from '@/lib/agent/devices/local-runtime/socket'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
-import { desktopInvitation, INVITE_RECHECK_MS, recheckInvitation } from './desktop-invitation'
+import { desktopInvitation, recheckInvitation } from './desktop-invitation'
 import { clientInputFilter } from './rfb-client-input'
 import { requireRuntimeInstance } from './runtime-catalog'
 
@@ -271,7 +271,7 @@ export function runtimeDesktopEvents(
       })
       void stream.connect()
       if (first)
-        stopRecheck = recheckInvitation(mayNow, deps.recheckMs ?? INVITE_RECHECK_MS, (now) => {
+        stopRecheck = recheckInvitation(mayNow, deps.recheckMs, (now) => {
           may = now
           try {
             // The card answered or the computer shared: back to the agent; they keep watching.
