@@ -5,7 +5,7 @@ import { gitlabBindingId } from './binding-access-scenarios.ts'
 
 import type { Client, Flow } from './binding-access-scenarios.ts'
 
-const stack: Flow = { apiUrl: '', token: '', teamId: 'team', signInCode: '' }
+const stack: Flow = { apiUrl: '', token: '', teamId: 'team', signInCode: () => undefined }
 
 // A fixture GitLab can take the port of one an earlier scenario closed, so the team
 // already has a binding at the same address, for another fixture account.

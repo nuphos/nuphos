@@ -134,10 +134,7 @@ export async function connectGitlab(stack: Flow, as: Client, hostUrl: string, co
   return { status: response.status, text: await response.text() }
 }
 
-/**
- * The id of the team's GitLab binding for `gitlab`. A fixture can take the port of one an earlier
- * scenario closed, so its address alone may also match that scenario's binding.
- */
+/** The team's binding for `gitlab`: a fixture can reuse a closed one's port, so the address alone may match another. */
 export async function gitlabBindingId(
   stack: Flow,
   owner: Client,
