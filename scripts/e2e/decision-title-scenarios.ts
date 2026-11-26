@@ -56,6 +56,17 @@ const clippedLines = (card: Locator) =>
       }
     })
 
+/** Waits until the card stops moving, as the conversation scrolls to follow it, so a shot of it is whole. */
+const settled = async (card: Locator) => {
+  for (let last = ''; ;) {
+    const box = JSON.stringify(await card.boundingBox())
+
+    if (box === last) return
+    last = box
+    await card.page().waitForTimeout(200)
+  }
+}
+
 export const decisionTitleScenarios: Scenario[] = [
   {
     name: 'a question longer than one line is refused, and its card and the Inbox draw one line',
@@ -127,6 +138,7 @@ export const decisionTitleScenarios: Scenario[] = [
         await card.getByRole('button', { name: 'Yes' }).waitFor()
         const shot = `${artifacts}/decision-body-${String(index)}`
 
+        await settled(card)
         await card.screenshot({ path: `${shot}-collapsed.png` })
         const collapsed = await clippedLines(card)
 
@@ -143,6 +155,7 @@ export const decisionTitleScenarios: Scenario[] = [
           open.half + open.hidden === 0,
           `the opened body to show all of it, got ${JSON.stringify(open)}`,
         )
+        await settled(card)
         await card.screenshot({ path: `${shot}-expanded.png` })
       }
     },
