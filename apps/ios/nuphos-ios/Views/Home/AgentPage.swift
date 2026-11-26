@@ -696,10 +696,9 @@ private func endEditing() {
 }
 
 /// Shown for a Box still coming up while the workspace has no runtime, in place of advice to
-/// connect a computer. It re-reads both lists every 5 s until the Box's runtimes are listed,
-/// which takes this view off screen and ends the loop.
+/// connect a computer. The store's poll re-reads both lists until a runtime is selectable,
+/// which takes this view off screen.
 private struct BoxStartingState: View {
-    @Environment(AgentStore.self) private var store
     let label: String
     var body: some View {
         VStack(spacing: 16) {
@@ -708,12 +707,5 @@ private struct BoxStartingState: View {
             Text("It will show up here as soon as it is online. This can take a minute or two.").font(.callout).foregroundStyle(Theme.body).multilineTextAlignment(.center)
         }
         .padding(24).frame(maxWidth: 400).frame(maxWidth: .infinity, maxHeight: .infinity)
-        .task {
-            while true {
-                do { try await Task.sleep(for: .seconds(5)) } catch { return }
-                await store.loadRuntimes()
-                await store.loadAgentDevices(metrics: false)
-            }
-        }
     }
 }

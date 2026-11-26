@@ -77,7 +77,7 @@ swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_di
 "$test_dir/hosted-bot-avatar-tests"
 
 # The store and the session it keeps (#3525), the runtimes it reloads, and a chat moved between them (#4214), with what they name. Analytics and AuthSession are stand-ins in the tests.
-for store_test in ChatReopenTests RuntimeReloadTests RuntimeMoveTests; do
+for store_test in ChatReopenTests RuntimeReloadTests RuntimeMoveTests RuntimePollTests; do
 swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
   -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
   "${chat_sources[@]}" \
