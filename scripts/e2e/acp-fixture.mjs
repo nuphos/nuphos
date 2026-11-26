@@ -33,7 +33,7 @@ import {
   longReply,
   turnFacts,
 } from './fixture-settings.mjs'
-import { discoveryFails, initialize, opening, updatedRule } from './fixture-session.mjs'
+import { discoveryFails, initialize, opening, slowSteer, updatedRule } from './fixture-session.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -182,6 +182,18 @@ async function prompt({ sessionId, prompt: parts, _meta }) {
   }
   if (text.includes('E2E_RECHECK')) await recheck({ log, sessionId })
   if (text.includes('E2E_HOLD')) {
+    // A steering agent says it is working, as Claude Code does, so OpenAB lets steers in.
+    if (existsSync(slowSteer()))
+      send({
+        method: 'session/update',
+        params: {
+          sessionId,
+          update: {
+            sessionUpdate: 'session_info_update',
+            _meta: { 'ai.nuphos/sessionState': { state: 'active' } },
+          },
+        },
+      })
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
 
