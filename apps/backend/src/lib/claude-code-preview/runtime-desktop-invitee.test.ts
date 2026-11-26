@@ -11,7 +11,6 @@ import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useRuntimeCatalog } from '@/lib/test/doubles/runtime-catalog'
 
-import { INVITE_RECHECK_MS } from './desktop-invitation'
 import { openRuntimeDesktop, runtimeDesktopEvents, runtimeDesktopTarget } from './runtime-desktop'
 
 import type { HolderMessage, LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
@@ -118,16 +117,16 @@ test('a teammate who may reply takes over the display an open computer card name
     sessionId: 'chat',
     display: 2,
     viewer: 'mate',
-    may: 'control',
+    invited: 'control',
   })
-  expect((await reach('owner', 'chat', '2')).may).toBe('control')
+  expect('invited' in (await reach('owner', 'chat', '2'))).toBe(false)
 })
 
 test('with no open computer card for the display, a teammate who may reply only watches', async () => {
   // Answered (gone), another kind of question, or a card with no desktop.
   for (const requests of [[], [card({ category: 'approval' })], [card({ desktop: undefined })]]) {
     conversations.chat = conversation('chat', requests)
-    expect((await reach('mate', 'chat', '2')).may).toBe('view')
+    expect((await reach('mate', 'chat', '2')).invited).toBe('view')
   }
   // The card names another display of the conversation, or the same number on another computer.
   await presence.put('owner', 'box', {
@@ -139,9 +138,9 @@ test('with no open computer card for the display, a teammate who may reply only 
     seenAt: Date.now(),
   })
   conversations.chat = conversation('chat', [card()])
-  expect((await reach('mate', 'chat', '3')).may).toBe('view')
+  expect((await reach('mate', 'chat', '3')).invited).toBe('view')
   conversations.chat = conversation('chat', [card({ desktop: { deviceId: 'mac', display: 2 } })])
-  expect((await reach('mate', 'chat', '2')).may).toBe('view')
+  expect((await reach('mate', 'chat', '2')).invited).toBe('view')
 })
 
 test('reading the conversation without replying lets nobody watch', async () => {
@@ -167,7 +166,7 @@ test("on a shared Box, a teammate reaches a session's display only through that 
   conversations.chat = conversation('chat', [card({ desktop: { deviceId: 'box', display: 4 } })])
   await expect(reach('mate', 'chat', '4')).rejects.toThrow('not found')
   // The other conversation itself: using the Box, they reply there too, so through it they do.
-  expect((await reach('mate', 'other', '4')).may).toBe('control')
+  expect((await reach('mate', 'other', '4')).invited).toBe('control')
   boxUsers = new Set()
   await expect(reach('mate', 'other', '4')).rejects.toThrow('not found')
   // A display nobody holds.
@@ -202,7 +201,7 @@ const watch = async (user: string, now?: () => Promise<'view' | 'control' | unde
     presence,
     recheckMs: 5,
     ...(now && {
-      mayNow: () => {
+      invitedNow: () => {
         state.checks++
 
         return now()
@@ -251,47 +250,19 @@ test('once the card is answered, the Box goes back to the agent and the teammate
   end()
 })
 
-test('the owner, once the Box is shared with anyone else, hands it back and keeps watching', async () => {
-  // Rechecked well within the 5 seconds a person may keep a Box another can use.
-  expect(INVITE_RECHECK_MS).toBeLessThan(5_000)
-  const { state, send, end } = await watch('owner')
-
-  send(human)
-  await settle()
-  expect(state.toHost).toEqual([human])
-  device = {
-    ...device,
-    access: [{ teamId: 'team', everyone: false, userIds: ['mate'], managerIds: [] }],
-  }
-  await settle()
-  expect(state.toHost).toEqual([human, agent])
-  expect(state.closed).toBeUndefined()
-  send(human)
-  await settle()
-  expect(state.toHost).toEqual([human, agent, agent])
-  expect((await reach('owner', 'chat', '2')).may).toBe('view')
-  end()
-})
-
-test('a Box shared with anyone else hands over nothing, even while a card is open', async () => {
+test('a Box shared with anyone else still hands over the display an open card names', async () => {
+  device = { ...device, access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }] }
   const { state, send, end } = await watch('mate')
 
   send(human)
   await settle()
   expect(state.toHost).toEqual([human])
-  device = {
-    ...device,
-    access: [{ teamId: 'team', everyone: true, userIds: [], managerIds: [] }],
-  }
-  await settle()
-  // Shared after the card was raised: the next recheck hands the Box back to the agent.
-  expect(state.toHost).toEqual([human, agent])
   expect(state.closed).toBeUndefined()
-  expect((await reach('mate', 'chat', '2')).may).toBe('view')
+  expect((await reach('mate', 'chat', '2')).invited).toBe('control')
   end()
 })
 
-test('no longer let in, a stream ends, the owner’s as well as a teammate’s', async () => {
+test("no longer able to reply, the teammate's stream ends; the owner's never rechecks", async () => {
   let now: 'view' | undefined = 'view'
   const mate = await watch('mate', async () => now)
 
@@ -303,8 +274,7 @@ test('no longer let in, a stream ends, the owner’s as well as a teammate’s',
   const owner = await watch('owner', async () => undefined)
 
   await settle()
-  expect(owner.state.checks).toBeGreaterThan(0)
-  expect(owner.state.closed).toEqual([1008, 'The invitation ended'])
+  expect(owner.state).toMatchObject({ checks: 0, closed: undefined })
   owner.end()
 })
 

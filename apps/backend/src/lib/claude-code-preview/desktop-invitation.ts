@@ -1,11 +1,9 @@
 // Who besides its owner reaches a conversation's desktop: a teammate who may reply in the
-// conversation watches it live, and takes it over only while an open `computer` card names
-// that display, on a computer only the owner uses. Nothing is stored: once the card is
-// answered, or the computer is shared, they keep watching, read-only.
+// conversation watches it live, and takes it over while an open `computer` card names that
+// display. Nothing is stored: once the card is answered they keep watching, read-only, and
+// once they can no longer reply their stream ends.
 import { openInputRequests } from '@/lib/agent/db/pending-decision'
-import { onlyUsedBy } from '@/lib/agent/devices/box-access'
 import { canReplyIn } from '@/lib/agent/devices/conversation-computer'
-import { getAgentDevice } from '@/lib/agent/devices/store'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { LocalRuntimeRef } from '@/lib/agent/devices/local-runtime/address'
@@ -33,10 +31,8 @@ export async function desktopInvitation(
       r.desktop?.deviceId === ref.deviceId &&
       r.desktop.display === display,
   )
-  // Checked again on every recheck, so a computer shared after the card was raised stops handing it over.
-  const device = asked ? await getAgentDevice(ref.userId, ref.deviceId) : undefined
 
-  return device && onlyUsedBy(device, conversation.userId) ? 'control' : 'view'
+  return asked ? 'control' : 'view'
 }
 
 /**

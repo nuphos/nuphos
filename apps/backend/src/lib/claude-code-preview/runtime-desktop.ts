@@ -10,14 +10,15 @@
 // the agent's input tools on that display. The stream closing hands it back.
 // Links carry ids only: the route is the authorization. It admits the owner, and a
 // teammate who may reply in it to watch; they take over only what a `computer` card hands.
-// Every session on a Box runs as one Unix user, so a card hands over a desktop only
-// on a Box no one else uses (computer-desktop.ts, desktop-invitation.ts; the host's
-// desktop-session.mjs keeps each display to that user). A Mac asks
+// Every session on a Box runs as one Unix user, so whoever may use the Box can already
+// reach its displays through their own agents; a shared Box still hands its desktop over
+// (computer-desktop.ts, desktop-invitation.ts; the host's desktop-session.mjs keeps each
+// display to that user). A Mac asks
 // for no account: it shows its screen only to the Nuphos process that started
 // its host, and that process streams it only to the account signed in on the Mac.
 import { getReadableConversation } from '@/lib/agent/db'
 import { markDesktopTakenOver } from '@/lib/agent/db/desktop-takeover'
-import { allows, deviceAccess, onlyUsedBy } from '@/lib/agent/devices/box-access'
+import { allows, deviceAccess } from '@/lib/agent/devices/box-access'
 import { localRuntimeId, parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
 import { openLocalDesktop } from '@/lib/agent/devices/local-runtime/instances'
@@ -48,8 +49,8 @@ export type RuntimeDesktopTarget = {
   viewer: string
   /** A dock browser tab instead of a display: the Desktop's `browserView` stream serves it. */
   tab?: { id: string; width: number; height: number }
-  /** Rechecked while they watch; its owner, too, takes over only on a computer no one else uses. */
-  may?: Invited
+  /** A teammate who may reply: they watch, and take over while an open `computer` card names the display. */
+  invited?: Invited
 }
 
 const notFound = () => new AppError(404, 'not_found', 'Conversation desktop not found')
@@ -77,7 +78,7 @@ async function desktopHost(
   ref: LocalRuntimeRef,
   sessionId: string,
   presence: ReturnType<typeof runtimePresenceStore>,
-  may?: Invited,
+  invited?: Invited,
 ) {
   if (sessionId.length > MAX_SESSION_ID) throw notFound()
   const status = (await presence.get(ref.userId, ref.deviceId))?.status
@@ -87,7 +88,7 @@ async function desktopHost(
     sessionId,
     desktops: status?.desktops,
     canOpen: status?.desktopOpen === true,
-    may,
+    invited,
   }
 }
 
@@ -139,10 +140,7 @@ async function ownedDesktopHost(
   // The same access the runtime terminal requires; a local runtime admits only its owner.
   await requireRuntimeInstance(teamId, conversation.runtimeId, userId)
 
-  const device = await getAgentDevice(ref.userId, ref.deviceId)
-  const may = device && onlyUsedBy(device, userId) ? 'control' : 'view'
-
-  return desktopHost(ref, owner, presence, may)
+  return desktopHost(ref, owner, presence)
 }
 
 /** The owner or an invited teammate, for a display the host reports as held by this conversation or computer. */
@@ -155,7 +153,7 @@ export async function runtimeDesktopTarget(
 ): Promise<RuntimeDesktopTarget> {
   const display = Number(displayParam)
   const host = await ownedDesktopHost(teamId, userId, owner, presence, display)
-  const { ref, sessionId, may } = host
+  const { ref, sessionId, invited } = host
 
   if (
     !(host.desktops ?? []).some(
@@ -171,7 +169,7 @@ export async function runtimeDesktopTarget(
     sessionId,
     display,
     viewer: userId,
-    ...(may && { may }),
+    ...(invited && { invited }),
   }
 }
 
@@ -207,21 +205,21 @@ export async function openRuntimeDesktop(
 export function runtimeDesktopEvents(
   target: RuntimeDesktopTarget,
   deps: DeviceRuntimeSocketDeps & {
-    mayNow?: () => Promise<Invited | undefined>
+    invitedNow?: () => Promise<Invited | undefined>
     recheckMs?: number
   } = {
     bus: tunnelBus(),
     presence: runtimePresenceStore(),
   },
 ): WSEvents {
-  const { sessionId, display, viewer, tab, may: first, ...device } = target
-  // The card gone or the computer shared, they only watch; no longer let in, the stream ends.
-  const mayNow =
-    deps.mayNow ??
+  const { sessionId, display, viewer, tab, invited, ...device } = target
+  // The card gone, a teammate only watches; no longer able to reply, their stream ends.
+  const invitedNow =
+    deps.invitedNow ??
     (async () =>
       (await runtimeDesktopTarget(device.teamId, viewer, sessionId, `${display}`, deps.presence))
-        .may)
-  let may = first
+        .invited)
+  let may = invited
   let stopRecheck = () => {}
   // The viewer is the actor: revoking them closes this stream and nobody else's.
   const stream = new DeviceRuntimeSocket(
@@ -270,11 +268,11 @@ export function runtimeDesktopEvents(
         ws.close(1011, 'The desktop is gone')
       })
       void stream.connect()
-      if (first)
-        stopRecheck = recheckInvitation(mayNow, deps.recheckMs, (now) => {
+      if (invited)
+        stopRecheck = recheckInvitation(invitedNow, deps.recheckMs, (now) => {
           may = now
           try {
-            // The card answered or the computer shared: back to the agent; they keep watching.
+            // The card answered or withdrawn: the Box goes back to the agent; they keep watching.
             if (may === 'view' && holding) forward('{"owner":"agent"}')
           } catch {
             may = undefined
