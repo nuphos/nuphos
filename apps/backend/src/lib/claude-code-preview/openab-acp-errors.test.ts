@@ -188,6 +188,20 @@ describe('turnFailureCause', () => {
       'other',
     )
   })
+
+  test('OpenCode 2.x’s own free usage limit error is the agent out of usage', () => {
+    // OpenCode 2.4.2's ACP reply to session/prompt, which the runtime forwards unchanged.
+    const notice =
+      'Free usage limit reached. Connect a provider or subscribe to OpenCode Go to keep going, or switch models.'
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorName":"provider.free-limit","service":"session"}`,
+      -32603,
+      { code: -32603, message: `Internal error: ${notice}` },
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+  })
 })
 
 describe('the adapter error behind the gateway', () => {
