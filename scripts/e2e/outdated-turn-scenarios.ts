@@ -3,7 +3,7 @@
 import { join } from 'node:path'
 
 import { LAPTOP, RESTORE_FAILED, laptopOnline } from './laptop-fixture.ts'
-import { artifacts } from './processes.ts'
+import { artifacts, until } from './processes.ts'
 import { newTask, pickAgent, pickInRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
@@ -17,8 +17,16 @@ export const NOT_READY_LINE =
   "The agent failed before it could answer. Nuphos Desktop on E2E laptop is out of date. Open Settings → Updates to get the update, then quit Nuphos fully (⌘Q on a Mac) and reopen it. If it doesn't close, quit it again."
 
 // A new task starts on the runtime the last message went to. Sending one on the fixture agent
-// keeps the scenarios after these off the laptop, which has gone offline by then.
+// keeps the scenarios after these off the laptop, which has gone offline by then. Desktop starts
+// the failed turn again a few times before it gives up: wait for the last attempt, or it lands on
+// the laptop after this message and the next new task starts there (#4394).
+// Only this chat's Stop: chats opened before stay mounted, hidden.
 export async function backOnFixture(page: Page, marker: string) {
+  await until(
+    'the turn to stop retrying',
+    async () =>
+      (await page.locator('button[title="Stop"]').filter({ visible: true }).count()) === 0,
+  )
   await newTask(page)
   await pickAgent(page, 'E2E fixture agent')
   await send(page, `Back on the fixture E2E_DELIVERY:${marker}`)
