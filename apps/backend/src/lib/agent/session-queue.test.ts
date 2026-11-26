@@ -452,6 +452,27 @@ test('a send whose agent cannot run it is kept with the reason instead of retrie
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('Its agent was deleted.')
 })
 
+// Both answer 409, as a busy runtime does, but only a person at that computer ends them.
+for (const failure of [
+  new AppError(409, 'runtime_login_required', 'Sign in to Claude Code on that computer.'),
+  new AppError(409, 'runtime_not_installed', 'Claude Code 1.0.0 is too old to run here.'),
+]) {
+  test(`a send refused with "${failure.message}" is kept with the reason, not retried`, async () => {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await queue(human('refused'), human('next'))
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['next'])
+    expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain(failure.message)
+  })
+}
+
 for (const failure of [
   new Error('Mongo blip'),
   new AppError(503, 'runtime_unavailable', 'Unavailable'),
