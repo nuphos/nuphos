@@ -4,6 +4,7 @@
 // transcript record, status clear, pause visibility).
 import { beforeEach, describe, expect, test } from 'bun:test'
 
+import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useFileTransferService } from '@/lib/test/doubles/file-transfer-service'
 import { useSlackAgentBot } from '@/lib/test/doubles/slack-agent-bot'
 import { useSlackApi } from '@/lib/test/doubles/slack-api'
@@ -27,12 +28,24 @@ const state: {
   botAvailable: boolean
   mapping: SlackUserMapping | null
   interopDelayMs: number
-} = { botAvailable: true, mapping: null, interopDelayMs: 0 }
+  conversation: { title: string; avatar?: string } | null
+} = { botAvailable: true, mapping: null, interopDelayMs: 0, conversation: null }
+
+useAgentDb({
+  getConversationBySessionId: async () =>
+    state.conversation &&
+    ({ sessionId: SESSION_ID, userId: OWNER, ...state.conversation } as never),
+})
 
 useSlackInstallations({
   resolveSlackBotForWorkspace: async () =>
     state.botAvailable
-      ? { botToken: 'xoxb-test', botUserId: 'UBOT', nuphosTeamId: TEAM, binding: null }
+      ? {
+          botToken: 'xoxb-test',
+          botUserId: 'UBOT',
+          nuphosTeamId: TEAM,
+          binding: { scope: 'chat:write' },
+        }
       : null,
 })
 
@@ -115,6 +128,7 @@ beforeEach(() => {
   state.botAvailable = true
   state.mapping = null
   state.interopDelayMs = 0
+  state.conversation = null
 })
 
 describe('beginNuphosSlackTurn', () => {
@@ -135,6 +149,15 @@ describe('beginNuphosSlackTurn', () => {
     expect(JSON.stringify(posted[0]!.blocks)).toContain('@Patrick')
     expect(posted[1]!.blocks).toBeUndefined()
     expect(posted[1]!.text).toContain('On it')
+  })
+
+  test("a Bot's reply in its Slack thread carries the Bot's name", async () => {
+    state.conversation = { title: 'Deploy Bot', avatar: 'robot' }
+    const delivery = (await beginNuphosSlackTurn(beginArgs()))!
+
+    await delivery.frameSink.say('On it.')
+
+    expect(posted.at(-1)!.text).toBe('*Deploy Bot*\nOn it.')
   })
 
   test('records the question in the thread transcript with a deterministic ts', async () => {

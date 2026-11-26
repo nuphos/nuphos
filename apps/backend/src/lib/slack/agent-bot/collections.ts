@@ -54,8 +54,9 @@ export type SlackAgentThread = {
   sessionId: string
   createdBySlackUserId: string
   // Older rows predate this field and are Slack-originated by definition.
-  // Proactive notification rows bind the conversation slack_post forks for a
-  // replyThread to the root message it posted. User-pickup rows
+  // Proactive notification rows bound the conversation slack_post once forked
+  // for a reply thread to the root it posted; existing ones still answer
+  // there. User-pickup rows
   // bind a desktop conversation to a DM root the user explicitly asked for
   // ("pick up this session in Slack"), so they carry no reply gate.
   origin?: 'slack' | 'agent_notification' | 'user_pickup'
