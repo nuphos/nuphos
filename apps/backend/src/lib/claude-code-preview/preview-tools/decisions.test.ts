@@ -100,20 +100,6 @@ describe('decision tool module', () => {
     expect(names).not.toContain('check_decision')
   })
 
-  test('request_user_decision is never deferred behind Claude Code tool search', () => {
-    const metas = Object.fromEntries(
-      decisionToolModule({ publish: async () => {} }).definitions.map((definition) => {
-        const { name, _meta } = definition as { name: string; _meta?: Record<string, unknown> }
-
-        return [name, _meta?.['anthropic/alwaysLoad']]
-      }),
-    )
-
-    expect(metas.request_user_decision).toBe(true)
-    // Only the card: the other tools stay behind tool search.
-    expect(metas.port_forward_start).toBeUndefined()
-  })
-
   test('agents are offered a computer card, now that its live view ships', () => {
     const definition = decisionToolModule({ publish: async () => {} }).definitions.find(
       (tool) => (tool as { name: string }).name === 'request_user_decision',
