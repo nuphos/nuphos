@@ -452,10 +452,12 @@ test('a send whose agent cannot run it is kept with the reason instead of retrie
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('Its agent was deleted.')
 })
 
-// Both answer 409, as a busy runtime does, but only a person at that computer ends them.
+// Each answers 409, as a busy runtime does, but only a person ends them, not time.
 for (const failure of [
   new AppError(409, 'runtime_login_required', 'Sign in to Claude Code on that computer.'),
   new AppError(409, 'runtime_not_installed', 'Claude Code 1.0.0 is too old to run here.'),
+  new AppError(409, 'runtime_disabled', 'This conversation’s agent is disabled.'),
+  new AppError(409, 'claude_code_setup_required', 'Add a runtime on the Runtimes page.'),
 ]) {
   test(`a send refused with "${failure.message}" is kept with the reason, not retried`, async () => {
     installTurnRunner({

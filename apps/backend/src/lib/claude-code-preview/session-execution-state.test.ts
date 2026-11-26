@@ -174,22 +174,36 @@ test('a conversation moved before the fix is read the same way', async () => {
 })
 
 // A queued send read as disconnected waits for the computer to reconnect, then says it did not:
-// a computer that says why its agent cannot run is not reconnecting.
-test('an agent its computer cannot run reads as startable, not as a lost connection', async () => {
-  refusal = new AppError(409, 'runtime_not_installed', 'Claude Code is too old to run here.')
-  const conversation = {
-    sessionId: 'not-installed',
-    teamId: 'team',
-    agentRuntime: 'claude-code',
-  } as AgentConversation
+// an agent refused for a reason of its own is not reconnecting, and its send meets that reason.
+for (const [failure, state] of [
+  [new AppError(409, 'runtime_not_installed', 'Claude Code is too old to run here.'), 'dormant'],
+  [new AppError(409, 'runtime_disabled', 'This conversation’s agent is disabled.'), 'dormant'],
+  [new AppError(409, 'claude_code_setup_required', 'Add a runtime first.'), 'dormant'],
+  [
+    new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
+    'disconnected',
+  ],
+  [
+    new AppError(503, 'claude_code_runtime_unavailable', 'The attached agent is unavailable.'),
+    'disconnected',
+  ],
+] as const) {
+  test(`an agent refused with ${failure.code} reads as ${state}`, async () => {
+    refusal = failure
+    const conversation = {
+      sessionId: failure.code,
+      teamId: 'team',
+      agentRuntime: 'claude-code',
+    } as AgentConversation
 
-  try {
-    await expect(probeExecutionState(conversation)).rejects.toThrow('too old')
-    expect((await conversationExecutionState(conversation)).state).toBe('dormant')
-  } finally {
-    refusal = undefined
-  }
-})
+    try {
+      await expect(probeExecutionState(conversation)).rejects.toThrow(failure.message)
+      expect((await conversationExecutionState(conversation)).state).toBe(state)
+    } finally {
+      refusal = undefined
+    }
+  })
+}
 
 // A state query that is only slow is not a failure for admission: it waits, and
 // the two tests below cover it. These are answers the runtime did give.
