@@ -20,6 +20,9 @@ val LocalChatCanvas = staticCompositionLocalOf { SurfaceLight }
 val LocalAvatarForeground = androidx.compose.runtime.staticCompositionLocalOf { Color.White }
 val LocalAvatarGradient = androidx.compose.runtime.staticCompositionLocalOf { AvatarGradientLight }
 
+/** A link's text: the blue iOS (`Theme.link`) and Desktop (`text-link`) use. */
+val LocalLinkColor = staticCompositionLocalOf { BrandTextLight }
+
 private val LightScheme = lightColorScheme(
     primary = BrandLight,
     onPrimary = Color.White,
@@ -125,6 +128,7 @@ fun NuphosTheme(
             LocalChatCanvas provides if (darkTheme) CanvasDark else SurfaceLight,
             LocalAvatarGradient provides if (darkTheme) AvatarGradientDark else AvatarGradientLight,
             LocalAvatarForeground provides if (darkTheme) Color(0xFF1C1A17) else Color.White,
+            LocalLinkColor provides if (darkTheme) BrandTextDark else BrandTextLight,
             content = content,
         ) },
     )

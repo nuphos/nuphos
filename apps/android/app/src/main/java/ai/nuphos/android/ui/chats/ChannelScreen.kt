@@ -441,7 +441,8 @@ private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: Stri
         lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (onOpenEarlier != null) TextButton(onClick = onOpenEarlier, contentPadding = PaddingValues(0.dp),
             modifier = Modifier.testTag("chat-earlier")) {
-            Text(stringResource(R.string.chats_empty_bot_earlier, title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(stringResource(R.string.chats_empty_bot_earlier, title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium,
+                color = ai.nuphos.android.ui.theme.LocalLinkColor.current)
         }
     }
 }
