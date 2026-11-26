@@ -8,7 +8,9 @@ import { t } from '../i18n'
 
 import { Fenced, TrailingSlot } from './SidebarRowParts'
 import { CountBadge } from './ui/count-badge'
+import { StatusDot } from './ui/status-dot'
 
+import type { RowDot } from '../lib/subAgentState'
 import type { LucideIcon } from 'lucide-react'
 import type React from 'react'
 import type { ReactNode } from 'react'
@@ -67,6 +69,11 @@ type SidebarNavItemProps = {
    * to make room while the row is hovered or focused; the row keeps its height.
    */
   revealDetail?: boolean
+  /**
+   * A Bots or Tasks row: set, the row keeps a left gutter for its dot (unread,
+   * or waiting for the viewer), so nothing moves when it comes and goes.
+   */
+  dot?: RowDot
 }
 
 function SwapLabel({ label }: { label: string }) {
@@ -106,6 +113,7 @@ export function SidebarNavItem({
   time,
   animateLabel = false,
   revealDetail = false,
+  dot,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
 
@@ -127,7 +135,9 @@ export function SidebarNavItem({
   const badgeShown = badge !== undefined && badge > 0
   // A chat-list row shows its state on the preview line instead, and its time here.
   const rest = twoLine
-    ? time && <span className="text-[11px] font-normal tabular-nums text-tertiary">{time}</span>
+    ? time && (
+        <span className="text-[11px] font-normal tabular-nums text-primary/[.28]">{time}</span>
+      )
     : trailing
   const iconBox = icon !== null && (
     <span
@@ -205,6 +215,7 @@ export function SidebarNavItem({
           ? undefined
           : [
               `${id}-label`,
+              dot && `${id}-dot`,
               note != null && `${id}-note`,
               badgeShown && `${id}-badge`,
               `${id}-trailing`,
@@ -226,6 +237,7 @@ export function SidebarNavItem({
       className={clsx(
         SIDEBAR_ROW_CLASS,
         twoLine && '!h-[70px] !gap-3 !rounded-xl',
+        dot !== undefined && 'relative pl-3.5',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -240,6 +252,14 @@ export function SidebarNavItem({
               : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
+      {dot && (
+        <StatusDot
+          id={`${id}-dot`}
+          tone={dot === 'waiting' ? 'attention' : 'unread'}
+          label={dot === 'waiting' ? t('Needs your input') : t('Unread reply')}
+          className="absolute left-1 top-1/2 -translate-y-1/2"
+        />
+      )}
       {twoLine ? (
         <>
           {iconBox}
@@ -251,7 +271,7 @@ export function SidebarNavItem({
             {/* The row's state and fold chevron end the preview's first line, as
                 the iOS list's dot does, right under the time. */}
             <span className="flex items-start gap-2">
-              <span className="flex-1 min-w-0 line-clamp-2 break-words text-left text-[13px] leading-[17px] font-normal text-tertiary">
+              <span className="flex-1 min-w-0 line-clamp-2 break-words text-left text-[13px] leading-[17px] font-normal text-primary/[.52]">
                 {preview || t('No messages yet')}
               </span>
               <span

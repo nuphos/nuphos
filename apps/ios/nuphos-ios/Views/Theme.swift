@@ -37,6 +37,9 @@ enum Theme {
     static let outline = heading.opacity(0.12)
     static let hairline = heading.opacity(0.08)
     static let separator = heading.opacity(0.08)
+    /// A Bots or Tasks row's preview, and its time and chevron.
+    static let preview = heading.opacity(0.52)
+    static let stamp = heading.opacity(0.28)
 
     /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
     static func avatarBackground(_ name: String?) -> Color? { name.flatMap { BotAvatars.backgrounds[$0] }.map { Color(hex: $0) } }
