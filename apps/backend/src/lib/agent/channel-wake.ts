@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { logError } from '@/lib/observability'
 
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
@@ -39,6 +40,9 @@ export const channelNoticeSender = (
         `/teams/${teamId}/agent/${channel.sessionId}`,
       )
 
+/** OpenAB's code for a steer the agent did not acknowledge in time: delivery unknown. */
+const STEER_UNACKNOWLEDGED = -32001
+
 /**
  * Steers the agent's running turn with the notice and the posts it has not
  * read, through the composer's steer. Only a turn its owner runs takes it, as
@@ -70,8 +74,11 @@ export async function steerRunningTurn(
       { text: messages[0].renderedText, userId: agent.userId, metadata: messages[0].metadata },
       randomUUID(),
     )
-  } catch {
-    return false
+  } catch (error) {
+    // OpenAB stopped waiting for the agent's answer, not the agent for the steer: the posts
+    // may well be in the turn, so they are read, not sent again (a lost one is left to the
+    // unanswered reminder).
+    if (!(error instanceof OpenAbRpcError && error.code === STEER_UNACKNOWLEDGED)) return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
   await addRunChannels(agent.userId, active.streamId, [channel.sessionId])
