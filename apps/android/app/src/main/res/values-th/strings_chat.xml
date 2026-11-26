@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">ลองปรับทิศทางอีกครั้ง</string>
     <string name="chat_attachment_message">ข้อความพร้อมไฟล์แนบ</string>
     <string name="chat_upload_preparing">กำลังเตรียมอัปโหลด…</string>
-    <string name="chat_upload_progress">กำลังอัปโหลด %1$d / %2$d ไบต์</string>
+    <string name="chat_upload_progress">กำลังอัปโหลด %1$s จาก %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s ไบต์</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">กำลังตรวจสอบไฟล์ที่อัปโหลด…</string>
+    <string name="chat_upload_sending">กำลังส่ง…</string>
     <string name="chat_upload_ready">ไฟล์พร้อมแล้ว</string>
     <string name="chat_upload_cancel">ยกเลิกการอัปโหลด</string>
     <string name="chat_upload_retry">ลองส่งข้อความพร้อมไฟล์แนบอีกครั้ง</string>
