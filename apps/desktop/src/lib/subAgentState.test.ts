@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { gutterDot, rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
+import { gutterDot, rowDot, subAgentState } from './subAgentState.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentInputRequest } from '../api/agent-types.ts'
@@ -63,20 +63,6 @@ test('a top level chat has a dot while it is unread', () => {
   assert.equal(rowDot({}, undefined, true), 'unread')
   assert.equal(rowDot({}, idle, false), null)
   assert.equal(rowDot({ inputRequests: [request('open')] }, idle, false), null)
-})
-
-test('an open question outranks work but not a failed run', () => {
-  assert.equal(rowIndicator(idle, 'waiting'), 'waiting')
-  assert.equal(rowIndicator(turn, 'waiting'), 'waiting')
-  assert.equal(rowIndicator(background, 'waiting'), 'waiting')
-  assert.equal(rowIndicator({ ...idle, schemaVersion: 2, phase: 'failed' }, 'waiting'), 'error')
-})
-
-test('an unread reply still loses to work', () => {
-  assert.equal(rowIndicator(idle, 'unread'), 'unread')
-  assert.equal(rowIndicator(turn, 'unread'), 'turn')
-  assert.equal(rowIndicator(background, 'unread'), 'background')
-  assert.equal(rowIndicator(idle, null), 'none')
 })
 
 test("a row's gutter shows its own dot, else a folded child's, and only on conversation rows", () => {

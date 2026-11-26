@@ -1,7 +1,7 @@
 import { attentionInputRequests } from './agentInputRequests.ts'
 import { chatRowIndicator } from './runtimeExecution.ts'
 
-import type { ChatRowIndicator, RuntimeExecution } from './runtimeExecution.ts'
+import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentConversation } from '../api/agent-types.ts'
 
 /** Where a sub-agent stands: asking the user, working, or finished. */
@@ -50,17 +50,4 @@ export function gutterDot(
   if (!row.key.startsWith('agent-session:') && !row.project) return undefined
 
   return row.dot ?? folded.find((kid) => kid.dot)?.dot ?? null
-}
-
-/**
- * The mark a row shows. An open question outranks work, since a thread asking
- * while it works is still blocked on the viewer, but not a failed run.
- */
-export function rowIndicator(
-  runtimeState: RuntimeExecution | undefined,
-  dot: RowDot,
-): ChatRowIndicator | 'waiting' {
-  const indicator = chatRowIndicator(runtimeState, dot === 'unread')
-
-  return dot === 'waiting' && indicator !== 'error' ? 'waiting' : indicator
 }
