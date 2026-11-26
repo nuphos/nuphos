@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { parseAtlasError } from '../../api/errors'
 import { Checkbox } from '../../components/ui/checkbox'
+import { InputGroup, InputGroupInput } from '../../components/ui/input-group'
 import { Tooltip } from '../../components/ui/tooltip'
 import { t } from '../../i18n'
 
@@ -60,7 +61,9 @@ function ComputerRow({
       />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13px] text-main">{device.name}</span>
-        <span className="block truncate text-[12px] text-tertiary">{subtitle(device, last)}</span>
+        <span className={clsx('block text-[12px] text-tertiary', !isPending && 'truncate')}>
+          {subtitle(device, last)}
+        </span>
       </span>
       {isPending && (
         <span className="shrink-0 rounded bg-state-selected px-1.5 py-0.5 text-[11px] text-secondary">
@@ -170,7 +173,9 @@ export function VaultSharePicker({
           content={
             <span className="flex flex-col gap-0.5">
               <span className="font-medium">
-                {t('Shared with {count} computers', { count: names.length })}
+                {names.length > 1
+                  ? t('Shared with {count} computers', { count: names.length })
+                  : t('Shared with')}
               </span>
               {names.slice(0, SHOWN_NAMES).map((name) => (
                 <span key={name}>{name}</span>
@@ -210,16 +215,19 @@ export function VaultSharePicker({
                 <X className="h-4 w-4" strokeWidth={1.8} />
               </Popover.Close>
             </div>
-            <label className="mx-3 mt-2.5 flex h-8 items-center gap-2 rounded-md border border-line-control bg-surface px-2">
+            <InputGroup
+              render={<label />}
+              className="mx-3 mt-2.5 flex h-8 items-center gap-2 rounded-md border border-line-control bg-surface px-2"
+            >
               <Search className="h-3.5 w-3.5 shrink-0 text-tertiary" strokeWidth={1.8} />
-              <input
+              <InputGroupInput
                 aria-label={t('Search computers')}
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-main outline-none placeholder:text-tertiary"
+                className="text-[13px] text-main placeholder:text-tertiary"
                 placeholder={t('Search computers')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
-            </label>
+            </InputGroup>
             <div className="mt-2.5 max-h-[322px] overflow-y-auto border-t border-line-control/60 p-1">
               {rows.map((device) => (
                 <ComputerRow

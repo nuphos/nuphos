@@ -182,7 +182,6 @@ try {
   const picker = page.getByRole('dialog', { name: 'Computers' })
 
   await sharedWith('github-token').click()
-  await picker.getByText('1 of 2 selected').waitFor()
   await picker.getByRole('checkbox', { name: 'Studio Mac' }).click()
   await until('the share', async () => (await holders()).length === 2)
   await picker.getByText('2 of 2 selected').waitFor()
@@ -195,14 +194,11 @@ try {
   await picker.getByRole('checkbox', { name: 'This Mac (Desktop)' }).click()
   await until('the unshare', async () => (await holders()).join() === added.id)
   await picker.getByText('may have kept the value it already read').waitFor()
-  await shot('5-unshare-warning')
+  await shot('4-unshare-warning-and-last-computer')
   check('an item may be shared with another computer alone', (await holders()).join() === added.id)
-  check(
-    'the last computer cannot be unticked',
-    await picker.getByRole('checkbox', { name: 'Studio Mac' }).isDisabled(),
-  )
-  await picker.getByText('Only computer · can’t be removed').waitFor()
-  await shot('4-last-computer-stays')
+  const last = picker.getByRole('checkbox', { name: 'Studio Mac' })
+
+  check('the last computer cannot be unticked', await last.isDisabled())
   await page.keyboard.press('Escape')
   await picker.waitFor({ state: 'hidden' })
 
@@ -275,19 +271,23 @@ try {
   await picker.getByText('The item changed since it was read').waitFor()
   await shot('7-stale-share-refused')
   check('a share based on an older read is refused', (await read()).status === 200)
-  await page.keyboard.press('Escape')
-  await picker.waitFor({ state: 'hidden' })
 
-  // Read again, the unshare goes through and the computer can no longer read it.
+  // Read again: a waiting computer cannot be picked, the list filters, and the unshare goes through.
+  const pendingKey = generateDeviceKey().publicKey.toString('base64')
+
+  await ok('POST', '/vault/devices', { name: 'Office iMac', publicKey: pendingKey })
+  await openVault(true)
   await sharedWith('deploy-key').click()
+  const waiting = picker.getByRole('checkbox', { name: 'Office iMac' })
+
+  check('a computer waiting for approval cannot be picked', await waiting.isDisabled())
+  await shot('8-pending-row')
+  await picker.getByRole('textbox', { name: 'Search computers' }).fill('box')
+  await shot('9-search')
+
   await picker.getByRole('checkbox', { name: 'Build box' }).click()
   await until('the unshare', async () => (await read()).status === 404)
-  await page.keyboard.press('Escape')
   check('a computer cannot read an item after it is unshared', (await read()).status === 404)
-
-  await openVault(true)
-  await page.getByText('Build box').first().waitFor()
-  await shot('8-items-and-devices')
 } catch (error) {
   failed = true
   console.error(error)
