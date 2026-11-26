@@ -1,6 +1,7 @@
 // Starts a session's next turn from its queue, in arrival order.
 
 import { wakeOfflineBox } from '@/lib/agent/devices/box-wake'
+import { isRuntimeRefusal } from '@/lib/claude-code-preview/runtime-refusal'
 import { conversationExecutionState } from '@/lib/claude-code-preview/session-execution-state'
 import { AppError } from '@/lib/errors'
 import { getTeamMembership } from '@/lib/identity'
@@ -196,22 +197,17 @@ export async function startQueuedTurn(
   }
 }
 
-// Busy, timed out, too early, rate limited: each passes with time, however long it takes.
-const RETRYABLE_STATUS = new Set([408, 409, 425, 429])
-
-// Also 409, but only someone at the computer ends these: a signed-out CLI, or one that cannot run.
-const NEEDS_THE_COMPUTER = new Set(['runtime_login_required', 'runtime_not_installed'])
+// Timed out, too early, rate limited: each passes with time, however long it takes.
+const RETRYABLE_STATUS = new Set([408, 425, 429])
 
 /**
  * A send that failed to start waits for another try when the failure can pass:
- * a busy or rate-limited runtime. Anything else
- * (an agent that is gone or signed out, a declined computer) never will, so
+ * a busy or rate-limited runtime. Anything else, other 409s included
+ * (an agent that is disabled or signed out, a declined computer), never will, so
  * its sender is told instead of the queue being held behind it.
  */
 const mayStartLater = (error: unknown) =>
-  error instanceof AppError &&
-  RETRYABLE_STATUS.has(error.status) &&
-  !NEEDS_THE_COMPUTER.has(error.code)
+  isRuntimeRefusal(error) || (error instanceof AppError && RETRYABLE_STATUS.has(error.status))
 
 /**
  * A server error or an offline computer usually passes within moments. It is retried
