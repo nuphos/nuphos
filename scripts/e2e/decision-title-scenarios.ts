@@ -40,31 +40,30 @@ const BODIES: [string, string][] = [
   ],
 ]
 
-/** The body's lines of text the box that clips it cuts through, and those it hides entirely. */
+/** The body's lines the card's own clip cuts through, and those it hides; the conversation's scroll does not count. */
 const clippedLines = (card: Locator) =>
-  card
-    .locator('p')
-    .first()
-    .evaluate((p) => {
-      let clip: Element | null = p
+  card.evaluate((card) => {
+    const p = card.querySelector('p')!
+    let clip: Element = p
 
-      while (clip && getComputedStyle(clip).overflowY === 'visible') clip = clip.parentElement
-      const bottom = clip?.getBoundingClientRect().bottom ?? Infinity
-      const walker = document.createTreeWalker(p.parentElement!, NodeFilter.SHOW_TEXT)
-      const lines: DOMRect[] = []
+    while (clip !== card && getComputedStyle(clip).overflowY === 'visible')
+      clip = clip.parentElement!
+    const bottom = clip === card ? Infinity : clip.getBoundingClientRect().bottom
+    const walker = document.createTreeWalker(p.parentElement!, NodeFilter.SHOW_TEXT)
+    const lines: DOMRect[] = []
 
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        const range = document.createRange()
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const range = document.createRange()
 
-        range.selectNodeContents(node)
-        lines.push(...[...range.getClientRects()].filter((rect) => rect.height > 0))
-      }
+      range.selectNodeContents(node)
+      lines.push(...[...range.getClientRects()].filter((rect) => rect.height > 0))
+    }
 
-      return {
-        half: lines.filter((rect) => rect.top < bottom - 1 && rect.bottom > bottom + 1).length,
-        hidden: lines.filter((rect) => rect.top >= bottom - 1).length,
-      }
-    })
+    return {
+      half: lines.filter((rect) => rect.top < bottom - 1 && rect.bottom > bottom + 1).length,
+      hidden: lines.filter((rect) => rect.top >= bottom - 1).length,
+    }
+  })
 
 /** Waits until the card stops moving, as the conversation scrolls to follow it, so a shot of it is whole. */
 const settled = async (card: Locator) => {
