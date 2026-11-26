@@ -62,6 +62,7 @@
     <string name="chats_question_dismiss_reason">이유(선택)</string>
     <string name="chats_empty_bot_body">%1$s와 함께 일을 해내는 공간입니다. 필요한 도움을 이야기하며 함께 일하는 방식을 만들어 보세요.</string>
     <string name="chats_empty_bot_start">먼저 %1$s에게 하고 싶은 일을 알려 주세요.</string>
+    <string name="chats_empty_bot_earlier">%1$s와(과)의 이전 대화 보기</string>
     <string name="chats_bot_computer_offline">%1$s의 컴퓨터가 오프라인입니다.</string>
     <string name="chats_presence_online">온라인</string>
     <string name="chats_presence_busy">작업 중</string>

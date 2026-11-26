@@ -79,6 +79,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.repeatOnLifecycle
 import ai.nuphos.android.model.AgentConversation
+import ai.nuphos.android.model.BotEarlierChat
 import ai.nuphos.android.model.ChannelPostJump
 import ai.nuphos.android.model.ChannelAgent
 import ai.nuphos.android.model.ChannelItem
@@ -165,6 +166,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     val openBotTask: (() -> Unit)? = if (canOpenTask && onOpenTask != null && bot != null) {
         { openTask(bot.sessionId) }
     } else null
+    // An older Bot's first chat starts empty: it leads back to the Bot's own Task, where the earlier conversation is (#5061).
+    val openEarlier = openBotTask?.takeIf { BotEarlierChat.shows(bot?.let { store.botRow(it.sessionId) }, session.createdAt) }
     // What the Bot dispatched comes from the Tasks list, read again while its chat is on screen.
     LaunchedEffect(store, botFace?.id, lifecycle) {
         if (botFace == null) return@LaunchedEffect
@@ -246,7 +249,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                     TextButton(onClick = { scope.launch { session.refresh(force = true) } }) { Text(stringResource(R.string.try_again)) }
                 }
                 // Nothing posted yet: say what kind of place this is, as on iOS.
-                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, bot = botFace != null, modifier = Modifier.align(Alignment.CenterStart))
+                session.loadError == null && items.isEmpty() -> EmptyChat(session.faces, session.title, bot = botFace != null, onOpenEarlier = openEarlier,
+                    modifier = Modifier.align(Alignment.CenterStart))
                 else -> {
                     val consent = AiAccess.revision
                     ChannelTranscript(session, items, viewerId, onLink, allowed = {
@@ -422,15 +426,23 @@ private fun BotRuntimeRow(icon: @Composable () -> Unit, label: String, value: St
     }
 }
 
-/** A chat with no posts yet: its icon, its name and how it works, in Desktop's words: a Bot's own chat introduces the Bot. */
+/**
+ * A chat with no posts yet: its icon, its name and how it works, in Desktop's words: a Bot's own chat introduces the Bot.
+ * An older Bot's also links to its earlier conversation, as on Desktop (#5061).
+ */
 @Composable
-private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, bot: Boolean, modifier: Modifier = Modifier) {
+private fun EmptyChat(faces: List<ai.nuphos.android.model.ChatFace>, title: String, bot: Boolean, onOpenEarlier: (() -> Unit)?,
+                      modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().padding(24.dp).testTag("chat-empty"), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         ChatIcon(faces, title, 44.dp)
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         val lines = if (bot) listOf(stringResource(R.string.chats_empty_bot_body, title), stringResource(R.string.chats_empty_bot_start, title))
             else listOf(stringResource(R.string.chats_empty_chat_body))
         lines.forEach { Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (onOpenEarlier != null) TextButton(onClick = onOpenEarlier, contentPadding = PaddingValues(0.dp),
+            modifier = Modifier.testTag("chat-earlier")) {
+            Text(stringResource(R.string.chats_empty_bot_earlier, title), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        }
     }
 }
 

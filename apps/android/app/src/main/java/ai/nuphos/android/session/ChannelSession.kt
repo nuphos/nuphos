@@ -113,6 +113,9 @@ class ChannelSession(
     var faces by mutableStateOf<List<ChatFace>>(emptyList())
     /** The Bot this is the 1:1 chat of; null in a group chat, even one with only a Bot in it. */
     var botId by mutableStateOf<String?>(null)
+    /** When the chat was made, as its last read says; null until then. */
+    var createdAt by mutableStateOf<java.time.Instant?>(null)
+        private set
     var stored by mutableStateOf<List<ChannelPost>>(emptyList())
         private set
     var events by mutableStateOf<List<AgentConversationDetail.TimelineEvent>>(emptyList())
@@ -372,6 +375,7 @@ class ChannelSession(
         detail.title?.takeIf { it.isNotBlank() }?.let { title = it }
         faces = detail.faces
         botId = detail.botId
+        createdAt = detail.createdAt
         noteActivity(detail)
         revision = stamp(detail)
         loadError = null

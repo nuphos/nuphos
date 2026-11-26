@@ -62,6 +62,7 @@
     <string name="chats_question_dismiss_reason">理由（任意）</string>
     <string name="chats_empty_bot_body">ここで %1$s と一緒に仕事を進めましょう。手伝ってほしいことを話し、一緒に仕事の進め方を決めましょう。</string>
     <string name="chats_empty_bot_start">まずは %1$s にやりたいことを伝えてみましょう。</string>
+    <string name="chats_empty_bot_earlier">%1$s との以前の会話を見る</string>
     <string name="chats_bot_computer_offline">%1$s のコンピューターはオフラインです。</string>
     <string name="chats_presence_online">オンライン</string>
     <string name="chats_presence_busy">作業中</string>

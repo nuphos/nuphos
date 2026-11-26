@@ -62,6 +62,7 @@
     <string name="chats_question_dismiss_reason">Reason (optional)</string>
     <string name="chats_empty_bot_body">This is where you and %1$s get things done. Talk about what you want help with, and shape how you work together.</string>
     <string name="chats_empty_bot_start">You can start by telling %1$s what you would like to do.</string>
+    <string name="chats_empty_bot_earlier">See earlier messages with %1$s</string>
     <string name="chats_bot_computer_offline">%1$s’s computer is offline.</string>
     <string name="chats_presence_online">Online</string>
     <string name="chats_presence_busy">Busy</string>

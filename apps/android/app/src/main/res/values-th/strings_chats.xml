@@ -62,6 +62,7 @@
     <string name="chats_question_dismiss_reason">เหตุผล (ไม่บังคับ)</string>
     <string name="chats_empty_bot_body">ที่นี่คุณกับ %1$s ทำงานให้สำเร็จไปด้วยกัน บอกว่าต้องการความช่วยเหลืออะไร แล้วร่วมกันกำหนดวิธีทำงาน</string>
     <string name="chats_empty_bot_start">เริ่มด้วยการบอก %1$s ว่าคุณอยากทำอะไร</string>
+    <string name="chats_empty_bot_earlier">ดูข้อความก่อนหน้ากับ %1$s</string>
     <string name="chats_bot_computer_offline">คอมพิวเตอร์ของ %1$s ออฟไลน์อยู่</string>
     <string name="chats_presence_online">ออนไลน์</string>
     <string name="chats_presence_busy">ไม่ว่าง</string>

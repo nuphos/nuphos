@@ -16,6 +16,8 @@ final class ChannelSession {
     var faces: [ChatFace] = []
     /// The Bot this is the 1:1 chat of; nil in a group chat, even one with only a Bot in it.
     var botId: String?
+    /// When the chat was made, as its last read says; nil until then.
+    var createdAt: Date?
     private(set) var stored: [ChannelPost] = []
     private(set) var events: [AgentConversationDetail.TimelineEvent] = []
     private(set) var agents: [ChannelAgent] = []
@@ -172,6 +174,7 @@ final class ChannelSession {
         if let title = detail.title, !title.isEmpty { self.title = title }
         faces = detail.faces
         botId = detail.botId
+        createdAt = detail.createdAt
         revision = detail.channelRevision
         loadError = nil
         loaded = true

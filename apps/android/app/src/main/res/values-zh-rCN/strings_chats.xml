@@ -62,6 +62,7 @@
     <string name="chats_question_dismiss_reason">理由（可选）</string>
     <string name="chats_empty_bot_body">你可以在这里和 %1$s 一起完成工作。聊聊你需要什么协助，一起建立适合你的工作方式。</string>
     <string name="chats_empty_bot_start">你也可以先告诉 %1$s，你想做些什么。</string>
+    <string name="chats_empty_bot_earlier">查看之前与 %1$s 的对话</string>
     <string name="chats_bot_computer_offline">%1$s 的电脑离线。</string>
     <string name="chats_presence_online">在线</string>
     <string name="chats_presence_busy">忙碌中</string>

@@ -246,6 +246,9 @@ data class AgentConversationDetail(
     /** `channel` for a chat; such a session never runs an agent turn of its own. */
     val kind: String? = null,
     val messageCount: Int? = null,
+    /** When it was made: a Bot's chat made after the Bot last moved leads back to it (#5061). */
+    @Serializable(with = InstantAsStringSerializerNullable::class)
+    val createdAt: Instant? = null,
     /** A chat's icon, as the list row carries it. */
     val faces: List<ChatFace> = emptyList(),
     /** Started as a group chat: never a Bot's 1:1 chat, even with one Bot in it. */

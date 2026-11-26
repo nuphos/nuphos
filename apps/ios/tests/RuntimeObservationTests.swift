@@ -235,6 +235,7 @@ struct RuntimeObservationTests {
         LaunchCacheTests.run()
         ConversationNestingTests.run()
         TaskFollowsBotTests.run()
+        BotEarlierChatTests.run()
         ResourceStripTests.run()
         BotQuestionsTests.run()
         ComposerDraftsTests.run()

@@ -264,6 +264,16 @@ struct ChannelView: View {
                     if channel.botId != nil {
                         Text("This is where you and \(channel.title) get things done. Talk about what you want help with, and shape how you work together.")
                         Text("You can start by telling \(channel.title) what you would like to do.")
+                        // An older Bot's first chat starts empty: it leads back to the Bot's own Task, where the earlier conversation is (#5061).
+                        if let bot = channel.botId, canOpenTask,
+                           BotEarlierChat.shows(bot: store.conversations.first { $0.sessionId == bot } ?? store.bots.first { $0.sessionId == bot },
+                                                chatCreatedAt: channel.createdAt) {
+                            Button { open(bot, title: channel.title) } label: {
+                                Text("See earlier messages with \(channel.title)").fontWeight(.medium).foregroundStyle(Theme.link)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityIdentifier("chat.earlier")
+                        }
                     } else {
                         Text("Everyone here sees each message and decides for themselves whether to reply, as in any group chat.")
                     }

@@ -431,6 +431,8 @@ struct AgentConversationDetail: Decodable, Sendable {
     /// With `transcriptUpdatedAt`, what a chat's cheap probe compares to tell a new post.
     let messageCount: Int?
     let transcriptUpdatedAt: String?
+    /// When the chat was made: a Bot's chat made after the Bot last moved leads back to it (#5061).
+    let createdAt: Date?
 
     /// A chat's icon, as the list row carries it.
     let faces: [ChatFace]
@@ -456,7 +458,7 @@ struct AgentConversationDetail: Decodable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, shareable, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
+        case avatar, faces, group, kind, messageCount, transcriptUpdatedAt, createdAt, isOwner, canManage, canArchive, messages, messagesFirstIndex, activeRun, runtimeState, readOnly, shareable, title, credentialAccess, credentialSource, agentRuntime, runtimeId, runtimeLabel, archivedAt, activitySeq, readSeq, watching, timelineEvents, waitingAnswers, promptSuggestion
     }
 
     init(from decoder: Decoder) throws {
@@ -494,5 +496,6 @@ struct AgentConversationDetail: Decodable, Sendable {
         faces = (try? c.decodeIfPresent([ChatFace].self, forKey: .faces)) ?? []
         group = try? c.decodeIfPresent(Bool.self, forKey: .group)
         transcriptUpdatedAt = try? c.decodeIfPresent(String.self, forKey: .transcriptUpdatedAt)
+        createdAt = try? c.decodeIfPresent(Date.self, forKey: .createdAt)
     }
 }
