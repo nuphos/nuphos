@@ -10,6 +10,7 @@ import { Fenced, TrailingSlot } from './SidebarRowParts'
 import { CountBadge } from './ui/count-badge'
 import { StatusDot } from './ui/status-dot'
 
+import type { RowDot } from '../lib/subAgentState'
 import type { LucideIcon } from 'lucide-react'
 import type React from 'react'
 import type { ReactNode } from 'react'
@@ -69,10 +70,10 @@ type SidebarNavItemProps = {
    */
   revealDetail?: boolean
   /**
-   * A Bots or Tasks row: set, the row keeps a left gutter, where `true` shows
-   * the unread dot, so nothing moves when it comes and goes.
+   * A Bots or Tasks row: set, the row keeps a left gutter for its dot (unread,
+   * or waiting for the viewer), so nothing moves when it comes and goes.
    */
-  unread?: boolean
+  dot?: RowDot
 }
 
 function SwapLabel({ label }: { label: string }) {
@@ -112,7 +113,7 @@ export function SidebarNavItem({
   time,
   animateLabel = false,
   revealDetail = false,
-  unread,
+  dot,
 }: SidebarNavItemProps) {
   const { containerRef, start, stop } = useHoverMarquee<HTMLSpanElement>(label)
 
@@ -214,7 +215,7 @@ export function SidebarNavItem({
           ? undefined
           : [
               `${id}-label`,
-              unread && `${id}-unread`,
+              dot && `${id}-dot`,
               note != null && `${id}-note`,
               badgeShown && `${id}-badge`,
               `${id}-trailing`,
@@ -236,7 +237,7 @@ export function SidebarNavItem({
       className={clsx(
         SIDEBAR_ROW_CLASS,
         twoLine && '!h-[70px] !gap-3 !rounded-xl',
-        unread !== undefined && 'relative pl-3.5',
+        dot !== undefined && 'relative pl-3.5',
         'group group/row w-full flex items-center transition-colors outline-none ring-0 focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0',
         !sharedBackground && 'focus-visible:bg-[var(--sidebar-overlay-focus)]',
         active
@@ -251,11 +252,11 @@ export function SidebarNavItem({
               : 'text-secondary hover:bg-[var(--sidebar-overlay-hover)]',
       )}
     >
-      {unread && (
+      {dot && (
         <StatusDot
-          id={`${id}-unread`}
-          tone="unread"
-          label={t('Unread reply')}
+          id={`${id}-dot`}
+          tone={dot === 'waiting' ? 'attention' : 'unread'}
+          label={dot === 'waiting' ? t('Needs your input') : t('Unread reply')}
           className="absolute left-1 top-1/2 -translate-y-1/2"
         />
       )}

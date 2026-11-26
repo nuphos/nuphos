@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
+import { gutterDot, rowDot, rowIndicator, subAgentState } from './subAgentState.ts'
 
 import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentInputRequest } from '../api/agent-types.ts'
@@ -77,4 +77,13 @@ test('an unread reply still loses to work', () => {
   assert.equal(rowIndicator(turn, 'unread'), 'turn')
   assert.equal(rowIndicator(background, 'unread'), 'background')
   assert.equal(rowIndicator(idle, null), 'none')
+})
+
+test("a row's gutter shows its own dot, else a folded child's, and only on conversation rows", () => {
+  const row = { key: 'agent-session:a' }
+
+  assert.equal(gutterDot({ ...row, dot: 'unread' }, [{ dot: 'waiting' }]), 'unread')
+  assert.equal(gutterDot(row, [{ dot: null }, { dot: 'waiting' }]), 'waiting')
+  assert.equal(gutterDot(row, []), null)
+  assert.equal(gutterDot({ key: 'agents', dot: 'unread' }, []), undefined)
 })

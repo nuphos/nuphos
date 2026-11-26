@@ -1,33 +1,23 @@
 import { CircleAlert, Loader2 } from 'lucide-react'
 
 import { t } from '../../i18n'
-import { runtimeStateLabel } from '../../lib/runtimeExecution'
-import { rowIndicator } from '../../lib/subAgentState'
+import { chatRowIndicator, runtimeStateLabel } from '../../lib/runtimeExecution'
 import { StatusDot } from '../ui/status-dot'
 
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
-import type { RowDot } from '../../lib/subAgentState'
-import type { StatusDotTone } from '../ui/status-dot'
-
-const DOTS: Record<'background' | 'waiting', { label: string; tone: StatusDotTone }> = {
-  background: { label: t('Background task running'), tone: 'warning' },
-  waiting: { label: t('Needs your input'), tone: 'attention' },
-}
 
 /**
- * The row's status, at its right edge. The icon only ever names the agent; the
- * unread dot sits in the row's left gutter (SidebarNavItem `unread`).
+ * The run's state, at the row's right edge. The icon only ever names the agent;
+ * the unread and waiting dots sit in the row's left gutter (SidebarNavItem `dot`).
  */
 export function ChatRowStatus({
   runtimeState: state,
-  dot,
 }: {
   runtimeState: RuntimeExecution | undefined
-  dot: RowDot
 }) {
-  const indicator = rowIndicator(state, dot)
+  const indicator = chatRowIndicator(state, false)
 
-  if (indicator === 'none' || indicator === 'unread') return null
+  if (indicator === 'none') return null
   if (indicator === 'turn' || indicator === 'error') {
     const Icon = indicator === 'turn' ? Loader2 : CircleAlert
 
@@ -43,7 +33,6 @@ export function ChatRowStatus({
       </span>
     )
   }
-  const { label, tone } = DOTS[indicator]
 
-  return <StatusDot tone={tone} label={label} />
+  return <StatusDot tone="warning" label={t('Background task running')} />
 }

@@ -29,7 +29,8 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("agent-ops", "Release ops", at: "09:00"),
             Self.row("agent-rollout", "Roll out to staging", at: "09:50", parent: "agent-ops"),
             Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?"),
-            Self.row("agent-notes", "Write the changelog", at: "09:40"),
+            // Unread, as is a Bot chat and the group: the lists show both kinds of row.
+            Self.row("agent-notes", "Write the changelog", at: "09:40").merging(["readSeq": 1]) { $1 },
             // A teammate's: I take part in one, and only read the other (#3686).
             Self.teammates(Self.row("agent-review", "Review the migration", at: "09:35"), canArchive: true),
             Self.teammates(Self.row("agent-offsite", "Plan the offsite", at: "09:34"), canArchive: false),
@@ -46,11 +47,11 @@ final class BotsAndTasksListUITests: XCTestCase {
             // Named before the Bot was renamed: the row shows the Bot's name.
             Self.chat("chat-lead", "release-lead-old", at: "09:55", faces: [Self.face("bot-lead", "Release Lead", "05-rembrandt")],
                       message: Self.longPost),
-            Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]),
+            Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]).merging(["readSeq": 1]) { $1 },
             Self.chat("chat-notes", "", at: "09:51", faces: [Self.face("bot-notes", "Notes Bot", "13-shakespeare")]),
             // Triage Bot is in this group chat, so it has no row of its own.
             Self.chat("chat-group", "", at: "09:48", faces: [["id": "u-ana", "name": "Ana"], Self.face("bot-triage", "Triage Bot", "07-ada")],
-                      group: true, agents: ["bot-triage"]),
+                      group: true, agents: ["bot-triage"]).merging(["readSeq": 1]) { $1 },
         ]
         responses["GET /agent/conversations"] = Self.page(history)
         responses["GET /agent/conversations?bots=true"] = Self.page(bots)

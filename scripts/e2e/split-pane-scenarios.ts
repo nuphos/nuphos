@@ -1,7 +1,7 @@
 // A Bot chat in a split pane (#2990): its header has the pane's close button, as a Task's does.
 // Needs the Bot "E2E Bot", created earlier in the run.
 import { until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openRow, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -33,11 +33,7 @@ export const splitPaneScenarios: Scenario[] = [
       await page.keyboard.press('Escape')
       await page.keyboard.press('Control+d')
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      await page
-        .getByText('Beside a Bot E2E_DELIVERY:split')
-        .filter({ visible: true })
-        .first()
-        .click()
+      await openRow(page, 'Beside a Bot E2E_DELIVERY:split')
       await reply.waitFor()
       await expectClose('split beside the Bot chat', 2)
       // The Bot chat's pane is first; its own button closes it and leaves the Task.

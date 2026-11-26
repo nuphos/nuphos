@@ -40,6 +40,19 @@ export function rowDot(
 }
 
 /**
+ * A sidebar row's gutter dot: its own, or else the first among the rows it
+ * folds away. Only conversation and project rows keep a gutter (undefined).
+ */
+export function gutterDot(
+  row: { key: string; project?: unknown; dot?: RowDot },
+  folded: { dot?: RowDot }[],
+): RowDot | undefined {
+  if (!row.key.startsWith('agent-session:') && !row.project) return undefined
+
+  return row.dot ?? folded.find((kid) => kid.dot)?.dot ?? null
+}
+
+/**
  * The mark a row shows. An open question outranks work, since a thread asking
  * while it works is still blocked on the viewer, but not a failed run.
  */

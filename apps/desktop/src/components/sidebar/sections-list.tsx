@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { gutterDot } from '../../lib/subAgentState'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
@@ -132,7 +133,6 @@ export function SidebarSectionList({
                           // Bots read as a chat list (name over latest message); Tasks as on main.
                           const twoLine = chatRow && !item.task
                           const bot = twoLine || Boolean(item.botNested)
-                          const gutter = rowSessionId !== null || Boolean(item.project) // unread dot
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
                               pin={
@@ -236,7 +236,7 @@ export function SidebarSectionList({
                                 }
                                 icon={leading ?? null}
                                 revealDetail={Boolean(item.description)}
-                                unread={gutter ? item.dot === 'unread' : undefined}
+                                dot={gutterDot(item, hidden)}
                               />
                               <RowDetail item={item} />
                             </SessionRowSurface>
