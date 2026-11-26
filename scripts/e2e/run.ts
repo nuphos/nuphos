@@ -65,6 +65,7 @@ import { questionScenarios } from './question-scenarios.ts'
 import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { runtimeSettingsScenarios } from './runtime-settings-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
@@ -172,6 +173,7 @@ const scenarios: Scenario[] = [
   ...usageQueueScenarios,
   ...moveMidTurnScenarios,
   ...customProviderScenarios,
+  ...runtimeSettingsScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   // It needs the Bot the access scenarios create.
