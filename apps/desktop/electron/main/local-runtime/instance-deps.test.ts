@@ -110,15 +110,10 @@ test('an agent this computer already had only probes', async () => {
   assert.equal(calls, 0)
 })
 
-test('a shared token’s agent signs in with that token only, never the shell’s', async () => {
+test('a shared token’s agent signs in with that token', async () => {
   const deps = instanceControllerDeps(
     {
-      userEnv: () =>
-        Promise.resolve({
-          PATH: '/bin',
-          CLAUDE_CODE_OAUTH_TOKEN: 'sk-ant-oat01-fictional-shell',
-          ANTHROPIC_API_KEY: 'sk-ant-fictional-shell',
-        }),
+      userEnv: () => Promise.resolve({ PATH: '/bin' }),
       probeCli: () => Promise.resolve(present),
     } as unknown as LocalRuntimeControllerDeps,
     'instance-dir',
@@ -137,8 +132,6 @@ test('a shared token’s agent signs in with that token only, never the shell’
   assert.equal(env.PATH, '/bin')
   assert.equal(typeof env.NUPHOS_VAULT_SOCKET, 'string')
   assert.match(env.NUPHOS_VAULT_KEY ?? '', /^[0-9a-f]{64}$/u)
-  assert.equal(env.CLAUDE_CODE_OAUTH_TOKEN, undefined)
-  assert.equal(env.ANTHROPIC_API_KEY, undefined)
   // Its own home holds no login: the token is its sign-in.
   assert.deepEqual(await deps.probeCli('claude-code', env, undefined), {
     ...present,

@@ -74,8 +74,7 @@ export function instanceControllerDeps(
     userEnv: async (fresh) => ({
       ...(await deps.userEnv(fresh)),
       ...secureStorageEnv(dir, userId),
-      // Only the shared token: not a token or key this computer's own shell has.
-      ...(token && { ...token, CLAUDE_CODE_OAUTH_TOKEN: undefined, ANTHROPIC_API_KEY: undefined }),
+      ...token,
     }),
     prepareAgentHome: prepareIsolatedAgentHome,
     readCliCache: () => ({}),
