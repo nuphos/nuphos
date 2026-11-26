@@ -217,19 +217,35 @@ export function CustomProviderForm({
           />
         )}
       </div>
-      <label className="block space-y-1.5">
-        <span className="text-[12px] text-secondary">{t('Model IDs')}</span>
-        <textarea
-          rows={2}
-          spellCheck={false}
-          value={models}
-          onChange={(event) => setModels(event.target.value)}
-          className={clsx(inputClasses, 'h-auto py-2 font-mono')}
-        />
-        <span className="block text-xs text-tertiary">
-          {t('Optional. The first one is the default in Model settings.')}
-        </span>
-      </label>
+      {/* Codex's adapter refuses any model outside Codex's catalog but the configured one (#5214). */}
+      {provider === 'codex' ? (
+        <label className="block space-y-1.5">
+          <span className="text-[12px] text-secondary">{t('Model ID')}</span>
+          <input
+            spellCheck={false}
+            value={models}
+            onChange={(event) => setModels(event.target.value)}
+            className={clsx(inputClasses, 'font-mono')}
+          />
+          <span className="block text-xs text-tertiary">
+            {t('Optional. Codex runs this model.')}
+          </span>
+        </label>
+      ) : (
+        <label className="block space-y-1.5">
+          <span className="text-[12px] text-secondary">{t('Model IDs')}</span>
+          <textarea
+            rows={2}
+            spellCheck={false}
+            value={models}
+            onChange={(event) => setModels(event.target.value)}
+            className={clsx(inputClasses, 'h-auto py-2 font-mono')}
+          />
+          <span className="block text-xs text-tertiary">
+            {t('Optional. The first one is the default in Model settings.')}
+          </span>
+        </label>
+      )}
       <div className="flex items-center gap-3">
         <Button
           size="sm"

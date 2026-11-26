@@ -50,8 +50,14 @@ const isAgent = (provider: unknown): provider is CustomProviderAgent =>
 
 const account = (userId: string, provider: CustomProviderAgent) => `${userId}:${provider}`
 
-/** HTTPS, or plain HTTP to a gateway on this computer; never credentials in the URL. */
-export function parseCustomProvider(value: unknown): CustomProvider {
+/**
+ * HTTPS, or plain HTTP to a gateway on this computer; never credentials in the URL. Codex
+ * takes one model ID, as its adapter refuses any model outside Codex's own catalog (#5214).
+ */
+export function parseCustomProvider(
+  value: unknown,
+  provider?: CustomProviderAgent,
+): CustomProvider {
   const { baseUrl, models } = (value ?? {}) as { baseUrl?: unknown; models?: unknown }
   let url: URL
 
@@ -72,8 +78,14 @@ export function parseCustomProvider(value: unknown): CustomProvider {
     ),
   ].filter(Boolean)
 
-  if (ids.length > MAX_MODELS || ids.some((id) => !MODEL_ID.test(id)))
-    throw new Error('Enter up to 50 model IDs, one per line, without spaces.')
+  const codex = provider === 'codex'
+
+  if (ids.length > (codex ? 1 : MAX_MODELS) || ids.some((id) => !MODEL_ID.test(id)))
+    throw new Error(
+      codex
+        ? 'Enter one model ID without spaces.'
+        : 'Enter up to 50 model IDs, one per line, without spaces.',
+    )
 
   return { baseUrl: (baseUrl as string).trim(), models: ids }
 }
@@ -90,7 +102,16 @@ export function readCustomProviders(
     return Object.fromEntries(
       Object.entries(saved).flatMap(([provider, value]) => {
         try {
-          return isAgent(provider) ? [[provider, parseCustomProvider(value)]] : []
+          if (!isAgent(provider)) return []
+          const parsed = parseCustomProvider(value)
+
+          // One saved before Codex took a single ID keeps the one it ran.
+          return [
+            [
+              provider,
+              provider === 'codex' ? { ...parsed, models: parsed.models.slice(0, 1) } : parsed,
+            ],
+          ]
         } catch {
           return []
         }
@@ -135,7 +156,7 @@ export async function checkCustomProvider(
   value: unknown,
 ): Promise<CustomProviderCheck> {
   if (!isAgent(provider)) throw new Error('Unknown runtime.')
-  const parsed = parseCustomProvider(value)
+  const parsed = parseCustomProvider(value, provider)
   const key = await keyFor(store, userId, provider, value)
 
   if (!key) throw new Error('Enter the API key.')
@@ -168,7 +189,7 @@ export async function saveCustomProvider(
 
     return
   }
-  const parsed = parseCustomProvider(value)
+  const parsed = parseCustomProvider(value, provider)
   const key = typedKey(value)
 
   if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
