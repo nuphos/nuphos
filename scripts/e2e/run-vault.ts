@@ -173,28 +173,38 @@ try {
   await shot('2-new-item-defaults-to-this-device')
   await page.getByRole('textbox', { name: 'Name' }).fill('')
 
-  // Shared with the Studio Mac, its key opens the value there.
-  await page.getByRole('button', { name: 'Devices', exact: true }).click()
-  await confirm.getByRole('checkbox', { name: 'Studio Mac' }).click()
-  await shot('3-share-with-another-device')
-  await confirm.getByRole('button', { name: 'Save' }).click()
+  // Shared with the Studio Mac from the item's row, saved on the tick; its key opens the value there.
+  const sharedWith = (name: string) =>
+    page
+      .getByText(name, { exact: true })
+      .locator('xpath=ancestor::div[.//button[@aria-label="Shared with"]][1]')
+      .getByRole('button', { name: 'Shared with' })
+  const picker = page.getByRole('dialog', { name: 'Computers' })
+
+  await sharedWith('github-token').click()
+  await picker.getByText('1 of 2 selected').waitFor()
+  await picker.getByRole('checkbox', { name: 'Studio Mac' }).click()
   await until('the share', async () => (await holders()).length === 2)
+  await picker.getByText('2 of 2 selected').waitFor()
+  await shot('3-share-with-another-device')
   const item = (await ok('GET', '/vault/items/github-token')).item as Json
 
   check('the device it is shared with opens it with its own key', opens(item, studio.privateKey))
 
-  // At least one device, and leaving one out warns that it may have kept the value.
-  await page.getByRole('button', { name: 'Devices', exact: true }).click()
-  for (const box of await confirm.getByRole('checkbox').all()) await box.click()
-  await confirm.getByRole('button', { name: 'Save' }).click()
-  await confirm.getByText('Pick at least one device.').waitFor()
-  await shot('4-at-least-one-device')
-  await confirm.getByRole('checkbox', { name: 'Studio Mac' }).click()
-  await confirm.getByText('A device you remove may have kept').waitFor()
-  await shot('5-unshare-warning')
-  await confirm.getByRole('button', { name: 'Save' }).click()
+  // Removing one warns that it may have kept the value, and the last one cannot be removed.
+  await picker.getByRole('checkbox', { name: 'This Mac (Desktop)' }).click()
   await until('the unshare', async () => (await holders()).join() === added.id)
+  await picker.getByText('may have kept the value it already read').waitFor()
+  await shot('5-unshare-warning')
   check('an item may be shared with another computer alone', (await holders()).join() === added.id)
+  check(
+    'the last computer cannot be unticked',
+    await picker.getByRole('checkbox', { name: 'Studio Mac' }).isDisabled(),
+  )
+  await picker.getByText('Only computer · can’t be removed').waitFor()
+  await shot('4-last-computer-stays')
+  await page.keyboard.press('Escape')
+  await picker.waitFor({ state: 'hidden' })
 
   // Its only device stays.
   await page.getByRole('button', { name: 'Remove', exact: true }).nth(1).click()
@@ -242,24 +252,18 @@ try {
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByText('Saved deploy-key').waitFor()
   check('a computer cannot read an item not shared with it', (await read()).status === 404)
-  const devicesOf = (name: string) =>
-    page
-      .getByText(name, { exact: true })
-      .locator('xpath=ancestor::div[.//button[normalize-space()="Devices"]][1]')
-      .getByRole('button', { name: 'Devices', exact: true })
-
-  await devicesOf('deploy-key').click()
-  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
-  await confirm.getByRole('button', { name: 'Save' }).click()
-  await confirm.waitFor({ state: 'hidden' })
+  await sharedWith('deploy-key').click()
+  await picker.getByRole('checkbox', { name: 'Build box' }).click()
+  await until('the share', async () => (await read()).status === 200)
+  await page.keyboard.press('Escape')
+  await picker.waitFor({ state: 'hidden' })
   check(
     'a computer reads an item shared with it, with its own key',
     opens((await read()).body.item as Json, build.privateKey),
   )
 
-  // A share chosen from an older read is refused, and the dialog stays open to say so.
-  await devicesOf('deploy-key').click()
-  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
+  // A share chosen from an older read is refused, and the list stays open to say so.
+  await sharedWith('deploy-key').click()
   const current = (await ok('GET', '/vault/items/deploy-key')).item as Json
 
   await ok('PUT', '/vault/items/deploy-key', {
@@ -267,18 +271,18 @@ try {
     keys: current.keys,
     updatedAt: current.updatedAt,
   })
-  await confirm.getByRole('button', { name: 'Save' }).click()
-  await confirm.getByText('The item changed since it was read').waitFor()
+  await picker.getByRole('checkbox', { name: 'Build box' }).click()
+  await picker.getByText('The item changed since it was read').waitFor()
   await shot('7-stale-share-refused')
   check('a share based on an older read is refused', (await read()).status === 200)
-  await confirm.getByRole('button', { name: 'Cancel' }).click()
+  await page.keyboard.press('Escape')
+  await picker.waitFor({ state: 'hidden' })
 
   // Read again, the unshare goes through and the computer can no longer read it.
-  await openVault(true)
-  await devicesOf('deploy-key').click()
-  await confirm.getByRole('checkbox', { name: 'Build box' }).click()
-  await confirm.getByRole('button', { name: 'Save' }).click()
-  await confirm.waitFor({ state: 'hidden' })
+  await sharedWith('deploy-key').click()
+  await picker.getByRole('checkbox', { name: 'Build box' }).click()
+  await until('the unshare', async () => (await read()).status === 404)
+  await page.keyboard.press('Escape')
   check('a computer cannot read an item after it is unshared', (await read()).status === 404)
 
   await openVault(true)
