@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">การตอบกลับที่ยังไม่ได้อ่าน</string>
     <string name="agent_archived">เก็บถาวรแล้ว</string>
+    <string name="agent_no_project">ไม่มีโปรเจกต์</string>
     <string name="agent_unlink_task_title">ยกเลิกการลิงก์งานใช่ไหม</string>
     <string name="agent_unlink_task_body">“%1$s” จะแสดงแยกเดี่ยวในรายการงาน ข้อความและสิทธิ์การแชร์จะยังคงเหมือนเดิม</string>
     <string name="agent_select_runtime_before_start">เลือกรันไทม์ที่พร้อมใช้งานก่อนเริ่มเอเจนต์ใหม่</string>

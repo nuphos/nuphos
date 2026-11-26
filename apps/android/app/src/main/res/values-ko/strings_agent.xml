@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">읽지 않은 답장</string>
     <string name="agent_archived">보관됨</string>
+    <string name="agent_no_project">프로젝트 없음</string>
     <string name="agent_unlink_task_title">작업 연결을 해제할까요?</string>
     <string name="agent_unlink_task_body">“%1$s”이(가) 작업 목록에 단독으로 표시됩니다. 메시지와 공유 권한은 그대로 유지됩니다.</string>
     <string name="agent_select_runtime_before_start">새 에이전트를 시작하기 전에 사용 가능한 런타임을 선택하세요.</string>

@@ -44,6 +44,7 @@
     </plurals>
     <string name="agent_unread_reply">Respuesta no leída</string>
     <string name="agent_archived">Archivado</string>
+    <string name="agent_no_project">Sin proyecto</string>
     <string name="agent_unlink_task_title">¿Desvincular la tarea?</string>
     <string name="agent_unlink_task_body">«%1$s» aparecerá por separado en la lista de tareas. Sus mensajes y permisos de uso compartido no cambiarán.</string>
     <string name="agent_select_runtime_before_start">Elige un entorno de ejecución disponible antes de iniciar un agente nuevo.</string>

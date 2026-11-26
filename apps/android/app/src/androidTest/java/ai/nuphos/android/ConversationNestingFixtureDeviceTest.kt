@@ -99,18 +99,20 @@ class ConversationNestingFixtureDeviceTest {
     }
     @get:Rule val rules: RuleChain = RuleChain.outerRule(network).around(compose)
 
-    private fun render() {
+    private val defaultRows = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
+        AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
+        AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
+        AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
+        AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
+
+    private fun render(rows: List<AgentConversation> = defaultRows, first: String = "Synthetic parent") {
         compose.runOnIdle {
             AiAccess.grant(token)
             store = AgentStore(token, compose.activity)
             state(store, "selectedTeam").value = Team("A", "Fixture A")
             store.acceptMemberships(listOf(Team("A", "Fixture A"), Team("B", "Fixture B")))
             state(store, "phase").value = AgentStore.Phase.Loaded
-            state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
-                AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
-                AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
-                AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
-                AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
+            state(store, "conversations").value = rows
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
@@ -125,7 +127,7 @@ class ConversationNestingFixtureDeviceTest {
                 } } }
             }
         }
-        waitText("Synthetic parent")
+        waitText(first)
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
@@ -170,5 +172,28 @@ class ConversationNestingFixtureDeviceTest {
         assertTrue(requests.none { it.method != "GET" })
     }
 
-
+    @Test fun syntheticTasksGroupUnderProjectsWithAttentionAboveTheDivider() {
+        val at = { seconds: Long -> java.time.Instant.ofEpochSecond(1_800_000_000 + seconds) }
+        val site = ai.nuphos.android.model.ConversationWorkspace("/work/site")
+        render(listOf(
+            AgentConversation("landing", "A", "Refresh landing page", lastActiveAt = at(30), workspace = site),
+            AgentConversation("copy", "A", "Proofread pricing copy", parentSessionId = "landing", lastActiveAt = at(20), workspace = site),
+            AgentConversation("api", "A", "Add rate limits", lastActiveAt = at(10), isOwner = true, unread = JsonValue.Bool(true),
+                workspace = ai.nuphos.android.model.ConversationWorkspace("/work/api")),
+            AgentConversation("notes", "A", "Summarize standup notes", lastActiveAt = at(40)),
+        ), first = "Refresh landing page")
+        // Unread work leads, then by newest activity, with No project for the rest.
+        val order = listOf("api", "Add rate limits", "No project", "Summarize standup notes", "site", "Refresh landing page")
+        val tops = order.map { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
+        assertEquals(tops.sorted(), tops)
+        compose.onNodeWithTag("tasks-attention-divider").assertExists()
+        shot("projects")
+        compose.onNodeWithTag("task-project:project:/work/site").performClick()
+        compose.onNodeWithText("Refresh landing page").assertDoesNotExist()
+        compose.onNodeWithText("Proofread pricing copy").assertDoesNotExist()
+        shot("project-folded")
+        compose.onNodeWithTag("task-project:project:/work/site").performClick()
+        compose.onNodeWithText("Proofread pricing copy").assertExists()
+        assertTrue(requests.none { it.method != "GET" })
+    }
 }

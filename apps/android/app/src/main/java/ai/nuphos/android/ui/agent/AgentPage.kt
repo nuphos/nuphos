@@ -1,6 +1,9 @@
 package ai.nuphos.android.ui.agent
 
 import ai.nuphos.android.R
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -186,8 +189,10 @@ fun AgentPage(
     }
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
-    val tree = remember(store.conversations, foldedIds, account) {
-        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false, byFamily = true)
+    val noProject = stringResource(R.string.agent_no_project)
+    val tree = remember(store.conversations, foldedIds, account, noProject) {
+        ConversationNesting.nest(ConversationNesting.withProjects(store.conversations, noProject), foldedIds.toSet(), account,
+            groupSections = false, attention = { it.isWaiting || HistoryStatus.unread(it) })
     }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
@@ -262,6 +267,13 @@ fun AgentPage(
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         items(tree.rows, key = { "history:${it.conversation.sessionId}" }) { row ->
+                                    val toggle = {
+                                        foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
+                                        store.saveFoldedThreadIds(account, team?.id, foldedIds.toSet())
+                                    }
+                                    // Tasks that need the viewer sit above this line, as on Desktop.
+                                    if (row.divider) HorizontalDivider(Modifier.padding(vertical = 8.dp).testTag("tasks-attention-divider"), color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (row.conversation.isProject) ProjectRow(row, toggle) else
                                     ConversationTreeRow(row,
                                         ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
                                         onWatch = if (store.canWatch(row.conversation)) ({ scope.launch { store.setWatching(row.conversation) } }) else null,
@@ -281,10 +293,7 @@ fun AgentPage(
                                         }) else null,
                                         onRename = if (store.canRename(row.conversation)) ({ store.clearRowActionError(); renameTarget = row.conversation }) else null,
                                         actionBusy = store.rowActionSessionId != null,
-                                        onToggle = {
-                                            foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
-                                            store.saveFoldedThreadIds(account, team?.id, foldedIds.toSet())
-                                        },
+                                        onToggle = toggle,
                                         onClick = { nav.navigate("conversation/${android.net.Uri.encode(row.conversation.sessionId)}") { popUpTo("home"); launchSingleTop = true } },
                                         selected = row.conversation.sessionId == selectedSessionId)
                         }
@@ -347,6 +356,23 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
         stateDescription = levelDescription; this.selected = selected
     }) {
         ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot)
+    }
+}
+
+/** A folder, not a conversation: the whole row folds what it holds. */
+@Composable
+internal fun ProjectRow(row: ConversationNesting.Row, onToggle: () -> Unit) {
+    val foldState = stringResource(if (row.folded) R.string.agent_collapsed else R.string.agent_expanded)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(onClick = onToggle)
+            .semantics { stateDescription = foldState }.testTag("task-project:${row.conversation.sessionId}"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(painterResource(if (row.conversation.sessionId == ConversationNesting.NO_PROJECT) R.drawable.task_no_project else R.drawable.task_project),
+            contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Text(row.conversation.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
     }
 }
 
