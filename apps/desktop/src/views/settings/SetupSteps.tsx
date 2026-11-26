@@ -98,10 +98,13 @@ const TITLE_CLASS: Record<Status, string> = {
 export function SetupSteps({
   instance,
   state,
+  failure,
   children,
 }: {
   instance: RuntimeInstance
   state: RuntimeLogin
+  /** A failed sign-in the caller explains better than the runtime's words do. */
+  failure?: { title: string; body: ReactNode } | null
   children: ReactNode
 }) {
   const { login, error, failed, awaiting, reachable } = state
@@ -174,13 +177,14 @@ export function SetupSteps({
       pending: t('Sign in with {account}', { account }),
       active: t('Sign in with {account}', { account }),
       done: t('Signed in with {account}', { account }),
-      failed: t('Sign-in did not finish'),
+      failed: failure?.title ?? t('Sign-in did not finish'),
     },
   }
 
   const body = (step: Phase, current: Status, ms: number): ReactNode => {
     if (current === 'failed' && step === 'install')
       return <InstallFailed instance={instance} error={reason} />
+    if (current === 'failed' && step === 'signin' && failure) return <>{failure.body}</>
     if (current === 'failed')
       return <p className="mt-1 text-[13px] leading-5 text-error">{reason}</p>
     if (current !== 'active') return null

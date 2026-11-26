@@ -159,3 +159,94 @@ export function ApiKeyEntry({
     </form>
   )
 }
+
+/** Removing a key signs the agent out; the confirmation says what stops. */
+export function RemoveKey({ name, onRemove }: { name: string; onRemove: () => Promise<void> }) {
+  const [confirming, setConfirming] = useState(false)
+  const [removing, setRemoving] = useState(false)
+
+  if (!confirming)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-secondary">{t('Signed in with an API key.')}</p>
+        <Button size="sm" variant="secondary" type="button" onClick={() => setConfirming(true)}>
+          {t('Remove key')}
+        </Button>
+      </div>
+    )
+
+  return (
+    <div className="space-y-3 rounded-lg border border-line-control px-4 py-3">
+      <p className="text-[13px] font-medium text-main">{t('Remove the API key?')}</p>
+      <p className="text-xs leading-5 text-secondary">
+        {t(
+          '{name} signs out. Bots and tasks that use it stop until you sign in again, with an account or a new key.',
+          { name },
+        )}
+      </p>
+      <div className="flex justify-end gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          type="button"
+          disabled={removing}
+          onClick={() => setConfirming(false)}
+        >
+          {t('Cancel')}
+        </Button>
+        <Button
+          size="sm"
+          variant="destructive"
+          type="button"
+          disabled={removing}
+          onClick={() => {
+            setRemoving(true)
+            void onRemove().finally(() => setRemoving(false))
+          }}
+        >
+          {t('Remove key')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** A key its vendor turned down: the runtime's words, then another key or the account. */
+export function KeyRejected({
+  provider,
+  account,
+  error,
+  onRetry,
+}: {
+  provider: ApiKeyProvider
+  account: string
+  error: string | undefined
+  onRetry: (method: SignInMethod) => void
+}) {
+  return (
+    <div className="mt-1 space-y-3">
+      <p className="text-[13px] leading-5 text-error">
+        {t('{vendor} didn’t accept this key. It may be revoked, or belong to another workspace.', {
+          vendor: API_KEY[provider].vendor,
+        })}
+      </p>
+      {error && (
+        <pre className="whitespace-pre-wrap rounded-md border border-line-control px-3 py-2 font-mono text-xs text-secondary select-text">
+          {error}
+        </pre>
+      )}
+      <div className="flex items-center gap-3">
+        <Button size="sm" variant="secondary" type="button" onClick={() => onRetry('key')}>
+          {t('Enter another key')}
+        </Button>
+        <button
+          type="button"
+          onClick={() => onRetry('account')}
+          className="text-[13px] text-secondary hover:text-main hover:underline"
+        >
+          {t('Use a {account} account', { account })}
+        </button>
+      </div>
+    </div>
+  )
+}

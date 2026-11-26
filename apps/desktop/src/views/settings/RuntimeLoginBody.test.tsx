@@ -298,3 +298,50 @@ test('a key in place of an account says what it signs out of', async () => {
     await view.done()
   }
 })
+
+test('answered questions stay above the next one, and Change starts over', async () => {
+  let cancels = 0
+  let restarts = 0
+  const view = await setup({
+    instance: { provider: 'hermes', label: 'Hermes Agent', local: { deviceLabel: 'Atlas Studio' } },
+    state: {
+      cancel: async () => {
+        cancels += 1
+
+        return true
+      },
+      restart: () => {
+        restarts += 1
+      },
+    },
+  })
+  const choose = {
+    kind: 'choose',
+    message: 'Which provider should Hermes use?',
+    options: [
+      { value: 'deepinfra', label: 'DeepInfra', hint: 'API key' },
+      { value: 'nous', label: 'Nous Portal', hint: 'Account' },
+    ],
+  }
+
+  try {
+    await view.show({ attemptId: 'a', state: 'awaiting_authorization', step: choose })
+    await view.wait(700)
+    await act(async () => {
+      click(view.container, 'DeepInfraAPI key')
+      await Promise.resolve()
+    })
+    await view.show({
+      attemptId: 'a',
+      state: 'awaiting_authorization',
+      step: { kind: 'input', message: 'DeepInfra API key', secret: true },
+    })
+    assert.match(view.text(), /Which provider should Hermes use\?DeepInfraChange/)
+    click(view.container, 'Change')
+    await act(() => Promise.resolve())
+    assert.equal(cancels, 1)
+    assert.equal(restarts, 1)
+  } finally {
+    await view.done()
+  }
+})

@@ -6,13 +6,16 @@ import { toast } from '../../components/ui/toast'
 import { t } from '../../i18n'
 import { agentProvider } from '../../types/runtime'
 
-import { ApiKeyEntry, MethodSwitch, Note } from './ApiKeyEntry'
+import { ApiKeyEntry, KeyRejected, MethodSwitch, Note, RemoveKey } from './ApiKeyEntry'
 import { signsInWithApiKey } from './apiKeyProviders'
 import { BrowserCodeEntry } from './BrowserCodeEntry'
+import { AnsweredRows } from './AnsweredRows'
+import { answered } from './runtimeLogin'
 import { RuntimeLoginStep } from './RuntimeLoginStep'
 import { SetupSteps } from './SetupSteps'
 
 import type { SignInMethod } from './ApiKeyEntry'
+import type { Answered } from './runtimeLogin'
 import type { RuntimeLogin } from './useRuntimeLogin'
 import type { RuntimeLoginStatus, RuntimeInstance } from '../../types/runtime'
 
@@ -87,57 +90,6 @@ function DeviceCode({
   )
 }
 
-/** Removing a key signs the agent out; the confirmation says what stops. */
-function RemoveKey({ name, onRemove }: { name: string; onRemove: () => Promise<void> }) {
-  const [confirming, setConfirming] = useState(false)
-  const [removing, setRemoving] = useState(false)
-
-  if (!confirming)
-    return (
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-secondary">{t('Signed in with an API key.')}</p>
-        <Button size="sm" variant="secondary" type="button" onClick={() => setConfirming(true)}>
-          {t('Remove key')}
-        </Button>
-      </div>
-    )
-
-  return (
-    <div className="space-y-3 rounded-lg border border-line-control px-4 py-3">
-      <p className="text-[13px] font-medium text-main">{t('Remove the API key?')}</p>
-      <p className="text-xs leading-5 text-secondary">
-        {t(
-          '{name} signs out. Bots and tasks that use it stop until you sign in again, with an account or a new key.',
-          { name },
-        )}
-      </p>
-      <div className="flex justify-end gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          type="button"
-          disabled={removing}
-          onClick={() => setConfirming(false)}
-        >
-          {t('Cancel')}
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          type="button"
-          disabled={removing}
-          onClick={() => {
-            setRemoving(true)
-            void onRemove().finally(() => setRemoving(false))
-          }}
-        >
-          {t('Remove key')}
-        </Button>
-      </div>
-    </div>
-  )
-}
-
 /** What a team agent's sign-in shows right now; the surrounding dialog or panel owns the actions. */
 export function RuntimeLoginBody({
   instance,
@@ -159,6 +111,9 @@ export function RuntimeLoginBody({
   const [ignoredFor, setIgnoredFor] = useState<string | null>(null)
   const keySent = login !== null && keyFor === login.attemptId
   const keyIgnored = keySent && ignoredFor === keyFor
+  // What this attempt was already asked; a new attempt asks again.
+  const [answers, setAnswers] = useState<{ attemptId: string; rows: Answered[] } | null>(null)
+  const rows = answers && answers.attemptId === login?.attemptId ? answers.rows : []
   const { account } = agentProvider(instance.provider)
   // The account sign-in waits; its own CLI can take an API key in its place.
   const keyable =
@@ -176,12 +131,25 @@ export function RuntimeLoginBody({
 
   const signIn =
     awaiting && login?.step ? (
-      <RuntimeLoginStep
-        key={JSON.stringify(login.step)}
-        step={login.step}
-        submitted={login.codeSubmitted === true}
-        onSubmit={state.submitCode}
-      />
+      <>
+        <AnsweredRows
+          rows={rows}
+          onChange={() => void state.cancel().then((cancelled) => cancelled && state.restart())}
+        />
+        <RuntimeLoginStep
+          key={JSON.stringify(login.step)}
+          step={login.step}
+          submitted={login.codeSubmitted === true}
+          onSubmit={async (answer) => {
+            const step = login.step
+
+            await state.submitCode(answer)
+            const row = step && answered(step, answer)
+
+            if (row) setAnswers({ attemptId: login.attemptId, rows: [...rows, row] })
+          }}
+        />
+      </>
     ) : authorizationUrl && login ? (
       <BrowserCodeEntry
         provider={instance.provider}
@@ -249,6 +217,26 @@ export function RuntimeLoginBody({
     )
   }
 
+  function again(next: SignInMethod) {
+    setMethod(next)
+    state.restart()
+  }
+  // A key the vendor turned down fails the sign-in; the way back is another key or the account.
+  const rejected =
+    failed && keySent && login && signsInWithApiKey(instance.provider)
+      ? {
+          title: t('Sign in with an API key'),
+          body: (
+            <KeyRejected
+              provider={instance.provider}
+              account={account}
+              error={login.error}
+              onRetry={again}
+            />
+          ),
+        }
+      : null
+
   // The API key's way in sits beside an account sign-in the CLI could take a key in place of.
   function withMethods() {
     if (!keyable || (login?.codeSubmitted && !keySent)) return signIn
@@ -272,7 +260,7 @@ export function RuntimeLoginBody({
 
   return (
     <>
-      <SetupSteps key={state.retry} instance={instance} state={state}>
+      <SetupSteps key={state.retry} instance={instance} state={state} failure={rejected}>
         {signIn && withMethods()}
       </SetupSteps>
       {error && login && !failed && <p className="text-xs text-error">{error}</p>}

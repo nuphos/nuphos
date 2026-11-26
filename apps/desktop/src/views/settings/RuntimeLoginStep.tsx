@@ -1,4 +1,4 @@
-import { Check, Copy, ExternalLink, Loader2 } from 'lucide-react'
+import { Check, Copy, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Button } from '../../components/ui/button'
@@ -176,6 +176,7 @@ function Instructions({ instructions }: { instructions: string }) {
 function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => Promise<void> }) {
   const [answer, setAnswer] = useState('')
   const [sending, setSending] = useState(false)
+  const [shown, setShown] = useState(false)
   const secret = step.kind === 'input' && step.secret === true
 
   async function submit(event: React.SubmitEvent<HTMLFormElement>) {
@@ -196,19 +197,31 @@ function Answer({ step, onSubmit }: { step: Step; onSubmit: (answer: string) => 
       {step.kind === 'choose' ? (
         <Choose step={step} value={answer} onChange={setAnswer} />
       ) : (
-        <input
-          aria-label={step.kind === 'input' ? step.message : t('Code or address')}
-          className={inputClasses}
-          type={secret ? 'password' : 'text'}
-          value={answer}
-          autoComplete="off"
-          spellCheck={false}
-          placeholder={
-            step.kind === 'input' ? step.placeholder : PASTE_PLACEHOLDER[step.paste ?? 'none']
-          }
-          disabled={sending}
-          onChange={(event) => setAnswer(event.target.value)}
-        />
+        <span className="relative block w-full">
+          <input
+            aria-label={step.kind === 'input' ? step.message : t('Code or address')}
+            className={secret ? `${inputClasses} pr-10` : inputClasses}
+            type={secret && !shown ? 'password' : 'text'}
+            value={answer}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder={
+              step.kind === 'input' ? step.placeholder : PASTE_PLACEHOLDER[step.paste ?? 'none']
+            }
+            disabled={sending}
+            onChange={(event) => setAnswer(event.target.value)}
+          />
+          {secret && (
+            <button
+              type="button"
+              aria-label={shown ? t('Hide key') : t('Show key')}
+              onClick={() => setShown((current) => !current)}
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-tertiary hover:text-main"
+            >
+              {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          )}
+        </span>
       )}
       <Button size="sm" className="shrink-0" type="submit" disabled={sending || !answer.trim()}>
         {sending ? t('Sending…') : t('Continue')}
