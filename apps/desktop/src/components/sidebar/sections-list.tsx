@@ -132,6 +132,7 @@ export function SidebarSectionList({
                           // Bots read as a chat list (name over latest message); Tasks as on main.
                           const twoLine = chatRow && !item.task
                           const bot = twoLine || Boolean(item.botNested)
+                          const gutter = rowSessionId !== null || Boolean(item.project) // unread dot
                           const favoriteToggle = canFavorite(item) ? (
                             <FavoriteToggle
                               pin={
@@ -159,7 +160,7 @@ export function SidebarSectionList({
                                 folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
-                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-primary/[.28] hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
                                 // Hidden controls take no width; folded rows keep their disclosure visible.
                                 folded
                                   ? 'inline-flex'
@@ -235,6 +236,7 @@ export function SidebarSectionList({
                                 }
                                 icon={leading ?? null}
                                 revealDetail={Boolean(item.description)}
+                                unread={gutter ? item.dot === 'unread' : undefined}
                               />
                               <RowDetail item={item} />
                             </SessionRowSurface>

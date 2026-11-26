@@ -238,7 +238,7 @@ struct AgentPage: View {
                         .containerRelativeFrame(.vertical) { height, _ in height * 0.8 }
                 }
             }
-            .background(Theme.canvas)
+            .background(Theme.surface)
             .onAppear { titleCollapsed = false }
         }
     }
@@ -300,17 +300,20 @@ struct AgentPage: View {
         if item.conversation.isProject {
             // A folder, not a conversation: the whole row folds what it holds.
             Button { store.toggleFolded(item.id) } label: {
-                treeRow(item) {
-                    Label { Text(item.conversation.title) } icon: { LucideIcon(item.id == ConversationNesting.noProject ? "circle-dashed" : "folder") }
-                        .font(Theme.Text.label.weight(.medium))
-                        .foregroundStyle(Theme.muted)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .contentShape(Rectangle())
+                Label { Text(item.conversation.title) } icon: { LucideIcon(item.id == ConversationNesting.noProject ? "circle-dashed" : "folder") }
+                    .font(Theme.Text.label.weight(.medium))
+                    .foregroundStyle(Theme.muted)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .padding(.leading, ListRowMetrics.gutter + CGFloat(item.depth) * ThreadTree.indent)
+                    .padding(.vertical, 8)
+                    .background(alignment: .leading) {
+                        ThreadTree(trail: item.trail, expanded: item.hasChildren && !store.isFolded(item.id))
+                    }
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .listRowBackground(Color.clear)
-            .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+            .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
             .listRowSeparator(.hidden)
         } else {
                 let conversation = item.conversation
@@ -318,35 +321,33 @@ struct AgentPage: View {
                 let acted = conversation.isChannel ? store.bot(of: conversation) : conversation
                 let row = Group {
                     if conversation.isChannel {
-                        NavigationLink(value: conversation.sessionId) { treeRow(item) { ChannelRow(channel: conversation) } }
+                        NavigationLink(value: conversation.sessionId) { ChannelRow(channel: conversation) }
+                            // The row draws its chevron on the title's line, after the time.
+                            .navigationLinkIndicatorVisibility(.hidden)
                     } else if conversation.isBot {
                         // A Bot with no 1:1 chat yet: the list stays while it is made.
                         // A Button, not a link: picking a link would show the chat before it exists, and
                         // hide the list that reports a failure (#1738). It ends with the links' chevron (#3614).
                         Button { Task { await openBotChat(conversation.sessionId) } } label: {
-                            HStack(spacing: 0) {
-                                treeRow(item) { ChannelRow(channel: conversation) }
-                                Image(systemName: "chevron.forward")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundStyle(.tertiary)
-                                    .padding(.leading, 11)
-                                    .opacity(store.creatingBot ? 0 : 1)
-                            }
-                            .contentShape(Rectangle())
+                            ChannelRow(channel: conversation, busy: store.creatingBot)
                         }
                         .buttonStyle(.plain)
                         .disabled(store.creatingBot)
-                        .overlay(alignment: .trailing) { if store.creatingBot { ProgressView() } }
                     } else {
                         NavigationLink(value: conversation.sessionId) {
-                            treeRow(item) { ConversationRow(conversation: conversation, hidden: item.hidden) }
+                            ConversationRow(conversation: conversation, hidden: item.hidden, depth: item.depth) { threads(item) }
+                                .background(alignment: .leading) {
+                                    ThreadTree(trail: item.trail, expanded: item.hasChildren && !store.isFolded(item.id))
+                                }
                         }
+                        .navigationLinkIndicatorVisibility(.hidden)
                     }
                 }
                 // A custom row background hides the system selection
                 // highlight, so the open chat's row draws its own.
                 .listRowBackground(openChat?.id == conversation.sessionId ? Theme.muted.opacity(0.12) : Color.clear)
-                .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 16))
+                // The state gutter starts at the screen's edge; the row's own metrics place the rest.
+                .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 16))
                 .listSectionSeparator(.hidden, edges: .top)
                 // A separator would cut through the lines of an open tree.
                 .listRowSeparator(.hidden)
@@ -382,38 +383,26 @@ struct AgentPage: View {
         }
     }
 
-    /// A row's content with its thread count, indented on the tree's lines.
-    private func treeRow<Row: View>(_ item: NestedConversation, @ViewBuilder row: () -> Row) -> some View {
-        let folded = item.hasChildren && store.isFolded(item.id)
-        return HStack(spacing: 0) {
-            row()
-            if item.hasChildren {
-                // The thread count, so it never reads as the row's own disclosure chevron.
-                Button { store.toggleFolded(item.id) } label: {
-                    HStack(spacing: 3) {
-                        Text("\(item.threads)")
-                        LucideIcon(systemName: folded ? "chevron.down" : "chevron.up")
-                            .font(Theme.Text.caption.weight(.semibold))
-                    }
-                    .font(Theme.Text.label.weight(.medium))
-                    .foregroundStyle(Theme.muted)
-                    .padding(.horizontal, 8)
-                    .frame(height: 24)
-                    .background(Capsule().fill(Theme.muted.opacity(0.12)))
-                    .padding(.leading, 8)
-                    .frame(minHeight: 44)
-                    .contentShape(Rectangle())
+    /// A Task's thread count, so it never reads as the row's own disclosure chevron.
+    @ViewBuilder
+    private func threads(_ item: NestedConversation) -> some View {
+        if item.hasChildren {
+            let folded = store.isFolded(item.id)
+            Button { store.toggleFolded(item.id) } label: {
+                HStack(spacing: 3) {
+                    Text("\(item.threads)")
+                    LucideIcon(systemName: folded ? "chevron.down" : "chevron.up")
+                        .font(Theme.Text.caption.weight(.semibold))
                 }
-                .buttonStyle(.borderless)
-                .accessibilityLabel(folded ? "Show sub-tasks" : "Hide sub-tasks")
+                .font(Theme.Text.label.weight(.medium))
+                .foregroundStyle(Theme.muted)
+                .padding(.horizontal, 8)
+                .frame(height: 24)
+                .background(Capsule().fill(Theme.muted.opacity(0.12)))
+                .contentShape(Rectangle())
             }
-        }
-        // Insets live here, not on the row, so the tree lines span the whole row.
-        .padding(.leading, CGFloat(item.depth) * ThreadTree.indent)
-        .padding(.vertical, page == .chats ? 12 : 8)
-        .frame(minHeight: 44)
-        .background(alignment: .leading) {
-            ThreadTree(trail: item.trail, expanded: item.hasChildren && !folded)
+            .buttonStyle(.borderless)
+            .accessibilityLabel(folded ? "Show sub-tasks" : "Hide sub-tasks")
         }
     }
 
@@ -532,7 +521,7 @@ struct AgentPage: View {
                         if item.divider {
                             Theme.separator
                                 .frame(height: 1)
-                                .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
+                                .listRowInsets(EdgeInsets(top: 8, leading: ListRowMetrics.gutter, bottom: 8, trailing: 16))
                                 .listRowBackground(Color.clear)
                                 .listRowSeparator(.hidden)
                         }
@@ -548,7 +537,7 @@ struct AgentPage: View {
                         }
                         .buttonStyle(.plain)
                         .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 8, leading: 20, bottom: 8, trailing: 16))
+                        .listRowInsets(EdgeInsets(top: 8, leading: ListRowMetrics.gutter, bottom: 8, trailing: 16))
                         .listRowSeparator(.hidden)
                     }
                 }
@@ -564,7 +553,7 @@ struct AgentPage: View {
         }
         .listRowSeparator(.hidden)
         .scrollContentBackground(.hidden)
-        .background(Theme.canvas)
+        .background(Theme.surface)
         .scrollDismissesKeyboard(.interactively)
     }
 }
@@ -576,47 +565,53 @@ struct AgentPage: View {
 /// in the Inbox (#4508), and a Bot at work adds nothing else here.
 struct ChannelRow: View {
     let channel: AgentConversation
+    var busy = false
     @Environment(AgentStore.self) private var store
+    @Environment(\.displayScale) private var displayScale
 
     var body: some View {
         let team = channel.teamId ?? store.selectedTeam?.id ?? ""
         let title = store.title(of: channel)
-        HStack(spacing: 12) {
-            if channel.isChannel {
-                ChatIcon(faces: channel.faces ?? [], title: title, size: 36)
-            } else {
-                AgentAvatar(agentId: channel.sessionId, runtime: channel.agentRuntime, size: 36)
-            }
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(title)
-                        .font(Theme.Text.body.weight(.medium))
-                        .foregroundStyle(Theme.heading)
-                        .lineLimit(1)
-                    Spacer(minLength: 8)
-                    Text(HistoryTime.format(channel.lastActiveAt))
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(1)
-                }
-                if channel.botTyping(in: store.observations, team: team) {
-                    // As iMessage does: the dots stand in for the newest post until the reply lands.
-                    TypingDots(size: 5)
-                        .frame(height: 16)
-                        .accessibilityLabel("\(title) is thinking")
-                } else if let preview = channel.previewLine {
-                    Text(preview)
-                        .font(Theme.Text.label)
-                        .foregroundStyle(Theme.muted)
-                        .lineLimit(2)
-                }
-            }
+        let typing = channel.botTyping(in: store.observations, team: team)
+        ListRow(title: title, time: channel.lastActiveAt, busy: busy) {
             if store.unread.contains(team: team, session: channel.sessionId) {
-                Circle().fill(Theme.unread).frame(width: 7, height: 7).accessibilityLabel("Unread posts")
+                ListRowMetrics.dot(Theme.unread).accessibilityLabel("Unread posts")
             }
+        } avatar: {
+            // Every Bot sits on a disc, its tint or white; a group's faces keep their cluster.
+            let group = (channel.faces?.count ?? 0) >= 2
+            Group {
+                if channel.isChannel {
+                    ChatIcon(faces: channel.faces ?? [], title: title, size: ListRowMetrics.avatar)
+                } else {
+                    AgentAvatar(agentId: channel.sessionId, runtime: channel.agentRuntime, size: ListRowMetrics.avatar)
+                }
+            }
+            // Beneath the art and its runtime badge; a Bot's tint covers the white.
+            .background {
+                if !group {
+                    Circle().fill(Theme.raised)
+                        .overlay(Circle().strokeBorder(Theme.outline, lineWidth: 1 / displayScale))
+                }
+            }
+        } detail: {
+            // Two lines held even for a short post, so every row keeps one pitch.
+            Text(channel.previewLine ?? "")
+                .foregroundStyle(Theme.preview)
+                .lineSpacing(2)
+                .lineLimit(2, reservesSpace: true)
+                .opacity(typing ? 0 : 1)
+                .overlay(alignment: .topLeading) {
+                    if typing {
+                        // As iMessage does: the dots stand in for the newest post until the reply lands.
+                        TypingDots(size: 5)
+                            .frame(height: 20)
+                            .accessibilityLabel("\(title) is thinking")
+                    }
+                }
+        } accessory: {
+            EmptyView()
         }
-        .padding(.vertical, 6)
-        .contentShape(Rectangle())
     }
 }
 

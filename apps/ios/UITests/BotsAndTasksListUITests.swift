@@ -92,9 +92,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question took over the Bot's preview")
         let preview = app.staticTexts[Self.longPost].firstMatch
         XCTAssertTrue(preview.exists, "The Bot's chat row hides its newest post while a question is open")
-        let line = app.staticTexts["On it."].firstMatch.frame.height
+        // Every preview holds two lines, so a short post keeps the row's pitch.
+        let line = lead.frame.height
         XCTAssertGreaterThan(preview.frame.height, line * 1.5, "The preview is cut to one line")
         XCTAssertLessThan(preview.frame.height, line * 2.5, "The preview runs past two lines")
+        XCTAssertEqual(app.staticTexts["On it."].firstMatch.frame.height, preview.frame.height, accuracy: 1, "A short preview does not hold two lines")
         // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
         XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
         XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
@@ -117,8 +119,8 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-flat")
     }
 
-    /// A Bot with no chat yet ends like every other row, with the system chevron,
-    /// so its time lines up with theirs (#3614).
+    /// A Bot with no chat yet ends like every other row, with the chevron after
+    /// its time, so its time lines up with theirs (#3614).
     func testABotWithNoChatEndsLikeTheOtherRows() throws {
         launch(page: "chats")
         let lead = app.staticTexts["Release Lead"].firstMatch
@@ -176,6 +178,27 @@ final class BotsAndTasksListUITests: XCTestCase {
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(name.waitForExistence(timeout: 10), "Back from a dispatched Task did not return to the Bot")
         shot("7-back-to-bot")
+    }
+
+    /// Rows keep one rhythm, as the list design sets it: the text starts after the
+    /// state gutter and 45pt avatar, a Bot row holds two preview lines and a Task
+    /// row one meta line, so every row of a page has the same pitch.
+    func testRowsKeepTheListRhythm() throws {
+        launch(page: "chats")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10), "Bots did not load")
+        let docs = app.staticTexts["Docs Bot"].firstMatch
+        XCTAssertEqual(lead.frame.minX, 84, accuracy: 2, "A Bot's title does not start after the gutter and avatar")
+        XCTAssertEqual(docs.frame.minY - lead.frame.minY, 86.67, accuracy: 3, "Bot rows do not keep their pitch")
+
+        app.terminate()
+        launch(page: "agent")
+        let ops = app.staticTexts["Release ops"].firstMatch
+        XCTAssertTrue(ops.waitForExistence(timeout: 10), "Tasks did not load")
+        let rollout = app.staticTexts["Roll out to staging"].firstMatch
+        XCTAssertEqual(ops.frame.minX, 84, accuracy: 2, "A Task's title does not start after the gutter and avatar")
+        XCTAssertEqual(rollout.frame.minX - ops.frame.minX, 32, accuracy: 2, "A thread is not indented one level")
+        XCTAssertEqual(rollout.frame.minY - ops.frame.minY, 66.67, accuracy: 3, "Task rows do not keep their pitch")
     }
 
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
