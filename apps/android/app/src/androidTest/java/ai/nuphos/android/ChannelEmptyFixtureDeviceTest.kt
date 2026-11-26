@@ -50,6 +50,9 @@ class ChannelEmptyFixtureDeviceTest {
     @Volatile private var answering = "chat-a"
     /** The chat is a Bot's own: its one face is the Bot's. */
     @Volatile private var botChat = false
+    /** The Bot's own session as the listing gives it; null leaves it out. */
+    @Volatile private var botRow: String? = null
+    @Volatile private var opened: String? = null
     private lateinit var store: AgentStore
     private lateinit var auth: AuthSession
     private lateinit var tokens: TokenStore
@@ -64,7 +67,7 @@ class ChannelEmptyFixtureDeviceTest {
         }
         val face = if (botChat) ""","faces":[{"id":"agent-ops","name":"Release ops","agent":{"avatar":"07-ada"}}]""" else ""
         val title = if (botChat) "Release ops" else "chat-a"
-        return """{"kind":"channel","title":"$title","transcriptUpdatedAt":"t$messages","messageCount":$messages,"activitySeq":$messages$face,"messages":[$posts]}"""
+        return """{"kind":"channel","title":"$title","transcriptUpdatedAt":"t$messages","messageCount":$messages,"activitySeq":$messages,"createdAt":"2026-11-25T02:00:00.000Z"$face,"messages":[$posts]}"""
     }
     /** The agent is asked directly, so being past the first page of the agent list makes no difference. */
     private fun agent(): String {
@@ -72,11 +75,15 @@ class ChannelEmptyFixtureDeviceTest {
         return """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messages":[]$run}"""
     }
 
-    @Before fun before() {
-        val target = inst.targetContext
-        val context = object : ContextWrapper(target) {
+    private val chatsContext by lazy {
+        object : ContextWrapper(inst.targetContext) {
             override fun getSharedPreferences(name: String, mode: Int) = super.getSharedPreferences("chats-empty-fixture", mode)
         }
+    }
+
+    @Before fun before() {
+        val target = inst.targetContext
+        val context = chatsContext
         val field = Http::class.java.getDeclaredField("client").also { it.isAccessible = true }
         original = field.get(null) as OkHttpClient
         field.set(null, OkHttpClient.Builder().addInterceptor { chain ->
@@ -89,8 +96,10 @@ class ChannelEmptyFixtureDeviceTest {
                     if (failFullReads && request.url.queryParameter("tail") != "1") { code = 500; "{}" } else detail()
                 }
                 path.endsWith("/agent/conversations/agent-ops") -> { checks.incrementAndGet(); if (failChecks) { code = 500; "{}" } else agent() }
-                path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops"}]}"""
-                path.endsWith("/agent/conversations") -> { if (request.url.queryParameter("kind") == null) listings.incrementAndGet(); """{"conversations":[],"hasMore":false}""" }
+                path.endsWith("/agents") -> """{"agents":[{"sessionId":"agent-ops","title":"Release ops","ownerId":"viewer"}]}"""
+                path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
+                path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
+                path.endsWith("/agent/conversations") -> { if (request.url.queryParameter("kind") == null) listings.incrementAndGet(); """{"conversations":[${botRow.orEmpty()}],"hasMore":false}""" }
                 path.endsWith("/read") -> """{"activitySeq":1,"readSeq":1,"unread":false}"""
                 else -> "{}"
             }
@@ -127,7 +136,7 @@ class ChannelEmptyFixtureDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = InstrumentationRegistry.getArguments().getString("darkTheme") == "true") {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen("chat-a", onBack = { fail("The chat closed itself") }, onLink = {})
+                    ChannelScreen("chat-a", onBack = { fail("The chat closed itself") }, onLink = {}, onOpenTask = { opened = it })
                 }
             }
         }
@@ -157,6 +166,56 @@ class ChannelEmptyFixtureDeviceTest {
         java.io.File(inst.targetContext.getExternalFilesDir("intro")!!, "bot-chat-intro-${if (dark) "dark" else "light"}.png").outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
+    }
+
+    private fun bot(messages: Int, lastActive: String) =
+        """{"sessionId":"agent-ops","title":"Release ops","isOwner":true,"messageCount":$messages,"lastActiveAt":"$lastActive","avatar":"07-ada","teamId":"${team.id}"}"""
+    private val earlier = "See earlier messages with Release ops"
+
+    /** Signed in as the Bot's owner, through the app's own restore: only a viewer who can open the Bot's Task is led to it. */
+    private fun signInAsOwner() {
+        val app = inst.targetContext.applicationContext as NuphosApplication
+        tokens.write(token)
+        inst.runOnMainSync { auth = AuthSession(app, tokens); auth.restore() }
+        var ready = false
+        repeat(100) { if (!ready) { inst.runOnMainSync { ready = auth.user != null && auth.aiAllowed }; Thread.sleep(50) } }
+        assertTrue("The synthetic sign-in did not finish", ready)
+        // The sign-in renews AI access, so the chats are read again under it, as after a real sign-in.
+        inst.runOnMainSync {
+            store.disposeForConsent()
+            store = AgentStore(token, chatsContext)
+            store.acceptMemberships(listOf(team), team.id)
+        }
+    }
+
+    @Test fun anOlderBotsEmptyChatLeadsBackToItsTask() {
+        botChat = true
+        botRow = bot(12, "2026-11-17T08:00:00.000Z")
+        signInAsOwner()
+        render()
+        compose.waitUntil(12_000) { has(earlier) }
+        compose.onNodeWithTag("chat-earlier").assertIsDisplayed()
+        compose.waitForIdle()
+        val size = InstrumentationRegistry.getArguments().getString("shotName") ?: "default"
+        java.io.File(inst.targetContext.getExternalFilesDir("intro")!!, "bot-chat-earlier-$size.png").outputStream().use {
+            inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+        }
+        compose.onNodeWithTag("chat-earlier").performClick()
+        compose.waitUntil(5_000) { opened != null }
+        assertEquals("agent-ops", opened)
+    }
+
+    @Test fun aBotThatOnlyMovedOnceItsChatExistedHasNothingEarlier() {
+        botChat = true
+        botRow = bot(1, "2026-11-25T02:00:05.000Z")
+        signInAsOwner()
+        render()
+        val intro = "This is where you and Release ops get things done. Talk about what you want help with, and shape how you work together."
+        compose.waitUntil(8_000) { has(intro) }
+        // The Bot's Task is open to this viewer and its row is read: only the times keep the link away.
+        compose.waitUntil(12_000) { listings.get() > 0 && compose.onAllNodesWithTag("chat-bot-task").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        compose.onNodeWithTag("chat-earlier").assertDoesNotExist()
     }
 
     @Test fun theFirstPostReplacesIt() {
