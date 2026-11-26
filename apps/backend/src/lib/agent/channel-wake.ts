@@ -18,6 +18,8 @@ import {
   takePendingUserMessages,
 } from './pending-queue'
 
+export { remindUnanswered } from './channel-unanswered'
+
 import type { AgentConversation } from './db'
 import { systemSender } from './message-metadata'
 
