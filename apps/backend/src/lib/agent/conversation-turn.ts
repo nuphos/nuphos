@@ -196,7 +196,7 @@ export async function runTurn(
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     await recordFiresRan(fresh)
-    await remindUnanswered(target, fresh, outcome.finishReason)
+    await remindUnanswered(target, fresh, outcome.finishReason, startConversationTurn)
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason

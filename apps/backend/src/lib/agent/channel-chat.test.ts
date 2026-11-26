@@ -763,6 +763,40 @@ describe('a person’s post a turn ended without answering', () => {
     expect(turns).toHaveLength(4)
   })
 
+  test('a turn an answer to its question card woke is reminded too', async () => {
+    await oneToOne()
+    // Recorded in the chat as the person's post; its notice has nothing to show, so it wakes no one.
+    await say('us-east', cardAnswer)
+    await settle()
+    expect(turns).toEqual([])
+    const agent = (await agentConversations().findOne({ sessionId: 'agent-a' }))!
+    const { run } = await startConversationTurn(
+      {
+        userId: agent.userId,
+        teamId: TEAM,
+        targetSessionId: 'agent-a',
+        messageId: 'answer',
+        locale: 'en-US',
+        answers: { id: 'q1', question: 'Which regions?', status: 'resolved', channelId: 'channel' },
+      } as never,
+      agent,
+      'Your question (requestId q1) was answered.',
+      'agent.resource',
+      {
+        version: 1,
+        sender: { type: 'system', id: 'nuphos:decision', displayName: 'Nuphos' },
+        source: 'agent.resource',
+        sentAt: new Date().toISOString(),
+      },
+    )
+
+    await run
+    await settle()
+    expect(turns.map((turn) => turn.sessionId)).toEqual(['agent-a', 'agent-a'])
+    expect(turns[1]!.text).toStartWith(unansweredNotice({ sessionId: 'channel' }))
+    expect(turns[1]!.text).toContain('Owner: us-east')
+  })
+
   test('a Bot that answered is not woken again', async () => {
     await oneToOne()
     answering.add('agent-a')

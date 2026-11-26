@@ -9,18 +9,19 @@ import {
   channelNotice,
   noticeChannelId,
   SLACK_CHANNEL_SENDER_PREFIX,
-  unansweredNotice,
 } from './db/channel-notes'
-import { isChannel, readChannelMessages } from './db/channels'
-import { agentConversations, agentMessages } from './db/shared'
+import { readChannelMessages } from './db/channels'
+import { agentConversations } from './db/shared'
 import {
   listPendingUserMessages,
   requeuePendingAtHead,
   takePendingUserMessages,
 } from './pending-queue'
 
+export { remindUnanswered } from './channel-unanswered'
+
 import type { AgentConversation } from './db'
-import { parseMessageMetadata, systemSender } from './message-metadata'
+import { systemSender } from './message-metadata'
 
 import type { MessageMetadata } from './message-metadata'
 
@@ -172,7 +173,7 @@ export async function withChannelPosts<
       // What people see of it: the newest post, as the agent got it.
       ...(channelPost ? { metadata: { ...message.metadata!, channelPost } } : {}),
       // From the bare notice, so a requeued one does not carry its posts twice.
-      renderedText: `${noticeLead(channel, message.renderedText)}\n\n${channelPage(page)}`,
+      renderedText: `${channelNotice(channel)}\n\n${channelPage(page)}`,
     })
   }
 
@@ -189,86 +190,6 @@ export async function withChannelPosts<
     },
   }
 }
-
-/**
- * An agent's turn chats woke ended normally (#5162). Where a chat is its to
- * answer (its 1:1 chat, or a group it leads) and the newest post there is a
- * person's it was shown and never answered, that post goes back to unread and
- * the agent is woken once more, told to answer with channel_post. Once per post,
- * so a turn that stays silent again is not woken a third time.
- */
-export async function remindUnanswered(
-  agent: AgentConversation,
-  notices: readonly { source?: string; metadata?: MessageMetadata }[],
-  finishReason: string | undefined,
-): Promise<void> {
-  if (finishReason !== 'stop') return
-  const { sessionId } = agent
-  const seen = new Set<string>()
-
-  try {
-    for (const notice of notices) {
-      const channelId = channelIdOf(notice)
-
-      if (!channelId || !notice.metadata || seen.has(channelId)) continue
-      seen.add(channelId)
-      const channel = await agentConversations().findOne({ sessionId: channelId })
-
-      if (!channel?.teamId || !isChannel(channel)) continue
-      if (channel.agentSessionIds?.length !== 1 && channel.leadAgentSessionId !== sessionId)
-        continue
-      const newest = await agentMessages().findOne({
-        sessionId: channelId,
-        userId: channel.userId,
-        index: channel.messageCount - 1,
-      })
-      const sender = parseMessageMetadata(newest?.metadata)
-
-      // An answer to a question card is the asker's already, never news (see readChannelMessages).
-      if (!newest || sender?.sender.type !== 'user' || sender.requestId) continue
-      const read = `agentReadIndex.${sessionId}`
-      const reminded = `agentRemindedIndex.${sessionId}`
-      // Shown to it (an unread post has its own wake coming) and not yet reminded of.
-      const claimed = await agentConversations().updateOne(
-        {
-          sessionId: channelId,
-          [read]: { $gte: newest.index },
-          $or: [{ [reminded]: { $exists: false } }, { [reminded]: { $lt: newest.index } }],
-        },
-        { $set: { [read]: newest.index - 1, [reminded]: newest.index } },
-      )
-
-      if (claimed.modifiedCount === 0) continue
-      // Lazy, as the turn imports this. Queued behind the turn that just ended.
-      const { startConversationTurn } = await import('./conversation-turn')
-      const { run } = await startConversationTurn(
-        {
-          userId: agent.userId,
-          teamId: channel.teamId,
-          targetSessionId: sessionId,
-          messageId: randomUUID(),
-          locale: agent.metadata?.locale ?? 'en-US',
-        },
-        agent,
-        unansweredNotice(channel),
-        'agent.resource',
-        notice.metadata,
-      )
-
-      run.catch(failed(sessionId))
-    }
-  } catch (error) {
-    failed(sessionId)(error)
-  }
-}
-
-const failed = (sessionId: string) => (error: unknown) => {
-  logError('agent.channel.remind_failed', error, { session_id: sessionId })
-}
-
-/** A notice's own words, without the posts it was last shown with. */
-const noticeLead = (channel: Pick<AgentConversation, 'sessionId' | 'external'>, text: string) =>
-  text.startsWith(unansweredNotice(channel)) ? unansweredNotice(channel) : channelNotice(channel)
 
 function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): string {
   const files = page.messages.some((message) => message.uploads)

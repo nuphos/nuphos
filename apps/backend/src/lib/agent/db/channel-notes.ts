@@ -18,7 +18,7 @@ export const channelNotice = (channel: Pick<AgentConversation, 'sessionId' | 'ex
 
 /** The notice that wakes an agent again for a person's post its turn ended without answering. */
 export const unansweredNotice = (channel: Pick<AgentConversation, 'sessionId' | 'external'>) =>
-  `${channelNotice(channel)} Your last turn there ended without calling channel_post, so the newest post below has no answer in the channel: your turn's own text is never shown there. Answer it with channel_post now. If it truly needs no answer, end the turn without posting.`
+  `${channelNotice(channel)} Your last turn there ended without calling channel_post, so the post below still has no answer there: your turn's own text is never shown in the chat. Answer it with channel_post now. If it truly needs no answer, end the turn without posting.`
 
 /** The chat whose wake notice a sender id is, if it is one. */
 export function noticeChannelId(senderId: string | undefined): string | undefined {
