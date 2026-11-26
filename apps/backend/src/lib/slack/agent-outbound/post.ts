@@ -33,17 +33,18 @@ export function createSlackOutboundPost(setup: {
 
       if (!route.ok) return rejectBeforeDelivery(route.error)
       const { sendToken, sendWorkspaceId } = route
-      const selfMapping = await dependencies.getSelfMapping(
-        sendWorkspaceId,
-        args.teamId!,
-        args.userId,
-        sendToken,
-      )
 
       let channelId: string
       let label: string
 
       if (input.destination.type === 'dm_self') {
+        const selfMapping = await dependencies.getSelfMapping(
+          sendWorkspaceId,
+          args.teamId!,
+          args.userId,
+          sendToken,
+        )
+
         if (!selfMapping) {
           return rejectBeforeDelivery(
             'Your Slack account is not linked to this Nuphos team, so I cannot DM you. Link it in Settings → Slack first.',
