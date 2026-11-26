@@ -186,7 +186,7 @@ export const decisionTitleScenarios: Scenario[] = [
       await newTask(page)
       await send(
         page,
-        `Ask it E2E_CALL request_user_decision ${JSON.stringify(args)} E2E_DELIVERY:hidden-body`,
+        `Hidden E2E_CALL request_user_decision ${JSON.stringify(args)} E2E_DELIVERY:hidden-body`,
       )
       await page.getByRole('tab', { name: 'Inbox' }).click()
       release()
@@ -195,7 +195,12 @@ export const decisionTitleScenarios: Scenario[] = [
       await hidden.waitFor({ state: 'attached' })
       must(!(await hidden.isVisible()), 'the card to arrive while its conversation is hidden')
       await page.getByRole('tab', { name: 'Tasks' }).click()
-      await page.locator('[data-sidebar-row]').filter({ hasText: 'E2E_CALL' }).first().click()
+      // Its own title: an earlier task still waiting on a question sorts above it (#4394).
+      await page
+        .locator('[data-sidebar-row]')
+        .filter({ hasText: 'Hidden E2E_CALL' })
+        .first()
+        .click()
       const card = page.locator(`[data-decision-question="${question}"]:visible`).last()
 
       await card.getByRole('button', { name: 'Yes' }).waitFor()
