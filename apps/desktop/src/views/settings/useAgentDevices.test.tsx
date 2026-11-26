@@ -42,7 +42,10 @@ test('a first load that fails is retried until a list arrives', async () => {
     await act(async () => root.render(createElement(Probe)))
     await act(() => new Promise((resolve) => setTimeout(resolve, 50)))
 
-    assert.ok(seen.some((state) => state.error), 'the first load failed')
+    assert.ok(
+      seen.some((state) => state.error),
+      'the first load failed',
+    )
     assert.equal(calls, 2)
     assert.deepEqual(seen.at(-1), { list: { devices: [], boxAvailable: true }, error: false })
   } finally {
