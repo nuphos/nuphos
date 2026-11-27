@@ -47,15 +47,15 @@ export function TriggerRow({
 
   return (
     <div>
-      <div className="flex items-center gap-2">
-        {/* The row opens what the Trigger sends; the switch beside it stays a sibling. */}
+      {/* The row opens what the Trigger sends; the switch beside it stays a sibling under one fill. */}
+      <div className="-mx-1.5 flex items-center gap-2 rounded-md px-1.5 hover:bg-state-hover">
         <button
           type="button"
           aria-expanded={open}
           aria-controls={`trigger-details-${trigger.id}`}
           title={next ? `${schedule} · ${next}` : schedule}
           onClick={onToggleOpen}
-          className="-mx-1.5 flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-state-hover"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 text-left"
         >
           <AlarmClock
             aria-hidden
