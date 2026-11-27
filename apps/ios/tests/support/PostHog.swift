@@ -19,6 +19,8 @@ public final class PostHogSDK {
     public private(set) var events: [Event] = []
     public private(set) var configs: [PostHogConfig] = []
     public private(set) var resets = 0
+    public private(set) var flushes = 0
+    public private(set) var closes = 0
     private var user: String?
     private var properties: [String: Any] = [:]
     public func setup(_ config: PostHogConfig) { configs.append(config) }
@@ -31,5 +33,6 @@ public final class PostHogSDK {
     public func screen(_ name: String, properties: [String: Any]? = nil) {
         capture("$screen", properties: (properties ?? [:]).merging(["$screen_name": name]) { _, new in new })
     }
-    public func flush() {}
+    public func flush() { flushes += 1 }
+    public func close() { closes += 1 }
 }
