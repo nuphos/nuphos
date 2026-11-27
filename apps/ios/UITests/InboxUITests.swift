@@ -784,23 +784,23 @@ final class InboxUITests: XCTestCase {
         app = launch(page: "agent")
         app.tabBars.buttons["Inbox"].firstMatch.tap()
         openQuestion("How should the rollout go?")
-        let send = app.buttons["question.send"]
-        XCTAssertTrue(send.waitForExistence(timeout: 10) && send.label == "Answer 2 more")
+        let other = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other"))
+        XCTAssertTrue(other.firstMatch.waitForExistence(timeout: 10))
         shot("17-inbox-two-questions")
 
-        let other = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other"))
         other.element(boundBy: 0).tap()
         let first = app.textFields["Your answer"].firstMatch
         XCTAssertTrue(first.waitForExistence(timeout: 5), "Other… does not open a text box")
         first.typeText("ap-south")
-        XCTAssertEqual(send.label, "Answer 1 more")
         shot("18-inbox-two-questions-first-other")
 
+        // The bug itself first, so the parent fails here rather than on this change's own controls.
         other.element(boundBy: 1).tap()
         let fields = app.textFields.matching(identifier: "Your answer")
         XCTAssertTrue(fields.element(boundBy: 1).waitForExistence(timeout: 5), "The second Other… does not open its own box")
         XCTAssertEqual(fields.element(boundBy: 0).value as? String, "ap-south", "The first answer was lost")
         fields.element(boundBy: 1).typeText("Next Monday")
+        let send = app.buttons["question.send"]
         XCTAssertTrue(send.isEnabled && send.label == "Send")
         XCTAssertTrue(send.isHittable, "Send is hidden")
         if UIDevice.current.userInterfaceIdiom == .phone {
