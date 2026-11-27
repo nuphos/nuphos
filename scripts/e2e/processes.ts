@@ -18,13 +18,18 @@ export function logPath(name: string): string {
 }
 
 // Distinct free ports below the ephemeral range (Linux 32768+, macOS 49152+), where an outbound
-// connection could take one as its source port first. Held open together, none is handed out twice.
+// connection could take one as its source port first. None is handed out twice in a run: a
+// port from an earlier call may not be bound yet when the next call asks (#4394).
+const given = new Set<number>()
+
 export async function freePorts(count: number): Promise<number[]> {
   const servers: Server[] = []
 
   while (servers.length < count) {
-    const server = createServer()
     const port = randomInt(20_000, 32_000)
+
+    if (given.has(port)) continue
+    const server = createServer()
     const listening = await new Promise<boolean>((done) => {
       server.once('error', () => done(false))
       server.listen(port, '127.0.0.1', () => done(true))
@@ -33,6 +38,8 @@ export async function freePorts(count: number): Promise<number[]> {
     if (listening) servers.push(server)
   }
   const ports = servers.map((server) => (server.address() as { port: number }).port)
+
+  for (const port of ports) given.add(port)
 
   await Promise.all(servers.map((server) => new Promise((done) => server.close(done))))
 
