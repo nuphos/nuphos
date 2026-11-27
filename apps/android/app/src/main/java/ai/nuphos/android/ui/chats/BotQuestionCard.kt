@@ -23,7 +23,6 @@ import java.time.Instant
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
@@ -64,6 +63,15 @@ import androidx.compose.ui.unit.dp
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.model.DecisionQuestion
 import ai.nuphos.android.session.BotQuestion
+import ai.nuphos.android.session.FormEntry
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.unit.sp
 import ai.nuphos.android.ui.components.MarkdownText
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.ui.draw.clipToBounds
@@ -74,10 +82,10 @@ import androidx.compose.ui.res.stringResource
  * An open question, in a Bot's chat or the Inbox, like Desktop's decision card: which agent asked,
  * the question and what the agent wrote to decide it from, each option an answer, and "Other…" to
  * type the answer in the card (in the Inbox, [answersInPlace], the text box is always there). A card
- * with several questions or any number of picks picks the same options and sends them once as [onForm]. An answer
+ * with several questions or any number of picks is a form ([QuestionForm]), sent once as [onForm]. An answer
  * wakes the agent that asked; no message is sent. A connect question opens the asking conversation's
  * credential picker ([onConnect]); a secret one, its secure input. [showsFrom] is off for the Bot's own
- * questions in its own chat. Snooze and Dismiss end the row of options, the same pill: Dismiss closes it
+ * questions in its own chat. Snooze and Dismiss end the row of options (a form's footer), the same pill: Dismiss closes it
  * unanswered, in the Inbox with a reason for the agent ([asksReason]); Snooze, only in the Inbox, sets it
  * aside until one of [snoozeTimes]. Outside the Inbox, [ChatQuestionHead] leads the card instead (#2879).
  */
@@ -93,7 +101,7 @@ internal fun BotQuestionCard(
     failure: String? = null,
     /** Chooses the asking conversation's credentials here, for an integration question; absent where it cannot. */
     onConnect: () -> Unit,
-    /** The text box is always on the card, rather than behind "Other…", as the Inbox shows it. */
+    /** A single question's text box is always on the card, rather than behind "Other…", as the Inbox shows it. */
     answersInPlace: Boolean = false,
     /** A several-question or multi-select card's answer, as its form builds it. */
     onForm: (JsonValue) -> Unit = {},
@@ -135,9 +143,9 @@ internal fun BotQuestionCard(
                 val asides: @Composable () -> Unit = {
                     SetAside(onDismiss.takeUnless { dismissing }, asksReason, onSnooze) { dismissing = true }
                 }
-                if (form != null) QuestionOptions(question.id, form, pick = true, question.typed, answersInPlace, onAnswer, onForm, asides)
-                else if (replies != null && secret == null) QuestionOptions(question.id, listOf(DecisionQuestion(question.request.question, replies.map { it.second })),
-                    pick = false, question.typed, answersInPlace, onAnswer, onForm, asides)
+                if (form != null) QuestionForm(question.id, form, onForm, asides)
+                else if (replies != null && secret == null) QuestionOptions(question.id, DecisionQuestion(question.request.question, replies.map { it.second }),
+                    question.typed, answersInPlace, onAnswer, asides)
                 else {
                     if (secret != null) AskedSecretCard(question, secret)
                     else {
@@ -180,82 +188,170 @@ internal fun cardReplies(question: BotQuestion): List<Pair<String, String>>? {
 }
 
 /**
- * A card's options, one design whether one or any number may be picked, as Desktop's
- * `DecisionOptions`: the options and "Other…", for the answer in words, one wrapping row of the same
- * pill (in the Inbox, [answersInPlace], the text box is already there), then "Send answer". One single-choice question ([pick] off) is answered by its option, and
- * Send sends only its words; a multi-select or several questions pick their options, a check once
- * picked, and Send sends them together.
+ * One single-choice question's options, as Desktop's `DecisionOptions`: each option answers it, and
+ * "Other…", for the answer in words, ends one wrapping row of the same pill (in the Inbox,
+ * [answersInPlace], the text box is already there), then "Send answer" for those words.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun QuestionOptions(
     id: String,
-    questions: List<DecisionQuestion>,
-    pick: Boolean,
+    question: DecisionQuestion,
     typed: Boolean,
     answersInPlace: Boolean,
     onAnswer: (String) -> Unit,
-    onForm: (JsonValue) -> Unit,
-    /** Ends the last question's row: Snooze and Dismiss. */
+    /** Ends the row: Snooze and Dismiss. */
     trailing: @Composable () -> Unit,
 ) {
-    // Keyed on the questions too: an agent can correct an open card, keeping its id, and it starts over.
-    val picked = remember(id, questions) { mutableStateListOf(*Array(questions.size) { emptyList<String>() }) }
-    // What is typed, and which boxes are open, outlive a rotation or the process, as the composer's draft does.
-    val words = rememberSaveable(id, questions, saver = stateListSaver<String>()) { mutableStateListOf(*Array(questions.size) { "" }) }
-    val open = rememberSaveable(id, questions, saver = stateListSaver<Boolean>()) { mutableStateListOf(*Array(questions.size) { typed && answersInPlace }) }
-    // Only an open text box answers its question.
-    val answers = questions.indices.map { if (open[it]) words[it].trim() else "" }
-    val complete = questions.indices.all { picked[it].isNotEmpty() || answers[it].isNotEmpty() }
-    val sendable = if (pick) complete else answers[0].isNotEmpty()
+    // What is typed, and whether the box is open, outlive a rotation or the process, as the composer's draft does.
+    var words by rememberSaveable(id, question) { mutableStateOf("") }
+    var open by rememberSaveable(id, question) { mutableStateOf(typed && answersInPlace) }
+    val answer = words.trim()
     // Send, from its button or the keyboard's return key.
-    val send = {
-        if (sendable) { if (pick) onForm(BotQuestion.formAnswer(questions, picked.toList(), answers)) else onAnswer(answers[0]) }
-    }
+    val send = { if (answer.isNotEmpty()) onAnswer(answer) }
     val aboveKeyboard = rememberAboveKeyboard()
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        questions.forEachIndexed { index, item ->
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (questions.size > 1) Text(item.question, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                // One row of the same pill: the options, "Other…", then Snooze and Dismiss on the last.
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item.options.orEmpty().forEach { option ->
-                        val on = option in picked[index]
-                        QuestionPill(option, checked = if (pick) on else null, Modifier.testTag("bot-question-option")) {
-                            if (!pick) onAnswer(option)
-                            else picked[index] = when {
-                                on -> picked[index] - option
-                                item.multiSelect == true -> picked[index] + option
-                                else -> listOf(option)
-                            }
-                        }
-                    }
-                    if (typed && !open[index]) QuestionPill(
-                        stringResource(if (item.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other),
-                        checked = null, Modifier.testTag("bot-question-other"),
-                    ) { open[index] = true }
-                    if (index == questions.lastIndex) trailing()
-                }
-                // One line, so the return key sends, as iOS's: a multi-line box takes it as a new line (#5112).
-                if (open[index]) OutlinedTextField(words[index], { words[index] = it }, Modifier.fillMaxWidth().then(aboveKeyboard.field).testTag("bot-question-answer"),
-                    placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium,
-                    singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { send() }))
-
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            question.options.orEmpty().forEach { option ->
+                QuestionPill(option, checked = null, Modifier.testTag("bot-question-option")) { onAnswer(option) }
             }
+            if (typed && !open) QuestionPill(
+                stringResource(if (question.options.isNullOrEmpty()) R.string.chats_question_reply else R.string.chats_question_other),
+                checked = null, Modifier.testTag("bot-question-other"),
+            ) { open = true }
+            trailing()
         }
-        if (pick || open.any { it }) Button(
-            onClick = send,
-            enabled = sendable,
-            modifier = aboveKeyboard.buttons.testTag("bot-question-send"),
-            // The row's one ink button, the pills' radius, as Desktop and iOS draw Send.
-            shape = RoundedCornerShape(9.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface,
-                contentColor = MaterialTheme.colorScheme.surface),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
-        ) { Text(stringResource(R.string.chats_question_send_answer)) }
+        // One line, so the return key sends, as iOS's: a multi-line box takes it as a new line (#5112).
+        if (open) {
+            OutlinedTextField(words, { words = it }, Modifier.fillMaxWidth().then(aboveKeyboard.field).testTag("bot-question-answer"),
+                placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium,
+                singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                keyboardActions = KeyboardActions(onSend = { send() }))
+            Button(
+                onClick = send,
+                enabled = answer.isNotEmpty(),
+                modifier = aboveKeyboard.buttons.testTag("bot-question-send"),
+                // The row's one ink button, the pills' radius, as Desktop and iOS draw Send.
+                shape = RoundedCornerShape(9.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            ) { Text(stringResource(R.string.chats_question_send_answer)) }
+        }
     }
 }
+
+/**
+ * A multi-select question, or several, as one form (#5257): each question picks its options or
+ * "Other" with its words under them, numbered when there are several, and one footer ends the card:
+ * Snooze and Dismiss, then "Answer N more" until every question is answered, and Send.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun QuestionForm(
+    id: String,
+    questions: List<DecisionQuestion>,
+    onForm: (JsonValue) -> Unit,
+    /** Leads the footer: Snooze and Dismiss. */
+    asides: @Composable () -> Unit,
+) {
+    // Keyed on the questions too: an agent can correct an open card, keeping its id, and it starts over.
+    val entries = rememberSaveable(id, questions, saver = formSaver) { questions.map { FormEntry.start(it) }.toMutableStateList() }
+    val left = BotQuestion.unanswered(entries)
+    // Send, from its button or a field's return key, once every question is answered.
+    val send = { if (left == 0) onForm(BotQuestion.formAnswer(entries.toList())) }
+    val aboveKeyboard = rememberAboveKeyboard()
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        questions.forEachIndexed { index, item ->
+            val entry = entries[index]
+            Column {
+                if (questions.size > 1) {
+                    FormQuestionHead(index, item, entry.answered)
+                    Spacer(Modifier.height(10.dp))
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item.options.orEmpty().forEach { option ->
+                        QuestionPill(option, checked = option in entry.picked, Modifier.testTag("bot-question-option")) {
+                            entries[index] = entries[index].toggle(option, item.multiSelect == true)
+                        }
+                    }
+                    // With nothing to pick, the question is its field alone.
+                    if (!item.options.isNullOrEmpty()) {
+                        QuestionPill(stringResource(if (entry.other) R.string.chats_question_other_picked else R.string.chats_question_other),
+                            checked = entry.other, Modifier.testTag("bot-question-other")) { entries[index] = entries[index].toggleOther() }
+                    }
+                }
+                if (entry.other) {
+                    Spacer(Modifier.height(8.dp))
+                    // No send arrow of its own: return sends the card, once it is complete.
+                    OutlinedTextField(entry.words, { entries[index] = entries[index].copy(words = it) },
+                        Modifier.fillMaxWidth().then(aboveKeyboard.field).testTag("bot-question-answer"),
+                        placeholder = { Text(stringResource(R.string.chats_question_your_answer)) }, textStyle = MaterialTheme.typography.bodyMedium,
+                        singleLine = true, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(onSend = { send() }))
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth().then(aboveKeyboard.buttons), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            asides()
+            Spacer(Modifier.weight(1f))
+            // Disabled, it counts what is left on the sunken fill; a tap on it does nothing.
+            Button(
+                onClick = send,
+                enabled = left == 0,
+                modifier = Modifier.testTag("bot-question-send"),
+                shape = RoundedCornerShape(9.dp),
+                colors = formSendColors(),
+                border = if (left == 0) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp),
+            ) {
+                Text(if (left == 0) stringResource(R.string.send)
+                    else pluralStringResource(R.plurals.chats_question_answer_more, left, left))
+            }
+        }
+    }
+}
+
+/**
+ * A form question's head when there are several: a numbered ring, a filled check once answered, the
+ * question, and "Choose any" for a multi-select.
+ */
+@Composable
+private fun FormQuestionHead(index: Int, question: DecisionQuestion, answered: Boolean) {
+    val heading = MaterialTheme.colorScheme.onSurface
+    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        val marker = Modifier.size(20.dp).testTag("bot-question-marker").semantics { selected = answered }
+        if (answered) Box(marker.background(heading, CircleShape), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Check, null, Modifier.size(12.dp), tint = MaterialTheme.colorScheme.surface)
+        } else Box(marker.border(1.5.dp, heading.copy(alpha = 0.28f), CircleShape), contentAlignment = Alignment.Center) {
+            Text("${index + 1}", color = muted, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 11.sp)
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(question.question, Modifier.weight(1f), color = heading, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        if (question.multiSelect == true) Text(stringResource(R.string.chats_question_choose_any), Modifier.padding(start = 8.dp),
+            color = muted, fontSize = 13.sp)
+    }
+}
+
+/** The form's ink Send; disabled, iOS's sunken fill (secondaryContainer is its colour) and muted words. */
+@Composable
+private fun formSendColors() = ButtonDefaults.buttonColors(
+    containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface,
+    disabledContainerColor = MaterialTheme.colorScheme.secondaryContainer, disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
+/** A form's entries kept by [rememberSaveable]: three values each, which a Bundle holds. */
+@Suppress("UNCHECKED_CAST")
+private val formSaver = listSaver<SnapshotStateList<FormEntry>, Any>(
+    save = { entries -> entries.flatMap { listOf(ArrayList(it.picked), it.other, it.words) } },
+    restore = { values ->
+        values.chunked(3).map { (picked, other, words) ->
+            FormEntry(picked as List<String>, other as Boolean, words as String)
+        }.toMutableStateList()
+    },
+)
 
 /**
  * Snooze and Dismiss, the same pill as the options. Snooze opens its preset times; Dismiss either closes
@@ -329,9 +425,6 @@ private fun QuestionPill(title: String, checked: Boolean?, modifier: Modifier, o
         }
     }
 }
-
-/** A state list kept by [rememberSaveable]: its values, which a Bundle holds. */
-private fun <T : Any> stateListSaver() = listSaver<SnapshotStateList<T>, T>(save = { it.toList() }, restore = { it.toMutableStateList() })
 
 @Composable
 private fun categoryLabel(category: String?): String = stringResource(when (category) {

@@ -39,9 +39,9 @@ import java.io.File
 
 /**
  * A card with several questions, or a multi-select one, picks the same option buttons a
- * single-choice card answers with: each question's options toggle, "Other…" puts words in their
- * place, and one "Send answer" sends them together as Desktop and iOS do (#3468). Synthetic
- * questions only; no account, network or preference.
+ * single-choice card answers with: each question's options toggle, "Other" is picked in their place
+ * with its words under it, and one footer's Send sends them together, "Answer N more" until every
+ * question is answered (#3468, #5257). Synthetic questions only; no account, network or preference.
  */
 @RunWith(AndroidJUnit4::class)
 class DecisionFormFixtureDeviceTest {
@@ -65,18 +65,28 @@ class DecisionFormFixtureDeviceTest {
         compose.onNodeWithText("The canary has been clean for a day.").assertIsDisplayed()
         compose.onNodeWithText("**1. Roll out now?**", substring = true).assertDoesNotExist()
         compose.onAllNodesWithTag("bot-question-option").assertCountEquals(5)
-        // Nothing is sent until every question has an answer.
-        compose.onNodeWithTag("bot-question-send").assertIsNotEnabled()
+        // Numbered, and "Choose any" on the multi-select; no field until Other is picked.
+        compose.onAllNodesWithTag("bot-question-marker").assertCountEquals(2)
+        compose.onNodeWithText("Choose any").assertIsDisplayed()
+        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(0)
+        // Nothing is sent until every question has an answer: the footer counts what is left.
+        compose.onNodeWithTag("bot-question-send").assertIsNotEnabled().assertTextEquals("Answer 2 more")
+        // Snooze and Dismiss share the footer with it, on its left.
+        val send = compose.onNodeWithTag("bot-question-send").fetchSemanticsNode().boundsInRoot
+        val dismiss = compose.onNodeWithTag("bot-question-dismiss").fetchSemanticsNode().boundsInRoot
+        assertTrue(dismiss.right <= send.left && dismiss.bottom > send.top && dismiss.top < send.bottom)
         capture("form")
 
         compose.onNodeWithText("Wait for QA").performClick()
         // One choice for a single-choice question: the second replaces the first.
         compose.onNodeWithText("Ship it").performClick()
-        compose.onNodeWithTag("bot-question-send").assertIsNotEnabled()
+        compose.onNodeWithTag("bot-question-send").assertIsNotEnabled().assertTextEquals("Answer 1 more")
+        compose.onAllNodesWithTag("bot-question-marker")[0].assertIsSelected()
         // Any number for a multi-select one.
         compose.onNodeWithText("us-east").performClick()
         compose.onNodeWithText("ap-northeast").performClick()
         capture("form-picked")
+        compose.onNodeWithTag("bot-question-send").assertIsEnabled().assertTextEquals("Send")
         compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
 
         assertTrue(texts.isEmpty())
@@ -84,18 +94,46 @@ class DecisionFormFixtureDeviceTest {
             sent.map { it.compact })
     }
 
-    @Test fun typedWordsTakeThePlaceOfAQuestionsPicks() {
+    @Test fun otherIsPickedInPlaceOfAQuestionsOptions() {
         val sent = mutableListOf<JsonValue>()
         screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
         compose.onNodeWithText("Ship it").performClick()
-        // Words only behind "Other…", as a single-choice card has them.
+        compose.onNodeWithText("us-east").performClick()
+        // Words only behind "Other…"; picking it unpicks the multi-select's options too.
         compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(0)
         compose.onAllNodesWithTag("bot-question-other")[1].performScrollTo().performClick()
-        compose.onNodeWithTag("bot-question-answer").performTextInput("Only us-east, then wait a day")
+        compose.onNodeWithText("us-east").assertIsNotSelected()
+        compose.onAllNodesWithTag("bot-question-other")[1].assertIsSelected().assertTextEquals("Other")
+        // Picked with no words, the question is not answered; return sends nothing yet.
+        compose.onNodeWithTag("bot-question-send").assertIsNotEnabled().assertTextEquals("Answer 1 more")
+        val words = compose.onNodeWithTag("bot-question-answer")
+        words.performImeAction()
+        assertTrue(sent.isEmpty())
+        words.performTextInput("Only us-east, then wait a day")
         capture("form-typed")
-        compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
+        // The field has no send of its own: return sends the complete card.
+        words.performImeAction()
         assertEquals(listOf("""{"questions":[{"choices":["Ship it"]},{"text":"Only us-east, then wait a day"}]}"""),
             sent.map { it.compact })
+    }
+
+    @Test fun eachQuestionKeepsItsOwnWords() {
+        val sent = mutableListOf<JsonValue>()
+        screen { BotQuestionCard(release, onOpen = {}, onConnect = {}, onAnswer = {}, onForm = { sent += it }) }
+        compose.onAllNodesWithTag("bot-question-other")[0].performScrollTo().performClick()
+        compose.onNodeWithTag("bot-question-answer").performTextInput("After the freeze")
+        // Other on the second question opens its own field; the first keeps its words.
+        compose.onAllNodesWithTag("bot-question-other")[1].performScrollTo().performClick()
+        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(2)
+        compose.onAllNodesWithTag("bot-question-answer")[0].assertTextContains("After the freeze")
+        compose.onAllNodesWithTag("bot-question-answer")[1].performTextInput("Only eu-west")
+        // An option unpicks Other and its field; picked again, its words are back.
+        compose.onNodeWithText("Ship it").performScrollTo().performClick()
+        compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(1)
+        compose.onAllNodesWithTag("bot-question-other")[0].performScrollTo().performClick()
+        compose.onAllNodesWithTag("bot-question-answer")[0].assertTextContains("After the freeze")
+        compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
+        assertEquals(listOf("""{"questions":[{"text":"After the freeze"},{"text":"Only eu-west"}]}"""), sent.map { it.compact })
     }
 
     @Test fun aCardTheAgentCorrectsStartsItsFormOver() {

@@ -10,6 +10,11 @@
     <string name="chats_show_more">더 보기</string>
     <string name="chats_question_your_answer">내 답변</string>
     <string name="chats_question_send_answer">답변 보내기</string>
+    <string name="chats_question_other_picked">기타</string>
+    <string name="chats_question_choose_any">여러 개 선택 가능</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">%1$d개 더 답하기</item>
+    </plurals>
     <string name="chats_question_heading_approval">승인 필요</string>
     <string name="chats_question_heading_preference">선택하세요</string>
     <string name="chats_question_heading_credential">자격 증명 필요</string>

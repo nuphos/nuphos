@@ -10,6 +10,12 @@
     <string name="chats_show_more">Mostrar más</string>
     <string name="chats_question_your_answer">Tu respuesta</string>
     <string name="chats_question_send_answer">Enviar respuesta</string>
+    <string name="chats_question_other_picked">Otra</string>
+    <string name="chats_question_choose_any">Elige las que quieras</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="one">Responde %1$d más</item>
+        <item quantity="other">Responde %1$d más</item>
+    </plurals>
     <string name="chats_question_heading_approval">Se necesita aprobación</string>
     <string name="chats_question_heading_preference">Tu elección</string>
     <string name="chats_question_heading_credential">Se necesita una credencial</string>
