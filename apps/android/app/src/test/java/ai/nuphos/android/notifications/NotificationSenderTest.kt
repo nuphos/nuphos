@@ -22,8 +22,9 @@ class NotificationSenderTest {
             mapOf("botAvatar" to "07-ada", "title" to "Ada", "botBackground" to "mint", "botProvider" to "codex")))
     }
 
-    @Test fun unknownBackgroundOrRuntimeLogoIsDropped() {
-        assertEquals(NotificationSender("Ada", "07-ada.svg"), NotificationSender.from(
+    // An unknown tint is kept and painted white; an unknown runtime has no mark to show.
+    @Test fun unknownRuntimeLogoIsDropped() {
+        assertEquals(NotificationSender("Ada", "07-ada.svg", background = "neon"), NotificationSender.from(
             mapOf("botAvatar" to "07-ada", "title" to "Ada", "botBackground" to "neon", "botProvider" to "nuphos")))
     }
 

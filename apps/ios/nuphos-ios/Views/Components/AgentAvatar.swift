@@ -27,11 +27,8 @@ struct AgentAvatar: View {
                         Image(BotAvatars.asset(named: face) ?? BotAvatars.asset(for: agentId)).resizable().scaledToFit()
                     }
                 }
-                    .background {
-                        if let tint = Theme.avatarBackground(BotFaces.shared.background(for: agentId)) {
-                            Circle().fill(tint)
-                        }
-                    }
+                    // White unless the Bot picked a tint; never see-through.
+                    .background(Circle().fill(Theme.avatarBackground(BotFaces.shared.background(for: agentId))))
                     .overlay(alignment: .bottomTrailing) {
                         if showBadge, runtime != nil {
                             AgentRuntimeBadge(runtime: runtime, size: size <= 24 ? 9 : 12)

@@ -57,7 +57,9 @@ enum BotAvatarTests {
         let task = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": false, "avatar": "07-ada", "provider": "codex"]])!
         precondition(task.avatar == nil && task.provider == "codex" && task.background == nil)
         let tinted = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada", "background": "mint"]])!
-        precondition(tinted.background == "mint" && BotAvatars.backgrounds["mint"] == 0xD3EEDF)
+        precondition(tinted.background == "mint" && BotAvatars.backgroundHex("mint") == 0xD3EEDF)
+        // No Bot is see-through: unset, None and a tint this build doesn't know all paint white.
+        for name in [nil, "", "none", "teal"] as [String?] { precondition(BotAvatars.backgroundHex(name) == 0xFFFFFF) }
         precondition(BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "future-face"]]) == nil)
         for provider in ["codex", "grok", "future-provider"] {
             let identity = BotAvatars.notificationIdentity(["agentIdentity": ["isBot": true, "avatar": "07-ada", "provider": provider]])!

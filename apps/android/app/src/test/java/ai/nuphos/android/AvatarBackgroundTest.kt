@@ -43,6 +43,7 @@ class AvatarBackgroundTest {
             "sky" to 0xFFD6E6F7, "mint" to 0xFFD3EEDF, "sage" to 0xFFE1E9D1, "slate" to 0xFFE1E4EA,
         )
         for ((name, hex) in tokens) assertEquals(name, Color(hex), avatarBackground(name))
-        for (name in listOf(null, "", "none", "teal")) assertNull(name, avatarBackground(name))
+        // No Bot is see-through: unset, None and a tint this build does not know all paint white.
+        for (name in listOf(null, "", "none", "teal")) assertEquals(name, Color.White, avatarBackground(name))
     }
 }

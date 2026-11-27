@@ -7,7 +7,7 @@ import { createRoot } from 'react-dom/client'
 
 const { AvatarBackgroundPicker } = await import('./AvatarBackgroundPicker')
 
-test('Background is one radio group: None first, then each tint by name', async () => {
+test('Background is one radio group: White first, then each tint by name', async () => {
   const dom = new Window()
   const values = {
     window: dom,
@@ -39,11 +39,11 @@ test('Background is one radio group: None first, then each tint by name', async 
 
   assert.deepEqual(
     radios.map((radio) => radio.getAttribute('aria-label')),
-    ['None', 'Sand', 'Peach', 'Rose', 'Lilac', 'Sky', 'Mint', 'Sage', 'Slate'],
+    ['White', 'Sand', 'Peach', 'Rose', 'Lilac', 'Sky', 'Mint', 'Sage', 'Slate'],
   )
   assert.equal(radios[0]?.getAttribute('aria-checked'), 'true')
-  // None is a dashed circle; a tint is its token.
-  assert.match(radios[0]?.innerHTML ?? '', /border-dashed/)
+  // White is outlined so it shows on a light dialog; each is its token.
+  assert.match(radios[0]?.innerHTML ?? '', /border-line-control[^>]*--color-avatar-white/)
   assert.match(radios[5]?.innerHTML ?? '', /--color-avatar-sky/)
 
   await act(() => (radios[5] as unknown as HTMLElement).click())

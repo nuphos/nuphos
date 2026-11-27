@@ -52,12 +52,10 @@ export function BotIdentityFields({
       <div className="flex items-center gap-3">
         {shown ? (
           <span className="relative size-10 shrink-0">
-            {botAvatarBackgroundColor(background) && (
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{ background: botAvatarBackgroundColor(background) }}
-              />
-            )}
+            <span
+              className="absolute inset-0 rounded-full"
+              style={{ background: botAvatarBackgroundColor(background) }}
+            />
             <BotAvatarImage file={shown} className="relative size-10 object-contain" />
           </span>
         ) : (

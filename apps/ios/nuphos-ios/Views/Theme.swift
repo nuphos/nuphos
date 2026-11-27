@@ -38,8 +38,8 @@ enum Theme {
     static let hairline = heading.opacity(0.08)
     static let separator = heading.opacity(0.08)
 
-    /// The color a Bot's picked background paints; nil for none or a tint this build doesn't know.
-    static func avatarBackground(_ name: String?) -> Color? { name.flatMap { BotAvatars.backgrounds[$0] }.map { Color(hex: $0) } }
+    /// The disc behind a Bot's character; none, unset or a tint this build doesn't know is white.
+    static func avatarBackground(_ name: String?) -> Color { Color(hex: BotAvatars.backgroundHex(name)) }
 
     enum Space {
         static let small: CGFloat = 8

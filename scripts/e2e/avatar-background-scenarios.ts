@@ -51,11 +51,8 @@ export const avatarBackgroundScenarios: Scenario[] = [
         .first()
 
       await row.waitFor({ timeout: 30_000 })
-      // None is today's look: no disc behind the face.
-      must(
-        (await row.locator('[data-avatar-background]').count()) === 0,
-        'a new Bot to have no background',
-      )
+      // A new Bot has no tint picked, so its face sits on the white disc.
+      await row.locator('[data-avatar-background="none"]').waitFor({ timeout: 10_000 })
       await row.click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Change avatar' }).click()
       const background = page.getByRole('radiogroup', { name: 'Background' })

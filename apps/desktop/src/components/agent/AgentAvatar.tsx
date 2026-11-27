@@ -1,7 +1,7 @@
 import { useAgentAvatarBackground, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
+import { botAvatarBackground, botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
 import { botAvatarFile } from '../../lib/botAvatars'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 
@@ -75,13 +75,11 @@ export function AgentAvatar({
           ) : (
             <>
               {/* Behind the character, unclipped: a head may break out of the disc. */}
-              {tint && (
-                <span
-                  data-avatar-background={background ?? undefined}
-                  className="absolute left-0 top-0 rounded-full"
-                  style={{ width: box, height: box, background: tint }}
-                />
-              )}
+              <span
+                data-avatar-background={botAvatarBackground(background)}
+                className="absolute left-0 top-0 rounded-full"
+                style={{ width: box, height: box, background: tint }}
+              />
               <BotAvatarImage
                 file={botAvatarFile(agentId, picked)}
                 looping={looping || (animated && running)}
