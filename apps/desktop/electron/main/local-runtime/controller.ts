@@ -143,11 +143,11 @@ export class LocalRuntimeController {
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
-      providers.map((provider) =>
-        restart || !this.agents[provider].process || moved.has(provider)
-          ? this.launch(provider)
-          : signedIn && rereadModels(this.agents[provider]),
-      ),
+      providers.map(async (provider) => {
+        if (restart || !this.agents[provider].process || moved.has(provider))
+          await this.launch(provider)
+        else if (signedIn) await rereadModels(this.agents[provider])
+      }),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
     await this.instances?.refresh(restart, providers)
