@@ -27,10 +27,26 @@ final class NotificationAvatarUITests: XCTestCase {
         let mint = try XCTUnwrap(BotAvatars.notificationPNG(avatar: "07-ada", provider: nil, background: "mint"))
         XCTAssertNotEqual(plain, mint)
         XCTAssertEqual(plain, BotAvatars.notificationPNG(avatar: "07-ada", provider: nil, background: "future-tint"))
-        let attachment = XCTAttachment(data: mint, uniformTypeIdentifier: "public.png")
-        attachment.name = "notification-ada-mint"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        XCTAssertEqual(plain, BotAvatars.notificationPNG(avatar: "07-ada", provider: nil, background: "none"))
+        for (png, name) in [(mint, "mint"), (plain, "none")] {
+            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+            attachment.name = "notification-ada-\(name)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
+    }
+
+    /// A Bot with no tint picked sits on an opaque white disc, never a see-through one.
+    func testNoTintIsAWhiteDisc() throws {
+        let png = try XCTUnwrap(BotAvatars.notificationPNG(avatar: "07-ada", provider: nil))
+        let image = try XCTUnwrap(UIImage(data: png)?.cgImage)
+        var pixel = [UInt8](repeating: 0, count: 4)
+        let context = try XCTUnwrap(CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                              space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        // Just inside the disc's top-left edge, clear of the character: shift the image so that point lands on the 1x1 context.
+        let x = image.width * 20 / 120, y = image.height * 20 / 120
+        context.draw(image, in: CGRect(x: -x, y: -(image.height - 1 - y), width: image.width, height: image.height))
+        XCTAssertEqual(pixel, [255, 255, 255, 255])
     }
 
     func testChosenFaceAndEveryKnownProviderUseTheActualSharedBitmapRenderer() throws {

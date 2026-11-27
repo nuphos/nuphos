@@ -3,6 +3,8 @@ import { client, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
+
 
 export const avatarBackgroundScenarios: Scenario[] = [
   {
@@ -53,9 +55,13 @@ export const avatarBackgroundScenarios: Scenario[] = [
       await row.waitFor({ timeout: 30_000 })
       // A new Bot has no tint picked, so its face sits on the white disc.
       await row.locator('[data-avatar-background="none"]').waitFor({ timeout: 10_000 })
+      await shootBothThemes(page, 'none-sidebar')
       await row.click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Change avatar' }).click()
       const background = page.getByRole('radiogroup', { name: 'Background' })
+
+      await background.getByRole('radio', { name: 'White', checked: true }).waitFor()
+      await shootBothThemes(page, 'none-dialog')
 
       await background.getByRole('radio', { name: 'Sky' }).click()
       await page.screenshot({ path: `${artifacts}/avatar-background-dialog.png` })
@@ -96,3 +102,12 @@ export const avatarBackgroundScenarios: Scenario[] = [
     },
   },
 ]
+
+/** For review: the window in light and then dark, back to the system theme after. */
+async function shootBothThemes(page: Page, name: string) {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme })
+    await page.screenshot({ path: `${artifacts}/avatar-background-${name}-${colorScheme}.png` })
+  }
+  await page.emulateMedia({ colorScheme: null })
+}
