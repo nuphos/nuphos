@@ -5,6 +5,7 @@ import SwiftUI
 struct HomeView: View {
     @Environment(AuthSession.self) private var session
     let user: NuphosUser
+    var firstBotChat: PushTarget? = nil
 
     @State private var page: HomePage = Self.initialPage
     /// The viewer picked a page, so the default tab no longer applies. A
@@ -27,6 +28,15 @@ struct HomeView: View {
     /// The selected team's open questions: the Inbox page and its badge.
     @State private var inbox: OpenQuestions?
     @State private var openChat: AgentPage.OpenChat?
+
+    init(user: NuphosUser, firstBotChat: PushTarget? = nil) {
+        self.user = user
+        self.firstBotChat = firstBotChat
+        if firstBotChat != nil {
+            _page = State(initialValue: .chats)
+            _pageChosen = State(initialValue: true)
+        }
+    }
     @State private var botTask: ChatSession?
     @State private var showBotTask = false
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
@@ -163,7 +173,12 @@ struct HomeView: View {
             NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel) { task, title in
+                    ChannelView(
+                        channel: channel,
+                        onboardingTarget: firstBotChat.flatMap {
+                            $0.sessionId == channel.channelId && $0.teamId == channel.teamId ? $0 : nil
+                        }
+                    ) { task, title in
                         guard let store else { return }
                         botTask = store.session(sessionId: task, title: title, teamId: channel.teamId)
                         showBotTask = true
@@ -229,6 +244,11 @@ struct HomeView: View {
                 store?.userId = user.id
                 plans = PlansStore(token: token)
                 connectors = ConnectorsStore(token: token)
+                if let firstBotChat, let store {
+                    openChat = .init(channel: store.channel(
+                        sessionId: firstBotChat.sessionId, title: firstBotChat.title, teamId: firstBotChat.teamId
+                    ))
+                }
             }
             if let loginID = session.sharingLoginID, let token = session.token {
                 store?.bindSharingLogin(loginID, token: token)
@@ -287,7 +307,13 @@ struct HomeView: View {
             }
         }
         // The workspace loads with the shell, not with one tab: a page opened first needs it too (#4040).
-        .task(id: store != nil) { await store?.loadTeams() }
+        .task(id: store != nil) {
+            guard let store else { return }
+            await store.loadTeams()
+            guard !Task.isCancelled, let firstBotChat,
+                  let team = store.teams.first(where: { $0.id == firstBotChat.teamId }) else { return }
+            store.select(team: team)
+        }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
