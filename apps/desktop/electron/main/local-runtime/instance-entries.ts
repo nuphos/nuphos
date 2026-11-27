@@ -10,6 +10,7 @@ export type Controller = {
   setUser(userId: string | null): Promise<void>
   shutdown(): Promise<void>
   refresh(restart: boolean): Promise<LocalRuntimeState>
+  signedIn(): Promise<void>
   /** Runs `work` with the agent stopped; the next refresh starts it. */
   whileStopped<T>(provider: LocalAgentProvider, work: () => Promise<T>): Promise<T | undefined>
   state(): LocalRuntimeState

@@ -1,6 +1,6 @@
 import { executable } from './agent-cli-apps.ts'
 import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
-import { discoverModels } from './agent-models.ts'
+import { discoverModels, rereadModels } from './agent-models.ts'
 import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
@@ -61,6 +61,7 @@ export class LocalRuntimeController {
         this.reportChange,
         {
           refreshDefault: (provider, restart) => this.refresh(restart, [provider]),
+          signedInDefault: (provider) => this.signedIn(provider),
           pauseDefault: this.whileStopped,
         },
       )
@@ -153,6 +154,14 @@ export class LocalRuntimeController {
     await this.instances?.refresh(restart, providers)
 
     return this.state()
+  }
+  /**
+   * Checks an agent again once its sign-in through Nuphos finished, and reads the models it
+   * offers now.
+   */
+  async signedIn(provider: LocalAgentProvider = this.providers[0]): Promise<void> {
+    await this.refresh(false, [provider])
+    await rereadModels(this.agents[provider])
   }
   reconnect(): void {
     this.tunnel?.reconnectNow()

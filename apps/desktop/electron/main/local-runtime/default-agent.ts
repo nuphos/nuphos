@@ -18,7 +18,13 @@ export type PauseDefault = <T>(
   provider: LocalAgentProvider,
   work: () => Promise<T>,
 ) => Promise<T | undefined>
-export type DefaultAgentControl = { refreshDefault?: RefreshDefault; pauseDefault?: PauseDefault }
+/** Checks the computer's own agent of a provider again once it signed in, and reads its models. */
+export type SignedInDefault = (provider: LocalAgentProvider) => Promise<unknown>
+export type DefaultAgentControl = {
+  refreshDefault?: RefreshDefault
+  signedInDefault?: SignedInDefault
+  pauseDefault?: PauseDefault
+}
 
 /** A default agent whose login Nuphos may delete: never Antigravity's shared OS sign-in. */
 function deletableProvider(provider: unknown): LocalAgentProvider {
@@ -85,10 +91,10 @@ async function resetDefaultAgent(
 
 /** Checks the computer's own agent again once its sign-in finished, so it is listed signed
  *  in now rather than at the next check. */
-async function commitDefaultAgent(provider: unknown, refresh: RefreshDefault | undefined) {
+async function commitDefaultAgent(provider: unknown, signedIn: SignedInDefault | undefined) {
   if (!LOCAL_AGENT_PROVIDERS.includes(provider as LocalAgentProvider))
     throw new Error('Invalid runtime provider')
-  await refresh?.(provider as LocalAgentProvider, false)
+  await signedIn?.(provider as LocalAgentProvider)
 
   return {}
 }
@@ -99,12 +105,12 @@ export function defaultAgentRequest(
   userId: string,
   method: 'remove' | 'commit' | 'reset',
   provider: unknown,
-  { refreshDefault, pauseDefault }: DefaultAgentControl,
+  { refreshDefault, signedInDefault, pauseDefault }: DefaultAgentControl,
 ): Promise<unknown> {
   if (method === 'reset')
     return resetDefaultAgent(deps, userId, provider, refreshDefault, pauseDefault)
 
   return method === 'remove'
     ? removeDefaultAgent(deps, userId, provider, refreshDefault)
-    : commitDefaultAgent(provider, refreshDefault)
+    : commitDefaultAgent(provider, signedInDefault)
 }

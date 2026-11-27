@@ -83,6 +83,7 @@ function setup(t: { after: (fn: () => void) => void }) {
 
           return {} as never
         },
+        signedIn: async () => {},
         state: () =>
           ({
             agents: {

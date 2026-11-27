@@ -61,6 +61,9 @@ function setup(
 
           return {} as never
         },
+        signedIn: async () => {
+          fake.restarts.push(false)
+        },
         state: () =>
           ({
             // As runtimeStateOf derives it, under the instance's own data dir.
