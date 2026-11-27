@@ -4,20 +4,19 @@ import { logError } from '@/lib/observability'
 import { notifyAgent } from './channel-chat'
 import { readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
-import { onDevice } from './deliver-waiting-answers'
 
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 
 /**
  * A runtime answered again, for any conversation's reason: its agents are woken for
- * the posts they missed while it was away (#3284).
+ * the posts they missed while it was away (#3284). Only that runtime's, in that team: on a
+ * person's computer, the others (another Claude Code, signed out, say) did not answer, and the
+ * computer coming back wakes them all already.
  */
-export function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint): void {
-  const filter = endpoint.local
-    ? onDevice(endpoint.local.userId, endpoint.local.deviceId)
-    : endpoint.runtimeId && { teamId, runtimeId: endpoint.runtimeId }
-
-  if (filter) void wakeMissedPosts(filter)
+export function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint): Promise<void> {
+  return endpoint.runtimeId
+    ? wakeMissedPosts({ teamId, runtimeId: endpoint.runtimeId })
+    : Promise.resolve()
 }
 
 /**
