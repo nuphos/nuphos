@@ -1,4 +1,4 @@
-import { rowIndicator } from '../../lib/subAgentState.ts'
+import { chatRowIndicator } from '../../lib/runtimeExecution.ts'
 
 import { sectionFolds } from './chat-sections.ts'
 
@@ -25,9 +25,7 @@ export function chatRowNeedsAttention(
   item: Pick<Item, 'dot'>,
   runtimeState: RuntimeExecution | undefined,
 ): boolean {
-  const indicator = rowIndicator(runtimeState, item.dot ?? null)
-
-  return indicator === 'unread' || indicator === 'waiting' || indicator === 'error'
+  return item.dot != null || chatRowIndicator(runtimeState, false) === 'error'
 }
 
 /**

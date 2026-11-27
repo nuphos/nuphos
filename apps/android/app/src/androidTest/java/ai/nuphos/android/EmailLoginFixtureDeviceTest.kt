@@ -1,12 +1,18 @@
 package ai.nuphos.android
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.view.WindowInsets
+import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.StateRestorationTester
-import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.AnnotatedString
 import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
@@ -23,7 +29,7 @@ import org.junit.Assume.assumeTrue
 
 /** Standalone synthetic content; never reads tokens, preferences or a live API. */
 class EmailLoginFixtureDeviceTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule val compose = createAndroidComposeRule<ComponentActivity>()
     private val clock = AtomicLong(1_000_000L)
     private val busy = mutableStateOf(false)
     private val authError = mutableStateOf<String?>(null)
@@ -75,6 +81,50 @@ class EmailLoginFixtureDeviceTest {
         java.io.File(inst.targetContext.getExternalFilesDir(null), "$name-${if (dark) "dark" else "light"}.png").outputStream().use {
             inst.uiAutomation.takeScreenshot().compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
         }
+    }
+
+    @Test fun pasteSixDigitsSignsInOnce() {
+        render()
+        send()
+        code().performClick()
+        compose.runOnIdle {
+            compose.activity.getSystemService(ClipboardManager::class.java)
+                .setPrimaryClip(ClipData.newPlainText("Fixture code", "123456"))
+        }
+        code().performKeyInput {
+            keyDown(Key.CtrlLeft); pressKey(Key.V); keyUp(Key.CtrlLeft)
+        }
+        assertEquals(1, submits)
+        assertEquals(1, requests)
+    }
+
+    @Test fun signInIsVisibleAboveTheKeyboardOnASmallScreen() {
+        compose.runOnIdle {
+            compose.activity.enableEdgeToEdge()
+            compose.activity.window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+        render()
+        send()
+        code().performTextInput("123456")
+        compose.runOnIdle {
+            busy.value = false
+            authError.value = "Incorrect or expired code. Request a new code if needed."
+        }
+        code().performClick()
+        compose.waitUntil(8_000) {
+            compose.activity.window.decorView.rootWindowInsets?.isVisible(WindowInsets.Type.ime()) == true
+        }
+        // Wait for the platform IME animation before capturing the screenshot.
+        Thread.sleep(500)
+        shot("email-code-320x640")
+        val button = compose.onNodeWithText("Sign in")
+        button.assertIsDisplayed()
+        val bounds = button.getUnclippedBoundsInRoot()
+        val keyboardBottom = compose.activity.window.decorView.rootWindowInsets!!.getInsets(WindowInsets.Type.ime()).bottom
+        val available = compose.activity.window.decorView.height - keyboardBottom
+        assertTrue("Sign in must be fully visible above the keyboard without scrolling", with(compose.density) { bounds.bottom.roundToPx() } <= available)
+        button.performClick()
+        assertEquals(2, submits)
     }
 
     @Test fun captureSyntheticWelcomeAndCodeScreens() {

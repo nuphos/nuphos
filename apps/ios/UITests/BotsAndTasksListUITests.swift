@@ -29,7 +29,8 @@ final class BotsAndTasksListUITests: XCTestCase {
             Self.row("agent-ops", "Release ops", at: "09:00"),
             Self.row("agent-rollout", "Roll out to staging", at: "09:50", parent: "agent-ops"),
             Self.row("agent-staging", "Check the staging cluster", at: "09:30", question: "Scale the staging pool?"),
-            Self.row("agent-notes", "Write the changelog", at: "09:40"),
+            // Unread, as is a Bot chat and the group: the lists show both kinds of row.
+            Self.row("agent-notes", "Write the changelog", at: "09:40").merging(["readSeq": 1]) { $1 },
             // A teammate's: I take part in one, and only read the other (#3686).
             Self.teammates(Self.row("agent-review", "Review the migration", at: "09:35"), canArchive: true),
             Self.teammates(Self.row("agent-offsite", "Plan the offsite", at: "09:34"), canArchive: false),
@@ -46,11 +47,11 @@ final class BotsAndTasksListUITests: XCTestCase {
             // Named before the Bot was renamed: the row shows the Bot's name.
             Self.chat("chat-lead", "release-lead-old", at: "09:55", faces: [Self.face("bot-lead", "Release Lead", "05-rembrandt")],
                       message: Self.longPost),
-            Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]),
+            Self.chat("chat-docs", "", at: "09:52", faces: [Self.face("bot-docs", "Docs Bot", "02-leonardo")]).merging(["readSeq": 1]) { $1 },
             Self.chat("chat-notes", "", at: "09:51", faces: [Self.face("bot-notes", "Notes Bot", "13-shakespeare")]),
             // Triage Bot is in this group chat, so it has no row of its own.
             Self.chat("chat-group", "", at: "09:48", faces: [["id": "u-ana", "name": "Ana"], Self.face("bot-triage", "Triage Bot", "07-ada")],
-                      group: true, agents: ["bot-triage"]),
+                      group: true, agents: ["bot-triage"]).merging(["readSeq": 1]) { $1 },
         ]
         responses["GET /agent/conversations"] = Self.page(history)
         responses["GET /agent/conversations?bots=true"] = Self.page(bots)
@@ -92,9 +93,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts["Needs your input: Retry the flaky iOS job?"].exists, "A dispatched question took over the Bot's preview")
         let preview = app.staticTexts[Self.longPost].firstMatch
         XCTAssertTrue(preview.exists, "The Bot's chat row hides its newest post while a question is open")
-        let line = app.staticTexts["On it."].firstMatch.frame.height
+        // Every preview holds two lines, so a short post keeps the row's pitch.
+        let line = lead.frame.height
         XCTAssertGreaterThan(preview.frame.height, line * 1.5, "The preview is cut to one line")
         XCTAssertLessThan(preview.frame.height, line * 2.5, "The preview runs past two lines")
+        XCTAssertEqual(app.staticTexts["On it."].firstMatch.frame.height, preview.frame.height, accuracy: 1, "A short preview does not hold two lines")
         // Its chat shows no typing for a dispatched turn, so neither does its row (#3522).
         XCTAssertFalse(app.descendants(matching: .any)["Docs Bot is thinking"].exists, "A dispatched turn shows typing dots on a chat that isn't typing")
         XCTAssertTrue(app.staticTexts["On it."].exists, "The Bot's chat row hides its latest message")
@@ -117,8 +120,8 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("2-bots-flat")
     }
 
-    /// A Bot with no chat yet ends like every other row, with the system chevron,
-    /// so its time lines up with theirs (#3614).
+    /// A Bot with no chat yet ends like every other row, with the chevron after
+    /// its time, so its time lines up with theirs (#3614).
     func testABotWithNoChatEndsLikeTheOtherRows() throws {
         launch(page: "chats")
         let lead = app.staticTexts["Release Lead"].firstMatch
@@ -178,6 +181,27 @@ final class BotsAndTasksListUITests: XCTestCase {
         shot("7-back-to-bot")
     }
 
+    /// Rows keep one rhythm, as the list design sets it: the text starts after the
+    /// state gutter and 45pt avatar, a Bot row holds two preview lines and a Task
+    /// row one meta line, so every row of a page has the same pitch.
+    func testRowsKeepTheListRhythm() throws {
+        launch(page: "chats")
+        let lead = app.staticTexts["Release Lead"].firstMatch
+        XCTAssertTrue(lead.waitForExistence(timeout: 10), "Bots did not load")
+        let docs = app.staticTexts["Docs Bot"].firstMatch
+        XCTAssertEqual(lead.frame.minX, 84, accuracy: 2, "A Bot's title does not start after the gutter and avatar")
+        XCTAssertEqual(docs.frame.minY - lead.frame.minY, 86.67, accuracy: 3, "Bot rows do not keep their pitch")
+
+        app.terminate()
+        launch(page: "agent")
+        let ops = app.staticTexts["Release ops"].firstMatch
+        XCTAssertTrue(ops.waitForExistence(timeout: 10), "Tasks did not load")
+        let rollout = app.staticTexts["Roll out to staging"].firstMatch
+        XCTAssertEqual(ops.frame.minX, 84, accuracy: 2, "A Task's title does not start after the gutter and avatar")
+        XCTAssertEqual(rollout.frame.minX - ops.frame.minX, 32, accuracy: 2, "A thread is not indented one level")
+        XCTAssertEqual(rollout.frame.minY - ops.frame.minY, 66.67, accuracy: 3, "Task rows do not keep their pitch")
+    }
+
     func testTasksLeaveOutBotsAndWhatTheyDispatched() throws {
         launch(page: "agent")
         let staging = app.staticTexts["Check the staging cluster"].firstMatch
@@ -185,11 +209,11 @@ final class BotsAndTasksListUITests: XCTestCase {
         for gone in ["Release Lead", "Docs Bot", "Helper Bot", "Check the CI flake", "Rerun the iOS job", "Fix broken links", "Collect crash logs"] {
             XCTAssertFalse(app.staticTexts[gone].exists, "\(gone) is listed in Tasks")
         }
-        // A question first, then each family by its newest activity: the rollout lifts Release ops.
+        // Rows that need the viewer first, then each family by its newest activity: the rollout lifts Release ops.
         let ops = app.staticTexts["Release ops"].firstMatch
-        let notes = app.staticTexts["Write the changelog"].firstMatch
+        let review = app.staticTexts["Review the migration"].firstMatch
         XCTAssertLessThan(staging.frame.minY, ops.frame.minY)
-        XCTAssertLessThan(ops.frame.minY, notes.frame.minY)
+        XCTAssertLessThan(ops.frame.minY, review.frame.minY)
         XCTAssertTrue(app.descendants(matching: .any)["Needs your input"].exists, "The waiting Task has no mark")
         shot("3-tasks")
     }

@@ -149,7 +149,7 @@ class BotMentionFixtureDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = false) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen("chat-plain", onBack = { fail("The chat closed itself") })
+                    ChannelScreen("chat-plain", onBack = { fail("The chat closed itself") }, onLink = {})
                 }
             }
         }

@@ -45,7 +45,7 @@ import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
-import { agentHostEnv } from './vault-token.ts'
+import { agentHostDeps } from './vault-token.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
@@ -143,7 +143,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),
-  userEnv: agentHostEnv(),
+  ...agentHostDeps(deviceCredential),
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir, userId),

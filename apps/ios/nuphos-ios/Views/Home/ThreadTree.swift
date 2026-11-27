@@ -10,14 +10,15 @@ struct ThreadTree: View {
     let trail: [Bool]
     /// This row's own threads are showing, so a line drops from its avatar.
     let expanded: Bool
-    /// `ConversationRow`'s avatar, vertically centred in the row.
-    private let avatar: CGFloat = 36
+    /// `ListRow`'s avatar, vertically centred in the row after the state gutter.
+    private let avatar = ListRowMetrics.avatar
+    private let gutter = ListRowMetrics.gutter
     private let corner: CGFloat = 6
 
     var body: some View {
         Canvas { context, size in
             let mid = size.height / 2
-            let x = { (level: Int) in CGFloat(level) * Self.indent + avatar / 2 }
+            let x = { (level: Int) in gutter + CGFloat(level) * Self.indent + avatar / 2 }
             var path = Path()
             for (level, continues) in trail.enumerated() {
                 if continues {
@@ -28,7 +29,7 @@ struct ThreadTree: View {
                     path.move(to: CGPoint(x: x(level), y: 0))
                     path.addLine(to: CGPoint(x: x(level), y: mid - corner))
                     path.addQuadCurve(to: CGPoint(x: x(level) + corner, y: mid), control: CGPoint(x: x(level), y: mid))
-                    path.addLine(to: CGPoint(x: CGFloat(trail.count) * Self.indent - 3, y: mid))
+                    path.addLine(to: CGPoint(x: gutter + CGFloat(trail.count) * Self.indent - 3, y: mid))
                 }
             }
             if expanded {

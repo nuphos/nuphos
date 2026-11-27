@@ -13,7 +13,8 @@ import type { RequestOrigin } from '@/lib/request-origin'
 
 /**
  * Notes that the host reported in, and keeps the agents a status report shows signed in
- * listed after the computer goes offline. Who added an agent is forgotten once it is gone.
+ * listed after the computer goes offline (not one a Vault-shared token signs in, which lives
+ * only while it is shared). Who added an agent is forgotten once it is gone.
  */
 export async function recordDeviceAgents(
   userId: string,
@@ -27,9 +28,12 @@ export async function recordDeviceAgents(
   )
 
   if (!device) return
+  const shared = new Set(status.instances?.flatMap((i) => (i.vault ? [i.instanceId] : [])))
   // An agent removed while the computer was offline does not rejoin before it is deleted.
   const reported = reportedAgents(status).filter(
-    (agent) => !isPendingRemoval(agent, device.removedAgents ?? []),
+    (agent) =>
+      !isPendingRemoval(agent, device.removedAgents ?? []) &&
+      !(agent.instanceId && shared.has(agent.instanceId)),
   )
   const next = mergeAgentRegistry(device.agents ?? [], reported)
   // Pulled by id, so an addition noted since the read above is never overwritten.

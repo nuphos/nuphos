@@ -137,7 +137,7 @@ export function SessionResources({
       className={
         titlebar
           ? 't-session-heading relative flex flex-1 items-center gap-1 overflow-hidden text-[11px] text-tertiary'
-          : `relative flex min-w-0 items-center gap-2 overflow-hidden pr-2 text-[11px] text-tertiary pl-[40px] pb-1`
+          : `relative flex min-w-0 items-center gap-2 overflow-hidden pr-2 text-[11px] text-tertiary pl-[46px] pb-1`
       }
       aria-label={t('Linked resources')}
     >

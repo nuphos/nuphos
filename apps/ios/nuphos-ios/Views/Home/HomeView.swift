@@ -258,10 +258,8 @@ struct HomeView: View {
         // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
         // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
         .onChange(of: openChat?.channel?.channelId) { _, id in
-            guard id != nil, page == .agent, let chat = openChat else { return }
+            guard id != nil, page == .agent else { return }
             page = .chats
-            // After the page change below has cleared it.
-            Task { openChat = chat }
         }
         .onChange(of: openChat?.id) { _, _ in
             showBotTask = false
@@ -271,7 +269,8 @@ struct HomeView: View {
             showBotTask = false
             botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            openChat = nil
+            // A Bot's chat stays open on Bots, where the change above moves it.
+            if newPage != .chats || openChat?.channel == nil { openChat = nil }
             inbox?.selected = nil
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)

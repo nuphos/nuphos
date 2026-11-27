@@ -232,7 +232,9 @@ export async function resolveLocalRuntimeEndpoint(
     )
   if (agent?.cli.probeError && purpose !== 'login')
     throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)
-  if (agent?.cli.loggedIn === false && purpose !== 'login')
+  // Only new input needs the CLI signed in. Checking or stopping a turn does not, so a status
+  // read still reaches a signed-out agent instead of reading as a runtime that is away.
+  if (agent?.cli.loggedIn === false && (purpose === 'transport' || purpose === 'steer'))
     throw new AppError(
       409,
       'runtime_login_required',

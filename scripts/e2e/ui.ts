@@ -120,6 +120,11 @@ export async function newTask(page: Page) {
   await page.getByRole('complementary', { name: 'Bot details' }).waitFor({ state: 'hidden' })
 }
 
+/** Opens a sidebar row by its title: a long title's text box runs on under the row's menu. */
+export async function openRow(page: Page, title: string) {
+  await page.locator('[data-sidebar-row]').filter({ hasText: title }).first().click()
+}
+
 /** The team's Computers page, through ⌘K. */
 export async function openComputers(page: Page) {
   await page

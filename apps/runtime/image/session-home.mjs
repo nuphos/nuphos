@@ -147,9 +147,9 @@ export function nuphosClaudeSessionEnv(
   return { ...withToken, CLAUDE_CONFIG_DIR: configDir, ...isolated }
 }
 
-// The setup token the computer's owner shared with it in their vault (nuphos/nuphos#5187),
+// The setup token someone shared with this computer in their vault (nuphos/nuphos#5187),
 // which the runtime's host (Desktop or `nuphos agent`) opens with the computer's own key and
-// hands over on a private socket. Asked at every session start, so unsharing it stops new
+// hands, on a private socket, to the one agent that token backs. Asked at every session start, so unsharing it stops new
 // sessions getting it. Only in the child's environment: never written or logged.
 export function nuphosVaultToken(runtimeEnv = process.env) {
   const { NUPHOS_VAULT_SOCKET: pipe, NUPHOS_VAULT_KEY: key } = runtimeEnv

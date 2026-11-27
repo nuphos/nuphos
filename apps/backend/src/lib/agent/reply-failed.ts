@@ -53,8 +53,9 @@ function replyFailedReason(
       : `its ${label}account hit its usage limit.`
   if (cause === 'auth') return `its ${label}sign-in is no longer valid.`
   if (cause === 'cli') return AGENT_CLI_UNSTARTABLE_MESSAGE
-  // A disabled agent's own message says where to move the conversation.
-  if (error instanceof AppError && error.code === 'runtime_disabled') return error.message
+  // A disabled or gone agent's own message says where to move the conversation.
+  if (error instanceof AppError && ['runtime_disabled', 'runtime_not_found'].includes(error.code))
+    return error.message
   if (cause === 'offline') return `its ${label}runtime could not be reached.`
 
   if (error instanceof AppError) return error.message

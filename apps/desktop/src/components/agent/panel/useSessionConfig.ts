@@ -71,6 +71,8 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
 
   return {
     ...state,
+    teamId,
+    runtimeId,
     open,
     setOpen: (next: boolean) => {
       setOpen(next)

@@ -6,7 +6,8 @@
 
 import path from 'node:path'
 
-import { applyCodexProvider, PROVIDER_KEY_ENV } from './custom-provider.ts'
+import { applyCodexProvider } from './custom-provider-codex.ts'
+import { PROVIDER_KEY_ENV } from './custom-provider.ts'
 
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 import type { LocalAgentProvider } from './providers.ts'
@@ -117,12 +118,15 @@ export function withHostProvider(
 
   if (!line) return deps
   print(line)
+  // An agent signed in with a token shared through the Vault uses that token alone.
+  const own = (provider: LocalAgentProvider, runtimeEnv: NodeJS.ProcessEnv) =>
+    runtimeEnv.NUPHOS_VAULT_SOCKET ? undefined : hostProviderName(provider, env)
 
   return {
     ...deps,
     probeCli: async (provider, runtimeEnv, agentHome) => {
       const cli = await deps.probeCli(provider, runtimeEnv, agentHome)
-      const name = hostProviderName(provider, env)
+      const name = own(provider, runtimeEnv)
 
       return name && cli.installed ? { ...cli, loggedIn: true, customProvider: name } : cli
     },
@@ -142,9 +146,12 @@ export function withHostProvider(
 
       return {
         start: (options) => {
-          const own = hostProviderEnv(options.provider, env)
+          if (!own(options.provider, options.env)) return process.start(options)
 
-          return process.start({ ...options, secretEnv: { ...own, ...options.secretEnv } })
+          return process.start({
+            ...options,
+            secretEnv: { ...hostProviderEnv(options.provider, env), ...options.secretEnv },
+          })
         },
         stop: () => process.stop(),
         onExit: (listener) => process.onExit(listener),

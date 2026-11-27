@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { hashDeviceSecret } from '@/lib/agent/devices/join-tokens'
 import { AppError, errorHandler } from '@/lib/errors'
 import { liveDevice } from '@/routes/agent/router'
-import { offerKeyFromComputer, readComputerItem } from '@/routes/vault'
+import { listComputerSharers, offerKeyFromComputer, readComputerItem } from '@/routes/vault'
 
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { NuphosUser } from '@/lib/identity'
@@ -119,5 +119,42 @@ describe('a computer offering its key when it joins', () => {
       expect((await offer(token, { publicKey: KEY })).status).toBe(401)
     expect((await offer(CREDENTIAL, { publicKey: 'short' })).status).toBe(400)
     expect(offered).toHaveLength(1)
+  })
+})
+
+describe('a computer asking whose vaults share an item with it', () => {
+  const asked: unknown[] = []
+  const root = new Hono()
+
+  root.get('/vault/computer/items', (c) =>
+    listComputerSharers(c, {
+      liveDevice: live(),
+      owners: async (computer, name) => {
+        asked.push([computer, name])
+
+        return [{ userId: VAULT, name: 'Alice' }]
+      },
+    }),
+  )
+  root.onError(errorHandler)
+  const list = (token: string | undefined, name = 'claude-code-oauth-token') =>
+    root.request(`/vault/computer/items?name=${name}`, {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+    })
+
+  test('its own device credential lists the owners for that computer', async () => {
+    const res = await list(CREDENTIAL)
+
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ owners: [{ userId: VAULT, name: 'Alice' }] })
+    expect(asked).toEqual([
+      [{ userId: 'owner', deviceId: 'computer-1' }, 'claude-code-oauth-token'],
+    ])
+  })
+
+  test('a session token or no token gets 401, and an invalid name gets 404', async () => {
+    for (const token of ['session-token', undefined]) expect((await list(token)).status).toBe(401)
+    expect((await list(CREDENTIAL, '..')).status).toBe(404)
+    expect(asked).toHaveLength(1)
   })
 })

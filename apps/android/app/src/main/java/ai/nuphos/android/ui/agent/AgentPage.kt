@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -332,7 +333,7 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
         drawContent()
         val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
         fun x(level: Int): Float {
-            val logical = (level * 32 + 18).dp.toPx()
+            val logical = (level * 32 + 30).dp.toPx()
             return if (rtl) size.width - logical else logical
         }
         for (level in 0 until depth) {
@@ -340,18 +341,11 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
             if (row.trail.getOrNull(level) == true) drawLine(line, Offset(branch, 0f), Offset(branch, size.height), 1.dp.toPx())
             if (level == depth - 1) {
                 drawLine(line, Offset(branch, 0f), Offset(branch, size.height / 2), 1.dp.toPx())
-                val end = if (rtl) size.width - (depth * 32 - 3).dp.toPx() else (depth * 32 - 3).dp.toPx()
+                val end = if (rtl) size.width - (depth * 32 + 2).dp.toPx() else (depth * 32 + 2).dp.toPx()
                 drawLine(line, Offset(branch, size.height / 2), Offset(end, size.height / 2), 1.dp.toPx())
             }
         }
         if (row.threads > 0 && !row.folded) drawLine(line, Offset(x(depth), size.height / 2 + 21.dp.toPx()), Offset(x(depth), size.height), 1.dp.toPx())
-        // Match the list separator without cutting across an expanded tree.
-        if (row.depth == 0 && (row.threads == 0 || row.folded)) {
-            val inset = 56.dp.toPx().coerceAtMost(size.width)
-            val start = if (rtl) 0f else inset
-            val end = if (rtl) size.width - inset else size.width
-            drawLine(line, Offset(start, size.height - 0.5.dp.toPx()), Offset(end, size.height - 0.5.dp.toPx()), 1.dp.toPx())
-        }
     }.padding(start = (depth * 32).dp).semantics {
         stateDescription = levelDescription; this.selected = selected
     }) {
@@ -397,20 +391,30 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
     ConversationRowActions(conversation.sessionId, actions, interactions, onClick) { surface, more ->
         Surface(
             modifier = Modifier.fillMaxWidth().then(surface),
-            color = if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else MaterialTheme.colorScheme.background,
+            color = if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface,
             shape = MaterialTheme.shapes.small,
         ) {
             Row(
-                Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                Modifier.padding(end = 4.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // A Task row, Bot or not, leads with its runtime, never a face.
-                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { TaskMark(conversation.agentRuntime) }
+                // As on iOS: the status sits in a gutter before the runtime mark, never a face.
+                Box(Modifier.width(16.dp), contentAlignment = Alignment.Center) {
+                    if (status == "Running") {
+                        CircularProgressIndicator(Modifier.size(10.dp).semantics { stateDescription = status }, strokeWidth = 1.5.dp)
+                    } else if (status != null && status != "Unread") {
+                        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape).semantics { stateDescription = status })
+                    } else if (status == "Unread" || HistoryStatus.unread(conversation)) {
+                        val unread = stringResource(R.string.agent_unread_reply)
+                        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.onSurface, CircleShape).semantics { stateDescription = unread })
+                    }
+                }
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape), contentAlignment = Alignment.Center) {
+                    RuntimeMark(conversation.agentRuntime, 20.dp)
+                }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
-                    }
+                    Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f), maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (threads > 0) {
                     val foldState = stringResource(if (folded) R.string.agent_collapsed else R.string.agent_expanded)
@@ -422,15 +426,7 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
                             contentDescription = pluralStringResource(if (folded) R.plurals.agent_show_sub_agents else R.plurals.agent_hide_sub_agents, threads, threads))
                     }
                 }
-                if (status == "Running") {
-                    CircularProgressIndicator(Modifier.size(14.dp).semantics { stateDescription = status }, strokeWidth = 1.5.dp)
-                } else if (status != null && status != "Unread") {
-                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape).semantics { stateDescription = status })
-                } else if (status == "Unread" || HistoryStatus.unread(conversation)) {
-                    val unread = stringResource(R.string.agent_unread_reply)
-                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape).semantics { stateDescription = unread })
-                }
-                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f))
                 if (conversation.isArchived) {
                     Icon(Icons.Outlined.Archive, contentDescription = stringResource(R.string.agent_archived), tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                 }
@@ -575,11 +571,6 @@ fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -
         agentEnabled = setup != null && auth.aiAllowed,
         onChooseAgent = { setupVisible = true },
     )
-}
-
-@Composable
-private fun TaskMark(runtime: String?) {
-    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { RuntimeMark(runtime, 20.dp) }
 }
 
 /** Loads the next page once one of the last few loaded rows is on screen. */

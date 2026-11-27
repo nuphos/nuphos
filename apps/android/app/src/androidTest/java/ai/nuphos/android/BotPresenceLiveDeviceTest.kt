@@ -123,7 +123,7 @@ class BotPresenceLiveDeviceTest {
         compose.setContent {
             NuphosTheme(darkTheme = dark) {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen(chat, onBack = {})
+                    ChannelScreen(chat, onBack = {}, onLink = {})
                 }
             }
         }

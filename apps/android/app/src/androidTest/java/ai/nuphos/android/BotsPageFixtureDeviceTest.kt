@@ -160,7 +160,7 @@ class BotsPageFixtureDeviceTest {
                     composable("list") { page(nav) }
                     composable("channel/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
-                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() })
+                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() }, onLink = {})
                         else Text("Opened $id")
                     }
                 }
@@ -247,11 +247,12 @@ class BotsPageFixtureDeviceTest {
         compose.onNodeWithText(long, useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals("The preview takes two lines", 2, layouts.single().lineCount)
         assertTrue("and is cut after them", layouts.single().hasVisualOverflow)
-        // As on iOS, the chevron sits in the middle of the two-line row, not at its top.
-        val bounds = row("chat-bot").fetchSemanticsNode().boundsInRoot
+        // As on iOS, the chevron follows the time on the name's line, above the preview.
+        val name = compose.onNode(hasText("Ada") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
         val chevron = compose.onNode(hasTestTag("chat-chevron") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
-        assertEquals("The chevron is centred on the row", bounds.center.y, chevron.center.y, 2f)
+        assertEquals("The chevron is on the name's line", name.center.y, chevron.center.y, 4f)
     }
 
     @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {

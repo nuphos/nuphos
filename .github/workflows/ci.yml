@@ -302,8 +302,9 @@ jobs:
     needs: changes
     # Not in the merge queue: each PR already passed it, and macOS runners are scarce.
     if: github.event_name != 'merge_group' && needs.changes.outputs.cli == 'true'
-    # The keychain code (src/secret.rs) compiles only on macOS.
-    runs-on: macos-15
+    # The keychain code (src/secret.rs) compiles only on macOS. Same-repo pull requests
+    # use the maintainers' Macs, like the iOS build.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'macos-15' }}
     defaults:
       run:
         working-directory: apps/cli
@@ -311,6 +312,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # The maintainers' Macs have no Rust: install rustup, then the toolchain rust-toolchain.toml pins.
+      - name: Install Rust
+        run: |
+          command -v rustup > /dev/null && exit 0
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          "$HOME/.cargo/bin/rustup" toolchain install
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
       - name: Test
@@ -336,7 +344,8 @@ jobs:
       matrix:
         # The merge queue drops macOS: each PR already passed it, and macOS runners are scarce.
         os: ${{ github.event_name == 'merge_group' && fromJSON('["ubuntu-24.04-arm"]') || fromJSON('["ubuntu-24.04-arm", "macos-15"]') }}
-    runs-on: ${{ matrix.os }}
+    # A same-repo pull request's macOS leg uses the maintainers' Macs, like the iOS build.
+    runs-on: ${{ matrix.os == 'macos-15' && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -755,7 +764,8 @@ jobs:
       ${{ !cancelled() && (inputs.nightly ||
       (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
       needs.changes.outputs.desktop_package == 'true')) }}
-    runs-on: macos-26
+    # Same-repo pull requests use the maintainers' Macs, like the iOS build.
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'macos-26' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
