@@ -9,6 +9,7 @@ import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { listSelectedCredentials, listSessionCredentials } from './credential-listing'
 import { mintPreviewMcpToken } from './mcp-token'
 import { runtimeBackendUrl } from './runtime-backend-url'
+import { hiddenSkills } from './hidden-skills'
 import { skillSyncEnv } from './runtime-skills-token'
 
 import type { AcpHttpMcpServer } from './openab-acp-client'
@@ -153,6 +154,7 @@ export async function previewSessionAccess(
     runtimeEnv: {
       CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1', // Nuphos memory replaces Claude Code's own
       ...connectorEnv(selected.map((entry) => entry.provider)),
+      NUPHOS_HIDDEN_SKILLS: hiddenSkills(selected).join(','),
       ...previewSessionEnv({
         base,
         token,

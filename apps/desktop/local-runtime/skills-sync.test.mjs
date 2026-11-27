@@ -249,6 +249,29 @@ test('each session offers the team skills, and only those, as a plugin of its ow
   delete globalThis.nuphosRefreshSkills
 })
 
+test('a skill the backend names as hidden is left out of the plugin, not off the disk', async (t) => {
+  const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
+  const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
+
+  t.mock.method(globalThis, 'fetch', () =>
+    Promise.resolve(
+      bundle('r1', [file('aws/SKILL.md', '# AWS'), file('deploy/SKILL.md', '# Deploy')]),
+    ),
+  )
+  const opened = structuredClone(params)
+
+  opened._meta.claudeCode.options.env.NUPHOS_HIDDEN_SKILLS = 'aws'
+  await nuphosLocalSyncSkills(opened, { workspace, sessionHome })
+  delete globalThis.nuphosRefreshSkills
+  const [team] = opened._meta.claudeCode.options.plugins
+
+  assert.deepEqual(readdirSync(join(team.path, 'skills')), ['deploy'])
+  assert.equal(
+    readFileSync(join(workspace, '.claude', 'skills', 'aws', 'SKILL.md'), 'utf8'),
+    '# AWS',
+  )
+})
+
 test('a skill added after the sync is fetched over, and never offered', async (t) => {
   const workspace = mkdtempSync(join(tmpdir(), 'skills-'))
   const sessionHome = mkdtempSync(join(tmpdir(), 'home-'))
