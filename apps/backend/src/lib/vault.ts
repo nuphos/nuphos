@@ -160,6 +160,21 @@ export function addVaultDevice(
   })
 }
 
+/**
+ * Desktop names the computer it runs on, so what others share with that computer opens with
+ * the key it already holds. One device per computer: a link an earlier one had moves to it.
+ */
+export function linkVaultDevice(userId: string, id: string, deviceId: string) {
+  const computer: Computer = { userId, deviceId }
+
+  return exclusive(userId, async () => {
+    if (!(await devices().findOne({ _id: id, userId })))
+      throw new AppError(404, 'not_found', 'Device not found')
+    await devices().updateMany({ userId, computer, _id: { $ne: id } }, { $unset: { computer: '' } })
+    await devices().updateOne({ _id: id, userId }, { $set: { computer } })
+  })
+}
+
 /** Approval wraps nothing: a device gets only the items shared with it later. */
 export function approveVaultDevice(userId: string, deviceId: string) {
   return exclusive(userId, async () => {

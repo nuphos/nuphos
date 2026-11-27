@@ -13,6 +13,7 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  linkVaultDevice,
   listVaultDevices,
   listVaultItems,
   putVaultItem,
@@ -328,6 +329,44 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     expect(
       await vaultOwnersSharingWithComputer({ ...box, deviceId: randomUUID() }, 'token'),
     ).toEqual([])
+  })
+
+  test('Desktop reads what its owner and others share with its computer, with its one key', async () => {
+    const bob = randomUUID()
+    const alice = randomUUID()
+    const mac = { userId: bob, deviceId: randomUUID() }
+    const desktop = await addVaultDevice(bob, 'Mac (Desktop)', KEY)
+
+    await linkVaultDevice(bob, desktop.id, mac.deviceId)
+    await put(bob, 'token', 'bob', keysFor(desktop.id))
+    // Alice adds Bob's computer: what Bob approved for it is the key she gets.
+    const laptop = await addVaultDevice(alice, 'laptop', KEY)
+    const added = await addVaultDevice(alice, 'Mac', KEY, mac)
+
+    await approveVaultDevice(alice, added.id)
+    await put(alice, 'token', 'alice', [...keysFor(laptop.id), ...keysFor(added.id)])
+
+    const owners = await vaultOwnersSharingWithComputer(mac, 'token')
+
+    expect(new Set(owners.map((owner) => owner.userId))).toEqual(new Set([alice, bob]))
+    expect(await getVaultItemForComputer(bob, mac, 'token')).toMatchObject({
+      deviceId: desktop.id,
+      item: { ciphertext: 'bob', keys: keysFor(desktop.id) },
+    })
+    expect(await getVaultItemForComputer(alice, mac, 'token')).toMatchObject({
+      deviceId: added.id,
+      item: { ciphertext: 'alice', keys: keysFor(added.id) },
+    })
+    // A new enrollment on that computer takes the link; another person's device it cannot.
+    const again = await addVaultDevice(bob, 'Mac (Desktop)', Buffer.alloc(32, 3).toString('base64'))
+
+    await approveVaultDevice(bob, again.id)
+    await linkVaultDevice(bob, again.id, mac.deviceId)
+    await put(bob, 'token', 'bob2', keysFor(again.id))
+    expect((await getVaultItemForComputer(bob, mac, 'token')).deviceId).toBe(again.id)
+    expect(await fails(linkVaultDevice(bob, laptop.id, mac.deviceId))).toMatchObject({
+      code: 'not_found',
+    })
   })
 
   test('a computer that joined offers one key, even when two offers race', async () => {

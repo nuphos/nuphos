@@ -93,7 +93,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return apiUrl()
   },
   userEnv,
-  vaultTokens: desktopVaultTokens(() => authSession.context().userId),
+  vaultTokens: desktopVaultTokens(() => readDeviceIdentity().deviceId),
   probeCli: withProviderStatus(probeAgentCli, providerKeys),
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir(), userId),

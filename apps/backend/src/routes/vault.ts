@@ -9,6 +9,7 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  linkVaultDevice,
   listVaultDevices,
   listVaultItems,
   putVaultItem,
@@ -142,6 +143,47 @@ vaultRoutes.post(
 
     return c.json({ device })
   },
+)
+
+const computerId = z.string().regex(/^[\w-]{1,128}$/)
+
+vaultRoutes.put(
+  '/devices/:id/computer',
+  zv('json', z.object({ deviceId: computerId })),
+  async (c) => {
+    await linkVaultDevice(c.get('userId'), c.req.param('id'), c.req.valid('json').deviceId)
+
+    return c.body(null, 204)
+  },
+)
+
+// Desktop reads as a computer of the person signed in, which it is, so it needs no device
+// credential: only the devices linked to their own computer, and only that device's key.
+function ownComputer(c: Context<{ Variables: AuthVariables }>) {
+  const deviceId = c.req.param('deviceId') ?? ''
+
+  if (!computerId.safeParse(deviceId).success) throw new AppError(404, 'not_found', 'Not found')
+
+  return { userId: c.get('userId'), deviceId }
+}
+
+vaultRoutes.get('/computers/:deviceId/items', async (c) =>
+  c.json({
+    owners: await vaultOwnersSharingWithComputer(
+      ownComputer(c),
+      nameParam(c.req.query('name') ?? ''),
+    ),
+  }),
+)
+
+vaultRoutes.get('/computers/:deviceId/items/:name', async (c) =>
+  c.json(
+    await getVaultItemForComputer(
+      c.req.query('user') ?? '',
+      ownComputer(c),
+      nameParam(c.req.param('name')),
+    ),
+  ),
 )
 
 vaultRoutes.delete('/devices/:id', async (c) => {
