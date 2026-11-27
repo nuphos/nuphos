@@ -172,6 +172,15 @@ describe('Bot identity', () => {
     expect(plain).not.toContain('Delegate work by default')
   })
 
+  // #5272: a Bot's chat shows only its posts, never a chart or artifact card.
+  test('a Bot shares results as posts, not charts or artifacts', () => {
+    const bot = renderInstructionsBlock([], [], { name: 'Release Helper' }) ?? ''
+    const plain = renderInstructionsBlock([{ title: 'Team rule', content: 'A' }], []) ?? ''
+
+    expect(bot).toContain('you have no `render_artifact` or `render_chart`')
+    expect(plain).not.toContain('render_artifact')
+  })
+
   test('a Bot without instructions is told to ask for them', () => {
     expect(renderInstructionsBlock([], [], { name: 'New Bot' })).toContain(
       'You have no instructions yet',
