@@ -1,6 +1,6 @@
 ---
 name: nuphos-dashboards
-description: "Build and update Nuphos Dashboards (not Grafana): panels backed by JavaScript that pull Nuphos or provider data and chart spend, AI usage, inventory or any metric."
+description: "Build and update Nuphos Dashboards (not Grafana) of script-driven panels."
 ---
 
 # Nuphos Dashboards

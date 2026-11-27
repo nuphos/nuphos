@@ -233,6 +233,7 @@ export async function nuphosSyncRuntimeSkills(params, run) {
   // OpenAB runs one agent process per session, so a wrapper goes when its process
   // exits, and one whose process is gone without that (killed, crashed) is swept by
   // the next session to start.
+  const hidden = new Set(String(env.NUPHOS_HIDDEN_SKILLS ?? '').split(','))
   const prefix = 'nuphos-skill-plugins-'
 
   for (const entry of await fs.readdir(os.tmpdir()).catch(() => [])) {
@@ -258,7 +259,16 @@ export async function nuphosSyncRuntimeSkills(params, run) {
       path.join(plugins, name, '.claude-plugin', 'plugin.json'),
       JSON.stringify({ name }),
     )
-    await fs.symlink(tree, path.join(plugins, name, 'skills'), 'junction')
+    // One link per skill, leaving out the provider skills the backend names as
+    // unselected for this conversation (NUPHOS_HIDDEN_SKILLS).
+    await fs.mkdir(path.join(plugins, name, 'skills'))
+    for (const entry of await fs.readdir(tree, { withFileTypes: true }).catch(() => []))
+      if (entry.isDirectory() && !hidden.has(entry.name))
+        await fs.symlink(
+          path.join(tree, entry.name),
+          path.join(plugins, name, 'skills', entry.name),
+          'junction',
+        )
   }
   options.plugins = [
     ...(options.plugins ?? []).filter(

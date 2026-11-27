@@ -1,7 +1,7 @@
-// Nuphos Vault: a user's secrets, encrypted on their own devices. The backend
-// keeps device public keys, item ciphertext and each item's key wrapped for
-// every enrolled device; it never sees a private key or a plaintext. What it
-// does enforce is that every item stays readable by every enrolled device.
+// Nuphos Vault: a user's secrets, encrypted on their own devices. The backend keeps
+// public keys, ciphertext and item keys wrapped for the devices an item is shared
+// with (#5088), never a private key or plaintext, and keeps every item readable by at
+// least one device, so it can always be shared again or rotated.
 import { randomUUID } from 'node:crypto'
 
 import { MongoServerError } from 'mongodb'
@@ -29,6 +29,11 @@ type VaultDeviceDoc = {
   enrolledAt?: Date
   /** The computer that added it from afar; it reads with its own device credential. */
   computer?: Computer
+  /**
+   * Linked by Desktop, which holds this one key for every vault: a CLI computer makes one per
+   * person instead, with `nuphos vault keygen --user`.
+   */
+  desktop?: true
 }
 
 /** A computer as its device credential names it; matched whole, so in this field order. */
@@ -52,11 +57,7 @@ export const items = (): Collection<VaultItemDoc> => db().collection('vault_item
 const locks = (): Collection<{ _id: string; token: string; until: Date }> =>
   db().collection('vault_locks')
 
-/**
- * Runs one write of a user's vault at a time. Every write reads the device set
- * or the item names and then writes against it, so two at once could leave an
- * item without a key for an enrolled device.
- */
+/** One write of a user's vault at a time: each checks the devices or items it writes against. */
 async function exclusive<T>(userId: string, body: () => Promise<T>): Promise<T> {
   const token = randomUUID()
   const now = new Date()
@@ -108,21 +109,18 @@ export function itemView(doc: VaultItemDoc) {
   }
 }
 
-/** Whether `given` names each of `expected` exactly once, and nothing else. */
-export function coversExactly(given: string[], expected: string[]): boolean {
+/** Whether `given` names some of `allowed`, each at most once. */
+export function distinctWithin(given: string[], allowed: string[]): boolean {
   const names = new Set(given)
 
-  return (
-    names.size === given.length &&
-    names.size === expected.length &&
-    expected.every((name) => names.has(name))
-  )
+  return names.size === given.length && given.every((name) => allowed.includes(name))
 }
 
-async function enrolledIds(userId: string): Promise<string[]> {
-  const enrolled = await devices().find({ userId, state: 'enrolled' }).toArray()
+/** Now, or just after `previous`: a write always moves `updatedAt`, which `seen` compares. */
+const later = (previous?: Date) => new Date(Math.max(Date.now(), (previous?.getTime() ?? 0) + 1))
 
-  return enrolled.map((doc) => doc._id)
+async function enrolled(userId: string) {
+  return devices().find({ userId, state: 'enrolled' }).toArray()
 }
 
 export async function listVaultDevices(userId: string) {
@@ -145,7 +143,7 @@ export function addVaultDevice(
     if (linked) throw new AppError(409, 'vault_computer_exists', 'This computer has a key here')
     if ((await devices().countDocuments({ userId })) >= MAX_DEVICES)
       throw new AppError(409, 'vault_device_limit', `A vault holds at most ${MAX_DEVICES} devices`)
-    const first = (await enrolledIds(userId)).length === 0
+    const first = (await enrolled(userId)).length === 0
 
     if (first && computer)
       throw new AppError(409, 'vault_not_enrolled', 'Add this device to your vault first')
@@ -168,39 +166,31 @@ export function addVaultDevice(
 }
 
 /**
- * An enrolled device approves a pending one by wrapping every item's key for
- * it. Without those keys the device could read nothing, so the backend alone
- * can never enroll one.
+ * Desktop names the computer it runs on, so what others share with that computer opens with
+ * the key it already holds. One device per computer: a link an earlier one had moves to it.
  */
-export function approveVaultDevice(
-  userId: string,
-  deviceId: string,
-  keys: { name: string; wrapped: string }[],
-) {
+export function linkVaultDevice(userId: string, id: string, deviceId: string) {
+  const computer: Computer = { userId, deviceId }
+
+  return exclusive(userId, async () => {
+    if (!(await devices().findOne({ _id: id, userId })))
+      throw new AppError(404, 'not_found', 'Device not found')
+    await devices().updateMany(
+      { userId, computer, _id: { $ne: id } },
+      { $unset: { computer: '', desktop: '' } },
+    )
+    await devices().updateOne({ _id: id, userId }, { $set: { computer, desktop: true } })
+  })
+}
+
+/** Approval wraps nothing: a device gets only the items shared with it later. */
+export function approveVaultDevice(userId: string, deviceId: string) {
   return exclusive(userId, async () => {
     const device = await devices().findOne({ _id: deviceId, userId })
 
     if (!device) throw new AppError(404, 'not_found', 'Device not found')
     if (device.state !== 'pending') {
       throw new AppError(409, 'vault_device_enrolled', 'Device is already enrolled')
-    }
-    const names = (await items().find({ userId }).project({ name: 1 }).toArray()).map(
-      (doc) => doc.name as string,
-    )
-
-    if (
-      !coversExactly(
-        keys.map((key) => key.name),
-        names,
-      )
-    ) {
-      throw new AppError(409, 'vault_items_changed', 'Wrap the key of every vault item, once each')
-    }
-    for (const key of keys) {
-      await items().updateOne(
-        { userId, name: key.name, 'keys.deviceId': { $ne: deviceId } },
-        { $push: { keys: { deviceId, wrapped: key.wrapped } } },
-      )
     }
     const enrolledAt = new Date()
 
@@ -213,26 +203,17 @@ export function approveVaultDevice(
   })
 }
 
-/**
- * Drops the device and its wrapped keys. Items are not re-keyed. The last
- * enrolled device stays while items exist: without it nothing could read them,
- * and the next device would be trusted on first use.
- */
+/** Drops a device and its wraps, unless it is the only one an item is shared with. */
 export function removeVaultDevice(userId: string, deviceId: string): Promise<void> {
   return exclusive(userId, async () => {
     const device = await devices().findOne({ _id: deviceId, userId })
 
     if (!device) throw new AppError(404, 'not_found', 'Device not found')
-    if (
-      device.state === 'enrolled' &&
-      (await enrolledIds(userId)).length === 1 &&
-      (await items().countDocuments({ userId }, { limit: 1 })) > 0
-    ) {
-      throw new AppError(
-        409,
-        'vault_last_device',
-        'Remove the vault items first: this is the only device that can read them',
-      )
+    const others = (await enrolled(userId)).map((doc) => doc._id).filter((id) => id !== deviceId)
+
+    // `$nin` on an array matches an item none of whose keys is for another device.
+    if (await items().countDocuments({ userId, 'keys.deviceId': { $nin: others } }, { limit: 1 })) {
+      throw new AppError(409, 'vault_last_device', 'Share or delete what only it can open')
     }
     await devices().deleteOne({ _id: deviceId, userId })
     await items().updateMany({ userId }, { $pull: { keys: { deviceId } } })
@@ -242,11 +223,15 @@ export function removeVaultDevice(userId: string, deviceId: string): Promise<voi
 export async function listVaultItems(userId: string) {
   const docs = await items()
     .find({ userId })
-    .project<{ name: string; updatedAt: Date }>({ name: 1, updatedAt: 1 })
+    .project<VaultItemDoc>({ name: 1, updatedAt: 1, 'keys.deviceId': 1 })
     .sort({ name: 1 })
     .toArray()
 
-  return docs.map((doc) => ({ name: doc.name, updatedAt: doc.updatedAt.toISOString() }))
+  return docs.map((doc) => ({
+    name: doc.name,
+    updatedAt: doc.updatedAt.toISOString(),
+    deviceIds: doc.keys.map((key) => key.deviceId),
+  }))
 }
 
 export async function getVaultItem(userId: string, name: string) {
@@ -257,27 +242,30 @@ export async function getVaultItem(userId: string, name: string) {
   return itemView(doc)
 }
 
-export function putVaultItem(userId: string, name: string, ciphertext: string, keys: VaultKey[]) {
+/** Shares with exactly the devices wrapped for; `seen` (null if new) refuses a stale write. */
+export function putVaultItem(
+  userId: string,
+  name: string,
+  ciphertext: string,
+  keys: VaultKey[],
+  seen: string | null,
+) {
   return exclusive(userId, async () => {
-    if (
-      !coversExactly(
-        keys.map((key) => key.deviceId),
-        await enrolledIds(userId),
-      )
-    ) {
-      throw new AppError(
-        409,
-        'vault_devices_changed',
-        'Wrap the item key for every enrolled device, once each',
-      )
+    const ids = keys.map((key) => key.deviceId)
+    const enrolledIds = (await enrolled(userId)).map((doc) => doc._id)
+
+    if (!distinctWithin(ids, enrolledIds)) {
+      throw new AppError(409, 'vault_devices_changed', 'Wrap for enrolled devices, once each')
     }
-    if (
-      !(await items().countDocuments({ userId, name }, { limit: 1 })) &&
-      (await items().countDocuments({ userId })) >= MAX_ITEMS
-    ) {
+    const current = await items().findOne({ userId, name }, { projection: { updatedAt: 1 } })
+
+    if ((current?.updatedAt.toISOString() ?? null) !== seen) {
+      throw new AppError(409, 'vault_item_changed', 'The item changed since it was read')
+    }
+    if (!current && (await items().countDocuments({ userId })) >= MAX_ITEMS) {
       throw new AppError(409, 'vault_item_limit', `A vault holds at most ${MAX_ITEMS} items`)
     }
-    const now = new Date()
+    const now = later(current?.updatedAt)
     const doc = await items().findOneAndUpdate(
       { userId, name },
       {

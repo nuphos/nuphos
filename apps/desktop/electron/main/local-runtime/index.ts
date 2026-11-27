@@ -28,6 +28,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  checkCustomProvider,
   notSaved,
   saveCustomProvider,
   withProviderKey,
@@ -35,6 +36,7 @@ import {
 } from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
+import { desktopVaultTokens } from './desktop-vault-tokens.ts'
 import { watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
@@ -91,6 +93,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return apiUrl()
   },
   userEnv,
+  vaultTokens: desktopVaultTokens(() => readDeviceIdentity().deviceId),
   probeCli: withProviderStatus(probeAgentCli, providerKeys),
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir(), userId),
@@ -258,6 +261,15 @@ export async function setLocalCustomProvider(
   await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()
+}
+
+/** Tests a provider for one agent with one request, before or without saving it. */
+export function checkLocalCustomProvider(provider: unknown, value: unknown) {
+  const { userId } = controller.state()
+
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+
+  return checkCustomProvider(providerKeys, userId, provider, value).catch(notSaved)
 }
 
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {

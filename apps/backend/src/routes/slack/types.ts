@@ -63,6 +63,7 @@ export type SlackFileRef = {
 export type SlackRuntime = {
   botToken: string
   botUserId: string
+  slackWorkspaceId: string
 }
 
 export type SlackAppMentionEvent = SlackMessageEvent & {

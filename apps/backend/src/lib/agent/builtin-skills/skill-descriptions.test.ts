@@ -8,7 +8,7 @@ const SKILLS = new URL('./skills/', import.meta.url)
 // Claude Code lists every installed skill's description in each request, so every
 // conversation pays for all of them on every model call. Say what the skill does and
 // what should trigger it; the body carries the rest.
-test('every built-in skill description fits in 200 characters', () => {
+test('every built-in skill description fits in 100 characters', () => {
   const tooLong = readdirSync(SKILLS, { withFileTypes: true })
     .filter((entry) => existsSync(new URL(`${entry.name}/SKILL.md`, SKILLS)))
     .flatMap((entry) => {
@@ -16,7 +16,7 @@ test('every built-in skill description fits in 200 characters', () => {
       const frontMatter = source.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? ''
       const { description } = parse(frontMatter) as { description: string }
 
-      return description.length > 200 ? [`${entry.name} (${description.length})`] : []
+      return description.length > 100 ? [`${entry.name} (${description.length})`] : []
     })
 
   expect(tooLong).toEqual([])

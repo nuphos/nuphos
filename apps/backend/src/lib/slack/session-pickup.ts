@@ -141,6 +141,7 @@ export async function pickUpConversationInSlack(
     token: bot.botToken,
     channel: dmChannelId,
     text: rootText,
+    from: { sessionId: args.sessionId, slackWorkspaceId },
   })
   const rootTs = response.ts
   const responseChannel =

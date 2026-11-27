@@ -1,6 +1,6 @@
 ---
 name: jira
-description: Read, create, comment on and transition Jira Cloud issues in a team-bound site. Use for opening, tracking or closing an issue, filing an incident ticket or checking status.
+description: "Jira issues in a team-bound site: open, track, transition or close one, or file an incident ticket."
 ---
 
 # jira

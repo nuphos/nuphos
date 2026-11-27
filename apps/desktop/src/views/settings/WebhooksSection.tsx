@@ -74,7 +74,7 @@ export function WebhooksSection({ team }: { team: AtlasTeam | undefined }) {
       <SectionHeader
         title={t('Webhooks')}
         description={t(
-          'A conversation started by nuphos_ask with a webhook_id sends that webhook a POST request when it finishes a reply, fails, needs input, or one of its Tasks reports back, so your own systems can follow up without polling.',
+          'A conversation started by nuphos_ask with a webhook_id sends that webhook a POST request when it finishes a reply, fails, needs input, or it or one of its Tasks reports back, so your own systems can follow up without polling.',
         )}
       />
       {team && !isAdmin && <AdminOnlyHint teamId={team.id} />}

@@ -128,8 +128,15 @@
     <string name="chat_retry_steering">Reintentar redirección</string>
     <string name="chat_attachment_message">Mensaje con adjuntos</string>
     <string name="chat_upload_preparing">Preparando la subida…</string>
-    <string name="chat_upload_progress">Subiendo %1$d / %2$d bytes</string>
+    <string name="chat_upload_progress">Subiendo %1$s de %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="one">%1$s byte</item>
+        <item quantity="many">%1$s bytes</item>
+        <item quantity="other">%1$s bytes</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">Comprobando los archivos subidos…</string>
+    <string name="chat_upload_sending">Enviando…</string>
     <string name="chat_upload_ready">Archivos listos</string>
     <string name="chat_upload_cancel">Cancelar subida</string>
     <string name="chat_upload_retry">Reintentar mensaje con adjuntos</string>

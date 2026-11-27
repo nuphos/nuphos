@@ -1,6 +1,6 @@
 ---
 name: firebase
-description: Inspect Firebase project and registered-app inventory through a selected GCP service-account binding, with short-lived credentials and REST APIs. No CLI auth or deploys.
+description: "Inspect Firebase projects and apps through a selected GCP service account."
 ---
 
 # Firebase

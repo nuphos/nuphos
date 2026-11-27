@@ -102,7 +102,7 @@ class ChannelTableFixtureDeviceTest {
         compose.setContent {
             NuphosTheme {
                 CompositionLocalProvider(LocalAgentStore provides store, LocalAuthSession provides auth) {
-                    ChannelScreen("chat-a", onBack = { fail("The chat closed itself") })
+                    ChannelScreen("chat-a", onBack = { fail("The chat closed itself") }, onLink = {})
                 }
             }
         }

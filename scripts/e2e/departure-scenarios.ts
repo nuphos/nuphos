@@ -29,8 +29,8 @@ export async function departureFlow(stack: Flow, log: (line: string) => void = (
         'GitLab to connect',
       )
     }
-    const privateId = await gitlabBindingId(stack, member, dropped.url)
-    const sharedId = await gitlabBindingId(stack, member, kept.url)
+    const privateId = await gitlabBindingId(stack, member, dropped)
+    const sharedId = await gitlabBindingId(stack, member, kept)
     const path = `/teams/${stack.teamId}/gitlab-bindings`
 
     must(

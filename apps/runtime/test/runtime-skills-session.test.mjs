@@ -401,6 +401,26 @@ test('each session offers the team skills, and only those, as a plugin of its ow
   })
 })
 
+test('a skill the backend names as hidden is left out of the plugin, not off the disk', async () => {
+  await withInstalledBundle(async (workspace) => {
+    await withFakeScript('exit 0', async ({ script, directory }) => {
+      const params = structuredClone(bundleSession)
+
+      params._meta.claudeCode.options.env.NUPHOS_HIDDEN_SKILLS = 'aws,kept'
+      await nuphosSyncRuntimeSkills(params, {
+        script,
+        sessionHome: directory,
+        env: { NUPHOS_RUNTIME_WORKSPACE: workspace },
+      })
+      delete globalThis.nuphosRefreshSkills
+      const [team] = params._meta.claudeCode.options.plugins
+
+      assert.deepEqual(await readdir(join(team.path, 'skills')), [])
+      assert.equal(await readFile(join(workspace, '.claude/skills/kept/SKILL.md'), 'utf8'), '# One')
+    })
+  })
+})
+
 test('a skill added after the sync is fetched over, and never offered', async () => {
   const workspace = await mkdtemp(join(tmpdir(), 'nuphos-workspace-'))
   const claude = join(workspace, '.claude')

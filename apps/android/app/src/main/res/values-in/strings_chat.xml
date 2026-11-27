@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">Coba arahkan lagi</string>
     <string name="chat_attachment_message">Pesan lampiran</string>
     <string name="chat_upload_preparing">Menyiapkan unggahan…</string>
-    <string name="chat_upload_progress">Mengunggah %1$d / %2$d byte</string>
+    <string name="chat_upload_progress">Mengunggah %1$s dari %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s bita</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">Memeriksa file yang diunggah…</string>
+    <string name="chat_upload_sending">Mengirim…</string>
     <string name="chat_upload_ready">File siap</string>
     <string name="chat_upload_cancel">Batalkan unggahan</string>
     <string name="chat_upload_retry">Coba lagi pesan lampiran</string>

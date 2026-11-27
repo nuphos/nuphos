@@ -112,6 +112,17 @@ export type LocalRuntimeState = {
   deviceId?: string
 }
 
+/** One test request to a custom provider (custom-provider.ts in the main process). */
+export type CustomProviderCheck =
+  | { host: string; reached: false }
+  | {
+      host: string
+      reached: true
+      ms: number
+      failure?: { reason: 'key' | 'api'; request: string }
+      models?: { answered: number; total: number }
+    }
+
 /** `connecting`: the machine runs but its host has not joined yet. */
 export type BoxState = 'creating' | 'connecting' | 'running' | 'paused' | 'error'
 

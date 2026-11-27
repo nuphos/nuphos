@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
+import { OpenAbRpcError } from '@/lib/claude-code-preview/openab-acp-errors'
 import { logError } from '@/lib/observability'
 
 import { markChannelRead, unmarkChannelRead } from './db/channel-cursor'
@@ -17,6 +18,8 @@ import {
   requeuePendingAtHead,
   takePendingUserMessages,
 } from './pending-queue'
+
+export { remindUnanswered } from './channel-unanswered'
 
 import type { AgentConversation } from './db'
 import { systemSender } from './message-metadata'
@@ -36,6 +39,9 @@ export const channelNoticeSender = (
         displayName,
         `/teams/${teamId}/agent/${channel.sessionId}`,
       )
+
+/** OpenAB's code for a steer the agent did not acknowledge in time: delivery unknown. */
+const STEER_UNACKNOWLEDGED = -32001
 
 /**
  * Steers the agent's running turn with the notice and the posts it has not
@@ -68,8 +74,10 @@ export async function steerRunningTurn(
       { text: messages[0].renderedText, userId: agent.userId, metadata: messages[0].metadata },
       randomUUID(),
     )
-  } catch {
-    return false
+  } catch (error) {
+    // OpenAB stopped waiting for the agent's answer, not the agent for the steer: the posts
+    // are most likely in the turn, so they are taken as an acknowledged steer, not sent again.
+    if (!(error instanceof OpenAbRpcError && error.code === STEER_UNACKNOWLEDGED)) return false
   }
   // The turn now answers this channel too, so the channel shows it typing.
   await addRunChannels(agent.userId, active.streamId, [channel.sessionId])
@@ -199,11 +207,13 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
         uploads ? { ...message, files: uploads.length } : message,
       ),
       note:
-        page.note +
-        (files
-          ? ' Call channel_read to get the files posted with these messages on this runtime.'
-          : '') +
-        (page.more ? ' More was posted: call channel_read for the rest.' : ''),
+        [
+          page.note,
+          files && 'Call channel_read to get the files posted with these messages on this runtime.',
+          page.more && 'More was posted: call channel_read for the rest.',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
     },
     null,
     2,

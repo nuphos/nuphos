@@ -26,7 +26,7 @@ export async function adminListingFlow(stack: Flow, log: (line: string) => void 
       (await connectGitlab(stack, owner, gitlab.url, 'listing-code')).status === 200,
       'GitLab to connect',
     )
-    const bindingId = await gitlabBindingId(stack, owner, gitlab.url)
+    const bindingId = await gitlabBindingId(stack, owner, gitlab)
     const path = `/teams/${stack.teamId}/gitlab-bindings`
     const listed = async () =>
       JSON.stringify((await admin('GET', `${path}/namespaces`)).body).includes(bindingId)

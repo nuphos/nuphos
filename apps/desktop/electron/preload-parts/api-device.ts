@@ -28,6 +28,10 @@ export const deviceApi = {
     provider: 'claude-code' | 'codex',
     value: { baseUrl: string; apiKey?: string; models: string[] } | null,
   ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value),
+  localRuntimeCheckCustomProvider: (
+    provider: 'claude-code' | 'codex',
+    value: { baseUrl: string; apiKey?: string; models: string[] },
+  ) => ipcRenderer.invoke('localRuntime:checkCustomProvider', provider, value),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),

@@ -1,6 +1,6 @@
 ---
 name: tailscale
-description: Use a Tailscale OAuth client bound in Nuphos to inspect or change Tailscale tailnet resources through the Tailscale API.
+description: "Tailscale tailnet resources via a Nuphos-bound OAuth client."
 ---
 
 # tailscale

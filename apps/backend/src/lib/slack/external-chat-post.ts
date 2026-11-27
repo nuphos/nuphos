@@ -1,11 +1,10 @@
-import { agentMessages } from '@/lib/agent/db'
+import { agentMessages, getConversationBySessionId } from '@/lib/agent/db'
+import { speakingBot } from '@/lib/agent/db/bot-membership'
 import { parseMessageMetadata } from '@/lib/agent/message-metadata'
 import { AppError } from '@/lib/errors'
-import { getSlackChannelMappingByExternalChat } from '@/lib/slack/agent-bot'
-import { postSlackMessage } from '@/lib/slack/api'
+import { getSlackChannelMapping, getSlackChannelMappingByExternalChat } from '@/lib/slack/agent-bot'
+import { postAgentSlackMessage } from '@/lib/slack/agent-message'
 import { resolveSlackBotForWorkspace } from '@/lib/slack/installations'
-import { escapeSlackMrkdwn } from '@/lib/slack/mrkdwn'
-import { toSlackMrkdwn } from '@/lib/slack/mrkdwn/convert'
 
 import type { AgentConversation } from '@/lib/agent/db'
 import type { MessageMetadata } from '@/lib/agent/message-metadata'
@@ -21,7 +20,7 @@ export const slackPostId = (slackChannelId: string, ts: string) => `slack:${slac
  */
 export async function postToSlack(
   record: Pick<AgentConversation, 'sessionId' | 'userId'>,
-  bot: { title?: string },
+  bot: Pick<AgentConversation, 'sessionId'>,
   text: string,
   replyTo: MessageMetadata['replyTo'],
 ): Promise<string> {
@@ -30,25 +29,12 @@ export async function postToSlack(
 
   if (!mapping || !installed)
     throw new AppError(409, 'slack_channel_unavailable', 'This chat is no longer in Slack.')
-  const name = bot.title || 'Nuphos'
-  const body = toSlackMrkdwn(text)
-  const threadTs = await threadRoot(record, mapping.slackChannelId, replyTo?.id)
-  const post = (customize: boolean) =>
-    postSlackMessage({
-      token: installed.botToken,
-      channel: mapping.slackChannelId,
-      // Without the name Slack shows the app's, so the post opens with the Bot's.
-      text: customize ? body : `*${escapeSlackMrkdwn(name)}*\n${body}`,
-      threadTs,
-      ...(customize ? { username: name } : {}),
-    })
-  // Slack does not say a custom name is ignored without chat:write.customize,
-  // so a token that refuses it posts once more without one.
-  const customize = installed.binding.scope.split(',').includes('chat:write.customize')
-  const { ts } = await post(customize).catch(async (error: unknown) => {
-    if (!customize || !(error instanceof AppError) || error.message !== 'missing_scope') throw error
-
-    return await post(false)
+  const { ts } = await postAgentSlackMessage({
+    token: installed.botToken,
+    channel: mapping.slackChannelId,
+    text,
+    threadTs: await threadRoot(record, mapping.slackChannelId, replyTo?.id),
+    from: { sessionId: bot.sessionId, slackWorkspaceId: mapping.slackWorkspaceId },
   })
 
   if (!ts) throw new AppError(502, 'slack_api_error', 'Slack returned no message id')
@@ -93,4 +79,25 @@ async function threadRoot(
   }
 
   return inThread ? id.slice(prefix.length) : undefined
+}
+
+/**
+ * A channel that is a Bot's chat (#3702) is that chat's people and Bots: an
+ * agent posts there only as one of its Bots, itself or the Bot above its Task.
+ */
+export async function mayPostToSlackChannel(
+  sessionId: string,
+  slackWorkspaceId: string,
+  slackChannelId: string,
+): Promise<boolean> {
+  const mapping = await getSlackChannelMapping(slackWorkspaceId, slackChannelId)
+
+  if (!mapping?.externalChatId) return true
+  const [chat, self] = await Promise.all([
+    getConversationBySessionId(mapping.externalChatId),
+    getConversationBySessionId(sessionId),
+  ])
+  const bot = self && (await speakingBot(self).catch(() => null))
+
+  return Boolean(bot && chat?.agentSessionIds?.includes(bot.sessionId))
 }

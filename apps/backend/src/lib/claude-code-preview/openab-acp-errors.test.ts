@@ -97,6 +97,8 @@ describe('turnFailureCause', () => {
       'offline',
     )
     expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
+    // Removed, or its computer no longer shared: only moving the conversation helps.
+    expect(turnFailureCause(new AppError(404, 'runtime_not_found', 'Gone'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
   })
 
@@ -187,6 +189,20 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(wrapped('The model provider refused the request: overloaded'))).toBe(
       'other',
     )
+  })
+
+  test('OpenCode 2.x’s own free usage limit error is the agent out of usage', () => {
+    // OpenCode 2.4.2's ACP reply to session/prompt, which the runtime forwards unchanged.
+    const notice =
+      'Free usage limit reached. Connect a provider or subscribe to OpenCode Go to keep going, or switch models.'
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorName":"provider.free-limit","service":"session"}`,
+      -32603,
+      { code: -32603, message: `Internal error: ${notice}` },
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
   })
 })
 

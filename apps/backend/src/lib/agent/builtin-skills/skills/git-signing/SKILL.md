@@ -1,6 +1,6 @@
 ---
 name: git-signing
-description: Sign a participant's local git commits and tags with their own SSH key, isolated per participant. Use when a change needs a real git commit/push that must be Verified.
+description: "Sign a participant's git commits and tags with their own SSH key so they show Verified."
 ---
 
 # git-signing — commits signed with a participant's own key

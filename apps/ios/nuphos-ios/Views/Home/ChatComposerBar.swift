@@ -43,6 +43,8 @@ struct ChatComposerBar<Controls: View>: View {
     @State private var showFiles = false
     @State private var attachmentError: String?
     @State private var preparingSubmission = false
+    /// Counts sends; each one taps the phone once.
+    @State private var sends = 0
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var dictation: VoiceDictation?
     @State private var transcription: Task<Void, Never>?
@@ -178,6 +180,7 @@ struct ChatComposerBar<Controls: View>: View {
             attachments.append(contentsOf: initialAttachments)
         }
         .onDisappear(perform: cancelDictation)
+        .sensoryFeedback(.impact(weight: .light), trigger: sends)
         .onChange(of: focused) { _, focused in if focused { ownsKeyboard = true } }
         #if canImport(UIKit)
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidHideNotification)) { _ in ownsKeyboard = focused }
@@ -652,6 +655,7 @@ struct ChatComposerBar<Controls: View>: View {
                 mentionLinks = [:]
                 attachments.removeAll { attachment in draft.attachments.contains { $0.id == attachment.id } }
                 focused = keepingFocus
+                sends += 1
                 onSend(submission)
             } catch {
                 attachmentError = error.localizedDescription

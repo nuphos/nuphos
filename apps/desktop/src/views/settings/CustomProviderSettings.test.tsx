@@ -38,6 +38,10 @@ mock.module('../../components/ui/toast', () => ({
 
 const { CustomProviderSettings } = await import('./CustomProviderSettings')
 
+// What the main process answers a test or a save with, set per test.
+let check: unknown = null
+let refusal: Error | null = null
+
 const AGENT = { available: true, online: true, cli: { installed: true, loggedIn: true } }
 const HERE = {
   userId: 'u1',
@@ -61,8 +65,14 @@ async function render(instance: RuntimeInstance) {
 
   Object.assign(dom, {
     api: {
+      localRuntimeCheckCustomProvider: async (provider: string, value: unknown) => {
+        calls.push(['check', provider, value])
+
+        return check
+      },
       localRuntimeSetCustomProvider: async (provider: string, value: unknown) => {
         calls.push([provider, value])
+        if (refusal) throw refusal
         broadcast({
           ...local,
           customProviders: value ? { [provider]: { ...(value as object), apiKey: undefined } } : {},
@@ -111,13 +121,16 @@ test('this computer’s own Codex sets up, shows and removes its custom provider
   try {
     assert.ok(container.textContent?.includes('Custom provider'))
     await act(async () => button(container, 'Set up')?.click())
-    const [baseUrl, apiKey] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
-    const models = container.querySelector('textarea') as unknown as HTMLTextAreaElement
+    // Codex takes one model ID, so its field is a single line (#5214).
+    assert.equal(container.querySelector('textarea'), null)
+    const [baseUrl, apiKey, model] = container.querySelectorAll(
+      'input',
+    ) as unknown as HTMLInputElement[]
 
     await act(async () => {
       type(dom, baseUrl!, 'https://gateway.example.com/v1')
       type(dom, apiKey!, 'sk-fictional')
-      type(dom, models, 'model-a\nmodel-b')
+      type(dom, model!, 'model-a')
     })
     await act(async () => {
       container
@@ -129,13 +142,13 @@ test('this computer’s own Codex sets up, shows and removes its custom provider
         'codex',
         {
           baseUrl: 'https://gateway.example.com/v1',
-          models: ['model-a', 'model-b'],
+          models: ['model-a'],
           apiKey: 'sk-fictional',
         },
       ],
     ])
     // Saved: the row now reads the broadcast state.
-    assert.ok(container.textContent?.includes('gateway.example.com · model-a, model-b'))
+    assert.ok(container.textContent?.includes('gateway.example.com · model-a'))
     await act(async () => button(container, 'Remove')?.click())
     assert.deepEqual(calls[1], ['codex', null])
     assert.ok(button(container, 'Set up'))
@@ -174,6 +187,57 @@ test('only this computer’s default Claude Code or Codex has one', async () => 
     const { container, unmount } = await render(instance)
 
     assert.equal(container.textContent, '', JSON.stringify(instance.local ?? instance.kind))
+    await unmount()
+  }
+})
+
+test('the form checks the URL as it is typed, tests it, and keeps a refusal in place', async () => {
+  broadcast({
+    ...HERE,
+    customProviders: { codex: { baseUrl: 'https://gw.example/v1', models: [] } },
+  })
+  const { dom, container, calls, unmount } = await render(codex({}))
+  const submit = () =>
+    container
+      .querySelector('form')
+      ?.dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true }) as never)
+
+  try {
+    await act(async () => button(container, 'Edit')?.click())
+    // The saved key is not a field until it is replaced: only the URL and the model ID are.
+    assert.equal(container.querySelectorAll('input').length, 2)
+    assert.ok(container.textContent?.includes('•••• saved'))
+    const [baseUrl] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
+
+    await act(async () => type(dom, baseUrl!, 'http://gw.example/v1'))
+    assert.ok(container.textContent?.includes('The base URL must use https://'))
+    assert.equal(button(container, 'Test connection')?.disabled, true)
+    await act(async () => type(dom, baseUrl!, 'https://gw.example/v1'))
+    check = { host: 'gw.example', reached: false }
+    await act(async () => button(container, 'Test connection')?.click())
+    assert.deepEqual(calls.at(-1), [
+      'check',
+      'codex',
+      { baseUrl: 'https://gw.example/v1', models: [] },
+    ])
+    assert.ok(container.textContent?.includes('Couldn’t reach gw.example within 10 s'))
+    assert.ok(button(container, 'Save anyway'))
+    check = {
+      host: 'gw.example',
+      reached: true,
+      ms: 212,
+      failure: { reason: 'api', request: 'POST /responses → 404 Not Found' },
+    }
+    await act(async () => button(container, 'Test connection')?.click())
+    assert.ok(container.textContent?.includes('Reached gw.example in 212 ms'))
+    assert.ok(container.querySelector('pre')?.textContent?.includes('404 Not Found'))
+    refusal = Object.assign(new Error('No credential store.'), {
+      code: 'custom_provider_not_saved',
+    })
+    await act(async () => submit())
+    assert.ok(container.querySelector('[role="alert"]')?.textContent?.includes('credential store'))
+  } finally {
+    refusal = null
     await unmount()
   }
 })

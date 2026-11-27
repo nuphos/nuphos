@@ -90,10 +90,7 @@ export function botChatRows({
     dot: rowDot(unread),
     // The motion says "working"; the mark keeps only what asks for attention.
     trailing: (
-      <ChatRowStatus
-        runtimeState={activity.kind === 'error' ? bot?.runtimeState : undefined}
-        dot={rowDot(unread)}
-      />
+      <ChatRowStatus runtimeState={activity.kind === 'error' ? bot?.runtimeState : undefined} />
     ),
     // Bots draws a Bot with no chat by its face, so the loop takes that place too.
     ...(busy && {

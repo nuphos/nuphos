@@ -1,6 +1,6 @@
 ---
 name: gcp-compute-engine-ssh
-description: Run shell commands on a bound GCE VM over gcloud compute ssh (IAP for private VMs). Covers OS Login/IAP permissions, piping scripts and "Permission denied (publickey)".
+description: "Run shell commands on a bound GCE VM over gcloud compute ssh (IAP for private VMs)."
 ---
 
 # GCE — run commands on a bound VM over SSH

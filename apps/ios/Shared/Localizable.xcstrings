@@ -29602,6 +29602,52 @@
         }
       }
     },
+    "Send usage data" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enviar datos de uso"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kirim data penggunaan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用状況データを送信"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 데이터 보내기"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ส่งข้อมูลการใช้งาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "发送使用数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傳送使用資料"
+          }
+        }
+      }
+    },
     "Send verification code" : {
       "localizations" : {
         "es" : {
@@ -38072,6 +38118,52 @@
         }
       }
     },
+    "Usage data shows Nuphos which features are used, never what you write. It is sent only while you use Nuphos Cloud. This setting is saved on this device." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Los datos de uso muestran a Nuphos qué funciones se usan, nunca lo que escribes. Solo se envían mientras usas Nuphos Cloud. Este ajuste se guarda en este dispositivo."
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Data penggunaan menunjukkan kepada Nuphos fitur mana yang digunakan, tidak pernah apa yang Anda tulis. Data ini hanya dikirim saat Anda menggunakan Nuphos Cloud. Pengaturan ini disimpan di perangkat ini."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利用状況データは、どの機能が使われているかを Nuphos に伝えるもので、書いた内容は含みません。Nuphos Cloud を使っている間だけ送信されます。この設定はこのデバイスに保存されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사용 데이터는 어떤 기능이 사용되는지 Nuphos에 알려 주며, 작성한 내용은 포함하지 않습니다. Nuphos Cloud를 사용하는 동안에만 전송됩니다. 이 설정은 이 기기에 저장됩니다."
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ข้อมูลการใช้งานบอก Nuphos ว่ามีการใช้ฟีเจอร์ใดบ้าง โดยไม่รวมสิ่งที่คุณเขียน ระบบจะส่งเฉพาะขณะที่คุณใช้ Nuphos Cloud การตั้งค่านี้บันทึกไว้ในอุปกรณ์นี้"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用数据让 Nuphos 了解哪些功能被使用，但绝不包含你写的内容。仅在你使用 Nuphos Cloud 时发送。此设置保存在这台设备上。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用資料讓 Nuphos 了解哪些功能被使用，但絕不包含你寫的內容。只在你使用 Nuphos Cloud 時傳送。這項設定儲存在這台裝置上。"
+          }
+        }
+      }
+    },
     "Use Nuphos Cloud" : {
       "localizations" : {
         "es" : {
@@ -40834,6 +40926,53 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "寫入檔案"
+          }
+        }
+      }
+    },
+    "Yesterday" : {
+      "comment" : "List row time, previous day",
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ayer"
+          }
+        },
+        "id" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kemarin"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨日"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "어제"
+          }
+        },
+        "th" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "เมื่อวาน"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨天"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "昨天"
           }
         }
       }

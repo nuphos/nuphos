@@ -13,7 +13,13 @@ export const vaultApi = {
     ipcRenderer.invoke('vault:removeDevice', deviceId),
   vaultItems: (): Promise<VaultItemSummary[]> => ipcRenderer.invoke('vault:items'),
   vaultGet: (name: string): Promise<string> => ipcRenderer.invoke('vault:get', name),
-  vaultSet: (name: string, value: string): Promise<void> =>
-    ipcRenderer.invoke('vault:set', name, value),
+  vaultSet: (
+    name: string,
+    value: string,
+    deviceIds: string[],
+    updatedAt: string | null,
+  ): Promise<void> => ipcRenderer.invoke('vault:set', name, value, deviceIds, updatedAt),
+  vaultShare: (name: string, deviceIds: string[], updatedAt: string): Promise<void> =>
+    ipcRenderer.invoke('vault:share', name, deviceIds, updatedAt),
   vaultDelete: (name: string): Promise<void> => ipcRenderer.invoke('vault:delete', name),
 }

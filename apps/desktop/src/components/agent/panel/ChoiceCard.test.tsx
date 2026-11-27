@@ -28,6 +28,7 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     HTMLTextAreaElement: dom.HTMLTextAreaElement,
     Element: dom.Element,
     Node: dom.Node,
+    ResizeObserver: dom.ResizeObserver,
     IS_REACT_ACT_ENVIRONMENT: true,
   }
   const originals = Object.keys(values).map(

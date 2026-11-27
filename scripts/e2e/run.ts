@@ -20,6 +20,7 @@ import { botTurnScenarios } from './bot-turn-scenarios.ts'
 import { botImportModeScenarios } from './bot-import-mode-scenarios.ts'
 import { cliBrowserScenarios } from './cli-browser-scenarios.ts'
 import { commandScenarios } from './command-scenarios.ts'
+import { computerCardScenarios } from './computer-card-scenarios.ts'
 import { computerScenarios } from './computer-scenarios.ts'
 import { connectorSharingFlow } from './connector-sharing-scenarios.ts'
 import { computersEntryScenarios } from './computers-entry-scenarios.ts'
@@ -66,6 +67,7 @@ import { questionScenarios } from './question-scenarios.ts'
 import { replyFileScenarios } from './reply-file-scenarios.ts'
 import { runEndTraceScenario } from './run-end-trace-scenario.ts'
 import { runtimeScenarios } from './runtime-scenarios.ts'
+import { runtimeSettingsScenarios } from './runtime-settings-scenarios.ts'
 import { settingsHistoryScenarios } from './settings-history-scenarios.ts'
 import { sidebarPageScenarios } from './sidebar-page-scenarios.ts'
 import { sidebarPollScenarios } from './sidebar-poll-scenarios.ts'
@@ -173,6 +175,7 @@ const scenarios: Scenario[] = [
   ...usageQueueScenarios,
   ...moveMidTurnScenarios,
   ...customProviderScenarios,
+  ...runtimeSettingsScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
   // It needs the Bot the access scenarios create.
@@ -203,7 +206,7 @@ const later: Scenario[] = [
   ...mcpFileScenarios,
   ...mcpArchiveScenarios,
   ...desktopScreenScenarios,
-  // computerCardScenarios returns with the computer card gate (COMPUTER_CARDS).
+  ...computerCardScenarios,
   ...commandScenarios,
   ...threadScenarios,
   ...settingsHistoryScenarios,

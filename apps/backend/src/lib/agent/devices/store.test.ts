@@ -220,6 +220,30 @@ describe('agent names', () => {
     ])
   })
 
+  test('an agent a Vault-shared token signs in is never kept', async () => {
+    const shared = '22222222-2222-4222-8222-222222222222'
+    const withShared = {
+      ...report,
+      instances: [
+        ...(report.instances ?? []),
+        {
+          instanceId: shared,
+          provider: 'claude-code',
+          label: "Claude Code (Ann's token)",
+          vault: true,
+          cli: { installed: true, loggedIn: true },
+        },
+      ],
+    } as unknown as LocalRuntimeStatus
+
+    await recordDeviceAgents('u1', 'mac-1', withShared)
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.agents?.map((a) => a.instanceId)).toEqual([
+      undefined,
+      work,
+    ])
+  })
+
   test('an agent or device that is not registered is not renamed', async () => {
     expect(await renameDeviceAgent('u1', 'mac-1', 'codex', 'Mine')).toBe(false)
     expect(await renameDeviceAgent('u2', 'mac-1', work, 'Mine')).toBe(false)

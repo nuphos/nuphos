@@ -11,6 +11,8 @@ import type { ObjectId } from 'mongodb'
 export type SlackOutboundArgs = {
   userId: string
   teamId?: string | null
+  /** The conversation the words are from: its Bot is named on each post. */
+  sessionId: string
   /** Puts files fetched from Slack on the conversation's runtime; slack_read's files needs it. */
   placeFiles?: (files: InboundFile[]) => Promise<string[]>
 }
@@ -28,13 +30,7 @@ export type SlackOutboundContext = {
     }[]
     dmSelfAvailable: boolean
   }>
-  post: (input: {
-    destination: SlackOutboundDestination
-    text: string
-    /** Opens a replyable thread under the new root and gives it a conversation
-     *  of its own. Without it, replies under the root reach no conversation. */
-    replyThread?: { text: string }
-  }) => Promise<
+  post: (input: { destination: SlackOutboundDestination; text: string }) => Promise<
     | {
         ok: true
         destination: {
@@ -42,14 +38,7 @@ export type SlackOutboundContext = {
           channelId: string
           label: string
         }
-        delivery: 'root'
         messageTs: string
-        rootThreadTs: string
-        threadBound: boolean
-        /** Present when replyThread was requested. `opened: false` means the
-         *  report was delivered but the thread is not replyable — reported, not
-         *  raised: nothing about it is worth failing a delivered message over. */
-        replyThread?: { opened: boolean; sessionId?: string; error?: string }
       }
     | { ok: false; error: string }
   >
@@ -105,27 +94,6 @@ export type SlackOutboundDependencies = {
     botToken: string,
   ) => Promise<{ slackUserId: string } | null>
   canViewPrivateChannels: (userId: string, teamId: string) => Promise<boolean>
-  bindThread: (input: {
-    slackWorkspaceId: string
-    slackChannelId: string
-    slackThreadTs: string
-    teamId: string
-    agentUserId: string
-    sessionId: string
-    createdBySlackUserId?: string
-    rootText?: string
-    notificationContext?: string
-  }) => Promise<unknown>
-  /** Records an outbound post into the bound thread's rolling transcript, so
-   *  the addressing judge sees what the bot itself said there. Best-effort:
-   *  callers must never turn a delivered message into a failure over it. */
-  appendThreadMessage: (
-    key: { slackWorkspaceId: string; slackChannelId: string; slackThreadTs: string },
-    message: { ts: string; authorName: string; text: string; fromBot?: boolean },
-  ) => Promise<void>
-  /** The conversation a forked reply thread gets. Injected so a test can assert
-   *  which session a thread was handed, rather than matching a random uuid. */
-  newSessionId: () => string
   listChannels: (token: string) => Promise<{ id: string; name: string; isPrivate: boolean }[]>
   getChannel: (
     token: string,
@@ -137,7 +105,14 @@ export type SlackOutboundDependencies = {
     channel: string
     text: string
     threadTs?: string
+    from: { sessionId: string; slackWorkspaceId: string }
   }) => Promise<{ channel?: string | { id?: string }; ts?: string }>
+  /** Whether this conversation may post in the channel: a Bot's chat takes only its own Bots. */
+  mayPostIn: (
+    sessionId: string,
+    slackWorkspaceId: string,
+    slackChannelId: string,
+  ) => Promise<boolean>
   readHistory: typeof fetchSlackChannelHistory
   readReplies: typeof fetchSlackThreadReplies
   listMembers: typeof fetchSlackChannelMembers

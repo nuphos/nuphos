@@ -68,7 +68,7 @@ export function appendUpstashAccountLines(
     const label = safePromptField(account.label)
 
     lines.push(
-      `- accountId=${account.accountId}; label=${label}; ${optionalField('email', account.email)}setupCommand="bash skills/upstash/scripts/setup-credentials.sh ${teamId} ${account.accountId}"; databasesEndpoint="/teams/${teamId}/upstash-accounts/${account.accountId}/databases"`,
+      `- accountId=${account.accountId}; label=${label}; ${optionalField('email', account.email)}setupCommand="bash skills/upstash/scripts/setup-credentials.sh ${teamId} ${account.accountId}"`,
     )
   }
 }
@@ -93,13 +93,13 @@ export function appendGrafanaInstanceLines(
   teamId: string,
 ) {
   if (grafanaInstances.length === 0) return
-  lines.push('', 'Grafana instances (proxied through Nuphos — no setup script):')
+  lines.push('', 'Grafana instances (append any Grafana API path to proxyBase):')
   for (const instance of grafanaInstances) {
     const name = safePromptField(instance.name)
     const grafanaUrl = safePromptField(instance.grafanaUrl)
 
     lines.push(
-      `- instanceId=${instance.instanceId}; name=${name}; grafanaUrl=${grafanaUrl}; proxyBase="/teams/${teamId}/grafana-instances/${instance.instanceId}/proxy"; tip="Append any Grafana API path to proxyBase (e.g. proxyBase/api/search, proxyBase/api/datasources). The service-account token stays server-side — never ask for it or paste Grafana credentials into chat."`,
+      `- instanceId=${instance.instanceId}; name=${name}; grafanaUrl=${grafanaUrl}; proxyBase="/teams/${teamId}/grafana-instances/${instance.instanceId}/proxy"`,
     )
   }
 }
@@ -107,18 +107,14 @@ export function appendGrafanaInstanceLines(
 export function appendSonarqubeIntegrationLines(
   lines: string[],
   sonarqubeIntegrations: Options['sonarqubeIntegrations'],
-  teamId: string,
 ) {
   if (sonarqubeIntegrations.length === 0) return
-  lines.push('', 'SonarQube integrations (proxied through Nuphos — no setup script):')
+  lines.push('', 'SonarQube integrations:')
   for (const integration of sonarqubeIntegrations) {
     const label = safePromptField(integration.label)
     const baseUrl = safePromptField(integration.baseUrl)
-    const base = `/teams/${teamId}/sonarqube-integrations/${integration.integrationId}`
 
-    lines.push(
-      `- integrationId=${integration.integrationId}; label=${label}; baseUrl=${baseUrl}; projectsEndpoint="${base}/projects"; reportEndpoint="${base}/report"; tip="GET projectsEndpoint to find a projectKey, then GET reportEndpoint?projectKey=<key> for the quality report. The SonarQube token stays server-side — do not paste SonarQube credentials into chat."`,
-    )
+    lines.push(`- integrationId=${integration.integrationId}; label=${label}; baseUrl=${baseUrl}`)
   }
 }
 

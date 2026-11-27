@@ -42,7 +42,7 @@ function promptFor(projectId: string): string {
           serviceAccountEmail: `connector@${projectId}.iam.gserviceaccount.com`,
         },
       ],
-    } as unknown as Parameters<typeof renderAgentCredentialPrompt>[1],
+    },
     TEAM_ID,
   )
 }
@@ -51,26 +51,14 @@ describe('GCP credentials in the agent prompt', () => {
   const prompt = promptFor('example-project')
   const line = prompt.split('\n').find((l) => l.startsWith('- projectId=example-project')) ?? ''
 
-  test('names the Compute Engine endpoint, like every other compute provider', () => {
-    expect(line).toContain(
-      `gceInstancesEndpoint="/teams/${TEAM_ID}/gcp-projects/example-project/gce-instances"`,
-    )
-  })
-
-  test('names the VPC and firewall endpoints too', () => {
-    expect(line).toContain(`vpcsEndpoint="/teams/${TEAM_ID}/gcp-projects/example-project/vpcs"`)
-    expect(line).toContain(
-      `firewallsEndpoint="/teams/${TEAM_ID}/gcp-projects/example-project/firewalls"`,
-    )
-  })
-
-  test('still names the cluster endpoint and the setup command', () => {
-    expect(line).toContain(
-      `clustersEndpoint="/teams/${TEAM_ID}/gcp-projects/example-project/clusters"`,
-    )
+  test('names the setup command', () => {
     expect(line).toContain(
       `setupCommand="bash skills/gcloud/scripts/setup-credentials.sh ${TEAM_ID} example-project sa-1"`,
     )
+  })
+
+  test('leaves read endpoints to the gcloud skill, so each project costs no endpoint tokens', () => {
+    expect(line).not.toContain('Endpoint=')
   })
 
   test('leaves GUI routes to the route catalog, so each account costs no link tokens', () => {
@@ -109,6 +97,19 @@ describe('On-prem Kubernetes credentials in the agent prompt', () => {
   })
 })
 
+describe('Credential header in the agent prompt', () => {
+  test('sends only a one-line note when nothing is selected', () => {
+    const none = renderAgentCredentialPrompt(
+      { zeaburIds: [] } as unknown as Parameters<typeof renderAgentCredentialPrompt>[0],
+      EMPTY_OPTIONS,
+      TEAM_ID,
+    )
+
+    expect(none).toContain('No credentials are selected for this session.')
+    expect(none).not.toContain('setupCommand')
+  })
+})
+
 describe('Zeabur guidance in the agent prompt', () => {
   test('states the zeabur CLI rule only when a Zeabur provider is attached', () => {
     const none = renderAgentCredentialPrompt(
@@ -126,7 +127,7 @@ describe('Zeabur guidance in the agent prompt', () => {
     )
 
     expect(none).not.toContain('zeabur CLI')
-    expect(attached.match(/zeabur CLI/g)).toHaveLength(2)
+    expect(attached.match(/zeabur CLI/g)).toHaveLength(1)
     expect(attached).toContain('the only use of the zeabur CLI or Zeabur API')
     expect(attached).toContain('setupCommand="bash skills/zeabur/scripts/setup-credentials.sh')
   })

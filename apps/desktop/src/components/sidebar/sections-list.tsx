@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 
 import { t } from '../../i18n'
 import { favoriteSessionId } from '../../lib/sidebarPinnedChats'
+import { gutterDot } from '../../lib/subAgentState'
 import { SIDEBAR_ITEM_SHORTCUTS } from '../../lib/teamOverviewNav'
 import {
   SIDEBAR_GROUP_GAP_CLASS,
@@ -159,7 +160,7 @@ export function SidebarSectionList({
                                 folds(section).toggleFold(item.key)
                               }}
                               className={clsx(
-                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-tertiary hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
+                                'flex-shrink-0 items-center justify-center w-5 h-5 rounded text-primary/[.28] hover:text-main hover:bg-[var(--sidebar-overlay-hover)]',
                                 // Hidden controls take no width; folded rows keep their disclosure visible.
                                 folded
                                   ? 'inline-flex'
@@ -235,6 +236,7 @@ export function SidebarSectionList({
                                 }
                                 icon={leading ?? null}
                                 revealDetail={Boolean(item.description)}
+                                dot={gutterDot(item, hidden)}
                               />
                               <RowDetail item={item} />
                             </SessionRowSurface>

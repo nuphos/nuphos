@@ -108,7 +108,7 @@ class LocalNotifications(
             .setContentText(text)
             .setNumber(badge ?: 0).setContentIntent(tap).setAutoCancel(true).addAction(reply)
             .setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
-        // A Bot speaks with its own face, as on iOS; without one it stays a plain Nuphos notification.
+        // A Bot speaks with its own face and a Task with its runtime mark, as on iOS; otherwise a plain Nuphos notification.
         if (sender != null) {
             val bot = Person.Builder().setName(sender.name).setIcon(IconCompat.createWithBitmap(sender.bitmap)).setKey(target.sessionId).build()
             val you = Person.Builder().setName(context.getString(R.string.shell_notification_you)).build()

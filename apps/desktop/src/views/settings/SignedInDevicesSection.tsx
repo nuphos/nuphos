@@ -23,7 +23,8 @@ import type { SignInSession } from '../../types'
 type Load =
   | { state: 'loading' }
   | { state: 'ready'; sessions: SignInSession[] }
-  // A sign-in from before sessions: it works, but has no session to manage from.
+  // A credential with no sign-in session to manage from (`session_required`).
+  // Sign-ins from before sessions are refused outright now (401).
   | { state: 'signInAgain' }
   // A backend from before sessions has no such route.
   | { state: 'unavailable' }

@@ -1,6 +1,6 @@
 ---
 name: grafana
-description: "Inspect and operate team-bound Grafana instances through Nuphos's authenticated proxy: dashboards, folders, datasources, /api/ds/query, alerting, Loki and Prometheus."
+description: "Team-bound Grafana via the Nuphos proxy: dashboards, datasources, queries, alerting."
 ---
 
 # Grafana
@@ -172,7 +172,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
    Grafana alert notification received (status: {{payload.status}}).
    Title: {{payload.title}}
    If the payload contains "test": true or "drill": true, or clearly identifies Grafana's contact-point test notification, reply "test delivery received" and STOP — no investigation.
-   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Put the investigation detail in replyThread, so a follow-up asked in that thread gets an answer.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 

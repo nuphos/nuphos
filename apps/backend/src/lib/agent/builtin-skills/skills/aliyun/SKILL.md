@@ -1,6 +1,6 @@
 ---
 name: aliyun
-description: Run the aliyun CLI to inspect or change Alibaba Cloud resources (ACK, ECS, SLB, VPC, OSS). Includes a script that loads a Nuphos-bound account's credentials.
+description: "Alibaba Cloud (ACK, ECS, SLB, VPC, OSS) with the aliyun CLI, using a Nuphos-bound account."
 ---
 
 # Alibaba Cloud CLI (aliyun)
@@ -19,6 +19,7 @@ For anything Nuphos already exposes via its own API — listing ACK clusters, fe
 
 - List ACK clusters in a bound account → `GET /teams/:teamId/aliyun-accounts/:accountId/clusters`
 - List ECS instances → `GET /teams/:teamId/aliyun-accounts/:accountId/ecs-instances`
+- List Simple Application Server (SWAS) instances → `GET /teams/:teamId/aliyun-accounts/:accountId/swas-instances`
 - Run kubectl against an ACK cluster → its context is `aliyun/<account>/<cluster>` in the kubeconfig the kubectl skill sets up
 
 Use this skill when the user asks for something Nuphos does not expose (e.g. OSS, SLB/CLB, VPC/security-group edits, RDS, Cloud Monitor), or hands you keys for an account Nuphos isn't connected to.

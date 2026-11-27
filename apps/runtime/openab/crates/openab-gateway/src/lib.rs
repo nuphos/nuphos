@@ -1384,7 +1384,7 @@ pub async fn status_page(acp_enabled: bool) -> axum::response::Html<String> {
     <h1>Nuphos runtime</h1>
     <p class="status">&#9679; Nuphos runtime is running</p>
     <dl>{rows}</dl>
-    <p class="hint">Paste this runtime's address into Nuphos &rarr; Settings &rarr; Agent &rarr; Connect your own, along with the admin password you started it with.</p>
+    <p class="hint">To add this runtime to a team, open its console, sign in with the admin password you started it with, and press Connect to Nuphos.</p>
   </div>
 </body>
 </html>

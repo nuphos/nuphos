@@ -154,7 +154,12 @@ struct ChannelView: View {
                 canOpenTask = false
                 // Made before the details open: a sheet shown in the same update that
                 // sets what its content reads comes up empty.
-                botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
+                // From the Bot's row when the list has it, so its details show what it runs
+                // before the Bot's own read lands, and if that read fails.
+                botSession = channel.botId.map { id in
+                    store.bots.first { $0.sessionId == id }.map(store.session(for:))
+                        ?? store.session(sessionId: id, title: channel.title, teamId: channel.teamId)
+                }
                 guard let bot = channel.botId else { return }
                 await botSession?.load()
                 guard !Task.isCancelled, channel.botId == bot else { return }

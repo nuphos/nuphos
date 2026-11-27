@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -93,8 +94,9 @@ fun InboxPage(inbox: OpenQuestions?, nav: NavHostController, allowed: () -> Bool
                         ?.takeUnless { it.id == selected.id }?.id
                 }
 
+                // Above the keyboard, so a short screen scrolls the answer field and Send into view.
                 Column(
-                    Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                    Modifier.fillMaxSize().imePadding().verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 12.dp).testTag("inbox-detail"),
                 ) {
                     TextButton(onClick = { selectedId = null }) {

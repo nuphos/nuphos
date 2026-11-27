@@ -32,6 +32,15 @@ struct HomeView: View {
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
     private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
+    /// Collapsed, an open chat or question is on top even before a list is on screen to select it.
+    private var compactColumn: Binding<NavigationSplitViewColumn> {
+        Binding(get: { openChat != nil || inbox?.selected != nil ? .detail : .sidebar }) { column in
+            // Back from a Bot's Task also reports the sidebar; it returns to the Bot chat.
+            guard column == .sidebar, !showBotTask else { return }
+            openChat = nil
+            inbox?.selected = nil
+        }
+    }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
         return { open in desktopOpen = open }
@@ -48,7 +57,7 @@ struct HomeView: View {
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView(columnVisibility: columns) {
+        NavigationSplitView(columnVisibility: columns, preferredCompactColumn: compactColumn) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -249,10 +258,8 @@ struct HomeView: View {
         // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
         // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
         .onChange(of: openChat?.channel?.channelId) { _, id in
-            guard id != nil, page == .agent, let chat = openChat else { return }
+            guard id != nil, page == .agent else { return }
             page = .chats
-            // After the page change below has cleared it.
-            Task { openChat = chat }
         }
         .onChange(of: openChat?.id) { _, _ in
             showBotTask = false
@@ -262,7 +269,8 @@ struct HomeView: View {
             showBotTask = false
             botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            openChat = nil
+            // A Bot's chat stays open on Bots, where the change above moves it.
+            if newPage != .chats || openChat?.channel == nil { openChat = nil }
             inbox?.selected = nil
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)

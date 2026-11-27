@@ -45,6 +45,7 @@ import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
+import { agentHostDeps } from './vault-token.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
@@ -99,8 +100,7 @@ delete process.env.NUPHOS_SESSION_TOKEN
 const launch = { token: launchToken, keychainAccount: readCliConfig()?.keychainAccount }
 const currentToken = () => cliSessionToken(readCliConfig(), launch)
 
-// API calls go out with the session, read as above.
-setTokenSource(() => Promise.resolve(currentToken()))
+setTokenSource(() => Promise.resolve(currentToken())) // API calls go out with the session.
 
 // e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
 const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
@@ -143,7 +143,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),
-  userEnv: () => Promise.resolve(process.env),
+  ...agentHostDeps(deviceCredential),
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir, userId),

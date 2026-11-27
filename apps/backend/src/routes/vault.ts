@@ -5,17 +5,21 @@ import { AppError } from '@/lib/errors'
 import { zv } from '@/lib/validate'
 import {
   MAX_DEVICES,
-  MAX_ITEMS,
   addVaultDevice,
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  linkVaultDevice,
   listVaultDevices,
   listVaultItems,
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
-import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
+import {
+  getVaultItemForComputer,
+  offerComputerKey,
+  vaultOwnersSharingWithComputer,
+} from '@/lib/vault-computer'
 import { requireAuth } from '@/middleware/auth'
 import { liveDevice } from '@/routes/agent/router'
 
@@ -28,11 +32,13 @@ import type { Context } from 'hono'
 // read below.
 export const vaultRoutes = new Hono<{ Variables: AuthVariables }>()
 
-// A computer reaches two routes with its own device credential, registered before
+// A computer reaches three routes with its own device credential, registered before
 // requireAuth, which refuses one. When it joins, it offers its own key to its
 // owner's vault; once a device linked to it is approved, it reads an item with that
-// device's key only.
+// device's key only. It also asks whose vaults share an item with it, to run each
+// one's shared Claude Code token as its own agent.
 vaultRoutes.post('/computer/devices', (c) => offerKeyFromComputer(c))
+vaultRoutes.get('/computer/items', (c) => listComputerSharers(c))
 vaultRoutes.get('/computer/items/:name', (c) => readComputerItem(c))
 
 async function computerOf(c: Context, live: typeof liveDevice) {
@@ -78,6 +84,21 @@ export async function readComputerItem(
   )
 }
 
+/** Separate from the route so its credential check can be tested without a database. */
+export async function listComputerSharers(
+  c: Context,
+  deps: { liveDevice: typeof liveDevice; owners: typeof vaultOwnersSharingWithComputer } = {
+    liveDevice,
+    owners: vaultOwnersSharingWithComputer,
+  },
+) {
+  const { userId, deviceId } = await computerOf(c, deps.liveDevice)
+
+  return c.json({
+    owners: await deps.owners({ userId, deviceId }, nameParam(c.req.query('name') ?? '')),
+  })
+}
+
 vaultRoutes.use('*', requireAuth)
 
 const base64 = (max: number) =>
@@ -116,17 +137,50 @@ vaultRoutes.post(
 
 vaultRoutes.post(
   '/devices/:id/approve',
-  zv('json', z.object({ keys: z.array(z.object({ name: itemName, wrapped })).max(MAX_ITEMS) })),
+  // Approval wraps nothing; an older client's `keys` are dropped unread.
   async (c) => {
-    const device = await approveVaultDevice(
-      c.get('userId'),
-      c.req.param('id'),
-      c.req.valid('json').keys,
-    )
+    const device = await approveVaultDevice(c.get('userId'), c.req.param('id'))
 
     return c.json({ device })
   },
 )
+
+const computerId = z.string().regex(/^[\w-]{1,128}$/)
+
+vaultRoutes.put(
+  '/devices/:id/computer',
+  zv('json', z.object({ deviceId: computerId })),
+  async (c) => {
+    await linkVaultDevice(c.get('userId'), c.req.param('id'), c.req.valid('json').deviceId)
+
+    return c.body(null, 204)
+  },
+)
+
+// Desktop reads as a computer of the person signed in, which it is, so it needs no device
+// credential: only the devices linked to their own computer, and only that device's key.
+// Separate so its scoping can be tested without a database.
+export function ownComputerRoutes(
+  deps = { owners: vaultOwnersSharingWithComputer, getItem: getVaultItemForComputer },
+) {
+  const own = (c: Context<{ Variables: AuthVariables }>) => {
+    const deviceId = c.req.param('deviceId') ?? ''
+
+    if (!computerId.safeParse(deviceId).success) throw new AppError(404, 'not_found', 'Not found')
+
+    return { userId: c.get('userId'), deviceId }
+  }
+
+  return new Hono<{ Variables: AuthVariables }>()
+    .get('/computers/:deviceId/items', async (c) =>
+      c.json({ owners: await deps.owners(own(c), nameParam(c.req.query('name') ?? '')) }),
+    )
+    .get('/computers/:deviceId/items/:name', async (c) =>
+      c.json(await deps.getItem(c.req.query('user') ?? '', own(c), nameParam(c.req.param('name')))),
+    )
+}
+
+vaultRoutes.route('/', ownComputerRoutes())
 
 vaultRoutes.delete('/devices/:id', async (c) => {
   await removeVaultDevice(c.get('userId'), c.req.param('id'))
@@ -151,15 +205,18 @@ vaultRoutes.put(
         .array(z.object({ deviceId: z.string().uuid(), wrapped }))
         .min(1)
         .max(MAX_DEVICES),
+      /** The item's `updatedAt` as the writer read it, null for a new item. */
+      updatedAt: z.string().datetime().nullable(),
     }),
   ),
   async (c) => {
-    const { ciphertext, keys } = c.req.valid('json')
+    const { ciphertext, keys, updatedAt } = c.req.valid('json')
     const item = await putVaultItem(
       c.get('userId'),
       nameParam(c.req.param('name')),
       ciphertext,
       keys,
+      updatedAt,
     )
 
     return c.json({ item })

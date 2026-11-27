@@ -2,7 +2,7 @@ import XCTest
 
 /// Runtime setup says why it offers no Box, as Desktop does (#3953): a member is
 /// told only administrators rent one, and a failed read says so and can read again.
-/// Uses a copy of the offline chats fixture with its own `GET /agent/devices`.
+/// Uses a copy of the offline chats fixture with no runtime and its own `GET /agent/devices`.
 final class RuntimeSetupBoxStatesUITests: XCTestCase {
     private var live: URL!
     private var responses: [String: Any] = [:]
@@ -14,6 +14,9 @@ final class RuntimeSetupBoxStatesUITests: XCTestCase {
             .appending(path: "tests/fixtures/channel-responses.json")
         live = fixture.deletingLastPathComponent().appending(path: "runtime-setup-box-live-\(UUID().uuidString).json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        responses["GET /agent/conversations"] = ["status": 200, "body": ["conversations": [], "hasMore": false, "nextCursor": NSNull()]]
+        responses["GET /agent/conversations?kind=channel"] = ["status": 200, "body": ["conversations": [], "hasMore": false, "nextCursor": NSNull()]]
+        responses["GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/agent-runtimes"] = ["status": 200, "body": ["runtimes": []]]
     }
 
     override func tearDown() {
@@ -26,14 +29,17 @@ final class RuntimeSetupBoxStatesUITests: XCTestCase {
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
     }
 
+    /// Opened from Home with no runtime, not from Computers & runtimes: that page polls
+    /// the devices every 5 seconds under the sheet, and a poll can read a test's next
+    /// answer before the test taps Try again.
     private func openGuide() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "runtimes"]
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
         app.launch()
-        let add = app.buttons["Add computer"].firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 10), "Computers & runtimes did not open")
-        add.tap()
+        let setUp = app.buttons["Set up a computer"].firstMatch
+        XCTAssertTrue(setUp.waitForExistence(timeout: 10), "Home did not offer runtime setup")
+        setUp.tap()
         XCTAssertTrue(app.staticTexts["Connect a computer"].waitForExistence(timeout: 10), "Runtime setup did not open")
         return app
     }

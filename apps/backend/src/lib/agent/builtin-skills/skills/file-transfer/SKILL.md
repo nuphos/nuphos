@@ -1,6 +1,6 @@
 ---
 name: file-transfer
-description: "Move files between the user and the sandbox: pull the user's uploads, push files for them to download (single or zip), or save straight to a selected computer."
+description: "Move files between the user and the sandbox: uploads, downloads, or a selected computer."
 ---
 
 # File transfer

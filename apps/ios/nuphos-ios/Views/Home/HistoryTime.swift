@@ -17,6 +17,18 @@ enum HistoryTime {
         return plural(months / 12, "yr")
     }
 
+    /// A list row's stamp, as Messages dates a chat: the time today, then Yesterday,
+    /// the weekday within the week, and the date after that.
+    static func stamp(_ date: Date, now: Date = .now, calendar: Calendar = .current) -> String {
+        let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day ?? 0
+        switch days {
+        case ...0: return date.formatted(date: .omitted, time: .shortened)
+        case 1: return String(localized: "Yesterday")
+        case ..<7: return date.formatted(.dateTime.weekday(.wide))
+        default: return date.formatted(.dateTime.month(.defaultDigits).day().year(.twoDigits))
+        }
+    }
+
     private static func plural(_ n: Int, _ unit: String) -> String {
         "\(n) \(unit)\(n == 1 ? "" : "s")"
     }

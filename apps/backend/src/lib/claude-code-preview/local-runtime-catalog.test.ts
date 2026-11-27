@@ -300,9 +300,14 @@ describe('local runtime catalog', () => {
   test('a signed-out CLI refuses turns with its own reason', async () => {
     presence = online(false)
 
-    await expect(
-      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_login_required' })
+    for (const purpose of ['transport', 'steer'] as const)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', purpose, deps),
+      ).rejects.toMatchObject({ code: 'runtime_login_required' })
+    // A status read still reaches it: a queued wake is not held as if its computer were away.
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'control', deps)).authKey,
+    ).toBe('control')
   })
 
   test('an agent removed while its computer was offline is gone, not waiting for it', async () => {

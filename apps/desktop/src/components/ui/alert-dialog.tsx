@@ -3,6 +3,7 @@ import clsx from 'clsx'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 
+import { parseAtlasError } from '../../api/errors'
 import { t } from '../../i18n'
 import { reportFrontendError } from '../../lib/frontendErrorReporter'
 
@@ -57,7 +58,7 @@ export function AppAlertDialog({
       await onConfirm()
       onClose()
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err)
+      const { message } = parseAtlasError(err)
 
       reportFrontendError({ source: 'alert_dialog', phase: 'confirm_failed', message }, err)
       setError(message)
