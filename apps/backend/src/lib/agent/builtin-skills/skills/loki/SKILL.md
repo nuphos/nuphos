@@ -1,6 +1,6 @@
 ---
 name: loki
-description: Onboard VMs and Kubernetes clusters into Loki log collection (Grafana Alloy), deploying Loki/Grafana when missing, and query logs by time range and keyword.
+description: "Onboard VMs and clusters into Loki log collection, and query logs."
 ---
 
 # Loki — VM & cluster log collection & retrieval

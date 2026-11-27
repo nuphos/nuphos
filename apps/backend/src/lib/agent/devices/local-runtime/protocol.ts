@@ -138,6 +138,7 @@ export const agentInstanceSchema = z.object({
   label: z.string().trim().min(1).max(200),
   /** Pending until its first sign-in; only ready agents are listed. Absent from older hosts. */
   state: z.enum(['pending', 'ready']).optional(),
+  vault: z.literal(true).optional(),
 })
 export type AgentInstance = z.infer<typeof agentInstanceSchema>
 export const localAgentInstanceStatusSchema = localAgentStatusSchema.merge(agentInstanceSchema)

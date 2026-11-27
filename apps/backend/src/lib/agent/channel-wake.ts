@@ -207,11 +207,13 @@ function channelPage(page: Awaited<ReturnType<typeof readChannelMessages>>): str
         uploads ? { ...message, files: uploads.length } : message,
       ),
       note:
-        page.note +
-        (files
-          ? ' Call channel_read to get the files posted with these messages on this runtime.'
-          : '') +
-        (page.more ? ' More was posted: call channel_read for the rest.' : ''),
+        [
+          page.note,
+          files && 'Call channel_read to get the files posted with these messages on this runtime.',
+          page.more && 'More was posted: call channel_read for the rest.',
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
     },
     null,
     2,

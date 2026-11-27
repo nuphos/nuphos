@@ -3,7 +3,7 @@
 import { agentLog } from '../agent-log.ts'
 import { client } from '../binding-access-scenarios.ts'
 import { QUOTED, nameViewer, openBotChat, shoot, store } from '../channel-quotes.ts'
-import { newTask, send } from '../ui.ts'
+import { newTask, openRow, send } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
 
@@ -61,11 +61,7 @@ const scenario: Scenario = {
       'Send the standard DPA today and flag any edits to legal.',
     )
     await newTask(page)
-    await page
-      .getByText('Quote host E2E_DELIVERY:quote-host', { exact: true })
-      .filter({ visible: true })
-      .first()
-      .click()
+    await openRow(page, 'Quote host E2E_DELIVERY:quote-host')
     await page
       .getByText(/^Send the standard DPA today/)
       .first()

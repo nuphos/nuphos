@@ -35,14 +35,14 @@ type RemoteDevice = {
   publicKey: string
   state: 'pending' | 'enrolled'
 }
-type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] }
+export type Item = { ciphertext: string; keys: { deviceId: string; wrapped: string }[] }
 type Device = { deviceId: string; privateKey: string }
 
 /** This app's own item: the CLI's is `ai.nuphos.vault.device`, so neither asks for the other's. */
 const keychain = keychainFor('ai.nuphos.desktop.vault')
 
 /** A failure worth showing as written: the toast shows only errors with a code. */
-const fail = (message: string) => buildAtlasError(message, 'vault_desktop')
+export const fail = (message: string) => buildAtlasError(message, 'vault_desktop')
 
 async function account() {
   const { api, userId } = await signedIn()
@@ -57,7 +57,7 @@ async function account() {
 
 // Where the packaged app keeps the session token, it keeps the key; a dev
 // build keeps it in a file only this user can read.
-async function loadDevice(): Promise<Device | null> {
+export async function loadDevice(): Promise<Device | null> {
   const { item, file } = await account()
 
   if (secureStorageEnabled()) {
@@ -89,7 +89,7 @@ const devices = async () =>
 const item = async (name: string) =>
   (await call<{ item: Item }>('GET', `/vault/items/${name}`)).item
 
-function checkName(name: string): string {
+export function checkName(name: string): string {
   if (!validName(name))
     throw fail(
       'A name is up to 128 letters, digits, ".", "_" or "-", starting with a letter or digit.',
@@ -117,7 +117,7 @@ async function enrolledKey() {
   return mine
 }
 
-function itemKey(name: string, found: Item, mine: { deviceId: string; privateKey: Buffer }) {
+export function itemKey(name: string, found: Item, mine: { deviceId: string; privateKey: Buffer }) {
   const wrapped = found.keys.find((k) => k.deviceId === mine.deviceId)
 
   if (!wrapped) throw fail(`${name} is not shared with this device.`)

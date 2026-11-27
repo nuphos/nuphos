@@ -1,6 +1,6 @@
 ---
 name: architecture-diagram
-description: Draw, map, build or restructure system and infrastructure architecture diagrams on the user's Nuphos canvas through its API, with the layout conventions to follow.
+description: "Draw or restructure architecture diagrams on the user's Nuphos canvas."
 ---
 
 # Designing a good architecture diagram

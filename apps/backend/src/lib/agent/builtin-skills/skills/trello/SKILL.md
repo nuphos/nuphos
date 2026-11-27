@@ -1,6 +1,6 @@
 ---
 name: trello
-description: Read Trello boards, lists and cards; create, update, move and comment on cards through an explicitly selected team connection using Composio-managed authorization.
+description: "Read and update Trello boards, lists and cards via a selected team connection."
 ---
 
 # Trello

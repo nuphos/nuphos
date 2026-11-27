@@ -1,6 +1,6 @@
 ---
 name: sentry
-description: "Investigate Sentry errors (read-only): why something is erroring or failing in production, issues, stack traces, release health, and correlating incidents with deploys."
+description: "Investigate Sentry errors (read-only): why something fails in production, stack traces, releases."
 ---
 
 # sentry

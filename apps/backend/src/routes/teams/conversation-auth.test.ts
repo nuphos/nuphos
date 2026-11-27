@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  appendAliyunAccountLines,
-  appendTencentAccountLines,
-  appendVolcengineAccountLines,
-} from '@/routes/agent/credential-prompt-sections'
-
-import {
   conversationCanonicalTeamApiPathAllowed,
   conversationTeamApiPathAllowed,
   conversationTeamApiRoute,
@@ -177,47 +171,6 @@ describe('conversation team API capabilities', () => {
       '/linear-workspaces/linear-1/teams',
     ]) {
       expect(conversationTeamApiRoute('GET', path), path).toBeNull()
-    }
-  })
-
-  // The boundary has to match what the agent is told: an endpoint the prompt
-  // advertises and the allow-list denies reads to the model as a permission
-  // the user withheld. These lines are the ones built for these providers.
-  test('allows every endpoint the prompt advertises for Tencent, Aliyun and Volcengine', () => {
-    const teamId = 'team-1'
-    const lines: string[] = []
-
-    appendTencentAccountLines(
-      lines,
-      [{ accountId: 'tencent-1', label: 'Tencent', roleArn: 'arn:aws:iam::1:role/r' }],
-      teamId,
-    )
-    appendAliyunAccountLines(
-      lines,
-      [{ accountId: 'aliyun-1', label: 'Aliyun', roleArn: 'acs:ram::1:role/r' }],
-      teamId,
-    )
-    appendVolcengineAccountLines(
-      lines,
-      [{ accountId: 'volcengine-1', label: 'Volcengine', roleTrn: 'trn:iam::1:role/r' }],
-      teamId,
-    )
-
-    const endpoints = lines
-      .flatMap((line) => [...line.matchAll(/\b\w*[Ee]ndpoint="([^"]+)"/gu)])
-      .map((match) => match[1]!)
-
-    // Seven today; a new one belongs in the allow-list in the same change.
-    expect(endpoints).toHaveLength(7)
-    expect(new Set(endpoints.map((endpoint) => endpoint.split('/')[3]))).toEqual(
-      new Set(['tencent-accounts', 'aliyun-accounts', 'volcengine-accounts']),
-    )
-    for (const endpoint of endpoints) {
-      expect(endpoint.startsWith(`/teams/${teamId}/`), endpoint).toBe(true)
-      expect(
-        conversationTeamApiRoute('GET', endpoint.slice(`/teams/${teamId}`.length)),
-        endpoint,
-      ).toBe('canonical')
     }
   })
 

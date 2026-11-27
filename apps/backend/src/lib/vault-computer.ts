@@ -5,9 +5,12 @@
 // Nuphos: no weaker than `nuphos vault enroll` in a Nuphos terminal, weaker than one
 // over the person's own SSH.
 
+import { ObjectId } from 'mongodb'
+
 import { dispatchLocalExec } from '@/lib/agent/devices/dispatch'
 import { requireShellAccess } from '@/lib/agent/devices/manage-access'
 import { AppError } from '@/lib/errors'
+import { users } from '@/lib/identity/shared'
 import { addVaultDevice, devices, itemView, items } from '@/lib/vault'
 
 import type { LocalExecDispatchOutcome } from '@/lib/agent/devices/dispatch'
@@ -27,6 +30,8 @@ export type VaultComputerDeps = {
     command: string,
   ) => Promise<LocalExecDispatchOutcome>
   addVaultDevice: typeof addVaultDevice
+  /** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
+  ownerKey: (computer: Computer) => Promise<string | null>
 }
 
 const defaultDeps: VaultComputerDeps = {
@@ -34,6 +39,19 @@ const defaultDeps: VaultComputerDeps = {
   run: (actorId, teamId, deviceId, command) =>
     dispatchLocalExec(actorId, deviceId, command, { teamId }),
   addVaultDevice,
+  ownerKey: desktopKey,
+}
+
+/** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
+export async function desktopKey(computer: Computer): Promise<string | null> {
+  const linked = await devices().findOne({
+    userId: computer.userId,
+    state: 'enrolled',
+    computer: linkOf(computer),
+    desktop: true,
+  })
+
+  return linked?.publicKey ?? null
 }
 
 const X25519_PUBLIC_KEY = /^[A-Za-z0-9+/]{43}=$/
@@ -49,6 +67,10 @@ export async function addComputerToVault(
   // A user id goes into a shell command: refuse anything but its plain characters,
   // and a leading "-" that would read as an option.
   if (!/^\w[\w-]*$/.test(actorId)) throw new AppError(400, 'bad_request', 'Invalid user')
+  // Desktop has no CLI to make a key: it offers the one it holds in its owner's vault.
+  const own = await deps.ownerKey(linkOf(computer))
+
+  if (own) return deps.addVaultDevice(actorId, deviceName(computer), own, linkOf(computer))
   // An empty vault is refused after this, when the key is registered; the computer
   // keeps the unused key and offers it again next time.
   const outcome = await deps.run(actorId, teamId, deviceId, `nuphos vault keygen --user ${actorId}`)
@@ -105,4 +127,41 @@ export async function getVaultItemForComputer(userId: string, computer: Computer
     deviceId: device._id,
     item: itemView({ ...doc, keys: doc.keys.filter((key) => key.deviceId === device._id) }),
   }
+}
+
+/**
+ * Whose vaults share an item with this computer: each owner who approved a device linked to
+ * it and wrapped the item's key for that device. Who and their name only, never the item.
+ */
+export async function vaultOwnersSharingWithComputer(computer: Computer, name: string) {
+  const linked = await devices()
+    .find({
+      state: 'enrolled',
+      'computer.userId': computer.userId,
+      'computer.deviceId': computer.deviceId,
+    })
+    .toArray()
+  const shared = linked.length
+    ? await items()
+        .find({ name, userId: { $in: linked.map((device) => device.userId) } })
+        .toArray()
+    : []
+  const owners = shared
+    .filter((item) =>
+      linked.some(
+        (device) =>
+          device.userId === item.userId && item.keys.some((key) => key.deviceId === device._id),
+      ),
+    )
+    .map((item) => item.userId)
+  const ids = owners.filter((id) => ObjectId.isValid(id)).map((id) => new ObjectId(id))
+  const names = new Map(
+    (
+      await users()
+        .find({ _id: { $in: ids } }, { projection: { name: 1 } })
+        .toArray()
+    ).map((user) => [user._id.toHexString(), user.name]),
+  )
+
+  return owners.map((userId) => ({ userId, name: names.get(userId) ?? '' }))
 }

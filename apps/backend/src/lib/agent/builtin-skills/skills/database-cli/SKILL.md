@@ -1,6 +1,6 @@
 ---
 name: database-cli
-description: "Use mongosh, psql/pg_dump/pg_restore and mysql/mysqldump from the sandbox: read-only inspection first, secrets kept off the command line, confirmation before destructive queries."
+description: "Query MongoDB, Postgres or MySQL from the sandbox with mongosh, psql or mysql."
 ---
 
 # Database CLI

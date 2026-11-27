@@ -4,7 +4,11 @@
 // scripts) are adapted to the native runtime equivalents it actually has.
 
 import { getConversationBySessionId } from '@/lib/agent/db'
-import { EXTERNAL_CHANNEL_NOTE, OWNER_DECISION_NOTE } from '@/lib/agent/db/channel-notes'
+import {
+  CHANNEL_READ_NOTE,
+  EXTERNAL_CHANNEL_NOTE,
+  OWNER_DECISION_NOTE,
+} from '@/lib/agent/db/channel-notes'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { getAgentDevice } from '@/lib/agent/devices/store'
@@ -110,6 +114,9 @@ async function taskNameSection(sessionId: string): Promise<string | null> {
   return !conversation || isUnnamedTask(conversation) ? TASK_NAME_NOTE : null
 }
 
+const CHANNEL_STYLE_NOTE =
+  "Chat the way a person in a group chat does: short messages, one idea each, so split a longer answer into several channel_post calls rather than one wall of text. For work that takes a while, post a quick acknowledgement first, then post results as they come in. No headings or long tables; send images as files. Answer a greeting or a question to the group, and don't answer one clearly meant for someone else unless you have something to add. If you have nothing to say, don't post. A question for another member of the channel is still an ordinary post to them."
+
 /**
  * The channels this conversation is in. Whatever wakes a turn, the people there
  * see only its posts, so the reminder rides on every turn, not on a channel wake.
@@ -128,6 +135,8 @@ async function channelsSection(sessionId: string): Promise<string | null> {
 
   return [
     `## Channels you are in\nYou are a member of the channels ${ids(channels)}; channel_read shows who is in each. The people in a channel see you only there: nothing you write in this conversation reaches them, and only channel_post does. Whatever woke this turn (a channel, a sub-agent, an Inbox answer, a Trigger, a Nuphos notice or your owner here), when it produced something a channel's people are meant to see, such as a result, a finding or a blocker for work they asked for, post it in that channel with channel_post.`,
+    CHANNEL_STYLE_NOTE,
+    CHANNEL_READ_NOTE,
     nuphos.length ? OWNER_DECISION_NOTE : '',
     slack.length ? `Slack channels: ${ids(slack)}. ${EXTERNAL_CHANNEL_NOTE}` : '',
   ]

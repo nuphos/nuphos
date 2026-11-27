@@ -422,8 +422,10 @@ fun HomeScreen(
     val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inbox?.waiting?.size ?: 0)
     val profileLabel = stringResource(R.string.home_toolbar_account)
     val switchTeamLabel = stringResource(R.string.home_toolbar_switch_team)
+    // The Bots and Tasks lists sit on the surface, as on iOS.
+    val canvas = if (current == HomePage.Chats || current == HomePage.Agent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = canvas,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
             NavigationBar {
@@ -471,7 +473,7 @@ fun HomeScreen(
                         Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = canvas),
                 actions = {
                     Box {
                         IconButton(

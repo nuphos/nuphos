@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 import { client } from './binding-access-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -71,11 +71,7 @@ export const replyFileScenarios: Scenario[] = [
       expireAndCite(stack, marker, refused, deleted)
       // Away and back, as a person opens the conversation the next day.
       await newTask(page)
-      await page
-        .getByText(`Show me the files ${marker}`, { exact: true })
-        .filter({ visible: true })
-        .first()
-        .click()
+      await openRow(page, `Show me the files ${marker}`)
       const reply = page.getByText('Here are the screenshot and the walkthrough:').locator('..')
 
       await reply.waitFor()

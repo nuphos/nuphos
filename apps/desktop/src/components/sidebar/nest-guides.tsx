@@ -2,12 +2,12 @@ import { Fragment } from 'react'
 
 import type { ReactNode } from 'react'
 
-// Tree lines follow the icon centre of a 36px Tasks row.
+// Tree lines follow the icon centre of a 36px Tasks row (22px icon after the 14px gutter).
 const NEST_INDENT = 16
-const TASK_ICON_CENTER_X = 19
+const TASK_ICON_CENTER_X = 25
 
-/** A Bot chat row (70px, a 36px face at px-2): the face's centre and just under it. */
-const BOT_FACE_CENTER_X = 26
+/** A Bot chat row (70px, a 36px face after the 14px gutter): the face's centre and just under it. */
+const BOT_FACE_CENTER_X = 32
 const BOT_FACE_BOTTOM_Y = 55
 const LINE = 'pointer-events-none absolute border-line-control/60'
 // -bottom-0.5 spans the 2px gap between rows so the next row's line joins on.

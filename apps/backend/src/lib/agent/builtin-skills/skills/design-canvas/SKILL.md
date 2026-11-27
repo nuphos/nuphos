@@ -1,6 +1,6 @@
 ---
 name: design-canvas
-description: "Design, mock up and iterate on product screens on a Nuphos Design canvas: live HTML frames, sections, notes and flow arrows. Use for screens, UI mockups and user flows."
+description: "Design and iterate on product screens, UI mockups and flows on a Nuphos Design canvas."
 ---
 
 # Design canvas

@@ -1,6 +1,6 @@
 ---
 name: posthog
-description: "Query PostHog analytics: product usage, funnels, retention, active users, events, feature flags, cohorts and experiments via HogQL and the API. Writes need user confirmation."
+description: "Query PostHog analytics: usage, funnels, retention, events, flags and experiments."
 ---
 
 # posthog

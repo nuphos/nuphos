@@ -13,13 +13,19 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  linkVaultDevice,
   listVaultDevices,
   listVaultItems,
   putVaultItem,
   removeVaultDevice,
 } from '@/lib/vault'
 import type { VaultKey } from '@/lib/vault'
-import { getVaultItemForComputer, offerComputerKey } from '@/lib/vault-computer'
+import {
+  desktopKey,
+  getVaultItemForComputer,
+  offerComputerKey,
+  vaultOwnersSharingWithComputer,
+} from '@/lib/vault-computer'
 
 const KEY = Buffer.alloc(32, 1).toString('base64')
 const keysFor = (...ids: string[]) =>
@@ -286,6 +292,91 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
     })
     await removeVaultDevice(user, laptop.id)
     expect((await getVaultItemForComputer(user, box, 'token')).item.ciphertext).toBe('c3')
+  })
+
+  test('a computer learns whose vaults share an item with it, and nothing more', async () => {
+    const box = { userId: randomUUID(), deviceId: randomUUID() }
+    const sharing = async (shareIt: boolean) => {
+      const user = randomUUID()
+      const laptop = await addVaultDevice(user, 'laptop', KEY)
+      const added = await addVaultDevice(user, 'box', KEY, box)
+
+      await approveVaultDevice(user, added.id)
+      await put(user, 'token', 'c1', [
+        ...keysFor(laptop.id),
+        ...(shareIt ? [{ deviceId: added.id, wrapped: 'w-box' }] : []),
+      ])
+
+      return user
+    }
+    const alice = await sharing(true)
+    const bob = await sharing(true)
+
+    await sharing(false)
+    // Linked but still pending: not yet a vault it reads.
+    const pending = randomUUID()
+    const laptop = await addVaultDevice(pending, 'laptop', KEY)
+
+    await addVaultDevice(pending, 'box', KEY, box)
+    await put(pending, 'token', 'c1', keysFor(laptop.id))
+
+    const owners = await vaultOwnersSharingWithComputer(box, 'token')
+
+    // Random ids are no users: who they are, with no name.
+    expect(owners).toHaveLength(2)
+    expect(owners).toContainEqual({ userId: alice, name: '' })
+    expect(owners).toContainEqual({ userId: bob, name: '' })
+    expect(await vaultOwnersSharingWithComputer(box, 'other')).toEqual([])
+    expect(
+      await vaultOwnersSharingWithComputer({ ...box, deviceId: randomUUID() }, 'token'),
+    ).toEqual([])
+  })
+
+  test('Desktop reads what its owner and others share with its computer, with its one key', async () => {
+    const bob = randomUUID()
+    const alice = randomUUID()
+    const mac = { userId: bob, deviceId: randomUUID() }
+    const desktop = await addVaultDevice(bob, 'Mac (Desktop)', KEY)
+
+    await linkVaultDevice(bob, desktop.id, mac.deviceId)
+    await put(bob, 'token', 'bob', keysFor(desktop.id))
+    // Alice adds Bob's computer: what Bob approved for it is the key she gets.
+    const laptop = await addVaultDevice(alice, 'laptop', KEY)
+    const added = await addVaultDevice(alice, 'Mac', KEY, mac)
+
+    await approveVaultDevice(alice, added.id)
+    await put(alice, 'token', 'alice', [...keysFor(laptop.id), ...keysFor(added.id)])
+
+    // Only Desktop's link offers its key; a CLI computer makes one per person with keygen.
+    expect(await desktopKey(mac)).toBe(KEY)
+    expect(await desktopKey({ userId: alice, deviceId: mac.deviceId })).toBeNull()
+    const cli = { userId: alice, deviceId: 'alice-cli' }
+    const cliDevice = await addVaultDevice(alice, 'CLI box', KEY, cli)
+
+    await approveVaultDevice(alice, cliDevice.id)
+    expect(await desktopKey(cli)).toBeNull()
+
+    const owners = await vaultOwnersSharingWithComputer(mac, 'token')
+
+    expect(new Set(owners.map((owner) => owner.userId))).toEqual(new Set([alice, bob]))
+    expect(await getVaultItemForComputer(bob, mac, 'token')).toMatchObject({
+      deviceId: desktop.id,
+      item: { ciphertext: 'bob', keys: keysFor(desktop.id) },
+    })
+    expect(await getVaultItemForComputer(alice, mac, 'token')).toMatchObject({
+      deviceId: added.id,
+      item: { ciphertext: 'alice', keys: keysFor(added.id) },
+    })
+    // A new enrollment on that computer takes the link; another person's device it cannot.
+    const again = await addVaultDevice(bob, 'Mac (Desktop)', Buffer.alloc(32, 3).toString('base64'))
+
+    await approveVaultDevice(bob, again.id)
+    await linkVaultDevice(bob, again.id, mac.deviceId)
+    await put(bob, 'token', 'bob2', keysFor(again.id))
+    expect((await getVaultItemForComputer(bob, mac, 'token')).deviceId).toBe(again.id)
+    expect(await fails(linkVaultDevice(bob, laptop.id, mac.deviceId))).toMatchObject({
+      code: 'not_found',
+    })
   })
 
   test('a computer that joined offers one key, even when two offers race', async () => {

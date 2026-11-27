@@ -12,6 +12,7 @@ import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 import type { LocalConnection } from './tunnel-streams.ts'
+import type { VaultToken } from './vault-token.ts'
 
 export type LocalAgentState = {
   /** This build ships the agent for this platform. */
@@ -73,6 +74,8 @@ export type LocalRuntimeControllerDeps = {
   backendUrl: string
   /** `fresh` reads the shell again instead of reusing what it said when the app started. */
   userEnv: (fresh?: boolean) => Promise<NodeJS.ProcessEnv>
+  /** The Claude Code tokens shared with this computer, each an added agent; null when unknown. */
+  vaultTokens?: () => Promise<VaultToken[] | null>
   probeCli: (
     provider: LocalAgentProvider,
     env: NodeJS.ProcessEnv,

@@ -252,6 +252,9 @@ export function VaultSharePicker({
                 </p>
               )}
             </div>
+            <p className="border-t border-line-control/60 px-3 py-2 text-[12.5px] text-tertiary">
+              {t('Anyone who can use a computer you share with can read this item.')}
+            </p>
             {error && (
               <p className="m-3 mt-0 rounded-md border border-error/30 bg-error/10 px-2.5 py-2 text-[12.5px] text-error">
                 {error}

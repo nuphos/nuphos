@@ -1,6 +1,6 @@
 ---
 name: huawei
-description: Call Huawei Cloud REST APIs with the bundled signer to inspect or change CCE, ECS, ELB, VPC, OBS, RDS and more. Includes a script for short-lived federated credentials.
+description: "Huawei Cloud (CCE, ECS, ELB, VPC, OBS, RDS…) via REST with the bundled signer."
 ---
 
 # Huawei Cloud (华为云)

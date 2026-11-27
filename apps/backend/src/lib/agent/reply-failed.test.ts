@@ -68,3 +68,24 @@ describe('a channel reply that failed (#4179)', () => {
     expect(told).toEqual([])
   })
 })
+
+describe('a channel reply on a runtime that is gone', () => {
+  test('offers its owner to move the Bot, in the runtime’s own words', async () => {
+    const gone = new AppError(
+      404,
+      'runtime_not_found',
+      'This runtime is no longer available to you. Move this conversation to another runtime to continue.',
+    )
+
+    await seed('bot-c')
+    await noteReplyFailed('bot-c-channel', 'bot-c', gone)
+    const channel = await agentConversations().findOne({ sessionId: 'bot-c-channel' })
+
+    // The client offers Switch runtime for any cause but `other`.
+    expect(channel?.timelineEvents?.at(-1)).toMatchObject({
+      kind: 'agent_reply_failed',
+      cause: 'offline',
+      reason: gone.message,
+    })
+  })
+})

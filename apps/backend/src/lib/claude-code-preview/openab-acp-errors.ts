@@ -40,9 +40,9 @@ type SessionSocket = { send: (data: string) => void }
 export const SESSION_OUTPUT_SINK_UNAVAILABLE = 'ACP session output sink is unavailable'
 export const SESSION_OUTPUT_SINK_RETRY_DELAYS_MS = [250, 500, 1_000, 2_000, 4_000, 8_000]
 
-/** The runtime cannot take the turn (offline, signed out, disabled), not a busy conversation. */
+/** The runtime cannot take the turn (offline, signed out, disabled, gone), not a busy conversation. */
 const RUNTIME_UNAVAILABLE =
-  /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required|disabled)$/u
+  /(?:^|_)runtime_(?:offline|unreachable|unavailable|login_required|disabled|not_found)$/u
 
 /** Why an agent could not take a turn, when the cause was the agent itself; `other` when it was not. */
 export type TurnFailureCause = 'usage_limit' | 'auth' | 'offline' | 'other'

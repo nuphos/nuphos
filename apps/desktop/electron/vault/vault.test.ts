@@ -5,7 +5,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { beforeEach, mock, test } from 'node:test'
 
-import { fingerprint, generateDeviceKey, unwrap } from './crypto.ts'
+import { fingerprint, generateDeviceKey, seal, unwrap, wrap } from './crypto.ts'
 
 type Device = {
   id: string
@@ -20,13 +20,26 @@ type Item = {
 }
 
 // The backend's vault routes, in memory.
-const backend = { devices: [] as Device[], items: new Map<string, Item>(), calls: [] as string[] }
+const backend = {
+  devices: [] as Device[],
+  items: new Map<string, Item>(),
+  calls: [] as string[],
+  /** What other vaults share with this computer, as `/vault/computers/...` answers. */
+  shared: new Map<string, { deviceId: string; item: Item }>(),
+}
 const fail = (status: number) => Object.assign(new Error(String(status)), { status })
 let clock = 0
 const tick = () => new Date(Date.UTC(2026, 0, 1, 0, 0, ++clock)).toISOString()
 
 function route(method: string, url: string, body: Record<string, unknown>) {
   const [, , kind, id, action] = url.split('/')
+
+  if (kind === 'computers') {
+    const owner = new URL(url, 'http://backend').searchParams.get('user')
+
+    return owner ? backend.shared.get(owner) : { owners: [...backend.shared.keys()] }
+  }
+  if (action === 'computer') return {}
 
   if (kind === 'devices' && method === 'GET') return { devices: backend.devices }
   if (kind === 'devices' && method === 'POST' && !id) {
@@ -107,11 +120,13 @@ mock.module('../cli-config-path.ts', {
 })
 
 const vault = await import('./vault.ts')
+const computer = await import('./computer.ts')
 
 beforeEach(() => {
   backend.devices = []
   backend.items.clear()
   backend.calls = []
+  backend.shared.clear()
   Object.assign(keychain, { failSet: false, secure: false, entries: new Map() })
   fs.rmSync(path.join(dir, 'vault-u1.yaml'), { force: true })
 })
@@ -232,4 +247,33 @@ test('names and sizes are checked before anything is sent', async () => {
   await assert.rejects(vault.setItem('../x', 'v', [], null), /A name is/)
   await assert.rejects(vault.setItem('big', 'x'.repeat(64 * 1024 + 1), [], null), /at most 64 KiB/)
   assert.ok(!backend.calls.some((c) => c.startsWith('PUT')))
+})
+
+test('what another person shares with this computer opens with this device’s own key', async () => {
+  const mine = (await vault.enroll()).thisDeviceId as string
+  const desktopKey = Buffer.from(backend.devices[0].publicKey, 'base64')
+  const key = Buffer.alloc(32, 5)
+
+  // Alice's vault holds this computer as a device of hers, with the key this device holds.
+  backend.shared.set('alice', {
+    deviceId: 'alice-device',
+    item: {
+      ciphertext: seal(key, 'claude-code-oauth-token', Buffer.from('sk-ant-oat01-fictional')),
+      keys: [
+        { deviceId: 'alice-device', wrapped: wrap(key, 'claude-code-oauth-token', desktopKey) },
+      ],
+      updatedAt: tick(),
+    },
+  })
+  assert.deepEqual(await computer.sharers('claude-code-oauth-token', 'mac-1'), ['alice'])
+  await computer.sharers('claude-code-oauth-token', 'mac-1')
+  // Linked to its computer once, then only asked.
+  assert.deepEqual(
+    backend.calls.filter((c) => c.startsWith('PUT')),
+    [`PUT /vault/devices/${mine}/computer`],
+  )
+  assert.equal(
+    await computer.sharedItem('claude-code-oauth-token', 'alice', 'mac-1'),
+    'sk-ant-oat01-fictional',
+  )
 })

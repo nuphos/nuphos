@@ -1,6 +1,6 @@
 ---
 name: triggers
-description: "Manage Nuphos cron and webhook Triggers through the team REST API: recurring agent work, webhooks from monitoring or other senders, and delivery tests."
+description: "Manage Nuphos cron and webhook Triggers."
 ---
 
 # Nuphos Triggers API

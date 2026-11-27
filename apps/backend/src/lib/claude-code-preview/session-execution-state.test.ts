@@ -1,5 +1,6 @@
 import { expect, test } from 'bun:test'
 
+import { AppError } from '@/lib/errors'
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 
 import { conversationExecutionState, probeExecutionState } from './session-execution-state'
@@ -7,10 +8,13 @@ import { conversationExecutionState, probeExecutionState } from './session-execu
 import type { AgentConversation } from '@/lib/agent/db'
 
 let endpoint = ''
+let refusal: Error | undefined
 
 useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: () =>
-    Promise.resolve([{ url: endpoint, authKey: 'operator-fixture' }]),
+    refusal
+      ? Promise.reject(refusal)
+      : Promise.resolve([{ url: endpoint, authKey: 'operator-fixture' }]),
 })
 
 test('legacy conversation state follows its OpenAB placement and permits a follow-up', async () => {
@@ -168,6 +172,42 @@ test('a conversation moved before the fix is read the same way', async () => {
   expect(snapshot.state).toBe('dormant')
   expect(snapshot.actions?.send).toBe(true)
 })
+
+// A queued send read as disconnected waits for the computer to reconnect, then says it did not:
+// an agent refused for a reason of its own is not reconnecting, and its send meets that reason.
+for (const [failure, state] of [
+  [new AppError(409, 'runtime_not_installed', 'Claude Code is too old to run here.'), 'dormant'],
+  [new AppError(409, 'runtime_disabled', 'This conversation’s agent is disabled.'), 'dormant'],
+  [new AppError(409, 'claude_code_setup_required', 'Add a runtime first.'), 'dormant'],
+  [
+    new AppError(404, 'runtime_not_found', 'This runtime is no longer available to you.'),
+    'dormant',
+  ],
+  [
+    new AppError(409, 'runtime_offline', 'The computer running this agent is offline.'),
+    'disconnected',
+  ],
+  [
+    new AppError(503, 'claude_code_runtime_unavailable', 'The attached agent is unavailable.'),
+    'disconnected',
+  ],
+] as const) {
+  test(`an agent refused with ${failure.code} reads as ${state}`, async () => {
+    refusal = failure
+    const conversation = {
+      sessionId: failure.code,
+      teamId: 'team',
+      agentRuntime: 'claude-code',
+    } as AgentConversation
+
+    try {
+      await expect(probeExecutionState(conversation)).rejects.toThrow(failure.message)
+      expect((await conversationExecutionState(conversation)).state).toBe(state)
+    } finally {
+      refusal = undefined
+    }
+  })
+}
 
 // A state query that is only slow is not a failure for admission: it waits, and
 // the two tests below cover it. These are answers the runtime did give.
