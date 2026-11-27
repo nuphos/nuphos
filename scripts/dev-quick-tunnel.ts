@@ -8,6 +8,25 @@ import type { ChildProcess } from 'node:child_process'
 
 type QuickTunnel = { proc: ChildProcess; url: string | null }
 
+const TUNNEL_URL_PATTERN = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/
+
+// Output arrives in arbitrary stream chunks, so match against everything seen
+// so far: a URL split across a chunk boundary must still be found. Only a
+// bounded tail is kept — an older miss cannot be repaired by older bytes.
+export function tunnelUrlFromOutput(): (chunk: string) => string | null {
+  let seen = ''
+
+  return (chunk) => {
+    seen += chunk
+    const found = seen.match(TUNNEL_URL_PATTERN)?.[0]
+
+    if (found) return found
+    seen = seen.slice(-2048)
+
+    return null
+  }
+}
+
 // Resolves with the tunnel URL, or null after 20 s.
 export async function spawnQuickTunnel(port: number): Promise<QuickTunnel> {
   // An empty --config: a named tunnel's config.yml would route this one to its 404 catch-all.
@@ -17,10 +36,11 @@ export async function spawnQuickTunnel(port: number): Promise<QuickTunnel> {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   const url = await new Promise<string | null>((resolve) => {
+    const nextUrl = tunnelUrlFromOutput()
     const onData = (chunk: Buffer) => {
-      const m = chunk.toString().match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/)
+      const found = nextUrl(chunk.toString())
 
-      if (m) resolve(m[0])
+      if (found) resolve(found)
     }
 
     proc.stdout?.on('data', onData)
