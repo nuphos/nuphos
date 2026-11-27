@@ -153,7 +153,12 @@ test('a worker cannot report across ownership or team boundaries', async () => {
 })
 
 test('a top-level session reports to task.reported webhooks only, once per report id', async () => {
-  const report = { reportId: 'done-1', status: 'done', summary: 'Shipped.' } as const
+  const report = {
+    reportId: 'done-1',
+    status: 'done',
+    summary: 'Shipped.',
+    data: { pr: 42 },
+  } as const
 
   expect(await reportTask('u', 't', 'parent', report)).toEqual({
     report_id: 'done-1',
@@ -164,7 +169,15 @@ test('a top-level session reports to task.reported webhooks only, once per repor
   expect(store.rows.agent_conversations![0]!.taskReport).toMatchObject({
     status: 'done',
     summary: 'Shipped.',
+    data: { pr: 42 },
   })
+  await expect(reportTask('u', 't', 'parent', { ...report, data: { pr: 43 } })).rejects.toThrow(
+    'cannot be reused',
+  )
+  await expect(reportTask('u', 't', 'parent', { ...report, summary: 'Other.' })).rejects.toThrow(
+    'cannot be reused',
+  )
+  expect(store.rows.agent_conversations![0]!.taskReport.data).toEqual({ pr: 42 })
   expect(webhookEvents).toEqual(['parent:task.reported'])
   expect(queued).toHaveLength(0)
   expect(store.rows.agent_task_reports ?? []).toHaveLength(0)
