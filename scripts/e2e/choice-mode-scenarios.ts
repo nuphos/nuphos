@@ -1,11 +1,11 @@
 // #3468: a single- and a multi-select question are one card, in a chat and in the Inbox.
-import { agentEvents } from './agent-log.ts'
+import { agentEvents, agentLog } from './agent-log.ts'
 import { must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { newTask, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
-import type { Page } from 'playwright-core'
+import type { Locator, Page } from 'playwright-core'
 
 const SINGLE = 'Which region ships first?'
 const MULTI = 'Which regions ship today?'
@@ -120,6 +120,77 @@ export const choiceModeScenarios: Scenario[] = [
       await openInInbox(page, SINGLE)
       await page.getByRole('button', { name: 'E2E_DELIVERY:one-eu' }).click()
       await delivered('E2E_DELIVERY:one-eu')
+    },
+  },
+  {
+    // #5257: "Other…" typed on both questions of one card, in a chat and in the Inbox.
+    name: 'words typed after Other on two questions both reach the agent, from a chat and the Inbox',
+    run: async (page, stack) => {
+      const TWO = 'How should the backup go?'
+      const ask = async (marker: string) => {
+        const call = {
+          label: 'Ask',
+          category: 'preference',
+          body: 'The recordings take 40 GB.',
+          question: TWO,
+          questions: [
+            { question: 'Delete the recordings?', options: ['Delete', 'Keep'] },
+            { question: 'Add a cloud backup?', options: ['GCP bucket', 'Not yet'] },
+          ],
+        }
+
+        await send(page, `Ask it E2E_CALL request_user_decision ${JSON.stringify(call)} ${marker}`)
+        await page.getByText(`ACK ${marker}`).waitFor()
+      }
+      // A picked option first, then "Other…": the words, not the option, are the answer.
+      const answer = async (scope: Locator, words: [string, string], shot: string) => {
+        const sets = scope.locator('fieldset').filter({ visible: true })
+
+        // In a form an option is a radio (a checkbox when multi-select); Other is a button.
+        await sets.nth(0).getByRole('radio', { name: 'Delete', exact: true }).click()
+        for (const [at, text] of words.entries()) {
+          await sets.nth(at).getByRole('button', { name: 'Other…' }).click()
+          await sets.nth(at).getByRole('textbox').fill(text)
+        }
+        await page.screenshot({ path: `${artifacts}/${shot}.png` })
+        must(
+          (await sets.nth(0).getByRole('textbox').inputValue()) === words[0],
+          'the first answer to stay once the second question is answered in words',
+        )
+        await scope.getByRole('button', { name: 'Send', exact: true }).click()
+        // The answer the agent receives carries both words, in the questions' order.
+        await until(`${words.join(' and ')} to reach the agent`, () =>
+          Promise.resolve(
+            agentLog(stack).some(
+              ({ event, markers = [] }) =>
+                event === 'start' &&
+                markers.indexOf(words[0]) >= 0 &&
+                markers.indexOf(words[1]) > markers.indexOf(words[0]),
+            ),
+          ),
+        )
+      }
+
+      await newTask(page)
+      await light(page)
+      await ask('E2E_DELIVERY:ask-other-chat')
+      await card(page, TWO).scrollIntoViewIfNeeded()
+      await answer(
+        card(page, TWO),
+        ['E2E_DELIVERY:chat-old-ones', 'E2E_DELIVERY:chat-drive'],
+        'choice-modes-other-chat',
+      )
+
+      await newTask(page)
+      await ask('E2E_DELIVERY:ask-other-inbox')
+      await page.getByRole('tab', { name: 'Inbox' }).click()
+      await light(page)
+      await openInInbox(page, TWO)
+      await answer(
+        page.locator('body'),
+        ['E2E_DELIVERY:inbox-old-ones', 'E2E_DELIVERY:inbox-drive'],
+        'choice-modes-other-inbox',
+      )
     },
   },
 ]
