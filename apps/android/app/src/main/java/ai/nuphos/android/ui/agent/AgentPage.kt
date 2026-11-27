@@ -328,28 +328,10 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
     val levelDescription = stringResource(R.string.agent_sub_agent_level, row.depth)
-    val line = MaterialTheme.colorScheme.outlineVariant
-    Box(Modifier.fillMaxWidth().drawWithContent {
-        drawContent()
-        val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
-        fun x(level: Int): Float {
-            val logical = (level * 32 + 30).dp.toPx()
-            return if (rtl) size.width - logical else logical
-        }
-        for (level in 0 until depth) {
-            val branch = x(level)
-            if (row.trail.getOrNull(level) == true) drawLine(line, Offset(branch, 0f), Offset(branch, size.height), 1.dp.toPx())
-            if (level == depth - 1) {
-                drawLine(line, Offset(branch, 0f), Offset(branch, size.height / 2), 1.dp.toPx())
-                val end = if (rtl) size.width - (depth * 32 + 2).dp.toPx() else (depth * 32 + 2).dp.toPx()
-                drawLine(line, Offset(branch, size.height / 2), Offset(end, size.height / 2), 1.dp.toPx())
-            }
-        }
-        if (row.threads > 0 && !row.folded) drawLine(line, Offset(x(depth), size.height / 2 + 21.dp.toPx()), Offset(x(depth), size.height), 1.dp.toPx())
-    }.padding(start = (depth * 32).dp).semantics {
+    Box(Modifier.fillMaxWidth().treeLines(row, MaterialTheme.colorScheme.outlineVariant).semantics {
         stateDescription = levelDescription; this.selected = selected
     }) {
-        ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot)
+        ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot, depth = depth)
     }
 }
 
@@ -358,20 +340,63 @@ internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, 
 internal fun ProjectRow(row: ConversationNesting.Row, onToggle: () -> Unit) {
     val foldState = stringResource(if (row.folded) R.string.agent_collapsed else R.string.agent_expanded)
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(onClick = onToggle)
-            .semantics { stateDescription = foldState }.testTag("task-project:${row.conversation.sessionId}"),
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).treeLines(row, MaterialTheme.colorScheme.outlineVariant, mark = TreeGeometry.FOLDER)
+            .clickable(onClick = onToggle).semantics { stateDescription = foldState }.testTag("task-project:${row.conversation.sessionId}")
+            .padding(top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Icon(painterResource(if (row.conversation.sessionId == ConversationNesting.NO_PROJECT) R.drawable.task_no_project else R.drawable.task_project),
-            contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        // The folder takes a Task's runtime mark place, so the tree line runs from its centre.
+        Spacer(Modifier.width((TreeGeometry.GUTTER + row.depth.coerceAtMost(4) * TreeGeometry.INDENT).dp))
+        Box(Modifier.width(TreeGeometry.MARK.dp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(if (row.conversation.sessionId == ConversationNesting.NO_PROJECT) R.drawable.task_no_project else R.drawable.task_project),
+                contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(TreeGeometry.FOLDER.dp))
+        }
         Text(row.conversation.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp))
     }
 }
 
+/** The list's tree geometry, as iOS `ThreadTree`: a line runs through the centre of each level's mark. */
+internal object TreeGeometry {
+    /** The state's column before the mark. */
+    const val GUTTER = 16
+    /** A Task's runtime mark. */
+    const val MARK = 40
+    /** A project's folder, in the mark's place. */
+    const val FOLDER = 18
+    const val INDENT = 32
+    fun x(level: Int) = GUTTER + level * INDENT + MARK / 2
+}
+
+/**
+ * Tree lines behind a row: ancestors' branches that continue, this row's turn into its
+ * own mark, and a line down from its mark (of [mark] dp) while its children show.
+ */
+internal fun Modifier.treeLines(row: ConversationNesting.Row, line: androidx.compose.ui.graphics.Color, mark: Int = TreeGeometry.MARK): Modifier = drawWithContent {
+    drawContent()
+    val depth = row.depth.coerceAtMost(4)
+    val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+    fun x(level: Int): Float {
+        val logical = TreeGeometry.x(level).dp.toPx()
+        return if (rtl) size.width - logical else logical
+    }
+    val mid = size.height / 2
+    for (level in 0 until depth) {
+        val branch = x(level)
+        if (row.trail.getOrNull(level) == true) drawLine(line, Offset(branch, 0f), Offset(branch, size.height), 1.dp.toPx())
+        if (level == depth - 1) {
+            drawLine(line, Offset(branch, 0f), Offset(branch, mid), 1.dp.toPx())
+            // The turn stops short of this row's gutter, as on iOS.
+            val endLogical = (TreeGeometry.GUTTER + depth * TreeGeometry.INDENT - 3).dp.toPx()
+            drawLine(line, Offset(branch, mid), Offset(if (rtl) size.width - endLogical else endLogical, mid), 1.dp.toPx())
+        }
+    }
+    if (row.threads > 0 && !row.folded) drawLine(line, Offset(x(depth), mid + (mark / 2 + 3).dp.toPx()), Offset(x(depth), size.height), 1.dp.toPx())
+}
+
 @Composable
-internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
+internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null, depth: Int = 0) {
     val rename = stringResource(R.string.agent_rename)
     val watch = stringResource(if (conversation.watching == true) R.string.agent_unwatch else R.string.agent_watch)
     val unlink = stringResource(if (unlinking) R.string.agent_unlinking else R.string.agent_unlink)
@@ -409,6 +434,8 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
                         Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.onSurface, CircleShape).semantics { stateDescription = unread })
                     }
                 }
+                // A thread indents after the gutter, so every state stays at the list's edge, as on iOS.
+                if (depth > 0) Spacer(Modifier.width((depth * TreeGeometry.INDENT).dp))
                 Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape), contentAlignment = Alignment.Center) {
                     RuntimeMark(conversation.agentRuntime, 20.dp)
                 }

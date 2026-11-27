@@ -2,6 +2,7 @@ package ai.nuphos.android
 
 import android.content.Context
 import androidx.activity.compose.setContent
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -173,20 +174,33 @@ class ConversationNestingFixtureDeviceTest {
     }
 
     @Test fun syntheticTasksGroupUnderProjectsWithAttentionAboveTheDivider() {
-        val at = { seconds: Long -> java.time.Instant.ofEpochSecond(1_800_000_000 + seconds) }
+        // Relative to now, so the rows show real ages. A larger value is newer.
+        val at = { rank: Long -> java.time.Instant.now().minus(java.time.Duration.ofHours(50 - rank)) }
         val site = ai.nuphos.android.model.ConversationWorkspace("/work/site")
         render(listOf(
-            AgentConversation("landing", "A", "Refresh landing page", lastActiveAt = at(30), workspace = site),
-            AgentConversation("copy", "A", "Proofread pricing copy", parentSessionId = "landing", lastActiveAt = at(20), workspace = site),
+            AgentConversation("landing", "A", "Refresh landing page", lastActiveAt = at(30), workspace = site, agentRuntime = "claude-code"),
+            AgentConversation("copy", "A", "Proofread pricing copy", parentSessionId = "landing", lastActiveAt = at(20), workspace = site, agentRuntime = "codex"),
             AgentConversation("api", "A", "Add rate limits", lastActiveAt = at(10), isOwner = true, unread = JsonValue.Bool(true),
-                workspace = ai.nuphos.android.model.ConversationWorkspace("/work/api")),
-            AgentConversation("notes", "A", "Summarize standup notes", lastActiveAt = at(40)),
+                workspace = ai.nuphos.android.model.ConversationWorkspace("/work/api"), agentRuntime = "claude-code"),
+            AgentConversation("notes", "A", "Summarize standup notes", lastActiveAt = at(40), agentRuntime = "codex"),
         ), first = "Refresh landing page")
         // Unread work leads, then by newest activity, with No project for the rest.
         val order = listOf("api", "Add rate limits", "No project", "Summarize standup notes", "site", "Refresh landing page")
         val tops = order.map { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
         assertEquals(tops.sorted(), tops)
         compose.onNodeWithTag("tasks-attention-divider").assertExists()
+        // Every Task shows its runtime mark.
+        assertEquals(4, compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).fetchSemanticsNodes().size)
+        // The folder sits in a runtime mark's place, so a project's Tasks start one indent past its name.
+        val left = { text: String -> compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left }
+        val indent = with(compose.density) { 32.dp.toPx() }
+        assertEquals(indent, left("Summarize standup notes") - left("No project"), 0.5f)
+        assertEquals(indent, left("Refresh landing page") - left("site"), 0.5f)
+        // An unread Task's dot stays in the gutter at the list's edge, clear of the tree lines.
+        val rowLeft = compose.onNodeWithTag("task-project:project:/work/api").fetchSemanticsNode().boundsInRoot.left
+        val dot = compose.onNode(androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Unread reply"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("dot at ${dot.left - rowLeft}..${dot.right - rowLeft}", dot.left >= rowLeft && dot.right - rowLeft <= with(compose.density) { 16.dp.toPx() })
         shot("projects")
         compose.onNodeWithTag("task-project:project:/work/site").performClick()
         compose.onNodeWithText("Refresh landing page").assertDoesNotExist()
