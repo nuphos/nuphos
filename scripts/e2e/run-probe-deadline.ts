@@ -270,5 +270,5 @@ try {
     throw new Error('The turn was lost to the state check before the prompt')
   console.log('[e2e] PASS: a slow state answer after a reconnect kept the turn')
 } finally {
-  stopAll()
+  await stopAll()
 }

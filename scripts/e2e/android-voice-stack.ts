@@ -68,5 +68,5 @@ writeFileSync(
 console.log(`ready: ${join(artifacts, 'voice.json')}`)
 await until('the device test to finish', async () => existsSync(join(artifacts, 'done')), 3_600_000)
 await whisper.stop()
-stopAll()
+await stopAll()
 process.exit(0)
