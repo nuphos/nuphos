@@ -176,7 +176,6 @@ function Form({ questions, disabled, typeable, hint, onSubmit, voiceTeamId, chil
               {/* With nothing to pick, the question is its field alone. */}
               {typeable && !reply && (
                 <Pick
-                  role={role}
                   on={state.other}
                   disabled={disabled}
                   onClick={() => update(index, toggleOther(state))}
@@ -226,7 +225,7 @@ function Form({ questions, disabled, typeable, hint, onSubmit, voiceTeamId, chil
 export const PILL =
   '!h-auto min-h-8 min-w-0 max-w-full gap-1.5 !whitespace-normal [overflow-wrap:anywhere] rounded-[9px] px-3 py-1.5 text-left text-[13px] font-normal'
 
-/** An option of a form, or its "Other": a check once picked. */
+/** An option of a form, or its "Other" (no role: it opens a field), a check once picked. */
 function Pick({
   role,
   on,
@@ -234,7 +233,7 @@ function Pick({
   onClick,
   children,
 }: {
-  role: 'checkbox' | 'radio'
+  role?: 'checkbox' | 'radio'
   on: boolean
   disabled: boolean
   onClick: () => void
@@ -246,7 +245,8 @@ function Pick({
       size="sm"
       disabled={disabled}
       role={role}
-      aria-checked={on}
+      aria-checked={role && on}
+      aria-expanded={role ? undefined : on}
       className={PILL}
       onClick={onClick}
     >

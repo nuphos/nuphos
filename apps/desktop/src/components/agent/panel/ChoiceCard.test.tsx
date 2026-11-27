@@ -257,11 +257,12 @@ test('a single- and a multi-select question are one option row: multiSelect only
       'Answer 1 more',
     ])
     assert.equal(container.querySelector('input'), null)
-    // Its options, and Other, are checkboxes: a click picks, and only Send answers.
+    // Its options are checkboxes: a click picks, and only Send answers. Other opens a field.
     assert.deepEqual(
       [...container.querySelectorAll('[role="checkbox"]')].map((item) => item.textContent),
-      ['us-east', 'eu-west', 'ap-northeast', 'Other…'],
+      ['us-east', 'eu-west', 'ap-northeast'],
     )
+    assert.equal(button('Other…')?.getAttribute('aria-expanded'), 'false')
     assert.equal(button('Answer 1 more')?.disabled, true)
     await click('us-east')
     await click('ap-northeast')
@@ -277,7 +278,7 @@ test('a single- and a multi-select question are one option row: multiSelect only
       { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
     ])
     assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Answer 1 more'])
-    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 3)
+    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
     const sent = answers.length
 
     await act(async () => {

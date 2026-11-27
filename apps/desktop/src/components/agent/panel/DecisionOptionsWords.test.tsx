@@ -52,7 +52,11 @@ test('a form: Other is a pick with its field under it, one footer Send counts wh
   const click = (at: number, label: string) => act(async () => pill(at, label)?.click())
   const checked = (at: number) =>
     buttonsOf(at)
-      .filter((b) => b.getAttribute('aria-checked') === 'true')
+      // An option is checked; Other, which opens a field, is expanded.
+      .filter(
+        (b) =>
+          b.getAttribute('aria-checked') === 'true' || b.getAttribute('aria-expanded') === 'true',
+      )
       .map((b) => b.textContent)
   const footer = () =>
     [...container.querySelectorAll('button')].at(-1) as unknown as HTMLButtonElement
