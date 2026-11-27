@@ -1023,6 +1023,12 @@ class AgentStore(
         if (disposed || !hasAiAccess()) return
         val team = selectedTeam
         if (team == null) {
+            // Without a team there is no list to read: retry the memberships that failed, as iOS does.
+            // The store owns the read, since the splash it shows leaves the page that asked.
+            if (teamsPhase == Phase.Failed) {
+                storeScope.launch { loadTeams() }
+                return
+            }
             resetHistory()
             if (teamsPhase == Phase.Loaded) phase = Phase.Loaded
             return

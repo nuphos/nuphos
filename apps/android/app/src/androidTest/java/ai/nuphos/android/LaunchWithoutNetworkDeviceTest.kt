@@ -190,6 +190,20 @@ class LaunchWithoutNetworkDeviceTest {
         assertTrue(auth.aiAllowed)
     }
 
+    @Test fun tryAgainAfterAnOfflineLaunchReadsTeamsAgain() {
+        consent.remember(token, ada.id, AccountApi.AI_CONSENT_VERSION)
+        me = "offline"
+        val auth = launch()
+        compose.waitUntil(10_000) { auth.aiAllowed }
+        // Teams failed with the rest: the list has no team to read until they are read again.
+        awaitText("Couldn't load tasks")
+        me = "ok"
+        compose.onNodeWithText("Try again").performClick()
+        awaitText("Draft the release notes")
+        assertTrue("teams read again", requests.count { it == "GET /teams" } >= 2)
+        capture("retry-1-list-after-try-again")
+    }
+
     @Test fun offlineConsentCheckKeepsHome() {
         consent.remember(token, ada.id, AccountApi.AI_CONSENT_VERSION)
         aiConsent = "offline"
