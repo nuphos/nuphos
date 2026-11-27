@@ -110,15 +110,19 @@ const scenario: Scenario = {
     // Refused: the dialog stays open with the text, and the reason shows in a toast.
     await field(page).fill('x'.repeat(8001))
     await dialog(page).getByRole('button', { name: 'Save' }).click()
-    await page
-      .getByRole('region', { name: 'Notifications' })
-      .getByText('Instructions must be at most 8000 characters')
-      .waitFor()
+    const toasts = page.getByRole('region', { name: 'Notifications' })
+    const reason = toasts.getByText('Instructions must be at most 8000 characters')
+
+    await reason.waitFor()
     if ((await field(page).inputValue()).length !== 8001)
       throw new Error('A refused save lost the text')
     await shoot(page, 'save-failed')
     await dialog(page).getByRole('button', { name: 'Cancel' }).click()
     await dialog(page).waitFor({ state: 'detached' })
+    // An error toast stays until dismissed, and would cover what the next scenario clicks.
+    for (const dismiss of await toasts.getByLabel('Dismiss', { exact: true }).all())
+      await dismiss.click()
+    await reason.waitFor({ state: 'detached' })
     if (stored(stack, bot.sessionId) !== JSON.stringify(LONG))
       throw new Error('A refused save changed the instructions')
 
