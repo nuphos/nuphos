@@ -72,6 +72,18 @@ private nonisolated final class StalledStore: @unchecked Sendable {
 @main
 enum UploadProgressTests {
     static func main() async {
+        // The bar shows a share only while files are going out; before the size
+        // is known, and once every byte is out and the server is answering, it sweeps.
+        let bar = Progress()
+        check(bar.uploadedFraction == nil, "an upload of unknown size shows a share")
+        bar.totalUnitCount = 32_000_000
+        check(bar.uploadedFraction == 0, "an upload that has not started shows \(String(describing: bar.uploadedFraction))")
+        bar.completedUnitCount = 16_000_000
+        check(bar.uploadedFraction == 0.5, "half the bytes out shows \(String(describing: bar.uploadedFraction))")
+        bar.completedUnitCount = 32_000_000
+        check(bar.uploadedFraction == nil, "every byte out still shows a share")
+        print("Upload bar share passed")
+
         let store = StalledStore()
         await store.start()
         // Each file is more than the loopback socket's send and receive buffers can

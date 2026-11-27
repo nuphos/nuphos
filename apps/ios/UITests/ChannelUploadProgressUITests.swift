@@ -1,7 +1,7 @@
 import Network
 import XCTest
 
-/// A message sent in a Bot's chat says how far its files have uploaded, as a
+/// A message sent in a Bot's chat shows how far its files have uploaded, as a
 /// Task's does. The store here takes the connection and never answers, so the
 /// upload stays under way. Offline fixture with made-up chats.
 final class ChannelUploadProgressUITests: XCTestCase {
@@ -42,8 +42,8 @@ final class ChannelUploadProgressUITests: XCTestCase {
         XCTAssertTrue(send.waitForExistence(timeout: 10), "The composer has no Send button")
         send.tap()
 
-        let progress = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Uploading'")).firstMatch
-        XCTAssertTrue(progress.waitForExistence(timeout: 10), "A sending post does not say how far its files have uploaded")
+        let progress = app.descendants(matching: .any)["upload.progress"].firstMatch
+        XCTAssertTrue(progress.waitForExistence(timeout: 10), "A sending post shows no upload progress bar")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "channel-upload-progress"
         shot.lifetime = .keepAlways

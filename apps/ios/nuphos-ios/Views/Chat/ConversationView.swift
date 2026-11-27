@@ -692,7 +692,7 @@ struct SendingBubble: View {
                     .background(Theme.bubble, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             HStack(spacing: 10) {
-                UploadProgressLabel(progress: progress)
+                UploadProgressBar(progress: progress)
                 Button("Cancel", action: onCancel).font(Theme.Text.label)
             }
         }
@@ -701,21 +701,54 @@ struct SendingBubble: View {
     }
 }
 
-/// How far a message's attachments have uploaded.
-struct UploadProgressLabel: View {
+/// How far a sending message has got: a short bar that fills as its files go
+/// out, and sweeps while there is no share to show (the size is not known yet,
+/// or every byte is out and the server is answering). It goes with the
+/// sending message once the server has taken it.
+struct UploadProgressBar: View {
     let progress: Progress
 
     var body: some View {
-        // Progress is read, not stored: the label re-reads it twice a second.
-        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-            Text(label).font(Theme.Text.label).foregroundStyle(Theme.muted).monospacedDigit()
-        }
+        // Progress is read, not stored: the bar re-reads it twice a second and
+        // eases across each step, so the fill keeps moving between reads.
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in bar(progress.uploadedFraction) }
     }
 
-    private var label: String {
-        // Nothing to upload, or every byte is out and the server is answering.
-        guard progress.totalUnitCount > 0, progress.completedUnitCount < progress.totalUnitCount else { return "Sending…" }
-        return "Uploading \(progress.completedUnitCount.formatted(.byteCount(style: .file))) of \(progress.totalUnitCount.formatted(.byteCount(style: .file)))"
+    private func bar(_ fraction: Double?) -> some View {
+        Capsule().fill(Theme.sunken)
+            .overlay(alignment: .leading) {
+                if let fraction {
+                    GeometryReader { box in
+                        Capsule().fill(Theme.brand)
+                            .frame(width: box.size.width * fraction)
+                            .animation(.linear(duration: 0.5), value: fraction)
+                    }
+                } else {
+                    UploadSweep()
+                }
+            }
+            .clipShape(Capsule())
+            .frame(width: 72, height: 3)
+            .accessibilityElement()
+            .accessibilityIdentifier("upload.progress")
+            .accessibilityLabel("Uploading")
+            .accessibilityValue(fraction?.formatted(.percent.precision(.fractionLength(0))) ?? "")
+    }
+}
+
+/// A segment crossing the bar again and again while the upload's size is unknown.
+private struct UploadSweep: View {
+    @State private var crossed = false
+
+    var body: some View {
+        GeometryReader { box in
+            Capsule().fill(Theme.brand)
+                .frame(width: box.size.width * 0.4)
+                .offset(x: crossed ? box.size.width : -box.size.width * 0.4)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: false)) { crossed = true }
+        }
     }
 }
 

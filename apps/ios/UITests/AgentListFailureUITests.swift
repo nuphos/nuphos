@@ -98,9 +98,10 @@ final class AgentListFailureUITests: XCTestCase {
         app.buttons["Try again"].tap()
         XCTAssertTrue(app.staticTexts["Second failure"].waitForExistence(timeout: 5), "Try again did not read the list")
 
+        // A successful read clears the failure, and polling gets there within
+        // three seconds; tapping Try again here would race it for the button.
         responses[list] = original
         try write()
-        app.buttons["Try again"].tap()
         XCTAssertTrue(row("Release ops").waitForExistence(timeout: 10), "The list did not come back")
     }
 
