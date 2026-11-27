@@ -1689,6 +1689,7 @@
   "Downloading…": "ダウンロード中…",
   "Draft": "ドラフト",
   "Draft pull requests cannot be merged until they are marked ready for review.": "ドラフトのプルリクエストは、レビュー準備完了にするまでマージできません。",
+  "Drag the handle or use the arrow keys to reorder sections.": "ハンドルをドラッグするか、矢印キーでセクションを並べ替えます。",
   "Drag to move this pane": "ドラッグしてこのペインを移動",
   "Drag to move, click for options": "ドラッグで移動、クリックでオプション",
   "Drag to reorder": "ドラッグで並べ替え",

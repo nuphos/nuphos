@@ -92,7 +92,7 @@ const sectionRows = (panel: Element, title = 'Access') => {
 
   assert.ok(section, `Bot details has a ${title} section`)
 
-  return [...section.querySelectorAll('.pt-2 > *')].map((node) => ({
+  return [...section.querySelectorAll('.flex-col.pt-2 > *')].map((node) => ({
     text: node.textContent,
     opens: node.tagName === 'BUTTON',
   }))

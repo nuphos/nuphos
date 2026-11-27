@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useContext, useEffect, useEffectEvent, useRef } from 'react'
 
 import { t } from '../../../i18n'
 import {
@@ -12,6 +12,7 @@ import { changesFilterOptions, filterChanges, shownChangesFilter } from './chatS
 import { ChangeRow, SummarySection } from './ChatSummaryRows'
 import { revealSection } from './revealSection'
 import { FilterPills } from './SummaryFilterPills'
+import { SummaryLayoutActions } from './summaryLayoutContext'
 
 import type { SessionResource } from '../../../api/session-resource-types'
 
@@ -36,10 +37,16 @@ export function ChangesSection({
   const options = changesFilterOptions(changes)
   const filter = shownChangesFilter(stored, options)
 
+  const layout = useContext(SummaryLayoutActions)
+  const reveal = useEffectEvent((section: HTMLElement) => {
+    layout?.onAction()
+    requestAnimationFrame(() => revealSection(section))
+  })
+
   useEffect(() => {
     const section = sectionRef.current
 
-    if (section && takeChangesReveal(sessionId)) revealSection(section)
+    if (section && takeChangesReveal(sessionId)) reveal(section)
   }, [revealRequest, sessionId])
 
   return (

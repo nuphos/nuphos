@@ -1689,6 +1689,7 @@
   "Downloading…": "Descargando…",
   "Draft": "Borrador",
   "Draft pull requests cannot be merged until they are marked ready for review.": "Las pull requests en borrador no se pueden fusionar hasta que se marquen como listas para revisión.",
+  "Drag the handle or use the arrow keys to reorder sections.": "Arrastra el control o usa las flechas para reordenar las secciones.",
   "Drag to move this pane": "Arrastra para mover este panel",
   "Drag to move, click for options": "Arrastra para mover; haz clic para ver opciones",
   "Drag to reorder": "Arrastra para reordenar",

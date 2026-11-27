@@ -1689,6 +1689,7 @@
   "Downloading…": "正在下载…",
   "Draft": "草稿",
   "Draft pull requests cannot be merged until they are marked ready for review.": "在 PR 标记为可供审阅之前，草稿拉取请求无法合并。",
+  "Drag the handle or use the arrow keys to reorder sections.": "拖动手柄或使用方向键调整区块顺序。",
   "Drag to move this pane": "拖动以移动此窗格",
   "Drag to move, click for options": "拖动以移动，点击查看选项",
   "Drag to reorder": "拖动以重新排序",

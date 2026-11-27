@@ -15,7 +15,9 @@ import { changeSubtitle, changeTitle } from './chatSummaryModel'
 import type { AgentConversation } from '../../../api/agent-types'
 import type { SessionResource } from '../../../api/session-resource-types'
 import type { SubAgentState } from '../../../lib/subAgentState'
-import type { ReactNode, Ref } from 'react'
+import type { ReactNode } from 'react'
+
+export { SummarySection } from './SummarySection'
 
 export const sectionClass = 'rounded-xl border border-line-control px-3.5 py-3'
 const focusClass =
@@ -26,39 +28,6 @@ const hoverRowClass =
 export const focusRingClass =
   'outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-line-focus'
 const rowFocusClass = `focus-visible:bg-state-hover ${focusRingClass}`
-
-/** A titled block of rows; `header` sits under the title, above the rows; `action` ends the title's line. */
-export function SummarySection({
-  title,
-  header,
-  action,
-  ref,
-  children,
-}: {
-  title: string
-  header?: ReactNode
-  action?: ReactNode
-  ref?: Ref<HTMLElement>
-  children: ReactNode
-}) {
-  const heading = <h3 className="text-[13px] font-medium text-main">{title}</h3>
-
-  return (
-    <section ref={ref} className={sectionClass} aria-label={title}>
-      {action ? (
-        // The action keeps the title's line height: it overhangs into the padding.
-        <div className="-my-1.5 -mr-2 flex items-center justify-between gap-2">
-          {heading}
-          {action}
-        </div>
-      ) : (
-        heading
-      )}
-      {header}
-      <div className="flex flex-col gap-0.5 pt-2">{children}</div>
-    </section>
-  )
-}
 
 /** What a row shows: an icon, a label and an optional quiet note on the right. */
 function SummaryRowBody({
@@ -165,7 +134,11 @@ function capitalize(text: string): string {
 
 function copyLink(url: string) {
   void copyLinkWithFeedback(url, (text) => navigator.clipboard.writeText(text), {
-    onSuccess: () => toast.success(t('Link copied'), undefined, { timeoutMs: 1200, dedupe: false }),
+    onSuccess: () =>
+      toast.success(t('Link copied'), undefined, {
+        timeoutMs: 1200,
+        dedupe: false,
+      }),
     onError: () => toast.error(t('Could not copy link'), t('Clipboard was blocked.')),
   })
 }
