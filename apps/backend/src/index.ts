@@ -122,7 +122,7 @@ await backfillPersonalTokenExpiry()
 
 // A queued message starts when the turn ahead lets go; a runtime back wakes its agents.
 installQueuedTurnStarter(startQueuedTurn)
-installRuntimeWake(wakeOnRuntime)
+installRuntimeWake((teamId, endpoint) => void wakeOnRuntime(teamId, endpoint))
 await dashboardRefreshScheduler.init()
 if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 
