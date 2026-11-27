@@ -1111,7 +1111,7 @@ private struct NotificationsPage: View {
                     Text("Find a time for next week’s review")
                         .font(.footnote.weight(.semibold))
                         .lineLimit(1)
-                    Text("OpenCode · Cloud Box")
+                    Text("OpenCode · Box")
                         .font(.caption2)
                         .foregroundStyle(Theme.muted)
                         .lineLimit(1)

@@ -539,22 +539,22 @@ struct MobileOnboardingPreview: View {
 
     @ViewBuilder private var cloudPlan: some View {
         if workspaceDraft == nil && !computerChecked {
-            computerProgress("Checking your Cloud Box access…")
+            computerProgress("Checking your Box access…")
         } else if hasCloudRuntime && workspaceDraft == nil {
-            intro("Your Cloud Box is ready", "Choose how your Bot uses AI.")
+            intro("Your Box is ready", "Choose how your Bot uses AI.")
             primary("Continue") {
                 showingCloudPlan = false
                 path.append(.model)
             }
         } else if creatingBox {
-            computerProgress("Creating your Cloud Box…")
+            computerProgress("Creating your Box…")
         } else if let cloudBox, workspaceDraft == nil {
             intro("Waiting for \(cloudBox.label)", "Continue when your Box’s runtime connects.")
             Button("Check again") { Task { await refreshRuntimes(checkCloud: true) } }
                 .disabled(runtimeRefreshing)
         } else if workspaceDraft == nil && cloudAvailable && boxUsage?.canCreate == true && !upgradeRequired {
-            intro("Set up your Cloud Box", "Use your workspace’s available capacity to create a computer.")
-            primary("Create a Cloud Box") { Task { await createCloudBox() } }
+            intro("Set up your Box", "Use your workspace’s available capacity to create a computer.")
+            primary("Create a Box") { Task { await createCloudBox() } }
             if let boxError { Text(boxError).foregroundStyle(Theme.attention) }
         } else {
             cloudPaywall
