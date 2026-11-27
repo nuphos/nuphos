@@ -11,6 +11,7 @@ export type ArchiveActor = {
     | 'trigger' // a Trigger's turn brought it back
     | 'bot_left' // its Bot was made a Task again
     | 'chat_left' // its owner left the group chat alone in it
+    | 'bot_chat_stranded' // the idle sweep had filed it away without its Bot (#5277)
   userId?: string
   /** The agent session that did it for `userId`. */
   agentSessionId?: string
