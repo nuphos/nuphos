@@ -130,7 +130,10 @@ export function vendedAccount(
 }
 
 export function viaSkill(label: string, skill: string): EntryDetails {
-  return { label, usage: `No raw value to fetch; use the ${skill} skill with this id.` }
+  return {
+    label,
+    usage: `No raw value to fetch; use the ${skill} skill (skills/${skill}/SKILL.md) with this id.`,
+  }
 }
 
 export function viaTeamApi(label: string, path: string): EntryDetails {

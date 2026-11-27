@@ -59,7 +59,7 @@ export function renderAgentCredentialPrompt(
     '## Cloud credentials enabled for this agent session',
     '',
     "Use only the credentials listed here; do not discover, request or use others. If a task needs one that is not listed, ask the user to update this session's credential selection.",
-    "Run a credential's setupCommand exactly as shown before using that provider (never hand-write Nuphos credential API URLs), then follow the provider's skill for its CLI, API and Nuphos endpoints. Entries without a setupCommand are proxied by Nuphos with server-side credentials.",
+    "Run a credential's setupCommand exactly as shown before using that provider (never hand-write Nuphos credential API URLs), then follow the provider's skill for its CLI, API and Nuphos endpoints (skills/<name>/SKILL.md; read it there when a credential selected mid-conversation has no skill in your list). Entries without a setupCommand are proxied by Nuphos with server-side credentials.",
     'Never print or paste a token, key or password into chat. Do not describe or guess where the credential selector appears in the Nuphos UI.',
   ]
 
