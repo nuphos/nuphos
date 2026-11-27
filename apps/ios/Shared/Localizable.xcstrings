@@ -4409,7 +4409,6 @@
       }
     },
     "Archived 42 newsletters" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -6794,7 +6793,6 @@
       }
     },
     "Checking 4 calendars" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -7899,7 +7897,6 @@
       }
     },
     "Clean up my inbox" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -8957,53 +8954,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "電腦 · %@"
-          }
-        }
-      }
-    },
-    "Computer 1" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Computadora 1"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Komputer 1"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コンピューター 1"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "컴퓨터 1"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "คอมพิวเตอร์ 1"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "电脑 1"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "電腦 1"
           }
         }
       }
@@ -10805,7 +10755,6 @@
       }
     },
     "Continue with Google" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -14643,7 +14592,6 @@
       }
     },
     "Done · 5 key points" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -14782,7 +14730,6 @@
       }
     },
     "Drafted replies to 3 emails" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -16533,7 +16480,6 @@
       }
     },
     "Fri" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -16583,7 +16529,6 @@
       "shouldTranslate" : false
     },
     "Frida needs your answer" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -18786,7 +18731,6 @@
       }
     },
     "Leonardo needs your answer" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -18833,7 +18777,6 @@
       }
     },
     "Leonardo: Meeting notes are posted for everyone" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -20500,7 +20443,6 @@
       }
     },
     "Move Acme call to 3 PM?" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -26290,7 +26232,6 @@
       }
     },
     "Plan my week" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -26475,7 +26416,6 @@
       }
     },
     "Prep a meeting" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -31206,7 +31146,6 @@
       }
     },
     "Send 3 replies?" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -34198,7 +34137,6 @@
       }
     },
     "Sort my inbox" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -38747,7 +38685,6 @@
       }
     },
     "Thu" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -39311,7 +39248,6 @@
       }
     },
     "Tue" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -42549,53 +42485,6 @@
         }
       }
     },
-    "Wake computer" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activar la computadora"
-          }
-        },
-        "id" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Bangunkan komputer"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コンピューターをスリープ解除"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "컴퓨터 깨우기"
-          }
-        },
-        "th" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ปลุกคอมพิวเตอร์"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "唤醒电脑"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "喚醒電腦"
-          }
-        }
-      }
-    },
     "Watch" : {
       "localizations" : {
         "es" : {
@@ -43028,7 +42917,6 @@
       }
     },
     "Wed" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {
@@ -44431,7 +44319,6 @@
       }
     },
     "Your 2 PM with Acme moved to 3 PM" : {
-      "extractionState" : "stale",
       "localizations" : {
         "es" : {
           "stringUnit" : {

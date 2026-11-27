@@ -332,28 +332,29 @@ private struct AppDemoPage: View {
     private struct Row {
         enum Avatar { case bot(String), channel, task(String) }
         let avatar: Avatar
-        let title: String
-        let detail: String
+        /// Names stay as written; everything else is localized text.
+        let title: Text
+        let detail: LocalizedStringKey
         var badge: LocalizedStringKey?
         var running = false
         var time = ""
     }
 
     private static let bots = [
-        Row(avatar: .bot("09-frida"), title: "Frida", detail: "Drafted replies to 3 emails", time: "9:41"),
-        Row(avatar: .channel, title: "launch-planning", detail: "Leonardo: Meeting notes are posted for everyone", badge: "Team", time: "9:30"),
-        Row(avatar: .bot("02-leonardo"), title: "Leonardo", detail: "Your 2 PM with Acme moved to 3 PM", time: "9:12"),
+        Row(avatar: .bot("09-frida"), title: Text(verbatim: "Frida"), detail: "Drafted replies to 3 emails", time: "9:41"),
+        Row(avatar: .channel, title: Text(verbatim: "launch-planning"), detail: "Leonardo: Meeting notes are posted for everyone", badge: "Team", time: "9:30"),
+        Row(avatar: .bot("02-leonardo"), title: Text(verbatim: "Leonardo"), detail: "Your 2 PM with Acme moved to 3 PM", time: "9:12"),
     ]
 
     private static let tasks = [
-        Row(avatar: .task("claude-code"), title: "Summarize today’s standup", detail: "Done · 5 key points", time: "9:40"),
-        Row(avatar: .task("codex"), title: "Find a time for next week’s review", detail: "Checking 4 calendars", running: true),
-        Row(avatar: .task("grok"), title: "Clean up my inbox", detail: "Archived 42 newsletters", running: true),
+        Row(avatar: .task("claude-code"), title: Text("Summarize today’s standup"), detail: "Done · 5 key points", time: "9:40"),
+        Row(avatar: .task("codex"), title: Text("Find a time for next week’s review"), detail: "Checking 4 calendars", running: true),
+        Row(avatar: .task("grok"), title: Text("Clean up my inbox"), detail: "Archived 42 newsletters", running: true),
     ]
 
     private static let inbox = [
-        Row(avatar: .bot("09-frida"), title: "Send 3 replies?", detail: "Frida needs your answer", badge: "Reply", time: "9:41"),
-        Row(avatar: .bot("02-leonardo"), title: "Move Acme call to 3 PM?", detail: "Leonardo needs your answer", badge: "Reply", time: "9:12"),
+        Row(avatar: .bot("09-frida"), title: Text("Send 3 replies?"), detail: "Frida needs your answer", badge: "Reply", time: "9:41"),
+        Row(avatar: .bot("02-leonardo"), title: Text("Move Acme call to 3 PM?"), detail: "Leonardo needs your answer", badge: "Reply", time: "9:12"),
     ]
 
     var body: some View {
@@ -369,11 +370,13 @@ private struct AppDemoPage: View {
                     case .tasks: Self.tasks
                     case .inbox: Self.inbox
                     }
-                    ForEach(Array(list.enumerated()), id: \.element.title) { index, row in
+                    // Each tab's rows are new rows, so switching tabs never reuses one.
+                    ForEach(Array(list.enumerated()), id: \.offset) { index, row in
                         if rows > index {
                             rowView(row).transition(.opacity.combined(with: .move(edge: .bottom)))
                         }
                     }
+                    .id(tab)
                     Spacer(minLength: 0)
                 }
                 .padding(.horizontal, 12).padding(.top, 14)
@@ -440,7 +443,7 @@ private struct AppDemoPage: View {
                         Text("#").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                             .padding(.trailing, -4)
                     }
-                    Text(LocalizedStringKey(row.title)).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    row.title.font(.subheadline.weight(.semibold)).lineLimit(1)
                     if let badge = row.badge {
                         Text(badge).font(.caption2.weight(.semibold)).foregroundStyle(Theme.muted)
                             .padding(.horizontal, 6).padding(.vertical, 1)
@@ -453,7 +456,7 @@ private struct AppDemoPage: View {
                         Text(row.time).font(.caption2).foregroundStyle(Theme.muted)
                     }
                 }
-                Text(LocalizedStringKey(row.detail)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(row.detail).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
             }
         }
         .padding(.vertical, 8)
@@ -747,17 +750,23 @@ private struct ComputerPage: View {
         }
     }
 
+    private enum Day { case tue, wed, thu, fri }
+    private static let days: [(id: Day, label: LocalizedStringKey)] = [
+        (.tue, "Tue"), (.wed, "Wed"), (.thu, "Thu"), (.fri, "Fri"),
+    ]
+
     private var calendarPage: some View {
         HStack(alignment: .top, spacing: 6) {
-            ForEach(["Tue", "Wed", "Thu", "Fri"], id: \.self) { day in
+            ForEach(Self.days, id: \.id) { entry in
+                let day = entry.id
                 VStack(spacing: 4) {
-                    Text(LocalizedStringKey(day)).font(.caption2.weight(.semibold)).foregroundStyle(.black.opacity(0.45))
+                    Text(entry.label).font(.caption2.weight(.semibold)).foregroundStyle(.black.opacity(0.45))
                     ZStack(alignment: .top) {
                         RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0xF4F2EF)).frame(height: 105)
-                        if day == "Wed" {
+                        if day == .wed {
                             event("1:1 with Sam", color: 0xA7B4C8).offset(y: 14)
                         }
-                        if day == "Thu" && booked {
+                        if day == .thu && booked {
                             event("Q3 review\n3–4 PM", color: 0x5B7BD5)
                                 .offset(y: 42)
                                 .transition(.move(edge: .top).combined(with: .opacity))
@@ -1223,6 +1232,10 @@ private struct PoweredByInstaBox: View {
 /// account's free computer: the first owned workspace, or "My workspace" when it has
 /// none, then the OpenCode runtime on the Box that workspace starts.
 private struct ClaimFlow: View {
+    /// The label the backend gives the free Box when it creates a user's first team.
+    /// It is data from the server, not copy, so it is matched as written and never localized.
+    private static let freeComputerLabel = "Computer 1"
+    private static let ideas: [LocalizedStringKey] = ["Sort my inbox", "Plan my week", "Prep a meeting"]
     @Environment(\.locale) private var locale
     @State private var overflows = false
     /// A folding phone's cover, or landscape: the page drops its spare room to fit.
@@ -1486,8 +1499,8 @@ private struct ClaimFlow: View {
                 .padding(.horizontal, 14).padding(.vertical, 10)
                 .background(Theme.surface, in: RoundedRectangle(cornerRadius: 18))
             HStack(spacing: 8) {
-                ForEach(["Sort my inbox", "Plan my week", "Prep a meeting"], id: \.self) { idea in
-                    Text(LocalizedStringKey(idea)).font(.footnote.weight(.medium))
+                ForEach(Self.ideas.indices, id: \.self) { index in
+                    Text(Self.ideas[index]).font(.footnote.weight(.medium))
                         .padding(.horizontal, 10).frame(height: 32)
                         .background(Theme.surface, in: Capsule())
                         .overlay(Capsule().strokeBorder(Theme.muted.opacity(0.2)))
@@ -1669,9 +1682,9 @@ private struct ClaimFlow: View {
                         $0.provider == .opencode && $0.isSelectable && $0.local?.deviceId == box.deviceId
                     }
                 }
-                // The free computer is "Computer 1". Wait on that one, so another computer's
-                // runtime is not taken while it is still starting.
-                if let computer = boxes.first(where: { $0.label == "Computer 1" }) {
+                // The free computer is the Box the backend names "Computer 1". Wait on that one,
+                // so another computer's runtime is not taken while it is still starting.
+                if let computer = boxes.first(where: { $0.label == Self.freeComputerLabel }) {
                     if computer.box?.state == "error" { throw ClaimFailure.noComputer }
                     if let match = openCode(computer) { return match }
                 } else if let match = boxes.compactMap({ openCode($0) }).first {

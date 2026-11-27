@@ -199,7 +199,7 @@ struct LoginView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image("GoogleSignIn").resizable().renderingMode(.template).scaledToFit().frame(width: 16, height: 16)
-                        Text(verbatim: "Continue with Google")
+                        Text("Continue with Google")
                     }.frame(maxWidth: .infinity, minHeight: 20)
                         .foregroundStyle(loginButtonLabel)
                 }
