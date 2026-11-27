@@ -146,7 +146,11 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
     val botFace = session.faces.botFace?.takeIf { it.id == session.botId }
-    val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
+    // Seeded from the Bot's row when the list has it, so its details say what it runs before the
+    // Bot's own read lands, and if that read fails.
+    val bot = remember(store, botFace?.id) {
+        botFace?.let { face -> store.session(face.id, face.name).also { s -> store.botRow(face.id)?.let(s::seedFromListRow) } }
+    }
     val taskWorkspace = store.workspaceRevision
     val taskConsent = AiAccess.revision
     val canOpenTask = botFace != null && auth.aiAllowed &&
@@ -320,14 +324,16 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
         onDispose { bot.activateModelSettings(false) }
     }
     val models = bot.modelSettings
-    LaunchedEffect(models) { models?.refresh() }
+    // Again once the Bot's own read settles: a model read that failed with it gets another try.
+    LaunchedEffect(models, bot.loaded) { models?.refresh() }
     var showModel by remember(models) { mutableStateOf(false) }
     if (showModel && models != null) ai.nuphos.android.ui.chat.ModelSettingsSheet(models) { showModel = false }
-    val owns = bot.loaded && bot.isOwner && auth.aiAllowed
+    // Only once the Bot's own read says so: a failed read leaves the owner unknown, so the row only shows.
+    val owns = bot.loaded && bot.loadError == null && bot.isOwner && auth.aiAllowed
     ai.nuphos.android.ui.chat.SummaryCard {
         Text(stringResource(R.string.agent_runtime), style = MaterialTheme.typography.titleSmall)
         BotRuntimeRow({ ai.nuphos.android.ui.components.RuntimeMark(bot.agentRuntime, 18.dp) }, stringResource(R.string.agent_runtime),
-            if (bot.loaded) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
+            if (bot.loaded || bot.agentRuntime != null) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
             onClick = if (owns) onSwitchAgent else null, tag = "bot-details-runtime")
         BotRuntimeRow({ Icon(Icons.Outlined.Memory, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }, stringResource(R.string.composer_model),
             models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
