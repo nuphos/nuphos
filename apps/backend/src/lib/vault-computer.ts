@@ -30,6 +30,8 @@ export type VaultComputerDeps = {
     command: string,
   ) => Promise<LocalExecDispatchOutcome>
   addVaultDevice: typeof addVaultDevice
+  /** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
+  ownerKey: (computer: Computer) => Promise<string | null>
 }
 
 const defaultDeps: VaultComputerDeps = {
@@ -37,6 +39,19 @@ const defaultDeps: VaultComputerDeps = {
   run: (actorId, teamId, deviceId, command) =>
     dispatchLocalExec(actorId, deviceId, command, { teamId }),
   addVaultDevice,
+  ownerKey: desktopKey,
+}
+
+/** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
+export async function desktopKey(computer: Computer): Promise<string | null> {
+  const linked = await devices().findOne({
+    userId: computer.userId,
+    state: 'enrolled',
+    computer: linkOf(computer),
+    desktop: true,
+  })
+
+  return linked?.publicKey ?? null
 }
 
 const X25519_PUBLIC_KEY = /^[A-Za-z0-9+/]{43}=$/
@@ -52,6 +67,10 @@ export async function addComputerToVault(
   // A user id goes into a shell command: refuse anything but its plain characters,
   // and a leading "-" that would read as an option.
   if (!/^\w[\w-]*$/.test(actorId)) throw new AppError(400, 'bad_request', 'Invalid user')
+  // Desktop has no CLI to make a key: it offers the one it holds in its owner's vault.
+  const own = await deps.ownerKey(linkOf(computer))
+
+  if (own) return deps.addVaultDevice(actorId, deviceName(computer), own, linkOf(computer))
   // An empty vault is refused after this, when the key is registered; the computer
   // keeps the unused key and offers it again next time.
   const outcome = await deps.run(actorId, teamId, deviceId, `nuphos vault keygen --user ${actorId}`)

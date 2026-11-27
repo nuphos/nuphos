@@ -1014,10 +1014,13 @@
   "GET /vault/devices": "user",
   "GET /vault/computer/items": "user",
   "GET /vault/computer/items/:name": "user",
+  "GET /vault/computers/:deviceId/items": "user",
+  "GET /vault/computers/:deviceId/items/:name": "user",
   "GET /vault/items": "user",
   "GET /vault/items/:name": "user",
   "POST /vault/computer/devices": "user",
   "POST /vault/devices": "user",
   "POST /vault/devices/:id/approve": "user",
+  "PUT /vault/devices/:id/computer": "user",
   "PUT /vault/items/:name": "user"
 }

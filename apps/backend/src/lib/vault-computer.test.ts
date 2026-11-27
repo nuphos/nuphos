@@ -35,6 +35,7 @@ function deps(overrides: Partial<VaultComputerDeps> = {}) {
         createdAt: '',
       }
     },
+    ownerKey: async () => null,
     ...overrides,
   }
 
@@ -52,6 +53,23 @@ describe('addComputerToVault', () => {
     })
     expect(calls.commands).toEqual([`nuphos vault keygen --user ${actor}`])
     expect(calls.added).toEqual([[actor, 'Build box', KEY, { userId: 'owner', deviceId: 'box-1' }]])
+  })
+
+  test('Desktop runs no command: the key its owner approved for it is offered', async () => {
+    const own = Buffer.alloc(32, 9).toString('base64')
+    const asked: unknown[] = []
+    const { value, calls } = deps({
+      ownerKey: async (computer) => {
+        asked.push(computer)
+
+        return own
+      },
+    })
+
+    await addComputerToVault(actor, 't1', 'box-1', value)
+    expect(asked).toEqual([{ userId: 'owner', deviceId: 'box-1' }])
+    expect(calls.commands).toEqual([])
+    expect(calls.added).toEqual([[actor, 'Build box', own, { userId: 'owner', deviceId: 'box-1' }]])
   })
 
   test('a long computer name is cut to what a vault device name holds', async () => {

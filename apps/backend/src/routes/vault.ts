@@ -9,6 +9,7 @@ import {
   approveVaultDevice,
   deleteVaultItem,
   getVaultItem,
+  linkVaultDevice,
   listVaultDevices,
   listVaultItems,
   putVaultItem,
@@ -143,6 +144,43 @@ vaultRoutes.post(
     return c.json({ device })
   },
 )
+
+const computerId = z.string().regex(/^[\w-]{1,128}$/)
+
+vaultRoutes.put(
+  '/devices/:id/computer',
+  zv('json', z.object({ deviceId: computerId })),
+  async (c) => {
+    await linkVaultDevice(c.get('userId'), c.req.param('id'), c.req.valid('json').deviceId)
+
+    return c.body(null, 204)
+  },
+)
+
+// Desktop reads as a computer of the person signed in, which it is, so it needs no device
+// credential: only the devices linked to their own computer, and only that device's key.
+// Separate so its scoping can be tested without a database.
+export function ownComputerRoutes(
+  deps = { owners: vaultOwnersSharingWithComputer, getItem: getVaultItemForComputer },
+) {
+  const own = (c: Context<{ Variables: AuthVariables }>) => {
+    const deviceId = c.req.param('deviceId') ?? ''
+
+    if (!computerId.safeParse(deviceId).success) throw new AppError(404, 'not_found', 'Not found')
+
+    return { userId: c.get('userId'), deviceId }
+  }
+
+  return new Hono<{ Variables: AuthVariables }>()
+    .get('/computers/:deviceId/items', async (c) =>
+      c.json({ owners: await deps.owners(own(c), nameParam(c.req.query('name') ?? '')) }),
+    )
+    .get('/computers/:deviceId/items/:name', async (c) =>
+      c.json(await deps.getItem(c.req.query('user') ?? '', own(c), nameParam(c.req.param('name')))),
+    )
+}
+
+vaultRoutes.route('/', ownComputerRoutes())
 
 vaultRoutes.delete('/devices/:id', async (c) => {
   await removeVaultDevice(c.get('userId'), c.req.param('id'))

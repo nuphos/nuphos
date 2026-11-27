@@ -29,6 +29,11 @@ type VaultDeviceDoc = {
   enrolledAt?: Date
   /** The computer that added it from afar; it reads with its own device credential. */
   computer?: Computer
+  /**
+   * Linked by Desktop, which holds this one key for every vault: a CLI computer makes one per
+   * person instead, with `nuphos vault keygen --user`.
+   */
+  desktop?: true
 }
 
 /** A computer as its device credential names it; matched whole, so in this field order. */
@@ -157,6 +162,24 @@ export function addVaultDevice(
     await devices().insertOne(doc)
 
     return deviceView(doc)
+  })
+}
+
+/**
+ * Desktop names the computer it runs on, so what others share with that computer opens with
+ * the key it already holds. One device per computer: a link an earlier one had moves to it.
+ */
+export function linkVaultDevice(userId: string, id: string, deviceId: string) {
+  const computer: Computer = { userId, deviceId }
+
+  return exclusive(userId, async () => {
+    if (!(await devices().findOne({ _id: id, userId })))
+      throw new AppError(404, 'not_found', 'Device not found')
+    await devices().updateMany(
+      { userId, computer, _id: { $ne: id } },
+      { $unset: { computer: '', desktop: '' } },
+    )
+    await devices().updateOne({ _id: id, userId }, { $set: { computer, desktop: true } })
   })
 }
 
