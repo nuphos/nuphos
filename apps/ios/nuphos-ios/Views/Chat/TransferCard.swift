@@ -238,7 +238,9 @@ private struct VideoFrame: View {
             Color.black
             if let frame { Image(decorative: frame, scale: 1).resizable().scaledToFill() }
         }
-        .task {
+        // Its link is renewed before it runs out; a frame already read stays.
+        .task(id: url) {
+            guard frame == nil else { return }
             let generator = AVAssetImageGenerator(asset: AVURLAsset(url: url))
             generator.appliesPreferredTrackTransform = true
             generator.maximumSize = CGSize(width: 252, height: 252)

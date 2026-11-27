@@ -12,6 +12,17 @@ struct TransferDownloadGroup: Decodable, Equatable, Sendable {
         let contentType: String?
         let status: String
         let downloadUrl: String?
+        /// The link is presigned for minutes; past this it no longer loads.
+        var downloadExpiresAt: String? = nil
+
+        /// Whether the link is out, or about to be before a card can load it.
+        var linkExpired: Bool {
+            guard let downloadExpiresAt else { return false }
+            let parser = ISO8601DateFormatter()
+            parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            guard let expiry = parser.date(from: downloadExpiresAt) else { return false }
+            return expiry < Date(timeIntervalSinceNow: 30)
+        }
 
         var isImage: Bool { kind(prefix: "image/", type: .image) }
         var isVideo: Bool { kind(prefix: "video/", type: .movie) }
