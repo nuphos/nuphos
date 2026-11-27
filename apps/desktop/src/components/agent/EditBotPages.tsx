@@ -178,7 +178,7 @@ export function AdvancedPage({
           value={instructions}
           placeholder={t('Tell this Bot how to work…')}
           onChange={(event) => onInstructionsChange(event.target.value)}
-          className={`${inputClasses} block h-[180px] resize-y py-2 font-mono text-[12.5px]`}
+          className={`${inputClasses} block h-[180px] resize-y py-2 font-mono text-[12.5px] leading-5`}
         />
       </Field>
       <BotTriggers teamId={teamId} sessionId={sessionId} name={name} onEdit={onEditTrigger} />
