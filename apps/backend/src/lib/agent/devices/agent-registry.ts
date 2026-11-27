@@ -147,6 +147,17 @@ export function reportedAgentsKey(status: LocalRuntimeStatus): string {
   ])
 }
 
+/** The agents a registry write signs out: signed out after it, but not before it. A report
+ *  that could not tell (null) sits between, so true, null, false still counts once. */
+export function signedOutAgents(
+  before: RegisteredAgent[],
+  after: RegisteredAgent[],
+): RegisteredAgent[] {
+  const signedIn = new Set(before.filter((agent) => agent.signedIn !== false).map(registryKey))
+
+  return after.filter((agent) => agent.signedIn === false && signedIn.has(registryKey(agent)))
+}
+
 /** Registered agents get the latest report, but keep their name; an agent seen signed in
  *  for the first time joins. Nothing leaves here. Returns null when nothing changed. */
 export function mergeAgentRegistry(

@@ -1,13 +1,18 @@
+import { agentConversations } from '@/lib/agent/db/shared'
+import { logEvent } from '@/lib/observability'
+
 import {
   goneAdditions,
   isPendingRemoval,
   mergeAgentRegistry,
   renameRegisteredAgent,
   reportedAgents,
+  signedOutAgents,
 } from './agent-registry'
+import { localRuntimeId } from './local-runtime/address'
 import { agentDevices } from './store'
 
-import type { AgentAddition, PendingRemoval, PendingReset } from './agent-registry'
+import type { AgentAddition, PendingRemoval, PendingReset, RegisteredAgent } from './agent-registry'
 import type { LocalRuntimeStatus, RemovableAgent } from './local-runtime/protocol'
 import type { RequestOrigin } from '@/lib/request-origin'
 
@@ -39,7 +44,8 @@ export async function recordDeviceAgents(
   // Pulled by id, so an addition noted since the read above is never overwritten.
   const gone = goneAdditions(device.addedAgents ?? [], next ?? device.agents ?? [], status)
 
-  await agentDevices().updateOne(
+  // The registry as this write found it, so one sign-out is told once however many reports race.
+  const before = await agentDevices().findOneAndUpdate(
     { userId, deviceId },
     {
       $set: {
@@ -51,7 +57,30 @@ export async function recordDeviceAgents(
       },
       ...(gone.length > 0 ? { $pull: { addedAgents: { instanceId: { $in: gone } } } } : {}),
     },
+    { projection: { agents: 1 }, returnDocument: 'before' },
   )
+
+  for (const agent of next ? signedOutAgents(before?.agents ?? [], next) : [])
+    await logSignedOut(userId, deviceId, agent)
+}
+
+/**
+ * An agent whose sign-in ended, such as an expired login: every conversation on it waits to
+ * fail its next turn, so an operator can alert on this once rather than on each failure (#4489).
+ */
+async function logSignedOut(userId: string, deviceId: string, agent: RegisteredAgent) {
+  const runtimeId = localRuntimeId({ userId, deviceId, ...agent })
+  const conversationCount = await agentConversations()
+    .countDocuments({ runtimeId, archivedAt: { $exists: false } })
+    .catch(() => null)
+
+  logEvent('warn', 'agent.runtime.signed_out', {
+    runtime_id: runtimeId,
+    user_id: userId,
+    device_id: deviceId,
+    provider: agent.provider,
+    conversation_count: conversationCount,
+  })
 }
 
 export async function renameDeviceAgent(
