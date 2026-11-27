@@ -110,7 +110,10 @@ const scenario: Scenario = {
     // Refused: the dialog stays open with the text, and the reason shows in a toast.
     await field(page).fill('x'.repeat(8001))
     await dialog(page).getByRole('button', { name: 'Save' }).click()
-    await page.getByText('Instructions must be at most 8000 characters').waitFor()
+    await page
+      .getByRole('region', { name: 'Notifications' })
+      .getByText('Instructions must be at most 8000 characters')
+      .waitFor()
     if ((await field(page).inputValue()).length !== 8001)
       throw new Error('A refused save lost the text')
     await shoot(page, 'save-failed')
