@@ -12,7 +12,11 @@ import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 /** Checks the computer's own agent of a provider again; `restart` also restarts it. */
-export type RefreshDefault = (provider: LocalAgentProvider, restart: boolean) => Promise<unknown>
+export type RefreshDefault = (
+  provider: LocalAgentProvider,
+  restart: boolean,
+  signedIn?: boolean,
+) => Promise<unknown>
 /** Runs `work` with the computer's own agent of a provider stopped; the next refresh starts it. */
 export type PauseDefault = <T>(
   provider: LocalAgentProvider,
@@ -88,7 +92,7 @@ async function resetDefaultAgent(
 async function commitDefaultAgent(provider: unknown, refresh: RefreshDefault | undefined) {
   if (!LOCAL_AGENT_PROVIDERS.includes(provider as LocalAgentProvider))
     throw new Error('Invalid runtime provider')
-  await refresh?.(provider as LocalAgentProvider, false)
+  await refresh?.(provider as LocalAgentProvider, false, true)
 
   return {}
 }

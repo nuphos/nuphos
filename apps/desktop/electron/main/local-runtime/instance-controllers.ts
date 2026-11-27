@@ -248,7 +248,7 @@ export class InstanceControllers {
     if (!entry) throw new Error('Runtime instance not found')
     if (method === 'reset') return this.reset(entry, userId)
     await entry.starting?.catch(() => {})
-    await entry.controller.refresh(false)
+    await entry.controller.refresh(false, undefined, true)
     if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
 
     return { instance: publicMetadata(entry.metadata) }
