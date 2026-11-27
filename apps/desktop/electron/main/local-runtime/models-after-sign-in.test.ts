@@ -33,9 +33,11 @@ test('a finished sign-in reads the models of the agent it signed in, own or adde
     probeModels: async ({ agentHome = '' }) => {
       const signedIn = existsSync(path.join(agentHome, 'signed-in'))
 
+      const id = signedIn ? 'azure/gpt' : 'free/model'
+
       reads.push({ home: agentHome, signedIn })
 
-      return { models: [{ id: signedIn ? 'azure/gpt' : 'free/model' }], defaultModel: '', controls: {} }
+      return { models: [{ id, name: id }], defaultModel: '', controls: {} }
     },
     createProcess: () => ({
       start: async () => ({ port: 1, authKey: 'mock', controlKey: 'mock' }),
