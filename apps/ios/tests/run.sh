@@ -70,7 +70,7 @@ chat_sources=(
   nuphos-ios/Services/Passkeys.swift \
   nuphos-ios/Services/Chat/SSEClient.swift \
   nuphos-ios/Services/Chat/ChannelSession.swift)
-for chat_test in CancelledLoadTests ChannelPushTests ExpiredFilesTests HeldFilesTests QueueHoldTests UploadProgressTests; do
+for chat_test in CancelledLoadTests ChannelPushTests ExpiredFilesTests HeldFilesTests QueueHoldTests StaleLinksTests UploadProgressTests; do
   swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
     -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
     "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"

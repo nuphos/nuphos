@@ -102,7 +102,8 @@ final class ChannelSession {
                 changePending = false
                 await refresh(force: true)
             case .tick:
-                if !pushed { await refresh() }
+                // A pushed chat is read only when it changes; its links still run out.
+                if pushed { await resolveFiles(of: stored) } else { await refresh() }
                 await refreshQuestions()
             }
         }
@@ -140,18 +141,21 @@ final class ChannelSession {
     }
 
     /// The probe, then the full read when the chat changed; `force` skips the probe.
+    /// Either way, files whose links ran out are read again.
     func refresh(force: Bool = false) async {
         do {
-            if !force, loaded {
-                // The probe reads the newest post, so an open chat is read up to it: a
-                // post's activity can land after the transcript change the probe compares.
-                let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
-                guard probe.channelRevision != revision else { return }
+            // The probe reads the newest post, so an open chat is read up to it: a
+            // post's activity can land after the transcript change the probe compares.
+            var changed = force || !loaded
+            if !changed {
+                changed = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1).channelRevision != revision
             }
-            async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
-            async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
-            let (read, people) = try await (detail, listed)
-            apply(read, agents: people)
+            if changed {
+                async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
+                async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
+                let (read, people) = try await (detail, listed)
+                apply(read, agents: people)
+            }
             await resolveFiles(of: stored)
         } catch {
             // Cancelled (the chat closed, the app left the foreground): not a
@@ -178,7 +182,9 @@ final class ChannelSession {
     }
 
     private func resolveFiles(of posts: [ChannelPost]) async {
-        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
+        // Unread, or read with links that no longer load.
+        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads })
+            .filter { files[$0]?.contains(where: \.linkExpired) ?? true }
         await withTaskGroup(of: (String, [TransferDownloadGroup.File]?).self) { group in
             for id in missing {
                 group.addTask { [self] in
