@@ -61,6 +61,16 @@ export const threadScenarios: Scenario[] = [
       // The parent picks an effort while its agent offers effort levels; the thread's session
       // then has none, as a model without effort levels does. The rest still carries over.
       const stopOffering = stack.offerDefaultStandIn()
+      const took = (detail: string) => {
+        const parent = agentLog(stack).find(
+          (entry) => entry.marker === 'E2E_DELIVERY:inherit-parent',
+        )?.sessionId
+
+        return agentLog(stack).some(
+          (entry) =>
+            entry.event === 'setting' && entry.sessionId === parent && entry.detail === detail,
+        )
+      }
 
       try {
         await newTask(page)
@@ -78,15 +88,6 @@ export const threadScenarios: Scenario[] = [
         await page.keyboard.press('Escape')
         // Picked right after a reply, before the Desktop hears the runtime is idle, they wait
         // for the next reply; the message below must not overtake them.
-        const parent = agentLog(stack).find(
-          (entry) => entry.marker === 'E2E_DELIVERY:inherit-parent',
-        )?.sessionId
-        const took = (detail: string) =>
-          agentLog(stack).some(
-            (entry) =>
-              entry.event === 'setting' && entry.sessionId === parent && entry.detail === detail,
-          )
-
         await until("the parent's session to take the picks", async () =>
           ['model=fixture-small', 'fast=on'].every(took),
         )
@@ -111,6 +112,8 @@ export const threadScenarios: Scenario[] = [
       await chip()
       await page.getByRole('button', { name: 'Turn off fast mode' }).click()
       await page.keyboard.press('Escape')
+      // The same wait: the next scenario's message must not overtake this pick either (#4394).
+      await until("the parent's session to turn fast mode off", async () => took('fast=off'))
     },
   },
   {
