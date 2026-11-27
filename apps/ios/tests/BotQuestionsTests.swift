@@ -168,7 +168,7 @@ enum BotQuestionsTests {
         // With nothing to pick, the words are open from the start.
         let notes = AgentConversation.DecisionQuestion(question: "Notes?", options: nil, multiSelect: false)
         precondition(QuestionForm([form[0], notes], typed: true).other == [false, true])
-        precondition(QuestionForm([notes], typed: true).other == [false])
+        precondition(QuestionForm([notes], typed: true).other == [true])
         precondition(DecisionAnswer(choices: ["us"]).json == .object(["choices": .array([.string("us")])]))
         // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
         precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")

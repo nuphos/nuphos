@@ -194,13 +194,11 @@ struct QuestionForm: Equatable {
     var other: [Bool]
     var words: [String]
 
-    /// `typed`, a form question with nothing to pick is answered in words from the start; a one-tap
-    /// question opens its words with "Reply…".
+    /// `typed`, a question with nothing to pick is answered in words from the start.
     init(_ questions: [AgentConversation.DecisionQuestion], typed: Bool) {
         self.questions = questions
         picked = questions.map { _ in [] }
-        let form = !Self.instant(questions)
-        other = questions.map { form && typed && ($0.options ?? []).isEmpty }
+        other = questions.map { typed && ($0.options ?? []).isEmpty }
         words = questions.map { _ in "" }
     }
 
