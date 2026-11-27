@@ -55,7 +55,7 @@ export function TriggerRow({
           aria-controls={`trigger-details-${trigger.id}`}
           title={next ? `${schedule} · ${next}` : schedule}
           onClick={onToggleOpen}
-          className="-mx-1.5 flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-state-hover aria-expanded:bg-state-hover"
+          className="-mx-1.5 flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1.5 text-left hover:bg-state-hover"
         >
           <AlarmClock
             aria-hidden
