@@ -10,6 +10,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.RuntimeApi
 import ai.nuphos.android.data.Http
+import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.data.SseClient
 import ai.nuphos.android.model.ChatRow
@@ -92,7 +93,7 @@ class ChatSession(
         modelScopeRevision++
         modelSettings?.invalidate()
         modelSettings = null
-        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || !serverMetadataObserved || !isNative) return
+        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || !(serverMetadataObserved || listRowObserved) || !isNative) return
         val revision = modelScopeRevision
         modelSettings = ModelSettingsStore(
             isCurrent = { modelScopeActive && modelViewCurrent() && revision == modelScopeRevision && hasAiAccess },
@@ -496,6 +497,18 @@ class ChatSession(
         private set
     var isBot by mutableStateOf(false)
         private set
+    /** The conversation is known to exist from its list row, though its own read has not landed. */
+    private var listRowObserved = false
+    /** What the list already knows about this conversation, so it can say what it runs before its
+     *  own read lands, and if that read fails. That read replaces all of it. */
+    fun seedFromListRow(row: AgentConversation) {
+        if (serverMetadataObserved || row.sessionId != sessionId) return
+        listRowObserved = true
+        agentRuntime = row.agentRuntime
+        runtimeDeviceLabel = row.runtimeLabel?.takeIf { it.isNotBlank() }
+        isBot = row.isBot
+        resetModelSettings(preservePending = true)
+    }
     /** Offered Share: a Task a person opened, as the server decides it. */
     var shareable by mutableStateOf(false)
         private set
