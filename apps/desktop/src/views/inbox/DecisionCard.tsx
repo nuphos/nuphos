@@ -78,7 +78,7 @@ export function DecisionCard({
   const [reason, setReason] = useState('')
 
   useDigitKeys(keys && !other && !dismissing, page?.keyOptions, onAnswer)
-  // Snooze and Dismiss, as two more of the options' buttons.
+  // Snooze and Dismiss, the same pill as the options: ending their row, or a form's footer before Send.
   const asides = (
     <>
       <SnoozeMenu className={PILL} onSnooze={onSnooze} />

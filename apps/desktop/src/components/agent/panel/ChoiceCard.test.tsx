@@ -247,15 +247,22 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss'])
 
     await render(true)
-    // The same row of pills, with Send for the picks at its end.
-    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss', 'Send'])
+    // The same pills, then one footer: Dismiss, and the send button, saying what is left.
+    assert.deepEqual(row(), [
+      'us-east',
+      'eu-west',
+      'ap-northeast',
+      'Other…',
+      'Dismiss',
+      'Answer 1 more',
+    ])
     assert.equal(container.querySelector('input'), null)
-    // Its options are checkboxes: a click picks, and only Send answers.
+    // Its options, and Other, are checkboxes: a click picks, and only Send answers.
     assert.deepEqual(
       [...container.querySelectorAll('[role="checkbox"]')].map((item) => item.textContent),
-      ['us-east', 'eu-west', 'ap-northeast'],
+      ['us-east', 'eu-west', 'ap-northeast', 'Other…'],
     )
-    assert.equal(button('Send')?.disabled, true)
+    assert.equal(button('Answer 1 more')?.disabled, true)
     await click('us-east')
     await click('ap-northeast')
     assert.equal(answers.length, 1)
@@ -269,8 +276,8 @@ test('a single- and a multi-select question are one option row: multiSelect only
     await render(false, [
       { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
     ])
-    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Send'])
-    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
+    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Answer 1 more'])
+    assert.equal(container.querySelectorAll('[role="checkbox"]').length, 3)
     const sent = answers.length
 
     await act(async () => {
