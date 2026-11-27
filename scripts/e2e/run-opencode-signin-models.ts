@@ -23,7 +23,10 @@ async function signInAzure(owner: Client, teamId: string, runtimeId: string) {
   const login = `/teams/${teamId}/agent-runtimes/${runtimeId}/login`
   const started = await owner('POST', login)
 
-  must(started.status === 202, `the sign-in to start, got ${String(started.status)} ${started.text}`)
+  must(
+    started.status === 202,
+    `the sign-in to start, got ${String(started.status)} ${started.text}`,
+  )
   const { attemptId } = started.body as { attemptId: string }
   const answered = new Set<string>()
 
@@ -101,8 +104,9 @@ try {
 
   for (const { name, runtimeId } of cases) {
     // The free list first, as the picker shows it before any sign-in.
-    await until(`${name} to report its models`, async () =>
-      (await azureCount(owner, stack.teamId, runtimeId)).total > 0,
+    await until(
+      `${name} to report its models`,
+      async () => (await azureCount(owner, stack.teamId, runtimeId)).total > 0,
     )
     console.log(`${name}: before sign-in`, await azureCount(owner, stack.teamId, runtimeId))
     await signInAzure(owner, stack.teamId, runtimeId)
