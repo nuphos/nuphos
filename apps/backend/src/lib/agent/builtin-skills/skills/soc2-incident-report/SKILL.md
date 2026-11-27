@@ -1,6 +1,6 @@
 ---
 name: soc2-incident-report
-description: "Write an incident report or post-mortem that meets SOC 2 audit needs."
+description: "Write an incident report, post-mortem, PIR or outage report that meets SOC 2 audit needs."
 ---
 
 # SOC 2 incident report

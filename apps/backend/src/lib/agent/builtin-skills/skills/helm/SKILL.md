@@ -1,6 +1,6 @@
 ---
 name: helm
-description: "Install or upgrade chart-based apps on the team's Kubernetes clusters with helm."
+description: "Install or upgrade chart-based apps with helm (\"install Inngest\", \"deploy ingress-nginx\")."
 ---
 
 # helm

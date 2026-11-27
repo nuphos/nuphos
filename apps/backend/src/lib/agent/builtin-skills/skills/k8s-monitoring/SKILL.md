@@ -1,6 +1,6 @@
 ---
 name: k8s-monitoring
-description: "Set up in-cluster health monitoring and alerting for a Kubernetes cluster."
+description: "Set up health monitoring and alerting inside a Kubernetes cluster. Use for \"monitor my cluster\"."
 ---
 
 # K8s cluster monitoring

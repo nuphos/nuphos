@@ -1,6 +1,6 @@
 ---
 name: aws
-description: "AWS via the aws CLI. Use at once for a Nuphos /s3-buckets/ link or AccessDenied on the BYOC role."
+description: "AWS CLI. Use at once for a Nuphos /s3-buckets/ link, AccessDenied on the BYOC role, or alarms."
 ---
 
 # AWS CLI

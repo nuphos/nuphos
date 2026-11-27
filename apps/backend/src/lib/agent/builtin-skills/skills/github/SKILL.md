@@ -1,6 +1,6 @@
 ---
 name: github
-description: "GitHub repos, issues, PRs and Actions via the team's GitHub App or the member's own login."
+description: "GitHub repos, issues, PRs and Actions. Use whenever the user names a repo or asks about code or PRs."
 ---
 
 # github

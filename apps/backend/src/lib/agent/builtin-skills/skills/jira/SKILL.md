@@ -1,6 +1,6 @@
 ---
 name: jira
-description: "Read, create, comment on and transition Jira issues in a team-bound site."
+description: "Jira issues in a team-bound site: open, track, transition or close one, or file an incident ticket."
 ---
 
 # jira

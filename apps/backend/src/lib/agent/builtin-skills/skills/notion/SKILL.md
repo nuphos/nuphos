@@ -1,6 +1,6 @@
 ---
 name: notion
-description: "Search, read and edit a team-bound Notion workspace."
+description: "Search, read and edit a team-bound Notion workspace: find a doc, capture notes, write a runbook."
 ---
 
 # notion
