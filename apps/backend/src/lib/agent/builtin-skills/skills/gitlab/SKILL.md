@@ -1,6 +1,6 @@
 ---
 name: gitlab
-description: "Work with GitLab projects, merge requests, pipelines and repository contents through a team-bound GitLab account: read code, open/update/comment on MRs, check CI."
+description: "GitLab projects, merge requests, pipelines and code via a team-bound account."
 ---
 
 # gitlab

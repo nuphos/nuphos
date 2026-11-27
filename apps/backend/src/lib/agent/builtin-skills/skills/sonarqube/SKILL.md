@@ -1,6 +1,6 @@
 ---
 name: sonarqube
-description: "Inspect SonarQube projects through a team-bound connector: Quality Gates, issues, vulnerabilities, Security Hotspots, measures and analyses."
+description: "Inspect SonarQube projects: Quality Gates, issues, vulnerabilities, hotspots."
 ---
 
 # SonarQube

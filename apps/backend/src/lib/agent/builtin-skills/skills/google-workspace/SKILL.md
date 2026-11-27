@@ -1,6 +1,6 @@
 ---
 name: google-workspace
-description: "Read and act on the sender's own Gmail, Google Drive and Calendar: search, draft and send mail; find, read and share files; manage events. Uses their Personal Credential."
+description: "The sender's own Gmail, Google Drive and Calendar via their Personal Credential."
 ---
 
 # google-workspace

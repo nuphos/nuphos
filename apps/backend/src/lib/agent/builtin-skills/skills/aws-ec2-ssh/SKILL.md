@@ -1,6 +1,6 @@
 ---
 name: aws-ec2-ssh
-description: Run shell commands on a bound AWS EC2 instance, via SSM Run Command (preferred) or EC2 Instance Connect SSH. Covers credential setup, required IAM and troubleshooting.
+description: "Run shell commands on a bound EC2 instance via SSM or EC2 Instance Connect."
 ---
 
 # EC2 — run commands on a bound instance

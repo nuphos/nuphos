@@ -1,6 +1,6 @@
 ---
 name: grafana
-description: "Inspect and operate team-bound Grafana instances through Nuphos's authenticated proxy: dashboards, folders, datasources, /api/ds/query, alerting, Loki and Prometheus."
+description: "Team-bound Grafana via the Nuphos proxy: dashboards, datasources, queries, alerting."
 ---
 
 # Grafana

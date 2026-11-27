@@ -1,6 +1,6 @@
 ---
 name: betterstack
-description: Use Better Stack API credentials bound in Nuphos to inspect or manage Uptime monitors and Telemetry resources.
+description: "Better Stack Uptime monitors and Telemetry, using a Nuphos-bound integration."
 ---
 
 # Better Stack

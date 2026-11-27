@@ -1,6 +1,6 @@
 ---
 name: github
-description: Work with GitHub repos, issues, PRs and Actions through a team-bound GitHub App or the member's own login. Use whenever the user names a repo or asks about code, PRs or issues.
+description: "GitHub repos, issues, PRs and Actions via the team's GitHub App or the member's own login."
 ---
 
 # github

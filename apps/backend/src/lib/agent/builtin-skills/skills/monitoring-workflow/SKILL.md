@@ -1,6 +1,6 @@
 ---
 name: monitoring-workflow
-description: Route monitoring asks ("monitor X", uptime, health checks, alert me when Z goes down) to the team's provider, and wire alerts from any provider to a Nuphos webhook Trigger.
+description: "Route \"monitor X\" or alerting asks to the team's provider and wire alerts to Triggers."
 ---
 
 # Generic monitoring workflow

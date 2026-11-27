@@ -1,6 +1,6 @@
 ---
 name: zeabur
-description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs and environment variables, via the Zeabur GraphQL API or CLI."
+description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs."
 ---
 
 # Zeabur

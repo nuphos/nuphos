@@ -1,6 +1,6 @@
 ---
 name: helm
-description: Install or upgrade chart-based apps on a Nuphos-managed Kubernetes cluster with helm ("install Inngest", "deploy ingress-nginx"). Includes an install script for helm.
+description: "Install or upgrade chart-based apps on the team's Kubernetes clusters with helm."
 ---
 
 # helm

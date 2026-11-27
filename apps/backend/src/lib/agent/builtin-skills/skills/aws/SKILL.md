@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Run AWS CLI v2 to inspect or change AWS resources. Use at once for a Nuphos /s3-buckets/ link (fetch and show it), AccessDenied on the BYOC role, or CloudWatch alarms into Triggers.
+description: "AWS via the aws CLI. Use at once for a Nuphos /s3-buckets/ link or AccessDenied on the BYOC role."
 ---
 
 # AWS CLI

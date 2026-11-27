@@ -1,6 +1,6 @@
 ---
 name: linode
-description: Run linode-cli commands from the sandbox to inspect or change Linode/Akamai Cloud resources, including LKE clusters. Includes a setup script for selected Nuphos-bound Linode accounts.
+description: "Linode/Akamai Cloud resources, including LKE, with linode-cli and a Nuphos-bound account."
 ---
 
 # Linode CLI

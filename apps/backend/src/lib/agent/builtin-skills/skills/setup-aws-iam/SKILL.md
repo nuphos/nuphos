@@ -1,6 +1,6 @@
 ---
 name: setup-aws-iam
-description: "Connect a new AWS account to Nuphos with the user's local aws CLI: pick a role, grant the Nuphos connector trust, and register it with create_connector."
+description: "Connect a new AWS account to Nuphos with the user's local aws CLI."
 ---
 
 # Setup AWS IAM (local aws cli)

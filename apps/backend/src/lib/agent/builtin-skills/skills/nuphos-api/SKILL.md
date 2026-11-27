@@ -1,6 +1,6 @@
 ---
 name: nuphos-api
-description: Live reference for Nuphos-native REST routes. Use when a task needs a Nuphos API operation or route contract; for provider work use that provider's skill first.
+description: "Reference for Nuphos-native REST routes, when a task needs a Nuphos API operation."
 ---
 
 # nuphos-api

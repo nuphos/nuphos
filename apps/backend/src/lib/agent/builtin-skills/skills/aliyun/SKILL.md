@@ -1,6 +1,6 @@
 ---
 name: aliyun
-description: Run the aliyun CLI to inspect or change Alibaba Cloud resources (ACK, ECS, SLB, VPC, OSS). Includes a script that loads a Nuphos-bound account's credentials.
+description: "Alibaba Cloud (ACK, ECS, SLB, VPC, OSS) with the aliyun CLI, using a Nuphos-bound account."
 ---
 
 # Alibaba Cloud CLI (aliyun)

@@ -1,6 +1,6 @@
 ---
 name: k8s-monitoring
-description: Set up in-cluster health monitoring (Deployments, Nodes, CronJobs, PVCs, certs) with kube-prometheus-stack alerting into Better Stack. Use for "monitor my cluster".
+description: "Set up in-cluster health monitoring and alerting for a Kubernetes cluster."
 ---
 
 # K8s cluster monitoring

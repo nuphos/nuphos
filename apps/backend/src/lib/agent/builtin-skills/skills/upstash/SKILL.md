@@ -1,6 +1,6 @@
 ---
 name: upstash
-description: "Manage a team-bound Upstash account: create, inspect or delete Redis databases, read usage, backups and plans, and manage Vector indexes."
+description: "Manage Upstash Redis databases and Vector indexes in a team-bound account."
 ---
 
 # upstash
