@@ -146,7 +146,8 @@ export const choiceModeScenarios: Scenario[] = [
       const answer = async (scope: Locator, words: [string, string], shot: string) => {
         const sets = scope.locator('fieldset').filter({ visible: true })
 
-        await sets.nth(0).getByRole('button', { name: 'Delete', exact: true }).click()
+        // In a form an option is a radio (a checkbox when multi-select); Other is a button.
+        await sets.nth(0).getByRole('radio', { name: 'Delete', exact: true }).click()
         for (const [at, text] of words.entries()) {
           await sets.nth(at).getByRole('button', { name: 'Other…' }).click()
           await sets.nth(at).getByRole('textbox').fill(text)
