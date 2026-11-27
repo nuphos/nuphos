@@ -145,9 +145,30 @@ enum BotQuestionsTests {
         let several = ask(try! JSONDecoder().decode(AgentConversation.InputRequest.self, from: Data(data.utf8)))
         let form = several.form!
         precondition(form.count == 2)
-        precondition(BotQuestion.formAnswer(form, picked: [["us", "eu"], []], typed: ["", " Keep "])
+        var answers = QuestionForm(form, typed: true)
+        answers.pick("us", at: 0)
+        answers.pick("eu", at: 0)
+        precondition(answers.left == 1)
+        answers.pickOther(at: 1)
+        answers.words[1] = " Keep "
+        precondition(answers.left == 0)
+        precondition(answers.answer
             == DecisionAnswer(questions: [DecisionAnswer(choices: ["us", "eu"]), DecisionAnswer(text: "Keep")]))
-        precondition(BotQuestion.formAnswer([form[0]], picked: [["us"]], typed: [""]) == DecisionAnswer(choices: ["us"]))
+        // Each question keeps its own words: picking "Other" on one leaves another's as they are.
+        answers.pickOther(at: 0)
+        answers.words[0] = "ap-south"
+        precondition(answers.words[1] == " Keep " && answers.left == 0)
+        // "Other" is exclusive with the options, a multi-select's too, and an option unpicks it.
+        precondition(answers.picked[0].isEmpty)
+        answers.pick("eu", at: 0)
+        precondition(!answers.other[0] && answers.picked[0] == ["eu"])
+        var one = QuestionForm([form[0]], typed: true)
+        one.pick("us", at: 0)
+        precondition(one.answer == DecisionAnswer(choices: ["us"]))
+        // With nothing to pick, the words are open from the start.
+        let notes = AgentConversation.DecisionQuestion(question: "Notes?", options: nil, multiSelect: false)
+        precondition(QuestionForm([form[0], notes], typed: true).other == [false, true])
+        precondition(QuestionForm([notes], typed: true).other == [false])
         precondition(DecisionAnswer(choices: ["us"]).json == .object(["choices": .array([.string("us")])]))
         // Only the exact list the backend wrote out is dropped; a `---` of the agent's own stays.
         precondition(BotQuestion.writtenQuestions(form) == "\n\n---\n\n**1. Which regions?** (any number)\n- us\n- eu\n\n**2. Keep the old cluster?**\n- Keep\n- Delete")
