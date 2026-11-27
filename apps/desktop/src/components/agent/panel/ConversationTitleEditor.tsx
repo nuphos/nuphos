@@ -3,16 +3,8 @@ import { useRef, useState } from 'react'
 
 import { api } from '../../../api'
 import { t } from '../../../i18n'
-import {
-  agentAvatarBackground,
-  pickAgentAvatar,
-  useAgentAvatarPick,
-} from '../../../lib/agentAvatarChoices'
-import { trustedAvatarURL } from '../../../lib/avatarUrl'
-import { botAvatarBackground } from '../../../lib/botAvatarBackgrounds'
-import { botAvatarFile, botAvatarName } from '../../../lib/botAvatars'
+import { useAgentAvatarPick } from '../../../lib/agentAvatarChoices'
 import { announceChatTitle } from '../../../lib/chatTitleEvents'
-import { saveBotIdentity } from '../../../lib/saveBotIdentity'
 import { sessionShortcutCombo } from '../../../lib/sessionShortcuts'
 import { listedConversation } from '../../channels/channelShared'
 import { Modal } from '../../Modal'
@@ -20,7 +12,7 @@ import { Button } from '../../ui/button'
 import { ShortcutLabel } from '../../ui/shortcut-hint'
 import { toast } from '../../ui/toast'
 import { Tooltip } from '../../ui/tooltip'
-import { BotIdentityFields } from '../BotIdentityFields'
+import { EditBotDialog } from '../EditBotDialog'
 
 const LABELS = {
   task: {
@@ -31,7 +23,6 @@ const LABELS = {
   bot: {
     rename: () => t('Edit Bot'),
     named: (title: string) => t('Edit Bot: {title}', { title }),
-    failed: () => t('Could not rename Bot'),
   },
   chat: {
     rename: () => t('Rename chat'),
@@ -111,26 +102,32 @@ export function EditableConversationTitle({
   )
 }
 
-export function RenameConversationDialog({
-  sessionId,
-  teamId,
-  title,
-  onClose,
-}: {
+export function RenameConversationDialog(props: {
   sessionId: string
   teamId: string
   title: string
   onClose: () => void
 }) {
-  const currentAvatar = useAgentAvatarPick(sessionId)
-  const renamed = useRenamed(teamId, sessionId)
-  const bot = renamed === 'bot'
-  const photo = trustedAvatarURL(currentAvatar)
-  const [avatar, setAvatar] = useState(() =>
-    photo ? undefined : botAvatarFile(sessionId, currentAvatar),
-  )
-  const [savedBackground] = useState(() => botAvatarBackground(agentAvatarBackground(sessionId)))
-  const [background, setBackground] = useState(savedBackground)
+  const renamed = useRenamed(props.teamId, props.sessionId)
+
+  if (renamed === 'bot') return <EditBotDialog {...props} />
+
+  return <RenameDialog {...props} renamed={renamed} />
+}
+
+function RenameDialog({
+  sessionId,
+  teamId,
+  title,
+  renamed,
+  onClose,
+}: {
+  sessionId: string
+  teamId: string
+  title: string
+  renamed: 'chat' | 'task'
+  onClose: () => void
+}) {
   const [draft, setDraft] = useState(title)
   const [saving, setSaving] = useState(false)
   const inFlight = useRef(false)
@@ -139,7 +136,7 @@ export function RenameConversationDialog({
     const name = draft.trim()
 
     if (!name || inFlight.current) return
-    if (!bot && name === title) {
+    if (name === title) {
       onClose()
 
       return
@@ -147,27 +144,9 @@ export function RenameConversationDialog({
     inFlight.current = true
     setSaving(true)
     try {
-      await saveBotIdentity(
-        title,
-        name,
-        { avatar: currentAvatar, background: savedBackground },
-        { avatar: bot && avatar ? botAvatarName(avatar) : undefined, background },
-        {
-          rename: async (nextName) => {
-            const result = await api.agentRenameConversation(sessionId, nextName, teamId)
+      const result = await api.agentRenameConversation(sessionId, name, teamId)
 
-            announceChatTitle({ sessionId, teamId, title: result.title })
-          },
-          setAvatar: async (nextAvatar, nextBackground) => {
-            await pickAgentAvatar(
-              sessionId,
-              nextAvatar,
-              () => api.agentSetConversationAvatar(sessionId, nextAvatar, teamId, nextBackground),
-              nextBackground,
-            )
-          },
-        },
-      )
+      announceChatTitle({ sessionId, teamId, title: result.title })
       onClose()
     } catch (error) {
       toast.apiError(LABELS[renamed].failed(), error)
@@ -178,13 +157,7 @@ export function RenameConversationDialog({
   }
 
   return (
-    <Modal
-      open
-      title={LABELS[renamed].rename()}
-      appearance="prompt"
-      width={bot ? 440 : 420}
-      onClose={onClose}
-    >
+    <Modal open title={LABELS[renamed].rename()} appearance="prompt" width={420} onClose={onClose}>
       <form
         className="titlebar-no-drag"
         onSubmit={(event) => {
@@ -192,66 +165,48 @@ export function RenameConversationDialog({
           void save()
         }}
       >
-        {bot ? (
-          <div className="flex flex-col gap-3 px-5 pt-1 pb-5">
-            <BotIdentityFields
-              name={draft}
-              onNameChange={setDraft}
-              avatar={avatar}
-              onAvatarChange={setAvatar}
-              background={background}
-              onBackgroundChange={setBackground}
-              photo={photo}
-              busy={saving}
-              submitLabel={t('Save')}
-            />
-          </div>
-        ) : (
-          <>
-            <div className="flex flex-col items-center px-5 pt-1 pb-5">
-              <input
-                aria-label={renamed === 'chat' ? t('Name') : t('Task name')}
-                autoFocus
-                maxLength={120}
-                value={draft}
-                disabled={saving}
-                onFocus={(event) => event.currentTarget.select()}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  event.stopPropagation()
-                  if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault()
-                  if (event.key === 'Escape' && !saving) {
-                    event.preventDefault()
-                    onClose()
-                  }
-                }}
-                className="w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
-              />
-            </div>
-            <div className="flex justify-end gap-3 px-5 pb-5">
-              <Button
-                type="button"
-                variant="secondary"
-                size="md"
-                className="h-9 min-w-[72px] !rounded-lg"
-                disabled={saving}
-                onClick={onClose}
-              >
-                {t('Cancel')}
-              </Button>
-              <Button
-                type="submit"
-                variant="neutral"
-                size="md"
-                className="h-9 min-w-[72px] !rounded-lg"
-                disabled={saving || !draft.trim()}
-              >
-                {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                {saving ? t('Saving…') : t('Save')}
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="flex flex-col items-center px-5 pt-1 pb-5">
+          <input
+            aria-label={renamed === 'chat' ? t('Name') : t('Task name')}
+            autoFocus
+            maxLength={120}
+            value={draft}
+            disabled={saving}
+            onFocus={(event) => event.currentTarget.select()}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              event.stopPropagation()
+              if (event.key === 'Enter' && event.nativeEvent.isComposing) event.preventDefault()
+              if (event.key === 'Escape' && !saving) {
+                event.preventDefault()
+                onClose()
+              }
+            }}
+            className="w-full rounded-md border border-main bg-main px-3 py-2 text-[13px] text-main outline-none focus:border-line-focus"
+          />
+        </div>
+        <div className="flex justify-end gap-3 px-5 pb-5">
+          <Button
+            type="button"
+            variant="secondary"
+            size="md"
+            className="h-9 min-w-[72px] !rounded-lg"
+            disabled={saving}
+            onClick={onClose}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            type="submit"
+            variant="neutral"
+            size="md"
+            className="h-9 min-w-[72px] !rounded-lg"
+            disabled={saving || !draft.trim()}
+          >
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {saving ? t('Saving…') : t('Save')}
+          </Button>
+        </div>
       </form>
     </Modal>
   )
