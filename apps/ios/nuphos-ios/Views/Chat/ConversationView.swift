@@ -784,7 +784,7 @@ struct TimestampLabel: View {
     let date: Date
 
     var body: some View {
-        Text(ChatTime.label(for: date))
+        (Date.now.timeIntervalSince(date) < 60 ? Text("Just now") : Text(ChatTime.label(for: date)))
             .font(Theme.Text.caption)
             .foregroundStyle(Theme.muted)
             .frame(maxWidth: .infinity)

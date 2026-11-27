@@ -1,6 +1,706 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Use an AI subscription you already have." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用你現有的 AI 訂閱。"
+          }
+        }
+      }
+    },
+    "Start with a free model. No AI subscription required." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "從免費模型開始，無需 AI 訂閱。"
+          }
+        }
+      }
+    },
+    "Use a free OpenCode model or bring your own subscription." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用免費的 OpenCode 模型，或連接自己的訂閱。"
+          }
+        }
+      }
+    },
+    "Choose how your Bot uses AI" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇 Bot 使用 AI 的方式"
+          }
+        }
+      }
+    },
+    "Subscribe to Nuphos Cloud" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "訂閱 Nuphos Cloud"
+          }
+        }
+      }
+    },
+    "Use OpenCode or connect your own ChatGPT or Claude subscription." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 OpenCode，或連接自己的 ChatGPT 或 Claude 訂閱。"
+          }
+        }
+      }
+    },
+    "Let your Bots work even when your own computer is off." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "即使你自己的電腦關機，Bot 也能繼續工作。"
+          }
+        }
+      }
+    },
+    "Run your Bots on a computer." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在電腦上執行 Bot。"
+          }
+        }
+      }
+    },
+    "Create a Cloud Box" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立雲端電腦"
+          }
+        }
+      }
+    },
+    "Use your workspace’s available capacity to create a computer." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用工作區可用的資源建立電腦。"
+          }
+        }
+      }
+    },
+    "Set up your Cloud Box" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定雲端電腦"
+          }
+        }
+      }
+    },
+    "Continue when your Box’s runtime connects." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "等雲端電腦的執行環境連線後再繼續。"
+          }
+        }
+      }
+    },
+    "Choose how your Bot uses AI." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇 Bot 使用 AI 的方式。"
+          }
+        }
+      }
+    },
+    "Your Cloud Box is ready" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的雲端電腦已就緒"
+          }
+        }
+      }
+    },
+    "Check connection" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "檢查連線"
+          }
+        }
+      }
+    },
+    "Create workspace to set up a computer" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立工作區以設定電腦"
+          }
+        }
+      }
+    },
+    "Open Computers, select your computer, and add a runtime. Then return here." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟「電腦」，選取你的電腦並新增執行環境，再回到這裡。"
+          }
+        }
+      }
+    },
+    "Sign in with the same account and select this workspace." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用同一個帳號登入，並選取這個工作區。"
+          }
+        }
+      }
+    },
+    "Download Nuphos from nuphos.ai on your computer and open it." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在電腦上從 nuphos.ai 下載並開啟 Nuphos。"
+          }
+        }
+      }
+    },
+    "Set up the runtime on the computer you want your Bot to use." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在要讓 Bot 使用的電腦上設定執行環境。"
+          }
+        }
+      }
+    },
+    "Connect your own computer" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接自己的電腦"
+          }
+        }
+      }
+    },
+    "Run your Bot on a computer with a Nuphos subscription." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用 Nuphos 訂閱提供的電腦來執行 Bot。"
+          }
+        }
+      }
+    },
+    "Choose the computer that will run your Bot’s tasks." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇要用來執行 Bot 任務的電腦。"
+          }
+        }
+      }
+    },
+    "Where will your Bot work?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的 Bot 要在哪裡工作？"
+          }
+        }
+      }
+    },
+    "Next, get to know Nuphos and set your preferences." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接下來，認識 Nuphos 並設定你的偏好。"
+          }
+        }
+      }
+    },
+    "Account setup complete" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "帳號設定完成"
+          }
+        }
+      }
+    },
+    "Finish account setup" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完成帳號設定"
+          }
+        }
+      }
+    },
+    "Choose a runtime" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇執行環境"
+          }
+        }
+      }
+    },
+    "Use your ChatGPT or Claude account to sign in on the runtime you want your Bot to use." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在要讓 Bot 使用的執行環境中，登入你的 ChatGPT 或 Claude 帳號。"
+          }
+        }
+      }
+    },
+    "Connect an AI subscription" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接 AI 訂閱"
+          }
+        }
+      }
+    },
+    "Computer 1" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "電腦 1"
+          }
+        }
+      }
+    },
+    "Prep a meeting" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備會議"
+          }
+        }
+      }
+    },
+    "Plan my week" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "規劃本週行程"
+          }
+        }
+      }
+    },
+    "Sort my inbox" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理我的收件匣"
+          }
+        }
+      }
+    },
+    "Setting up your Bot…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在設定你的 Bot…"
+          }
+        }
+      }
+    },
+    "OpenCode · Cloud Box" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OpenCode · 雲端電腦"
+          }
+        }
+      }
+    },
+    "I drafted replies to 3 emails. Want to review them before I send?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我已草擬 3 封回信。你想先看過再寄出嗎？"
+          }
+        }
+      }
+    },
+    "Done. 5 key points and 2 action items." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成。整理出 5 個重點和 2 個待辦事項。"
+          }
+        }
+      }
+    },
+    "Q3 review\n3–4 PM" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第三季審查\n下午 3–4 點"
+          }
+        }
+      }
+    },
+    "1:1 with Sam" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "與 Sam 一對一會議"
+          }
+        }
+      }
+    },
+    "Fri" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週五"
+          }
+        }
+      }
+    },
+    "Thu" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週四"
+          }
+        }
+      }
+    },
+    "Wed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週三"
+          }
+        }
+      }
+    },
+    "Tue" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週二"
+          }
+        }
+      }
+    },
+    "Mail" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "郵件"
+          }
+        }
+      }
+    },
+    "Calendar" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行事曆"
+          }
+        }
+      }
+    },
+    "Mail · Re: Q3 kickoff" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "郵件 · 回覆：第三季啟動會議"
+          }
+        }
+      }
+    },
+    "Booked Thursday at 3 PM and replied to Dana." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已預約週四下午 3 點，並回覆 Dana。"
+          }
+        }
+      }
+    },
+    "On it. I’ll check both calendars." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好，我來查看你們的行事曆。"
+          }
+        }
+      }
+    },
+    "Thursday at 3 PM works for us. I’ll send the agenda tomorrow." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "週四下午 3 點我們有空。我明天會寄出議程。"
+          }
+        }
+      }
+    },
+    "Leonardo needs your answer" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leonardo 正在等你回覆"
+          }
+        }
+      }
+    },
+    "Move Acme call to 3 PM?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將 Acme 的通話改到下午 3 點？"
+          }
+        }
+      }
+    },
+    "Frida needs your answer" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Frida 正在等你回覆"
+          }
+        }
+      }
+    },
+    "Send 3 replies?" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要寄出 3 封回信嗎？"
+          }
+        }
+      }
+    },
+    "Archived 42 newsletters" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已封存 42 封電子報"
+          }
+        }
+      }
+    },
+    "Clean up my inbox" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整理我的收件匣"
+          }
+        }
+      }
+    },
+    "Checking 4 calendars" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在查看 4 個行事曆"
+          }
+        }
+      }
+    },
+    "Find a time for next week’s review" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找出下週的審查時間"
+          }
+        }
+      }
+    },
+    "Done · 5 key points" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已完成 · 5 個重點"
+          }
+        }
+      }
+    },
+    "Summarize today’s standup" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "摘要今天的站立會議"
+          }
+        }
+      }
+    },
+    "Your 2 PM with Acme moved to 3 PM" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你與 Acme 的會議從下午 2 點改到 3 點"
+          }
+        }
+      }
+    },
+    "Leonardo: Meeting notes are posted for everyone" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Leonardo：會議筆記已分享給大家"
+          }
+        }
+      }
+    },
+    "Drafted replies to 3 emails" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已草擬 3 封回信"
+          }
+        }
+      }
+    },
+    "Waiting for %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在等待 %@"
+          }
+        }
+      }
+    },
+    "Create %@ to finish this part of setup." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "建立 %@ 以完成這個設定步驟。"
+          }
+        }
+      }
+    },
+    "Connect %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接 %@"
+          }
+        }
+      }
+    },
+    "Try %@" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "試用 %@"
+          }
+        }
+      }
+    },
+    "Wake computer" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "喚醒電腦"
+          }
+        }
+      }
+    },
+    "Starting computer…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在啟動電腦…"
+          }
+        }
+      }
+    },
+    "Couldn’t wake the computer." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法喚醒電腦。"
+          }
+        }
+      }
+    },
     "" : {
       "shouldTranslate" : false
     },
@@ -15100,7 +15800,15 @@
       "shouldTranslate" : false
     },
     "Friday, November 20" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "11 月 20 日，星期五"
+          }
+        }
+      }
     },
     "General access" : {
       "localizations" : {
@@ -15565,7 +16273,15 @@
       }
     },
     "Hi Dana," : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dana，你好："
+          }
+        }
+      }
     },
     "Hi! I’m %@. I can read your email, keep your calendar, and take notes in meetings. What should we start with?" : {
       "localizations" : {
@@ -24957,7 +25673,15 @@
       }
     },
     "Re: Q3 kickoff" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回覆：第三季啟動會議"
+          }
+        }
+      }
     },
     "Read file" : {
       "localizations" : {
@@ -35682,7 +36406,15 @@
       }
     },
     "To: Dana Chen" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收件人：Dana Chen"
+          }
+        }
+      }
     },
     "Tomorrow, 9:00" : {
       "localizations" : {
@@ -41393,7 +42125,15 @@
       }
     },
     "now" : {
-      "shouldTranslate" : false
+      "shouldTranslate" : false,
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剛剛"
+          }
+        }
+      }
     },
     "optional" : {
       "localizations" : {

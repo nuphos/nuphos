@@ -10,6 +10,8 @@ struct MobileOnboardingPreview: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var session = AuthSession()
     @State private var onboarding = false
+    @State private var onboardingAccount: String?
+    @AppStorage(OnboardingLanguage.preferenceKey) private var onboardingLanguage = ""
     @State private var showingLogin = false
     @State private var showingServer = false
     @State private var showingCloudPlan = false
@@ -22,6 +24,7 @@ struct MobileOnboardingPreview: View {
     @State private var existingBot = false
     /// The Cloud tour ended. Its consent was only simulated, so this goes home without asking again.
     @State private var tourFinished = false
+    @State private var firstBotChat: PushTarget?
     @State private var setupError: String?
     @State private var setupAttempt = 0
     @State private var runtimeRefreshing = false
@@ -40,13 +43,20 @@ struct MobileOnboardingPreview: View {
 
     private var selfHosted: Bool { NuphosAPI.baseURL(for: session.token) != NuphosAPI.defaultBaseURL }
 
+    private var signedInAccount: String? {
+        guard let user = session.user, let token = session.token else { return nil }
+        return "\(NuphosAPI.baseURL(for: token).absoluteString)|\(user.id)"
+    }
+
     var body: some View {
         ZStack {
             if onboarding, let user = session.user {
-                if waitingForComputerPreview {
-                    computerWaitingPreview
+                if onboardingAccount != signedInAccount {
+                    ProgressView()
+                } else if waitingForComputerPreview {
+                    computerWaitingPreview.id(onboardingAccount)
                 } else if tourFinished {
-                    HomeView(user: user).id(session.generation)
+                    HomeView(user: user, firstBotChat: firstBotChat).id(session.generation)
                 } else if !session.aiConsentAccepted {
                     NavigationStack {
                         AIConsentView(user: user, embedded: true)
@@ -64,11 +74,19 @@ struct MobileOnboardingPreview: View {
                 }
             } else {
                 OnboardingWelcome(signIn: signInToCloud, useOwnServer: editServer)
+                    .overlay(alignment: .topTrailing) {
+                        OnboardingLanguageMenu(selection: $onboardingLanguage)
+                            .foregroundStyle(Theme.heading)
+                            .padding(.horizontal, 10)
+                            .background(Theme.surface, in: Capsule())
+                            .padding(.trailing, 24)
+                    }
                     .transition(.opacity)
             }
         }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.35), value: onboarding)
         .environment(session)
+        .environment(\.locale, OnboardingLanguage.locale(onboardingLanguage))
         .task { await session.restore() }
         .sheet(isPresented: $showingLogin, onDismiss: {
             if session.addingAccount { Task { await session.cancelAddAccount() } }
@@ -94,6 +112,10 @@ struct MobileOnboardingPreview: View {
                 showingServer = false
             })
         }
+        .onChange(of: signedInAccount) { _, account in
+            guard onboarding, let account, account != onboardingAccount else { return }
+            startOnboarding()
+        }
         .onChange(of: session.aiConsentAccepted) { _, accepted in
             if !accepted {
                 path = []
@@ -111,7 +133,11 @@ struct MobileOnboardingPreview: View {
         CloudOnboardingTour(more: { moreMenu }, onFinish: {
             tourFinished = true
             waitingForComputerPreview = false
-        }, session: session)
+        }, session: session, onOpenBot: { target in
+            firstBotChat = target
+            tourFinished = true
+            waitingForComputerPreview = false
+        })
     }
 
     // MARK: Flow after sign-in
@@ -134,7 +160,8 @@ struct MobileOnboardingPreview: View {
             setupError = nil
             do {
                 let teams = try await NuphosAPI.teams(token: token)
-                for team in teams {
+                let retestingNubie = CommandLine.arguments.contains("-nubie-retest")
+                for team in retestingNubie ? [] : teams {
                     let bots = try await NuphosAPI.conversations(
                         token: token, teamId: team.id, limit: 1, bots: true, includeOnboarding: true
                     )
@@ -288,22 +315,22 @@ struct MobileOnboardingPreview: View {
         }
     }
 
-    private var ownComputerDetail: String {
+    private var ownComputerDetail: LocalizedStringKey {
         guard !personalDevices.isEmpty else {
-            return String(localized: "Connect a Mac, PC, or server in Nuphos Desktop.")
+            return "Connect a Mac, PC, or server in Nuphos Desktop."
         }
         let count = personalDevices.count
         if personalRuntimes.contains(where: { $0.provider == .opencode && $0.isSelectable }) {
-            return String(localized: "Computers found: \(count). OpenCode is available.")
+            return "Computers found: \(count). OpenCode is available."
         }
         let subscriptions = personalRuntimes.filter { $0.provider == .codex || $0.provider == .claudeCode }
         if subscriptions.contains(where: { $0.local?.signedIn == true }) {
-            return String(localized: "Computers found: \(count). A model is signed in.")
+            return "Computers found: \(count). A model is signed in."
         }
         if !subscriptions.isEmpty && subscriptions.allSatisfy({ $0.local?.signedIn == false }) {
-            return String(localized: "Computers found: \(count). Sign in to a model or use OpenCode.")
+            return "Computers found: \(count). Sign in to a model or use OpenCode."
         }
-        return String(localized: "Computers found: \(count). Check runtime and model setup.")
+        return "Computers found: \(count). Check runtime and model setup."
     }
 
     private struct BoxUsage: Decodable {
@@ -572,7 +599,7 @@ struct MobileOnboardingPreview: View {
         }
     }
 
-    private func setupOption(_ title: LocalizedStringKey, detail: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func setupOption(_ title: LocalizedStringKey, detail: LocalizedStringKey, icon: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 12) {
                 computerStatus(title, detail, icon: icon)
@@ -596,7 +623,7 @@ struct MobileOnboardingPreview: View {
         .accessibilityElement(children: .combine)
     }
 
-    private func computerStatus(_ title: LocalizedStringKey, _ detail: String, icon: String) -> some View {
+    private func computerStatus(_ title: LocalizedStringKey, _ detail: LocalizedStringKey, icon: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon).font(.body).accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 4) {
@@ -627,7 +654,8 @@ struct MobileOnboardingPreview: View {
     }
 
     private func startOnboarding() {
-        path = []
+        if onboardingAccount != signedInAccount { resetOnboarding() }
+        onboardingAccount = signedInAccount
         onboarding = true
     }
 
@@ -641,17 +669,26 @@ struct MobileOnboardingPreview: View {
     }
 
     private func returnToWelcome() {
+        resetOnboarding()
+        onboardingAccount = nil
+        onboarding = false
+    }
+
+    private func resetOnboarding() {
         path = []
         rootStep = nil
         showedConsent = false
         waitingForComputerPreview = false
         tourFinished = false
+        firstBotChat = nil
         existingBot = false
         setupError = nil
         store = nil
         workspaceDraft = nil
+        savingWorkspace = false
+        creatingBox = false
+        runtimeRefreshing = false
         resetComputer()
-        onboarding = false
     }
 
     private func resetComputer() {
@@ -673,21 +710,21 @@ struct MobileOnboardingPreview: View {
 
     // MARK: Building blocks
 
-    private func intro(_ title: String, _ detail: String) -> some View {
+    private func intro(_ title: LocalizedStringKey, _ detail: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.title.bold()).accessibilityAddTraits(.isHeader)
             Text(detail).font(.subheadline).foregroundStyle(Theme.body)
         }
     }
 
-    private func primary(_ title: String, action: @escaping () -> Void) -> some View {
+    private func primary(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).frame(maxWidth: .infinity)
         }
         .buttonStyle(DesignPrimaryButtonStyle())
     }
 
-    private func secondary(_ title: String, action: @escaping () -> Void) -> some View {
+    private func secondary(_ title: LocalizedStringKey, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Text(title).font(.callout.weight(.medium)).frame(maxWidth: .infinity, minHeight: 36)
         }
@@ -696,5 +733,55 @@ struct MobileOnboardingPreview: View {
         .tint(Theme.heading)
     }
 
+}
+enum OnboardingLanguage {
+    static let preferenceKey = "onboarding.language"
+    static let options = [
+        ("en", "English"), ("zh-Hant", "繁體中文"), ("zh-Hans", "简体中文"),
+        ("ja", "日本語"), ("ko", "한국어"), ("th", "ไทย"),
+        ("id", "Bahasa Indonesia"), ("es", "Español"),
+    ]
+
+    static func effectiveCode(_ selection: String) -> String {
+        if !selection.isEmpty { return selection }
+        for preferred in Locale.preferredLanguages {
+            if let match = options.first(where: { preferred == $0.0 || preferred.hasPrefix($0.0 + "-") }) {
+                return match.0
+            }
+        }
+        return "en"
+    }
+
+    static func locale(_ selection: String) -> Locale {
+        Locale(identifier: effectiveCode(selection))
+    }
+}
+
+struct OnboardingLanguageMenu: View {
+    @Binding var selection: String
+
+    var body: some View {
+        let effective = OnboardingLanguage.effectiveCode(selection)
+        let label = OnboardingLanguage.options.first { $0.0 == effective }?.1 ?? "English"
+        Menu {
+            ForEach(OnboardingLanguage.options, id: \.0) { option in
+                Button {
+                    selection = option.0
+                } label: {
+                    if effective == option.0 {
+                        Label(option.1, systemImage: "checkmark")
+                    } else {
+                        Text(verbatim: option.1)
+                    }
+                }
+            }
+        } label: {
+            Label(label, systemImage: "globe")
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(1)
+                .frame(minHeight: 44)
+        }
+        .accessibilityIdentifier("onboarding.language")
+    }
 }
 #endif

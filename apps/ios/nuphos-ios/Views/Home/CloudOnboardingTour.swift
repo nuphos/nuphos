@@ -12,6 +12,7 @@ struct CloudOnboardingTour<More: View>: View {
     @ViewBuilder var more: () -> More
     var onFinish: () -> Void = {}
     var session: AuthSession? = nil
+    var onOpenBot: (PushTarget) -> Void = { _ in }
 
     enum Page: Int, Hashable { case computer = 1, tools, notifications, claim }
 
@@ -23,10 +24,11 @@ struct CloudOnboardingTour<More: View>: View {
     @AppStorage("onboarding.toolPicks") private var toolPicks = ""
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    init(more: @escaping () -> More, onFinish: @escaping () -> Void = {}, session: AuthSession? = nil) {
+    init(more: @escaping () -> More, onFinish: @escaping () -> Void = {}, session: AuthSession? = nil, onOpenBot: @escaping (PushTarget) -> Void = { _ in }) {
         self.more = more
         self.onFinish = onFinish
         self.session = session
+        self.onOpenBot = onOpenBot
         #if DEBUG
         let start = UserDefaults.standard.integer(forKey: "cloudTourPage")
         if start > 0 {
@@ -51,7 +53,6 @@ struct CloudOnboardingTour<More: View>: View {
                 guard !started else { return }
                 started = true
                 toolPicks = ""
-                UserDefaults.standard.removeObject(forKey: "onboarding.botFace")
             }
             // Pages keep their layout under the keyboard; a field sits high enough to stay in view.
             .ignoresSafeArea(.keyboard, edges: .bottom)
@@ -60,7 +61,7 @@ struct CloudOnboardingTour<More: View>: View {
     @ViewBuilder private var tour: some View {
         if claimed {
             NavigationStack {
-                ClaimFlow(animate: !reduceMotion, startClaimed: true, done: {}, skip: onFinish, onFinish: onFinish, session: session)
+                ClaimFlow(animate: !reduceMotion, startClaimed: true, done: {}, skip: onFinish, onFinish: onFinish, session: session, onOpenBot: onOpenBot, toolPicks: toolPicks)
                     .modifier(TourChrome(more: more))
             }
         } else {
@@ -84,7 +85,7 @@ struct CloudOnboardingTour<More: View>: View {
                         }
                     case .claim:
                         tourPage(4) { animate, done in
-                            ClaimFlow(animate: animate, done: done, skip: onFinish, onFinish: onFinish, session: session)
+                            ClaimFlow(animate: animate, done: done, skip: onFinish, onFinish: onFinish, session: session, onOpenBot: onOpenBot, toolPicks: toolPicks)
                         }
                     }
                 }
@@ -439,7 +440,7 @@ private struct AppDemoPage: View {
                         Text("#").font(.subheadline.weight(.semibold)).foregroundStyle(Theme.muted)
                             .padding(.trailing, -4)
                     }
-                    Text(row.title).font(.subheadline.weight(.semibold)).lineLimit(1)
+                    Text(LocalizedStringKey(row.title)).font(.subheadline.weight(.semibold)).lineLimit(1)
                     if let badge = row.badge {
                         Text(badge).font(.caption2.weight(.semibold)).foregroundStyle(Theme.muted)
                             .padding(.horizontal, 6).padding(.vertical, 1)
@@ -452,7 +453,7 @@ private struct AppDemoPage: View {
                         Text(row.time).font(.caption2).foregroundStyle(Theme.muted)
                     }
                 }
-                Text(row.detail).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
+                Text(LocalizedStringKey(row.detail)).font(.footnote).foregroundStyle(Theme.muted).lineLimit(1)
             }
         }
         .padding(.vertical, 8)
@@ -541,7 +542,12 @@ private struct ComputerPage: View {
     @State private var revealed = false
     @State private var tookOver = false
 
-    private static let reply = "Thursday at 3 PM works for us. I’ll send the agenda tomorrow."
+    @Environment(\.locale) private var locale
+    private var reply: String {
+        let bundle = Bundle.main.path(forResource: locale.identifier, ofType: "lproj")
+            .flatMap(Bundle.init(path:)) ?? .main
+        return String(localized: "Thursday at 3 PM works for us. I’ll send the agenda tomorrow.", bundle: bundle)
+    }
 
     var body: some View {
         TourLayout(
@@ -578,7 +584,7 @@ private struct ComputerPage: View {
         let first = !tookOver
         if first {
             tookOver = true
-            typed = Self.reply.count; booked = true
+            typed = reply.count; booked = true
         }
         change()
         guard first else { return }
@@ -631,7 +637,7 @@ private struct ComputerPage: View {
         .padding(14)
     }
 
-    private func botLine(_ text: String) -> some View {
+    private func botLine(_ text: LocalizedStringKey) -> some View {
         Text(text)
             .font(.footnote)
             .padding(.horizontal, 12).padding(.vertical, 8)
@@ -671,7 +677,7 @@ private struct ComputerPage: View {
         .shadow(color: .black.opacity(0.15), radius: 12, y: -2)
     }
 
-    private func chip(_ value: DockTab, title: String) -> some View {
+    private func chip(_ value: DockTab, title: LocalizedStringKey) -> some View {
         let front = tab == value
         return Button {
             takeOver { withAnimation(.easeInOut(duration: 0.2)) { tab = value } }
@@ -707,7 +713,7 @@ private struct ComputerPage: View {
         .environment(\.colorScheme, .light)
     }
 
-    private func window<Content: View>(_ title: String, front: Bool, @ViewBuilder content: () -> Content) -> some View {
+    private func window<Content: View>(_ title: LocalizedStringKey, front: Bool, @ViewBuilder content: () -> Content) -> some View {
         VStack(spacing: 0) {
             HStack(spacing: 4) {
                 ForEach([0xFF5F57, 0xFEBC2E, 0x28C840], id: \.self) { color in
@@ -735,7 +741,7 @@ private struct ComputerPage: View {
             Text("To: Dana Chen").font(.caption).foregroundStyle(.black.opacity(0.45))
             Divider()
             Text("Hi Dana,").font(.caption)
-            Text(String(Self.reply.prefix(typed)))
+            Text(String(reply.prefix(typed)))
                 .font(.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -745,7 +751,7 @@ private struct ComputerPage: View {
         HStack(alignment: .top, spacing: 6) {
             ForEach(["Tue", "Wed", "Thu", "Fri"], id: \.self) { day in
                 VStack(spacing: 4) {
-                    Text(day).font(.caption2.weight(.semibold)).foregroundStyle(.black.opacity(0.45))
+                    Text(LocalizedStringKey(day)).font(.caption2.weight(.semibold)).foregroundStyle(.black.opacity(0.45))
                     ZStack(alignment: .top) {
                         RoundedRectangle(cornerRadius: 4).fill(Color(hex: 0xF4F2EF)).frame(height: 105)
                         if day == "Wed" {
@@ -762,7 +768,7 @@ private struct ComputerPage: View {
         }
     }
 
-    private func event(_ text: String, color: UInt32) -> some View {
+    private func event(_ text: LocalizedStringKey, color: UInt32) -> some View {
         Text(text)
             .font(.system(size: 9, weight: .semibold))
             .foregroundStyle(.white)
@@ -782,11 +788,11 @@ private struct ComputerPage: View {
             (0.5, .easeInOut(duration: 0.3), { pulse = true }),
             (0.3, .snappy, { pulse = false; dock = true }),
         ]
-        for count in stride(from: 5, through: Self.reply.count, by: 5) {
+        for count in stride(from: 5, through: reply.count, by: 5) {
             steps.append((0.06, nil, { typed = count }))
         }
         steps += [
-            (0.1, nil, { typed = Self.reply.count }),
+            (0.1, nil, { typed = reply.count }),
             (0.6, .easeInOut(duration: 0.2), { tab = .calendar }),
             (0.4, .spring(response: 0.45, dampingFraction: 0.7), { booked = true }),
             (0.9, .snappy, { dock = false }),
@@ -989,14 +995,6 @@ private struct NotificationsPage: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.scenePhase) private var scenePhase
 
-    /// As the Live Activity's card shows them (TurnCard).
-    private static let card = TurnActivityAttributes.ContentState(
-        sessions: [
-            .init(id: "1", teamId: "t", title: "Find a time for next week’s review", phase: .running),
-            .init(id: "2", teamId: "t", title: "Summarize today’s standup", phase: .done),
-        ],
-        more: 0, active: 1)
-
     var body: some View {
         TourLayout(
             title: "Know when your Bot needs you",
@@ -1010,8 +1008,7 @@ private struct NotificationsPage: View {
                 }
                 .padding(.top, 16).padding(.bottom, 8)
                 if activity {
-                    TurnCard(card: Self.card)
-                        .background(.black, in: RoundedRectangle(cornerRadius: 22))
+                    lockScreenActivity
                         .transition(.move(edge: .top).combined(with: .opacity))
                 }
                 if count > 1 {
@@ -1089,8 +1086,50 @@ private struct NotificationsPage: View {
         }
     }
 
+    // The onboarding illustration uses fictional data and mirrors the approved
+    // Lock Screen design while the production widget redesign ships separately.
+    private var lockScreenActivity: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                AppIconImage(size: 20)
+                    .clipShape(Circle())
+                Text("Nuphos").font(.footnote.weight(.semibold))
+                Spacer(minLength: 4)
+                Text("Running")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.success)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Theme.success.opacity(0.12), in: Capsule())
+            }
+            HStack(spacing: 8) {
+                Image(systemName: "circle.dotted")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.success)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Find a time for next week’s review")
+                        .font(.footnote.weight(.semibold))
+                        .lineLimit(1)
+                    Text("OpenCode · Cloud Box")
+                        .font(.caption2)
+                        .foregroundStyle(Theme.muted)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+                Text(verbatim: "4:10")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(Theme.muted)
+            }
+            .frame(minHeight: 40)
+        }
+        .foregroundStyle(Theme.heading)
+        .padding(14)
+        .background(Theme.surface, in: RoundedRectangle(cornerRadius: 22))
+    }
+
     private func notification<Icon: View>(
-        title: String, body: String, @ViewBuilder icon: () -> Icon
+        title: LocalizedStringKey, body: LocalizedStringKey, @ViewBuilder icon: () -> Icon
     ) -> some View {
         HStack(alignment: .center, spacing: 10) {
             icon()
@@ -1184,6 +1223,7 @@ private struct PoweredByInstaBox: View {
 /// account's free computer: the first owned workspace, or "My workspace" when it has
 /// none, then the OpenCode runtime on the Box that workspace starts.
 private struct ClaimFlow: View {
+    @Environment(\.locale) private var locale
     @State private var overflows = false
     /// A folding phone's cover, or landscape: the page drops its spare room to fit.
     @State private var short = false
@@ -1193,8 +1233,11 @@ private struct ClaimFlow: View {
     let skip: () -> Void
     let onFinish: () -> Void
     var session: AuthSession? = nil
+    var onOpenBot: (PushTarget) -> Void = { _ in }
+    var toolPicks = ""
 
-    @AppStorage("onboarding.botFace") private var face = ""
+    @State private var face = ""
+    @State private var displayedSticker = ""
     @State private var shown = false
     @State private var offered = false
     @State private var claimed = false
@@ -1297,7 +1340,6 @@ private struct ClaimFlow: View {
                 }
                 primaryButton(buttonTitle, action: primaryAction)
                     .disabled(creating
-                              || (naming && !created && name.trimmingCharacters(in: .whitespaces).isEmpty)
                               || (claimError != nil && !naming && !created))
                 Button("I’ll use my own computer", action: leave)
                     .font(.subheadline.weight(.medium))
@@ -1334,7 +1376,7 @@ private struct ClaimFlow: View {
 
     private var buttonTitle: LocalizedStringKey {
         if created { return "Start chatting" }
-        if naming { return "Create" }
+        if naming { return creating ? "Setting up your Bot…" : "Create" }
         return claimed ? "Continue" : "Claim my computer"
     }
 
@@ -1343,7 +1385,7 @@ private struct ClaimFlow: View {
 
     /// Shown with the buttons when the status line is not on screen.
     private var actionError: String? {
-        if naming, let createError { return createError }
+        if let createError { return createError }
         if !starting, let claimError, !ready { return claimError }
         return nil
     }
@@ -1353,7 +1395,13 @@ private struct ClaimFlow: View {
         else if naming { createBot() }
         else if claimed {
             guard claimError == nil else { return }
-            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) { naming = true }
+            picking?.cancel()
+            withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+                leaving = false
+                slapped = true
+                peel = 0
+                naming = true
+            }
         } else { claim() }
     }
 
@@ -1387,7 +1435,7 @@ private struct ClaimFlow: View {
                         .padding(.top, Self.face + 40)
                         .transition(.opacity.combined(with: .scale(scale: 0.92)))
                 }
-                if let asset = BotAvatars.asset(named: face), turn > 0.99 {
+                if let asset = BotAvatars.asset(named: naming ? face : displayedSticker), turn > 0.99 {
                     // On the way up the sticker quietly becomes the face itself, drawn at its
                     // full size so it stays sharp; the sticker is only for the box.
                     ZStack {
@@ -1413,8 +1461,11 @@ private struct ClaimFlow: View {
         .frame(height: height)
     }
 
+    private var selectedAvatar: String { face.isEmpty ? "14-napoleon" : face }
+    private var suggestedName: String { Self.defaultName(selectedAvatar) }
+
     private var nameField: some View {
-        TextField("Name your Bot", text: $name)
+        TextField("Name your Bot", text: $name, prompt: Text(verbatim: suggestedName).foregroundStyle(Theme.muted))
             .font(.title3.weight(.semibold))
             .multilineTextAlignment(.center)
             .textInputAutocapitalization(.words)
@@ -1494,18 +1545,14 @@ private struct ClaimFlow: View {
     private func pick(_ newFace: String) {
         guard newFace != face else { return }
         picking?.cancel()
-        if naming {
-            // A face now, not a sticker: it simply changes.
-            withAnimation(.easeInOut(duration: 0.2)) {
-                face = newFace
-            }
-            return
-        }
+        face = newFace
+        guard !naming else { return }
         picking = Task { @MainActor in
-            if !face.isEmpty && slapped {
+            if !displayedSticker.isEmpty && slapped {
                 // All the way off first, then it fades.
                 withAnimation(.easeInOut(duration: 0.6)) { peel = 1.67 }
                 try? await Task.sleep(for: .milliseconds(600))
+                guard !Task.isCancelled else { return }
                 withAnimation(.easeOut(duration: 0.25)) { leaving = true }
                 try? await Task.sleep(for: .milliseconds(250))
             }
@@ -1513,11 +1560,9 @@ private struct ClaimFlow: View {
             var still = Transaction()
             still.disablesAnimations = true
             withTransaction(still) {
-                leaving = false; slapped = false; peel = 0.35; face = newFace
+                leaving = false; slapped = false; peel = 0.35; displayedSticker = newFace
             }
-            withAnimation(.easeIn(duration: 0.12)) { slapped = true }
-            try? await Task.sleep(for: .milliseconds(120))
-            withAnimation(.easeOut(duration: 0.2)) { peel = 0 }
+            withAnimation(.easeInOut(duration: 0.6)) { slapped = true; peel = 0 }
         }
     }
 
@@ -1525,6 +1570,7 @@ private struct ClaimFlow: View {
         guard !claimed else { return }
         claimed = true
         face = ""
+        displayedSticker = ""
         name = ""
         claimError = nil
         if let token = session?.token {
@@ -1652,22 +1698,24 @@ private struct ClaimFlow: View {
     /// One create. A failure stays on the name and says why; a second tap can try again.
     private func createBot() {
         typing = false
-        guard let token = session?.token else { created = true; return }
+        let input = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let title = input.isEmpty ? suggestedName : input
+        guard let token = session?.token else { name = title; created = true; return }
         guard !creating, !created, let teamId, let runtime else { return }
-        let title = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !title.isEmpty else { return }
-        if face.isEmpty, let any = Self.faces.randomElement() { face = any }
+        let avatar = selectedAvatar
+        let selected = Set(toolPicks.split(separator: ",").map(String.init))
+        let connectors = toolGroups.flatMap(\.tools).filter { selected.contains($0.key) }
         creating = true
         createError = nil
-        let avatar = face
         Task {
             defer { creating = false }
             do {
-                _ = try await AgentChatAPI.createBot(
-                    token: token, teamId: teamId, title: title, avatar: avatar, runtime: runtime
+                let target = try await NubieOnboardingImport.run(
+                    token: token, teamId: teamId, runtime: runtime, title: title, avatar: avatar, locale: locale,
+                    connectors: connectors.map { ($0.key, $0.title) }
                 )
-                guard !Task.isCancelled else { return }
-                created = true
+                try Task.checkCancellation()
+                onOpenBot(target)
             } catch is CancellationError {
                 return
             } catch {
