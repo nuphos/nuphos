@@ -29,6 +29,24 @@ describe('Box usage history', () => {
     ])
   })
 
+  test('a mid-bucket window start keeps the series monotonic', () => {
+    const points = stepSeries(
+      { usedVcpus: 4, limitVcpus: 8 },
+      [
+        { at: at('00:08:00'), usedVcpus: 7, limitVcpus: 8 },
+        { at: at('00:12:00'), usedVcpus: 2, limitVcpus: 8 },
+      ],
+      { from: from + 7 * 60_000, to, bucketMinutes: 10 },
+      null,
+    )
+
+    expect(points).toEqual([
+      { at: '2026-10-16T00:00:00.000Z', usedVcpus: 7, limitVcpus: 8 },
+      { at: '2026-10-16T00:10:00.000Z', usedVcpus: 2, limitVcpus: 8 },
+      { at: '2026-10-16T01:00:00.000Z', usedVcpus: 2, limitVcpus: 8 },
+    ])
+  })
+
   test('a bucket keeps its peak use and last limit, and now is read live', () => {
     const points = stepSeries(
       null,
