@@ -203,9 +203,21 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(listed("Roll out 1.4 to production?").exists, "The snoozed question is still in the list")
         shot("snooze-4-snoozed-section")
 
-        try listQuestions([deploy, blog, staging])
+        // Tapped while the server still lists it snoozed: a poll that read the unsnoozed list
+        // first would take the button away (#5297). The next poll, every 15 s, brings it back.
         app.buttons["Unsnooze"].firstMatch.tap()
-        XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 10), "Unsnooze did not bring it back")
+        let unsnoozed = NSPredicate { _, _ in
+            let lines = (try? String(contentsOf: self.sent, encoding: .utf8))?.split(separator: "\n") ?? []
+            return lines.contains { line in
+                let sent = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+                return sent?["request"] as? String == "POST /agent/conversations/agent-ops/decisions/q-deploy/snooze"
+                    && (sent?["body"] as? [String: Any])?["until"] is NSNull
+            }
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: unsnoozed, object: nil)], timeout: 15),
+                       .completed, "Unsnooze sent nothing")
+        try listQuestions([deploy, blog, staging])
+        XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 20), "Unsnooze did not bring it back")
         XCTAssertFalse(row.exists, "The question is still snoozed")
     }
 
