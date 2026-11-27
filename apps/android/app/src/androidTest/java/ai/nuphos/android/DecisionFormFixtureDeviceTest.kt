@@ -123,17 +123,21 @@ class DecisionFormFixtureDeviceTest {
         compose.onAllNodesWithTag("bot-question-other")[0].performScrollTo().performClick()
         compose.onNodeWithTag("bot-question-answer").performTextInput("After the freeze")
         // Other on the second question opens its own field; the first keeps its words.
-        compose.onAllNodesWithTag("bot-question-other")[1].performScrollTo().performClick()
+        compose.onAllNodesWithTag("bot-question-other").onLast().performScrollTo().performClick()
         compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(2)
         compose.onAllNodesWithTag("bot-question-answer")[0].assertTextContains("After the freeze")
         compose.onAllNodesWithTag("bot-question-answer")[1].performTextInput("Only eu-west")
-        // An option unpicks Other and its field; picked again, its words are back.
+        // The bug itself first (#5257), so the parent fails here: a picked option answers its question,
+        // and the words typed under Other no longer override it.
         compose.onNodeWithText("Ship it").performScrollTo().performClick()
+        compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
+        assertEquals(listOf("""{"questions":[{"choices":["Ship it"]},{"text":"Only eu-west"}]}"""), sent.map { it.compact })
+        // The option unpicked Other and hid its field; Other picked again brings its words back.
         compose.onAllNodesWithTag("bot-question-answer").assertCountEquals(1)
         compose.onAllNodesWithTag("bot-question-other")[0].performScrollTo().performClick()
         compose.onAllNodesWithTag("bot-question-answer")[0].assertTextContains("After the freeze")
         compose.onNodeWithTag("bot-question-send").performScrollTo().performClick()
-        assertEquals(listOf("""{"questions":[{"text":"After the freeze"},{"text":"Only eu-west"}]}"""), sent.map { it.compact })
+        assertEquals("""{"questions":[{"text":"After the freeze"},{"text":"Only eu-west"}]}""", sent.last().compact)
     }
 
     @Test fun aCardTheAgentCorrectsStartsItsFormOver() {
