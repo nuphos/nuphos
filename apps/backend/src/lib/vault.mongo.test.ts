@@ -21,6 +21,7 @@ import {
 } from '@/lib/vault'
 import type { VaultKey } from '@/lib/vault'
 import {
+  desktopKey,
   getVaultItemForComputer,
   offerComputerKey,
   vaultOwnersSharingWithComputer,
@@ -345,6 +346,15 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)('vault on a real database', () =>
 
     await approveVaultDevice(alice, added.id)
     await put(alice, 'token', 'alice', [...keysFor(laptop.id), ...keysFor(added.id)])
+
+    // Only Desktop's link offers its key; a CLI computer makes one per person with keygen.
+    expect(await desktopKey(mac)).toBe(KEY)
+    expect(await desktopKey({ userId: alice, deviceId: mac.deviceId })).toBeNull()
+    const cli = { userId: alice, deviceId: 'alice-cli' }
+    const cliDevice = await addVaultDevice(alice, 'CLI box', KEY, cli)
+
+    await approveVaultDevice(alice, cliDevice.id)
+    expect(await desktopKey(cli)).toBeNull()
 
     const owners = await vaultOwnersSharingWithComputer(mac, 'token')
 

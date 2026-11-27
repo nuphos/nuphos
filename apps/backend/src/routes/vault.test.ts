@@ -4,10 +4,16 @@ import { Hono } from 'hono'
 import { hashDeviceSecret } from '@/lib/agent/devices/join-tokens'
 import { AppError, errorHandler } from '@/lib/errors'
 import { liveDevice } from '@/routes/agent/router'
-import { listComputerSharers, offerKeyFromComputer, readComputerItem } from '@/routes/vault'
+import {
+  listComputerSharers,
+  offerKeyFromComputer,
+  ownComputerRoutes,
+  readComputerItem,
+} from '@/routes/vault'
 
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { NuphosUser } from '@/lib/identity'
+import type { AuthVariables } from '@/middleware/auth'
 
 // Run with: cd apps/backend && bun test src/routes/vault.test.ts
 
@@ -156,5 +162,63 @@ describe('a computer asking whose vaults share an item with it', () => {
     for (const token of ['session-token', undefined]) expect((await list(token)).status).toBe(401)
     expect((await list(CREDENTIAL, '..')).status).toBe(404)
     expect(asked).toHaveLength(1)
+  })
+})
+
+describe('Desktop reading as a computer of the person signed in', () => {
+  /** Bob's Mac is shared with by Alice; the session is `as`. */
+  function own(as: string) {
+    const asked: unknown[] = []
+    const root = new Hono<{ Variables: AuthVariables }>()
+
+    root.use('*', async (c, next) => {
+      c.set('userId', as)
+      await next()
+    })
+    root.route(
+      '/vault',
+      ownComputerRoutes({
+        owners: async (computer) => {
+          asked.push(computer)
+
+          return computer.userId === 'bob' && computer.deviceId === 'bob-mac'
+            ? [{ userId: 'alice', name: 'Alice' }]
+            : []
+        },
+        getItem: async (user, computer, name) => {
+          asked.push(computer)
+          if (user !== 'alice' || computer.userId !== 'bob' || computer.deviceId !== 'bob-mac')
+            throw new AppError(404, 'not_found', 'Item not found')
+
+          return { deviceId: 'alice-device', item: { name } } as never
+        },
+      }),
+    )
+    root.onError(errorHandler)
+
+    return { root, asked }
+  }
+
+  test('its own computer lists who shares with it and reads their item', async () => {
+    const { root } = own('bob')
+
+    expect(await (await root.request('/vault/computers/bob-mac/items?name=token')).json()).toEqual({
+      owners: [{ userId: 'alice', name: 'Alice' }],
+    })
+    expect((await root.request('/vault/computers/bob-mac/items/token?user=alice')).status).toBe(200)
+  })
+
+  test('someone else’s computer id names a computer of the caller: no owners, no item', async () => {
+    const { root, asked } = own('mallory')
+
+    expect(await (await root.request('/vault/computers/bob-mac/items?name=token')).json()).toEqual({
+      owners: [],
+    })
+    expect((await root.request('/vault/computers/bob-mac/items/token?user=alice')).status).toBe(404)
+    expect(asked).toEqual([
+      { userId: 'mallory', deviceId: 'bob-mac' },
+      { userId: 'mallory', deviceId: 'bob-mac' },
+    ])
+    expect((await root.request('/vault/computers/a%20b/items?name=token')).status).toBe(404)
   })
 })

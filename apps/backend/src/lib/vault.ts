@@ -29,6 +29,11 @@ type VaultDeviceDoc = {
   enrolledAt?: Date
   /** The computer that added it from afar; it reads with its own device credential. */
   computer?: Computer
+  /**
+   * Linked by Desktop, which holds this one key for every vault: a CLI computer makes one per
+   * person instead, with `nuphos vault keygen --user`.
+   */
+  desktop?: true
 }
 
 /** A computer as its device credential names it; matched whole, so in this field order. */
@@ -170,8 +175,11 @@ export function linkVaultDevice(userId: string, id: string, deviceId: string) {
   return exclusive(userId, async () => {
     if (!(await devices().findOne({ _id: id, userId })))
       throw new AppError(404, 'not_found', 'Device not found')
-    await devices().updateMany({ userId, computer, _id: { $ne: id } }, { $unset: { computer: '' } })
-    await devices().updateOne({ _id: id, userId }, { $set: { computer } })
+    await devices().updateMany(
+      { userId, computer, _id: { $ne: id } },
+      { $unset: { computer: '', desktop: '' } },
+    )
+    await devices().updateOne({ _id: id, userId }, { $set: { computer, desktop: true } })
   })
 }
 

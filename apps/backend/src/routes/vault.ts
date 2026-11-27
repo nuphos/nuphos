@@ -159,32 +159,28 @@ vaultRoutes.put(
 
 // Desktop reads as a computer of the person signed in, which it is, so it needs no device
 // credential: only the devices linked to their own computer, and only that device's key.
-function ownComputer(c: Context<{ Variables: AuthVariables }>) {
-  const deviceId = c.req.param('deviceId') ?? ''
+// Separate so its scoping can be tested without a database.
+export function ownComputerRoutes(
+  deps = { owners: vaultOwnersSharingWithComputer, getItem: getVaultItemForComputer },
+) {
+  const own = (c: Context<{ Variables: AuthVariables }>) => {
+    const deviceId = c.req.param('deviceId') ?? ''
 
-  if (!computerId.safeParse(deviceId).success) throw new AppError(404, 'not_found', 'Not found')
+    if (!computerId.safeParse(deviceId).success) throw new AppError(404, 'not_found', 'Not found')
 
-  return { userId: c.get('userId'), deviceId }
+    return { userId: c.get('userId'), deviceId }
+  }
+
+  return new Hono<{ Variables: AuthVariables }>()
+    .get('/computers/:deviceId/items', async (c) =>
+      c.json({ owners: await deps.owners(own(c), nameParam(c.req.query('name') ?? '')) }),
+    )
+    .get('/computers/:deviceId/items/:name', async (c) =>
+      c.json(await deps.getItem(c.req.query('user') ?? '', own(c), nameParam(c.req.param('name')))),
+    )
 }
 
-vaultRoutes.get('/computers/:deviceId/items', async (c) =>
-  c.json({
-    owners: await vaultOwnersSharingWithComputer(
-      ownComputer(c),
-      nameParam(c.req.query('name') ?? ''),
-    ),
-  }),
-)
-
-vaultRoutes.get('/computers/:deviceId/items/:name', async (c) =>
-  c.json(
-    await getVaultItemForComputer(
-      c.req.query('user') ?? '',
-      ownComputer(c),
-      nameParam(c.req.param('name')),
-    ),
-  ),
-)
+vaultRoutes.route('/', ownComputerRoutes())
 
 vaultRoutes.delete('/devices/:id', async (c) => {
   await removeVaultDevice(c.get('userId'), c.req.param('id'))

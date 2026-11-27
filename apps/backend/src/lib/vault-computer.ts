@@ -30,7 +30,7 @@ export type VaultComputerDeps = {
     command: string,
   ) => Promise<LocalExecDispatchOutcome>
   addVaultDevice: typeof addVaultDevice
-  /** The key a computer's owner approved for it in their own vault, as Desktop links one. */
+  /** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
   ownerKey: (computer: Computer) => Promise<string | null>
 }
 
@@ -39,14 +39,19 @@ const defaultDeps: VaultComputerDeps = {
   run: (actorId, teamId, deviceId, command) =>
     dispatchLocalExec(actorId, deviceId, command, { teamId }),
   addVaultDevice,
-  ownerKey: async (computer) =>
-    (
-      await devices().findOne({
-        userId: computer.userId,
-        state: 'enrolled',
-        computer: linkOf(computer),
-      })
-    )?.publicKey ?? null,
+  ownerKey: desktopKey,
+}
+
+/** The key Desktop holds in its owner's vault, when the computer is a Desktop that linked it. */
+export async function desktopKey(computer: Computer): Promise<string | null> {
+  const linked = await devices().findOne({
+    userId: computer.userId,
+    state: 'enrolled',
+    computer: linkOf(computer),
+    desktop: true,
+  })
+
+  return linked?.publicKey ?? null
 }
 
 const X25519_PUBLIC_KEY = /^[A-Za-z0-9+/]{43}=$/
