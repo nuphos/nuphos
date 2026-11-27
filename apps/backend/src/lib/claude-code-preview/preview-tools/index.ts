@@ -150,9 +150,7 @@ function flushMemoryActivity(tool: MemoryTool, pending: Set<Promise<void>>): Mem
  * Charts and artifacts show as cards in the conversation. A Bot's chat shows only
  * its posts, so a Bot gets neither, rather than being told the card is open (#5272).
  */
-export function cardTools(
-  ctx: Pick<PreviewToolContext, 'bot'>,
-): Record<string, Record<string, unknown>> {
+function cardTools(ctx: Pick<PreviewToolContext, 'bot'>): Record<string, Record<string, unknown>> {
   if (ctx.bot) return {}
 
   return {
