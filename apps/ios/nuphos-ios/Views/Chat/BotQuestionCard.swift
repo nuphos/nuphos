@@ -189,18 +189,20 @@ struct QuestionOptions<Trailing: View>: View {
                         form.pick(option, at: index)
                     }
                 }
-                if form.instant, typed {
-                    QuestionPill(title: options.isEmpty ? String(localized: "Reply…") : String(localized: "Other…"),
-                                 on: form.other[index]) { form.pickOther(at: index) }
-                } else if typed, !options.isEmpty {
-                    QuestionPill(title: form.other[index] ? String(localized: "Other") : String(localized: "Other…"),
-                                 checked: form.other[index]) { form.pickOther(at: index) }
+                if typed, !options.isEmpty {
+                    if form.instant {
+                        QuestionPill(title: String(localized: "Other…"), on: form.other[index]) { form.pickOther(at: index) }
+                    } else {
+                        QuestionPill(title: form.other[index] ? String(localized: "Other") : String(localized: "Other…"),
+                                     checked: form.other[index]) { form.pickOther(at: index) }
+                    }
                 }
                 if form.instant { trailing() }
             }
             if form.other[index] {
-                // A form's words have no send of their own: Return sends a complete card.
-                OtherField(words: $form.words[index], focus: form.instant || !options.isEmpty, arrow: form.instant) {
+                // Focused only when "Other…" opened it; a question with nothing to pick shows it from the
+                // start, unfocused. A form's words have no send of their own: Return sends a complete card.
+                OtherField(words: $form.words[index], focus: !options.isEmpty, arrow: form.instant) {
                     if form.left == 0 { onSubmit(form.answer) }
                 }
                 .padding(.top, 10)
