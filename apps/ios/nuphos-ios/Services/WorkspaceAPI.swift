@@ -129,7 +129,7 @@ enum WorkspaceAPI {
 /// Counts one upload's sent bytes into the message's overall progress, after
 /// the files already sent. It writes the count itself: a child Progress only
 /// raises its parent's completedUnitCount once the child finishes, so the
-/// bubble would read "Uploading Zero kB" for the whole of a single file.
+/// bar would sit empty for the whole of a single file.
 nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
     let progress: Progress
     let offset: Int64

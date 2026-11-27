@@ -550,7 +550,7 @@ private struct ChannelPostRow: View {
                 }
                 if let upload { localAttachments(upload.attachments) }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
-                if let upload { UploadProgressLabel(progress: upload.progress) }
+                if let upload { UploadProgressBar(progress: upload.progress) }
                 if !downloads.isEmpty {
                     TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
