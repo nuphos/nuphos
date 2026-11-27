@@ -5,7 +5,6 @@ import { artifacts, until } from './processes.ts'
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
 
-
 export const avatarBackgroundScenarios: Scenario[] = [
   {
     // #3504: the tint a Bot's face sits on shows wherever the face does.
@@ -68,6 +67,7 @@ export const avatarBackgroundScenarios: Scenario[] = [
       await page.getByRole('button', { name: 'Save', exact: true }).click()
       await row.locator('[data-avatar-background="sky"]').waitFor({ timeout: 10_000 })
       await row.screenshot({ path: `${artifacts}/avatar-background-sidebar.png` })
+      await shootBothThemes(page, 'sky-sidebar')
 
       // Saved on the server, not only shown.
       await until('the server to hold the background', async () => {
@@ -96,8 +96,10 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       await members.waitFor({ timeout: 10_000 })
       await page.screenshot({ path: `${artifacts}/avatar-background-chat.png` })
+      await shootBothThemes(page, 'sky-chat')
       await members.click()
       await page.screenshot({ path: `${artifacts}/avatar-background-members.png` })
+      await shootBothThemes(page, 'sky-members')
       await page.keyboard.press('Escape')
     },
   },

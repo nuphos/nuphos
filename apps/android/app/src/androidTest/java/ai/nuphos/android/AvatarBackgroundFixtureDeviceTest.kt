@@ -69,13 +69,13 @@ class AvatarBackgroundFixtureDeviceTest {
         }
     }
 
-    /** For review: the screen as drawn, in the app's files dir under review-avatar-background. */
+    /** For review: the screen as drawn, also in the additional test output CI uploads with the report. */
     private fun capture(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.waitForIdleSync()
         val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No screenshot")
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "review-avatar-background").apply { mkdirs() }
-        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        listOfNotNull(instrumentation.targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, "avatar-background-$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) } }
         image.recycle()
     }
 
