@@ -2,6 +2,7 @@
 // conversation id: locale and the desktop's per-turn context come from the
 // conversation doc, the Slack binding from the thread store.
 import { getConversationBySessionId } from '@/lib/agent/db'
+import { isBot } from '@/lib/agent/db/read-state'
 import { getSlackAgentThreadBySessionId } from '@/lib/slack/agent-bot'
 
 import type { PreviewToolContext } from './preview-tool-context'
@@ -27,6 +28,7 @@ export async function resolvePreviewToolContext(args: {
     sessionId: args.sessionId,
     ...(context?.activeTurnKey ? { turnKey: context.activeTurnKey } : {}),
     ...(context?.activeTurnOrigin ? { turnOrigin: context.activeTurnOrigin } : {}),
+    ...(isBot(conversation) ? { bot: true } : {}),
     ...(context?.localTools === true ? { localTools: true } : {}),
     ...(context?.secretCard === true ? { secretCard: true } : {}),
     locale: conversation?.metadata?.locale ?? 'en',

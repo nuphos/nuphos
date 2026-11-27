@@ -19,6 +19,8 @@ export type PreviewToolContext = {
   locale: string
   /** The agent the conversation runs on (`antigravity`, `codex`, …), when pinned. */
   agentRuntime?: string
+  /** Whether the conversation is a Bot, which answers in a chat that shows only its posts. */
+  bot?: boolean
   /** Whether the client driving this turn can run tools on the user's machine. */
   localTools?: boolean
   /** Whether that client draws the secure input card, as the phone apps do without local tools. */

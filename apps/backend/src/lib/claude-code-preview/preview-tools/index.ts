@@ -146,6 +146,21 @@ function flushMemoryActivity(tool: MemoryTool, pending: Set<Promise<void>>): Mem
   }
 }
 
+/**
+ * Charts and artifacts show as cards in the conversation. A Bot's chat shows only
+ * its posts, so a Bot gets neither, rather than being told the card is open (#5272).
+ */
+export function cardTools(
+  ctx: Pick<PreviewToolContext, 'bot'>,
+): Record<string, Record<string, unknown>> {
+  if (ctx.bot) return {}
+
+  return {
+    chart: { render_chart: createChartTool() },
+    artifact: { render_artifact: createArtifactTool() },
+  }
+}
+
 /** Every AI SDK tool set the preview adapts, keyed by group for the report. */
 export async function previewAiSdkToolSets(
   ctx: PreviewToolContext,
@@ -159,8 +174,7 @@ export async function previewAiSdkToolSets(
         ? { conversationOwnerUserId: ctx.conversationOwnerUserId }
         : {}),
     }),
-    chart: { render_chart: createChartTool() },
-    artifact: { render_artifact: createArtifactTool() },
+    ...cardTools(ctx),
     sessions: createSessionTools(ctx.userId, ctx.sessionId, ctx.teamId),
     todos: createTodoTools(ctx.conversationOwnerUserId ?? ctx.userId, ctx.sessionId, ctx.teamId),
   }
