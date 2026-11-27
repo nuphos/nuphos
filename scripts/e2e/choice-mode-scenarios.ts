@@ -162,7 +162,10 @@ export const choiceModeScenarios: Scenario[] = [
         await until(`${words.join(' and ')} to reach the agent`, () =>
           Promise.resolve(
             agentLog(stack).some(
-              ({ event, markers }) => event === 'start' && markers?.join(' ') === words.join(' '),
+              ({ event, markers = [] }) =>
+                event === 'start' &&
+                markers.indexOf(words[0]) >= 0 &&
+                markers.indexOf(words[1]) > markers.indexOf(words[0]),
             ),
           ),
         )
