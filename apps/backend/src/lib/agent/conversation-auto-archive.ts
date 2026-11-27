@@ -21,16 +21,13 @@ const RETRY_DELAY_MS = 60 * 1000
 /** Unarchived Tasks whose last activity — and last manual restore, if any —
  *  both fall before the idle cutoff. A Bot (a conversation with an `avatar`)
  *  is persistent and never archives itself, unless nobody ever wrote to it:
- *  a "New Bot" made with "+" and left empty files away like a Task. A Bot's
- *  chat (a channel that is not a group chat) is part of its Bot and only ever
- *  moves with it (see `botUnit`), so it never archives itself either. */
+ *  a "New Bot" made with "+" and left empty files away like a Task. */
 export function idleConversationFilter(now: Date, idleDays: number): Filter<AgentConversation> {
   const cutoff = new Date(now.getTime() - idleDays * 24 * 60 * 60 * 1000)
 
   return {
     archivedAt: { $exists: false },
     lastActiveAt: { $lt: cutoff },
-    $nor: [{ kind: 'channel', group: { $exists: false } }],
     $and: [
       { $or: [{ avatar: { $exists: false } }, { messageCount: 0 }] },
       { $or: [{ archiveRestoredAt: { $exists: false } }, { archiveRestoredAt: { $lt: cutoff } }] },
@@ -42,8 +39,11 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
+  const filter = idleConversationFilter(now, idleDays)
+  // A Bot's chat is part of its Bot and only ever moves with it (see `botUnit`).
+  const bots = (await botChats(filter)).map(({ chat }) => chat.sessionId)
   const result = await agentConversations().updateMany(
-    idleConversationFilter(now, idleDays),
+    { ...filter, sessionId: { $nin: bots } },
     archiveUpdate(now, { source: 'auto_archive' }),
   )
 
@@ -73,48 +73,66 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
  * `botUnit`). Idempotent: a no-op once no such Bot remains.
  */
 export async function restoreStrandedBotChats(): Promise<void> {
-  const chats = await agentConversations()
-    .find(
-      { kind: 'channel', group: { $exists: false } },
-      {
-        projection: {
-          sessionId: 1,
-          userId: 1,
-          teamId: 1,
-          kind: 1,
-          agentSessionIds: 1,
-          participantIds: 1,
-          archivedAt: 1,
+  const byBot = Map.groupBy(
+    await botChats({}, { archivedAt: { $exists: false } }),
+    ({ bot }) => bot.sessionId,
+  )
+  let restored = 0
+
+  for (const own of byBot.values()) {
+    const [first] = own
+
+    if (!first || own.some(({ chat }) => !chat.archivedAt)) continue
+    if (await restoreArchivedConversation(first.chat.sessionId, { source: 'bot_chat_stranded' }))
+      restored += 1
+  }
+  if (restored > 0) logEvent('info', 'backend.migration.bot_chats_restored', { bots: restored })
+}
+
+/** The Bots' 1:1 chats matching `filter`, each with its Bot matching `botFilter`, as
+ *  `botUnit` finds them: `isBotChat`, with the agent its owner's Bot in the same team. */
+async function botChats(filter: Filter<AgentConversation>, botFilter = {}) {
+  const chats = (
+    await agentConversations()
+      .find(
+        { ...filter, kind: 'channel', group: { $exists: false } },
+        {
+          projection: {
+            sessionId: 1,
+            userId: 1,
+            teamId: 1,
+            kind: 1,
+            group: 1,
+            agentSessionIds: 1,
+            participantIds: 1,
+            archivedAt: 1,
+          },
         },
-      },
-    )
-    .toArray()
-  const byBot = Map.groupBy(chats.filter(isBotChat), (chat) => chat.agentSessionIds?.[0])
+      )
+      .toArray()
+  ).filter(isBotChat)
   const bots = await agentConversations()
     .find(
       {
-        sessionId: { $in: [...byBot.keys()].filter((botId) => botId !== undefined) },
+        ...botFilter,
+        sessionId: { $in: chats.flatMap((chat) => chat.agentSessionIds ?? []) },
         kind: { $exists: false },
         avatar: { $exists: true },
-        archivedAt: { $exists: false },
       },
       { projection: { sessionId: 1, userId: 1, teamId: 1 } },
     )
     .toArray()
-  let restored = 0
 
-  for (const bot of bots) {
-    // Its owner's chats with it, as `botUnit` counts them.
-    const own = (byBot.get(bot.sessionId) ?? []).filter(
-      (chat) => chat.userId === bot.userId && chat.teamId === bot.teamId,
+  return chats.flatMap((chat) => {
+    const bot = bots.find(
+      (one) =>
+        one.sessionId === chat.agentSessionIds?.[0] &&
+        one.userId === chat.userId &&
+        one.teamId === chat.teamId,
     )
-    const [first] = own
 
-    if (!first || own.some((chat) => !chat.archivedAt)) continue
-    if (await restoreArchivedConversation(first.sessionId, { source: 'bot_chat_stranded' }))
-      restored += 1
-  }
-  if (restored > 0) logEvent('info', 'backend.migration.bot_chats_restored', { bots: restored })
+    return bot ? [{ chat, bot }] : []
+  })
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined

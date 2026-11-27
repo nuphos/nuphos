@@ -44,13 +44,16 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("an idle Bot's chat", () => {
     await closeDb()
   })
 
-  test('stays open with its Bot, while an idle Task and group chat are filed away', async () => {
-    const [bot, chat, task, group] = [id(), id(), id(), id()]
+  test('stays open with its Bot, while an idle Task and other chats are filed away', async () => {
+    const [bot, chat, task, group, channel, taskChat] = [id(), id(), id(), id(), id(), id()]
 
     await seed(bot, { avatar: { emoji: 'x' } })
     await seed(chat, chatOf(bot, { messageCount: 0 }))
     await seed(task)
     await seed(group, chatOf(bot, { group: true }))
+    // Not a group chat, and not a Bot's chat either.
+    await seed(channel, { kind: 'channel' })
+    await seed(taskChat, chatOf(task))
     await archiveIdleConversations()
 
     expect({
@@ -58,7 +61,9 @@ describe.skipIf(!process.env.TEST_MONGODB_URI)("an idle Bot's chat", () => {
       chat: await archived(chat),
       task: await archived(task),
       group: await archived(group),
-    }).toEqual({ bot: false, chat: false, task: true, group: true })
+      channel: await archived(channel),
+      taskChat: await archived(taskChat),
+    }).toEqual({ bot: false, chat: false, task: true, group: true, channel: true, taskChat: true })
   })
 
   test('filed away alone before the fix comes back, once', async () => {
