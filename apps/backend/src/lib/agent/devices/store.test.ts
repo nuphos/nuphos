@@ -1,6 +1,6 @@
 // Run with: cd apps/backend && bun test src/lib/agent/devices/store.test.ts
 
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
@@ -90,6 +90,23 @@ class FakeCollection {
     }
 
     return { matchedCount: hit ? 1 : 0 }
+  }
+  async findOneAndUpdate(filter: Doc, update: Parameters<FakeCollection['updateOne']>[1]) {
+    const hit = await this.findOne(filter)
+    const before = hit ? structuredClone(hit) : null
+
+    await this.updateOne(filter, update)
+
+    return before
+  }
+  countDocuments(filter: Doc) {
+    return Promise.resolve(
+      this.docs.filter((doc) =>
+        Object.entries(filter).every(([key, value]) =>
+          key === 'archivedAt' ? doc.archivedAt === undefined : doc[key] === value,
+        ),
+      ).length,
+    )
   }
   async findOneAndDelete(filter: Doc) {
     const hit = await this.findOne(filter)
@@ -387,5 +404,75 @@ describe('pending resets', () => {
       'r2',
       'r3',
     ])
+  })
+})
+
+// #4489: an expired sign-in is told once, when it happens, not on each turn that then fails.
+describe('an agent that signs out', () => {
+  const work = '33333333-3333-4333-8333-333333333333'
+  const report = (loggedIn: boolean | null) =>
+    ({
+      agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+      instances: [
+        { instanceId: work, provider: 'codex', label: 'Codex', cli: { installed: true, loggedIn } },
+      ],
+    }) as unknown as LocalRuntimeStatus
+  let warn: ReturnType<typeof spyOn<Console, 'warn'>>
+  const signedOut = () =>
+    warn.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Doc)
+      .filter((line) => line.event === 'agent.runtime.signed_out')
+
+  beforeEach(async () => {
+    devices.docs = []
+    others.docs = [
+      { runtimeId: `local_u1_mac-1_codex_${work}` },
+      { runtimeId: `local_u1_mac-1_codex_${work}` },
+      { runtimeId: `local_u1_mac-1_codex_${work}`, archivedAt: new Date() },
+      { runtimeId: 'local_u1_mac-1' },
+    ]
+    await upsertAgentDevice('u1', registration)
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+    warn = spyOn(console, 'warn').mockImplementation(() => null)
+  })
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
+  test('is logged once, with the conversations still on it', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toEqual([
+      expect.objectContaining({
+        level: 'warn',
+        runtime_id: `local_u1_mac-1_codex_${work}`,
+        user_id: 'u1',
+        device_id: 'mac-1',
+        provider: 'codex',
+        conversation_count: 2,
+      }),
+    ])
+  })
+
+  test('is logged again after it signs back in and out', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toHaveLength(2)
+  })
+
+  test('a report that could not tell does not hide the sign-out after it', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(null))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toHaveLength(1)
+  })
+
+  test('a report that keeps it signed in logs nothing', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+
+    expect(signedOut()).toEqual([])
   })
 })
