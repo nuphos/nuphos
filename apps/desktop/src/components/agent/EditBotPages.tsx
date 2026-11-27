@@ -135,7 +135,7 @@ function BotTriggers({
       {triggers.length > 0 && (
         <div className="divide-y divide-line-control rounded-lg border border-line-control">
           {triggers.map((trigger) => (
-            <div key={trigger.id} className="px-3 py-2.5">
+            <div key={trigger.id} className="px-3 py-1">
               <TriggerRow
                 trigger={trigger}
                 open={openId === trigger.id}
@@ -175,11 +175,10 @@ export function AdvancedPage({
         hint={t('Markdown. {name} follows these from its next turn.', { name })}
       >
         <textarea
-          rows={9}
           value={instructions}
           placeholder={t('Tell this Bot how to work…')}
           onChange={(event) => onInstructionsChange(event.target.value)}
-          className={`${inputClasses} h-auto resize-y py-2 font-mono text-[12.5px]`}
+          className={`${inputClasses} block h-[180px] resize-y py-2 font-mono text-[12.5px]`}
         />
       </Field>
       <BotTriggers teamId={teamId} sessionId={sessionId} name={name} onEdit={onEditTrigger} />
