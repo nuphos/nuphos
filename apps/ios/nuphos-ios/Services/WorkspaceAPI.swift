@@ -143,3 +143,12 @@ nonisolated final class UploadProgress: NSObject, URLSessionTaskDelegate, @unche
         progress.completedUnitCount = offset + totalBytesSent
     }
 }
+
+extension Progress {
+    /// How much of a message's files is out, or nil while there is no share to
+    /// show: the size is not known yet, or every byte is out and the server is answering.
+    nonisolated var uploadedFraction: Double? {
+        guard totalUnitCount > 0, completedUnitCount < totalUnitCount else { return nil }
+        return Double(completedUnitCount) / Double(totalUnitCount)
+    }
+}

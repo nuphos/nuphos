@@ -701,23 +701,17 @@ struct SendingBubble: View {
     }
 }
 
-/// How far a message's attachments have uploaded: a short bar that fills as
-/// bytes go out, sweeps while the size is not known yet, and goes once every
-/// byte is out.
+/// How far a sending message has got: a short bar that fills as its files go
+/// out, and sweeps while there is no share to show (the size is not known yet,
+/// or every byte is out and the server is answering). It goes with the
+/// sending message once the server has taken it.
 struct UploadProgressBar: View {
     let progress: Progress
 
     var body: some View {
         // Progress is read, not stored: the bar re-reads it twice a second and
         // eases across each step, so the fill keeps moving between reads.
-        TimelineView(.periodic(from: .now, by: 0.5)) { _ in
-            let total = progress.totalUnitCount, done = progress.completedUnitCount
-            if total <= 0 {
-                bar(nil)
-            } else if done < total {
-                bar(Double(done) / Double(total))
-            }
-        }
+        TimelineView(.periodic(from: .now, by: 0.5)) { _ in bar(progress.uploadedFraction) }
     }
 
     private func bar(_ fraction: Double?) -> some View {
