@@ -8,8 +8,8 @@ mock.module('../agent/AgentAvatar', () => ({
   AgentAvatar: ({ size }: { size: number }) =>
     createElement('span', { 'data-avatar-size': String(size) }),
 }))
-mock.module('../agent/panel/ConversationTitleEditor', () => ({
-  RenameConversationDialog: () => createElement('div', { role: 'dialog' }, 'Edit Bot dialog'),
+mock.module('../agent/EditBotDialog', () => ({
+  EditBotDialog: () => createElement('div', { role: 'dialog' }, 'Edit Bot dialog'),
 }))
 
 const dom = new Window()

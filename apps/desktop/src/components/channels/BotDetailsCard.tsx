@@ -6,7 +6,7 @@ import { api } from '../../api'
 import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
+import { EditBotDialog } from '../agent/EditBotDialog'
 import { AgentProviderIcon } from '../agent/panel/icons'
 import { sectionClass } from '../agent/summary/ChatSummaryRows'
 import { Button } from '../ui/button'
@@ -26,6 +26,7 @@ export function BotDetailsCard({
   onOpenTask,
   canOpenDesktop,
   onEdited,
+  onEditTrigger,
   onClose,
 }: {
   teamId: string
@@ -37,6 +38,8 @@ export function BotDetailsCard({
   onOpenTask?: () => void
   canOpenDesktop: boolean
   onEdited: () => void
+  /** Starts this message to the Bot in the chat's composer. */
+  onEditTrigger?: (message: string) => void
   /** Hides the details; the chat's heading opens them again. */
   onClose?: () => void
 }) {
@@ -97,10 +100,11 @@ export function BotDetailsCard({
         </div>
       )}
       {editing && (
-        <RenameConversationDialog
+        <EditBotDialog
           sessionId={bot}
           teamId={teamId}
           title={title}
+          onEditTrigger={onEditTrigger}
           onClose={() => {
             setEditing(false)
             onEdited()

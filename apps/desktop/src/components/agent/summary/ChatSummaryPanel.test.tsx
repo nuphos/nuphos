@@ -20,7 +20,6 @@ mock.module('../../../lib/chatSummaryPanel', () => ({
   useChatSummaryDocked: () => false,
 }))
 mock.module('./ChatSummaryTriggers', () => ({ ChatSummaryTriggers: () => null }))
-mock.module('./BotInstructionsSection', () => ({ BotInstructionsSection: () => null }))
 
 const { ChatSummaryPanel } = await import('./ChatSummaryPanel')
 const { useSummaryMotion } = await import('./summaryPlacement')

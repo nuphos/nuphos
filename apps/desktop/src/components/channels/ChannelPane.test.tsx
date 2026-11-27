@@ -175,10 +175,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
 
   assert.ok(panel, 'the Bot details panel opens beside the chat')
   assert.ok(buttonNamed(panel, 'Edit Bot'), 'its owner can edit the Bot')
-  assert.ok(triggerQueries.length > 0)
-  for (const query of triggerQueries)
-    assert.deepEqual(query, ['team', 'bot'], 'queries the Bot, not its chat or the team')
-  assert.ok(panel.textContent.includes('Ask here to schedule recurring work.'))
+  // Its instructions and Triggers are edited in Edit Bot, so the details list neither.
+  assert.equal(triggerQueries.length, 0)
+  assert.ok(!panel.textContent.includes('Triggers'))
   assert.equal(
     panel.querySelector('section[aria-label="Changes"]'),
     null,

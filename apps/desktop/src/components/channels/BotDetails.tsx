@@ -190,7 +190,6 @@ export function BotDetailsPanel({
         teamId={teamId}
         onOpenLink={(url) => onOpenLink?.(url)}
         onOpenSession={onOpenSession}
-        onEditTrigger={onEditTrigger}
         onOpenRequest={(sessionId) => onOpenSession(sessionId)}
         // A Bot's questions, its own and its Tasks', are answered in the Inbox, open on the one picked.
         onSelectRequest={(request) => {
@@ -220,6 +219,7 @@ export function BotDetailsPanel({
                 true
               }
               onEdited={onEdited}
+              onEditTrigger={onEditTrigger}
               onClose={() => setBotDetailsOpen(bot, false)}
             />
             <BotRuntimeSection

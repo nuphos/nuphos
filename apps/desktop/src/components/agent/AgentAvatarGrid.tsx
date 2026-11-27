@@ -9,19 +9,22 @@ import { BotAvatarImage } from './BotAvatarImage'
 import type { BotAvatarFile } from '../../lib/botAvatars'
 import type React from 'react'
 
-const COLUMNS = 7
-
 /** Every bot avatar as one radio group; arrow keys move through the grid. */
 export function AgentAvatarGrid({
   value,
   onChange,
   onPreview,
+  columns = 7,
+  start = false,
 }: {
   /** Absent when no character is picked, as for a Bot wearing a photo. */
   value?: BotAvatarFile
   onChange: (file: BotAvatarFile) => void
   /** The avatar under the pointer, or null once it leaves the grid. */
   onPreview: (file: BotAvatarFile | null) => void
+  columns?: number
+  /** Lines the grid up with the fields above it instead of centring it. */
+  start?: boolean
 }) {
   const tiles = useRef<(HTMLButtonElement | null)[]>([])
   const [focused, setFocused] = useState(value ? BOT_AVATARS.indexOf(value) : 0)
@@ -31,8 +34,8 @@ export function AgentAvatarGrid({
     const steps: Partial<Record<string, number>> = {
       ArrowRight: focused + 1,
       ArrowLeft: focused - 1,
-      ArrowDown: focused + COLUMNS,
-      ArrowUp: focused - COLUMNS,
+      ArrowDown: focused + columns,
+      ArrowUp: focused - columns,
       Home: 0,
       End: last,
     }
@@ -54,8 +57,8 @@ export function AgentAvatarGrid({
       aria-label={t('Avatar')}
       onKeyDown={move}
       onPointerLeave={() => onPreview(null)}
-      className="grid justify-center gap-1"
-      style={{ gridTemplateColumns: `repeat(${String(COLUMNS)}, 2.5rem)` }}
+      className={clsx('grid gap-1', !start && 'justify-center')}
+      style={{ gridTemplateColumns: `repeat(${String(columns)}, 2.5rem)` }}
     >
       {BOT_AVATARS.map((file, index) => {
         const selected = file === value
