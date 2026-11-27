@@ -1,7 +1,6 @@
-// `bun scripts/e2e/run-opencode-signin-models.ts`: OpenCode signed in through Nuphos to a provider
-// offers that provider's models in the picker, for the computer's own OpenCode and for one added
-// to it. Signs in to Azure with a made-up resource and key: OpenCode lists Azure's models from its
-// catalog without calling Azure. OPENCODE names an OpenCode 1.x CLI; nothing reaches Azure.
+// `bun scripts/e2e/run-opencode-signin-models.ts`: OpenCode signed in through Nuphos offers the
+// provider's models, the computer's own and an added one. A made-up Azure resource and key: OpenCode
+// lists Azure's models from its catalog, so nothing reaches Azure. OPENCODE names a 1.x CLI.
 import { readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
@@ -38,20 +37,16 @@ async function signInAzure(owner: Client, teamId: string, runtimeId: string) {
       const step = doc.step as Json | undefined
 
       if (!step || doc.codeSubmitted) return false
-      const key = JSON.stringify(step)
+      const seen = JSON.stringify(step)
 
-      if (answered.has(key)) return false
-      const message = String(step.message ?? '')
-      const code =
-        step.kind === 'choose'
-          ? 'azure'
-          : /resource name/iu.test(message)
-            ? 'e2e-fictional-resource'
-            : 'e2e-fictional-azure-key-0000000000'
+      if (answered.has(seen)) return false
+      const resource = /resource name/iu.test(String(step.message ?? ''))
+      const key = resource ? 'e2e-fictional-resource' : 'e2e-fictional-azure-key-0000000000'
+      const code = step.kind === 'choose' ? 'azure' : key
       const sent = await owner('POST', `${login}/code`, { attemptId, code })
 
       must(sent.status === 200, `the answer to be taken, got ${String(sent.status)} ${sent.text}`)
-      answered.add(key)
+      answered.add(seen)
 
       return false
     },
@@ -98,10 +93,10 @@ try {
   const instance = added.body as { instanceId: string; runtimeId: string }
   const own = (await runtimes()).find((r) => ours(r) && r.id !== instance.runtimeId)
 
-  must(own, 'the computer’s own OpenCode')
+  must(own !== undefined, 'the computer’s own OpenCode')
   const cases = [
     { name: 'an added OpenCode, signed in as it is added', runtimeId: instance.runtimeId },
-    { name: 'the computer’s own OpenCode, signed in later', runtimeId: String(own.id) },
+    { name: 'the computer’s own OpenCode, signed in later', runtimeId: String(own?.id) },
   ]
 
   for (const { name, runtimeId } of cases) {

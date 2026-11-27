@@ -60,8 +60,7 @@ export class LocalRuntimeController {
         (childDeps, provider) => new LocalRuntimeController(childDeps, [provider], true),
         this.reportChange,
         {
-          refreshDefault: (provider, restart) => this.refresh(restart, [provider]),
-          signedInDefault: (provider) => this.signedIn(provider),
+          refreshDefault: (provider, restart, read) => this.refresh(restart, [provider], read),
           pauseDefault: this.whileStopped,
         },
       )
@@ -121,10 +120,8 @@ export class LocalRuntimeController {
 
     return [launches]
   }
-  async refresh(
-    restart = false,
-    providers: readonly LocalAgentProvider[] = this.providers,
-  ): Promise<LocalRuntimeState> {
+  /** Checks agents again; `signedIn` after a sign-in through Nuphos, to read their models now. */
+  async refresh(restart = false, providers = this.providers, signedIn = false) {
     const userId = this.userId
 
     if (!userId) return this.state()
@@ -146,22 +143,16 @@ export class LocalRuntimeController {
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
-      providers
-        .filter((provider) => restart || !this.agents[provider].process || moved.has(provider))
-        .map((provider) => this.launch(provider)),
+      providers.map((provider) =>
+        restart || !this.agents[provider].process || moved.has(provider)
+          ? this.launch(provider)
+          : signedIn && rereadModels(this.agents[provider]),
+      ),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
     await this.instances?.refresh(restart, providers)
 
     return this.state()
-  }
-  /**
-   * Checks an agent again once its sign-in through Nuphos finished, and reads the models it
-   * offers now.
-   */
-  async signedIn(provider: LocalAgentProvider = this.providers[0]): Promise<void> {
-    await this.refresh(false, [provider])
-    await rereadModels(this.agents[provider])
   }
   reconnect(): void {
     this.tunnel?.reconnectNow()
