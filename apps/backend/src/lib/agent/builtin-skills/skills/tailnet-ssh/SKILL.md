@@ -1,6 +1,6 @@
 ---
 name: tailnet-ssh
-description: "Run commands on on-prem machines reachable only inside a customer's Tailscale tailnet: join as a short-lived node and SSH over it. Covers ACLs, approval and troubleshooting."
+description: "Run commands on machines reachable only inside a customer's Tailscale tailnet."
 ---
 
 # tailnet-ssh — reach machines inside a customer's private network

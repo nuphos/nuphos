@@ -1,6 +1,6 @@
 ---
 name: vanta
-description: "Read a team's Vanta compliance posture: failing tests and vulnerabilities, and what to remediate for SOC 2, ISO 27001 or HIPAA."
+description: "Read Vanta compliance posture: failing tests and vulnerabilities to fix."
 ---
 
 # Vanta compliance

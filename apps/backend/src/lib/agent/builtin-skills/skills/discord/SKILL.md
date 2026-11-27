@@ -1,6 +1,6 @@
 ---
 name: discord
-description: "Read and act in the team's Discord: channels, threads, pins, search, members, posting and reactions. Use on every Discord turn and whenever Discord is mentioned."
+description: "Read and act in the team's Discord. Use on every Discord turn and whenever Discord is mentioned."
 ---
 
 # Discord

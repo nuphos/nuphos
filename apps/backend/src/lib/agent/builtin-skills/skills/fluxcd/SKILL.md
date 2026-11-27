@@ -1,6 +1,6 @@
 ---
 name: fluxcd
-description: "Inspect and operate Flux CD with the flux CLI: reconciliation, GitRepository/Kustomization/HelmRelease status, suspend/resume and GitOps drift triage."
+description: "Inspect and operate Flux CD: reconciliation, sources, HelmReleases, GitOps drift."
 ---
 
 # Flux CD CLI

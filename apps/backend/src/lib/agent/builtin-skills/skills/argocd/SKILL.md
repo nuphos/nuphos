@@ -1,6 +1,6 @@
 ---
 name: argocd
-description: "Inspect and operate Argo CD applications with the argocd CLI: app status, history, sync, rollback and resource inspection."
+description: "Inspect and operate Argo CD apps: status, history, sync, rollback."
 ---
 
 # Argo CD CLI

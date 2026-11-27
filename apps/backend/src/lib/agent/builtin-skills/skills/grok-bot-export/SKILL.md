@@ -1,6 +1,6 @@
 ---
 name: grok-bot-export
-description: Prepare a portable Nuphos Bot bundle from agents in Grok Bot, after reviewing which data the person wants to move.
+description: "Prepare a portable Nuphos Bot bundle from agents in Grok Bot."
 ---
 
 # Prepare a Nuphos Bot bundle

@@ -1,6 +1,6 @@
 ---
 name: tencent
-description: Run tccli to inspect or change Tencent Cloud resources (TKE, CVM, CLB, VPC). Includes a script that loads short-lived credentials for a Nuphos-bound account.
+description: "Tencent Cloud (TKE, CVM, CLB, VPC) with tccli, using a Nuphos-bound account."
 ---
 
 # Tencent Cloud CLI (tccli)

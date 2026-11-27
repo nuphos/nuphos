@@ -1,6 +1,6 @@
 ---
 name: secureframe
-description: "Read a team's Secureframe compliance posture: failing tests and what to remediate for SOC 2, ISO 27001, HIPAA, PCI or GDPR."
+description: "Read Secureframe compliance posture: failing tests and what to fix."
 ---
 
 # Secureframe compliance

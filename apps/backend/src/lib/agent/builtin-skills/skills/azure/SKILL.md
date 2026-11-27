@@ -1,6 +1,6 @@
 ---
 name: azure
-description: Inspect or change Microsoft Azure resources with the ARM REST API or az CLI. Includes a script that loads a short-lived ARM token for a Nuphos-bound subscription.
+description: "Azure resources with the ARM REST API or az CLI, using a Nuphos-bound subscription."
 ---
 
 # Microsoft Azure (ARM)

@@ -1,6 +1,6 @@
 ---
 name: linear
-description: Read, create, comment on and close Linear issues in a team-bound workspace. Use for opening, tracking or closing an issue, filing an incident ticket or checking status.
+description: "Linear issues in a team-bound workspace: open, track, comment on or close one, or file an incident."
 ---
 
 # linear

@@ -1,6 +1,6 @@
 ---
 name: volcengine
-description: Call Volcengine OpenAPI or the ve CLI to inspect or change VKE, ECS, CLB, VPC, TOS, CDN and more. Includes scripts for credentials and to look up any API's parameters.
+description: "Volcengine (VKE, ECS, CLB, VPC, TOS, CDN…) via OpenAPI or the ve CLI."
 ---
 
 # Volcengine (火山引擎)
