@@ -24,6 +24,8 @@ swiftc nuphos-ios/Views/Home/HistoryTime.swift tests/HistoryTimeTests.swift -o "
 "$test_dir/history-time-tests"
 swiftc nuphos-ios/Views/Home/NewBox.swift tests/NewBoxTests.swift -o "$test_dir/new-box-tests"
 "$test_dir/new-box-tests"
+swiftc nuphos-ios/Services/PushTarget.swift tests/PushTargetTests.swift -o "$test_dir/push-target-tests"
+"$test_dir/push-target-tests"
 swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
 "$test_dir/string-catalog-tests" Shared/Localizable.xcstrings
 "$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
