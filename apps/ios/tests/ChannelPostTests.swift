@@ -19,6 +19,8 @@ enum ChannelPostTests {
         readsInboxAnswersAsTheAnswerersPosts()
         marksTheLastAnswerOfEachInboxCard()
         readsBotPresence()
+        offersOnlyMyBotsNotHereYet()
+        saysWhatLeavingDoes()
         print("Chat posts, runs, sending and timeline passed")
     }
 
@@ -284,5 +286,23 @@ enum ChannelPostTests {
         precondition(BotPresence.offlineStrip([online, away], botId: nil) == "Scribe’s computer is offline.")
         precondition(BotPresence.offlineStrip([away], botId: "scribe")?.hasPrefix("The computer running this runtime is offline") == true)
         precondition(BotPresence.offlineStrip([online, agent("x", cases[3].0)], botId: nil) == nil)
+    }
+
+    private static func offersOnlyMyBotsNotHereYet() {
+        let json = #"{"conversations":[{"sessionId":"scribe","title":"Scribe","avatar":"07"},{"sessionId":"atlas","title":"Atlas","avatar":"03","presence":{"state":"offline","reason":"computer_offline"}},{"sessionId":"task","title":"A task"},{"sessionId":"room","title":"Room","kind":"channel","avatar":"01"}],"hasMore":false}"#
+        let bots = try! JSONDecoder().decode(AgentConversationsPage.self, from: Data(json.utf8)).conversations
+        let here = [ChannelAgent(sessionId: "scribe", title: "Scribe", ownerId: "me")]
+        let addable = bots.addable(to: here)
+        precondition(addable.map(\.sessionId) == ["atlas"])
+        precondition(addable[0].presence?.tag.tone == .down)
+    }
+
+    private static func saysWhatLeavingDoes() {
+        let riley = (id: "riley", name: "Riley Chen", isOwner: false)
+        let owner = (id: "me", name: "Me", isOwner: true), member = (id: "me", name: "Me", isOwner: false)
+        precondition(ChannelLeave(people: [owner, riley, (id: "sam", name: "Sam", isOwner: false)], viewerId: "me") == .handsOver(to: "Riley Chen"))
+        precondition(ChannelLeave(people: [(id: "o", name: "O", isOwner: true), member], viewerId: "me") == .leaves)
+        precondition(ChannelLeave(people: [owner], viewerId: "me") == .archives)
+        precondition(ChannelLeave(people: [], viewerId: "me") == .archives)
     }
 }
