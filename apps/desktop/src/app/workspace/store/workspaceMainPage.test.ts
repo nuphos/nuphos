@@ -356,5 +356,6 @@ test('opening the Inbox after switching team stays in the new team, whatever the
 
   assert.equal(selectMainPageTab(state)?.scope.teamId, TEAM_B)
   assert.equal(selectScope(state)?.teamId, TEAM_B)
+  // The dock may now hold no tab at all; a tab it does hold must be the new team's.
   assert.equal(selectActiveTab(state)?.scope.teamId ?? TEAM_B, TEAM_B)
 })
