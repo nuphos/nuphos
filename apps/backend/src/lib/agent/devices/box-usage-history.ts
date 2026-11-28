@@ -87,8 +87,9 @@ export function noteBoxPresence(
 }
 
 /**
- * The step series for [from, to]: the reading in force at `from`, then per
- * bucket the highest use (so a short peak shows) and the last limit, then `to`.
+ * The step series for [from, to]: the reading in force at the first bucket
+ * boundary, then per bucket the highest use (so a short peak shows) and the
+ * last limit, then `to`.
  */
 export function stepSeries(
   prior: BoxUsageReading | null,
@@ -99,7 +100,13 @@ export function stepSeries(
   const bucketMs = window.bucketMinutes * 60_000
   const points: BoxUsagePoint[] = []
 
-  if (prior) points.push({ at: new Date(window.from).toISOString(), ...prior })
+  // Anchor the prior reading at the first bucket boundary so a row inside the
+  // window's own partial bucket merges into it instead of splitting it.
+  if (prior)
+    points.push({
+      at: new Date(Math.floor(window.from / bucketMs) * bucketMs).toISOString(),
+      ...prior,
+    })
   for (const row of rows) {
     const at = new Date(Math.floor(row.at.getTime() / bucketMs) * bucketMs).toISOString()
     const last = points.at(-1)
