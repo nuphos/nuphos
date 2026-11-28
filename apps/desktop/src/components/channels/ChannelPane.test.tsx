@@ -488,6 +488,54 @@ for (const botOnboarding of [undefined, 'active'] as const)
       [`/teams/team/artifacts/notes-${botOnboarding}`, false],
       'the artifact opens beside the chat, as in a Task',
     )
+    // A Bot that shows a card after its post: the chat reads again when the Bot's turns change.
+    conversations.set('maker', {
+      sessionId: 'maker',
+      messages: [
+        {
+          id: 'later',
+          role: 'assistant',
+          createdAt: new Date().toISOString(),
+          parts: [
+            {
+              type: 'tool',
+              toolCallId: `call-later-${botOnboarding}`,
+              toolName: 'render_artifact',
+              state: 'output-available',
+              completedAt: Date.now(),
+              input: {
+                artifactId: `later-${botOnboarding}`,
+                title: 'Release notes',
+                kind: 'markdown',
+                content: '# Hi',
+              },
+              output: 'Shown beside the chat.',
+            },
+          ],
+        },
+      ],
+    })
+    await act(() => {
+      queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+        row({
+          sessionId: 'cards',
+          kind: 'channel',
+          faces: [{ id: 'maker', name: 'Ada', agent: {} }],
+        }),
+        row({
+          sessionId: 'maker',
+          title: 'Ada',
+          isOwner: true,
+          botOnboarding,
+          transcriptUpdatedAt: 'later',
+        }),
+      ])
+    })
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+    assert.ok(
+      container.textContent.includes('Release notes'),
+      'a card shown after the post appears too',
+    )
     await act(() => root.unmount())
     container.remove()
   })

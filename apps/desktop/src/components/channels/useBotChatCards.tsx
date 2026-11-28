@@ -1,11 +1,10 @@
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useState } from 'react'
 
 import { api } from '../../api'
-import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
-import { runtimeTurnActive } from '../../lib/runtimeExecution'
 import { usePublishSessionArtifacts } from '../agent/artifacts/useSessionArtifacts'
 import { renderCardToolPart } from '../agent/panel/cardToolParts'
 import { fromPersistedMessages } from '../agent/panel/persistence'
+import { useAgentSessions } from '../sidebar/agentSessions'
 
 import type { TimelineRow } from './ChannelMessages'
 import type { OpenLink } from '../agent/panel/LocalUrlChip'
@@ -26,17 +25,15 @@ export function useBotChatCards(
   teamId: string,
   channelId: string,
   bot: string | undefined,
-  /** The chat's posts, or false when the viewer may not read the Bot's turns. */
-  posts: readonly unknown[] | false,
+  /** The viewer may read the Bot's turns. */
+  canRead: boolean,
   onOpen: OpenLink | undefined,
 ): TimelineRow[] {
   const [loaded, setLoaded] = useState<{ bot: string; messages: Message[] }>()
-  // Read again when the Bot may have shown something new: a post, a turn ending.
-  const turning = useSyncExternalStore(subscribeRuntimeStates, () =>
-    runtimeTurnActive(runtimeStateOf(bot)),
-  )
-  const canRead = posts !== false
-  const postCount = posts ? posts.length : 0
+  // Read again whenever the Bot's turns change, however short the turn was.
+  const revision = useAgentSessions(teamId).data?.find(
+    (session) => session.sessionId === bot,
+  )?.transcriptUpdatedAt
 
   useEffect(() => {
     if (!bot || !canRead) return
@@ -52,7 +49,7 @@ export function useBotChatCards(
     return () => {
       live = false
     }
-  }, [teamId, bot, canRead, postCount, turning])
+  }, [teamId, bot, canRead, revision])
   const messages = bot && canRead && loaded?.bot === bot ? loaded.messages : NONE
 
   usePublishSessionArtifacts(channelId, messages)

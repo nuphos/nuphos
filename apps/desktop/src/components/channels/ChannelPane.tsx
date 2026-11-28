@@ -106,7 +106,7 @@ export function ChannelPane({
   const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
   const approvals = toolApprovalRows(teamId, bot, botOwned, botState)
-  const cards = useBotChatCards(teamId, channelId, bot, canRead && stored, onOpenNuphosLink)
+  const cards = useBotChatCards(teamId, channelId, bot, canRead, onOpenNuphosLink)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
