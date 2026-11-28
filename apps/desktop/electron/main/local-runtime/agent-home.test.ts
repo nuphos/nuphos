@@ -265,3 +265,32 @@ test('on Windows without the owner’s login nothing is linked', (t) => {
   linkOwnerFile(f.owner, home, 'auth.json')
   assert.equal(existsSync(path.join(home, 'auth.json')), false)
 })
+
+test('a free Box’s OpenCode signed out of its gifted OpenRouter key falls back to its free model, and no other config changes', (t) => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'opencode-home-'))
+
+  t.after(() => {
+    rmSync(dir, { recursive: true, force: true })
+  })
+  const config = path.join(dir, 'opencode-home', '.config', 'opencode', 'opencode.json')
+  const gift = 'openrouter/deepseek/deepseek-v4.1-flash'
+  const prepared = (json: unknown) => {
+    mkdirSync(path.dirname(config), { recursive: true })
+    writeFileSync(config, JSON.stringify(json))
+    prepareAgentHome('opencode', dir, path.join(dir, 'workspace'))
+
+    return JSON.parse(readFileSync(config, 'utf8'))
+  }
+  const kept = [
+    { model: gift, provider: { openrouter: { options: { apiKey: 'sk-or-v1-own' } } } },
+    { model: gift, provider: { openrouter: { options: { baseURL: 'https://example.test' } } } },
+    { model: 'openrouter/other', provider: { openrouter: { options: {} } } },
+    { model: 'custom/model', provider: { custom: { options: { baseURL: 'https://x.test' } } } },
+  ]
+
+  assert.deepEqual(
+    prepared({ model: gift, small_model: gift, provider: { openrouter: { options: {} } } }),
+    { model: gift, small_model: gift, provider: {} },
+  )
+  for (const json of kept) assert.deepEqual(prepared(json), json)
+})
