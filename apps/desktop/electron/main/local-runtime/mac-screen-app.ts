@@ -23,7 +23,7 @@ function announceControl(human: boolean): void {
 }
 
 /** macOS's own prompt, with a button to Settings: without Accessibility the host does not start. */
-function ask(): void {
+export function askAccessibility(): void {
   systemPreferences.isTrustedAccessibilityClient(true)
 }
 
@@ -31,6 +31,7 @@ function ask(): void {
 export function macScreenApp(dataDir: string, bundleRoot: () => string, changed: () => void) {
   const pool = enableMacScreen(dataDir, changed)
   const handOver = announceControl
+  const ask = askAccessibility
   const binary = () => path.join(bundleRoot(), 'mac-screen-host')
 
   return {

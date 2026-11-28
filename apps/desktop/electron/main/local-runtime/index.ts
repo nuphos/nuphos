@@ -42,7 +42,7 @@ import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
 import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
 import { localLogins } from './local-logins.ts'
-import { macScreenApp } from './mac-screen-app.ts'
+import { askAccessibility, macScreenApp } from './mac-screen-app.ts'
 import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import * as sleep from './sleep-prevention-electron.ts'
@@ -131,7 +131,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         })
       },
       ...localFileConnectors(() => controller.state(), bundleRoot()),
-      ...localToolStreams,
+      ...localToolStreams(bundleRoot(), askAccessibility),
       ...browserStreams,
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider, instanceId) => {

@@ -6,7 +6,13 @@ import { test } from 'node:test'
 
 import { CUA_PLUGIN_CACHE } from './agent-home.ts'
 import { CuaHost } from './cua-host.ts'
-import { CUA_RESULT_MAX_CHARS, LocalCuaStream, cuaServerConfig, fitFrame } from './cua-stream.ts'
+import {
+  CUA_RESULT_MAX_CHARS,
+  LocalCuaStream,
+  cuaDriverConfig,
+  cuaServerConfig,
+  fitFrame,
+} from './cua-stream.ts'
 
 import type { CuaElicitation } from './cua-host.ts'
 
@@ -259,6 +265,69 @@ test('without the App the call fails with an explanation', async () => {
   stream.send(JSON.stringify({ t: 'call', session: 'none', turn: 't', code: '1' }))
   await tick()
   assert.equal(sent[0]?.result.isError, true)
+})
+
+/** A stand-in Cua Driver: answers each tool call with its name and arguments. */
+const FAKE_DRIVER = `
+require('node:readline').createInterface({ input: process.stdin }).on('line', (line) => {
+  const m = JSON.parse(line)
+  const send = (result) => process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
+  if (m.method === 'initialize') send({})
+  if (m.method === 'tools/call') send({ content: [{ type: 'text', text: JSON.stringify(m.params) }] })
+})
+`
+
+test('without the Codex App a tool call runs on the bundled Cua Driver', async () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'cua-driver-'))
+
+  writeFileSync(path.join(dir, 'driver.cjs'), FAKE_DRIVER)
+  let driver: CuaHost | undefined
+  const stream = new LocalCuaStream({
+    config: () => null,
+    driver: () => ({ command: process.execPath, args: [path.join(dir, 'driver.cjs')], env: {} }),
+    host: (_key, session, config) => (driver = new CuaHost(session, config, () => {})),
+  })
+  const result = new Promise<Record<string, unknown>>((resolve) =>
+    stream.addEventListener('message', (event) => resolve(JSON.parse(String(event.data)))),
+  )
+
+  await tick()
+  stream.send(
+    JSON.stringify({
+      t: 'call',
+      session: 'driver-s',
+      turn: 't',
+      tool: 'click',
+      arguments: { pid: 1, x: 2, y: 3 },
+    }),
+  )
+  assert.deepEqual(await result, {
+    t: 'result',
+    result: {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ name: 'click', arguments: { pid: 1, x: 2, y: 3 } }),
+        },
+      ],
+    },
+  })
+  await driver?.close()
+})
+
+test('Desktop runs the Cua Driver embedded in its own grants; the CLI’s holds its own', () => {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'bundle-'))
+
+  assert.equal(cuaDriverConfig(dir, true), null)
+  writeFileSync(path.join(dir, 'cua-driver'), '')
+  const desktop = cuaDriverConfig(dir, true)
+  const cli = cuaDriverConfig(dir, false)
+
+  assert.deepEqual(desktop?.args, ['mcp', '--direct', '--embedded'])
+  assert.equal(desktop?.env.CUA_DRIVER_EMBEDDED, '1')
+  assert.deepEqual(cli?.args, ['mcp', '--direct'])
+  assert.equal(cli?.env.CUA_DRIVER_EMBEDDED, undefined)
+  assert.equal(cli?.env.CUA_DRIVER_RS_TELEMETRY_ENABLED, '0')
 })
 
 test('a result too large for one tunnel frame keeps its text and drops the image', () => {

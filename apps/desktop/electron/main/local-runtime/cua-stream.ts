@@ -49,6 +49,28 @@ export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
   }
 }
 
+/**
+ * The Cua Driver (MIT, github.com/trycua/cua) the bundle ships, pinned in prepare.mjs. Under
+ * Desktop it runs embedded, so macOS answers it with the app's own Screen Recording and
+ * Accessibility grants; under the CLI it holds its own, like mac-screen-host.
+ */
+export function cuaDriverConfig(bundleRoot: string, embedded: boolean): ServerConfig | null {
+  const command = path.join(bundleRoot, 'cua-driver')
+
+  if (!existsSync(command)) return null
+
+  return {
+    command,
+    args: ['mcp', '--direct', ...(embedded ? ['--embedded'] : [])],
+    env: {
+      ...(embedded ? { CUA_DRIVER_EMBEDDED: '1' } : {}),
+      // The bundle pins its version, and nothing leaves this Mac on the driver's behalf.
+      CUA_DRIVER_RS_TELEMETRY_ENABLED: '0',
+      CUA_DRIVER_RS_UPDATE_CHECK: '0',
+    },
+  }
+}
+
 /** Below the tunnel's 8 MiB frame payload, leaving room for its JSON escaping. */
 export const CUA_RESULT_MAX_CHARS = 6 * 1024 * 1024
 
@@ -87,23 +109,26 @@ export class LocalCuaStream implements SocketLike {
   private started = false
 
   private readonly deps: {
+    /** The Codex App's `cua_repl`, which runs `code`. */
     config: () => ServerConfig | null
-    host: (session: string, config: ServerConfig) => CuaHost
+    /** The bundled Cua Driver, which runs `tool`. */
+    driver: () => ServerConfig | null
+    host: (key: string, session: string, config: ServerConfig) => CuaHost
   }
 
-  constructor(
-    deps = {
+  constructor(deps: Partial<LocalCuaStream['deps']> = {}) {
+    this.deps = {
       config: () => cuaServerConfig(),
-      host: (session: string, config: ServerConfig): CuaHost => {
+      driver: () => null,
+      host: (key, session, config) => {
         const host: CuaHost = new CuaHost(session, config, () => {
-          if (hosts.get(session) === host) hosts.delete(session)
+          if (hosts.get(key) === host) hosts.delete(key)
         })
 
         return host
       },
-    },
-  ) {
-    this.deps = deps
+      ...deps,
+    }
     queueMicrotask(() => {
       if (this.readyState !== 0) return
       this.readyState = 1
@@ -153,17 +178,20 @@ export class LocalCuaStream implements SocketLike {
   }
 
   private async run(call: CuaCall): Promise<CuaToolResult> {
-    const config = this.deps.config()
+    const config = call.tool ? this.deps.driver() : this.deps.config()
 
     if (!config)
       return failed(
-        'Computer Use is not installed on this computer. It needs the ChatGPT/Codex App with Computer Use enabled.',
+        call.tool
+          ? 'This Nuphos build has no Cua Driver. Update Nuphos on this Mac.'
+          : 'The ChatGPT/Codex App’s Computer Use is not installed on this computer. Call a Cua Driver tool with `tool` instead.',
       )
-    let host = hosts.get(call.session)
+    const key = `${call.tool ? 'driver' : 'codex'}:${call.session}`
+    let host = hosts.get(key)
 
     if (!host) {
-      host = this.deps.host(call.session, config)
-      hosts.set(call.session, host)
+      host = this.deps.host(key, call.session, config)
+      hosts.set(key, host)
     }
     const elicit = (request: CuaElicitation) =>
       new Promise<boolean>((resolve) => {
@@ -190,8 +218,22 @@ export class LocalCuaStream implements SocketLike {
   }
 }
 
-/** Tool streams a device tunnel serves; Computer Use only where the Codex App runs. */
-export const localToolStreams = {
+/**
+ * Tool streams a device tunnel serves; Computer Use on a Mac. Desktop passes `ask`, which raises
+ * macOS's prompt for the grants its embedded driver needs; the CLI's driver asks for its own.
+ */
+export const localToolStreams = (bundleRoot: string, ask?: () => void) => ({
   connectExec: (): SocketLike => new LocalExecStream(),
-  ...(process.platform === 'darwin' ? { connectCua: (): SocketLike => new LocalCuaStream() } : {}),
-}
+  ...(process.platform === 'darwin'
+    ? {
+        connectCua: (): SocketLike =>
+          new LocalCuaStream({
+            driver: () => {
+              ask?.()
+
+              return cuaDriverConfig(bundleRoot, Boolean(ask))
+            },
+          }),
+      }
+    : {}),
+})
