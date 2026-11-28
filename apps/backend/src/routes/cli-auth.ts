@@ -15,11 +15,12 @@ import {
 } from '@/lib/identity/cli-tokens'
 import {
   decideDeviceLogin,
+  DEVICE_LOGIN_TTL_SEC,
   findPendingDeviceLogin,
   pollDeviceLogin,
   startDeviceLogin,
 } from '@/lib/identity/device-login'
-import { deviceGuessQuota, redisQuota } from '@/lib/identity/device-login-quota'
+import { deviceGuessQuota, quotaRefusal, redisQuota } from '@/lib/identity/device-login-quota'
 import { clientIp } from '@/lib/request-origin'
 import { zv } from '@/lib/validate'
 import { requireAuth } from '@/middleware/auth'
@@ -61,6 +62,28 @@ function hashed(value: string): string {
   return createHash('sha256').update(value).digest('hex').slice(0, 32)
 }
 
+/** Sign-ins one client IP may start in an hour; 20 is far more than one address needs. */
+export const IP_SIGN_IN_LIMIT = 20
+export const IP_SIGN_IN_WINDOW_SEC = 3600
+
+/**
+ * The bucket every `POST /auth/device` caller without a usable client IP shares,
+ * and how many sign-ins it allows per window.
+ *
+ * Such a caller has no key of its own, and it is what an unauthenticated client
+ * sends to mint device-login records freely: on a self-hosted backend Cloudflare
+ * does not front, omitting or malforming both IP headers is enough, and nothing
+ * else bounds the insert rate — the TTL index only deletes what was written.
+ *
+ * The window is one pending record's lifetime, so the limit reads as "this many
+ * headerless sign-ins may be pending at once" (twice that across a boundary).
+ * 300 is 90x the 20/hour that used to hold every IP-less caller together. One
+ * caller can still spend it for the others, but only on a backend reachable
+ * without Cloudflare, and only as far as the window.
+ */
+export const HEADERLESS_SIGN_IN_KEY = 'device-login:ip:headerless'
+export const HEADERLESS_SIGN_IN_LIMIT = 300
+
 /**
  * `/auth/device*`: device sign-in (see `lib/identity/device-login.ts`).
  * `/auth/cli-tokens*`: the signed-in user's CLI and agent tokens. Which token
@@ -71,10 +94,16 @@ export function createCliAuthRoutes(quota: Quota = redisQuota) {
 
   routes.post('/device', async (c) => {
     const ip = ipOf(c)
+    // A usable client IP gets its own 20/hour bucket; without one the caller
+    // shares the bounded fallback above.
+    const refusal = quotaRefusal(
+      ip
+        ? await quota(`device-login:ip:${hashed(ip)}`, IP_SIGN_IN_LIMIT, IP_SIGN_IN_WINDOW_SEC)
+        : await quota(HEADERLESS_SIGN_IN_KEY, HEADERLESS_SIGN_IN_LIMIT, DEVICE_LOGIN_TTL_SEC),
+      'Too many sign-in requests; try again later',
+    )
 
-    if (!(await quota(`device-login:ip:${hashed(ip ?? 'unknown')}`, 20, 3600))) {
-      throw new AppError(429, 'rate_limited', 'Too many sign-in requests; try again later')
-    }
+    if (refusal) throw refusal
     const body = (await c.req.json().catch(() => ({}))) as { clientName?: unknown }
     const started = await startDeviceLogin({ clientName: body.clientName, requesterIp: ip })
 
