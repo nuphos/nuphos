@@ -49,6 +49,8 @@ struct TransferCard: View {
     /// The image or video the full-screen pager opens on.
     @State private var pagerStart: URL?
     @State private var failed = false
+    /// Videos whose copy is on its way, so swiping back fetches none twice.
+    @State private var copying: Set<String> = []
 
     var body: some View {
         VStack(alignment: fromUser ? .trailing : .leading, spacing: 8) {
@@ -83,8 +85,21 @@ struct TransferCard: View {
         .fullScreenCover(isPresented: Binding(get: { pagerStart != nil }, set: { if !$0 { pagerStart = nil } })) {
             if let pagerStart {
                 MediaPager(urls: previewItems, current: pagerStart) { url in
-                    guard let video = media.first(where: { TransferFiles.path($0) == url }) else { return }
-                    _ = try await TransferFiles.localCopies(of: [video], tapped: video) { try await fetch().flatMap(\.files) }
+                    // A video plays from a freshly signed link while its copy
+                    // comes behind it, for Share and the next open.
+                    guard !FileManager.default.fileExists(atPath: url.path),
+                          let video = media.first(where: { TransferFiles.path($0) == url }) else { return url }
+                    let fresh = try await fetch().flatMap(\.files)
+                    guard let link = fresh.first(where: { $0.id == video.id })?.downloadUrl.flatMap(URL.init(string:)) else {
+                        throw URLError(.fileDoesNotExist)
+                    }
+                    if copying.insert(video.id).inserted {
+                        Task {
+                            _ = try? await TransferFiles.localCopies(of: [video], tapped: video) { fresh }
+                            copying.remove(video.id)
+                        }
+                    }
+                    return link
                 }
             }
         }
@@ -178,16 +193,23 @@ struct TransferCard: View {
             // A file already on disk opens at once; only missing ones are
             // re-signed (presigned links expire) and fetched. The message's
             // other images come along so the pager can swipe between them;
-            // its other videos are fetched once their page shows.
+            // its videos stream once their page shows, the tapped one too.
             let shown = media.contains(file) ? media : [file]
-            let locals = try await TransferFiles.localCopies(of: shown.filter { !$0.isVideo || $0 == file }, tapped: file) {
+            #if os(iOS)
+            let streamed = file.isVideo
+            #else
+            let streamed = false
+            #endif
+            let locals = try await TransferFiles.localCopies(
+                of: shown.filter { !$0.isVideo || ($0 == file && !streamed) }, tapped: streamed ? nil : file
+            ) {
                 try await fetch().flatMap(\.files)
             }
             previewItems = shown.compactMap { $0.isVideo ? TransferFiles.path($0) : locals[$0.id] }
             #if os(iOS)
             // Anything the pager can't show (an SVG, say) stays with Quick Look.
             let pageable = previewItems.filter(MediaPager.shows)
-            if let start = locals[file.id], pageable.contains(start) {
+            if let start = streamed ? TransferFiles.path(file) : locals[file.id], pageable.contains(start) {
                 previewItems = pageable
                 pagerStart = start
                 return
