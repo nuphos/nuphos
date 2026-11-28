@@ -58,7 +58,7 @@
     "canvas-confetti": "^1.9.4",
     "clsx": "^2.1.1",
     "cron-parser": "^4.9.0",
-    "electron": "^44.10.0",
+    "electron": "^45.4.1",
     "electron-builder": "^26.15.7",
     "eslint": "^10.8.0",
     "eslint-config-prettier": "^10.1.8",
