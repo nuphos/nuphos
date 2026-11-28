@@ -14,6 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applyCodexProvider } from './custom-provider-codex.ts'
+import { applyOpenCodeProvider } from './custom-provider-opencode.ts'
 import { claudeProviderSettings, readCustomProviders } from './custom-provider.ts'
 import { linkOwnerFile } from './owner-file-link.ts'
 import { agentHomeName, prepareShimHome } from './providers.ts'
@@ -207,6 +208,19 @@ export function deleteDefaultLogin(
   if (provider === 'codex') rmSync(path.join(codexOwnerHome(env), 'auth.json'), { force: true })
 }
 
+/** A plain home, which for OpenCode also carries the provider saved beside it. */
+function prepareOwnHome(provider: LocalAgentProvider, userDir: string): string | undefined {
+  const home = prepareShimHome(provider, userDir)
+
+  try {
+    if (home && provider === 'opencode') applyOpenCodeProvider(userDir, home)
+
+    return home
+  } catch {
+    return undefined
+  }
+}
+
 export function prepareAgentHome(
   provider: LocalAgentProvider,
   userDir: string,
@@ -216,7 +230,7 @@ export function prepareAgentHome(
   if (provider === 'codex') return prepareCodexHome(userDir, env)
   if (provider === 'claude-code') return prepareClaudeHome(userDir, workspace)
 
-  return prepareShimHome(provider, userDir)
+  return prepareOwnHome(provider, userDir)
 }
 
 /** Added instances do not import file-based logins. AGY cannot be added: its keyring is shared. */
@@ -226,7 +240,7 @@ export function prepareIsolatedAgentHome(
   workspace: string,
 ): string | undefined {
   if (provider === 'claude-code') return prepareClaudeHome(userDir, workspace)
-  if (provider !== 'codex') return prepareShimHome(provider, userDir)
+  if (provider !== 'codex') return prepareOwnHome(provider, userDir)
   const home = path.join(userDir, 'codex-home')
 
   try {

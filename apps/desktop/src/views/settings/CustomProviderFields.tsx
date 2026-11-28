@@ -168,37 +168,25 @@ export function CustomProviderFields({
           />
         )}
       </Row>
-      {/* Codex's adapter refuses any model outside Codex's catalog but the configured one (#5214). */}
-      {provider === 'codex' ? (
-        <Row modal={modal} label={t('Model ID')} hint={t('Optional. Codex runs this model.')}>
-          <input
-            spellCheck={false}
-            value={draft.models}
-            onChange={(event) => update({ models: event.target.value })}
-            className={inputClass()}
-          />
-        </Row>
-      ) : (
-        <Row
-          modal={modal}
-          label={azure ? t('Deployment names') : t('Model IDs')}
-          hint={
-            azure
-              ? t('Not the model name. One per line; the first one is the default.')
-              : opencode
-                ? t('One per line; the first one is the default.')
-                : t('Optional. The first one is the default in Model settings.')
-          }
-        >
-          <textarea
-            rows={2}
-            spellCheck={false}
-            value={draft.models}
-            onChange={(event) => update({ models: event.target.value })}
-            className={clsx(inputClass(), 'h-auto py-2')}
-          />
-        </Row>
-      )}
+      <Row
+        modal={modal}
+        label={azure ? t('Deployment names') : t('Model IDs')}
+        hint={
+          azure
+            ? t('Not the model name. One per line; the first one is the default.')
+            : opencode
+              ? t('One per line; the first one is the default.')
+              : t('Optional. The first one is the default in Model settings.')
+        }
+      >
+        <textarea
+          rows={2}
+          spellCheck={false}
+          value={draft.models}
+          onChange={(event) => update({ models: event.target.value })}
+          className={clsx(inputClass(), 'h-auto py-2')}
+        />
+      </Row>
       <div className="flex items-center gap-3">
         <Button
           size="sm"

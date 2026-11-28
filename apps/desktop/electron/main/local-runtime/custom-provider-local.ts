@@ -104,7 +104,7 @@ export function withProviderStatus(
 export function withProviderKey(process: RuntimeProcess, store: KeyStore): RuntimeProcess {
   return {
     start: async (options) => {
-      const custom = await customProviderLaunch(store, options.provider, options.agentHome)
+      const custom = await customProviderLaunch(store, options.provider, options.agentHome, options)
 
       return process.start(custom ? { ...options, secretEnv: custom.env } : options)
     },
