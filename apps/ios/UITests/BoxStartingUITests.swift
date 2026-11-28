@@ -63,6 +63,63 @@ final class BoxStartingUITests: XCTestCase {
         XCTAssertFalse(app.staticTexts[starting].exists)
     }
 
+    /// The host drops before it lists a runtime, then comes back (#5018): Home lists the runtime on its own.
+    func testHomeListsARuntimeThatJoinsAfterTheHostDropped() throws {
+        XCTAssertTrue(app.staticTexts[starting].waitForExistence(timeout: 12), "No getting-ready state")
+        responses[devices] = box(state: "running", online: false)
+        try write()
+        let connect = app.staticTexts["Connect your first runtime"]
+        XCTAssertTrue(connect.waitForExistence(timeout: 15), "No empty state while the host is down")
+        responses[devices] = box(state: "running", online: true)
+        responses[runtimes] = runtimeList([opencode])
+        try write()
+        let left = connect.waitForNonExistence(timeout: 15)
+        shot("5018a")
+        XCTAssertTrue(left, "Home stayed on the empty state after the runtime joined")
+    }
+
+    /// The Box's Codex, not signed in, is listed before its OpenCode (#5018): Create turns on once OpenCode is listed.
+    func testCreateTurnsOnWhenASignedInRuntimeJoinsLater() throws {
+        XCTAssertTrue(app.staticTexts[starting].waitForExistence(timeout: 12), "No getting-ready state")
+        responses[devices] = box(state: "running", online: true)
+        responses[runtimes] = runtimeList([codex])
+        try write()
+        XCTAssertTrue(app.staticTexts[starting].waitForNonExistence(timeout: 15), "Home did not move on to the runtime list")
+        let create = app.buttons["Create"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5), "No Create button")
+        XCTAssertFalse(create.isEnabled, "Create is on with only a runtime that is not signed in")
+        responses[runtimes] = runtimeList([codex, opencode])
+        try write()
+        let on = create.wait(for: \.isEnabled, toEqual: true, timeout: 15)
+        shot("5018b")
+        XCTAssertTrue(on, "Create stayed off after OpenCode joined")
+    }
+
+    private let codex: [String: Any] = [
+        "id": "11111111-1111-4111-8111-111111111111", "provider": "codex", "label": "Codex on Free Box",
+        "status": "active", "kind": "local",
+        "local": ["ownerUserId": "u1", "deviceId": "box-1", "deviceLabel": "Free Box", "online": true, "signedIn": false],
+    ]
+    private let opencode: [String: Any] = [
+        "id": "22222222-2222-4222-8222-222222222222", "provider": "opencode", "label": "OpenCode on Free Box",
+        "status": "active", "kind": "local",
+        "local": ["ownerUserId": "u1", "deviceId": "box-1", "deviceLabel": "Free Box", "online": true],
+    ]
+
+    /// Evidence only: the screen, base64 between markers in the log, and as an attachment.
+    private func shot(_ name: String) {
+        let png = XCUIScreen.main.screenshot().pngRepresentation
+        print("EVIDENCE-BEGIN \(name)\n\(png.base64EncodedString())\nEVIDENCE-END \(name)")
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
+    private func runtimeList(_ list: [[String: Any]]) -> [String: Any] {
+        ["status": 200, "body": ["runtimes": list]]
+    }
+
     private func box(state: String, online: Bool) -> [String: Any] {
         ["status": 200, "body": ["boxAvailable": true, "canCreateBox": false, "devices": [[
             "deviceId": "box-1", "label": "Free Box", "access": "owner", "online": online,
