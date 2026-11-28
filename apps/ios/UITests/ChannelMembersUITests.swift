@@ -150,6 +150,8 @@ final class ChannelMembersUITests: XCTestCase {
             let index = try XCTUnwrap(rows.firstIndex { $0["sessionId"] as? String == chat })
             rows[index]["title"] = "Launch review"
             rows[index]["faces"] = faces
+            // With one Bot's face, only this says it is a group chat and not that Bot's own chat.
+            rows[index]["group"] = true
             body["conversations"] = rows
         }
         try edit("GET /agent/conversations/\(chat)") { body in
