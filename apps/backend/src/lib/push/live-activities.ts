@@ -3,6 +3,8 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
+import { isActive, liveActivityCard } from './live-activity-card'
+import { idleWindow, scheduleIdleEnd } from './live-activity-idle'
 import { liveActivityStore } from './live-activity-store'
 import { conversationTitle } from './turn-outcome'
 import { watcherCanRead } from './watchers'
@@ -27,14 +29,12 @@ export type {
   LiveActivityToken,
 } from './live-activity-store'
 
-// How long the card stays on the Lock Screen once nothing runs.
-export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
-// Rows on the card; the rest are counted.
-export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 // iOS ends a card 8 hours after it starts; an older token shows nothing.
 export const LIVE_ACTIVITY_LIFETIME_MS = 8 * 60 * 60 * 1000
+
+export { LIVE_ACTIVITY_ROWS, liveActivityCard } from './live-activity-card'
 
 /** The status the app shows for this runtime state (iOS `AgentThreadBadge`). */
 export function liveActivityPhase(state: SessionExecutionState): LiveActivityPhase {
@@ -61,66 +61,51 @@ export type LiveActivityDeps = {
   schedule: (work: () => void, delayMs: number) => void
 }
 
-const isActive = (phase?: LiveActivityPhase) =>
-  !phase || phase === 'running' || phase === 'approval'
-// An unavailable runtime may come back, and an ended card can no longer show it.
-const isFinished = (phase?: LiveActivityPhase) => phase === 'done' || phase === 'stopped'
-
-/** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
- *  registered before its run reported a phase is running. */
-export function liveActivityCard(sessions: LiveActivitySession[]) {
-  return {
-    sessions: sessions.slice(0, LIVE_ACTIVITY_ROWS).map((s) => ({
-      id: s.sessionId,
-      teamId: s.teamId ?? '',
-      title: s.title ?? '',
-      phase: s.phase ?? 'running',
-    })),
-    more: Math.max(0, sessions.length - LIVE_ACTIVITY_ROWS),
-    active: sessions.filter((s) => isActive(s.phase)).length,
-  }
-}
-
-/** Sends each token its whole card. Once every row is done or stopped the
- *  card ends; until then it updates. A token is dropped only once
- *  it has ended or APNs says it is dead; anything else is retried, so a
- *  throttled end still reaches the phone, unless the phase changed meanwhile
- *  (its own delivery covers those tokens). */
+/** Sends each token its whole card as an update: the card stays up between
+ *  turns so the next one reuses it, and ends once it has sat idle (see
+ *  `live-activity-idle`). A token is dropped only once APNs says it is dead;
+ *  anything else is retried unless the phase changed meanwhile (its own
+ *  delivery covers those tokens). True when a token was dead. */
 async function deliver(
   deps: LiveActivityDeps,
   session: LiveActivitySession,
   tokens: LiveActivityToken[],
   attempt = 0,
-): Promise<void> {
+): Promise<boolean> {
   const credentials = deps.credentials()
 
-  if (!credentials) return
+  if (!credentials) return false
   const now = Math.floor(deps.now() / 1000)
   const retry: LiveActivityToken[] = []
+  let dead = false
 
   await Promise.all(
     tokens.map(async (token) => {
       try {
         const listed = await deps.liveActivities.forToken(token.token)
         const card = liveActivityCard(listed)
-        const ends = listed.every((s) => isFinished(s.phase))
+        const idle = idleWindow(listed)
         const response = await deps.send(credentials, {
           deviceToken: token.token,
           environment: token.environment,
           pushType: 'liveactivity',
+          priority: session.phase === 'approval' ? 10 : 5, // 5 spares the iOS update budget
           payload: {
             aps: {
               timestamp: now,
-              event: ends ? 'end' : 'update',
+              event: 'update',
               'content-state': card,
-              ...(ends ? { 'dismissal-date': now + LIVE_ACTIVITY_DISMISS_S } : {}),
+              ...(idle === null ? {} : { 'stale-date': now + idle }),
             },
           },
         })
 
-        if (isDeadToken(response) || (ends && response.status === 200)) {
+        if (isDeadToken(response)) {
+          dead = true
           await deps.liveActivities.removeToken(token.token)
-        } else if (response.status !== 200) {
+        } else if (response.status === 200) {
+          if (idle !== null) scheduleIdleEnd(deps, token, listed, card, idle)
+        } else {
           logEvent('warn', 'push.live_activity.rejected', {
             status: response.status,
             reason: response.reason ?? null,
@@ -146,6 +131,8 @@ async function deliver(
       })
     }, delay)
   }
+
+  return dead
 }
 
 async function retryIfCurrent(
@@ -231,6 +218,8 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
               deviceToken,
               environment,
               pushType: 'liveactivity',
+              priority: 5,
+              // No `alert`: it would expand the Dynamic Island on every turn.
               payload: {
                 aps: {
                   timestamp: Math.floor(deps.now() / 1000),
@@ -238,7 +227,6 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
                   'attributes-type': 'TurnActivityAttributes',
                   attributes: {},
                   'content-state': liveActivityCard([{ ...session, ...row }]),
-                  alert: { title: row.title, body: 'Running' },
                 },
               },
             })
@@ -267,11 +255,16 @@ export async function recordLiveActivityState(
   const changed = await deps.liveActivities.setPhase(sessionId, liveActivityPhase(state))
 
   if (!changed) return
-  if (!isActive(changed.phase)) return deliver(deps, changed, changed.tokens)
+  if (!isActive(changed.phase)) {
+    await deliver(deps, changed, changed.tokens)
+
+    return
+  }
   await join(deps, changed)
   const session = (await deps.liveActivities.get(sessionId)) ?? changed
 
-  await deliver(deps, session, session.tokens)
+  // A card swiped away while the app was closed answers dead: start a new one.
+  if (await deliver(deps, session, session.tokens)) await join(deps, session)
 }
 
 export const liveActivityDeps: LiveActivityDeps = {

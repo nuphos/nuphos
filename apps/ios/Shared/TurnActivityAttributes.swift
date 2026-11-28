@@ -41,6 +41,9 @@ nonisolated struct TurnActivityAttributes: TurnActivityBase {
 
         static let rows = 3
 
+        /// Shown rows waiting for approval. Rows past them are not known.
+        var needsYou: Int { sessions.filter { $0.phase == .approval }.count }
+
         /// Every row finished, so the card can show its check. With rows past
         /// the shown ones it cannot tell, so it does not claim it.
         var finished: Bool { more == 0 && sessions.allSatisfy(\.phase.isFinished) }

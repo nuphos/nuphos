@@ -19,15 +19,14 @@ struct TurnActivityWidget: Widget {
                 .activitySystemActionForegroundColor(.white)
                 .widgetURL(SessionLink.conversations)
         } dynamicIsland: { context in
+            // Nothing sits in the trailing region: it runs into the island's
+            // rounded corner and clipped the status there.
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
                     TurnCardMark(size: 22).padding(.leading, 4)
                 }
-                DynamicIslandExpandedRegion(.trailing) {
-                    TurnCardStatus(card: context.state).font(.subheadline.weight(.medium)).padding(.trailing, 4)
-                }
                 DynamicIslandExpandedRegion(.bottom) {
-                    TurnCardRows(card: context.state)
+                    TurnIslandExpanded(card: context.state)
                 }
             } compactLeading: {
                 TurnCardMark(size: 18)
@@ -36,6 +35,7 @@ struct TurnActivityWidget: Widget {
             } minimal: {
                 TurnCardCount(card: context.state)
             }
+            .keylineTint(context.state.needsYou > 0 ? .orange : nil)
             .widgetURL(SessionLink.conversations)
         }
     }

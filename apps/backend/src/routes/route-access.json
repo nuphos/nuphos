@@ -32,6 +32,7 @@
   "DELETE /lark/user-mappings/:openId": "user",
   "DELETE /personal-credentials/:provider": "user",
   "DELETE /push/devices/:token": "user",
+  "DELETE /push/live-activities/:token": "user",
   "DELETE /slack/mappings/:workspaceId/:channelId": "user",
   "DELETE /slack/mappings/:workspaceId/:channelId/bots/:botSessionId": "user",
   "DELETE /slack/user-mappings/:workspaceId/:slackUserId": "user",

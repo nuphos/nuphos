@@ -16,6 +16,7 @@ const TOKEN = 'AB'.repeat(32)
 let registered: { userId: string; device: PushDeviceRegistration }[]
 let unregistered: { userId: string; token: string }[]
 let activities: { sessionId: string; token: LiveActivityToken; row: LiveActivityRow }[]
+let forgotten: { userId: string; token: string }[]
 
 const store: PushDeviceStore = {
   register: async (userId, device) => {
@@ -47,6 +48,9 @@ app.route(
 
       return sessionId === 'untitled' ? {} : null
     },
+    async (userId, token) => {
+      forgotten.push({ userId, token })
+    },
   ),
 )
 app.onError(errorHandler)
@@ -63,6 +67,7 @@ beforeEach(() => {
   registered = []
   unregistered = []
   activities = []
+  forgotten = []
 })
 
 describe('push device routes', () => {
@@ -176,6 +181,15 @@ describe('Live Activity registration', () => {
     expect((await putActivity({ sessionId: 'someone-elses' })).status).toBe(404)
     expect((await putActivity({ sessionId: 'readable', teamId: 'team-2' })).status).toBe(404)
     expect(activities).toEqual([])
+  })
+
+  test('forgets a dismissed card as the signed-in user, with a normalized token', async () => {
+    const remove = (token: string) =>
+      app.request(`/push/live-activities/${token}`, { method: 'DELETE' })
+
+    expect((await remove(TOKEN)).status).toBe(200)
+    expect((await remove('not-a-token')).status).toBe(400)
+    expect(forgotten).toEqual([{ userId: 'user-1', token: TOKEN.toLowerCase() }])
   })
 })
 
