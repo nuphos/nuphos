@@ -143,6 +143,13 @@ data class CredentialSelection(
      * means "all", which an empty list would revoke.
      */
     @kotlinx.serialization.Transient val stored: Set<String>? = null,
+    /**
+     * All: every credential (or computer) the owner can use when the server reads the selection, ones
+     * added later included, as the desktop's `allCredentials` / `allDevices`. Narrowing a scope here
+     * turns its All off; adding to it keeps All.
+     */
+    val allCredentials: Boolean = false,
+    val allDevices: Boolean = false,
 ) {
     val isEmpty: Boolean get() = ids.values.all { it.isEmpty() }
     val count: Int get() = ids.values.sumOf { it.size }
@@ -152,19 +159,23 @@ data class CredentialSelection(
 
     fun toggle(item: CredentialCatalog.Item): CredentialSelection {
         val set = (ids[item.provider.selectionKey] ?: emptySet()).toMutableSet()
-        if (!set.add(item.id)) set.remove(item.id)
-        return copy(ids = ids + (item.provider.selectionKey to set))
+        if (set.add(item.id)) return copy(ids = ids + (item.provider.selectionKey to set))
+        set.remove(item.id)
+        val computer = item.provider.selectionKey == "deviceIds"
+        return copy(ids = ids + (item.provider.selectionKey to set),
+            allCredentials = allCredentials && computer, allDevices = allDevices && !computer)
     }
 
     /**
-     * Fresh composer defaults, the member's own Personal Credentials included, as the desktop's
-     * `defaultCredentialAccess`; mail remains an explicit opt-in. Never used for stored chats.
+     * Fresh composer defaults: All, so ones added later are included too, with every usable one ticked,
+     * Resend, Trello and the member's own Personal Credentials included, as the desktop's
+     * `defaultCredentialAccess` (#4940). Never used for stored chats.
      */
     fun selectDefaults(catalog: CredentialCatalog): CredentialSelection {
         val usable = catalog.allItems.filter { !it.unavailable }
         val defaults = usable.groupBy { it.provider.selectionKey }.mapValues { (_, items) -> items.map { it.id }.toSet() }
-        return copy(newConversation = true, ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } +
-            defaults.filterKeys { it !in ids } + ("resendIntegrationIds" to emptySet()) + ("trelloIntegrationIds" to emptySet()))
+        return copy(newConversation = true, allCredentials = true, allDevices = true,
+            ids = ids.mapValues { (key, selected) -> selected + defaults[key].orEmpty() } + defaults.filterKeys { it !in ids })
     }
 
     /** Add usable computers without revoking an already selected unavailable computer. */
@@ -178,8 +189,9 @@ data class CredentialSelection(
         return usable.isNotEmpty() && usable.all(::contains)
     }
 
-    fun clearComputers(): CredentialSelection = copy(ids = ids + ("deviceIds" to emptySet()))
+    fun clearComputers(): CredentialSelection = copy(ids = ids + ("deviceIds" to emptySet()), allDevices = false)
 
+    // The flags are sent only when on: the server reads a missing one as off, so a narrowed All is stored as the list.
     val json: JsonValue
         get() = JsonValue.Obj(
             CredentialCatalog.NEW_CONVERSATION_PROVIDERS.filter {
@@ -189,7 +201,10 @@ data class CredentialSelection(
                 provider.selectionKey to JsonValue.Arr(
                     (ids[provider.selectionKey] ?: emptySet()).sorted().map { JsonValue.Str(it) },
                 )
-            },
+            } + listOfNotNull(
+                ("allCredentials" to JsonValue.Bool(true)).takeIf { allCredentials },
+                ("allDevices" to JsonValue.Bool(true)).takeIf { allDevices },
+            ),
         )
 
     /**
@@ -205,6 +220,8 @@ data class CredentialSelection(
         // isn't a list is sent back as an empty one rather than left to mean "all".
         stored = CredentialCatalog.NEW_CONVERSATION_PROVIDERS.map { it.selectionKey }
             .filter { json[it]?.isNull == false }.toSet(),
+        allCredentials = json["allCredentials"]?.boolValue == true,
+        allDevices = json["allDevices"]?.boolValue == true,
     )
 
     /**

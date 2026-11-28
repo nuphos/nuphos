@@ -25,7 +25,7 @@ class CredentialDraftTest {
         return pending.finish(pending.request, Result.success(catalog))
     }
 
-    @Test fun firstSuccessSelectsAllUsableExceptResendAndIsReady() {
+    @Test fun firstSuccessStartsOnAllWithEveryUsableOneAndIsReady() {
         assertFalse(CredentialDraft().isReady)
         val draft = loaded()
         assertTrue(draft.isReady)
@@ -33,7 +33,10 @@ class CredentialDraftTest {
         assertEquals(setOf("cloud"), draft.selection.ids["awsRoleIds"])
         assertEquals(setOf("github"), draft.selection.ids["githubInstallationIds"])
         assertEquals(setOf("analytics"), draft.selection.ids["posthogIntegrationIds"])
-        assertTrue(draft.selection.ids["resendIntegrationIds"]!!.isEmpty())
+        // All, as the desktop's defaultCredentialAccess (#4940): Resend included, and both flags on the wire.
+        assertEquals(setOf("mail"), draft.selection.ids["resendIntegrationIds"])
+        assertEquals(JsonValue.Bool(true), draft.selection.json["allCredentials"])
+        assertEquals(JsonValue.Bool(true), draft.selection.json["allDevices"])
     }
 
     @Test fun everyIosProviderIsSelectedAndSerializedUsingItsOwnIdentifierKey() {
@@ -44,12 +47,8 @@ class CredentialDraftTest {
         val selection = loaded(all).selection
         assertEquals(32, providers.size)
         providers.forEach {
-            // Resend and Trello stay opt-in; the member's own credentials are picked, as on the desktop (#4028).
-            val expected = when (it.optionsKey) {
-                "resendIntegrations", "trelloIntegrations" -> emptySet<String>()
-                else -> setOf("id-${it.optionsKey}")
-            }
-            assertEquals(expected, selection.ids[it.selectionKey])
+            // Every kind, Resend, Trello and the member's own credentials included, as on the desktop (#4028, #4940).
+            assertEquals(setOf("id-${it.optionsKey}"), selection.ids[it.selectionKey])
             assertEquals(selection.ids[it.selectionKey].orEmpty().sorted(), selection.json[it.selectionKey]!!.arrayValue!!.map { value -> value.stringValue })
         }
     }
@@ -77,13 +76,40 @@ class CredentialDraftTest {
         assertTrue(refreshed.catalog!!.allItems.first { it.id == "online" }.unavailable)
     }
 
-    @Test fun resendOptInSurvivesRefreshButNotAnotherTeamOrLaunch() {
+    @Test fun resendOptOutSurvivesRefreshButNotAnotherTeamOrLaunch() {
         val initial = loaded()
         val mail = mixed.allItems.first { it.id == "mail" }
         val edited = initial.copy(selection = initial.selection.toggle(mail))
-        assertEquals(setOf("mail"), edited.refresh(mixed).selection.ids["resendIntegrationIds"])
-        assertTrue(edited.reset().refresh(mixed).selection.ids["resendIntegrationIds"]!!.isEmpty())
-        assertTrue(loaded().selection.ids["resendIntegrationIds"]!!.isEmpty())
+        assertTrue(edited.refresh(mixed).selection.ids["resendIntegrationIds"]!!.isEmpty())
+        assertEquals(setOf("mail"), edited.reset().refresh(mixed).selection.ids["resendIntegrationIds"])
+        assertEquals(setOf("mail"), loaded().selection.ids["resendIntegrationIds"])
+    }
+
+    @Test fun anEmptyTeamStillStartsOnAllSoLaterCredentialsAreIn() {
+        val wire = loaded(CredentialCatalog(emptyList())).selection.json
+        assertEquals(JsonValue.Bool(true), wire["allCredentials"])
+        assertEquals(JsonValue.Bool(true), wire["allDevices"])
+    }
+
+    @Test fun narrowingTurnsThatScopesAllOffAndAddingKeepsIt() {
+        val stored = CredentialSelection(JsonValue.parse(
+            """{"awsRoleIds":["cloud"],"deviceIds":["online"],"allCredentials":true,"allDevices":true}""")!!)
+        // A stored All is sent back as All.
+        assertEquals(JsonValue.Bool(true), stored.json["allCredentials"])
+        assertEquals(JsonValue.Bool(true), stored.json["allDevices"])
+        val cloud = mixed.allItems.single { it.id == "cloud" }
+        val online = mixed.allItems.single { it.id == "online" }
+        val mail = mixed.allItems.single { it.id == "mail" }
+        assertEquals(JsonValue.Bool(true), stored.toggle(mail).json["allCredentials"])
+        val narrowed = stored.toggle(cloud).json
+        assertNull(narrowed["allCredentials"])
+        assertEquals(JsonValue.Bool(true), narrowed["allDevices"])
+        val noComputer = stored.toggle(online).json
+        assertNull(noComputer["allDevices"])
+        assertEquals(JsonValue.Bool(true), noComputer["allCredentials"])
+        assertNull(stored.clearComputers().json["allDevices"])
+        assertEquals(JsonValue.Bool(true), stored.clearComputers().json["allCredentials"])
+        assertEquals(JsonValue.Bool(true), stored.selectAllComputers(mixed).json["allDevices"])
     }
 
     @Test fun clearAllDoesNotReapplyDefaultsOnRefresh() {
@@ -95,6 +121,7 @@ class CredentialDraftTest {
         val wire = draft.refresh(mixed).selection.json
         assertEquals(CredentialCatalog.NEW_CONVERSATION_PROVIDERS.map { it.selectionKey }.toSet(), wire.objectValue!!.keys)
         assertTrue(wire.objectValue!!.values.all { it.arrayValue!!.isEmpty() })
+        assertNull(wire["allCredentials"])
     }
 
     @Test fun successfulEmptyCatalogIsReadyAndLaterRefreshOnlyPrunes() {
