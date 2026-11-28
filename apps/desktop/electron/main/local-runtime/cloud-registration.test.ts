@@ -47,7 +47,7 @@ mock.module('../../agent/dock-terminal.ts', {
   namedExports: { createDockTerminalStream: () => {} },
 })
 mock.module('./cua-stream.ts', {
-  namedExports: { localToolStreams: {}, fitFrame: (value: unknown) => value },
+  namedExports: { fitFrame: (value: unknown) => value },
 })
 mock.module('./browser-streams.ts', { namedExports: { browserStreams: {} } })
 mock.module('./mac-screen-app.ts', {

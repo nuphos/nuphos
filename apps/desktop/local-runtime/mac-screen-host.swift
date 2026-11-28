@@ -2,6 +2,11 @@
 // account: the viewer reaches it only through the owner's authenticated relay.
 //
 //   mac-screen-host <socket-path> [--own-permissions]
+//   mac-screen-host - [--own-permissions]
+//
+// With `-` it runs one Computer Use action instead: a JSON object on stdin,
+// such as {"action":"click","x":10,"y":20}, answered on stdout as an MCP tool
+// result (see computerUse below).
 //
 // It speaks the part of RFB 3.8 the relay and both viewers already use, with
 // security None, and sends the screen as Open H.264 rectangles (encoding 50).
@@ -34,7 +39,7 @@ func fail(_ message: String) -> Never {
 
 let arguments = CommandLine.arguments
 guard arguments.count == 2 || (arguments.count == 3 && arguments[2] == "--own-permissions") else {
-    fputs("usage: mac-screen-host <socket-path> [--own-permissions]\n", stderr)
+    fputs("usage: mac-screen-host <socket-path>|- [--own-permissions]\n", stderr)
     exit(64)
 }
 let socketPath = arguments[1]
@@ -745,6 +750,122 @@ func awakeDisplay<Display>(wake: @escaping () -> Void, find: @escaping () async 
     defer { search.cancel(); timer.cancel() }
     for try await display in answer { return display }
     return nil
+}
+
+// MARK: - Computer Use
+
+/// Key names an action may use, as the RFB keysyms Input takes; anything else is one character.
+let keyNames: [String: UInt32] = [
+    "cmd": 0xFFE7, "command": 0xFFE7, "shift": 0xFFE1, "ctrl": 0xFFE3, "control": 0xFFE3,
+    "alt": 0xFFE9, "option": 0xFFE9, "return": 0xFF0D, "enter": 0xFF0D, "tab": 0xFF09,
+    "backspace": 0xFF08, "delete": 0xFF08, "escape": 0xFF1B, "esc": 0xFF1B, "forwarddelete": 0xFFFF,
+    "left": 0xFF51, "up": 0xFF52, "right": 0xFF53, "down": 0xFF54, "home": 0xFF50, "end": 0xFF57,
+    "pageup": 0xFF55, "pagedown": 0xFF56, "space": 0x20,
+].merging((1...12).map { ("f\($0)", UInt32(0xFFBD + $0)) }) { a, _ in a }
+
+/// "cmd+shift+t" as keysyms, or nil when a part names no key.
+func keysyms(_ combo: String) -> [UInt32]? {
+    let parts = combo.split(separator: "+").map(String.init)
+    let keys = parts.map { part in keyNames[part.lowercased()] ?? (part.unicodeScalars.count == 1 ? part.unicodeScalars.first!.value : nil) }
+    return keys.isEmpty || keys.contains(nil) ? nil : keys.compactMap { $0 }
+}
+
+/// The main display at its size in points, the space click and scroll coordinates use.
+func screenshot() -> CGImage? {
+    let done = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var image: CGImage?
+    SCShareableContent.getExcludingDesktopWindows(false, onScreenWindowsOnly: true) { content, _ in
+        guard let display = content?.displays.first(where: { $0.displayID == CGMainDisplayID() }) ?? content?.displays.first else {
+            done.signal()
+            return
+        }
+        let config = SCStreamConfiguration()
+        config.width = display.width
+        config.height = display.height
+        config.showsCursor = true
+        SCScreenshotManager.captureImage(contentFilter: SCContentFilter(display: display, excludingWindows: []), configuration: config) { captured, _ in
+            image = captured
+            done.signal()
+        }
+    }
+    done.wait()
+    return image
+}
+
+/// Running apps with their on-screen windows, frontmost app marked.
+func listApps() -> [[String: Any]] {
+    let windows = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? [])
+        .filter { $0[kCGWindowLayer as String] as? Int == 0 }
+    return NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.map { app in
+        ["name": app.localizedName ?? "", "bundleId": app.bundleIdentifier ?? "", "active": app.isActive,
+         "windows": windows.filter { $0[kCGWindowOwnerPID as String] as? pid_t == app.processIdentifier }.map {
+             ["title": $0[kCGWindowName as String] as? String ?? "", "bounds": $0[kCGWindowBounds as String] ?? [:]]
+         }]
+    }
+}
+
+/// One action, answered as an MCP tool result: screenshot, click, type, key, scroll or list_apps.
+func computerUse(_ line: String?) -> [String: Any] {
+    func text(_ text: String, error: Bool = false) -> [String: Any] {
+        ["content": [["type": "text", "text": text]], "isError": error]
+    }
+    guard let data = line?.data(using: .utf8),
+          let action = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+          let name = action["action"] as? String else { return text("The action could not be read.", error: true) }
+    let input = Input()
+    let x = action["x"] as? Int, y = action["y"] as? Int
+    switch name {
+    case "screenshot":
+        guard let image = screenshot(),
+              let jpeg = NSBitmapImageRep(cgImage: image).representation(using: .jpeg, properties: [.compressionFactor: 0.8]) else {
+            return text("The screen could not be captured.", error: true)
+        }
+        return ["content": [["type": "image", "data": jpeg.base64EncodedString(), "mimeType": "image/jpeg"],
+                            ["type": "text", "text": "The main display, \(image.width)×\(image.height) points; x and y use these points."]]]
+    case "click", "scroll":
+        guard let x, let y else { return text("\(name) needs x and y.", error: true) }
+        input.pointer(mask: 0, x: x, y: y)
+        if name == "click" {
+            let button: UInt8 = action["button"] as? String == "right" ? 4 : 1
+            for _ in 0..<min(max(action["clicks"] as? Int ?? 1, 1), 3) {
+                input.pointer(mask: button, x: x, y: y)
+                input.pointer(mask: 0, x: x, y: y)
+            }
+        }
+        // Each wheel button press scrolls one step (Input.pointer); positive goes down or right.
+        for (steps, forward, back) in [(action["scroll_y"] as? Int ?? 0, UInt8(16), UInt8(8)), (action["scroll_x"] as? Int ?? 0, 64, 32)] {
+            for _ in 0..<min(abs(steps), 50) { input.pointer(mask: steps > 0 ? forward : back, x: x, y: y) }
+        }
+    case "type":
+        guard let typed = action["text"] as? String else { return text("type needs text.", error: true) }
+        for scalar in typed.unicodeScalars {
+            let keysym = scalar == "\n" ? 0xFF0D : scalar == "\t" ? 0xFF09 : scalar.value
+            input.key(keysym, down: true)
+            input.key(keysym, down: false)
+        }
+    case "key":
+        guard let keys = keysyms(action["key"] as? String ?? "") else {
+            return text("key needs a key such as \"return\" or \"cmd+shift+t\".", error: true)
+        }
+        for key in keys { input.key(key, down: true) }
+        for key in keys.reversed() { input.key(key, down: false) }
+    case "list_apps":
+        let apps = (try? JSONSerialization.data(withJSONObject: listApps(), options: [.sortedKeys])) ?? Data()
+        return text(String(decoding: apps, as: UTF8.self))
+    default:
+        return text("Unknown action \(name).", error: true)
+    }
+    return text("Done.")
+}
+
+if socketPath == "-" {
+    Thread.detachNewThread {
+        let result = computerUse(readLine())
+        let data = (try? JSONSerialization.data(withJSONObject: result)) ?? Data()
+        print(String(decoding: data, as: UTF8.self))
+        exit(0)
+    }
+    dispatchMain()
 }
 
 // MARK: - Main

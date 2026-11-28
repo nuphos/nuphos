@@ -131,6 +131,28 @@ describe('local_cua', () => {
     expect(device.sockets[0]?.closed).toBe(true)
   })
 
+  test('sends a built-in action as its own fields, and takes either action or code', async () => {
+    const device = fakeDevice((message, socket) => {
+      if (message.t === 'call')
+        socket.emit('message', {
+          t: 'result',
+          result: { content: [{ type: 'text', text: 'Done.' }] },
+        })
+    })
+    const handler = createLocalCuaHandler(ctx, deps({ connect: device.connect }))
+
+    await handler({ action: 'click', x: 10, y: 20, device: 'mac', title: 'Open' })
+    expect(device.sockets[0]?.sent[0]).toEqual({
+      t: 'call',
+      session: 's1',
+      turn: 'turn-1',
+      action: { action: 'click', x: 10, y: 20 },
+    })
+    expect((await handler({ action: 'screenshot', code: '1' })).isError).toBe(true)
+    expect((await handler({})).isError).toBe(true)
+    expect(device.sockets).toHaveLength(1)
+  })
+
   test("answers the App's approval prompt with the user's decision", async () => {
     const asked: string[] = []
     const device = fakeDevice((message, socket) => {

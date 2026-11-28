@@ -90,8 +90,8 @@ const boundaries: Record<string, Record<string, unknown>> = {
       }
     },
   },
-  './cua-stream.ts': { localToolStreams: {} },
   './dev-bundle.ts': { watchDevBundle: noop },
+  './exec-stream.ts': { LocalExecStream: class {} },
   './mac-screen-app.ts': {
     macScreenApp: () => ({ deps: () => ({}) }),
   },

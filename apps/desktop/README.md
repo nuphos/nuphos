@@ -44,6 +44,13 @@ device tunnel; the App's per-app
 approval prompts appear as the conversation's approval card, and an app allowed
 once stays allowed for that conversation.
 
+`local_cua` also works without the App. Its `action` argument (`screenshot`,
+`click`, `type`, `key`, `scroll`, `list_apps`) runs on the bundle's own
+`mac-screen-host`, in Desktop and in the `nuphos` CLI on macOS: `mac-screen-host -`
+reads one action as JSON on stdin and answers with a tool result on stdout. It
+needs the same Screen Recording and Accessibility permissions as showing this
+Mac's screen, held by Nuphos in Desktop and by the host itself under the CLI.
+
 The workspace's own browser tabs need no Computer Use: the `local_browser`
 tool lists them, opens and navigates pages, runs JavaScript in a page and takes
 screenshots, through each tab's `webContents` (`local-runtime/browser-tabs.ts`).

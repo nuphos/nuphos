@@ -35,11 +35,11 @@ import {
   withProviderStatus,
 } from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
-import { localToolStreams } from './cua-stream.ts'
 import { desktopVaultTokens } from './desktop-vault-tokens.ts'
 import { watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
+import { LocalExecStream } from './exec-stream.ts'
 import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
 import { localLogins } from './local-logins.ts'
 import { macScreenApp } from './mac-screen-app.ts'
@@ -131,7 +131,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
         })
       },
       ...localFileConnectors(() => controller.state(), bundleRoot()),
-      ...localToolStreams,
+      connectExec: () => new LocalExecStream(),
       ...browserStreams,
       connectTerminal: createDockTerminalStream,
       connectRuntime: (purpose, provider, instanceId) => {

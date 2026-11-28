@@ -10,7 +10,10 @@ import { BrowserAccessHost } from './cua-browser-access.ts'
 export type CuaCall = {
   session: string
   turn: string
-  code: string
+  /** JavaScript for the Codex App's `cua_repl`. */
+  code?: string
+  /** Or a built-in action instead (cua-stream.ts). */
+  action?: Record<string, unknown>
   title?: string
   timeoutMs?: number
 }

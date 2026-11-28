@@ -261,6 +261,29 @@ test('without the App the call fails with an explanation', async () => {
   assert.equal(sent[0]?.result.isError, true)
 })
 
+test('without the App an action runs on the built-in host', async () => {
+  const actions: unknown[] = []
+  const stream = new LocalCuaStream({
+    config: () => null,
+    host: () => assert.fail('no host'),
+    native: (action) => {
+      actions.push(action)
+
+      return Promise.resolve({ content: [{ type: 'text', text: 'Done.' }] })
+    },
+  })
+  const sent: unknown[] = []
+
+  stream.addEventListener('message', (event) => sent.push(JSON.parse(String(event.data))))
+  await tick()
+  stream.send(
+    JSON.stringify({ t: 'call', session: 's', turn: 't', action: { action: 'click', x: 1, y: 2 } }),
+  )
+  await tick()
+  assert.deepEqual(actions, [{ action: 'click', x: 1, y: 2 }])
+  assert.deepEqual(sent, [{ t: 'result', result: { content: [{ type: 'text', text: 'Done.' }] } }])
+})
+
 test('a result too large for one tunnel frame keeps its text and drops the image', () => {
   const small = { content: [{ type: 'image', data: 'cG5n', mimeType: 'image/png' }] }
   const huge = {

@@ -18,6 +18,7 @@ import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 
+import { LocalCuaStream, nativeCua } from './cua-stream.ts'
 import { watchDesktops, withDesktopRequests } from './desktop-pool.ts'
 import { VncStream } from './vnc-stream.ts'
 
@@ -183,7 +184,10 @@ export function cliMacScreenHost(
   }
 }
 
-/** The tunnel's deps that show this Mac's screen: its stream, its open request, and its status. */
+/**
+ * The tunnel's deps that show this Mac's screen: its stream, its open request, and its status;
+ * and Computer Use, whose built-in actions the same host runs (cua-stream.ts).
+ */
 export function macScreenDeps(
   pool: string,
   status: () => LocalRuntimeTunnelStatus,
@@ -211,6 +215,11 @@ export function macScreenDeps(
       instances,
     ),
     connectVnc: () => new VncStream(pool, () => screenSocket(pool), host.handOver, host.owner),
+    connectCua: () => {
+      host.ask?.()
+
+      return new LocalCuaStream({ native: nativeCua(host.binary(), host.ownPermissions) })
+    },
     status: () => ({ ...status(), ...macScreenStatus(pool) }),
   }
 }
