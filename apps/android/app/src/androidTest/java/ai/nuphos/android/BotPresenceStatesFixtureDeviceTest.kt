@@ -29,7 +29,8 @@ class BotPresenceStatesFixtureDeviceTest {
             ChannelAgent("bot-6", "Mozart", avatar = "11-mozart", presence = BotPresence("offline", "runtime_deleted")),
         )
         agents.forEach { ai.nuphos.android.model.BotFaces.learn(it.sessionId, it.avatar) }
-        compose.setContent { NuphosTheme(darkTheme = dark) { ChannelMembersSheet(agents) {} } }
+        val members = ai.nuphos.android.session.ChannelMembers(ChannelMembersFixtureDeviceTest.Fake(listOf(ChannelMembersFixtureDeviceTest.jordan)), "jordan")
+        compose.setContent { NuphosTheme(darkTheme = dark) { ChannelMembersSheet(members, "Launch review", agents, "jordan") {} } }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("member-row").fetchSemanticsNodes().size == 6 }
         for (word in listOf("Online", "Busy", "Offline", "Needs sign-in", "Out of usage", "Unavailable"))
             compose.onNodeWithText(word).assertIsDisplayed()

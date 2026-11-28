@@ -32,14 +32,19 @@ class SharingState(val transport: SharingTransport, private val owner: () -> Boo
                 loadError = null
                 try { access = transport.read() } catch (e: Exception) { e.rethrowCancellation(); loadError = e.message ?: "Couldn't load sharing." }
             }
-            if (canManage) {
-                launch {
-                    membersError = null
-                    try { members = transport.members() } catch (e: Exception) { e.rethrowCancellation(); membersError = e.message ?: "Couldn't load teammates." }
-                }
-
-            }
+            if (canManage) launch { loadMembers() }
         } } finally { loading = false }
+    }
+    /** The teammates who could be invited; also on its own, for a chat whose owner is known only once its access is read. */
+    suspend fun loadMembers() {
+        membersError = null
+        try { members = transport.members() } catch (e: Exception) { e.rethrowCancellation(); membersError = e.message ?: "Couldn't load teammates." }
+    }
+    /** Teammates not in it yet whose name or email matches [query]. */
+    fun invitable(query: String): List<TeamMember> {
+        val q = query.trim()
+        return members.orEmpty().filter { member -> !member.isRemoved && access?.participants?.none { it.id == member.id } != false &&
+            (q.isBlank() || member.displayName.contains(q, true) || member.email.contains(q, true)) }
     }
     suspend fun change(key: String, action: suspend () -> SessionAccess): Boolean {
         if (!editable) return false

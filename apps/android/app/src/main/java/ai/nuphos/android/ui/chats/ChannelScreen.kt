@@ -184,7 +184,12 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     // The Bot's own agent list: from its details, or after it could not reply, as on its Task screen.
     var switching by remember(bot) { mutableStateOf(false) }
     var showMembers by remember(session.channelId) { mutableStateOf(false) }
-    if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
+    val members = remember(session, auth.token) { auth.token?.let { ai.nuphos.android.session.ChannelMembers(ai.nuphos.android.session.ChannelMembers.Api(it, session.teamId, session), viewerId) } }
+    val leftNotice = stringResource(R.string.chats_members_left, session.title)
+    if (showMembers && members != null) ChannelMembersSheet(members, session.title, session.agents, viewerId,
+        yourBots = store.bots.filter { it.isOwner == true && it.readOnly != true && it.archivedAt == null },
+        teamName = store.selectedTeam?.name, canSend = !session.readOnly,
+        onLeft = { showMembers = false; store.notice = leftNotice; onBack() }) { showMembers = false }
     if (detailsOpen && bot != null && auth.token != null) {
         ai.nuphos.android.ui.chat.TaskSummarySheet(bot, auth.token!!, tasks,
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
@@ -212,8 +217,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
-                    // A Bot's chat opens its details; a group chat, its Bots.
-                    val group = botFace == null && session.agents.isNotEmpty()
+                    // A Bot's chat opens its details; a group chat, its Members.
+                    val group = botFace == null
                     Row(modifier = Modifier.clickable(enabled = bot != null || group) { if (group) showMembers = true else detailsOpen = true }
                         .testTag(if (group) "chat-title" else "bot-details-entry"), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ChatIcon(session.faces, session.title, 28.dp)
@@ -221,7 +226,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                             Text(session.title, maxLines = 1, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                             BotStateLine(tasks)
                         }
-                        // The arrow says the title opens the chat's Bots.
+                        // The arrow says the title opens the chat's Members.
                         if (group) Icon(Icons.Outlined.ExpandMore, null,
                             Modifier.size(20.dp).testTag("chat-bots-entry"), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }

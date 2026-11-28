@@ -119,6 +119,9 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }) { Text(stringResource(R.string.try_again)) } },
         )
     }
+    val notices = remember { SnackbarHostState() }
+    LaunchedEffect(store.notice) { store.notice?.let { notices.showSnackbar(it); store.notice = null } }
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
     if (searching) ai.nuphos.android.ui.components.SearchField(
         value = store.search,
@@ -162,6 +165,8 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }
         }
     }
+    }
+    SnackbarHost(notices, Modifier.align(Alignment.BottomCenter))
     }
     if (showNewBot && showCreateButton) CreateBotDialog(nav) { showNewBot = false }
 }

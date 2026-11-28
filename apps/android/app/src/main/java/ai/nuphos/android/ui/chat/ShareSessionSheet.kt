@@ -110,9 +110,7 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
                         state.membersError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                         if (state.members == null && state.membersError == null) CircularProgressIndicator(Modifier.size(24.dp))
                     }
-                    val query = search.trim()
-                    val invitable = state.members.orEmpty().filter { member -> !member.isRemoved && access.participants.none { it.id == member.id } &&
-                        (query.isBlank() || member.displayName.contains(query, true) || member.email.contains(query, true)) }
+                    val invitable = state.invitable(search)
                     if (state.members != null && invitable.isEmpty()) item { Text(stringResource(R.string.chat_share_no_teammates)) }
                     items(invitable, key = { "member:${it.id}" }) { member ->
                         OutlinedButton(enabled = state.canInvite, onClick = { scope.launch { state.invite(member) } }, modifier = Modifier.fillMaxWidth()) {
@@ -125,14 +123,19 @@ fun ShareSessionSheet(state: SharingState, url: String?, onDismiss: () -> Unit) 
             item { Spacer(Modifier.height(16.dp)) }
         }
     }
-    state.needsComputer?.let {
-        AlertDialog(onDismissRequest = state::cancelComputer, title = { Text(stringResource(R.string.chat_share_computer_title)) },
-            text = { Text(stringResource(R.string.chat_share_computer_body)) },
-            confirmButton = { TextButton(enabled = state.canInvite, onClick = { scope.launch { state.confirmComputer() } }) { Text(stringResource(R.string.chat_continue)) } },
-            dismissButton = { TextButton(onClick = state::cancelComputer) { Text(stringResource(R.string.cancel)) } })
-    }
+    ComputerUseDialog(state) { scope.launch { state.confirmComputer() } }
     state.error?.let { message -> AlertDialog(onDismissRequest = state::clearError, title = { Text(stringResource(R.string.chat_share_update_failed)) }, text = { Text(message) },
         confirmButton = { TextButton(onClick = state::clearError) { Text(stringResource(R.string.chat_ok)) } }) }
+}
+
+/** "Also give use of this computer?": an invite the server refused until it does. A group chat's Members asks it too. */
+@Composable
+internal fun ComputerUseDialog(state: SharingState, onConfirm: () -> Unit) {
+    if (state.needsComputer == null) return
+    AlertDialog(onDismissRequest = state::cancelComputer, title = { Text(stringResource(R.string.chat_share_computer_title)) },
+        text = { Text(stringResource(R.string.chat_share_computer_body)) },
+        confirmButton = { TextButton(enabled = state.canInvite, onClick = onConfirm) { Text(stringResource(R.string.chat_continue)) } },
+        dismissButton = { TextButton(onClick = state::cancelComputer) { Text(stringResource(R.string.cancel)) } })
 }
 
 @Composable
