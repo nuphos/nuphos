@@ -146,7 +146,8 @@ export function namedTunnelUrlFromConfig(source: string, port: number): string |
       continue
     }
     if (line.startsWith('- ') && !line.startsWith('- hostname:')) hostname = null
-    if (hostname && /^service:\s*http:\/\//.test(line) && line.includes(`:${String(port)}`)) {
+    const serviceMatch = line.match(/^service:\s*http:\/\/\S+:(\d+)/)
+    if (hostname && serviceMatch?.[1] === String(port)) {
       return `https://${hostname}`
     }
   }

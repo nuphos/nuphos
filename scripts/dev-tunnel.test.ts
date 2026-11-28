@@ -31,3 +31,13 @@ test('HTTPS origins are not reused for the HTTP local backend', () => {
 
   assert.equal(namedTunnelUrlFromConfig(tlsConfig, 3718), null)
 })
+
+test('a port that only shares a digit prefix does not claim the hostname', () => {
+  const neighborConfig = config.replaceAll('http://localhost:3718', 'http://localhost:37180')
+
+  assert.equal(namedTunnelUrlFromConfig(neighborConfig, 3718), null)
+  assert.equal(
+    namedTunnelUrlFromConfig(neighborConfig, 37180),
+    'https://api-dev-example-1.nuphos.ai',
+  )
+})
