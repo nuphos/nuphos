@@ -34,6 +34,8 @@ const neverResponds = () =>
 const triggerQueries: unknown[][] = []
 const bypassQueries: unknown[] = []
 const renames: unknown[][] = []
+// Conversations a test lets load; every other one stays pending.
+const conversations = new Map<string, unknown>()
 const pending = new Proxy(
   {},
   {
@@ -50,6 +52,8 @@ const pending = new Proxy(
 
           return Promise.resolve({ title: args[1] })
         }
+        if (key === 'agentGetConversation' && conversations.has(args[0] as string))
+          return Promise.resolve(conversations.get(args[0] as string))
         if (key === 'agentGetAutoModeBypass') {
           bypassQueries.push(args[0])
 
@@ -388,4 +392,96 @@ test("a group chat's owner renames it from its header", async () => {
   )
   await act(() => root.unmount())
   queryClient.clear()
+})
+
+test('#5272: a Bot chat shows the artifact its Bot made and opens it beside the chat', async () => {
+  queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+    row({ sessionId: 'cards', kind: 'channel', faces: [{ id: 'maker', name: 'Ada', agent: {} }] }),
+    row({ sessionId: 'maker', title: 'Ada', isOwner: true }),
+  ])
+  // The chat has loaded: one post from the Bot saying it showed something.
+  queryClient.setQueryData(queryKeys.channel('team', 'cards'), {
+    detail: {
+      ...row({
+        sessionId: 'cards',
+        kind: 'channel',
+        faces: [{ id: 'maker', name: 'Ada', agent: {} }],
+      }),
+      messages: [
+        {
+          id: 'post',
+          role: 'assistant',
+          index: 0,
+          createdAt: new Date().toISOString(),
+          parts: [{ type: 'text', text: 'Opened it beside the chat.' }],
+          metadata: { version: 1, sender: { type: 'agent', id: 'maker', displayName: 'Ada' } },
+        },
+      ],
+    },
+    agents: [{ id: 'maker', name: 'Ada', sessionId: 'maker', title: 'Ada', ownerId: 'me' }],
+    revision: 'loaded',
+  })
+  // The Bot's own turn holds the call; its chat only holds what it posted.
+  conversations.set('maker', {
+    sessionId: 'maker',
+    messages: [
+      {
+        id: 'turn',
+        role: 'assistant',
+        createdAt: new Date().toISOString(),
+        parts: [
+          {
+            type: 'tool',
+            toolCallId: 'call-1',
+            toolName: 'render_artifact',
+            state: 'output-available',
+            completedAt: Date.now(),
+            input: {
+              artifactId: 'notes',
+              title: 'Launch notes',
+              kind: 'markdown',
+              content: '# Hi',
+            },
+            output: 'Shown beside the chat.',
+          },
+        ],
+      },
+    ],
+  })
+  const opened: unknown[][] = []
+  const container = dom.document.createElement('div')
+
+  dom.document.body.append(container)
+  const root = createRoot(container as unknown as HTMLElement)
+
+  await act(() =>
+    root.render(
+      createElement(
+        QueryClientProvider,
+        { client: queryClient },
+        createElement(ChannelPane, {
+          teamId: 'team',
+          channelId: 'cards',
+          user: { id: 'me', name: 'Me' } as UserInfo,
+          dockOpen: false,
+          onOpenSession: () => {},
+          onOpenNuphosLink: (...args: unknown[]) => {
+            opened.push(args)
+
+            return true
+          },
+        }),
+      ),
+    ),
+  )
+  await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+  assert.ok(container.textContent.includes('Launch notes'), 'the chat shows the artifact card')
+  assert.deepEqual(
+    opened.at(-1),
+    ['/teams/team/artifacts/notes', false],
+    'the artifact opens beside the chat, as in a Task',
+  )
+  await act(() => root.unmount())
+  container.remove()
 })
