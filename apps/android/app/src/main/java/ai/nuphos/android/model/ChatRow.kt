@@ -275,7 +275,8 @@ sealed class ChatRow {
             fun foldable(row: ChatRow) = when (row) {
                 is Reasoning -> true
                 is Tool -> row.part.kind != ChatPart.Tool.Kind.Plan && row.part.kind != ChatPart.Tool.Kind.Question &&
-                    row.part.state != ChatPart.Tool.State.ApprovalRequested && ThreadReference.from(row.part) == null
+                    row.part.state != ChatPart.Tool.State.ApprovalRequested && ThreadReference.from(row.part) == null &&
+                    ToolCard.from(row.part) == null
                 else -> false
             }
             if (body.any { it is Tool && (it.part.state == ChatPart.Tool.State.ApprovalRequested ||
@@ -300,7 +301,7 @@ sealed class ChatRow {
 
         internal fun toolRuns(rows: List<ChatRow>, live: Boolean): List<ChatRow> {
             fun ordinary(row: ChatRow) = row is Tool && row.part.kind != ChatPart.Tool.Kind.Plan &&
-                row.part.kind != ChatPart.Tool.Kind.Question && ThreadReference.from(row.part) == null
+                row.part.kind != ChatPart.Tool.Kind.Question && ThreadReference.from(row.part) == null && ToolCard.from(row.part) == null
             val result = mutableListOf<ChatRow>()
             var index = 0
             while (index < rows.size) {
