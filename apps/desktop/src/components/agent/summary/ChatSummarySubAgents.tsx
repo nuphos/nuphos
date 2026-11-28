@@ -2,7 +2,8 @@ import { t } from '../../../i18n'
 import { setSubAgentsFilter, useSubAgentsFilter } from '../../../lib/chatSummaryPanel'
 
 import { filterSubAgents, shownSubAgentsFilter, subAgentsFilterOptions } from './chatSummaryModel'
-import { SummarySection, ThreadRow } from './ChatSummaryRows'
+import { SummarySection } from './ChatSummaryRows'
+import { SubtaskList } from './SubtaskList'
 import { FilterPills } from './SummaryFilterPills'
 
 import type { SubAgent } from './chatSummaryModel'
@@ -33,14 +34,7 @@ export function SubAgentsSection({
         )
       }
     >
-      {filterSubAgents(subAgents, filter).map(({ conversation, state }) => (
-        <ThreadRow
-          key={conversation.sessionId}
-          conversation={conversation}
-          state={state}
-          onOpen={onOpen}
-        />
-      ))}
+      <SubtaskList key={filter} subAgents={filterSubAgents(subAgents, filter)} onOpen={onOpen} />
     </SummarySection>
   )
 }
