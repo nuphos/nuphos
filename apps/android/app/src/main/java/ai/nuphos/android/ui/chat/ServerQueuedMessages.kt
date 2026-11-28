@@ -20,7 +20,7 @@ internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, ca
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(8.dp).heightIn(max = 210.dp).verticalScroll(rememberScrollState())) {
-            Text(stringResource(R.string.composer_queued_messages), style = MaterialTheme.typography.labelLarge)
+            if (queue.items.isNotEmpty()) Text(stringResource(R.string.composer_queued_messages), style = MaterialTheme.typography.labelLarge)
             usageHoldNotice(queue.held)?.let { notice ->
                 Text(stringResource(notice.text, *notice.args.toTypedArray()), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("server-queue-held"))

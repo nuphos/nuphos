@@ -27,7 +27,7 @@ internal class ServerQueueStore(
     var recoveredText by mutableStateOf<AgentChatApi.QueueRecall?>(null)
         private set
     /** Whether the strip has anything to say. */
-    val shown get() = items.isNotEmpty() || error != null || recoveredText != null
+    val shown get() = items.isNotEmpty() || held != null || error != null || recoveredText != null
     fun restoreRecovered(restore: (AgentChatApi.QueueRecall) -> Boolean) {
         val text = recoveredText ?: return
         if (current() && writable() && restore(text)) recoveredText = null

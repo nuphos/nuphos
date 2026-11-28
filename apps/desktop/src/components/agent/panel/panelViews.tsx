@@ -122,10 +122,11 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
 
   const shown = activeTab && !switchingConversation ? activeTab : null
   const waiting = shown ? waitingMessages(shown) : []
-  const queued = shown && waiting.length > 0 && (
+  const usageHold = shown && usageHoldNotice(shown.queueHeld)
+  const queued = shown && (waiting.length > 0 || usageHold) && (
     <QueuedStrip
       items={waiting}
-      approval={queuedApproval ?? usageHoldNotice(shown.queueHeld)}
+      approval={queuedApproval ?? usageHold}
       canSteer={runtimeAllows(shown.runtimeState, 'steer')}
       onRemove={(queuedId) => void removeQueued(shown.id, queuedId)}
       onSteer={(queuedId) => void steerQueued(shown.id, queuedId)}
