@@ -45,17 +45,10 @@ import path from 'node:path'
 const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
 export const MANUAL_IDLE_MS = 10 * 60_000
-// The tools that send input to the desktop: they wait while a person holds it.
-const INPUT_TOOLS = new Set([
-  'click',
-  'perform_secondary_action',
-  'scroll',
-  'drag',
-  'type_text',
-  'press_key',
-  'set_value',
-])
-// A person's hold lapses this long after the desktop stream last renewed it (vnc-stream.ts).
+// The tools that only look at the desktop; every other one waits while a person holds it.
+const LOOK_TOOLS = new Set(['list_apps', 'get_app_state'])
+// A person's hold lapses this long after the desktop stream last renewed it (vnc-stream.ts);
+// desktop-pool.ts reads the same hold for the session's browser.
 const HUMAN_HOLD_MS = 30_000
 export const HELD =
   'A person has taken over this desktop. Do not retry now: end your turn, and continue when you are told they handed it back.'
@@ -421,7 +414,7 @@ export function desktopRelay({ send, start, desktop }) {
       for (const line of handshake) server.send(line)
     }
     // Input waits while a person holds the desktop; looking at it does not.
-    if (INPUT_TOOLS.has(message.params?.name) && humanHolds(ready.env.XDG_RUNTIME_DIR ?? '')) {
+    if (!LOOK_TOOLS.has(message.params?.name) && humanHolds(ready.env.XDG_RUNTIME_DIR ?? '')) {
       send(toolError(message.id, HELD))
 
       return
@@ -435,6 +428,8 @@ export function desktopRelay({ send, start, desktop }) {
   return {
     /** One message from the agent, in order: calls wait for the desktop, the rest go on. */
     receive(message) {
+      // A JSON-RPC batch goes as its messages, each checked as above (#5328).
+      if (Array.isArray(message)) return Promise.all(message.map((each) => this.receive(each)))
       if (message.method === 'initialize') handshake.push({ ...message, id: REPLAY_ID })
       else if (message.method === 'notifications/initialized') handshake.push(message)
       queue = queue.then(() =>
