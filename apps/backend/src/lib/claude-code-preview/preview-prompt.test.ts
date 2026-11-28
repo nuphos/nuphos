@@ -6,16 +6,19 @@ import '@/routes/agent'
 import { describe, expect, test } from 'bun:test'
 
 import { localRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { useAgentDeviceStore } from '@/lib/test/doubles/agent-devices-store'
 
 import { buildPreviewSystemPrompt, withPageContext } from './preview-prompt'
 
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 
 const devices: Record<string, Partial<AgentDevice>> = {
   box: { label: 'Box 1', box: {} as AgentDevice['box'] },
   mac: { label: 'MacBook', platform: 'darwin' },
   linux: { label: 'Linux PC', platform: 'linux' },
+  'linux-desktops': { label: 'Linux server', platform: 'linux' },
 }
 
 useAgentDeviceStore({
@@ -203,6 +206,20 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(box).not.toContain('inside the team sandbox')
   // A sign-in only the user can do is handed to them on this desktop.
   expect(box).toContain('handed to them with a request_user_decision `computer` card')
+  expect(box).toContain('ignore MACHINE.md’s notes')
+  expect(await on('mac')).not.toContain('`computer` card')
+
+  // What a host can hand over is what it reports (#5321), Box or not.
+  const handsOver = { desktopOpen: true } as unknown as LocalRuntimeStatus
+
+  for (const deviceId of ['mac', 'linux-desktops']) {
+    await runtimePresenceStore().claim('user-1', deviceId, 'c1')
+    await runtimePresenceStore().put('user-1', deviceId, {
+      conn: 'c1',
+      status: handsOver,
+      seenAt: Date.now(),
+    })
+  }
   const mac = await on('mac')
 
   expect(mac).not.toContain('nuphos-desktop')
@@ -210,6 +227,12 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(mac).toContain(
     'goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card',
   )
+  // A Linux computer with a desktop pool hands its session's desktop over, as a Box does.
+  const pool = await on('linux-desktops')
+
+  expect(pool).toContain('the `nuphos-desktop` tools for this conversation’s own desktop')
+  expect(pool).toContain('handed to them with a request_user_decision `computer` card')
+  expect(pool).not.toContain('MACHINE.md')
   // A computer that cannot hand its screen over is not told to try.
   expect(await on('linux')).not.toContain('`computer` card')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
