@@ -278,13 +278,11 @@ fun ConversationScreen(
                             val label = session.runtimeDeviceLabel
                             if (session.agentRuntime != null || label != null) {
                                 val runtimeLabel = stringResource(R.string.chat_runtime_description, ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label))
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    if (ai.nuphos.android.model.BotFaces.face(session.sessionId) != null) ai.nuphos.android.ui.components.RuntimeMark(session.agentRuntime)
-                                    Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                        modifier = Modifier.semantics { contentDescription = runtimeLabel })
-                                }
+                                // The avatar carries the runtime mark, so the line under the title is text only, as on iOS.
+                                Text(ai.nuphos.android.model.RuntimeIdentity.detail(session.agentRuntime, label), style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    modifier = Modifier.semantics { contentDescription = runtimeLabel })
                             }
                         }
                     }
