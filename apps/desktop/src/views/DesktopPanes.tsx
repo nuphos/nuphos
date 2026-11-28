@@ -13,10 +13,10 @@ import {
 import { DesktopFrame } from './DesktopFrame'
 import { useLiveDesktop } from './useLiveDesktop'
 
-/** A Box pauses the agent's input tools while the owner holds its display; a Mac's screen (:0) does not. */
+/** A Box pauses the agent's input tools while the owner holds its display; a computer's own screen (:0) does not. */
 const holdingStatus = (display: number) =>
   display === 0
-    ? t('You have the Mac’s screen; Nuphos can still use it too.')
+    ? t('You have this computer’s screen; Nuphos can still use it too.')
     : t('You have the desktop; Nuphos’s input tools wait until you hand it back.')
 
 /**

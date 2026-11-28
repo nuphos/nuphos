@@ -120,12 +120,14 @@ const DESKTOP_NEEDS = {
     'npm install -g open-computer-use (with python3-gi, gir1.2-atspi-2.0 and at-spi2-core)',
 }
 
+/** Whether `command` is in one of PATH's directories. */
+export const onPath = (command: string, PATH = process.env.PATH ?? '') =>
+  PATH.split(path.delimiter).some((dir) => dir && existsSync(path.join(dir, command)))
+
 /** What this computer lacks, of DESKTOP_NEEDS, to host desktops. */
 export function missingForDesktops(PATH = process.env.PATH ?? ''): string[] {
-  const dirs = PATH.split(path.delimiter).filter(Boolean)
-
   return Object.entries(DESKTOP_NEEDS)
-    .filter(([command]) => !dirs.some((dir) => existsSync(path.join(dir, command))))
+    .filter(([command]) => !onPath(command, PATH))
     .map(([, install]) => install)
 }
 

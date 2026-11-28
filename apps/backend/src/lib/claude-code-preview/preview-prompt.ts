@@ -89,14 +89,17 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
 
   // Whether its host can hand a screen over: a computer card needs it (computer-desktop.ts).
   const desktopOpen = presence?.status?.desktopOpen === true
+  // A Mac, or a Linux computer on X11, hands its own screen over (mac-screen.ts); a Mac from
+  // before #5321 does not say so.
+  const ownScreen = presence?.status?.ownScreen === true || device.platform === 'darwin'
   // A Box, or a Linux host with a desktop pool (desktop-pool.ts), gives each session its own desktop.
-  const ownDesktop = device.box || (desktopOpen && device.platform !== 'darwin')
-  // A Mac hands its own screen over instead (mac-screen.ts); any other host has nothing to hand over.
+  const ownDesktop = device.box || (desktopOpen && !ownScreen)
+  // Any other host has nothing to hand over.
   const handOver =
     ownDesktop || !COMPUTER_CARDS
       ? ''
       : desktopOpen
-        ? '; a sign-in, human check or other step only the user can do goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card so they can take over from wherever they are'
+        ? '; a sign-in, human check or other step only the user can do goes on this computer’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card so they can take over from wherever they are'
         : '; this computer has no screen to hand over, so a request_user_decision `computer` card is refused here: for a sign-in or human check only the user can do, ask for what they can type with a `credential` card, or tell them plainly it cannot be shown to them from this computer'
 
   const card = COMPUTER_CARDS

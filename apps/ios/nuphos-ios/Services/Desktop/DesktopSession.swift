@@ -34,7 +34,7 @@ final class DesktopSession {
     /// The canvas's size in points, which a fitted window takes at one Mac point per point.
     @ObservationIgnored private var pane = CGSize.zero
     @ObservationIgnored private var fitTask: Task<Void, Never>?
-    /// The display the runtime gave this session; a Mac's own screen is always 0.
+    /// The display the runtime gave this session; a computer's own screen (a Mac's, or Linux's) is always 0.
     private(set) var display: Int?
     var isMacScreen: Bool { display == 0 }
     /// Modifiers tapped on the key row, held for the next key or click.

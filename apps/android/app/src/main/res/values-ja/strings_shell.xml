@@ -154,7 +154,7 @@
     <string name="shell_desktop">デスクトップ</string>
     <string name="shell_desktop_decode_failed">このデスクトップをデコードできませんでした。再試行して新しい接続を開始してください。</string>
     <string name="shell_desktop_connecting">接続中…</string>
-    <string name="shell_desktop_mac_shared">Mac の画面を操作中です。エージェントも引き続き使用できます。</string>
+    <string name="shell_desktop_mac_shared">このコンピュータの画面を操作中です。エージェントも引き続き使用できます。</string>
     <string name="shell_desktop_in_control">操作権はあなたにあります。返却すると、エージェントがこのデスクトップを使用できます。</string>
     <string name="shell_desktop_watching">視聴中です。引き継ぐとポインターとキーボードを使用できます。</string>
     <string name="shell_desktop_failed">デスクトップへの接続に失敗しました。</string>

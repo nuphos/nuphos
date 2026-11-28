@@ -1,21 +1,19 @@
-// This Mac's own screen (mac-screen.ts) as the app wires it: the tunnel's deps
+// This computer's own screen (mac-screen.ts) as the app wires it: the tunnel's deps
 // and the notice shown while a phone has control.
-
-import path from 'node:path'
 
 import { Notification, systemPreferences } from 'electron'
 
 import { t } from '../i18n.ts'
 
-import { enableMacScreen, macScreenDeps } from './mac-screen.ts'
+import { enableMacScreen, macScreenDeps, screenHost } from './mac-screen.ts'
 
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 
-/** Whoever sits at this Mac sees when their phone takes it over. */
+/** Whoever sits at this computer sees when their phone takes it over. */
 function announceControl(human: boolean): void {
   if (!human || !Notification.isSupported()) return
   new Notification({
-    title: t('This Mac is controlled from your phone'),
+    title: t('This computer is controlled from your phone'),
     body: t(
       'Nuphos on your phone took over this screen. It stops when the phone hands it back or closes the desktop.',
     ),
@@ -23,15 +21,17 @@ function announceControl(human: boolean): void {
 }
 
 /** macOS's own prompt, with a button to Settings: without Accessibility the host does not start. */
-function ask(): void {
+function askAccessibility(): void {
   systemPreferences.isTrustedAccessibilityClient(true)
 }
 
-/** No deps off a Mac. `changed` runs when the screen changes hands. */
+/** No deps where there is no screen to hand over. `changed` runs when the screen changes hands. */
 export function macScreenApp(dataDir: string, bundleRoot: () => string, changed: () => void) {
   const pool = enableMacScreen(dataDir, changed)
   const handOver = announceControl
-  const binary = () => path.join(bundleRoot(), 'mac-screen-host')
+  const binary = () => screenHost(bundleRoot())
+  // Only macOS asks for Accessibility; X11 needs nothing granted.
+  const ask = process.platform === 'darwin' ? askAccessibility : undefined
 
   return {
     deps: (
