@@ -28,10 +28,13 @@ const record = (check: string, ok: boolean, detail = '') => {
 const shot = (page: Page, name: string) =>
   page.screenshot({ path: join(artifacts, `${name}.png`) }).catch(() => {})
 
+let mainPage: Page
+
 async function step(check: string, run: () => Promise<string | void>) {
   try {
     record(check, true, (await run()) ?? '')
   } catch (error) {
+    await shot(mainPage, `fail-${check.replace(/[^a-z0-9]+/gi, '-').slice(0, 40)}`)
     record(check, false, String(error instanceof Error ? error.message : error).slice(0, 400))
   }
 }
@@ -151,6 +154,7 @@ try {
   const { page } = connected
 
   page.setDefaultTimeout(30_000)
+  mainPage = page
 
   await step('launch: packaged app runs Electron 45', async () => {
     const ua = await page.evaluate(() => navigator.userAgent)
@@ -179,13 +183,16 @@ try {
     await shot(page, '02-signed-in')
   })
 
-  const inAppPage = (match: string) =>
-    until(`an in-app browser page at ${match}`, async () =>
-      browser!
-        .contexts()
-        .flatMap((c) => c.pages())
-        .find((p) => p.url().startsWith(match)),
-    )
+  const findView = (match: string) =>
+    browser!
+      .contexts()
+      .flatMap((c) => c.pages())
+      .find((p) => p.url().startsWith(match))
+  const inAppPage = async (match: string) => {
+    await until(`an in-app browser page at ${match}`, async () => findView(match))
+
+    return findView(match)!
+  }
 
   await step('in-app browser: opens a page', async () => {
     await openPage(page, 'Browser')
@@ -237,7 +244,7 @@ try {
     await openPage(page, 'Terminal')
     await page.locator('.xterm-rows').waitFor()
     await page.waitForTimeout(1_500)
-    await page.locator('.xterm').click()
+    await page.locator('.xterm-helper-textarea').first().focus()
     await page.keyboard.type('echo PTY_$((40+5)) $TERM_PROGRAM')
     await page.keyboard.press('Enter')
     await page.locator('.xterm-rows', { hasText: 'PTY_45' }).waitFor()
