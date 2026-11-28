@@ -72,6 +72,21 @@ test('Claude keeps the host home for Keychain access and filters the owner’s e
   assert.equal(env.AWS_SECRET_ACCESS_KEY, undefined)
 })
 
+test('an agent sees a proxy its terminal sets only through ALL_PROXY', () => {
+  const proxy = 'socks5://127.0.0.1:7890'
+
+  for (const provider of ['claude-code', 'codex'] as const) {
+    const env = agentEnv({
+      ...launch,
+      provider,
+      env: { ...launch.env, ALL_PROXY: proxy, all_proxy: proxy },
+    })
+
+    assert.equal(env.ALL_PROXY, proxy)
+    assert.equal(env.all_proxy, proxy)
+  }
+})
+
 test('only Claude Code learns where its host hands over the vault’s Claude Code token', () => {
   const vault = {
     ...launch,

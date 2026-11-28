@@ -4,7 +4,7 @@ import { useAgentDb } from '@/lib/test/doubles/agent-db'
 import { useConversationTurn } from '@/lib/test/doubles/conversation-turn'
 import { useDb } from '@/lib/test/doubles/db'
 
-import { startBotOnboarding } from './bot-onboarding'
+import { greetFromTask, startBotOnboarding } from './bot-onboarding'
 
 let bot: Record<string, unknown>
 let chat: Record<string, unknown>
@@ -31,6 +31,14 @@ useDb({
         Object.assign(bot, update.$set)
 
         return { modifiedCount: 1 }
+      },
+      findOneAndUpdate: async (query: Record<string, unknown>) => {
+        if (bot.botGreeting !== query.botGreeting || bot.userId !== query.userId) return null
+        const before = { ...bot }
+
+        delete bot.botGreeting
+
+        return before
       },
     }),
   }),
@@ -89,5 +97,48 @@ test('a rejected runtime handoff can be retried on the same Bot', async () => {
 test('legacy introductions are not restarted as new setup', async () => {
   bot.botOnboarding = 'started'
   expect(await startBotOnboarding('u', 't', 'bot', 'chat')).toEqual({ started: false })
+  expect(calls).toHaveLength(0)
+})
+
+test('a Task made a Bot greets once, in the first chat its owner opens with it', async () => {
+  bot.botGreeting = 'pending'
+  delete bot.botOnboarding
+  await Promise.all([
+    greetFromTask('u', 't', 'bot', chat as never),
+    greetFromTask('u', 't', 'bot', chat as never),
+  ])
+
+  expect(calls).toHaveLength(1)
+  expect(calls[0]).toContain('channelId chat')
+  expect(calls[0]).toContain('channel_post')
+  expect(calls[0]).toContain('earlier work is still in your Task')
+  expect(bot.botGreeting).toBeUndefined()
+  await greetFromTask('u', 't', 'bot', chat as never)
+  expect(calls).toHaveLength(1)
+})
+test('a Bot not just made from a Task never greets', async () => {
+  delete bot.botOnboarding
+  await greetFromTask('u', 't', 'bot', chat as never)
+  expect(calls).toHaveLength(0)
+})
+test('a shared or unrelated chat neither gets the greeting nor uses it up', async () => {
+  bot.botGreeting = 'pending'
+  for (const change of [
+    { userId: 'v' },
+    { agentSessionIds: ['bot', 'other'] },
+    { participantIds: ['v'] },
+    { generalAccess: 'reply' },
+    { archivedAt: new Date() },
+  ]) {
+    await greetFromTask('u', 't', 'bot', { ...chat, ...change } as never)
+  }
+  await greetFromTask('v', 't', 'bot', { ...chat, userId: 'v' } as never)
+  expect(calls).toHaveLength(0)
+  expect(bot.botGreeting).toBe('pending')
+})
+test('a greeting that cannot start leaves the Bot in its chat', async () => {
+  bot.botGreeting = 'pending'
+  reject = true
+  await greetFromTask('u', 't', 'bot', chat as never)
   expect(calls).toHaveLength(0)
 })

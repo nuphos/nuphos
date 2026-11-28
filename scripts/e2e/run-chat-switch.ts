@@ -175,15 +175,18 @@ async function scenario(page: Page, stack: Stack, proxy: Proxy) {
   await open(page, 'task, opened before', taskA, { history: ACK_A })
   await kept(page, 'task, opened before', taskA.title, ACK_A)
   await open(page, 'bot chat, first open, another', chatB, lastPost(chatB))
-  await open(page, 'bot chat, opened before', chatA, lastPost(chatA))
-  // Said in chat B while chat A is on screen.
-  await api(stack, `/agent/conversations/${chatB.sessionId}/channel-messages`, {
-    text: 'Said while away',
-  })
-  await open(page, 'bot chat, new post while away', chatB, {
-    ...lastPost(chatB),
-    newest: 'Said while away',
-  })
+  // Said in chat B while chat A is on screen, three times: its budget is on the best of them,
+  // as one slow frame on a busy runner is one try and a slower chat is all three (#4394).
+  for (const n of ['1', '2', '3']) {
+    await open(page, 'bot chat, opened before', chatA, lastPost(chatA))
+    await api(stack, `/agent/conversations/${chatB.sessionId}/channel-messages`, {
+      text: `Said while away ${n}`,
+    })
+    await open(page, 'bot chat, new post while away', chatB, {
+      ...lastPost(chatB),
+      newest: `Said while away ${n}`,
+    })
+  }
   // From a Bot chat back to Tasks, where a reply in progress was open: its streamed words
   // were hidden meanwhile, and must not fade in again.
   await open(page, 'task, opened before, reply in progress', long, { history: 'LONG_END' })

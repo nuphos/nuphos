@@ -186,6 +186,9 @@
     </plurals>
     <string name="chat_work_duration">%1$s処理しました</string>
     <string name="chat_work">処理完了</string>
+    <string name="tool_card_open">開く</string>
+    <string name="tool_card_document">ドキュメント</string>
+    <string name="tool_card_code">コード</string>
     <string name="chat_share_access_invited">招待されたユーザーのみ</string>
     <string name="chat_share_access_view">チームが閲覧可</string>
     <string name="chat_share_access_reply">チームが閲覧・返信可</string>

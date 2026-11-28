@@ -423,3 +423,72 @@ test('a gifted OpenRouter key is recorded on the Box, written to its OpenCode, a
   ])
   expect(deleted).toHaveLength(1)
 })
+
+test('the OpenRouter config is written though instabox answers its exec after the request cap (#5329)', async () => {
+  const savedFetch = globalThis.fetch
+  const configs: string[] = []
+  let settled = () => {}
+  const done = new Promise<void>((resolve) => {
+    settled = resolve
+  })
+
+  // instabox, and OpenRouter: an exec is answered after 50 ms, past the 15 ms cap of the
+  // connection the machine was ordered on, but well within the command's own budget.
+  globalThis.fetch = Object.assign(
+    async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString())
+
+      if (url.hostname === 'openrouter.ai')
+        return Response.json({ data: { hash: 'h1' }, key: 'sk-or-v1-gift' })
+      if (init?.method === 'GET') return Response.json({ id: 'm_1', state: 'running' })
+      if (!url.pathname.endsWith('/exec')) return new Response('{}', { status: 404 })
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, 50)
+
+        init?.signal?.addEventListener('abort', () => {
+          clearTimeout(timer)
+          reject(new Error('aborted'))
+        })
+      })
+      const { envs } = JSON.parse(init?.body as string) as { envs?: Record<string, string> }
+
+      if (envs?.OPENCODE_CONFIG) configs.push(envs.OPENCODE_CONFIG)
+
+      return Response.json({ stdout: '', stderr: '', exitCode: 0 })
+    },
+    { preconnect: savedFetch.preconnect },
+  )
+  const machine = await Sandbox.connect('m_1', {
+    apiKey: 'k',
+    requestTimeoutMs: 15,
+    resume: false,
+  })
+
+  config.box.openRouterManagementKey = 'mgmt'
+  installStore({
+    setAgentDeviceBoxSandbox: () => Promise.resolve(true),
+    agentDevices: () => ({ updateOne: () => Promise.resolve({ matchedCount: 1 }) }) as never,
+  })
+  installTokens({ issueDeviceJoinToken: () => Promise.resolve({ token: 't' } as never) })
+  installPresence({
+    waitForPresence: () => {
+      settled()
+
+      return Promise.resolve(true)
+    },
+  })
+  spies.push(spyOn(Sandbox, 'create').mockResolvedValue(machine))
+
+  try {
+    await createBox('u1', teamId, 'Box', { accountId, openRouterGift: true })
+    await done
+  } finally {
+    globalThis.fetch = savedFetch
+    delete config.box.openRouterManagementKey
+  }
+
+  expect(JSON.parse(configs[0] ?? '{}')).toMatchObject({
+    provider: { openrouter: { options: { apiKey: 'sk-or-v1-gift' } } },
+  })
+  expect(deleted).toEqual([])
+})
