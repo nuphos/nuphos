@@ -45,10 +45,10 @@ const azure = {
   type: 'azure',
 }
 
-test('an OpenCode key is kept per runtime; the other agents keep one per account', () => {
-  assert.equal(providerAccount('/data/users/u1', 'opencode'), 'u1:opencode:default')
+test('every runtime keeps a key of its own; this computer’s own agent keeps the item it had', () => {
+  assert.equal(providerAccount('/data/users/u1', 'opencode'), 'u1:opencode')
   assert.equal(providerAccount('/data/instances/i1/users/u1', 'opencode'), 'u1:opencode:i1')
-  assert.equal(providerAccount('/data/instances/i1/users/u1', 'claude-code'), 'u1:claude-code')
+  assert.equal(providerAccount('/data/instances/i1/users/u1', 'claude-code'), 'u1:claude-code:i1')
   assert.equal(providerAccount('/data/users/u1', 'codex'), 'u1:codex')
 })
 
@@ -70,7 +70,7 @@ test('Azure takes only a resource name, and OpenCode needs at least one model', 
     () => parseCustomProvider({ ...gateway, models: [' '] }, 'opencode'),
     /at least one model ID/u,
   )
-  // Only OpenCode knows Azure.
+  // Azure serves OpenAI's API, which Claude Code doesn't speak.
   assert.equal(parseCustomProvider(azure, 'claude-code').type, undefined)
 })
 
@@ -84,7 +84,7 @@ test('two OpenCode runtimes keep separate providers and keys, launched with thei
   await saveCustomProvider(store, added, 'opencode', { ...azure, apiKey: 'az-added' })
 
   assert.deepEqual(Object.fromEntries(store.items), {
-    'u1:opencode:default': 'sk-own',
+    'u1:opencode': 'sk-own',
     'u1:opencode:i1': 'az-added',
   })
   assert.deepEqual(await customProviderLaunch(store, 'opencode', path.join(own, 'opencode-home')), {
@@ -97,7 +97,7 @@ test('two OpenCode runtimes keep separate providers and keys, launched with thei
   )
 
   await saveCustomProvider(store, added, 'opencode', null)
-  assert.deepEqual([...store.items.keys()], ['u1:opencode:default'])
+  assert.deepEqual([...store.items.keys()], ['u1:opencode'])
   assert.equal(readCustomProviders(added).opencode, undefined)
 })
 

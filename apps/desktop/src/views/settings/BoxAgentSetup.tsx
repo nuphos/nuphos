@@ -13,6 +13,7 @@ import { t } from '../../i18n'
 import { isThisComputer } from '../../lib/agentName'
 import { agentProvider } from '../../types/runtime'
 
+import { isCustomProviderAgent } from './agentPresentation'
 import { agentNameTaken, defaultAgentName } from './boxPresentation'
 import { draftIncomplete, draftValue, providerDraft } from './customProviderDraft'
 import { CustomProviderFields } from './CustomProviderFields'
@@ -23,6 +24,7 @@ import { inputClasses } from './styles'
 import { useRuntimeLogin } from './useRuntimeLogin'
 
 import type { AgentDevice, DeviceAgentInstance, LocalAgentProvider } from '../../api/device-types'
+import type { CustomProviderAgent } from '../../api'
 import type { RuntimeInstance } from '../../types/runtime'
 
 const FORM = 'box-agent-setup-form'
@@ -96,10 +98,14 @@ export function BoxAgentSetup({
   const body = useRef<HTMLDivElement>(null)
   const instance = useMemo(() => created && pendingInstance(created, device), [created, device])
   const here = useThisComputer()
+  // On this computer, a provider of the runtime's own can stand in for its sign-in.
   const ownProvider =
-    provider === 'opencode' &&
+    isCustomProviderAgent(provider) &&
     isThisComputer(here, { userId: device.ownerUserId, deviceId: device.deviceId })
-  const custom = ownProvider && draft.kind !== 'none'
+      ? provider
+      : undefined
+  const custom = draft.kind === 'none' ? undefined : ownProvider
+  const blocked = creating || !name.trim() || (custom !== undefined && draftIncomplete(draft))
   // Idle until the agent exists; then it starts at once, the backend waiting for the agent.
   // Never with a provider of its own: ready already, it has no sign-in to start.
   const login = useRuntimeLogin(
@@ -133,7 +139,7 @@ export function BoxAgentSetup({
       )
 
       if (left.current) remove(agent.instanceId)
-      else if (custom) await saveProvider(agent)
+      else if (custom) await saveProvider(custom, agent)
       else setCreated(agent)
     } catch (cause) {
       if (!left.current) toast.apiError(t('Could not add {name}', { name: label }), cause)
@@ -143,10 +149,10 @@ export function BoxAgentSetup({
   }
 
   /** Saving the provider keeps the agent; a refusal removes it again, with the form left as typed. */
-  const saveProvider = async (agent: DeviceAgentInstance) => {
+  const saveProvider = async (cli: CustomProviderAgent, agent: DeviceAgentInstance) => {
     setProviderError(null)
     try {
-      await api.localRuntimeSetCustomProvider('opencode', draftValue(draft), agent.instanceId)
+      await api.localRuntimeSetCustomProvider(cli, draftValue(draft), agent.instanceId)
     } catch (cause) {
       remove(agent.instanceId)
       setProviderError(parseAtlasError(cause).message)
@@ -211,12 +217,7 @@ export function BoxAgentSetup({
             <Button size="sm" variant="secondary" onClick={() => void leave()}>
               {t('Cancel')}
             </Button>
-            <Button
-              size="sm"
-              type="submit"
-              form={FORM}
-              disabled={creating || !name.trim() || (custom && draftIncomplete(draft))}
-            >
+            <Button size="sm" type="submit" form={FORM} disabled={blocked}>
               {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {creating ? t('Starting {name}…', { name: label }) : t('Continue')}
             </Button>
@@ -251,7 +252,7 @@ export function BoxAgentSetup({
           className="space-y-4 p-5"
           onSubmit={(event) => {
             event.preventDefault()
-            if (name.trim() && !creating && !(custom && draftIncomplete(draft))) void create()
+            if (!blocked) void create()
           }}
         >
           <Field
@@ -280,7 +281,7 @@ export function BoxAgentSetup({
           {ownProvider && (
             <CustomProviderFields
               modal
-              provider="opencode"
+              provider={ownProvider}
               draft={draft}
               error={providerError}
               onChange={setDraft}

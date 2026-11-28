@@ -5,23 +5,26 @@ type Agent = 'claude-code' | 'codex' | 'opencode'
 
 const trimmed = (baseUrl: string) => (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl)
 
+/** An Azure resource's origin; the end-to-end tests stand a loopback stub in for every one. */
+export const azureOrigin = (baseUrl: string) => process.env.NUPHOS_E2E_AZURE_ORIGIN ?? baseUrl
+
 /** The request each API answers without running a model, and its headers besides the key. */
 function requestFor(
   provider: Agent,
   azure: boolean,
   key: string,
 ): { method: string; route: string; headers: Record<string, string> } {
-  if (provider === 'codex')
-    return {
-      method: 'POST',
-      route: '/responses',
-      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
-    }
   if (azure)
     return {
       method: 'GET',
       route: '/openai/models?api-version=2024-10-21',
       headers: { 'api-key': key },
+    }
+  if (provider === 'codex')
+    return {
+      method: 'POST',
+      route: '/responses',
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
     }
   if (provider === 'opencode')
     return {
@@ -48,10 +51,10 @@ function requestFor(
 async function probe(provider: Agent, azure: boolean, baseUrl: string, key: string) {
   const { method, route, headers } = requestFor(provider, azure, key)
   const started = Date.now()
-  const response = await fetch(trimmed(baseUrl) + route, {
+  const response = await fetch(trimmed(azure ? azureOrigin(baseUrl) : baseUrl) + route, {
     method,
     headers,
-    ...(provider === 'codex' ? { body: '{}' } : {}),
+    ...(method === 'POST' ? { body: '{}' } : {}),
     signal: AbortSignal.timeout(10_000),
   }).catch(() => null)
 
@@ -87,6 +90,7 @@ export async function checkWithKey(
 ): Promise<CustomProviderCheck> {
   const host = new URL(baseUrl).host
   const azure = type === 'azure'
+  const responses = provider === 'codex' && !azure
   const answer = await probe(provider, azure, baseUrl, key)
 
   if (!answer) return { host, reached: false }
@@ -94,10 +98,10 @@ export async function checkWithKey(
 
   if (response.status === 401 || response.status === 403)
     return { host, reached: true, ms, failure: { reason: 'key', request } }
-  if (provider === 'codex' ? !servesResponses(response.status) : !response.ok)
+  if (responses ? !servesResponses(response.status) : !response.ok)
     return { host, reached: true, ms, failure: { reason: 'api', request } }
   // An Azure resource lists models, not the deployments named here.
-  if (provider === 'codex' || azure || models.length === 0) return { host, reached: true, ms }
+  if (responses || azure || models.length === 0) return { host, reached: true, ms }
   const listed = await response
     .json()
     .then((body) => new Set((body as { data?: { id?: unknown }[] }).data?.map(({ id }) => id)))

@@ -4832,7 +4832,6 @@
   "The initial catalog will use an explicit allowlist and distinguish dynamic, restart-required, startup-only, node, replica, and cluster parameters. Unknown or sensitive parameters remain read-only or hidden.": "初始目錄將使用明確的允許清單，並區分動態、需重新啟動、僅限啟動時、節點、副本與叢集參數。未知或敏感的參數會維持唯讀或隱藏。",
   "The installer exited before {name} was ready. You can also install it yourself on this computer, then try again.": "{name} 尚未就緒，安裝程式就結束了。你也可以自己在這台電腦上安裝，然後再試一次。",
   "The journal page is truncated — this call's result may exist beyond the loaded events": "日誌頁面已截斷，此呼叫的結果可能位於尚未載入的事件中",
-  "The key is kept in this computer’s secure credential store and never shown again. Usage and quota from a custom provider show as unknown.": "金鑰保存在這台電腦的安全憑證儲存區，之後不會再顯示。自訂供應商的用量與額度會顯示為未知。",
   "The key is kept in this computer’s secure credential store for this runtime only and never shown again. Usage and quota from a custom provider show as unknown.": "金鑰只為這個執行環境保存在這台電腦的安全憑證儲存區，之後不會再顯示。自訂供應商的用量與額度會顯示為未知。",
   "The key is removed from the runtime first, then you approve on the {account} sign-in page.": "會先從 runtime 移除金鑰，再請你到 {account} 登入頁面核准。",
   "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "金鑰只會儲存在執行環境上，放在 CLI 自己的設定中。Nuphos 只會加密轉交，且不會再次顯示。",

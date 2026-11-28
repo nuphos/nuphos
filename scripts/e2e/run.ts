@@ -57,6 +57,7 @@ import { mentionScenarios } from './mention-scenarios.ts'
 import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
 import { offlineScenarios } from './offline-scenarios.ts'
 import { opencodeProviderScenarios } from './opencode-provider-scenarios.ts'
+import { agentProviderScenarios } from './agent-provider-scenarios.ts'
 import { outdatedTurnScenarios } from './outdated-turn-scenarios.ts'
 import { personalAccountScenarios } from './personal-accounts-scenarios.ts'
 import { personalConnectScenarios } from './personal-connect-scenarios.ts'
@@ -177,6 +178,7 @@ const scenarios: Scenario[] = [
   ...moveMidTurnScenarios,
   ...customProviderScenarios,
   ...opencodeProviderScenarios,
+  ...agentProviderScenarios,
   ...runtimeSettingsScenarios,
   ...botTurnScenarios,
   ...providerUnreachableScenarios,
