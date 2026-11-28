@@ -949,6 +949,29 @@ final class InboxUITests: XCTestCase {
         }
     }
 
+    /// A line that labels its images, `A1 ![](…) ![](…)`, shows the label and the images, not
+    /// the images' URLs as text.
+    func testALabelledLineOfImagesShowsTheImages() throws {
+        let image = "https://raw.githubusercontent.com/nuphos/nuphos/1ede3afe0491cf688756be8ccbad0a32b1c36bc6/apps/ios/tests/fixtures/media/wide.png"
+        try listQuestions([InboxUITests.row(
+            "agent-design", "Review the members sheet",
+            ["id": "q-shots", "category": "approval", "question": "Does the members sheet match the design?",
+             "body": "Each row is the design on the left and the build on the right.\n\nA1 ![](\(image)) ![](\(image))",
+             "options": ["Looks good", "Needs changes"], "askedAt": "2026-11-03T09:40:00Z", "status": "open"])])
+        app = launch(page: "agent")
+        let inboxTab = app.tabBars.buttons["Inbox"].firstMatch
+        XCTAssertTrue(inboxTab.waitForExistence(timeout: 10), "No Inbox tab")
+        inboxTab.tap()
+        openQuestion("Does the members sheet match the design?")
+        XCTAssertTrue(app.buttons["Looks good"].waitForExistence(timeout: 10), "The question did not open")
+
+        // Once loaded, each image is a button that opens the viewer.
+        _ = app.buttons.matching(NSPredicate(format: "label == %@", "Image")).element(boundBy: 1).waitForExistence(timeout: 15)
+        shot("labelled-images")
+        let url = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "raw.githubusercontent.com")).firstMatch
+        XCTAssertFalse(url.exists, "The body shows the images' URLs as text")
+    }
+
     private func listed(_ question: String) -> XCUIElement {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch

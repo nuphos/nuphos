@@ -4,6 +4,7 @@ enum MarkdownImagesTests {
     static func run() {
         leavesTextWithoutImagesWhole()
         splitsAroundImageLines()
+        splitsLabelledImageLines()
         keepsInlineAndFencedImages()
         recognisesCitedReplyFiles()
         print("Markdown images passed")
@@ -25,6 +26,19 @@ enum MarkdownImagesTests {
             .image(shot, alt: "a"),
             .image(shot, alt: "b"),
             .markdown("\nDone."),
+        ], "got \(segments)")
+    }
+
+    /// A label may lead the images on a line, as in `A1 ![](design) ![](build)`.
+    private static func splitsLabelledImageLines() {
+        let text = "Design left, build right.\n\nA1 ![](\(shot.absoluteString)) ![](\(shot.absoluteString))\n\n- A2 ![b](\(shot.absoluteString))"
+        let segments = MarkdownImages.segments(of: text)
+        precondition(segments == [
+            .markdown("Design left, build right.\n\nA1"),
+            .image(shot, alt: ""),
+            .image(shot, alt: ""),
+            .markdown("\n- A2"),
+            .image(shot, alt: "b"),
         ], "got \(segments)")
     }
 
