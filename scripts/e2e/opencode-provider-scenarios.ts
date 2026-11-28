@@ -88,13 +88,8 @@ async function shot(page: Page, name: string) {
   await page.screenshot({ path: join(artifacts, `opencode-provider-${name}.png`) })
 }
 
-/**
- * Adds an OpenCode named `label` on this computer as one without an account would: through
- * OpenCode's sign-in, which its free models finish with none, then its provider in its details.
- */
+/** Adds an OpenCode named `label` on this computer, its provider chosen in the same dialog. */
 async function addOpenCode(page: Page, label: string, baseUrl: string, model: string) {
-  const first = model === 'model-a'
-
   await openComputers(page)
   await page
     .getByRole('button', { name: /^New runtime on / })
@@ -102,27 +97,17 @@ async function addOpenCode(page: Page, label: string, baseUrl: string, model: st
     .click()
   await page.getByRole('menuitem', { name: 'OpenCode', exact: true }).click()
   await page.getByLabel('Runtime name').fill(label)
-  if (first) await shot(page, '1-new-runtime')
+  await page.getByRole('combobox', { name: 'Provider' }).click()
+  if (model === 'model-a') await shot(page, '1-provider-select')
+  await page.getByRole('option', { name: 'Custom endpoint' }).click()
+  await page.getByLabel('Base URL').fill(baseUrl)
+  await page.getByLabel('Model IDs').fill(model)
+  if (model === 'model-a') await shot(page, '2-new-runtime')
   await page.getByRole('button', { name: 'Continue' }).click()
-  await page
-    .getByText(/^Sign in with | is ready on /)
-    .first()
-    .waitFor({ timeout: 60_000 })
-  if (first) await shot(page, '2-sign-in')
-  await page.getByText(/ is ready on /).waitFor({ timeout: 120_000 })
-  if (first) await shot(page, '3-ready')
+  // Saved with its runtime, it has no sign-in to go through.
+  await page.getByText(/ is ready on /).waitFor({ timeout: 60_000 })
   await page.getByRole('button', { name: 'Done', exact: true }).click()
-  await page.getByRole('button', { name: `Open ${label} details` }).click()
-  const card = page.getByRole('complementary', { name: new RegExp(label) })
-
-  await card.getByRole('button', { name: 'Set up', exact: true }).click()
-  await card.getByLabel('Base URL').fill(baseUrl)
-  await card.getByLabel('Model IDs').fill(model)
-  if (first) await shot(page, '4-set-up')
-  await card.getByRole('button', { name: 'Save', exact: true }).click()
-  await page.getByText('Custom provider saved').waitFor()
-  await page.keyboard.press('Escape')
-  await page.getByText('Back to app', { exact: true }).waitFor({ state: 'detached' })
+  await page.getByText('Back to app', { exact: true }).click()
 }
 
 async function turn(page: Page, computer: string, label: string, reply: string) {
@@ -141,18 +126,18 @@ async function details(page: Page, label: string) {
   const card = page.getByRole('complementary', { name: new RegExp(label) })
 
   await card.getByRole('button', { name: 'Edit', exact: true }).click()
-  await shot(page, '6-details')
+  await shot(page, '4-details')
   await card.getByRole('combobox', { name: 'Provider' }).click()
   await page.getByRole('option', { name: 'Azure OpenAI' }).click()
   await card.getByLabel('Resource name').fill('https://acme-openai.openai.azure.com')
   await card.getByLabel('Deployment names').fill('gpt-4o-prod')
   await card.getByText(/Enter only the resource name/u).waitFor()
-  await shot(page, '7-details-azure-url')
+  await shot(page, '5-details-azure-url')
   await card.getByLabel('Resource name').fill('acme-openai')
   // A saved provider's key is never shown; Replace opens a field for a new one.
   await card.getByRole('button', { name: 'Replace', exact: true }).click()
   await card.getByLabel('API key').fill('e2e-fictional-key')
-  await shot(page, '8-details-azure')
+  await shot(page, '6-details-azure')
   await card.getByRole('button', { name: 'Cancel', exact: true }).click()
   await page.keyboard.press('Escape')
   await page.getByText('Back to app', { exact: true }).waitFor({ state: 'detached' })
@@ -208,7 +193,7 @@ export const opencodeProviderScenarios: Scenario[] = [
 
         await turn(page, computer, 'Acme gateway A', 'Hello from stub A.')
         await turn(page, computer, 'Acme gateway B', 'Hello from stub B.')
-        await shot(page, '5-turn')
+        await shot(page, '3-turn')
         // Each runtime asked only its own stub, for its own model.
         if (
           asked.a.length === 0 ||
