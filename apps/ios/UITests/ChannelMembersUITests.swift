@@ -12,8 +12,6 @@ final class ChannelMembersUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
-        // On an iPad, wide, as its design is.
-        if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/bot-desktop-responses.json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
