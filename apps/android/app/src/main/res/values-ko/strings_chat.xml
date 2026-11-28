@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">예정된 실행 없음</string>
     <string name="chat_trigger_enable">%1$s 사용</string>
     <string name="chat_triggers_refresh">새로고침</string>
+    <string name="chat_trigger_edit">편집</string>
+    <string name="chat_trigger_edit_draft">"트리거 “%1$s” 수정: "</string>
+    <string name="chat_trigger_ask_to_change">이 트리거를 바꾸려면 여기에서 요청하세요.</string>
     <string name="chat_image_preparing">이미지 준비 중…</string>
     <string name="chat_image_share">이미지 공유</string>
     <string name="chat_image_saved">Pictures/Nuphos에 저장됨</string>

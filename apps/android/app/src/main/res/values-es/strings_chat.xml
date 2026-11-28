@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">No hay ejecuciones próximas</string>
     <string name="chat_trigger_enable">Activar %1$s</string>
     <string name="chat_triggers_refresh">Actualizar</string>
+    <string name="chat_trigger_edit">Editar</string>
+    <string name="chat_trigger_edit_draft">"Edita tu disparador “%1$s”: "</string>
+    <string name="chat_trigger_ask_to_change">Pide aquí que se cambie este disparador.</string>
     <string name="chat_image_preparing">Preparando imagen…</string>
     <string name="chat_image_share">Compartir imagen</string>
     <string name="chat_image_saved">Guardado en Pictures/Nuphos</string>

@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">ไม่มีการทำงานที่กำลังจะมาถึง</string>
     <string name="chat_trigger_enable">เปิดใช้ %1$s</string>
     <string name="chat_triggers_refresh">รีเฟรช</string>
+    <string name="chat_trigger_edit">แก้ไข</string>
+    <string name="chat_trigger_edit_draft">"แก้ไขทริกเกอร์ “%1$s”: "</string>
+    <string name="chat_trigger_ask_to_change">ขอที่นี่เพื่อเปลี่ยนทริกเกอร์นี้</string>
     <string name="chat_image_preparing">กำลังเตรียมรูปภาพ…</string>
     <string name="chat_image_share">แชร์รูปภาพ</string>
     <string name="chat_image_saved">บันทึกไปที่ Pictures/Nuphos แล้ว</string>

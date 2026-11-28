@@ -12,6 +12,7 @@ data class ConversationTrigger(
     val cronExpression: String? = null,
     val nextRunAt: String? = null,
     val canManage: Boolean = false,
+    val messageTemplate: String? = null,
 ) {
     val schedule: String get() = scheduleDescription ?: if (triggerType == "cron") "Schedule: ${cronExpression.orEmpty()} (UTC)" else "When a webhook arrives"
 }

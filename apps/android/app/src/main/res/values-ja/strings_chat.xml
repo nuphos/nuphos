@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">今後の実行はありません</string>
     <string name="chat_trigger_enable">%1$s を有効にする</string>
     <string name="chat_triggers_refresh">更新</string>
+    <string name="chat_trigger_edit">編集</string>
+    <string name="chat_trigger_edit_draft">"トリガー「%1$s」を変更："</string>
+    <string name="chat_trigger_ask_to_change">このトリガーの変更はここで依頼してください。</string>
     <string name="chat_image_preparing">画像を準備中…</string>
     <string name="chat_image_share">画像を共有</string>
     <string name="chat_image_saved">Pictures/Nuphos に保存しました</string>

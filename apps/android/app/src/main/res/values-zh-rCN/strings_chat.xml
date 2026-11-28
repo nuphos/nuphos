@@ -41,6 +41,9 @@
     <string name="chat_trigger_no_upcoming_runs">没有即将执行的计划</string>
     <string name="chat_trigger_enable">启用 %1$s</string>
     <string name="chat_triggers_refresh">刷新</string>
+    <string name="chat_trigger_edit">编辑</string>
+    <string name="chat_trigger_edit_draft">"修改触发器“%1$s”："</string>
+    <string name="chat_trigger_ask_to_change">请在这里要求修改此触发器。</string>
     <string name="chat_image_preparing">正在准备图片…</string>
     <string name="chat_image_share">分享图片</string>
     <string name="chat_image_saved">已保存到 Pictures/Nuphos</string>
