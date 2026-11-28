@@ -68,7 +68,7 @@ export function CustomProviderFields({
   }
 
   const kinds = [
-    ...(modal ? [{ value: 'none', label: t('Sign in on the next step') }] : []),
+    ...(modal ? [{ value: 'none', label: t('OpenCode providers') }] : []),
     { value: 'openai', label: t('Custom endpoint') },
     { value: 'azure', label: t('Azure OpenAI') },
   ]

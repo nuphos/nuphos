@@ -137,6 +137,16 @@ export async function getConversationPreviewAttachment(
   return liveAttachment(doc)
 }
 
+/** Whether the conversation is archived: its runtime session is not resumed (#5002). */
+export async function isConversationArchived(sessionId: string, teamId: string): Promise<boolean> {
+  const doc = await agentConversations().findOne(
+    { sessionId, teamId, archivedAt: { $exists: true } },
+    { projection: { _id: 1 } },
+  )
+
+  return doc !== null
+}
+
 export async function setConversationPreviewAttachment(
   sessionId: string,
   teamId: string,

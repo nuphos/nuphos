@@ -60,6 +60,7 @@ chat_sources=(
   nuphos-ios/Services/Chat/OpenQuestions.swift \
   nuphos-ios/Services/BotFaces.swift \
   nuphos-ios/Services/Chat/AgentChatAPI.swift \
+  nuphos-ios/Models/SessionAccess.swift \
   nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Views/Home/ComposerAttachment.swift \
   nuphos-ios/Services/AccountAPI.swift \
