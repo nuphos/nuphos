@@ -76,9 +76,7 @@ export function CustomProviderFields({
   // Azure OpenAI serves OpenAI's API, which Claude Code doesn't speak.
   const offersAzure = provider !== 'claude-code'
   const kinds = [
-    ...(modal
-      ? [{ value: 'none', label: SIGN_IN[provider] ?? t('OpenCode providers') }]
-      : []),
+    ...(modal ? [{ value: 'none', label: SIGN_IN[provider] ?? t('OpenCode providers') }] : []),
     { value: 'openai', label: t('Custom endpoint') },
     ...(offersAzure ? [{ value: 'azure', label: t('Azure OpenAI') }] : []),
   ]
