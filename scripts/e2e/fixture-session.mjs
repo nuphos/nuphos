@@ -38,11 +38,13 @@ const promptOf = (meta = {}) =>
   meta['ai.nuphos/session']?.systemPrompt ??
   ''
 
-/** A session's Bot env, E2E_RULE, whether it is told to delegate (#4156), and a hash per system prompt section. */
+/** A session's Bot env, E2E_RULE, whether it is told to delegate (#4156) or that its computer has
+ *  no screen to hand over (#5321), and a hash per system prompt section. */
 export const opening = (params) => ({
   env: botEnv(params),
   rule: ruleIn(params),
   delegates: promptOf(params._meta).includes('Delegate work by default'),
+  noScreen: promptOf(params._meta).includes('has no screen to hand over'),
   sections: promptOf(params._meta)
     .split(/\n(?=## )/)
     .map(

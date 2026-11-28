@@ -207,7 +207,14 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   // A sign-in only the user can do is handed to them on this desktop.
   expect(box).toContain('handed to them with a request_user_decision `computer` card')
   expect(box).toContain('ignore MACHINE.md’s notes')
-  expect(await on('mac')).not.toContain('`computer` card')
+  expect(box).not.toContain('no screen to hand over')
+  // A computer with no screen to hand over says so, so the agent does not send a card the user can only skip.
+  const noScreen =
+    'this computer has no screen to hand over, so a request_user_decision `computer` card is refused here'
+  const headless = await on('mac')
+
+  expect(headless).toContain(noScreen)
+  expect(headless).not.toContain('handed to them')
 
   // What a host can hand over is what it reports (#5321), Box or not.
   const handsOver = { desktopOpen: true } as unknown as LocalRuntimeStatus
@@ -233,8 +240,13 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(pool).toContain('the `nuphos-desktop` tools for this conversation’s own desktop')
   expect(pool).toContain('handed to them with a request_user_decision `computer` card')
   expect(pool).not.toContain('MACHINE.md')
+  expect(mac).not.toContain(noScreen)
+  expect(pool).not.toContain(noScreen)
   // A computer that cannot hand its screen over is not told to try.
-  expect(await on('linux')).not.toContain('`computer` card')
+  const linux = await on('linux')
+
+  expect(linux).toContain(noScreen)
+  expect(linux).not.toContain('handed to them')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
   expect(await on('gone')).toContain('inside the team sandbox')
 })
