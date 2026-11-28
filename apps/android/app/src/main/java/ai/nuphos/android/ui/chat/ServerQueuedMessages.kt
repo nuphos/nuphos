@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun ServerQueuedMessages(queue: ServerQueueStore, writable: Boolean, canSteer: Boolean, onRecall: (ai.nuphos.android.data.AgentChatApi.QueueRecall) -> Boolean) {
     val scope = rememberCoroutineScope()
-    if (queue.items.isEmpty() && queue.error == null && queue.recoveredText == null) return
+    if (!queue.shown) return
     Surface(Modifier.fillMaxWidth().padding(horizontal = 12.dp), shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh) {
         Column(Modifier.padding(8.dp).heightIn(max = 210.dp).verticalScroll(rememberScrollState())) {

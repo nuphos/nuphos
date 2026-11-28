@@ -28,6 +28,15 @@ class ServerQueueStoreTest {
         assertNull(queue.held)
     }
 
+    // #5355: the held turns came from a Trigger or another agent, none of them this person's.
+    @Test fun aUsageHoldOnSomeoneElsesMessagesStillShowsTheStrip() = runTest {
+        val queue = store(read = { listOf(own.copy(id = "fire", mine = false)) }, held = { AgentChatApi.UsageHold(null) })
+        queue.refresh()
+        assertTrue(queue.items.isEmpty())
+        assertTrue(queue.shown)
+        assertFalse(store(read = { emptyList() }).also { it.refresh() }.shown)
+    }
+
     @Test fun onlyOwnMessagesRemainInServerOrder() = runTest {
         val second = own.copy(id = "second")
         val queue = store(read = { listOf(second, own.copy(id = "theirs", mine = false), own) })
