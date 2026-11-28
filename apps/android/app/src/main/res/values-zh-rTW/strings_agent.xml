@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">未讀回覆</string>
     <string name="agent_archived">已封存</string>
+    <string name="agent_no_project">無專案</string>
     <string name="agent_unlink_task_title">要取消連結任務嗎？</string>
     <string name="agent_unlink_task_body">「%1$s」將在任務清單中單獨顯示。它的訊息與共用權限不會改變。</string>
     <string name="agent_select_runtime_before_start">開始新的 Agent 前，請先選擇可用的執行環境。</string>

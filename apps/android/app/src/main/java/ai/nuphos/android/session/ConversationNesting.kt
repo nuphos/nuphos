@@ -14,24 +14,34 @@ object ConversationNesting {
         val folded: Boolean,
         val hidden: List<AgentConversation> = emptyList(),
         val trail: List<Boolean> = emptyList(),
+        /** The first family that asks nothing of the viewer, after those that do. */
+        val divider: Boolean = false,
     )
     data class Result(val rows: List<Row>)
 
-    private data class FamilyRank(val waiting: Boolean, val activity: Instant)
+    const val PROJECT_PREFIX = "project:"
+    const val NO_PROJECT = PROJECT_PREFIX + "none"
 
-    private fun familyRank(row: AgentConversation) = FamilyRank(row.isWaiting, row.lastActiveAt)
+    private data class FamilyRank(val waiting: Boolean, val asks: Boolean, val activity: Instant)
 
+    /**
+     * With [attention], the top-level rows are ordered as Desktop's Tasks: a family with an
+     * open question first, then by the newest activity anywhere in it, and the families that
+     * need the viewer before a divider and the rest.
+     */
     fun nest(
         conversations: List<AgentConversation>,
         folded: Set<String> = emptySet(), accountId: String? = null, groupSections: Boolean = true,
-        byFamily: Boolean = false,
+        attention: ((AgentConversation) -> Boolean)? = null,
     ): Result {
+        val byFamily = attention != null
+        fun familyRank(row: AgentConversation) = FamilyRank(row.isWaiting, attention?.invoke(row) == true, row.lastActiveAt)
         val rows = conversations.distinctBy { it.sessionId }
         val byId = rows.associateBy { it.sessionId }
         val parent = rows.associate { row ->
             val candidate = row.parentSessionId?.let(byId::get)
             row.sessionId to candidate?.takeIf {
-                it.sessionId != row.sessionId && it.teamId == row.teamId
+                it.sessionId != row.sessionId && (it.teamId == row.teamId || it.isProject)
             }?.sessionId
         }.toMutableMap()
         // Break one edge per cycle. Each node is visited at most once, including deep chains.
@@ -81,7 +91,7 @@ object ConversationNesting {
                 val child = familyRanks[id] ?: familyRank(row)
                 val ancestor = byId.getValue(p)
                 val rank = familyRanks[p] ?: familyRank(ancestor)
-                familyRanks[p] = FamilyRank(rank.waiting || child.waiting, maxOf(rank.activity, child.activity))
+                familyRanks[p] = FamilyRank(rank.waiting || child.waiting, rank.asks || child.asks, maxOf(rank.activity, child.activity))
             }
             counts[p] = (counts[p] ?: 0) + 1 + (counts[row.sessionId] ?: 0)
         }
@@ -89,12 +99,15 @@ object ConversationNesting {
         val hiddenChildren = mutableMapOf<String, MutableList<AgentConversation>>()
         val trails = mutableMapOf<String, List<Boolean>>()
         val visible = mutableListOf<Row>()
+        var divider: String? = null
         if (byFamily) {
-            val roots = finalChildren[null].orEmpty().sortedWith(
-                compareByDescending<AgentConversation> {
-                    familyRanks[it.sessionId]?.waiting ?: familyRank(it).waiting
-                }.thenByDescending { familyRanks[it.sessionId]?.activity ?: it.lastActiveAt },
+            val rank = { row: AgentConversation -> familyRanks[row.sessionId] ?: familyRank(row) }
+            val sorted = finalChildren[null].orEmpty().sortedWith(
+                compareByDescending<AgentConversation> { rank(it).waiting }.thenByDescending { rank(it).activity },
             )
+            val (asking, rest) = sorted.partition { rank(it).asks }
+            if (asking.isNotEmpty()) divider = rest.firstOrNull()?.sessionId
+            val roots = asking + rest
             order.clear()
             roots.asReversed().forEach(stack::addLast)
             while (stack.isNotEmpty()) {
@@ -114,11 +127,32 @@ object ConversationNesting {
                 hiddenChildren.getOrPut(foldedRoot) { mutableListOf() }.add(row)
                 continue
             }
-            visible += Row(row, sections.getValue(id), depths.getValue(id), counts[id] ?: 0, id in folded, trail = trails[id].orEmpty())
+            visible += Row(row, sections.getValue(id), depths.getValue(id), counts[id] ?: 0, id in folded, trail = trails[id].orEmpty(), divider = id == divider)
         }
         val displayed = if (groupSections) Section.entries.flatMap { section -> visible.filter { it.section == section } } else visible
         return Result(displayed.map { it.copy(hidden = hiddenChildren[it.conversation.sessionId].orEmpty()) })
     }
+    /**
+     * Desktop's `withProjects`: with any Task in a folder, one row per folder, in list order,
+     * then No project for the rest. A thread stays under its parent; every other Task goes
+     * under its project. With no folder at all the list stays as it was.
+     */
+    fun withProjects(tasks: List<AgentConversation>, noProject: String): List<AgentConversation> {
+        val paths = tasks.mapNotNull { it.workspace?.path?.takeIf(String::isNotEmpty) }.distinct()
+        if (paths.isEmpty()) return tasks
+        val listed = tasks.mapTo(mutableSetOf()) { it.sessionId }
+        val nested = tasks.map { task ->
+            if (task.parentSessionId != null && task.parentSessionId in listed) task
+            else task.copy(parentSessionId = task.workspace?.path?.takeIf(String::isNotEmpty)?.let { PROJECT_PREFIX + it } ?: NO_PROJECT)
+        }
+        val loose = nested.any { it.parentSessionId == NO_PROJECT }
+        return paths.map { AgentConversation(sessionId = PROJECT_PREFIX + it, title = projectName(it)) } +
+            (if (loose) listOf(AgentConversation(sessionId = NO_PROJECT, title = noProject)) else emptyList()) + nested
+    }
+
+    /** A folder's last component, as Desktop names a project. */
+    fun projectName(path: String): String = path.split('/', '\\').lastOrNull { it.isNotEmpty() } ?: path
+
     /** Only visible folded roots retain hidden rows, so total retained descendants stays O(n). */
     fun status(row: Row, label: (AgentConversation) -> String?): String? =
         (sequenceOf(row.conversation) + row.hidden.asSequence())
