@@ -1,0 +1,72 @@
+# Temporary: packaged macOS e2e for the Electron 45 upgrade (#5358). Runs only on pushes to
+# this throwaway branch, on a GitHub-hosted ephemeral runner, with no secrets and a
+# loopback-only stack. Deleted with the branch.
+name: Packaged macOS e2e (temporary)
+on:
+  push:
+    branches: [e2e/electron-45-packaged]
+permissions:
+  contents: read
+jobs:
+  packaged:
+    runs-on: macos-26
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@0ebf47130e4866e96fce0953f49152a61190b271 # v6.0.9
+        with:
+          version: 10
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/desktop/pnpm-lock.yaml
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: .bun-version
+      - name: Install dependencies
+        run: |
+          bun install --frozen-lockfile
+          (cd apps/backend && bun install --frozen-lockfile)
+          (cd apps/desktop && pnpm install --frozen-lockfile)
+      - name: Build renderer and main bundles
+        working-directory: apps/desktop
+        run: pnpm exec vite build
+      - name: Stage the local agent adapter
+        working-directory: apps/desktop
+        run: node local-runtime/prepare.mjs --targets darwin-arm64 --no-openab
+      - name: Package Nuphos macOS app (arm64, unsigned)
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder --mac --arm64 --dir --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+      - name: MongoDB for the loopback stack
+        run: |
+          curl -fsSL https://fastdl.mongodb.org/osx/mongodb-macos-arm64-8.0.4.tgz | tar -xz -C "$RUNNER_TEMP"
+          echo "MONGOD=$(ls -d "$RUNNER_TEMP"/mongodb-macos-*/bin)/mongod" >> "$GITHUB_ENV"
+      - name: Point the Cloud hosts at loopback
+        # So the updater phase, which needs the default endpoint, reaches nothing outside this runner.
+        run: |
+          printf '127.0.0.1 api.nuphos.ai\n127.0.0.1 nuphos.ai\n127.0.0.1 www.nuphos.ai\n' | sudo tee -a /etc/hosts
+          sudo dscacheutil -flushcache
+      - name: Run packaged e2e
+        env:
+          E2E_ARTIFACTS: ${{ runner.temp }}/packaged-e2e
+        run: |
+          set -euo pipefail
+          mkdir -p "$E2E_ARTIFACTS"
+          app=$(ls -d apps/desktop/release/mac-arm64/Nuphos.app apps/desktop/release/*/mac-arm64/Nuphos.app 2>/dev/null | head -1 || true)
+          [ -n "$app" ] || { find apps/desktop -maxdepth 4 -name '*.app' -type d; exit 1; }
+          echo "App: $app"
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/feed.zip"
+          E2E_APP="$PWD/$app" E2E_FEED_ZIP="$RUNNER_TEMP/feed.zip" bun scripts/e2e/run-packaged-mac.ts
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: packaged-macos-e2e
+          path: |
+            ${{ runner.temp }}/packaged-e2e
+            !${{ runner.temp }}/packaged-e2e/mongo
