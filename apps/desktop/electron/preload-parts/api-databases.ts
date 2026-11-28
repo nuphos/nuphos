@@ -85,6 +85,7 @@ export const databasesApi = {
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     ipcRenderer.invoke('fileTransfer:listDownloads', args),
   fileTransferReadOne: (args: {
+    channelId?: string
     teamId: string
     groupId: string
     fileId: string

@@ -14,6 +14,7 @@ export const fileTransferReadChannels = {
   'fileTransfer:readOne': (
     _e: IpcMainInvokeEvent,
     args: {
+      channelId?: string
       teamId: string
       sessionId?: string
       groupId: string

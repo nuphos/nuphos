@@ -14,6 +14,15 @@ const PREFIX = '~file-'
 const MAX_PREVIEWS = 12
 
 const previews = new Map<string, ArtifactVersion>()
+
+export type SpreadsheetSource = {
+  teamId: string
+  groupId: string
+  fileId: string
+  channelId?: string
+  size: number | null
+}
+const spreadsheets = new Map<string, { title: string; source: SpreadsheetSource }>()
 const listeners = new Set<() => void>()
 
 const HTML_FILE = /\.(html?|xhtml)$/i
@@ -83,4 +92,16 @@ export function subscribeFilePreviews(listener: () => void): () => void {
   return () => {
     listeners.delete(listener)
   }
+}
+
+/** Hold only the scoped source for XLSX; never workbook bytes or executable content. */
+export function putSpreadsheetPreview(id: string, title: string, source: SpreadsheetSource): void {
+  spreadsheets.delete(id)
+  spreadsheets.set(id, { title, source })
+  while (spreadsheets.size > MAX_PREVIEWS) spreadsheets.delete(spreadsheets.keys().next().value!)
+  for (const listener of listeners) listener()
+}
+
+export function readSpreadsheetPreview(id: string) {
+  return spreadsheets.get(id)
 }

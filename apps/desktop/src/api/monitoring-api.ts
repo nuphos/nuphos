@@ -67,6 +67,7 @@ export const monitoringApi = {
   fileTransferListDownloads: (args: { teamId: string; sessionId?: string }) =>
     window.api.fileTransferListDownloads(args),
   fileTransferReadOne: (args: {
+    channelId?: string
     teamId: string
     groupId: string
     fileId: string

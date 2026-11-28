@@ -96,3 +96,14 @@ test('an empty body, an expired group, a missing file or no link all answer null
   assert.equal(await readBoundedFile({ ...args, fileId: 'gone' }, resolver([file()])), null)
   assert.equal(await readBoundedFile(args, resolver([file({ downloadUrl: undefined })])), null)
 })
+
+test('preview resolves channel attachments through their channel context', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(new Uint8Array([1])))
+  const resolve = t.mock.fn(resolver([file()]))
+
+  assert.deepEqual(
+    await readBoundedFile({ ...args, channelId: 'channel' }, resolve),
+    new Uint8Array([1]),
+  )
+  assert.deepEqual(resolve.mock.calls[0].arguments, ['team', undefined, 'group', 'channel'])
+})
