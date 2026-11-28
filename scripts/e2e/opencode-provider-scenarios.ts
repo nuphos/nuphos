@@ -133,6 +133,8 @@ async function details(page: Page, label: string) {
   await card.getByText(/Enter only the resource name/u).waitFor()
   await shot(page, '5-details-azure-url')
   await card.getByLabel('Resource name').fill('acme-openai')
+  // A saved provider's key is never shown; Replace opens a field for a new one.
+  await card.getByRole('button', { name: 'Replace', exact: true }).click()
   await card.getByLabel('API key').fill('e2e-fictional-key')
   await shot(page, '6-details-azure')
   await card.getByRole('button', { name: 'Cancel', exact: true }).click()
