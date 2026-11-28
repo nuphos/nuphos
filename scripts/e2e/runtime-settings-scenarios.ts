@@ -148,22 +148,11 @@ export const runtimeSettingsScenarios: Scenario[] = [
         await shot(page, 'runtime-settings-7-test-unreachable')
         await test(base, 'Key accepted')
         await shot(page, 'runtime-settings-8-test-passed')
-        // A dev build keeps no key in a credential store: the refusal stays in the form.
-        await card.getByRole('button', { name: 'Save', exact: true }).click()
-        await card
-          .getByRole('alert')
-          .getByText(/no secure credential store/u)
-          .waitFor()
-        await shot(page, 'runtime-settings-9-save-refused')
-        await card.getByRole('button', { name: 'Cancel', exact: true }).click()
-
-        // A saved one, as a packaged app would leave it: its key is never shown, only replaced.
+        // Saved; a dev build keeps the key in memory. It is never shown again, only replaced.
         saved = join(userDir(userId ?? ''), 'custom-providers.json')
-        writeFileSync(saved, JSON.stringify({ codex: { baseUrl: base, models: ['gpt-e2e'] } }))
-        await page.evaluate(() => window.api.localRuntimeRefresh())
-        await until('the saved custom provider to show', async () =>
-          card.getByRole('button', { name: 'Edit', exact: true }).isVisible(),
-        )
+        await card.getByRole('button', { name: 'Save', exact: true }).click()
+        await card.getByRole('button', { name: 'Edit', exact: true }).waitFor()
+        await shot(page, 'runtime-settings-9-saved')
         await card.getByRole('button', { name: 'Edit', exact: true }).click()
         await card.getByText('•••• saved').waitFor()
         await shot(page, 'runtime-settings-10-key-saved')

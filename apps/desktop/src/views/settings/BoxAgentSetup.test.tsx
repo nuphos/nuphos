@@ -150,7 +150,7 @@ function type(field: Element, value: string) {
   )
 }
 
-async function addOpenCode(container: HTMLElement) {
+async function addOpenCode(container: HTMLElement, provider = 'opencode') {
   const root = createRoot(container)
 
   await act(() =>
@@ -158,7 +158,7 @@ async function addOpenCode(container: HTMLElement) {
       createElement(BoxAgentSetup, {
         teamId: 't1',
         device: { deviceId: 'd1', ownerUserId: 'u1', label: 'Atlas Studio' },
-        provider: 'opencode',
+        provider,
         agents: [],
         onDone: () => {},
       } as unknown as Parameters<typeof BoxAgentSetup>[0]),
@@ -217,4 +217,49 @@ test('a provider that is not saved removes the runtime and says why', async () =
     await act(() => root.unmount())
     container.remove()
   }
+})
+
+test('a Codex or Claude Code here saves its own provider too; Azure is not one of Claude Code’s', async () => {
+  for (const provider of ['codex', 'claude-code']) {
+    const container = dom.document.createElement('div') as unknown as HTMLElement
+
+    dom.document.body.append(container as never)
+    calls.saved = []
+    calls.logins = 0
+    saveError = null
+    const root = await addOpenCode(container, provider)
+
+    try {
+      assert.deepEqual(calls.saved, [
+        [provider, { baseUrl: 'http://127.0.0.1:4000/v1', models: ['llama3', 'qwen3'] }, 'i1'],
+      ])
+      assert.equal(calls.logins, 0)
+    } finally {
+      await act(() => root.unmount())
+      container.remove()
+    }
+  }
+  const container = dom.document.createElement('div') as unknown as HTMLElement
+  const root = createRoot(container)
+
+  dom.document.body.append(container as never)
+  await act(() =>
+    root.render(
+      createElement(BoxAgentSetup, {
+        teamId: 't1',
+        device: { deviceId: 'd1', ownerUserId: 'u1', label: 'Atlas Studio' },
+        provider: 'claude-code',
+        agents: [],
+        onDone: () => {},
+      } as unknown as Parameters<typeof BoxAgentSetup>[0]),
+    ),
+  )
+  const options = [...container.querySelectorAll('select[aria-label="Provider"] option')].map(
+    (option) => (option as HTMLOptionElement).value,
+  )
+
+  assert.ok(options.includes('openai'))
+  assert.ok(!options.includes('azure'))
+  await act(() => root.unmount())
+  container.remove()
 })

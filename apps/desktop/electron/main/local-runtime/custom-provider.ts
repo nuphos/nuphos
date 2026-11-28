@@ -15,7 +15,7 @@ import type { CustomProviderCheck } from './custom-provider-probe.ts'
 import type { LocalAgentProvider } from './providers.ts'
 
 export type CustomProviderAgent = 'claude-code' | 'codex' | 'opencode'
-/** `azure`: an Azure OpenAI resource, at `https://<resource>.openai.azure.com`; OpenCode only. */
+/** `azure`: an Azure OpenAI resource, at `https://<resource>.openai.azure.com`; not Claude Code's. */
 export type CustomProvider = { baseUrl: string; models: string[]; type?: 'azure' }
 
 /** What a launch needs: the key in the CLI's own variable, and the models to report. */
@@ -58,18 +58,15 @@ export const isAgent = (provider: unknown): provider is CustomProviderAgent =>
   provider === 'claude-code' || provider === 'codex' || provider === 'opencode'
 
 /**
- * The key's item, named after the directory the provider is saved in: `users/<userId>`, or
- * `instances/<id>/users/<userId>` for an added agent. Only OpenCode keeps one per runtime;
- * the others, one per account.
+ * The key's item, one per runtime, named after the directory the provider is saved in:
+ * `users/<userId>` for this computer's own agent, `instances/<id>/users/<userId>` for an added one.
  */
 export function providerAccount(userDir: string, provider: CustomProviderAgent): string {
   const userId = path.basename(userDir)
-
-  if (provider !== 'opencode') return `${userId}:${provider}`
   const runtime = path.dirname(path.dirname(userDir))
   const added = path.basename(path.dirname(runtime)) === 'instances'
 
-  return `${userId}:opencode:${added ? path.basename(runtime) : 'default'}`
+  return added ? `${userId}:${provider}:${path.basename(runtime)}` : `${userId}:${provider}`
 }
 
 /** HTTPS, or plain HTTP to a gateway on this computer; never credentials in the URL. */
@@ -78,7 +75,7 @@ export function parseCustomProvider(
   provider?: CustomProviderAgent,
 ): CustomProvider {
   const { baseUrl, models, type } = (value ?? {}) as Record<string, unknown>
-  const azure = provider === 'opencode' && type === 'azure'
+  const azure = provider !== 'claude-code' && type === 'azure'
   let url: URL
 
   try {
@@ -102,8 +99,8 @@ export function parseCustomProvider(
 
   if (ids.length > MAX_MODELS || ids.some((id) => !MODEL_ID.test(id)))
     throw new Error('Enter up to 50 model IDs, one per line, without spaces.')
-  // OpenCode has no model of its own to fall back on.
-  if (provider === 'opencode' && ids.length === 0)
+  // OpenCode has no model of its own to fall back on, and Azure runs only the deployments named.
+  if ((provider === 'opencode' || azure) && ids.length === 0)
     throw new Error(azure ? 'Enter at least one deployment name.' : 'Enter at least one model ID.')
 
   return azure
@@ -208,7 +205,9 @@ export async function saveCustomProvider(
   const key = typedKey(value)
 
   if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
-  const probeKey = provider === 'codex' && (await keyFor(store, userDir, provider, value))
+  // Only Codex needs a particular API of a gateway: Azure's serves it.
+  const probeKey =
+    provider === 'codex' && !parsed.type && (await keyFor(store, userDir, provider, value))
 
   // An unreachable one may be saved: the gateway may simply not be running yet.
   const check = probeKey && (await checkWithKey(provider, parsed, probeKey))

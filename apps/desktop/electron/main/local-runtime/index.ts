@@ -62,13 +62,19 @@ function bundleRoot(): string {
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
-// A dev build keeps no key (token-store.ts): none to read or delete, and none can be saved.
+// A dev build keeps keys out of the OS credential store (token-store.ts): in memory only, until
+// it quits.
+const devKeys = new Map<string, string>()
 const providerKeys: KeyStore = secureStorageEnabled()
   ? keychainFor(PROVIDER_KEYCHAIN_SERVICE)
   : {
-      get: () => Promise.resolve(null),
-      set: () => Promise.reject(new Error('the keychain is used only by the packaged app')),
-      delete: () => Promise.resolve(),
+      get: (account) => Promise.resolve(devKeys.get(account) ?? null),
+      set: (account, key) => {
+        devKeys.set(account, key)
+
+        return Promise.resolve()
+      },
+      delete: (account) => Promise.resolve(devKeys.delete(account)),
     }
 const providers = localProviders(dataDir, providerKeys, () => controller)
 

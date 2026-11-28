@@ -10,6 +10,7 @@ import {
   localSignIn,
   managesRuntime,
   newAgentAction,
+  ownCliProvider,
   ownSignedInCli,
   signedInAs,
   visibleAgent,
@@ -362,4 +363,21 @@ test('an agent card names who signed its agent in, or says it was the viewer', (
   assert.equal(signedInAs('Alice', 'u1', 'u2'), 'Signed in as Alice')
   assert.equal(signedInAs('Alice', 'u1', 'u1'), 'Signed in as you')
   assert.equal(signedInAs('Alice', 'u1', undefined), 'Signed in as Alice')
+})
+
+test('each Claude Code, Codex or OpenCode on this computer, an added one too, has its own provider', () => {
+  const here = { userId: 'owner', deviceId: 'mac' }
+  const added = (provider: string): RuntimeInstance => {
+    const agent = local(`local_owner_mac_${provider}`, 'mac', true)
+
+    return { ...agent, provider, local: { ...agent.local!, instanceId: `id-${provider}` } }
+  }
+
+  assert.equal(ownCliProvider(local('local_owner_mac', 'mac', true), here), 'codex')
+  for (const provider of ['claude-code', 'codex', 'opencode'])
+    assert.equal(ownCliProvider(added(provider), here), provider)
+  assert.equal(ownCliProvider(added('grok'), here), undefined)
+  // Another computer's runtime keeps its provider there.
+  assert.equal(ownCliProvider(local('local_owner_box', 'box', true), here), undefined)
+  assert.equal(ownCliProvider(teamAgent('managed'), here), undefined)
 })

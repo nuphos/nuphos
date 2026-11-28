@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { azureOrigin } from './custom-provider-probe.ts'
+
 import type { CustomProvider } from './custom-provider.ts'
 
 const BEGIN = '# Nuphos custom provider (begin)'
@@ -34,9 +36,12 @@ export function codexProviderConfig(
       : contents.slice(0, begin) + contents.slice(end + END.length).replace(/^\n/u, '')
 
   if (!provider) return rest
+  // Azure's v1 API, which needs no api-version; named Azure, Codex sends what Azure expects.
+  const azure = provider.type === 'azure'
+  const baseUrl = azure ? azureOrigin(provider.baseUrl) + '/openai/v1' : provider.baseUrl
   const table = [
-    `name = "Custom provider"`,
-    `base_url = ${JSON.stringify(provider.baseUrl)}`,
+    `name = ${JSON.stringify(azure ? 'Azure' : 'Custom provider')}`,
+    `base_url = ${JSON.stringify(baseUrl)}`,
     `env_key = ${JSON.stringify(CODEX_KEY_ENV)}`,
   ].join(', ')
 

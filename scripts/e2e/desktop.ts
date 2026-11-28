@@ -7,6 +7,7 @@ import { join, resolve } from 'node:path'
 
 import { chromium } from 'playwright-core'
 
+import { AZURE_STAND_IN_PORT } from './agent-provider-stubs.ts'
 import { artifacts, freePorts, logPath, spawn, stop, until } from './processes.ts'
 
 import type { Page } from 'playwright-core'
@@ -56,6 +57,8 @@ export async function startDesktop(
     ATLAS_DEV_SUFFIX: suffix ?? `e2e-${String(cdpPort)}`,
     // Adding an agent installs fixture-claude.mjs, never a vendor's CLI.
     NUPHOS_E2E_AGENT_INSTALLER: resolve(import.meta.dirname, 'fixture-install.sh'),
+    // Every Azure OpenAI resource is agent-provider-stubs.ts's, on loopback.
+    NUPHOS_E2E_AZURE_ORIGIN: `http://127.0.0.1:${String(AZURE_STAND_IN_PORT)}`,
   }
   const child = spawn(name, ['pnpm', 'exec', 'vite', '--port', String(vitePort), '--strictPort'], {
     cwd: DESKTOP_DIR,
