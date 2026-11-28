@@ -72,6 +72,20 @@ async function turn(page: Page, computer: string, label: string, reply: string) 
   await page.getByText(reply).filter({ visible: true }).first().waitFor({ timeout: 180_000 })
 }
 
+/** An added runtime's provider in its details, opened for editing and never saved. */
+async function details(page: Page, label: string, name: string) {
+  await openComputers(page)
+  await page.getByRole('button', { name: `Open ${label} details` }).click()
+  const card = page.getByRole('complementary', { name: new RegExp(label) })
+
+  await card.getByRole('button', { name: 'Edit', exact: true }).click()
+  await card.getByText('•••• saved').waitFor()
+  await shot(page, name)
+  await card.getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.keyboard.press('Escape')
+  await page.getByText('Back to app', { exact: true }).waitFor({ state: 'detached' })
+}
+
 const turns = (seen: Request[], path: RegExp) =>
   seen.filter((request) => request.method === 'POST' && path.test(request.url))
 
@@ -142,6 +156,8 @@ export const agentProviderScenarios: Scenario[] = [
         await turn(page, computer, 'Acme Azure', 'Hello from Azure.')
         await turn(page, computer, 'Acme gateway', 'Hello from the gateway.')
         await shot(page, '5-turn')
+        await details(page, 'Acme Azure', '6-codex-details')
+        await details(page, 'Acme gateway', '7-claude-details')
         // Azure's v1 API: no api-version, the key as a bearer token, the deployment as the model.
         const codexTurns = turns(azure.seen, /^\/openai\/v1\/responses$/u)
         const claudeTurns = turns(gateway.seen, /^\/v1\/messages(\?|$)/u)
