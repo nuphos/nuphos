@@ -15,6 +15,12 @@ import { inputClasses } from './styles'
 import type { ProviderDraft, ProviderKind } from './customProviderDraft'
 import type { CustomProviderAgent, CustomProviderCheck } from '../../api'
 
+/** The provider an agent's own sign-in, on the next step, runs it on: `none` in the dialog. */
+const SIGN_IN: Partial<Record<CustomProviderAgent, string>> = {
+  codex: 'OpenAI',
+  'claude-code': 'Anthropic',
+}
+
 /**
  * A custom provider's fields, its Test connection and the note on the key: the form in Runtime
  * details and the dialog that adds a runtime (`modal`, which also offers `none`).
@@ -70,7 +76,9 @@ export function CustomProviderFields({
   // Azure OpenAI serves OpenAI's API, which Claude Code doesn't speak.
   const offersAzure = provider !== 'claude-code'
   const kinds = [
-    ...(modal ? [{ value: 'none', label: t('Sign in on the next step') }] : []),
+    ...(modal
+      ? [{ value: 'none', label: SIGN_IN[provider] ?? t('Sign in on the next step') }]
+      : []),
     { value: 'openai', label: t('Custom endpoint') },
     ...(offersAzure ? [{ value: 'azure', label: t('Azure OpenAI') }] : []),
   ]

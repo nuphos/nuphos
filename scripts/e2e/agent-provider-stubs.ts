@@ -78,6 +78,11 @@ export function azureStub(port: number, text: string) {
       200,
       events([
         ['response.created', { response: { ...response, status: 'in_progress', output: [] } }],
+        ['response.output_item.added', { output_index: 0, item: { ...item, content: [] } }],
+        [
+          'response.output_text.delta',
+          { item_id: item.id, output_index: 0, content_index: 0, delta: text },
+        ],
         ['response.output_item.done', { output_index: 0, item }],
         ['response.completed', { response: { ...response, status: 'completed' } }],
       ]),
