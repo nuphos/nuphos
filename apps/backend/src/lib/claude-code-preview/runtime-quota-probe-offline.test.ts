@@ -1,4 +1,4 @@
-import { expect, spyOn, test } from 'bun:test'
+import { afterAll, expect, spyOn, test } from 'bun:test'
 
 import { useRuntimeRegistry } from '@/lib/test/doubles/runtime-registry'
 
@@ -14,9 +14,14 @@ useRuntimeRegistry({
   resolveTeamRuntimeEndpoints: () =>
     Promise.resolve([{ runtimeId: 'agent', url: 'ws://127.0.0.1:1/acp', authKey: 'k' }]),
 })
-spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['panel'])
-
+const runtimeJobs = spyOn(controlRegistry, 'runtimeJobs').mockReturnValue(['panel'])
 const acquire = spyOn(controlRegistry, 'acquire')
+
+// The registry is shared by every test file in the process.
+afterAll(() => {
+  runtimeJobs.mockRestore()
+  acquire.mockRestore()
+})
 const agent = { id: 'agent', provider: 'claude-code' } as RuntimeInstance
 const hangUp = () => Promise.reject(new OpenAbConnectionLostError('Connection ended'))
 
