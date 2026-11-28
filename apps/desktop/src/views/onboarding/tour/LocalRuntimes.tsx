@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import { LOCAL_AGENT_PROVIDERS } from '../../../api/local-agent-providers'
 import { AgentProviderIcon } from '../../../components/agent/panel/icons'
 import { t } from '../../../i18n'
+import { isWindows } from '../../../lib/platform'
 import { agentProvider } from '../../../types/runtime'
 import { AGENT_INSTALL } from '../../settings/agentInstall'
 import { InstallButton } from '../../settings/InstallAgentButton'
@@ -149,8 +150,12 @@ export function InstalledRuntimes({ statuses }: { statuses: RuntimeStatuses }) {
  * One that finishes installing is looked for again, so it joins the card and the list.
  */
 export function AddableRuntimes({ statuses }: { statuses: RuntimeStatuses }) {
+  // Cursor runs as a local runtime on macOS and Linux only, so Windows can't install it.
   const addable = LOCAL_AGENT_PROVIDERS.filter(
-    (provider) => statuses[provider] === 'missing' && AGENT_INSTALL[provider],
+    (provider) =>
+      statuses[provider] === 'missing' &&
+      AGENT_INSTALL[provider] &&
+      !(isWindows && provider === 'cursor'),
   )
 
   return (

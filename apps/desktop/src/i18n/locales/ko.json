@@ -3254,6 +3254,7 @@
   "Notification channel type": "알림 채널 유형",
   "Notification destination": "알림 대상",
   "Notifications are off for Nuphos. Turn them on in System Settings.": "Nuphos 알림이 꺼져 있습니다. 시스템 설정에서 켜세요.",
+  "Notifications are off for Nuphos. Turn them on in your system settings.": "Nuphos 알림이 꺼져 있습니다. 시스템 설정에서 켜세요.",
   "Notifications are on": "알림이 켜져 있습니다",
   "Notify via": "알림 방법",
   "Notion integration": "Notion 통합",

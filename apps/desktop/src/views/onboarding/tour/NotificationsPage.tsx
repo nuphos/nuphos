@@ -6,6 +6,7 @@ import { api } from '../../../api'
 import { readLocalStorage, writeLocalStorage } from '../../../app/localStorage'
 import { Button } from '../../../components/ui/button'
 import { t } from '../../../i18n'
+import { isMac, isWindows } from '../../../lib/platform'
 
 import { useSequence } from './sequence'
 import { TourLayout } from './TourLayout'
@@ -13,6 +14,8 @@ import { TourLayout } from './TourLayout'
 import type { ReactNode } from 'react'
 
 const KEY = 'nuphos.onboarding.notificationsOn'
+/** Linux desktops have no one settings page to open. */
+const canOpenSettings = isMac || isWindows
 
 type Permission = 'unknown' | 'on' | 'off'
 
@@ -64,7 +67,9 @@ export function NotificationsPage({ onNext }: { onNext: () => void }) {
         ) : (
           permission === 'off' && (
             <span className="text-[13px] text-secondary">
-              {t('Notifications are off for Nuphos. Turn them on in System Settings.')}
+              {isMac
+                ? t('Notifications are off for Nuphos. Turn them on in System Settings.')
+                : t('Notifications are off for Nuphos. Turn them on in your system settings.')}
             </span>
           )
         )
@@ -78,9 +83,11 @@ export function NotificationsPage({ onNext }: { onNext: () => void }) {
               {t('Later')}
             </Button>
             {permission === 'off' ? (
-              <Button onClick={() => void api.appOpenNotificationSettings()}>
-                {t('Open Settings')}
-              </Button>
+              canOpenSettings && (
+                <Button onClick={() => void api.appOpenNotificationSettings()}>
+                  {t('Open Settings')}
+                </Button>
+              )
             ) : (
               <Button disabled={asking} onClick={() => void turnOn()}>
                 {t('Turn On')}

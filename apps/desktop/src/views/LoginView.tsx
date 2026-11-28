@@ -154,7 +154,7 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel, switching 
 
   return (
     <div className="titlebar-drag h-full flex flex-col login-surface">
-      <div className="h-[44px] flex-shrink-0 flex items-center justify-end px-3">
+      <div className="h-[44px] flex-shrink-0 flex items-center justify-end pl-3 pr-[calc(var(--caption-reserve)+0.75rem)]">
         <LoginLanguageMenu />
       </div>
       {/* Scrolls, so a long account list never pushes the form out of reach. */}

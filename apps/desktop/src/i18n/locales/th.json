@@ -3254,6 +3254,7 @@
   "Notification channel type": "ประเภทช่องทางการแจ้งเตือน",
   "Notification destination": "ปลายทางการแจ้งเตือน",
   "Notifications are off for Nuphos. Turn them on in System Settings.": "การแจ้งเตือนของ Nuphos ปิดอยู่ เปิดได้ในการตั้งค่าระบบ",
+  "Notifications are off for Nuphos. Turn them on in your system settings.": "การแจ้งเตือนของ Nuphos ปิดอยู่ เปิดได้ในการตั้งค่าระบบของคุณ",
   "Notifications are on": "เปิดการแจ้งเตือนแล้ว",
   "Notify via": "แจ้งเตือนผ่าน",
   "Notion integration": "การผสานรวม Notion",

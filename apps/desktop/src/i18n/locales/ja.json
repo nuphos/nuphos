@@ -3254,6 +3254,7 @@
   "Notification channel type": "通知チャンネルの種類",
   "Notification destination": "通知の送信先",
   "Notifications are off for Nuphos. Turn them on in System Settings.": "Nuphos の通知はオフです。システム設定でオンにしてください。",
+  "Notifications are off for Nuphos. Turn them on in your system settings.": "Nuphos の通知はオフです。システムの設定でオンにしてください。",
   "Notifications are on": "通知はオンです",
   "Notify via": "通知方法",
   "Notion integration": "Notion インテグレーション",

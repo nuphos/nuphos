@@ -3254,6 +3254,7 @@
   "Notification channel type": "通知管道類型",
   "Notification destination": "通知目的地",
   "Notifications are off for Nuphos. Turn them on in System Settings.": "Nuphos 的通知已關閉。請在系統設定裡打開。",
+  "Notifications are off for Nuphos. Turn them on in your system settings.": "Nuphos 的通知已關閉。請在系統設定裡打開。",
   "Notifications are on": "通知已開啟",
   "Notify via": "通知方式",
   "Notion integration": "Notion 整合",
