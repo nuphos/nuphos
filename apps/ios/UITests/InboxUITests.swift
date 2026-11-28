@@ -970,6 +970,7 @@ final class InboxUITests: XCTestCase {
         shot("labelled-images")
         let url = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "raw.githubusercontent.com")).firstMatch
         XCTAssertFalse(url.exists, "The body shows the images' URLs as text")
+        XCTFail("Throwaway: upload the xcresult for the after screenshot")
     }
 
     private func listed(_ question: String) -> XCUIElement {
