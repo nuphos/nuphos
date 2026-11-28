@@ -69,15 +69,15 @@ export async function revokeOpenRouterKey(hash: string): Promise<void> {
 
 /**
  * Gives the Box `deviceId` its key: recorded on the Box first, so deleting the Box revokes it,
- * then written to its OpenCode. Returns the key's hash, or undefined when there is none. A key
- * OpenRouter refuses, or a config that cannot be written, leaves a Box that still works; a Box
- * deleted meanwhile throws, after revoking the key.
+ * then written to its OpenCode on the machine `connect` reaches. Returns the key's hash, or
+ * undefined when there is none. A key OpenRouter refuses, or a config that cannot be written,
+ * leaves a Box that still works; a Box deleted meanwhile throws, after revoking the key.
  */
 export async function giveBoxOpenRouterKey(
   userId: string,
   deviceId: string,
   teamId: string,
-  sandbox: Sandbox,
+  connect: () => Promise<Sandbox>,
 ): Promise<string | undefined> {
   const gift = await giftOpenRouterKey(teamId).catch((error: unknown) => {
     logError('agent.box.openrouter_gift_failed', error, { user_id: userId, team_id: teamId })
@@ -95,11 +95,13 @@ export async function giveBoxOpenRouterKey(
     await revokeOpenRouterKey(gift.hash)
     throw new AppError(409, 'box_gone', 'The computer was deleted while it was being created')
   }
-  await sandbox.commands
-    .run(OPENCODE_CONFIG_COMMAND, {
-      envs: { NUPHOS_USER_ID: userId, OPENCODE_CONFIG: openCodeConfig(gift.key) },
-      timeoutMs: QUICK_TIMEOUT_MS,
-    })
+  await connect()
+    .then((sandbox) =>
+      sandbox.commands.run(OPENCODE_CONFIG_COMMAND, {
+        envs: { NUPHOS_USER_ID: userId, OPENCODE_CONFIG: openCodeConfig(gift.key) },
+        timeoutMs: QUICK_TIMEOUT_MS,
+      }),
+    )
     .catch((error: unknown) => {
       logError('agent.box.openrouter_config_failed', error, {
         user_id: userId,
