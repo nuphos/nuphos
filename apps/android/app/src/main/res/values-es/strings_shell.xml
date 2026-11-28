@@ -155,7 +155,7 @@
     <string name="shell_desktop">Escritorio</string>
     <string name="shell_desktop_decode_failed">No se pudo decodificar este escritorio. Reintenta para iniciar una conexión nueva.</string>
     <string name="shell_desktop_connecting">Conectando…</string>
-    <string name="shell_desktop_mac_shared">Tienes la pantalla de la Mac; el agente también puede seguir usándola.</string>
+    <string name="shell_desktop_mac_shared">Tienes la pantalla de esta computadora; el agente también puede seguir usándola.</string>
     <string name="shell_desktop_in_control">Tienes el control. Devuélvelo para que el agente pueda usar este escritorio.</string>
     <string name="shell_desktop_watching">Mirando. Toma el control para usar el puntero y el teclado.</string>
     <string name="shell_desktop_failed">Falló la conexión con el escritorio.</string>

@@ -29906,48 +29906,48 @@
         }
       }
     },
-    "Take over to click, type and scroll on the Mac from here." : {
+    "Take over to click, type and scroll on this computer from here." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Toma el control para hacer clic, escribir y desplazarte en el Mac desde aquí."
+            "value" : "Toma el control para hacer clic, escribir y desplazarte en esta computadora desde aquí."
           }
         },
         "id" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ambil alih untuk mengeklik, mengetik, dan menggulir di Mac dari sini."
+            "value" : "Ambil alih untuk mengeklik, mengetik, dan menggulir di komputer ini dari sini."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "引き継ぐと、ここから Mac 上でクリック、入力、スクロールができます。"
+            "value" : "引き継ぐと、ここからこのコンピュータ上でクリック、入力、スクロールができます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "넘겨받으면 여기에서 Mac을 클릭, 입력, 스크롤할 수 있습니다."
+            "value" : "넘겨받으면 여기에서 이 컴퓨터를 클릭, 입력, 스크롤할 수 있습니다."
           }
         },
         "th" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "รับช่วงต่อเพื่อคลิก พิมพ์ และเลื่อนบน Mac จากที่นี่"
+            "value" : "รับช่วงต่อเพื่อคลิก พิมพ์ และเลื่อนบนคอมพิวเตอร์เครื่องนี้จากที่นี่"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "接管后即可从这里在 Mac 上点击、输入和滚动。"
+            "value" : "接管后即可从这里在这台电脑上点击、输入和滚动。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "接手後即可從這裡在 Mac 上點擊、輸入與捲動。"
+            "value" : "接手後即可從這裡在這台電腦上點擊、輸入與捲動。"
           }
         }
       }

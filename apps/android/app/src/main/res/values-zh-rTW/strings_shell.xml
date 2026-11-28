@@ -155,7 +155,7 @@
     <string name="shell_desktop">桌面</string>
     <string name="shell_desktop_decode_failed">無法解碼此桌面。請重試以建立新的連線。</string>
     <string name="shell_desktop_connecting">正在連線…</string>
-    <string name="shell_desktop_mac_shared">你正在操作這台 Mac 的螢幕，Agent 仍可同時使用。</string>
+    <string name="shell_desktop_mac_shared">你正在操作這台電腦的螢幕，Agent 仍可同時使用。</string>
     <string name="shell_desktop_in_control">你已取得控制權。交還後 Agent 才能使用此桌面。</string>
     <string name="shell_desktop_watching">觀看中。接管後即可使用指標與鍵盤。</string>
     <string name="shell_desktop_failed">桌面連線失敗。</string>

@@ -12,13 +12,16 @@
 // once nobody has watched it for IDLE_MS, when the lock is freed; a stream
 // whose lock went to another session ends (vnc-stream.ts). Unlike a Box,
 // nothing pauses the agent's input tools here while the owner has the screen.
+//
+// A Linux computer on an X11 session hands its own screen over the same way, with
+// TigerVNC's x0vncserver as the host (#5321). Wayland is not supported yet.
 
 import { spawn } from 'node:child_process'
 import { readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { connect } from 'node:net'
 import path from 'node:path'
 
-import { watchDesktops, withDesktopRequests } from './desktop-pool.ts'
+import { onPath, watchDesktops, withDesktopRequests } from './desktop-pool.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { ChildProcess } from 'node:child_process'
@@ -34,15 +37,31 @@ const lockFile = (pool: string) => path.join(pool, `${String(SCREEN)}.lock`)
 export const screenSocket = (pool: string) => path.join(pool, `${String(SCREEN)}.sock`)
 
 /**
- * The pool directory for this Mac's screen, or null on any other platform.
- * `changed` runs when the screen changes hands or goes idle.
+ * The Linux host: TigerVNC's x0vncserver on this X11 session's display. Debian and Ubuntu
+ * name the server X0tigervnc and put a perl wrapper that forks it into the background
+ * at x0vncserver, so the server itself is run where it exists.
+ */
+const X11_HOSTS = ['X0tigervnc', 'x0vncserver']
+const x11Host = (PATH?: string) => X11_HOSTS.find((command) => onPath(command, PATH))
+
+/** Whether this is a Linux computer whose own X11 screen x0vncserver can serve; a desktop pool's sessions have their own (desktop-pool.ts). */
+export const linuxScreen = (env = process.env) =>
+  Boolean(env.DISPLAY) &&
+  !env.WAYLAND_DISPLAY &&
+  !env.NUPHOS_DESKTOP_POOL &&
+  Boolean(x11Host(env.PATH))
+
+/**
+ * The pool directory for this computer's own screen, or null where there is none
+ * to hand over. `changed` runs when the screen changes hands or goes idle.
  */
 export function enableMacScreen(
   dataDir: string,
   changed: () => void,
   platform = process.platform,
+  env = process.env,
 ): string | null {
-  if (platform !== 'darwin') return null
+  if (platform !== 'darwin' && !(platform === 'linux' && linuxScreen(env))) return null
   const pool = path.join(dataDir, 'desktops')
 
   watchDesktops(pool, changed)
@@ -67,11 +86,15 @@ function holder(pool: string, now = Date.now()): string | undefined {
   }
 }
 
-/** What the tunnel status says: the session holding the screen, and that it opens on request. */
+/** What the tunnel status says: the session holding the screen, that it opens on request, and that it is this computer's own. */
 export function macScreenStatus(pool: string, now = Date.now()) {
   const sessionId = holder(pool, now)
 
-  return { desktops: sessionId ? [{ display: SCREEN, sessionId }] : [], desktopOpen: true }
+  return {
+    desktops: sessionId ? [{ display: SCREEN, sessionId }] : [],
+    desktopOpen: true,
+    ownScreen: true,
+  }
 }
 
 function listening(socket: string): Promise<boolean> {
@@ -102,7 +125,25 @@ export async function startHost(
 
   if (await listening(socket)) return
   host?.kill()
-  const args = ownPermissions ? [socket, '--own-permissions'] : [socket]
+  // x0vncserver serves $DISPLAY on the socket alone, with no VNC password: as with
+  // the Mac's host, only this process connects (0600), and it exits a minute
+  // after its last viewer leaves.
+  const args = X11_HOSTS.includes(path.basename(binary))
+    ? [
+        '-rfbunixpath',
+        socket,
+        '-rfbunixmode',
+        '0600',
+        '-rfbport',
+        '-1',
+        '-SecurityTypes',
+        'None',
+        '-MaxDisconnectionTime',
+        '60',
+      ]
+    : ownPermissions
+      ? [socket, '--own-permissions']
+      : [socket]
   const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
 
@@ -115,13 +156,14 @@ export async function startHost(
   child.stderr?.on('data', collect)
   await new Promise<void>((resolve, reject) => {
     const deadline = setTimeout(
-      () => finish(new Error('This Mac’s screen did not start in time.')),
+      () => finish(new Error('This computer’s screen did not start in time.')),
       START_MS,
     )
     const exited = () =>
       finish(
         new Error(
-          output.replace(/^mac-screen-host: /mu, '').trim() || 'This Mac’s screen could not start.',
+          output.replace(/^mac-screen-host: /mu, '').trim() ||
+            'This computer’s screen could not start.',
         ),
       )
     let settled = false
@@ -162,20 +204,28 @@ export async function openMacScreen(
   const held = holder(pool)
 
   if (held && held !== sessionId)
-    throw new Error('This Mac’s screen is open in another agent. Close it there first.')
+    throw new Error('This computer’s screen is open in another agent. Close it there first.')
   writeFileSync(lockFile(pool), JSON.stringify({ sessionId, since: Date.now() }), { mode: 0o600 })
 
   return SCREEN
 }
 
-/** The CLI's Mac screen host: the bundled binary, holding its own permissions, or e2e's stand-in. */
+/** The screen host: a Mac's bundled binary, or TigerVNC's on Linux. */
+export const screenHost = (
+  bundleRoot: string,
+  platform = process.platform,
+  PATH = process.env.PATH,
+) =>
+  platform === 'linux' ? (x11Host(PATH) ?? 'x0vncserver') : path.join(bundleRoot, 'mac-screen-host')
+
+/** The CLI's screen host: screenHost, a Mac's holding its own permissions, or e2e's stand-in. */
 export function cliMacScreenHost(
   bundleRoot: string,
   owner: () => string | null,
   standIn = process.env.NUPHOS_E2E_MAC_SCREEN_HOST,
 ) {
   return {
-    binary: () => standIn || path.join(bundleRoot, 'mac-screen-host'),
+    binary: () => standIn || screenHost(bundleRoot),
     handOver: (human: boolean) =>
       console.log(human ? 'A viewer took the screen.' : 'The viewer let go.'),
     owner,

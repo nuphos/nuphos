@@ -215,7 +215,7 @@ const controller = new LocalRuntimeController(withHostProvider(process.env, deps
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
-// A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
+// A Mac, or Linux on X11 with no desktop pool, shows its own screen (mac-screen.ts).
 const macScreen = enableMacScreen(
   dataDir,
   () => tunnel?.sendStatus(),

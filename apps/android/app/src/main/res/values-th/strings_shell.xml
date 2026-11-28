@@ -155,7 +155,7 @@
     <string name="shell_desktop">เดสก์ท็อป</string>
     <string name="shell_desktop_decode_failed">ถอดรหัสเดสก์ท็อปนี้ไม่ได้ ลองอีกครั้งเพื่อเริ่มการเชื่อมต่อใหม่</string>
     <string name="shell_desktop_connecting">กำลังเชื่อมต่อ…</string>
-    <string name="shell_desktop_mac_shared">คุณควบคุมหน้าจอของ Mac อยู่ เอเจนต์ยังใช้ได้เช่นกัน</string>
+    <string name="shell_desktop_mac_shared">คุณควบคุมหน้าจอของคอมพิวเตอร์เครื่องนี้อยู่ เอเจนต์ยังใช้ได้เช่นกัน</string>
     <string name="shell_desktop_in_control">คุณควบคุมอยู่ ส่งคืนเพื่อให้เอเจนต์ใช้เดสก์ท็อปนี้ได้</string>
     <string name="shell_desktop_watching">กำลังดูอยู่ เข้าควบคุมเพื่อใช้ตัวชี้และแป้นพิมพ์</string>
     <string name="shell_desktop_failed">การเชื่อมต่อเดสก์ท็อปล้มเหลว</string>
