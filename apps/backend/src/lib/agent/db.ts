@@ -30,6 +30,7 @@ export {
   consumeConversationWorkLost,
   forgetConversationPreviewSession,
   getConversationPreviewAttachment,
+  isConversationArchived,
   markConversationWorkLost,
   openConversationPromptSuggestion,
   setConversationPreviewAttachment,

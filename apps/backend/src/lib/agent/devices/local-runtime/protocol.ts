@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
+import { localUsageSchema } from './usage-schema'
+
 import type { TunnelPurpose } from './tunnel-purpose'
 
 export type { TunnelPurpose }
@@ -70,34 +72,6 @@ export const localModelCatalogSchema = z.object({
   /** The computer read this agent's models and the read failed, so this emptiness is
    *  not a list still on its way and nobody should be told to wait for one. */
   failed: z.literal(true).optional(),
-})
-
-/** One usage window as Anthropic or ChatGPT reports it. A window that does not
- *  fit becomes null rather than failing: the good windows beside it still count. */
-const usageWindowSchema = z
-  .object({
-    utilization: z.number().optional(),
-    resets_at: z.string().max(60).nullable().optional(),
-    used_percent: z.number().optional(),
-    limit_window_seconds: z.number().optional(),
-    reset_after_seconds: z.number().optional(),
-  })
-  .nullable()
-  .catch(null)
-
-const localUsageSchema = z.object({
-  five_hour: usageWindowSchema.optional(),
-  seven_day: usageWindowSchema.optional(),
-  seven_day_opus: usageWindowSchema.optional(),
-  seven_day_sonnet: usageWindowSchema.optional(),
-  plan_type: z.string().max(60).optional(),
-  rate_limit: z
-    .object({
-      primary_window: usageWindowSchema.optional(),
-      secondary_window: usageWindowSchema.optional(),
-    })
-    .nullable()
-    .optional(),
 })
 
 /** One agent the computer is running right now; absent from `agents` when it is not. */
