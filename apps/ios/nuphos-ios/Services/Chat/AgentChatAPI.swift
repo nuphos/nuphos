@@ -555,15 +555,15 @@ enum AgentChatAPI {
     @discardableResult
     static func send<B: Encodable>(
         _ method: String, _ path: String, query: [URLQueryItem] = [], token: String, body: B?, encodeNulls: Bool = false,
-        timeout: TimeInterval = 30
+        timeout: TimeInterval = 30, zipBody: Data? = nil
     ) async throws -> Data {
         try await StepUp.retrying(token: token) {
-            try await sendOnce(method, path, query: query, token: token, body: body, timeout: timeout)
+            try await sendOnce(method, path, query: query, token: token, body: body, timeout: timeout, zipBody: zipBody)
         }
     }
 
     private static func sendOnce<B: Encodable>(
-        _ method: String, _ path: String, query: [URLQueryItem], token: String, body: B?, timeout: TimeInterval
+        _ method: String, _ path: String, query: [URLQueryItem], token: String, body: B?, timeout: TimeInterval, zipBody: Data?
     ) async throws -> Data {
         var components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: path), resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
@@ -574,7 +574,10 @@ enum AgentChatAPI {
         request.setValue(clientVersion, forHTTPHeaderField: "x-atlas-client")
         request.setValue(AccountAPI.aiConsentVersion, forHTTPHeaderField: "x-nuphos-ai-consent-version")
         request.timeoutInterval = timeout
-        if let body {
+        if let zipBody {
+            request.setValue("application/zip", forHTTPHeaderField: "content-type")
+            request.httpBody = zipBody
+        } else if let body {
             request.setValue("application/json", forHTTPHeaderField: "content-type")
             let data = try encoder.encode(body)
             if path.hasSuffix("/transcript") { try ChatPayload.check(data) }

@@ -240,7 +240,16 @@ final class ChannelSession {
     // MARK: - Posting
 
     /// Shown at once; files upload first, then the post goes out with their group.
-    func send(_ submission: ComposerSubmission) {
+    struct BoxWake {
+        let runtimeId: String
+    }
+
+    private(set) var wakingPostId: String?
+    private(set) var wakeFailed = false
+    private var waitingPost: (id: String, text: String, reply: ChannelReply?, box: BoxWake)?
+
+    func send(_ submission: ComposerSubmission, waking box: BoxWake? = nil) {
+        guard waitingPost == nil else { return }
         let text = submission.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty || !submission.attachments.isEmpty else { return }
         let reply = replying
@@ -254,6 +263,52 @@ final class ChannelSession {
         let upload = submission.attachments.isEmpty ? nil : SendingUpload(attachments: submission.attachments)
         sendingUploads[id] = upload
         lastSubmittedRowID = "post.\(id)"
+        if let box {
+            waitingPost = (id, text, reply, box)
+            retryBoxWake()
+        } else {
+            submit(id: id, text: text, reply: reply, submission: submission)
+        }
+    }
+
+    func retryBoxWake() {
+        guard wakingPostId == nil, let post = waitingPost else { return }
+        wakingPostId = post.id
+        wakeFailed = false
+        Task {
+            defer { wakingPostId = nil }
+            do {
+                struct Status: Decodable { let online: Bool }
+                let path = "teams/\(teamId)/agent-runtimes/\(post.box.runtimeId)/status"
+                do {
+                    let status: Status = try await WorkspaceAPI.request(
+                        path, query: [URLQueryItem(name: "wake", value: "1")], token: token)
+                    if status.online {
+                        waitingPost = nil
+                        submit(id: post.id, text: post.text, reply: post.reply, submission: nil)
+                        return
+                    }
+                } catch AgentChatAPI.Conflict.runtimeOffline {
+                    // A waking computer can still report offline until its runtime reconnects.
+                }
+                for _ in 0..<45 {
+                    try await Task.sleep(for: .seconds(2))
+                    let current: Status? = try? await WorkspaceAPI.request(path, token: token)
+                    if current?.online == true {
+                        waitingPost = nil
+                        submit(id: post.id, text: post.text, reply: post.reply, submission: nil)
+                        return
+                    }
+                }
+                wakeFailed = true
+            } catch {
+                wakeFailed = true
+            }
+        }
+    }
+
+    private func submit(id: String, text: String, reply: ChannelReply?, submission: ComposerSubmission?) {
+        let upload = sendingUploads[id]
         Task {
             do {
                 var body: [String: JSONValue] = ["text": .string(text), "id": .string(id)]
@@ -272,7 +327,7 @@ final class ChannelSession {
                 sending.removeAll { $0.id == id }
                 sendingUploads[id] = nil
                 sendError = error.localizedDescription
-                unsent = submission
+                unsent = submission ?? ComposerSubmission(text: text, attachments: upload?.attachments ?? [])
                 replying = reply
             }
         }

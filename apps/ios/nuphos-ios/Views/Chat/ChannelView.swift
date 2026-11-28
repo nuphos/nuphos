@@ -10,6 +10,7 @@ struct ChannelView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
+    var onboardingTarget: PushTarget? = nil
     var openTask: (String, String) -> Void = { _, _ in }
     /// After the viewer leaves the chat from its members.
     var onLeft: () -> Void = {}
@@ -30,6 +31,19 @@ struct ChannelView: View {
     /// The Bot whose agent is being switched, after it could not reply.
     @State private var switchingBot: ChatSession?
     @State private var switchError: String?
+    private var botPresenceState: String? {
+        channel.agents.first { $0.sessionId == channel.botId }?.presence?.state
+    }
+
+    private var pausedBox: AgentDevice? {
+        guard botPresenceState != "online", botPresenceState != "busy" else { return nil }
+        guard owns(channel.botId), store.selectedTeam?.id == channel.teamId,
+              let runtimeId = botSession?.runtimeId,
+              let deviceId = store.runtimes.first(where: { $0.id == runtimeId })?.local?.deviceId else { return nil }
+        return store.agentDevices.first {
+            $0.deviceId == deviceId && NewBox.resumable(state: $0.box?.state ?? "", access: $0.access)
+        }
+    }
 
     /// Only an agent's owner can move it to another agent.
     private func owns(_ agentId: String?) -> Bool {
@@ -49,6 +63,8 @@ struct ChannelView: View {
     /// An offline Bot says so first: nothing it runs moves until it is back.
     private var state: (text: String, waiting: Bool)? {
         guard let bot = channel.botId else { return nil }
+        if channel.wakingPostId != nil { return (String(localized: "Starting computer…"), true) }
+        if pausedBox != nil { return (String(localized: "Paused"), true) }
         if let presence = channel.agents.first(where: { $0.sessionId == bot })?.presence, presence.state == "offline" {
             return (presence.tag.word, true)
         }
@@ -157,6 +173,11 @@ struct ChannelView: View {
                     guard !Task.isCancelled, channel.botId == bot else { return }
                     canOpenTask = detail != nil
                 }
+            }
+            .task(id: botPresenceState) {
+                guard channel.botId != nil, botPresenceState != nil else { return }
+                await store.loadRuntimes()
+                await store.loadAgentDevices(metrics: false)
             }
             .desktop($desktop)
             .sheet(isPresented: $membersOpen) {
@@ -289,14 +310,16 @@ struct ChannelView: View {
 
     private var composer: some View {
         VStack(spacing: 6) {
-            if let away = BotPresence.offlineStrip(channel.agents, botId: channel.botId) {
-                HintRow(text: away, isError: true,
+            if pausedBox == nil, channel.wakingPostId == nil, !channel.wakeFailed,
+               channel.botId == nil || !owns(channel.botId) || store.agentDevicesLoaded || store.agentDevicesError,
+               let away = BotPresence.offlineStrip(channel.agents, botId: channel.botId) {
+                HintRow(text: away,
                         onSwitchRuntime: owns(channel.botId) && botSession != nil ? { switchingBot = botSession } : nil)
             }
             if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,
-                canSend: channel.loaded && !channel.readOnly,
+                canSend: channel.loaded && !channel.readOnly && channel.wakingPostId == nil && !channel.wakeFailed,
                 editRequest: $channel.unsent,
                 // As in a Task: `@` offers the viewer's other Bots and tasks, as their links.
                 mentions: MentionSource(
@@ -307,7 +330,10 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
-                onSend: { channel.send($0) },
+                onSend: { submission in
+                    let box = pausedBox != nil ? botSession?.runtimeId.map { ChannelSession.BoxWake(runtimeId: $0) } : nil
+                    channel.send(submission, waking: box)
+                },
                 controls: { EmptyView() }
             )
         }
@@ -345,7 +371,7 @@ struct ChannelView: View {
         #if os(iOS)
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
-                       composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
+                       composer: AnyView(onboardingComposer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
                        animatesArrivals: true, softTopEdge: true, jump: jump, swipeAction: replyAction) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
@@ -363,6 +389,17 @@ struct ChannelView: View {
         #endif
     }
 
+    #if os(iOS)
+    private var onboardingComposer: some View {
+        VStack(spacing: 0) {
+            if let target = onboardingTarget, !target.onboardingConnectorKeys.isEmpty, channel.loaded, channel.loadError == nil {
+                OnboardingConnectorActions(target: target, channel: channel)
+            }
+            composer
+        }
+    }
+    #endif
+
     /// Swiping a post right replies to it, where the viewer can post.
     private func replyAction(_ row: ChatRow) -> (() -> Void)? {
         guard case .channel(_, .post(let post, _)) = row, !channel.readOnly, !post.sending else { return nil }
@@ -376,13 +413,29 @@ struct ChannelView: View {
             case .time(let date):
                 TimestampLabel(date: date)
             case .post(let post, let first):
-                // A Bot's 1:1 chat names nobody: the header already says who answers.
-                ChannelPostRow(post: post, first: first && post.senderId != channel.botId, mine: post.isMine(viewerId: channel.viewerId),
-                               upload: channel.sendingUploads[post.id], channel: channel,
-                               onLink: open(link:),
-                               flashed: flashed == post.id,
-                               onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
-                               onQuote: show)
+                VStack(spacing: 6) {
+                    if channel.wakingPostId == post.id || (channel.wakeFailed && channel.lastSubmittedRowID == "post.\(post.id)") {
+                        HStack(spacing: 8) {
+                            if channel.wakeFailed {
+                                Text("Couldn’t wake the computer.")
+                                Button("Retry") { channel.retryBoxWake() }
+                            } else {
+                                ProgressView().controlSize(.small)
+                                Text("Starting computer…")
+                            }
+                        }
+                        .font(Theme.Text.caption)
+                        .foregroundStyle(Theme.muted)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                    // A Bot's 1:1 chat names nobody: the header already says who answers.
+                    ChannelPostRow(post: post, first: first && post.senderId != channel.botId, mine: post.isMine(viewerId: channel.viewerId),
+                                   upload: channel.sendingUploads[post.id], channel: channel,
+                                   onLink: open(link:),
+                                   flashed: flashed == post.id,
+                                   onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
+                                   onQuote: show)
+                }
             case .paused(let text):
                 PausedLine(text: text)
             case .answeredInInbox(let post):

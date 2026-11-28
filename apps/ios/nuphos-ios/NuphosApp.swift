@@ -28,7 +28,16 @@ struct NuphosApp: App {
     var body: some Scene {
         WindowGroup {
             #if DEBUG && os(iOS)
-            if CommandLine.arguments.contains("-scroll-regression") {
+            if CommandLine.arguments.contains("-consent-debug") {
+                AIConsentView(user: .preview, previewAgree: {}).environment(session)
+            } else if CommandLine.arguments.contains("-sticker-debug") {
+                StickerPeelDebug()
+            } else if CommandLine.arguments.contains("-cloud-tour") {
+                CloudOnboardingTour(more: { EmptyView() })
+            } else if CommandLine.arguments.contains("-mobile-onboarding")
+                        || UserDefaults.standard.bool(forKey: "previewMobileOnboarding") {
+                MobileOnboardingPreview()
+            } else if CommandLine.arguments.contains("-scroll-regression") {
                 TranscriptRegressionScreen()
             } else if CommandLine.arguments.contains("-preview-desktop") {
                 // With `-apiBaseURL http://127.0.0.1:<port>` pointing at a fixture desktop server.

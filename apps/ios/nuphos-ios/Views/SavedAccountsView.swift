@@ -5,6 +5,7 @@ struct SavedAccountsView: View {
     @Environment(AuthSession.self) private var session
     var allowAdding = false
     var editProfile: (() -> Void)? = nil
+    var onContinueWithActiveAccount: (() -> Void)? = nil
     @State private var removing: SavedAccount?
 
     private var accounts: [SavedAccount] {
@@ -51,7 +52,14 @@ struct SavedAccountsView: View {
     private func accountRow(_ account: SavedAccount) -> some View {
         let active = session.token != nil && session.savedAccounts.active?.id == account.id
         return HStack(spacing: 4) {
-            Button { Task { await session.selectAccount(account.id) } } label: {
+            Button {
+                if active, let onContinueWithActiveAccount {
+                    UserDefaults.standard.set(account.origin, forKey: NuphosAPI.baseURLKey)
+                    onContinueWithActiveAccount()
+                } else {
+                    Task { await session.selectAccount(account.id) }
+                }
+            } label: {
                 HStack(spacing: 12) {
                     AvatarView(user: account.user, size: 36)
                     VStack(alignment: .leading, spacing: 3) {
@@ -62,6 +70,9 @@ struct SavedAccountsView: View {
                         if let server = serverLabel(account.origin) {
                             Text(server).font(.caption2).foregroundStyle(Theme.muted)
                                 .accessibilityLabel("Server: \(account.origin)")
+                        }
+                        if active && onContinueWithActiveAccount != nil {
+                            Text("Continue with this account").font(.caption).foregroundStyle(Theme.muted)
                         }
                         if account.token == nil {
                             Text("Sign in again").font(.caption).foregroundStyle(Theme.warning)

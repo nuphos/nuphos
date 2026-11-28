@@ -4,6 +4,16 @@ import AuthenticationServices
 struct LoginView: View {
     @Environment(AuthSession.self) private var session
     @Environment(\.colorScheme) private var colorScheme
+    #if DEBUG && os(iOS)
+    @AppStorage(OnboardingLanguage.preferenceKey) private var onboardingLanguage = ""
+    private var showsOnboardingLanguage: Bool {
+        CommandLine.arguments.contains("-mobile-onboarding") ||
+            UserDefaults.standard.bool(forKey: "previewMobileOnboarding")
+    }
+    #endif
+    /// Set when the login is presented as a sheet that can be dismissed.
+    var onClose: (() -> Void)? = nil
+    var onContinueWithActiveAccount: (() -> Void)? = nil
     @AppStorage(NuphosAPI.baseURLKey) private var savedURL = ""
     @State private var path: [Screen] = []
     @State private var showingServer = false
@@ -41,12 +51,25 @@ struct LoginView: View {
                     }
                 }
                 .toolbar {
-                    if session.addingAccount, path.isEmpty {
+                    if let onClose, path.isEmpty {
+                        ToolbarItem(placement: .topBarLeading) {
+                            Button(action: onClose) { LucideIcon("x") }
+                                .accessibilityLabel("Close").disabled(signingIn)
+                        }
+                    }
+                    if session.addingAccount, onClose == nil, path.isEmpty {
                         ToolbarItem(placement: .topBarLeading) {
                             Button { Task { await session.cancelAddAccount() } } label: { LucideIcon("chevron-left") }
                                 .accessibilityLabel("Back").disabled(signingIn)
                         }
                     }
+                    #if DEBUG && os(iOS)
+                    if showsOnboardingLanguage {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            OnboardingLanguageMenu(selection: $onboardingLanguage)
+                        }
+                    }
+                    #endif
                     ToolbarItem(placement: .topBarTrailing) {
                         DesignButton("Server settings", image: "lucide-settings") { showingServer = true }
                             .labelStyle(.iconOnly).disabled(signingIn)
@@ -54,6 +77,11 @@ struct LoginView: View {
                 }
         }
         .tint(Theme.heading)
+        #if DEBUG && os(iOS)
+        .transformEnvironment(\.locale) { locale in
+            if showsOnboardingLanguage { locale = OnboardingLanguage.locale(onboardingLanguage) }
+        }
+        #endif
         .sheet(isPresented: $showingServer) { LoginServerSettings() }
         .task(id: savedURL) { await loadProviders() }
         .onChange(of: path) { oldPath, newPath in
@@ -86,7 +114,7 @@ struct LoginView: View {
                             .multilineTextAlignment(.center)
                     }.padding(.top, 24)
                     if !session.savedAccounts.accounts.isEmpty || session.addingAccount || session.savedAccounts.error != nil {
-                        SavedAccountsView()
+                        SavedAccountsView(onContinueWithActiveAccount: onContinueWithActiveAccount)
                     }
                     Spacer(minLength: 24)
                     VStack(spacing: 16) {
@@ -170,7 +198,7 @@ struct LoginView: View {
                     Task { await session.signIn(provider: .google) }
                 } label: {
                     HStack(spacing: 12) {
-                        Image("GoogleSignIn").resizable().renderingMode(.template).scaledToFit().frame(width: 20, height: 20)
+                        Image("GoogleSignIn").resizable().renderingMode(.template).scaledToFit().frame(width: 16, height: 16)
                         Text("Continue with Google")
                     }.frame(maxWidth: .infinity, minHeight: 20)
                         .foregroundStyle(loginButtonLabel)
@@ -239,6 +267,15 @@ struct LoginView: View {
         }
         .background(Theme.canvas)
         .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+        #if DEBUG && os(iOS)
+        .toolbar {
+            if showsOnboardingLanguage {
+                ToolbarItem(placement: .topBarTrailing) {
+                    OnboardingLanguageMenu(selection: $onboardingLanguage)
+                }
+            }
+        }
+        #endif
         .navigationBarBackButtonHidden(signingIn)
         .scrollDismissesKeyboard(.interactively)
         .safeAreaInset(edge: .bottom) {
@@ -265,6 +302,15 @@ struct LoginView: View {
         }
         .background(Theme.canvas)
         .navigationTitle("").navigationBarTitleDisplayMode(.inline)
+        #if DEBUG && os(iOS)
+        .toolbar {
+            if showsOnboardingLanguage {
+                ToolbarItem(placement: .topBarTrailing) {
+                    OnboardingLanguageMenu(selection: $onboardingLanguage)
+                }
+            }
+        }
+        #endif
         .scrollDismissesKeyboard(.interactively)
     }
 
@@ -485,9 +531,10 @@ private struct NativeAppleSignInButton: UIViewRepresentable {
 }
 #endif
 
-private struct LoginServerSettings: View {
+struct LoginServerSettings: View {
     @Environment(\.dismiss) private var dismiss
     @AppStorage(NuphosAPI.baseURLKey) private var savedURL = ""
+    var onSave: (() -> Void)? = nil
     @State private var draft = ""
     @State private var error: String?
 
@@ -508,7 +555,7 @@ private struct LoginServerSettings: View {
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 if !savedURL.isEmpty {
                     Section {
-                        Button("Use Nuphos Cloud") { savedURL = ""; dismiss() }
+                        Button("Use Nuphos Cloud") { savedURL = ""; didSave() }
                     }
                 }
             }
@@ -531,6 +578,10 @@ private struct LoginServerSettings: View {
         var origin = URLComponents()
         origin.scheme = scheme; origin.host = host; origin.port = url.port
         savedURL = origin.url?.absoluteString ?? ""
-        dismiss()
+        didSave()
+    }
+
+    private func didSave() {
+        if let onSave { onSave() } else { dismiss() }
     }
 }
