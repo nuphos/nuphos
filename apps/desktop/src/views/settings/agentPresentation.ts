@@ -171,24 +171,15 @@ export function localSignIn(
     : 'runtime'
 }
 
-/** The agents a custom provider can stand in for the sign-in of. */
-export const isCustomProviderAgent = (
-  provider: string,
-): provider is 'claude-code' | 'codex' | 'opencode' =>
-  provider === 'claude-code' || provider === 'codex' || provider === 'opencode'
-
-/**
- * This Desktop's own Claude Code, Codex or OpenCode, an added one too: settings saved on this
- * computer for that runtime, such as its custom provider.
- */
+/** This Desktop's own Claude Code or Codex: settings saved on this computer, such as its custom provider. */
 export function ownCliProvider(
   instance: RuntimeInstance,
   thisComputer: ThisComputer,
-): 'claude-code' | 'codex' | 'opencode' | undefined {
+): 'claude-code' | 'codex' | undefined {
   const local = instance.local
 
-  if (!local || !isThisComputer(thisComputer, computerOf(local))) return
-  if (isCustomProviderAgent(instance.provider)) return instance.provider
+  if (!local || local.instanceId || !isThisComputer(thisComputer, computerOf(local))) return
+  if (instance.provider === 'claude-code' || instance.provider === 'codex') return instance.provider
 }
 
 /**

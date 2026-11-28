@@ -6,12 +6,9 @@ import path from 'node:path'
 import { test } from 'node:test'
 
 import { readInstances, writeInstances } from './agent-instances.ts'
-import { localProviders } from './custom-provider-local.ts'
-import { readCustomProviders } from './custom-provider.ts'
 import { InstanceControllers, PENDING_TTL_MS } from './instance-controllers.ts'
 
 import type { AgentInstanceRecord } from './agent-instances.ts'
-import type { LocalRuntimeController } from './controller.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
 
 type Fake = {
@@ -31,16 +28,10 @@ function setup(
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const fakes = new Map<string, Fake>()
   const removedCredentials: string[] = []
-  const deletedKeys: string[] = []
   let now = Date.parse('2026-10-15T00:00:00Z')
   const deps = {
     dataDir: () => root,
     userEnv: async () => ({}),
-    providerKeys: {
-      delete: async (account: string) => {
-        deletedKeys.push(account)
-      },
-    },
   } as unknown as LocalRuntimeControllerDeps
   const instances = new InstanceControllers(
     deps,
@@ -105,7 +96,6 @@ function setup(
     fakeOf,
     inventory,
     removedCredentials,
-    deletedKeys,
     advance: (ms: number) => {
       now += ms
     },
@@ -189,55 +179,6 @@ test('remove stops the agent and deletes its directory, Keychain entry and recor
     instances.request({ method: 'remove', instanceId: '../escape' }, 'alice'),
     /Invalid/u,
   )
-})
-
-test('removing an added agent deletes its own custom provider key with its directory', async (t) => {
-  const { instances, dirOf, deletedKeys } = setup(t)
-
-  await instances.load('alice')
-  for (const provider of ['opencode', 'codex', 'claude-code'] as const) {
-    const agent = { instanceId: randomUUID(), provider, label: provider }
-
-    await instances.request({ method: 'create', ...agent }, 'alice')
-    mkdirSync(path.join(dirOf(agent.instanceId), 'users', 'alice'), { recursive: true })
-    await instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice')
-    assert.equal(deletedKeys.at(-1), `alice:${provider}:${agent.instanceId}`)
-    assert.equal(existsSync(dirOf(agent.instanceId)), false)
-  }
-  assert.equal(deletedKeys.length, 3)
-})
-
-test('a provider saved on a pending OpenCode keeps it; removed, it succeeds signed out', async (t) => {
-  const { root, instances, fakeOf, dirOf, inventory } = setup(t)
-
-  await instances.load('alice')
-  const agent = { instanceId: randomUUID(), provider: 'opencode' as const, label: 'OpenCode' }
-  const providers = localProviders(
-    () => root,
-    { get: async () => null, set: async () => {}, delete: async () => {} },
-    () =>
-      ({
-        state: () => ({ userId: 'alice', instances: instances.status() }),
-        instanceRequest: (request: unknown) => instances.request(request, 'alice'),
-      }) as unknown as LocalRuntimeController,
-  )
-  const local = { baseUrl: 'http://127.0.0.1:4000/v1', models: ['llama3'] }
-  const saved = () => readCustomProviders(path.join(dirOf(agent.instanceId), 'users', 'alice'))
-
-  await instances.request({ method: 'create', ...agent }, 'alice')
-  // Not signed in yet: the save fails, so the dialog removes the runtime.
-  await assert.rejects(providers.set('opencode', local, agent.instanceId), /not signed in/u)
-  // withProviderStatus reports a saved provider as the sign-in.
-  fakeOf(agent.instanceId).loggedIn = true
-  await providers.set('opencode', local, agent.instanceId)
-  assert.equal(inventory()[0]?.state, 'ready')
-  assert.deepEqual(saved().opencode, local)
-
-  fakeOf(agent.instanceId).loggedIn = false
-  await providers.set('opencode', null, agent.instanceId)
-  assert.equal(saved().opencode, undefined)
-  assert.deepEqual(fakeOf(agent.instanceId).restarts, [true, true, true])
-  assert.equal(inventory()[0]?.state, 'ready')
 })
 
 test('remove says so when the Keychain entry could not be deleted, and still deletes the directory', async (t) => {

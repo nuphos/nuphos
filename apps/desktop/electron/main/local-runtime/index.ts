@@ -7,7 +7,7 @@ import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
-import { keychainFor, secureStorageEnabled } from '../../auth/token-store.ts'
+import { keychainFor } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
@@ -25,8 +25,15 @@ import { localFileConnectors } from './attachment-stream.ts'
 import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { readBundle } from './config.ts'
-import { localProviders, withProviderKey, withProviderStatus } from './custom-provider-local.ts'
-import { PROVIDER_KEYCHAIN_SERVICE } from './custom-provider.ts'
+import {
+  PROVIDER_KEYCHAIN_SERVICE,
+  readCustomProviders,
+  checkCustomProvider,
+  notSaved,
+  saveCustomProvider,
+  withProviderKey,
+  withProviderStatus,
+} from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { desktopVaultTokens } from './desktop-vault-tokens.ts'
@@ -43,7 +50,6 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 
 import type { AccountContext } from '../../auth-session.ts'
 import type { LocalRuntimeBundle } from './config.ts'
-import type { KeyStore } from './custom-provider.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
 const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
@@ -62,21 +68,8 @@ function bundleRoot(): string {
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
-// A dev build keeps keys out of the OS credential store (token-store.ts): in memory only, until
-// it quits.
-const devKeys = new Map<string, string>()
-const providerKeys: KeyStore = secureStorageEnabled()
-  ? keychainFor(PROVIDER_KEYCHAIN_SERVICE)
-  : {
-      get: (account) => Promise.resolve(devKeys.get(account) ?? null),
-      set: (account, key) => {
-        devKeys.set(account, key)
-
-        return Promise.resolve()
-      },
-      delete: (account) => Promise.resolve(devKeys.delete(account)),
-    }
-const providers = localProviders(dataDir, providerKeys, () => controller)
+const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
+const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
 
 export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}) }
@@ -110,7 +103,6 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   registerDevice: () => syncDeviceRegistration(),
   createProcess: () => withProviderKey(new OpenabProcess(), providerKeys),
   probeModels: bundledModelProbe(findBundle, providerKeys),
-  providerKeys,
   createTunnel: (runtime, runtimeStatus, onChange, agentInstances) => {
     // Its owner updates this Nuphos from another computer (app-update-request.ts).
     const { status, instances } = appUpdateTunnel(runtimeStatus, agentInstances, {
@@ -253,23 +245,32 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
     claudeLogin: logins.state('claude-code'),
     codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
-    ...(state.userId ? providers.of(state.userId) : {}),
+    ...(state.userId ? { customProviders: readCustomProviders(ownDir(state.userId)) } : {}),
   }
 }
 
-/** Saves a provider for one agent, or with null removes it, then restarts that agent. */
+/** Saves this account's provider for one agent, or with null removes it, then restarts it. */
 export async function setLocalCustomProvider(
   provider: unknown,
   value: unknown,
-  instanceId?: unknown,
 ): Promise<LocalRuntimeState> {
-  await providers.set(provider, value, instanceId)
+  const { userId } = controller.state()
+
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value).catch(notSaved)
+  await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
 
   return getLocalRuntimeState()
 }
 
 /** Tests a provider for one agent with one request, before or without saving it. */
-export const checkLocalCustomProvider = providers.check
+export function checkLocalCustomProvider(provider: unknown, value: unknown) {
+  const { userId } = controller.state()
+
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+
+  return checkCustomProvider(providerKeys, userId, provider, value).catch(notSaved)
+}
 
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {
   await controller.refresh()
