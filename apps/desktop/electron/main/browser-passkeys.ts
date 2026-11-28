@@ -24,25 +24,39 @@ a{color:#0a66d8;text-decoration:none;white-space:nowrap}.x{color:#888;font-size:
 </style><div class="n"><div class="t"><b>${escapeHtml(title)}</b><span>${escapeHtml(detail)}</span></div><a href="nuphos-notice:cancel">${escapeHtml(t('Cancel'))}</a><a class="x" href="nuphos-notice:close" title="${escapeHtml(t('Close'))}">×</a></div>`
 }
 
-/** The request each page waits on, and how to take its notice down. */
-const waiting = new WeakMap<WebContents, { id: number; close: () => void }>()
+/** The requests each page waits on, and how to take its one notice down. */
+const waiting = new WeakMap<WebContents, { ids: Set<number>; done: () => void }>()
 
 function show(contents: WebContents, window: BrowserWindow, id: number): void {
-  waiting.get(contents)?.close()
+  const current = waiting.get(contents)
+
+  if (current) {
+    current.ids.add(id)
+
+    return
+  }
+  const ids = new Set([id])
+  const done = () => {
+    if (waiting.get(contents)?.ids !== ids) return
+    waiting.delete(contents)
+    contents.off('did-navigate', done)
+    close()
+  }
   const close = showWindowNotice(window, passkeyNoticeHtml(), {
     height: HEIGHT,
     onLink: (url) => {
-      // The page's own request is refused, as when Chrome's passkey window is dismissed.
+      // The page's own requests are refused, as when Chrome's passkey window is dismissed.
       if (url === 'nuphos-notice:cancel' && !contents.isDestroyed())
-        contents.send('browser-passkey:cancel', id)
+        for (const each of ids) contents.send('browser-passkey:cancel', each)
+      done()
 
       return false
     },
   })
 
-  waiting.set(contents, { id, close })
-  // A page that leaves takes its request with it and never reports the end.
-  contents.once('did-navigate', close)
+  waiting.set(contents, { ids, done })
+  // A page that leaves takes its requests with it and never reports their end.
+  contents.on('did-navigate', done)
 }
 
 /** Shows the notice on the browser session's own windows: agents' tabs and sign-in popups. */
@@ -53,7 +67,15 @@ export function watchBrowserPasskeys(browserSession: Session): void {
     const window = contents.getType() === 'window' ? BrowserWindow.fromWebContents(contents) : null
 
     if (contents.session !== browserSession || !window || typeof id !== 'number') return
-    if (isWaiting === true) show(contents, window, id)
-    else if (waiting.get(contents)?.id === id) waiting.get(contents)?.close()
+    // Each frame counts its own requests, and Cancel reaches only the main frame.
+    if (event.senderFrame !== contents.mainFrame) return
+    if (isWaiting === true) {
+      show(contents, window, id)
+
+      return
+    }
+    const current = waiting.get(contents)
+
+    if (current?.ids.delete(id) && current.ids.size === 0) current.done()
   })
 }
