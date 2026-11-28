@@ -470,7 +470,7 @@ fun ConversationScreen(
                         }
                         onDispose { session.deactivateQueue() }
                     }
-                    LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase) {
+                    LaunchedEffect(session, resumed, queueGeneration, queueWorkspace, queueConsent, session.loaded, session.isStreaming, session.queuedSends, session.sendQueues, session.runtimeObservation?.phase, session.messages) {
                         if (resumed) while (true) {
                             session.serverQueue.refresh()
                             if (session.serverQueue.items.isEmpty() && !session.isStreaming && !session.sendQueues) break

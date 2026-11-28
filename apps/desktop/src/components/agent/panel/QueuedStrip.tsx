@@ -8,7 +8,8 @@ import type { QueuedMessage } from './model'
 
 // This person's messages waiting in the session queue, in the order they run.
 // Rendered between the conversation and the composer so the user can see what
-// runs next and take back anything they no longer want.
+// runs next and take back anything they no longer want. A usage hold on messages
+// from someone else (an agent or a Trigger) shows its status line alone.
 export function QueuedStrip({
   items,
   onRemove,
@@ -25,11 +26,11 @@ export function QueuedStrip({
    *  beside what waits, not in the banner above the composer. */
   approval?: { status: 'pending' | 'denied'; text: string } | null
 }) {
-  if (items.length === 0) return null
+  if (items.length === 0 && !approval) return null
 
   return (
     <div className="flex flex-col gap-2 pb-2 pt-3">
-      <div className="text-xs text-tertiary">{t('Queued messages')}</div>
+      {items.length > 0 && <div className="text-xs text-tertiary">{t('Queued messages')}</div>}
       {approval && (
         <div role="status" className="flex min-w-0 items-start gap-1.5 text-[12px] text-secondary">
           {approval.status === 'pending' ? (

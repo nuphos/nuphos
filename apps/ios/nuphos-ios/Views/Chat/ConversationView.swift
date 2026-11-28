@@ -406,11 +406,11 @@ struct ConversationView: View {
                session.canSubmit, session.failedSubmission == nil {
                 SuggestionChip(text: suggestion) { draft = suggestion }
             }
-            if !session.queued.isEmpty || !session.serverQueued.isEmpty {
+            if !session.queued.isEmpty || !session.serverQueued.isEmpty || session.queueHold != nil {
                 QueuedStrip(
                     items: session.queued.enumerated().map { .init(id: "local.\($0.offset)", text: $0.element, steering: false) }
                         + session.serverQueued.map { .init(id: $0.id, text: $0.text, steering: session.steeringQueued.contains($0.id)) },
-                    hold: session.serverQueued.isEmpty ? nil : session.queueHold,
+                    hold: session.queueHold,
                     canSteer: session.canSteer,
                     onEdit: { id in
                         Task {
@@ -1186,7 +1186,8 @@ struct SuggestionChip: View {
 
 /// This person's messages waiting in the session queue, in the order they
 /// run, as on Desktop: each can go into the running turn, come back to the
-/// composer to edit (tap), or be taken back.
+/// composer to edit (tap), or be taken back. A usage hold on turns from
+/// someone else (an agent or a Trigger) shows its status line alone.
 struct QueuedStrip: View {
     struct Item: Identifiable, Equatable {
         let id: String

@@ -58,6 +58,9 @@ export const usageQueueScenarios: Scenario[] = [
       // Waiting fires show as queued; none may be recorded as a failed turn.
       if (/turn-interrupted|usage limit/.test(before))
         throw new Error('A fire refused for usage was recorded as failed instead of kept waiting')
+      // #5355: the fires came from a Trigger, not this person, and the Task still says why it waits.
+      await page.getByText(/^Out of usage\. These run when usage resets/).waitFor()
+      await page.screenshot({ path: `${artifacts}/usage-held-fires.png` })
 
       // Moved to an agent with usage left: every fire runs there.
       const { runtimes } = await api<{ runtimes: { id: string; label: string }[] }>(
