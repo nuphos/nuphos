@@ -44,8 +44,8 @@ function start(userId: string, sessionId: string, released = false): void {
     // Expected, and already reported to whoever sent the messages (runTurn).
     if (error instanceof AppError && error.code === 'runtime_offline')
       logEvent('warn', 'agent.pending_messages.queued_turn_offline', fields)
-    // A move stopped the turn and holds the session; its own release starts the queue there.
-    else if (error instanceof AppError && error.code === 'runtime_moving')
+    // A move holds the session and refuses it for now; its own release starts the queue there.
+    else if (error instanceof AppError && error.code === 'runtime_not_accepting_message')
       logEvent('info', 'agent.pending_messages.queued_turn_moving', fields)
     else logError('agent.pending_messages.queued_turn_failed', error, fields)
   })

@@ -7,6 +7,7 @@ import {
   assertConversationRuntimeAvailable,
   discardRuntimeDeletion,
 } from './runtime-portability-store'
+import { refusedForNow, resentAfter } from './runtime-refusal'
 
 let memory = portabilityDb()
 
@@ -51,4 +52,17 @@ test('a restored Task may run while an older home generation awaits cleanup', as
     sessionHomeEpoch: 1,
   })
   await expect(assertConversationRuntimeAvailable('restored')).resolves.toBeUndefined()
+})
+
+test('a turn a move cuts into waits for it: the queue sends it again (#5376)', async () => {
+  memory.rows('agent_conversations').push({
+    sessionId: 'moving',
+    teamId: 'team',
+    runtimeOperation: { token: 'move', expiresAt: new Date(Date.now() + 60_000) },
+  })
+  const error: unknown = await assertConversationRuntimeAvailable('moving').catch((e: unknown) => e)
+
+  // Queued again by the Trigger's turn, with no error shown.
+  expect(refusedForNow(error)).toBe(true)
+  expect(resentAfter(error, { clientResendsRefusal: true })).toBe(true)
 })
