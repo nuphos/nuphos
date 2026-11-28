@@ -213,6 +213,8 @@ try {
     const view = await inAppPage(`${web}/`)
 
     await view!.locator('#hello').waitFor()
+    // A page opened from search joins the panes to the right; at 1024 px it starts off-screen.
+    await bar.scrollIntoViewIfNeeded()
     await page.waitForTimeout(1_000)
     await shot(page, '03-browser-page')
     await view!.screenshot({ path: join(artifacts, '03-browser-page-view.png') }).catch(() => {})
@@ -265,6 +267,8 @@ try {
     await page.keyboard.type('echo PTY_$((40+5)) $TERM_PROGRAM')
     await page.keyboard.press('Enter')
     await page.locator('.xterm-rows', { hasText: 'PTY_45' }).waitFor()
+    await page.locator('.xterm').first().scrollIntoViewIfNeeded()
+    await page.waitForTimeout(500)
     await shot(page, '07-terminal')
   })
 
