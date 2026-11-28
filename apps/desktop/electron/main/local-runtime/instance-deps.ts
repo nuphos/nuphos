@@ -2,6 +2,7 @@ import { INSTALLABLE, installAgentCli } from './agent-cli-install.ts'
 import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { userDir } from './controller-types.ts'
+import { providerAccount } from './custom-provider.ts'
 import { agentHomeName } from './providers.ts'
 import { serveVaultToken } from './vault-token.ts'
 
@@ -98,6 +99,19 @@ export function instanceControllerDeps(
     }),
     onChange: changed,
   }
+}
+
+/** Deletes what an added agent keeps outside its directory: Claude's Keychain entry, OpenCode's key. */
+export async function deleteInstanceSecrets(
+  deps: LocalRuntimeControllerDeps,
+  dir: string,
+  userId: string,
+  provider: LocalAgentProvider,
+  removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>,
+): Promise<void> {
+  if (provider === 'claude-code') await removeCredential(secureStorageEnv(dir, userId))
+  if (provider === 'opencode')
+    await deps.providerKeys?.delete(providerAccount(userDir(dir, userId), 'opencode'))
 }
 
 /**

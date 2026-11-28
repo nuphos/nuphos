@@ -8,8 +8,9 @@ import type {
   BoxStatus,
   BoxUsage,
   BoxUsageHistory,
-  CliLoginProvider,
+  CustomProviderAgent,
   CustomProviderCheck,
+  CustomProviderInput,
   DeviceAgentInstance,
   InstaboxAccount,
   SleepPreferences,
@@ -41,12 +42,14 @@ export type WindowDeviceApi = {
   /** Signs this computer's agent in with an API key; null removes the key. */
   localRuntimeApplyApiKey(provider: 'claude-code' | 'codex', key: string | null): Promise<void>
   localRuntimeSetCustomProvider(
-    provider: CliLoginProvider,
-    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
+    provider: CustomProviderAgent,
+    value: CustomProviderInput | null,
+    instanceId?: string,
   ): Promise<LocalRuntimeState>
   localRuntimeCheckCustomProvider(
-    provider: CliLoginProvider,
-    value: { baseUrl: string; apiKey?: string; models: string[] },
+    provider: CustomProviderAgent,
+    value: CustomProviderInput,
+    instanceId?: string,
   ): Promise<CustomProviderCheck>
   localRuntimeSubmitClaudeLoginCode(code: string): Promise<void>
   localRuntimeStartClaudeLogin(): Promise<LocalAgentLoginState>
