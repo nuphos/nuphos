@@ -140,8 +140,10 @@ const scenarios: Scenario[] = [
   ...sessionResourceScenarios,
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
-  ...replyFileScenarios,
+  // Before replyFileScenarios: it reloads, which reopens the last conversation, and that one's
+  // cited transfers are deleted on purpose.
   ...xlsxPreviewScenarios,
+  ...replyFileScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
