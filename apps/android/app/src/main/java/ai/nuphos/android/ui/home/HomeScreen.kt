@@ -361,12 +361,8 @@ fun HomeScreen(
             showRuntimes = false; showWorkspacePicker = false; showProfile = false; showCreateMenu = false
         }
     }
-    val selectedRuntime = auth.user?.id?.let { account ->
-        store.selectedTeam?.id?.let { team -> auth.runtimeSelections.bind(account, team) }
-    }
     val canCreate = auth.aiAllowed && store.selectedTeam != null &&
         HomeCreation.canStart(store.creationRuntimes)
-    val botRuntime = HomeCreation.botRuntime(store.creationRuntimes, selectedRuntime?.selectedId)
     val setupScope = rememberCoroutineScope()
     val setupStrings = androidx.compose.ui.platform.LocalResources.current
     var setupEpoch by remember { mutableStateOf(0L) }
@@ -488,8 +484,9 @@ fun HomeScreen(
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.home_toolbar_new_bot)) },
                                 leadingIcon = { Icon(painterResource(R.drawable.home_tab_bots), null) },
-                                onClick = { if (canCreate && botRuntime != null && !store.creatingBot) { showCreateMenu = false; showNewBot = true } },
-                                enabled = canCreate && botRuntime != null && !store.creatingBot,
+                                // Like New Task, it asks for a runtime when the remembered one is unavailable (#3947).
+                                onClick = { if (canCreate && !store.creatingBot) { showCreateMenu = false; showNewBot = true } },
+                                enabled = canCreate && !store.creatingBot,
                             )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.home_toolbar_new_task)) },
@@ -548,7 +545,7 @@ fun HomeScreen(
             AnimatedContent(current, modifier = Modifier.weight(1f), label = "page") { dest ->
                 when (dest) {
                     HomePage.Chats -> ai.nuphos.android.ui.chats.ChatsPage(nav, selectedSessionId, searching, { searching = it }, active = listVisible, showCreateButton = false,
-                        onNewBot = { showNewBot = true }.takeIf { canCreate && botRuntime != null && !store.creatingBot })
+                        onNewBot = { showNewBot = true }.takeIf { canCreate && !store.creatingBot })
                     HomePage.Agent -> CompositionLocalProvider(LocalNewTaskRequest provides { showNewTask = true }) {
                         AgentPage(searching = searching, onSearchingChange = { searching = it }, nav = nav, showComposer = showComposer, selectedSessionId = selectedSessionId, newChatComposer = newChatComposer)
                     }

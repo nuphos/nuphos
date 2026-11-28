@@ -516,6 +516,35 @@ fun NewChatComposer(nav: NavHostController) {
     ai.nuphos.android.ui.chat.NewTaskLauncher(nav)
 }
 
+/** The "Choose runtime" picker for [selection] in the current workspace, as New Task and New Bot ask for it. */
+@Composable
+internal fun rememberRuntimeChoice(selection: ai.nuphos.android.session.RuntimeSelections.Selection?): ai.nuphos.android.session.RuntimeSetupStore? {
+    val store = LocalAgentStore.current
+    val scope = rememberCoroutineScope()
+    val auth = ai.nuphos.android.ui.LocalAuthSession.current
+    val account = auth.user?.id
+    val team = store.selectedTeam
+    val revision = store.workspaceRevision
+    val consentRevision = ai.nuphos.android.session.AiAccess.revision
+    val authGeneration = auth.generation
+    return remember(account, team, revision, consentRevision, authGeneration, selection) {
+        if (team != null && selection != null && auth.token != null) ai.nuphos.android.session.RuntimeSetupStore(
+            ai.nuphos.android.data.AgentRuntimeApi(auth.token!!, team.id), scope,
+            { auth.generation == authGeneration && auth.user?.id == account && auth.aiAllowed &&
+                ai.nuphos.android.session.AiAccess.revision == consentRevision && store.workspaceRevision == revision && store.selectedTeam == team },
+            { store.selectedTeam == team && store.selectedTeam?.isAdministrator == true }, selection,
+            { if (auth.generation == authGeneration && auth.user?.id == account) auth.signOut(ai.nuphos.android.data.NuphosApi.Failure.Unauthorized.message) }) else null
+    }
+}
+
+/** [RuntimeSetupSheet] with the workspace's quotas and computers, for a sheet that doesn't already read them. */
+@Composable
+internal fun RuntimeChoiceSheet(setup: ai.nuphos.android.session.RuntimeSetupStore, onDismiss: () -> Unit) {
+    val auth = ai.nuphos.android.ui.LocalAuthSession.current
+    val team = LocalAgentStore.current.selectedTeam?.id
+    RuntimeSetupSheet(setup, onDismiss, quotas = rememberRuntimeQuotas(auth.token, team), devices = rememberRuntimeDevices(auth.token, team))
+}
+
 @Composable
 fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -> Unit) {
     val store = LocalAgentStore.current
@@ -532,14 +561,7 @@ fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -
     val quotas = rememberRuntimeQuotas(auth.token, team?.id)
     val runtimeDevices = rememberRuntimeDevices(auth.token, team?.id)
     var setupVisible by remember { mutableStateOf(false) }
-    val setup = remember(account, team, revision, consentRevision, authGeneration, selection) {
-        if (team != null && selection != null && auth.token != null) ai.nuphos.android.session.RuntimeSetupStore(
-            ai.nuphos.android.data.AgentRuntimeApi(auth.token!!, team.id), scope,
-            { auth.generation == authGeneration && auth.user?.id == account && auth.aiAllowed &&
-                ai.nuphos.android.session.AiAccess.revision == consentRevision && store.workspaceRevision == revision && store.selectedTeam == team },
-            { store.selectedTeam == team && store.selectedTeam?.isAdministrator == true }, selection,
-            { if (auth.generation == authGeneration && auth.user?.id == account) auth.signOut(ai.nuphos.android.data.NuphosApi.Failure.Unauthorized.message) }) else null
-    }
+    val setup = rememberRuntimeChoice(selection)
     LaunchedEffect(setup) { setupVisible = false }
     if (setupVisible && setup != null && setup.isSourceCurrent()) RuntimeSetupSheet(setup, { setupVisible = false }, quotas = quotas, devices = runtimeDevices)
 
