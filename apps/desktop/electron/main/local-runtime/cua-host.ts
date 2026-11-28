@@ -6,11 +6,13 @@ import path from 'node:path'
 import { CUA_CLIENT } from './agent-home.ts'
 import { BrowserAccessHost } from './cua-browser-access.ts'
 
-/** What one `local_cua` call asks of this computer. */
+/** What one `local_cua` call asks of this computer: Codex JavaScript, or one Cua Driver tool. */
 export type CuaCall = {
   session: string
   turn: string
-  code: string
+  code?: string
+  tool?: string
+  arguments?: Record<string, unknown>
   title?: string
   timeoutMs?: number
 }
@@ -40,7 +42,7 @@ export function codexHome(env: NodeJS.ProcessEnv): string {
 }
 
 /**
- * One `cua_repl` process per conversation, so the agent's JavaScript bindings
+ * One `cua_repl` (or Cua Driver) process per conversation, so the agent's JavaScript bindings
  * survive between calls the way they do under local Codex. Calls run one at a
  * time. It holds no state beyond the process: idle, it ends the App's turn,
  * forgets its approvals and exits.
@@ -110,7 +112,8 @@ export class CuaHost {
     clearTimeout(this.idle)
     this.elicit = elicit
     if (this.turn && this.turn !== call.turn) void this.endTurn()
-    this.turn = call.turn
+    // Only the Codex App keeps per-turn state to end; a Cua Driver tool call has none.
+    if (!call.tool) this.turn = call.turn
     const id = this.nextId
     const cancel = () =>
       this.write({
@@ -121,15 +124,20 @@ export class CuaHost {
 
     signal.addEventListener('abort', cancel, { once: true })
     try {
-      const response = await this.request('tools/call', {
-        name: 'js',
-        arguments: {
-          code: call.code,
-          ...(call.title ? { title: call.title } : {}),
-          ...(call.timeoutMs ? { timeout_ms: call.timeoutMs } : {}),
-        },
-        _meta: { 'x-codex-turn-metadata': { session_id: this.session, turn_id: call.turn } },
-      })
+      const response = await this.request(
+        'tools/call',
+        call.tool
+          ? { name: call.tool, arguments: call.arguments ?? {} }
+          : {
+              name: 'js',
+              arguments: {
+                code: call.code,
+                ...(call.title ? { title: call.title } : {}),
+                ...(call.timeoutMs ? { timeout_ms: call.timeoutMs } : {}),
+              },
+              _meta: { 'x-codex-turn-metadata': { session_id: this.session, turn_id: call.turn } },
+            },
+      )
       const error = response.error as { message?: string } | undefined
 
       if (error) return failed(error.message ?? 'Computer Use failed')

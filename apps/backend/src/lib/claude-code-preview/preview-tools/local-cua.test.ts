@@ -131,6 +131,50 @@ describe('local_cua', () => {
     expect(device.sockets[0]?.closed).toBe(true)
   })
 
+  test('relays a Cua Driver tool call as the tool and its arguments', async () => {
+    const device = fakeDevice((message, socket) => {
+      if (message.t === 'call')
+        socket.emit('message', { t: 'result', result: { content: [image] } })
+    })
+    const result = await createLocalCuaHandler(
+      ctx,
+      deps({ connect: device.connect }),
+    )({ tool: 'click', arguments: { pid: 42, x: 10, y: 20 } })
+
+    expect(device.sockets[0]?.sent[0]).toEqual({
+      t: 'call',
+      session: 's1',
+      turn: 'turn-1',
+      tool: 'click',
+      arguments: { pid: 42, x: 10, y: 20 },
+    })
+    expect(result.content).toEqual([image])
+  })
+
+  test('a call needs exactly one of tool and code', async () => {
+    const device = fakeDevice(() => {})
+    const handler = createLocalCuaHandler(ctx, deps({ connect: device.connect }))
+
+    for (const args of [{}, { tool: 'click', code: '1' }]) {
+      const result = await handler(args)
+
+      expect(result.isError).toBe(true)
+      expect(result.content[0]).toMatchObject({ text: 'Pass either tool or code.' })
+    }
+    expect(device.sockets).toHaveLength(0)
+  })
+
+  test('a blank tool does not turn a code call into a tool call', async () => {
+    const device = fakeDevice((message, socket) => {
+      if (message.t === 'call') socket.emit('message', { t: 'result', result: { content: [] } })
+    })
+
+    await createLocalCuaHandler(ctx, deps({ connect: device.connect }))({ tool: ' ', code: '1' })
+
+    expect(device.sockets[0]?.sent[0]).toMatchObject({ t: 'call', code: '1' })
+    expect(device.sockets[0]?.sent[0]).not.toHaveProperty('tool')
+  })
+
   test("answers the App's approval prompt with the user's decision", async () => {
     const asked: string[] = []
     const device = fakeDevice((message, socket) => {

@@ -97,6 +97,52 @@ describe('a Bot that cannot reply is offline, with why', () => {
   })
 })
 
+describe('a Codex Bot past its window, on credits', () => {
+  const codexOn = async (credits: Record<string, boolean>) => {
+    const instance = {
+      ...computer({
+        usage: {
+          plan_type: 'pro',
+          rate_limit: {
+            allowed: false,
+            limit_reached: true,
+            primary_window: { used_percent: 100, limit_window_seconds: 604_800 },
+          },
+          credits,
+        },
+      }),
+      id: 'local_owner_mac_codex',
+      provider: 'codex' as const,
+    }
+    const [runtime] = await botRuntimes(
+      'team',
+      [{ userId: 'owner', runtimeId: instance.id }],
+      async () => [instance],
+    )
+
+    return runtime ?? null
+  }
+
+  test('still replies, so is online, and busy while it runs', async () => {
+    const runtime = await codexOn({ has_credits: true, overage_limit_reached: false })
+
+    expect(presence(runtime)).toEqual({ state: 'online' })
+    expect(presence(runtime, true)).toEqual({ state: 'busy' })
+  })
+
+  test('is out of usage once the credits are gone too', async () => {
+    for (const credits of [
+      { has_credits: false, overage_limit_reached: false },
+      { has_credits: true, overage_limit_reached: true },
+    ]) {
+      expect(presence(await codexOn(credits))).toMatchObject({
+        state: 'offline',
+        reason: 'usage_limit',
+      })
+    }
+  })
+})
+
 describe("the Bots' runtimes", () => {
   test("read each owner's list once, and find what is gone", async () => {
     const reads: string[] = []

@@ -36,13 +36,18 @@ On macOS the native service socket uses the OS user's home rather than the
 conversation's shell home. Users without a usable CUA installation can continue
 using local Codex normally.
 
-Other runtimes, including cloud ones, reach the same installation through the
-`local_cua` tool. Desktop runs the App's `cua_repl` on the Mac for the
+Other runtimes, including cloud ones, reach the Mac through the `local_cua`
+tool, with or without the App. A call with `tool` runs one tool of the
+[Cua Driver](https://github.com/trycua/cua) (MIT) that the macOS bundle ships,
+pinned in `local-runtime/prepare.mjs`. Desktop starts it embedded, so macOS
+answers it with Nuphos's own Screen Recording and Accessibility grants and
+shows no second app. Under the CLI it uses the grants of whatever macOS holds
+responsible for the CLI, its terminal or, under launchd, its own runtime, like
+the commands `local_exec` runs. A call with `code` runs the App's `cua_repl` on the Mac for the
 conversation, started through the App's own `codex` because Computer Use only
-answers a caller whose parent OpenAI signed, and relays each call over the
-device tunnel; the App's per-app
-approval prompts appear as the conversation's approval card, and an app allowed
-once stays allowed for that conversation.
+answers a caller whose parent OpenAI signed. Desktop relays each call over the
+device tunnel; approval prompts appear as the conversation's approval card, and
+an app allowed once stays allowed for that conversation.
 
 The workspace's own browser tabs need no Computer Use: the `local_browser`
 tool lists them, opens and navigates pages, runs JavaScript in a page and takes

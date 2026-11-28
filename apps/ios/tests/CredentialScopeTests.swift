@@ -72,10 +72,63 @@ enum CredentialScopeTests {
         var defaults = CredentialSelection()
         defaults.selectDefaults(in: withResend)
         precondition(defaults.ids["awsRoleIds"] == ["aws"] && defaults.ids["deviceIds"] == ["m1"])
-        precondition(defaults.ids["resendIntegrationIds"]?.isEmpty == true, "Resend stays opt-in")
+        defaultsAreAll()
+        narrowingTurnsAllOff()
         draftWaitsForTheCatalog(withResend)
         draftDropsStaleResults(withResend)
         print("Credential scope tests passed")
+    }
+
+    /// A new chat starts on All, as the desktop's `defaultCredentialAccess` (#4940): both flags on the
+    /// wire and every usable one ticked, Resend and Trello included.
+    private static func defaultsAreAll() {
+        let catalog = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"m1","label":"M1","available":true}],"awsRoles":[{"roleId":"aws","accountId":"123"}],"resendIntegrations":[{"integrationId":"mail","label":"Mail"}],"trelloIntegrations":[{"integrationId":"board","label":"Board"}]}"#)!)
+        var defaults = CredentialSelection()
+        defaults.selectDefaults(in: catalog)
+        let wire = defaults.json
+        precondition(wire["allCredentials"] == .bool(true), "default allCredentials: \(String(describing: wire["allCredentials"]))")
+        precondition(wire["allDevices"] == .bool(true), "default allDevices: \(String(describing: wire["allDevices"]))")
+        precondition(wire["resendIntegrationIds"]?.arrayValue?.compactMap(\.stringValue) == ["mail"],
+                     "default resendIntegrationIds: \(String(describing: wire["resendIntegrationIds"]))")
+        precondition(wire["trelloIntegrationIds"]?.arrayValue?.compactMap(\.stringValue) == ["board"],
+                     "default trelloIntegrationIds: \(String(describing: wire["trelloIntegrationIds"]))")
+        precondition(wire["awsRoleIds"]?.arrayValue?.compactMap(\.stringValue) == ["aws"])
+        precondition(wire["deviceIds"]?.arrayValue?.compactMap(\.stringValue) == ["m1"])
+        // A team with nothing connected yet still starts on All, so a credential added later is in.
+        var empty = CredentialSelection()
+        empty.selectDefaults(in: CredentialCatalog(json: .object([:])))
+        precondition(!empty.isBlank, "an empty team's default is still All")
+    }
+
+    /// Unticking a row or Clear all turns that scope's All off, so the server stores the narrowed list
+    /// instead of filling it back in; ticking one keeps All. A stored All reads back as All.
+    private static func narrowingTurnsAllOff() {
+        let catalog = CredentialCatalog(json: JSONValue.parse(#"{"devices":[{"deviceId":"m1","label":"M1","available":true}],"awsRoles":[{"roleId":"aws","accountId":"123"},{"roleId":"later","accountId":"456"}]}"#)!)
+        let aws = catalog.allItems.first { $0.id == "aws" }!
+        let later = catalog.allItems.first { $0.id == "later" }!
+        let mac = catalog.allItems.first { $0.id == "m1" }!
+        let stored = CredentialSelection(json: JSONValue.parse(#"{"awsRoleIds":["aws"],"deviceIds":["m1"],"allCredentials":true,"allDevices":true}"#)!)
+        precondition(stored.json["allCredentials"] == .bool(true) && stored.json["allDevices"] == .bool(true), "a stored All is sent back as All")
+        var added = stored
+        added.toggle(later)
+        precondition(added.json["allCredentials"] == .bool(true), "ticking one keeps All")
+        var narrowed = stored
+        narrowed.toggle(aws)
+        precondition(narrowed.json["allCredentials"] == nil,
+                     "unticking a credential turns allCredentials off: \(String(describing: narrowed.json["allCredentials"]))")
+        precondition(narrowed.json["allDevices"] == .bool(true), "unticking a credential keeps allDevices")
+        var noComputer = stored
+        noComputer.toggle(mac)
+        precondition(noComputer.json["allDevices"] == nil, "unticking a computer turns allDevices off")
+        precondition(noComputer.json["allCredentials"] == .bool(true), "unticking a computer keeps allCredentials")
+        var cleared = stored
+        cleared.clearAll(scope: .devices)
+        precondition(cleared.json["allDevices"] == nil && cleared.json["allCredentials"] == .bool(true))
+        cleared.clearAll(scope: .credentials)
+        precondition(cleared.json["allCredentials"] == nil)
+        var none = stored
+        none.clearAll()
+        precondition(none.json["allCredentials"] == nil && none.json["allDevices"] == nil)
     }
 
     private struct LoadFailed: Error {}

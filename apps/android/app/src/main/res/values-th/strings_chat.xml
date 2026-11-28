@@ -186,6 +186,9 @@
     </plurals>
     <string name="chat_work_duration">ทำงาน %1$s</string>
     <string name="chat_work">ทำงานเสร็จแล้ว</string>
+    <string name="tool_card_open">เปิด</string>
+    <string name="tool_card_document">เอกสาร</string>
+    <string name="tool_card_code">โค้ด</string>
     <string name="chat_share_access_invited">เฉพาะผู้ที่ได้รับเชิญ</string>
     <string name="chat_share_access_view">ทีมดูได้</string>
     <string name="chat_share_access_reply">ทีมดูและตอบกลับได้</string>

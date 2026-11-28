@@ -240,12 +240,10 @@ jobs:
     needs: changes
     # Each PR in the merge queue already passed this; a Mac is too scarce to build it twice.
     if: github.event_name != 'merge_group' && needs.changes.outputs.ios == 'true'
-    # Same-repo pull requests use the maintainers' Mac (label nuphos-m1), which has
-    # only Xcode 27.2; everything else keeps the hosted Xcode release-ios.yml uses.
-    # A fork's pull request never reaches that Mac: its job-started hook refuses it too.
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'xcode-27' }}
+    # Temporarily use the hosted runner until nuphos-m1 is back.
+    runs-on: xcode-27
     env:
-      DEVELOPER_DIR: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && '/Applications/Xcode.app/Contents/Developer' || '/Applications/Xcode_27.1.app/Contents/Developer' }}
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -302,9 +300,8 @@ jobs:
     needs: changes
     # Not in the merge queue: each PR already passed it, and macOS runners are scarce.
     if: github.event_name != 'merge_group' && needs.changes.outputs.cli == 'true'
-    # The keychain code (src/secret.rs) compiles only on macOS. Same-repo pull requests
-    # use the maintainers' Macs, like the iOS build.
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'macos-15' }}
+    # Temporarily use the hosted runner until nuphos-m1 is back.
+    runs-on: macos-15
     defaults:
       run:
         working-directory: apps/cli
@@ -344,8 +341,8 @@ jobs:
       matrix:
         # The merge queue drops macOS: each PR already passed it, and macOS runners are scarce.
         os: ${{ github.event_name == 'merge_group' && fromJSON('["ubuntu-24.04-arm"]') || fromJSON('["ubuntu-24.04-arm", "macos-15"]') }}
-    # A same-repo pull request's macOS leg uses the maintainers' Macs, like the iOS build.
-    runs-on: ${{ matrix.os == 'macos-15' && (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || matrix.os }}
+    # Temporarily use the hosted macOS runner until nuphos-m1 is back.
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -764,8 +761,8 @@ jobs:
       ${{ !cancelled() && (inputs.nightly ||
       (github.event_name != 'merge_group' && needs.changes.outputs.desktop == 'true' &&
       needs.changes.outputs.desktop_package == 'true')) }}
-    # Same-repo pull requests use the maintainers' Macs, like the iOS build.
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository) && 'nuphos-m1' || 'macos-26' }}
+    # Temporarily use the hosted runner until nuphos-m1 is back.
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

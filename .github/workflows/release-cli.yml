@@ -191,8 +191,8 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.MAC_CERTS }}
           p12-password: ${{ secrets.MAC_CERTS_PASSWORD }}
-      # Under the CLI, mac-screen-host holds Screen Recording and Accessibility
-      # itself. A Developer ID signature with a fixed identifier keeps those
+      # Under the CLI, mac-screen-host and cua-driver hold Screen Recording and
+      # Accessibility themselves. A Developer ID signature with a fixed identifier keeps those
       # grants across updates; an ad-hoc one would change with every release.
       # Not notarized: the CLI downloads the bundle itself, so it is not quarantined.
       - name: Sign the macOS helpers
@@ -207,7 +207,7 @@ jobs:
             | if length == 1 then .[0].hash else error("Expected one Nuphos Developer ID identity") end
           ' <<< "$SIGNING_IDENTITIES")
           for target in ${TARGETS//,/ }; do
-            for helper in mac-screen-host cua-permission; do
+            for helper in mac-screen-host cua-permission cua-driver; do
               file="build/local-runtime/$target/$helper"
               codesign --force --sign "$IDENTITY" --identifier "ai.nuphos.$helper" \
                 --options runtime --timestamp "$file"
