@@ -14,7 +14,8 @@ import type { AgentDevice } from '@/lib/agent/devices/store'
 
 const devices: Record<string, Partial<AgentDevice>> = {
   box: { label: 'Box 1', box: {} as AgentDevice['box'] },
-  mac: { label: 'MacBook' },
+  mac: { label: 'MacBook', platform: 'darwin' },
+  linux: { label: 'Linux PC', platform: 'linux' },
 }
 
 useAgentDeviceStore({
@@ -202,7 +203,15 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(box).not.toContain('inside the team sandbox')
   // A sign-in only the user can do is handed to them on this desktop.
   expect(box).toContain('handed to them with a request_user_decision `computer` card')
-  expect(await on('mac')).not.toContain('nuphos-desktop')
+  const mac = await on('mac')
+
+  expect(mac).not.toContain('nuphos-desktop')
+  // A Mac hands its own screen over too, so a sign-in reaches someone away from it (#5315).
+  expect(mac).toContain(
+    'goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card',
+  )
+  // A computer that cannot hand its screen over is not told to try.
+  expect(await on('linux')).not.toContain('`computer` card')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
   expect(await on('gone')).toContain('inside the team sandbox')
 })
