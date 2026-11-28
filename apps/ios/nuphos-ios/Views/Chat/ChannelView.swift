@@ -160,7 +160,8 @@ struct ChannelView: View {
             }
             .desktop($desktop)
             .sheet(isPresented: $membersOpen) {
-                ChannelMembersSheet(channel: channel, onLeft: onLeft)
+                // Tall enough for every row, with the chat still showing above it.
+                ChannelMembersSheet(channel: channel, onLeft: onLeft).presentationDetents([.fraction(0.85), .large])
             }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in

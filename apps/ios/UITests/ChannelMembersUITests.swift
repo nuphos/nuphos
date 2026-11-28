@@ -27,8 +27,8 @@ final class ChannelMembersUITests: XCTestCase {
     // MARK: - Adding
 
     func testOwnerAddsABot() throws {
-        set("POST /agent/conversations/\(chat)/agents", ["agents": [scribe, atlas]])
-        try openMembers(people: [person(me, "Preview User", owner: true), riley], header: "channel-members-ios-header")
+        set("POST /agent/conversations/\(chat)/agents", ["agents": [scribe, critic, atlas]])
+        try openMembers(people: [person(me, "Jordan Lee", owner: true), riley], header: "channel-members-ios-header")
         shot("channel-members-ios-owner")
         app.buttons["channel.addBot"].tap()
         let add = app.buttons["channel.addBot.atlas"]
@@ -44,14 +44,14 @@ final class ChannelMembersUITests: XCTestCase {
     }
 
     func testOwnerAddsAPerson() throws {
-        let morgan = person("morgan", "Morgan Lee")
+        let morgan = person("morgan", "Morgan Diaz")
         set("GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/members", ["members": [
-            member(me, "Preview User"), member("riley", "Riley Chen"), member("morgan", "Morgan Lee"), member("jo", "Jo Kim"),
+            member(me, "Jordan Lee"), member("riley", "Riley Chen"), member("morgan", "Morgan Diaz"), member("jo", "Casey Wong"),
         ]])
-        set("POST /agent/conversations/\(chat)/participants", access([person(me, "Preview User", owner: true), riley, morgan]))
-        try openMembers(people: [person(me, "Preview User", owner: true), riley])
+        set("POST /agent/conversations/\(chat)/participants", access([person(me, "Jordan Lee", owner: true), riley, morgan]))
+        try openMembers(people: [person(me, "Jordan Lee", owner: true), riley])
         app.buttons["channel.addPeople"].tap()
-        let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Morgan Lee")).firstMatch
+        let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Morgan Diaz")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), "Morgan was not offered")
         XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Riley Chen")).firstMatch.exists,
                        "Someone already here was offered")
@@ -68,7 +68,7 @@ final class ChannelMembersUITests: XCTestCase {
     // MARK: - Leaving
 
     func testMemberLeaves() throws {
-        try openMembers(people: [person("riley", "Riley Chen", owner: true), person(me, "Preview User")])
+        try openMembers(people: [person("riley", "Riley Chen", owner: true), person(me, "Jordan Lee")])
         XCTAssertTrue(app.staticTexts["Only the owner can add people."].exists)
         XCTAssertFalse(app.buttons["channel.addPeople"].exists, "A member was offered Add people")
         shot("channel-members-ios-member")
@@ -77,19 +77,19 @@ final class ChannelMembersUITests: XCTestCase {
     }
 
     func testOwnerLeavesAndTheEarliestMemberTakesOver() throws {
-        try openMembers(people: [person(me, "Preview User", owner: true), riley, person("sam", "Sam Park")])
+        try openMembers(people: [person(me, "Jordan Lee", owner: true), riley, person("sam", "Sam Park")])
         try leave(saying: "Riley Chen becomes the owner. You can come back only if someone adds you.", shot: "channel-members-ios-leave-owner")
         try expectBackOnTheList()
     }
 
     func testLastPersonLeavingArchivesTheChat() throws {
-        try openMembers(people: [person(me, "Preview User", owner: true)])
+        try openMembers(people: [person(me, "Jordan Lee", owner: true)])
         try leave(saying: "You’re the last one here, so the chat is archived.", shot: "channel-members-ios-leave-last")
         try expectBackOnTheList()
     }
 
     func testLeavingWhenTheServerIsAwaySaysSo() throws {
-        try openMembers(people: [person("riley", "Riley Chen", owner: true), person(me, "Preview User")])
+        try openMembers(people: [person("riley", "Riley Chen", owner: true), person(me, "Jordan Lee")])
         set("DELETE /agent/conversations/\(chat)/participants/\(me)",
             ["error": ["message": "Nuphos couldn’t reach the server. Check your connection and try again."]], status: 503)
         try leave(saying: "You can come back only if someone adds you.", shot: nil)
@@ -113,7 +113,11 @@ final class ChannelMembersUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 15)); row.tap()
         let entry = app.buttons["bot-details-entry"]
         XCTAssertTrue(waitUntil { entry.exists && entry.isEnabled }, "The chat's title did not open its members")
-        if let header { shot(header) }
+        if let header {
+            // Once the chat has slid all the way in.
+            XCTAssertTrue(waitUntil { entry.isHittable && abs(entry.frame.midX - self.app.frame.midX) < 2 }, "The chat did not finish opening")
+            shot(header)
+        }
         entry.tap()
         XCTAssertTrue(element("channel.bot.scribe").waitForExistence(timeout: 10), "The members did not open")
         XCTAssertTrue(element("channel.person.\(me)").waitForExistence(timeout: 10), "The chat's people did not load")
@@ -137,14 +141,17 @@ final class ChannelMembersUITests: XCTestCase {
 
     // MARK: - Fixture
 
-    private lazy var scribe: [String: Any] = ["sessionId": "scribe", "title": "Scribe", "ownerId": me, "avatar": "07-ada",
+    private lazy var scribe: [String: Any] = ["sessionId": "scribe", "title": "Launch planner", "ownerId": me, "avatar": "07-ada",
                                               "provider": "claude-code", "presence": ["state": "online"]]
-    private lazy var atlas: [String: Any] = ["sessionId": "atlas", "title": "Atlas", "ownerId": me, "avatar": "02-leonardo",
+    private lazy var atlas: [String: Any] = ["sessionId": "atlas", "title": "Support Lead", "ownerId": me, "avatar": "02-leonardo",
                                              "provider": "claude-code", "presence": ["state": "offline", "reason": "computer_offline"]]
+    private lazy var critic: [String: Any] = ["sessionId": "critic", "title": "Design Critic", "ownerId": "riley", "avatar": "09-frida",
+                                              "provider": "claude-code", "presence": ["state": "online"]]
     private let riley = ChannelMembersUITests.person("riley", "Riley Chen")
 
     private func makeGroupChat() throws {
-        let faces: [[String: Any]] = [["id": "scribe", "name": "Scribe", "agent": ["avatar": "07-ada", "provider": "claude-code"]]]
+        let faces: [[String: Any]] = [["id": "scribe", "name": "Launch planner", "agent": ["avatar": "07-ada", "provider": "claude-code"]],
+                                      ["id": "riley", "name": "Riley Chen"]]
         try edit("GET /agent/conversations?kind=channel") { body in
             var rows = try XCTUnwrap(body["conversations"] as? [[String: Any]])
             let index = try XCTUnwrap(rows.firstIndex { $0["sessionId"] as? String == chat })
@@ -159,13 +166,13 @@ final class ChannelMembersUITests: XCTestCase {
             body["group"] = true
             body["faces"] = faces
         }
-        set("GET /agent/conversations/\(chat)/agents", ["agents": [scribe]])
+        set("GET /agent/conversations/\(chat)/agents", ["agents": [scribe, critic]])
         // The viewer's own Bots: one already here, one away.
         let mine = ["teamId": "64b5f1c2e4b0a1d2c3e4f5a6", "messageCount": 1, "createdAt": "2026-11-08T08:00:00Z",
                     "lastActiveAt": "2026-11-08T09:00:00Z", "isOwner": true, "agentRuntime": "claude-code"] as [String: Any]
         set("GET /agent/conversations?bots=true", ["hasMore": false, "conversations": [
-            mine.merging(["sessionId": "scribe", "title": "Scribe", "avatar": "07-ada", "presence": scribe["presence"]!]) { $1 },
-            mine.merging(["sessionId": "atlas", "title": "Atlas", "avatar": "02-leonardo", "presence": atlas["presence"]!]) { $1 },
+            mine.merging(["sessionId": "scribe", "title": "Launch planner", "avatar": "07-ada", "presence": scribe["presence"]!]) { $1 },
+            mine.merging(["sessionId": "atlas", "title": "Support Lead", "avatar": "02-leonardo", "presence": atlas["presence"]!]) { $1 },
         ]])
     }
 
