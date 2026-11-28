@@ -43,8 +43,11 @@ const cuaTool: DeviceTool = {
       ...(args.timeout_ms ? { timeoutMs: args.timeout_ms } : {}),
     }
   },
-  audit: (args) =>
-    `[computer-use] ${args.tool ? `${String(args.tool)} ${JSON.stringify(args.arguments ?? {})}` : String(args.code)}`,
+  audit: (raw) => {
+    const { tool, arguments: input, code } = raw as Args
+
+    return `[computer-use] ${given(tool) ? [tool, JSON.stringify(input ?? {})].join(' ') : String(code)}`
+  },
   errorReason: 'computer_use_error',
   noDevice:
     'No local device is usable in this conversation. Either no Mac is selected in its credential selector, or the selected one is offline: Nuphos Desktop must be open and signed in on it, with local exec allowed. list_credentials shows which.',
