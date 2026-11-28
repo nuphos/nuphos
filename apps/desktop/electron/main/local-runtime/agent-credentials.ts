@@ -87,8 +87,9 @@ export function deleteAgentCredentials(provider: LocalAgentProvider, home: strin
     const config = path.join(home, '.config', 'opencode', 'opencode.json')
 
     dropJsonKeys(config, ['provider', 'amazon-bedrock', 'options'], BEDROCK_SECRETS)
-    // The OpenRouter key a new account's free Box comes with (box-openrouter.ts in the backend).
-    dropJsonKeys(config, ['provider', 'openrouter', 'options'], ['apiKey'])
+    // The OpenRouter key a new account's free Box comes with (box-openrouter.ts in the backend),
+    // with its entry: OpenCode keeps a configured provider's model even with no key for it.
+    dropJsonKeys(config, ['provider'], ['openrouter'])
   }
 }
 

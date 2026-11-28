@@ -2,6 +2,7 @@
 // scenarios before left open.
 import { agentLog } from '../agent-log.ts'
 import { artifacts, until } from '../processes.ts'
+import { transcriptPost } from '../ui.ts'
 
 import type { Scenario } from '../ui.ts'
 import type { Page } from 'playwright-core'
@@ -74,7 +75,7 @@ const scenario: Scenario = {
     // Each post wakes the Bot, and it may take more than one turn to read them all: a post that
     // lands after its last read starts another. Once it has answered the newest, nothing is left
     // to wake it, so wait for that answer rather than the first wake (#4576).
-    await page.getByText('POSTED E2E_DELIVERY:reply-bar', { exact: true }).waitFor()
+    await transcriptPost(page, 'POSTED E2E_DELIVERY:reply-bar').waitFor()
     // Settled at the bottom: the Bot done, the newest post stays put between two looks.
     let last = -1
 

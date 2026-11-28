@@ -5,6 +5,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  renameSync,
   rmSync,
   symlinkSync,
   unlinkSync,
@@ -14,7 +15,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applyCodexProvider } from './custom-provider-codex.ts'
-import { claudeProviderSettings } from './custom-provider.ts'
+import { claudeProviderSettings, readCustomProviders } from './custom-provider.ts'
 import { linkOwnerFile } from './owner-file-link.ts'
 import { agentHomeName, prepareShimHome } from './providers.ts'
 
@@ -121,7 +122,7 @@ export function prepareCodexHome(
           mode: 0o600,
         },
       )
-    applyCodexProvider(userDir, config)
+    applyCodexProvider(config, readCustomProviders(userDir).codex)
 
     return home
   } catch {
@@ -215,8 +216,32 @@ export function prepareAgentHome(
 ): string | undefined {
   if (provider === 'codex') return prepareCodexHome(userDir, env)
   if (provider === 'claude-code') return prepareClaudeHome(userDir, workspace)
+  const home = prepareShimHome(provider, userDir)
 
-  return prepareShimHome(provider, userDir)
+  if (home && provider === 'opencode') dropEmptyOpenRouterGift(home)
+
+  return home
+}
+
+/**
+ * A free Box's OpenCode signed out before #5341 kept the gifted OpenRouter model (box-openrouter.ts
+ * in the backend) beside an OpenRouter entry holding nothing, so every prompt asked for a key.
+ * Without that entry OpenCode falls back to its free model. Any other config stays as it is.
+ */
+function dropEmptyOpenRouterGift(home: string): void {
+  const file = path.join(home, '.config', 'opencode', 'opencode.json')
+
+  try {
+    const config = JSON.parse(readFileSync(file, 'utf8'))
+
+    if (config.model !== 'openrouter/deepseek/deepseek-v4.1-flash') return
+    if (JSON.stringify(config.provider?.openrouter) !== '{"options":{}}') return
+    delete config.provider.openrouter
+    writeFileSync(`${file}.tmp`, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+    renameSync(`${file}.tmp`, file)
+  } catch {
+    // Missing or not plain JSON: not the gift's config.
+  }
 }
 
 /** Added instances do not import file-based logins. AGY cannot be added: its keyring is shared. */

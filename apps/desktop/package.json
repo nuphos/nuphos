@@ -1,7 +1,7 @@
 {
   "name": "k8s-gui",
   "private": true,
-  "version": "0.141.1",
+  "version": "0.141.4",
   "type": "module",
   "main": "dist-electron/main.js",
   "scripts": {
@@ -156,6 +156,7 @@
       },
       "notarize": true,
       "binaries": [
+        "Contents/Resources/local-runtime/cua-driver",
         "Contents/Resources/local-runtime/cua-permission",
         "Contents/Resources/local-runtime/mac-screen-host"
       ]

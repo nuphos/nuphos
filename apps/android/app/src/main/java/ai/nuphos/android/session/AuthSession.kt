@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
 class AuthSession(
     private val app: Application,
     private val tokenStore: TokenStore,
+    private val launchConsent: LaunchConsent = LaunchConsent.preferences(app),
 ) {
     sealed class State {
         data object Restoring : State()
@@ -154,6 +155,11 @@ class AuthSession(
         private set
     var profileError: String? by mutableStateOf(null)
         private set
+    /** Home opened from the saved account, and the server has not answered for it yet. */
+    var unverified by mutableStateOf(false)
+        private set
+    /** The token whose AI access came from [launchConsent] and the server has not confirmed. */
+    private var launchGrant: String? = null
     /** A sign-in that needs the account's second factor; the sign-in screen asks for the code. */
     var mfaChallenge: String? by mutableStateOf(null)
         private set
@@ -187,6 +193,8 @@ class AuthSession(
         consentError = null
         consentBusy = false
         profileError = null
+        unverified = false
+        launchGrant = null
         AiAccess.revoke()
         return generation
     }
@@ -211,12 +219,14 @@ class AuthSession(
                     return@launch
                 }
                 consentVersion = result.version
+                if (launchGrant == current) launchGrant = null
                 if (result.version == AccountApi.AI_CONSENT_VERSION && result.accepted) {
                     if (!AiAccess.grantIfCurrent(current, revision)) {
                         consentVersion = null
                         consentError = app.getString(R.string.shell_auth_ai_access_changed)
-                    }
+                    } else user?.let { launchConsent.remember(current, it.id, result.version) }
                 } else {
+                    launchConsent.clear()
                     composerDrafts.clear()
                     onIdentityReset()
                     runtimeSelections.clear()
@@ -227,8 +237,13 @@ class AuthSession(
                 }
             } catch (_: NuphosApi.Failure.Unauthorized) {
                 if (matches(expected, current) && request == consentRequest) signOut(NuphosApi.Failure.Unauthorized.message)
-            } catch (_: Exception) {
-                if (matches(expected, current) && request == consentRequest) {
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (!matches(expected, current) || request != consentRequest) return@launch
+                if (launchGrant == current && AiAccess.allows(current)) {
+                    // Offline launch: Home opened from the consent this device saw accepted stays.
+                    unverified = true
+                } else {
                     AiAccess.revoke()
                     consentVersion = null
                     consentError = app.getString(R.string.shell_auth_consent_load_failed)
@@ -262,14 +277,16 @@ class AuthSession(
                         if (!AiAccess.grantIfCurrent(current, revision)) {
                             consentVersion = null
                             consentError = app.getString(R.string.shell_auth_ai_access_changed)
-                        }
+                        } else user?.let { launchConsent.remember(current, it.id, result.version) }
                     } else {
+                        launchConsent.clear()
                         composerDrafts.clear()
                         onIdentityReset()
                         runtimeSelections.clear()
                         AiAccess.revokeIfCurrent(current, revision)
                     }
                 } else {
+                    launchConsent.clear()
                     AiAccess.revoke()
                     consentError = app.getString(R.string.shell_auth_consent_unconfirmed)
                 }
@@ -343,6 +360,18 @@ class AuthSession(
                 return@launch
             }
             token = saved
+            val account = accounts.firstOrNull { it.token == saved }
+            if (account != null && launchConsent.accepted(saved, account.user.id)) {
+                // Open Home from what this device knows, then check it with the server.
+                AiAccess.activate(saved)
+                AiAccess.grantIfCurrent(saved, AiAccess.revision)
+                launchGrant = saved
+                consentVersion = AccountApi.AI_CONSENT_VERSION
+                composerDrafts.onIdentity(account.user.id)
+                state = State.SignedIn(account.user)
+                verify(expected, saved, account.user.id)
+                return@launch
+            }
             try {
                 val restored = NuphosApi.currentUser(saved)
                 if (generation != expected) return@launch
@@ -355,6 +384,33 @@ class AuthSession(
             } catch (_: Exception) {
                 if (generation != expected) return@launch
                 state = State.SignedOut(app.getString(R.string.shell_auth_unreachable))
+            }
+        }
+    }
+
+    /** Checks a Home opened from the saved account. Only a refused token or another user signs out. */
+    private fun verify(expected: Long, saved: String, userId: String) {
+        scope.launch {
+            try {
+                val confirmed = NuphosApi.currentUser(saved)
+                if (!matches(expected, saved)) return@launch
+                if (confirmed.id != userId) throw NuphosApi.Failure.Unauthorized
+                tokenStore.write(saved)
+                saveAccounts(SavedAccounts.remember(savedAccounts, BackendOrigin.forToken(saved), confirmed, saved))
+                unverified = false
+                state = State.SignedIn(confirmed)
+                loadAIConsent()
+            } catch (_: NuphosApi.Failure.Unauthorized) {
+                if (!matches(expected, saved)) return@launch
+                // As before Home opened early: the refused token is dropped, and its account asks to sign in again.
+                beginIdentity()
+                saveAccounts(SavedAccounts.expire(savedAccounts, saved))
+                clearToken()
+                state = State.SignedOut(app.getString(R.string.shell_auth_account_expired))
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // Offline: the Home opened from the saved account stays, and the next resume checks again.
+                if (matches(expected, saved)) unverified = true
             }
         }
     }
@@ -526,7 +582,10 @@ class AuthSession(
 
     /** Called from [Activity.onResume] after Custom Tabs returns. */
     fun onHostResumed() {
-        if (state is State.SignedIn && !consentBusy) loadAIConsent()
+        val current = token
+        val signedIn = user
+        if (unverified && current != null && signedIn != null) verify(generation, current, signedIn.id)
+        else if (state is State.SignedIn && !consentBusy) loadAIConsent()
         if (state is State.SigningIn && loginAttempt?.receivedCallback == true) loginResumed?.complete(Unit)
         if (state is State.SigningIn && customTabsOpen && loginAttempt?.receivedCallback != true) {
             cancelLogin()
@@ -607,6 +666,7 @@ class AuthSession(
         // Remove BYOK credentials without needing to decrypt a broken keystore.
         app.deleteSharedPreferences("nuphos.voice")
         composerDrafts.clear()
+        launchConsent.clear()
         tokenStore.clear()
         token = null
     }

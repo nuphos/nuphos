@@ -769,11 +769,7 @@ final class ChatSession {
     }
 
     func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B?) async throws -> SessionAccess {
-        let data = try await AgentChatAPI.send(
-            method, "agent/conversations/\(sessionId)/\(path)",
-            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
-        )
-        return try JSONDecoder().decode(SessionAccess.self, from: data)
+        try await AgentChatAPI.access(method, path, body: body, token: token, teamId: teamId, sessionId: sessionId)
     }
 
     /// Asks whoever can sign this conversation's agent in; answers with whom it asked.
