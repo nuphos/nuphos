@@ -134,7 +134,7 @@ export function withHostProvider(
       const home = deps.prepareAgentHome(provider, userDir, workspace, runtimeEnv)
 
       if (provider === 'codex' && home && hostProviderName('codex', env))
-        applyCodexProvider(userDir, path.join(home, 'config.toml'), {
+        applyCodexProvider(path.join(home, 'config.toml'), {
           baseUrl: set(env, 'OPENAI_BASE_URL') ?? OPENAI_API,
           models: [],
         })

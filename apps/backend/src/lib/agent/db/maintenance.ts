@@ -91,7 +91,11 @@ export async function claimBotAvatar(
 ): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, avatar: { $exists: false } },
-    { $set: { avatar }, $push: botChanged({ actorId, via: 'make_bot' }, avatar) },
+    // `botGreeting`: its first chat opens with a word from it, not blank (`greetFromTask`).
+    {
+      $set: { avatar, botGreeting: 'pending' },
+      $push: botChanged({ actorId, via: 'make_bot' }, avatar),
+    },
   )
 
   return result.modifiedCount > 0

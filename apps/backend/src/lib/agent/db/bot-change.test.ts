@@ -57,7 +57,7 @@ test('"Make this a Bot" records who did it with the face', async () => {
 
   expect(updates).toEqual([
     {
-      $set: { avatar: '07-ada' },
+      $set: { avatar: '07-ada', botGreeting: 'pending' },
       $push: recorded({ actorId: 'alice', via: 'make_bot', avatar: '07-ada' }),
     },
   ])

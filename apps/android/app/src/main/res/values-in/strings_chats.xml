@@ -74,4 +74,28 @@
     <string name="chats_presence_sign_in">Perlu masuk</string>
     <string name="chats_presence_usage">Kuota habis</string>
     <string name="chats_presence_unavailable">Tidak tersedia</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">Anggota</string>
+    <string name="chats_members_people">Orang</string>
+    <string name="chats_members_add_bot">Tambah Bot</string>
+    <string name="chats_members_your_bots">Bot Anda</string>
+    <string name="chats_members_add_bot_note">Menambahkan Bot Anda membuat semua orang di sini bisa berbicara dengannya. Apa pun yang perlu persetujuan tetap menunggu Anda di chatnya sendiri.</string>
+    <string name="chats_members_no_bots">Semua Bot Anda sudah ada di sini.</string>
+    <string name="chats_members_owner_only">Hanya pemilik yang dapat menambahkan orang.</string>
+    <string name="chats_members_you">%1$s (Anda)</string>
+    <string name="chats_members_more">Opsi lain untuk %1$s</string>
+    <string name="chats_members_add">Tambahkan %1$s</string>
+    <string name="chats_members_leave">Keluar dari chat</string>
+    <string name="chats_members_leave_title">Keluar dari “%1$s”?</string>
+    <string name="chats_members_leave_owner">%1$s menjadi pemilik. Anda hanya bisa kembali jika ada yang menambahkan Anda.</string>
+    <string name="chats_members_leave_member">Anda hanya bisa kembali jika ada yang menambahkan Anda.</string>
+    <string name="chats_members_leave_last">Anda orang terakhir di sini, jadi chat ini diarsipkan.</string>
+    <string name="chats_members_leave_confirm">Keluar</string>
+    <string name="chats_members_left">Anda keluar dari “%1$s”</string>
+    <string name="chats_members_leave_failed">Tidak dapat keluar dari chat</string>
+    <string name="chats_members_add_bot_failed">Tidak dapat menambahkan Bot</string>
+    <string name="chats_members_add_person_failed">Tidak dapat menambahkan orang ini</string>
+    <string name="chats_members_remove_failed">Tidak dapat menghapus</string>
+    <string name="chats_members_load_failed">Tidak dapat memuat anggota</string>
+    <string name="chats_members_retry">Coba lagi</string>
 </resources>
