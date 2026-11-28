@@ -151,6 +151,16 @@ class ChannelMembersFlowFixtureDeviceTest {
 
     private fun has(text: String) = compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
 
+    /** Waits, and on a timeout says what was on screen. */
+    private fun settle(what: String, condition: () -> Boolean) {
+        try { compose.waitUntil(10_000, condition) } catch (e: androidx.compose.ui.test.ComposeTimeoutException) {
+            capture("failed")
+            val roots = compose.onAllNodes(isRoot())
+            val tree = (0 until roots.fetchSemanticsNodes().size).joinToString("\n") { roots[it].printToString() }
+            throw AssertionError("Timed out waiting for $what; writes=$writes\n$tree", e)
+        }
+    }
+
     private fun capture(name: String) {
         compose.waitForIdle()
         Thread.sleep(800)
@@ -186,9 +196,9 @@ class ChannelMembersFlowFixtureDeviceTest {
         compose.onNodeWithText("Riley Chen becomes the owner. You can come back only if someone adds you.").assertIsDisplayed()
         compose.onNodeWithText("Leave").performClick()
         // Back on the Bots list, which says so; the chat is gone from it.
-        compose.waitUntil(10_000) { has("You left “Launch review”") }
-        compose.waitUntil(10_000) { !has("Launch review") }
-        assertTrue(writes.contains("DELETE /agent/conversations/chat-launch/participants/jordan"))
+        settle("the leave request") { writes.contains("DELETE /agent/conversations/chat-launch/participants/jordan") }
+        settle("the snackbar") { has("You left “Launch review”") }
+        settle("the chat gone from the list") { !has("Launch review") }
         capture("A7")
     }
 }
