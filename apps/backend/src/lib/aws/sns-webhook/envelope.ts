@@ -159,8 +159,8 @@ export function buildAwsSnsStringToSign(envelope: AwsSnsEnvelope): string {
 
   return fields
     .filter((field): field is [string, string] => field[1] !== undefined)
-    .flatMap(([key, value]) => [key, value])
-    .join('\n')
+    .map(([key, value]) => `${key}\n${value}\n`)
+    .join('')
 }
 
 function isTrustedSnsHost(hostname: string): boolean {
