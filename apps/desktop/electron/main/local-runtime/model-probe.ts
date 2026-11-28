@@ -274,7 +274,7 @@ export function bundledModelProbe(bundle: () => LocalRuntimeBundle | null, keys?
     const adapter = staged?.adapters[provider]
 
     if (!staged || !adapter) throw new Error('The local runtime is not bundled')
-    const custom = keys && (await customProviderLaunch(keys, provider, agentHome))
+    const custom = keys && (await customProviderLaunch(keys, provider, agentHome, { cliPath, env }))
 
     return probeLocalModels({
       nodeExecPath: process.execPath,
