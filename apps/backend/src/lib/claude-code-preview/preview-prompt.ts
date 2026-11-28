@@ -91,11 +91,13 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
   const desktopOpen = presence?.status?.desktopOpen === true
   // A Box, or a Linux host with a desktop pool (desktop-pool.ts), gives each session its own desktop.
   const ownDesktop = device.box || (desktopOpen && device.platform !== 'darwin')
-  // A Mac hands its own screen over instead (mac-screen.ts).
-  const macHandOver =
-    !ownDesktop && desktopOpen && COMPUTER_CARDS
-      ? '; a sign-in, human check or other step only the user can do goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card so they can take over from wherever they are'
-      : ''
+  // A Mac hands its own screen over instead (mac-screen.ts); any other host has nothing to hand over.
+  const handOver =
+    ownDesktop || !COMPUTER_CARDS
+      ? ''
+      : desktopOpen
+        ? '; a sign-in, human check or other step only the user can do goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card so they can take over from wherever they are'
+        : '; this computer has no screen to hand over, so a request_user_decision `computer` card is refused here: for a sign-in or human check only the user can do, ask for what they can type with a `credential` card, or tell them plainly it cannot be shown to them from this computer'
 
   const card = COMPUTER_CARDS
     ? '; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card'
@@ -107,7 +109,7 @@ async function runtimeWhere(runtimeId: string | null | undefined): Promise<strin
     ? ` and the \`nuphos-desktop\` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run${card}${machineNote})`
     : ''
 
-  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${desktopTools} are there${macHandOver}, and local_exec is for the user's other devices, only when they ask for one`
+  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${desktopTools} are there${handOver}, and local_exec is for the user's other devices, only when they ask for one`
 }
 
 const DASHBOARDS_RUNTIME_NOTE =
