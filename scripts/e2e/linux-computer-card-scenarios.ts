@@ -1,7 +1,6 @@
-// #5321: a Linux computer that is not a Box, running `nuphos agent`. With Xvnc and
-// open-computer-use installed its host runs a desktop pool, so a computer card shows the
-// conversation's own desktop and Take over works. With neither but on an X11 screen with
-// x0vncserver (E2E_LINUX_SCREEN=1), the card shows that screen. Otherwise it is refused.
+// #5321: a Linux computer that is not a Box, running `nuphos agent`. A desktop pool
+// (Xvnc + open-computer-use, E2E_LINUX_POOL=1) or an X11 screen with x0vncserver
+// (E2E_LINUX_SCREEN=1) gives the computer card a desktop; with neither it is refused.
 import { join } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
