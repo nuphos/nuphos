@@ -1,7 +1,8 @@
 import { assertNotChannel } from '@/lib/agent/db/channels'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { db } from '@/lib/db'
-import { AppError } from '@/lib/errors'
+
+import { refusal } from './runtime-refusal'
 
 /** The retired hosted-runtime teardown kept one job per runtime here; nothing starts one
  *  any more, so a removed runtime only takes its leftover job with it. */
@@ -11,7 +12,8 @@ export async function discardRuntimeDeletion(teamId: string, runtimeId: string):
     .deleteOne({ _id: runtimeId, teamId })
 }
 
-/** Checked after turn admission as well as before attaching a native session. */
+/** Checked after turn admission as well as before attaching a native session. A move refuses
+ *  the turn for now: it is sent again, and the move's release starts it there (#5376). */
 export async function assertConversationRuntimeAvailable(sessionId: string) {
   const conversation = await agentConversations().findOne(
     { sessionId },
@@ -22,9 +24,5 @@ export async function assertConversationRuntimeAvailable(sessionId: string) {
   // channel refuses them: it has no agent of its own to run.
   assertNotChannel(conversation)
   if (conversation?.runtimeOperation && conversation.runtimeOperation.expiresAt > new Date())
-    throw new AppError(
-      409,
-      'runtime_moving',
-      'This conversation is being moved. Please wait for the move to finish.',
-    )
+    throw refusal('This conversation is being moved. Please wait for the move to finish.')
 }
