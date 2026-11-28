@@ -256,6 +256,9 @@ export type PanelRenderState = {
   onPanelDrop: (e: DragEvent<HTMLDivElement>) => void
   credentialSelectorControl: CredentialSelectorControl | undefined
   visibleHomeCredentialSelector: CredentialSelectorControl | undefined
+  /** The conversation's selection, as its Connect cards change it. */
+  conversationCredentialSelector: CredentialSelectorControl | undefined
+  /** The composer's picker: absent where the conversation has none of its own. */
   visibleConversationCredentialSelector: CredentialSelectorControl | undefined
   pendingPromptReady: AgentPromptSeed | null | undefined
   switchingConversation: boolean

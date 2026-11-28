@@ -2,7 +2,7 @@ import { answerDecision } from '../../views/inbox/useInbox'
 import { inputRequestKey } from '../agent/summary/sessionInputRequests'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 
-import { BotChatQuestion } from './BotChatQuestions'
+import { AskedQuestion } from './AskedQuestion'
 import { ChooseAccessBanner } from './channelParts'
 import { useBotCredentials } from './useBotCredentials'
 
@@ -19,7 +19,8 @@ import type { ReactNode } from 'react'
  * back with the error if the answer was refused. Dismissing withdraws it
  * unanswered, and the agent that asked is told.
  * The Bot's own Connect cards select through the Bot's credential picker, which
- * its owner also gets in Bot details. Anyone else reads the Bot's selection there.
+ * its owner also gets in Bot details. An agent's under it select in the asking
+ * conversation, as the Inbox card does: a Task's selection is its Bot's.
  */
 export function useBotChatQuestions(
   teamId: string,
@@ -49,7 +50,7 @@ export function useBotChatQuestions(
       node: (
         // Inset past the faces on both sides, so the card lines up with the bubbles.
         <div className="px-[2.375rem]" data-open-question>
-          <BotChatQuestion
+          <AskedQuestion
             request={request}
             teamId={teamId}
             credentials={request.sessionId === botId ? ownCredentials : undefined}
