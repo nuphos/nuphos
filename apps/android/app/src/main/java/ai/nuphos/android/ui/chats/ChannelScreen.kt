@@ -196,7 +196,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             lead = {
                 BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
                 BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
-                BotInstructionsCard(bot.sessionId)
+                BotInstructionsCard(bot.sessionId, onLink = { link -> detailsOpen = false; onLink(link) })
             },
             canManage = bot.canManage)
     }
@@ -358,7 +358,7 @@ private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.sessi
 /** A Bot's standing instructions in full, as on Desktop and iOS (#4084). Only the owner sees them,
  *  and rewrites them in place; the server's refusal shows under the field. */
 @Composable
-private fun BotInstructionsCard(botId: String) {
+private fun BotInstructionsCard(botId: String, onLink: (String) -> Unit) {
     val store = LocalAgentStore.current
     if (!store.ownsBot(botId)) return
     val instructions = store.botRow(botId)?.instructions.orEmpty()
@@ -419,8 +419,9 @@ private fun BotInstructionsCard(botId: String) {
             }
             instructions.isEmpty() -> Text(stringResource(R.string.chat_bot_instructions_none),
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            // Markdown, as Desktop shows them (#4697), each typed line kept as in a chat post.
             else -> androidx.compose.foundation.text.selection.SelectionContainer {
-                Text(instructions, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("bot-instructions-text"))
+                MarkdownText(instructions, Modifier.testTag("bot-instructions-text"), onLink = onLink, compact = true)
             }
         }
     }

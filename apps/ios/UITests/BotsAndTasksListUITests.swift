@@ -284,9 +284,7 @@ final class BotsAndTasksListUITests: XCTestCase {
     /// Save shows what the server kept, and a refusal shows its reason under the field.
     func testOwnerEditsTheBotsInstructions() throws {
         openLeadDetails()
-        let text = app.staticTexts["bot-instructions-text"]
-        XCTAssertTrue(text.waitForExistence(timeout: 5), "Bot details does not show the Bot's instructions")
-        XCTAssertEqual(text.label, "Ship the 2.4 release. Ask before tagging.")
+        XCTAssertEqual(instructionsShown(), "Ship the 2.4 release. Ask before tagging.", "Bot details does not show the Bot's instructions")
         app.buttons["bot-instructions-edit"].tap()
         let field = app.textViews["bot-instructions-field"]
         XCTAssertTrue(field.waitForExistence(timeout: 5), "Edit opens no field")
@@ -299,9 +297,34 @@ final class BotsAndTasksListUITests: XCTestCase {
             .replacingOccurrences(of: "Ship the 2.4 release. Ask before tagging.", with: "Ship 2.4 on Thursday.")
         try saved.write(to: live, atomically: true, encoding: .utf8)
         app.buttons["bot-instructions-save"].tap()
-        XCTAssertTrue(text.waitForExistence(timeout: 5), "Save does not close the editor")
-        XCTAssertEqual(text.label, "Ship 2.4 on Thursday.", "Bot details does not show what the server saved")
+        XCTAssertTrue(app.textViews["bot-instructions-field"].waitForNonExistence(timeout: 5), "Save does not close the editor")
+        XCTAssertEqual(instructionsShown(), "Ship 2.4 on Thursday.", "Bot details does not show what the server saved")
         shot("7-bot-instructions-saved")
+    }
+
+    /// Bot details shows the instructions as Markdown, as Desktop does (#4697): VoiceOver reads the
+    /// words, not the characters that mark them up.
+    func testTheInstructionsShowAsMarkdown() throws {
+        let markdown = try String(contentsOf: live, encoding: .utf8).replacingOccurrences(
+            of: "Ship the 2.4 release. Ask before tagging.",
+            with: "**Ship** the 2.4 release.\\n\\n- Ask before tagging\\n- Post the [release notes](https:\\/\\/example.com\\/notes)")
+        try markdown.write(to: live, atomically: true, encoding: .utf8)
+        openLeadDetails()
+        let shown = try XCTUnwrap(instructionsShown(), "Bot details does not show the Bot's instructions")
+        XCTAssertFalse(shown.contains("**") || shown.contains("](") || shown.contains("- Ask"), "The instructions show their Markdown syntax: \(shown)")
+        XCTAssertTrue(shown.contains("Ship the 2.4 release.") && shown.contains("Ask before tagging") && shown.contains("release notes"),
+                      "The instructions lose their words: \(shown)")
+        shot("9-bot-instructions-markdown")
+    }
+
+    /// What VoiceOver reads for the instructions: the text itself, or the text inside the Markdown view.
+    private func instructionsShown() -> String? {
+        let element = app.descendants(matching: .any)["bot-instructions-text"]
+        guard element.waitForExistence(timeout: 5) else { return nil }
+        if element.elementType == .staticText { return element.label }
+        let text = element.staticTexts.firstMatch
+        // The Markdown view ends its last paragraph with a line break; VoiceOver does not read it.
+        return text.waitForExistence(timeout: 5) ? text.label.trimmingCharacters(in: .whitespacesAndNewlines) : nil
     }
 
     func testARefusedSaveSaysWhyUnderTheField() throws {

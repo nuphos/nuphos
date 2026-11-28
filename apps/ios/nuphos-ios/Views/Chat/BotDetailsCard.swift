@@ -110,6 +110,8 @@ struct BotTaskRow: View {
 /// owner sees them here, and rewrites them in place; the server's refusal shows under the field.
 struct BotInstructionsCard: View {
     let botId: String
+    /// A tapped link in the instructions.
+    var onLink: ((URL) -> Void)?
     @Environment(AgentStore.self) private var store
     @State private var draft: String?
     @State private var saving = false
@@ -158,7 +160,10 @@ struct BotInstructionsCard: View {
                 } else if instructions.isEmpty {
                     Text("None yet").foregroundStyle(Theme.muted)
                 } else {
-                    Text(instructions).foregroundStyle(Theme.body).textSelection(.enabled)
+                    // Markdown, as Desktop shows them (#4697), each typed line kept as in a chat post.
+                    AssistantMarkdown(text: instructions, theme: AssistantMarkdown.bubbleTheme, keepsLineBreaks: true, underlinesLinks: true, onLink: onLink)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .accessibilityElement(children: .contain)
                         .accessibilityIdentifier("bot-instructions-text")
                 }
             }

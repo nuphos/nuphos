@@ -58,6 +58,8 @@ class BotDesktopFixtureDeviceTest {
     @Volatile private var linkedPr = false
     /** The Bot's instructions save is refused with the server's reason (#4084). */
     @Volatile private var refuseInstructions = false
+    /** The Bot's instructions are written in Markdown: bold, a list and a link. */
+    @Volatile private var markdownInstructions = false
     @Volatile private var sentInstructions: String? = null
     /** The Bot's own read is held until released, or fails, while the Bots list already names its runtime. */
     @Volatile private var holdBotRead: java.util.concurrent.CountDownLatch? = null
@@ -144,7 +146,7 @@ class BotDesktopFixtureDeviceTest {
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" -> """{"conversations":[${bots.values.joinToString(",") {
                     """{"sessionId":"${it.id}","title":"${it.title}","avatar":"${it.avatar}","isOwner":${!nonOwner},"readOnly":$nonOwner,"agentRuntime":"claude-code","runtimeLabel":"Fixture Box","lastActiveAt":"2026-11-08T09:39:00Z",
-                        "instructions":"Ship the 2.4 release. Ask before tagging."}""" }}],"hasMore":false}"""
+                        "instructions":"${if (markdownInstructions) MARKDOWN_INSTRUCTIONS_JSON else "Ship the 2.4 release. Ask before tagging."}"}""" }}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") && request.url.queryParameter("kind") == "channel" -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/agent/conversations") -> """{"conversations":[${if (!dispatched) "" else tasks.joinToString(",") { (id, title, rest) ->
@@ -426,8 +428,8 @@ class BotDesktopFixtureDeviceTest {
      *  Save shows what the server kept. */
     @Test fun ownerEditsTheBotsInstructions() {
         openPlainDetails()
-        val text = compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).performScrollTo()
-        text.assertTextEquals("Ship the 2.4 release. Ask before tagging.")
+        compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).performScrollTo()
+        assertEquals("Ship the 2.4 release. Ask before tagging.", instructionsShown())
         compose.onNodeWithTag("bot-instructions-edit").performScrollTo().performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-field").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("bot-instructions-save").performScrollTo().assertIsNotEnabled()
@@ -439,7 +441,7 @@ class BotDesktopFixtureDeviceTest {
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-instructions-text", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         assertEquals("Ship the 2.4 release. Ask before tagging. Thursday.", sentInstructions)
         compose.onNodeWithTag("bot-instructions-field").assertDoesNotExist()
-        compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).assertTextEquals("Ship 2.4 on Thursday.")
+        assertEquals("Ship 2.4 on Thursday.", instructionsShown())
         capture("13-bot-instructions-saved")
     }
 
@@ -511,6 +513,34 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithTag("bot-instructions-save").assertIsDisplayed()
     }
 
+    /** Bot details shows the instructions as Markdown, as Desktop does (#4697): bold, a list and a link
+     *  read as formatted text, not as the characters that mark them up. */
+    @Test fun theInstructionsShowAsMarkdown() {
+        markdownInstructions = true
+        openPlainDetails()
+        compose.onNodeWithTag("bot-instructions-text", useUnmergedTree = true).performScrollTo()
+        val shown = instructionsShown()
+        assertFalse("The instructions show their Markdown syntax: $shown", "**" in shown || "](" in shown || "- Ask" in shown)
+        val texts = instructionTexts()
+        val lead = texts.firstOrNull { it.text.startsWith("Ship the 2.4 release.") }
+        assertNotNull("No paragraph reads \"Ship the 2.4 release.\" in: $shown", lead)
+        assertTrue("\"Ship\" is not bold in: $shown", lead!!.spanStyles.any {
+            it.start == 0 && it.end == 4 && (it.item.fontWeight?.weight ?: 0) >= androidx.compose.ui.text.font.FontWeight.Bold.weight })
+        assertTrue("The list items are not their own lines in: $shown", texts.any { it.text == "Ask before tagging" })
+        val notes = texts.firstOrNull { "release notes" in it.text }
+        assertNotNull("No item reads \"release notes\" in: $shown", notes)
+        val links = notes!!.getLinkAnnotations(0, notes.length).map { (it.item as? androidx.compose.ui.text.LinkAnnotation.Url)?.url }
+        assertEquals("\"release notes\" is not a link", listOf("https://example.com/notes"), links)
+        capture("18-bot-instructions-markdown")
+    }
+
+    /** Every text under the instructions, as accessibility services read it, top to bottom. */
+    private fun instructionTexts(): List<androidx.compose.ui.text.AnnotatedString> =
+        compose.onAllNodes(hasTestTag("bot-instructions-text") or hasAnyAncestor(hasTestTag("bot-instructions-text")), useUnmergedTree = true)
+            .fetchSemanticsNodes().flatMap { it.config.getOrElse(SemanticsProperties.Text) { emptyList() } }
+
+    private fun instructionsShown(): String = instructionTexts().joinToString(" ") { it.text }
+
     /** A teammate's Bot shows no instructions card, so nothing offers an edit the server would refuse. */
     @Test fun aTeammatesBotShowsNoInstructions() {
         nonOwner = true
@@ -536,6 +566,11 @@ class BotDesktopFixtureDeviceTest {
         output.mkdirs()
         val bitmap = inst.uiAutomation.takeScreenshot() ?: error("Screenshot unavailable")
         File(output, "$name.png").outputStream().use { check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+    }
+
+    private companion object {
+        /** Synthetic instructions, escaped for the listing's JSON. */
+        const val MARKDOWN_INSTRUCTIONS_JSON = "**Ship** the 2.4 release.\\n\\n- Ask before tagging\\n- Post the [release notes](https://example.com/notes)"
     }
 
     /** Screenshots for review, only with `-e botDesktopShots true`. */
