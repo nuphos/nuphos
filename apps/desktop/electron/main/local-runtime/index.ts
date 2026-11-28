@@ -7,7 +7,7 @@ import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
-import { keychainFor } from '../../auth/token-store.ts'
+import { keychainFor, secureStorageEnabled } from '../../auth/token-store.ts'
 import { CLIENT_VERSION_HEADER, CLIENT_VERSION_VALUE } from '../../client-version.ts'
 import { resolveShellEnv } from '../../shell-env.ts'
 import { leftAloneDir } from '../app-paths.ts'
@@ -43,6 +43,7 @@ import { RuntimeTunnelClient } from './tunnel-client.ts'
 
 import type { AccountContext } from '../../auth-session.ts'
 import type { LocalRuntimeBundle } from './config.ts'
+import type { KeyStore } from './custom-provider.ts'
 import type { LocalRuntimeState, LocalRuntimeViewState } from './controller-types.ts'
 
 const dataDir = () => path.join(app.getPath('userData'), 'local-runtime')
@@ -61,7 +62,14 @@ function bundleRoot(): string {
 }
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
-const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
+// A dev build keeps no key (token-store.ts): none to read or delete, and none can be saved.
+const providerKeys: KeyStore = secureStorageEnabled()
+  ? keychainFor(PROVIDER_KEYCHAIN_SERVICE)
+  : {
+      get: () => Promise.resolve(null),
+      set: () => Promise.reject(new Error('the keychain is used only by the packaged app')),
+      delete: () => Promise.resolve(),
+    }
 const providers = localProviders(dataDir, providerKeys, () => controller)
 
 export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
