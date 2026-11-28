@@ -166,7 +166,7 @@ export function createUserDecisionTools(deps: UserDecisionDeps): Record<string, 
         'Ask the user a choice only they can make, as a card they answer in the conversation or their Inbox. ' +
         'Use this ONLY for a real preference, approval for a risky/costly/irreversible action, a credential or secret the tools cannot obtain, an integration the user must connect, or a material risk tradeoff. ' +
         'Do not use it for facts you can inspect, safe read-only work, optional follow-ups, or to avoid finishing the task. ' +
-        'First search memory_get for the concrete terms in the question: it may be answered already. ' +
+        "First search memory_get for the question's concrete terms: it may be answered already. " +
         'For an integration or cloud account the task needs that is not connected, or not selected for this conversation, use category `integration` with `providers`: the Desktop app shows a Connect card. ' +
         "`providers` asks for any access of that kind: a team binding answers it too. For the member's own credential that list_credentials shows under `notSelected` (provider `personal`), pass it in `credentials` as that (provider, id) pair instead: only selecting it answers the question. Ask for it only when the task needs the member's own token, not to act as them on a team binding. " +
         'Never ask in a free-text question to tick a credential in the picker: only a question with `providers` resolves itself, and resumes you, once that credential is selected, by the user or by a parent agent. ' +
