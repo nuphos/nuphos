@@ -6,6 +6,28 @@ import { startConversationTurn } from './conversation-turn'
 import { getConversationBySessionId } from './db'
 import { agentConversations } from './db/shared'
 
+import type { AgentConversation } from './db'
+
+/** The owner's private chat with only this Bot in it. */
+function isOwnBotChat(
+  channel: AgentConversation | null,
+  userId: string,
+  teamId: string,
+  botId: string,
+): channel is AgentConversation {
+  return (
+    !!channel &&
+    channel.userId === userId &&
+    channel.teamId === teamId &&
+    channel.kind === 'channel' &&
+    !channel.archivedAt &&
+    channel.agentSessionIds?.length === 1 &&
+    channel.agentSessionIds[0] === botId &&
+    (!channel.generalAccess || channel.generalAccess === 'none') &&
+    !channel.participantIds?.some((id) => id !== userId)
+  )
+}
+
 /** A person opens the newly created Bot's own chat, once. Never wakes an existing Bot. */
 export async function startBotOnboarding(
   userId: string,
@@ -25,15 +47,7 @@ export async function startBotOnboarding(
     !bot.avatar ||
     bot.kind === 'channel' ||
     bot.archivedAt ||
-    !channel ||
-    channel.userId !== userId ||
-    channel.teamId !== teamId ||
-    channel.kind !== 'channel' ||
-    channel.archivedAt ||
-    channel.agentSessionIds?.length !== 1 ||
-    channel.agentSessionIds[0] !== botId ||
-    (channel.generalAccess && channel.generalAccess !== 'none') ||
-    channel.participantIds?.some((id) => id !== userId)
+    !isOwnBotChat(channel, userId, teamId, botId)
   ) {
     throw new AppError(404, 'not_found', 'New Bot chat not found')
   }
@@ -86,5 +100,61 @@ export async function startBotOnboarding(
       { $set: { botOnboarding: 'pending' } },
     )
     throw error
+  }
+}
+
+/**
+ * A Task just made a Bot greets in the first chat its owner opens with it, so that chat
+ * does not start blank: who it is, what it is for, and where its earlier work is. Once,
+ * and only in the owner's private chat with this Bot; any other chat leaves it waiting.
+ */
+export async function greetFromTask(
+  userId: string,
+  teamId: string,
+  botId: string,
+  channel: AgentConversation | null,
+) {
+  if (!isOwnBotChat(channel, userId, teamId, botId)) return
+  const bot = await agentConversations().findOneAndUpdate(
+    { sessionId: botId, userId, teamId, botGreeting: 'pending', archivedAt: { $exists: false } },
+    { $unset: { botGreeting: '' } },
+  )
+
+  if (!bot) return
+  const channelId = channel.sessionId
+
+  try {
+    const { run } = await startConversationTurn(
+      {
+        userId,
+        teamId,
+        targetSessionId: botId,
+        messageId: `bot-greeting:${botId}`,
+        locale: bot.metadata?.locale ?? 'en',
+      },
+      bot,
+      `You were a Task until the person made you a Bot, and they just opened your Bot chat (channelId ${channelId}), which is empty. ` +
+        'Post one short opening message there using channel_post, in the person’s language: who you are, what you were set up to do, ' +
+        'and that your earlier work is still in your Task, which they can open from your Bot details. ' +
+        'Do not ask questions or start any work. This is a one-time greeting.',
+      'agent.resource',
+      {
+        version: 1,
+        sender: { type: 'system', id: 'nuphos:bot-greeting', displayName: 'Nuphos' },
+        source: 'agent.resource',
+        resourceUrl: `/teams/${teamId}/agent/${channelId}`,
+        sentAt: new Date().toISOString(),
+      },
+    )
+
+    void run.catch(async (error: unknown) => {
+      logError('agent.bot_greeting.turn_failed', error)
+      await noteReplyFailed(channelId, botId, error).catch((noticeError: unknown) => {
+        logError('agent.bot_greeting.notice_failed', noticeError)
+      })
+    })
+  } catch (error) {
+    // The Bot is in its chat either way; a greeting that could not start is only logged.
+    logError('agent.bot_greeting.start_failed', error)
   }
 }
