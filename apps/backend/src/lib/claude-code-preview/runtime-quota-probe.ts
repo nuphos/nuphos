@@ -6,6 +6,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { controlRegistry } from './agent-chat-registry'
 import { reportedLocalAgent } from './local-runtime-catalog'
 import { OpenAbConnectError } from './openab-acp-connect'
+import { OpenAbConnectionLostError } from './openab-acp-errors'
 import { GROK_BILLING } from './runtime-quota-grok-billing'
 import { ACCOUNT_KEY } from './runtime-quota-shape'
 import { resolveTeamRuntimeEndpoints } from './runtime-registry'
@@ -225,33 +226,34 @@ export async function probeRuntimeQuota(
 
   if (!endpoint) return { error: 'Agent is offline', offline: true }
   if (endpoint.tunnelUrl) return reportedQuota(endpoint.tunnelUrl)
-  // A host that did not take the connection, as while it restarts, is offline too.
-  const client = await controlRegistry.acquire(teamId, endpoint).catch((error: unknown) => {
-    if (error instanceof OpenAbConnectError) return undefined
+  try {
+    const client = await controlRegistry.acquire(teamId, endpoint)
+
+    if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))
+      return { error: 'This runtime runs an image that cannot report usage' }
+    const raw = await client.runJob(
+      {
+        jobId: randomUUID(),
+        job: PROBE_JOB,
+        stdin: JSON.stringify({
+          runner: RUNTIME_QUOTA_PROBE,
+          script: '',
+          params: { provider: instance.provider },
+        }),
+        env: {},
+        timeoutMs: PROBE_TIMEOUT_MS,
+        maxStdoutBytes: PROBE_MAX_STDOUT_BYTES,
+      },
+      PROBE_TIMEOUT_MS + PROBE_CALL_GRACE_MS,
+    )
+
+    if (raw.timedOut === true) return { error: 'The agent did not answer in time' }
+
+    return parseQuotaReading(typeof raw.stdout === 'string' ? raw.stdout : '')
+  } catch (error) {
+    // A host that does not take the connection, or hangs up mid-probe, as while it restarts, is offline too.
+    if (error instanceof OpenAbConnectError || error instanceof OpenAbConnectionLostError)
+      return { error: 'Agent is offline', offline: true }
     throw error
-  })
-
-  if (!client) return { error: 'Agent is offline', offline: true }
-
-  if (!controlRegistry.runtimeJobs(teamId, endpoint).includes(PROBE_JOB))
-    return { error: 'This runtime runs an image that cannot report usage' }
-  const raw = await client.runJob(
-    {
-      jobId: randomUUID(),
-      job: PROBE_JOB,
-      stdin: JSON.stringify({
-        runner: RUNTIME_QUOTA_PROBE,
-        script: '',
-        params: { provider: instance.provider },
-      }),
-      env: {},
-      timeoutMs: PROBE_TIMEOUT_MS,
-      maxStdoutBytes: PROBE_MAX_STDOUT_BYTES,
-    },
-    PROBE_TIMEOUT_MS + PROBE_CALL_GRACE_MS,
-  )
-
-  if (raw.timedOut === true) return { error: 'The agent did not answer in time' }
-
-  return parseQuotaReading(typeof raw.stdout === 'string' ? raw.stdout : '')
+  }
 }
