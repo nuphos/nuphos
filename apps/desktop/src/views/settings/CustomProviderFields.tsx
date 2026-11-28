@@ -15,15 +15,9 @@ import { inputClasses } from './styles'
 import type { ProviderDraft, ProviderKind } from './customProviderDraft'
 import type { CustomProviderAgent, CustomProviderCheck } from '../../api'
 
-/** The provider an agent's own sign-in, on the next step, runs it on: `none` in the dialog. */
-const SIGN_IN: Partial<Record<CustomProviderAgent, string>> = {
-  codex: 'OpenAI',
-  'claude-code': 'Anthropic',
-}
-
 /**
  * A custom provider's fields, its Test connection and the note on the key: the form in Runtime
- * details and the dialog that adds a runtime (`modal`, which also offers `none`).
+ * details and, for OpenCode, the dialog that adds one (`modal`, which also offers `none`).
  */
 export function CustomProviderFields({
   provider,
@@ -37,7 +31,7 @@ export function CustomProviderFields({
   provider: CustomProviderAgent
   draft: ProviderDraft
   onChange: (draft: ProviderDraft) => void
-  /** An added runtime's, whose saved key a test may use. */
+  /** An added OpenCode's, whose saved key a test may use. */
   instanceId?: string
   /** Save's refusal, shown where a failed test shows. */
   error?: string | null
@@ -73,16 +67,12 @@ export function CustomProviderFields({
     }
   }
 
-  // Azure OpenAI serves OpenAI's API, which Claude Code doesn't speak.
-  const offersAzure = provider !== 'claude-code'
   const kinds = [
-    ...(modal
-      ? [{ value: 'none', label: SIGN_IN[provider] ?? t('Sign in on the next step') }]
-      : []),
+    ...(modal ? [{ value: 'none', label: t('Sign in on the next step') }] : []),
     { value: 'openai', label: t('Custom endpoint') },
-    ...(offersAzure ? [{ value: 'azure', label: t('Azure OpenAI') }] : []),
+    { value: 'azure', label: t('Azure OpenAI') },
   ]
-  const select = kinds.length > 1 && (
+  const select = opencode && (
     <Row
       modal={modal}
       div
@@ -217,9 +207,13 @@ export function CustomProviderFields({
       {check && <CheckResult check={check} provider={provider} azure={azure} />}
       {(error ?? checkError) && <Alert>{error ?? checkError}</Alert>}
       <p className="text-xs leading-5 text-tertiary">
-        {t(
-          'The key is kept in this computer’s secure credential store for this runtime only and never shown again. Usage and quota from a custom provider show as unknown.',
-        )}
+        {opencode
+          ? t(
+              'The key is kept in this computer’s secure credential store for this runtime only and never shown again. Usage and quota from a custom provider show as unknown.',
+            )
+          : t(
+              'The key is kept in this computer’s secure credential store and never shown again. Usage and quota from a custom provider show as unknown.',
+            )}
       </p>
     </>
   )
