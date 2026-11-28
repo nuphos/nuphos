@@ -278,6 +278,32 @@ final class ChannelSession {
         }
     }
 
+    // MARK: - Members
+
+    /// Who is in this chat: `agent/conversations/:id/participants`, as a Task's Share sheet reads it.
+    func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B? = JSONValue?.none) async throws -> SessionAccess {
+        try await AgentChatAPI.access(method, path, body: body, token: token, teamId: teamId, sessionId: channelId)
+    }
+
+    func teamMembers() async throws -> [TeamMember] {
+        try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
+    }
+
+    /// Brings one of the viewer's Bots in; the server answers with who is here now.
+    func addAgent(_ agentId: String) async throws {
+        let data = try await AgentChatAPI.send(
+            "POST", "agent/conversations/\(channelId)/agents",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["sessionId": agentId])
+        agents = try JSONDecoder().decode(AgentsEnvelope.self, from: data).agents
+    }
+
+    func removeAgent(_ agentId: String) async throws {
+        _ = try await AgentChatAPI.send(
+            "DELETE", "agent/conversations/\(channelId)/agents/\(agentId)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue?.none)
+        agents.removeAll { $0.sessionId == agentId }
+    }
+
     /// Retry after an agent could not reply: it reads again what it has not read yet.
     func wake(agent agentId: String) {
         Task {
