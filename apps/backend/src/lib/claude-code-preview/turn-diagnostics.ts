@@ -38,9 +38,10 @@ export class RuntimeStateProbeError extends Error {
 
 /**
  * What a turn fails with when its state check before the prompt failed. A check
- * that got no answer in time fails as an agent host away, as the queue's own
- * status read does (queued-turn.ts): nothing was sent, so the queue sends it
- * again, and tells the sender why once the host has stayed away past its grace.
+ * that got no answer, in time or at all because its connection closed (a restart
+ * of the replica holding the computer's tunnel, #5370), fails as an agent host away,
+ * as the queue's own status read does (queued-turn.ts): nothing was sent, so the
+ * queue sends it again, and tells the sender why once the host has stayed away past its grace.
  */
 export async function probeFailure(
   cause: unknown,
@@ -48,6 +49,12 @@ export async function probeFailure(
   endpoint: { runtimeId?: string; provider?: string },
 ): Promise<unknown> {
   if (agentHostAway(cause)) return cause
+  if (cause instanceof OpenAbConnectionLostError)
+    return new AppError(
+      409,
+      'runtime_offline',
+      'The agent’s connection closed before it reported its state.',
+    )
   if (!(cause instanceof OpenAbTimeoutError)) return await RuntimeStateProbeError.from(cause)
   logEvent('warn', 'agent.runtime_state.probe_timeout', {
     session_id: sessionId,

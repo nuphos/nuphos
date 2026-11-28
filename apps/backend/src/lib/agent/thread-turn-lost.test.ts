@@ -9,6 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 import { startConversationTurn } from './conversation-turn'
 import { systemSender } from './message-metadata'
 import { clearPendingUserMessages } from './pending-messages'
+import { listPendingUserMessages } from './pending-queue'
 import { startThreadTurn } from './thread-bridge'
 import { installTurnRunner, resetTurnRunner } from './turn-runner'
 
@@ -53,6 +54,8 @@ const reopened: unknown[] = []
 useDb({
   db: (() => ({
     collection: () => ({
+      // Every Trigger here is live.
+      findOne: async () => ({ _id: 'trigger' }),
       updateOne: async (
         _filter: unknown,
         update: { $push?: { inputRequests?: { $each: [] } } },
@@ -158,6 +161,24 @@ test('an answer whose turn a runtime restart cut off keeps its question answered
 
   expect(reopened).toHaveLength(0)
   expect(runs.map((run) => run.sessionId)).toEqual(['child'])
+})
+
+// #5370: a Trigger's fire has nobody to read a cut-off notice, so it was just gone.
+test('a Trigger fire a runtime restart cut off goes back to the queue', async () => {
+  attach(true, 'idle')
+  await (
+    await startConversationTurn(
+      { ...data, messageId: 'fire' },
+      { ...conversation, sessionId: 'child' },
+      'Nightly check',
+      'agent.resource',
+      systemSender('trigger:0123456789abcdef01234567', 'Nightly check'),
+    )
+  ).run
+  await settle()
+
+  expect(runs.map((run) => run.sessionId)).toEqual(['child'])
+  expect((await listPendingUserMessages('owner', 'child')).map((m) => m.id)).toEqual(['fire'])
 })
 
 test('a reattach that did not bring the session back reports nothing', async () => {

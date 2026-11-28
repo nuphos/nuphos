@@ -7,7 +7,7 @@ import { useSessionExecutionState } from '@/lib/test/doubles/session-execution-s
 import { registry, sessionsByConversation } from './agent-chat-registry'
 import { runClaudeCodePreviewPrompt } from './agent-chat-runtime'
 import { agentHostAway } from './openab-acp-connect'
-import { OpenAbRpcError } from './openab-acp-errors'
+import { OpenAbConnectionLostError, OpenAbRpcError } from './openab-acp-errors'
 import { classifyPreviewInterruption } from './preview-transcript'
 import { OpenAbTimeoutError, RuntimeStateProbeError, turnDiagnostics } from './turn-diagnostics'
 
@@ -268,18 +268,26 @@ test('a changed system prompt alone does not reload an attached session', async 
   expect(calls).toEqual(['observe-control', 'prompt'])
 })
 
-test('a state check that times out fails as an agent host away, which the queue waits out for its grace', async () => {
-  probeError = new OpenAbTimeoutError(
-    'OpenAB ACP _openab/session/state timed out',
-    'call-deadline',
-    3000,
-  )
-  const failure = await run().catch((cause: unknown) => cause)
+// A connection that closes is no answer either: the replica holding the tunnel restarted (#5370).
+for (const [name, error] of [
+  [
+    'times out',
+    new OpenAbTimeoutError('OpenAB ACP _openab/session/state timed out', 'call-deadline', 3000),
+  ],
+  [
+    'loses its connection',
+    new OpenAbConnectionLostError('The computer running this agent disconnected'),
+  ],
+] as const) {
+  test(`a state check that ${name} fails as an agent host away, which the queue waits out for its grace`, async () => {
+    probeError = error
+    const failure = await run().catch((cause: unknown) => cause)
 
-  expect(agentHostAway(failure)).toBe(true)
-  // Nothing reached the agent, so sending it again cannot run it twice.
-  expect(calls).toEqual(['observe-control'])
-})
+    expect(agentHostAway(failure)).toBe(true)
+    // Nothing reached the agent, so sending it again cannot run it twice.
+    expect(calls).toEqual(['observe-control'])
+  })
+}
 
 for (const [name, error, diagnostics] of [
   ['invalid snapshot', new Error('Invalid runtime execution snapshot'), { source: 'unknown' }],

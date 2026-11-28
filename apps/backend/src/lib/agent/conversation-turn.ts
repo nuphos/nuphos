@@ -13,7 +13,7 @@ import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messag
 import { requeueTurnQueue } from './session-released'
 import { noteReplyFailed, usageResetsAtOf } from './reply-failed'
 import { recordFailedFires } from './trigger-failed-runs'
-import { recordFiresRan } from './trigger-missed-runs'
+import { recordFiresRan, triggerIdOf } from './trigger-missed-runs'
 import { liveTriggerMessages } from './trigger-pending'
 import { readTurnHistory } from './turn-history'
 import { reconnecting, undeliveredLead } from './turn-offline'
@@ -219,16 +219,16 @@ async function reportIfRestarted(
 ): Promise<void> {
   try {
     if (!(await runtimeRestarted(data))) return
-    // A channel's wake it cut off was never answered: its posts go back to unread and the
-    // wake to the queue, as after a refused turn. One a later wake read past finds nothing.
+    // A wake or a Trigger's fire it cut off has nobody to tell (#5370): it is queued again.
     await unmarkRead?.()
-    const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
+    const unanswered = (m: PendingUserMessage) => channelIdOf(m) ?? triggerIdOf(m)
+    const [head, ...rest] = messages.filter(unanswered)
 
-    await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
+    await requeueTurnQueue(data.userId, data.targetSessionId, rest, head)
     // The runtime took the turn, so an answer in it was delivered: it stays answered (#5109).
     await reportUndelivered(
       data,
-      messages.filter((message) => !channelIdOf(message) && !message.answers),
+      messages.filter((message) => !unanswered(message) && !message.answers),
       LOST_TURN,
     )
   } catch (error) {
