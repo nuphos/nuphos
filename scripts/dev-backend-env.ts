@@ -13,10 +13,13 @@ let lastFileEnvKeys = new Set<string>()
 
 // process.env with previously file-sourced keys that have since disappeared
 // removed, so `{...inheritedEnv(), ...freshEnv()}` reflects deletions too.
-function inheritedEnv(current: Record<string, string>): NodeJS.ProcessEnv {
+function inheritedEnv(
+  current: Record<string, string>,
+  previousKeys: Set<string>,
+): NodeJS.ProcessEnv {
   const base: NodeJS.ProcessEnv = { ...process.env }
 
-  for (const key of lastFileEnvKeys) {
+  for (const key of previousKeys) {
     if (!(key in current)) delete base[key]
   }
 
@@ -59,6 +62,9 @@ function freshEnv(files: string[]): Record<string, string> {
 // MONGODB_URI, JWT/Stripe/cloud secrets to Electron and its dependency tree;
 // everything the desktop needs is set explicitly at its spawn site.
 export function backendEnv(): NodeJS.ProcessEnv {
+  // freshEnv() overwrites the module-level set, so the previously file-sourced
+  // keys must be captured before it runs — deletions are judged against them.
+  const previousKeys = lastFileEnvKeys
   const file = freshEnv([
     join(ROOT, '.env'),
     join(ROOT, '.env.local'),
@@ -66,5 +72,5 @@ export function backendEnv(): NodeJS.ProcessEnv {
     join(BACKEND_DIR, '.env.local'),
   ])
 
-  return { ...inheritedEnv(file), ...file }
+  return { ...inheritedEnv(file, previousKeys), ...file }
 }

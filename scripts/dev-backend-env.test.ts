@@ -48,3 +48,35 @@ test('backend local overrides beat shared images and are reread on restart', (t)
     ['shared-old', 'root-local'],
   ])
 })
+
+test('a key removed from every .env is unset for the child on restart', (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'nuphos-env-test-'))
+
+  t.after(() => rmSync(root, { recursive: true, force: true }))
+  mkdirSync(join(root, 'apps/backend'), { recursive: true })
+  writeFileSync(join(root, 'apps/backend/.env.local'), 'NU_PHOS_TEST_KEY=from-file\n')
+  const output = execFileSync(
+    process.execPath,
+    [
+      '--experimental-strip-types',
+      '--input-type=module',
+      '-e',
+      `
+    import { backendEnv } from ${JSON.stringify(moduleUrl)};
+    import { unlinkSync } from 'node:fs';
+    const results = [backendEnv().NU_PHOS_TEST_KEY];
+    unlinkSync('apps/backend/.env.local');
+    results.push(backendEnv().NU_PHOS_TEST_KEY);
+    console.log(JSON.stringify(results));
+  `,
+    ],
+    {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, NU_PHOS_TEST_KEY: 'inherited' },
+    },
+  )
+
+  // JSON.stringify maps the expected undefined to null.
+  assert.deepEqual(JSON.parse(output), ['from-file', null])
+})
