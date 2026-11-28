@@ -342,3 +342,20 @@ test('Plans opens in the main pane without replacing the current chat or dock', 
   assert.equal(store.getState().mainPageOpen, false)
   assert.deepEqual(selectBucket(store.getState(), 'chat-1'), dock)
 })
+
+test('opening the Inbox after switching team stays in the new team, whatever the old page’s dock held', () => {
+  const { store, actions } = setup()
+
+  openTriggers(actions)
+  actions.openTab({ ...createWorkspaceTab(TEAM_A), id: 'beside-a' }, { openDock: true })
+  actions.switchTeam(TEAM_B)
+  assert.equal(selectScope(store.getState())?.teamId, TEAM_B)
+
+  openTriggers(actions, TEAM_B)
+  const state = store.getState()
+
+  assert.equal(selectMainPageTab(state)?.scope.teamId, TEAM_B)
+  assert.equal(selectScope(state)?.teamId, TEAM_B)
+  // The dock may now hold no tab at all; a tab it does hold must be the new team's.
+  assert.equal(selectActiveTab(state)?.scope.teamId ?? TEAM_B, TEAM_B)
+})

@@ -2,6 +2,7 @@ import { divertConnectorsPage } from './connectorsDialog.ts'
 import { finalizeWorkspaceState } from './workspaceNormalize.ts'
 import {
   MAIN_PAGE_BUCKET_KEY,
+  MAIN_PAGE_DOCK_KEY,
   selectBucket,
   selectTabLocation,
   teamScopeOf,
@@ -113,8 +114,12 @@ function openMainPage(
 
     return updater && opened.activeTabId ? updateTabIn(opened, opened.activeTabId, updater) : opened
   })
+  // The page's dock outlives a team switch; a tab left there from another team would win the scope.
+  const docked = writeBucket(next, MAIN_PAGE_DOCK_KEY, (bucket) =>
+    retainTeamsIn(bucket, (id) => id === teamId),
+  )
 
-  return next.mainPageOpen ? next : { ...next, mainPageOpen: true }
+  return docked.mainPageOpen ? docked : { ...docked, mainPageOpen: true }
 }
 
 function retainTeams(
