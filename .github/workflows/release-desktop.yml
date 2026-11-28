@@ -133,10 +133,16 @@ jobs:
         if: matrix.platform == 'mac'
         run: |
           set -euo pipefail
-          test -n "$CSC_LINK" && test -n "$CSC_KEY_PASSWORD" && test -n "$APPLE_API_KEY_ID" && test -n "$APPLE_API_ISSUER" && test -n "$APPLE_TEAM_ID"
-          pnpm exec electron-builder --mac zip dmg --"$ARCH" --publish never --config.forceCodeSigning=true
+          test -n "$CSC_LINK" && test -n "$CSC_KEY_PASSWORD" && test -n "$APPLE_API_KEY_ID" && test -n "$APPLE_API_ISSUER" && test -n "$APPLE_TEAM_ID" && test -n "$MAC_PROVISIONING_PROFILE_BASE64"
+          # The Developer ID profile authorizes the restricted entitlements in
+          # entitlements.mac.release.plist (passkeys for any site in the in-app browser).
+          printf '%s' "$MAC_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$RUNNER_TEMP/nuphos.provisionprofile"
+          pnpm exec electron-builder --mac zip dmg --"$ARCH" --publish never --config.forceCodeSigning=true \
+            --config.mac.entitlements=build/entitlements.mac.release.plist \
+            --config.mac.provisioningProfile="$RUNNER_TEMP/nuphos.provisionprofile"
         env:
           ARCH: ${{ matrix.arch }}
+          MAC_PROVISIONING_PROFILE_BASE64: ${{ secrets.MAC_PROVISIONING_PROFILE_BASE64 }}
           CSC_LINK: ${{ secrets.MAC_CERTS }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
           APPLE_API_KEY: ${{ runner.temp }}/AuthKey.p8
@@ -166,7 +172,7 @@ jobs:
           if-no-files-found: error
       - name: Remove notarization key
         if: always() && matrix.platform == 'mac'
-        run: rm -f "$RUNNER_TEMP/AuthKey.p8"
+        run: rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/nuphos.provisionprofile"
       # Federated login right before packaging so the short-lived GitHub token is still valid.
       - name: Log in to Azure Artifact Signing
         if: matrix.platform == 'win'
