@@ -2,7 +2,8 @@ name: iOS TestFlight status
 
 # Read-only: lists the newest iOS builds on App Store Connect with their
 # processing and Beta App Review state, so a release can be checked without a
-# signed-in Mac. It changes nothing on App Store Connect.
+# signed-in Mac. It changes nothing on App Store Connect. The table goes to the
+# run summary and to the log, which the API can read.
 
 on:
   workflow_dispatch:
@@ -54,5 +55,5 @@ jobs:
                   $detail.externalBuildState, $detail.internalBuildState, .attributes.expired ]
               | "| " + (map(if . == null then "-" else tostring end) | join(" | ")) + " |"
             ' "$RUNNER_TEMP/builds.json"
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
           rm -f "$KEY_PATH"
