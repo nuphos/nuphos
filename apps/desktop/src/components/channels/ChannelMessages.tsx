@@ -1,4 +1,4 @@
-import { CornerUpLeft, Pause } from 'lucide-react'
+import { Pause } from 'lucide-react'
 import { Fragment, useCallback, useState } from 'react'
 import { flushSync } from 'react-dom'
 
@@ -10,12 +10,13 @@ import { parseMessageMetadata } from '../agent/panel/messageMetadata'
 import { CONVERSATION_TAIL_LIMIT } from '../agent/panel/taskTranscript'
 import { ContextMenu } from '../ContextMenu'
 
-import { endsInboxAnswer, replyTo } from './channelReply'
+import { endsInboxAnswer, replyTo, textOf } from './channelReply'
 import { ChannelReplyFailed } from './ChannelReplyFailed'
 import { ChannelMessage } from './ChannelPost'
 import { sentSinceOpening, startsTimeGap, timeGapLabel } from './chatTime'
 import { Typing } from './ChannelTyping'
 import { useOpenAtPost, usePostJump } from './postJump'
+import { postMenuItems } from './postMenu'
 
 import type {
   AgentMessageReply,
@@ -24,6 +25,7 @@ import type {
   ChannelAgent,
 } from '../../api'
 import type { ChannelFixes } from './ChannelReplyFix'
+import type { PostMenu } from './postMenu'
 import type { ReactNode } from 'react'
 
 /** Who posted: the sender's id, so consecutive posts from one sender form a run. */
@@ -136,7 +138,10 @@ export function ChannelMessages({
     agents.filter((agent) => agent.ownerId === viewerId).map((agent) => agent.sessionId),
   )
   const [openedAt] = useState(Date.now)
-  const [menu, setMenu] = useState<{ reply: AgentMessageReply; x: number; y: number } | null>(null)
+  // A post's right-click menu: what it can copy, and the reply it would start.
+  const [menu, setMenu] = useState<(PostMenu & { x: number; y: number }) | null>(null)
+  // A post of files alone, in a chat the viewer cannot reply in, has nothing to offer.
+  const menuItems = menu ? postMenuItems(menu, onReply) : []
   const lastEvent = events.at(-1)
   const lastPostAt = Math.max(0, ...messages.map(postedAt))
   const { from, showEarlier } = useRecentPosts(messages, channelId)
@@ -169,14 +174,17 @@ export function ChannelMessages({
               links={links}
               onOpenSession={onOpenSession}
               answeredInInbox={endsInboxAnswer(messages, i)}
-              onMenu={
-                onReply &&
-                ((event) => {
-                  const reply = replyTo(message)
+              onMenu={(event, selection) => {
+                const reply = onReply && replyTo(message)
 
-                  if (reply) setMenu({ reply, x: event.clientX, y: event.clientY })
+                setMenu({
+                  x: event.clientX,
+                  y: event.clientY,
+                  selection,
+                  text: textOf(message),
+                  ...(reply ? { reply } : {}),
                 })
-              }
+              }}
               onReply={
                 onReply &&
                 (() => {
@@ -229,20 +237,8 @@ export function ChannelMessages({
         <Fragment key={row.key}>{row.node}</Fragment>
       ))}
       <Typing agents={agents} channelId={channelId} botId={botId} />
-      {menu && onReply && (
-        <ContextMenu
-          x={menu.x}
-          y={menu.y}
-          onClose={() => setMenu(null)}
-          items={[
-            {
-              key: 'reply',
-              label: t('Reply'),
-              icon: CornerUpLeft,
-              onSelect: () => onReply(menu.reply),
-            },
-          ]}
-        />
+      {menuItems.length > 0 && menu && (
+        <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={menuItems} />
       )}
     </div>
   )

@@ -4,7 +4,7 @@ import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act } from 'react'
 
-import type { AgentPersistedMessage } from '../../api'
+import type { AgentMessageReply, AgentPersistedMessage } from '../../api'
 
 const dom = new Window()
 const browser: Record<string, unknown> = {
@@ -41,7 +41,7 @@ const posts = Array.from(
     }) as unknown as AgentPersistedMessage,
 )
 
-function open(channelId: string, messages = posts) {
+function open(channelId: string, messages = posts, onReply?: (reply: AgentMessageReply) => void) {
   const host = document.createElement('div')
 
   document.body.appendChild(host)
@@ -56,6 +56,7 @@ function open(channelId: string, messages = posts) {
           viewerId="u1"
           teamId="t"
           onOpenSession={() => {}}
+          onReply={onReply}
           channelId={id}
         />,
       ),
@@ -65,6 +66,7 @@ function open(channelId: string, messages = posts) {
 
   return {
     render,
+    host,
     drawn: () => host.querySelectorAll('[data-post-id]').length,
     earlier: () => host.querySelector<HTMLButtonElement>('[data-earlier-messages] button'),
     close: () => {
@@ -107,5 +109,95 @@ test('another chat in the same place opens with its latest drawn', () => {
   assert.equal(chat.drawn(), 80)
   chat.render('c5', posts)
   assert.equal(chat.drawn(), 30)
+  chat.close()
+})
+
+// #5107: Desktop has no native menu, so a post's own menu copies its text or the selection in it.
+test('right-clicking a post copies the selection in it or the whole post, beside Reply', async () => {
+  const copied: string[] = []
+  const replies: AgentMessageReply[] = []
+
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: (text: string) => Promise.resolve(void copied.push(text)) },
+  })
+  const [first] = posts
+  const teammate = {
+    ...first,
+    id: 'teammate-post',
+    parts: [{ type: 'text', text: 'Run `bun test`, then check the **log**.' }],
+    metadata: {
+      ...(first?.metadata as object),
+      sender: { type: 'user', id: 'u2', displayName: 'Ana' },
+    },
+  } as AgentPersistedMessage
+  const chat = open('c6', [teammate], (reply) => replies.push(reply))
+  const post = chat.host.querySelector('[data-post-id="teammate-post"]')
+  const code = post?.querySelector('code')
+  const menuItems = () => [...document.querySelectorAll('[role="menuitem"]')]
+  const labels = () => menuItems().map((item) => item.textContent)
+  const rightClick = () =>
+    act(() => {
+      post?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 5, clientY: 5 }))
+    })
+  const choose = async (label: string) => {
+    const item = menuItems().find((element) => element.textContent === label)
+
+    assert.ok(item instanceof HTMLElement, label)
+    await act(async () => {
+      item.click()
+      await Promise.resolve()
+    })
+  }
+
+  assert.ok(code)
+  // Nothing selected: the whole post, then Reply.
+  rightClick()
+  assert.deepEqual(labels(), ['Copy message', 'Reply'])
+  await choose('Copy message')
+  assert.deepEqual(copied, ['Run `bun test`, then check the **log**.'])
+
+  // A selection in the post: that text first.
+  const range = document.createRange()
+  const selection = window.getSelection()
+
+  range.selectNodeContents(code)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  rightClick()
+  assert.deepEqual(labels(), ['Copy selected text', 'Copy message', 'Reply'])
+  await choose('Copy selected text')
+  assert.equal(copied.at(-1), 'bun test')
+
+  rightClick()
+  await choose('Reply')
+  assert.equal(replies.length, 1)
+
+  // A selection outside the post is not this post's to copy.
+  const elsewhere = document.createElement('p')
+
+  elsewhere.textContent = 'Somewhere else'
+  document.body.appendChild(elsewhere)
+  range.selectNodeContents(elsewhere)
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+  rightClick()
+  assert.deepEqual(labels(), ['Copy message', 'Reply'])
+  selection?.removeAllRanges()
+  elsewhere.remove()
+  chat.close()
+})
+
+test('a chat the viewer cannot reply in still lets them copy a post', () => {
+  const chat = open('c7', posts.slice(0, 1))
+  const post = chat.host.querySelector('[data-post-id]')
+
+  act(() => {
+    post?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 5, clientY: 5 }))
+  })
+  assert.deepEqual(
+    [...document.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent),
+    ['Copy message'],
+  )
   chat.close()
 })
