@@ -161,8 +161,25 @@ test('opencode.json names the provider and reads its key from the launch, never 
   assert.deepEqual(read(), { theme: 'dark', provider: { mine: { options: {} } } })
 })
 
-test('an Azure entry of the user’s own is left alone', () => {
+test('an Azure entry of the user’s own is left alone, until Azure is saved in its place', () => {
   const config = { provider: { azure: { options: { apiKey: '{env:MY_KEY}' } } }, model: 'azure/x' }
 
   assert.deepEqual(opencodeProviderConfig(config, undefined), config)
+  assert.deepEqual(opencodeProviderConfig(config, parseCustomProvider(azure, 'opencode')), {
+    provider: {
+      azure: {
+        options: { resourceName: 'acme-openai', apiKey: '{env:NUPHOS_OPENCODE_PROVIDER_KEY}' },
+        models: { 'gpt-4o-prod': { name: 'gpt-4o-prod' } },
+      },
+    },
+    model: 'azure/gpt-4o-prod',
+  })
+})
+
+test('a model picked in OpenCode stays while the provider has it', () => {
+  const pick = (model: string) => opencodeProviderConfig({ model }, gateway).model
+
+  assert.equal(pick('nuphos-custom/kimi-k2'), 'nuphos-custom/kimi-k2')
+  assert.equal(pick('nuphos-custom/gone'), 'nuphos-custom/glm-4.6')
+  assert.equal(pick('mine/x'), 'nuphos-custom/glm-4.6')
 })

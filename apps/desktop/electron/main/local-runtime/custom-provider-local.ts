@@ -57,9 +57,16 @@ export function localProviders(
       const dir = dirOf(provider, instanceId)
 
       await saveCustomProvider(store, dir, provider, value).catch(notSaved)
-      // An added OpenCode still pending is kept from then on, the provider its sign-in.
-      if (instanceId) await controller().instanceRequest({ method: 'restart', instanceId })
-      else await controller().refresh(true, [provider as CustomProviderAgent])
+      if (!instanceId) {
+        await controller().refresh(true, [provider as CustomProviderAgent])
+
+        return
+      }
+      const restart = controller().instanceRequest({ method: 'restart', instanceId })
+
+      // Saved, it is the sign-in that keeps a pending OpenCode. Removed, the runtime may be left
+      // signed out, which its card shows; the removal itself has succeeded.
+      await (value === null ? restart.catch(() => {}) : restart)
     },
     /** Tests a provider with one request, before or without saving it. */
     check: async (provider: unknown, value: unknown, instanceId?: unknown) =>

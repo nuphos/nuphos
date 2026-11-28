@@ -23,7 +23,10 @@ const ours = (config: Config, id: string) =>
   (config.provider?.[id] as { options?: { apiKey?: unknown } } | undefined)?.options?.apiKey ===
     API_KEY
 
-/** The config with the given provider in place of the one Nuphos wrote before, if any. */
+/**
+ * The config with the given provider in place of the one Nuphos wrote before, if any. Saving
+ * Azure here takes OpenCode's one `azure` entry, the user's own included: it is what they chose.
+ */
 export function opencodeProviderConfig(config: Config, provider: CustomProvider | undefined) {
   const { [OPENCODE_PROVIDER_ID]: _custom, ...providers } = config.provider ?? {}
 
@@ -46,7 +49,10 @@ export function opencodeProviderConfig(config: Config, provider: CustomProvider 
       options,
       models: Object.fromEntries(provider.models.map((model) => [model, { name: model }])),
     }
-    next.model = opencodeModel(provider, provider.models[0])
+    // A model picked in OpenCode stays while the provider still has it.
+    const picked = provider.models.find((id) => config.model === opencodeModel(provider, id))
+
+    next.model = opencodeModel(provider, picked ?? provider.models[0])
   }
   if (Object.keys(providers).length === 0) delete next.provider
 
