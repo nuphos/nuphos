@@ -108,6 +108,7 @@ async function deliver(
           deviceToken: token.token,
           environment: token.environment,
           pushType: 'liveactivity',
+          priority: session.phase === 'approval' ? 10 : 5, // 5 spares the iOS update budget
           payload: {
             aps: {
               timestamp: now,
@@ -231,6 +232,8 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
               deviceToken,
               environment,
               pushType: 'liveactivity',
+              priority: 5,
+              // No `alert`: it would expand the Dynamic Island on every turn.
               payload: {
                 aps: {
                   timestamp: Math.floor(deps.now() / 1000),
@@ -238,7 +241,6 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
                   'attributes-type': 'TurnActivityAttributes',
                   attributes: {},
                   'content-state': liveActivityCard([{ ...session, ...row }]),
-                  alert: { title: row.title, body: 'Running' },
                 },
               },
             })

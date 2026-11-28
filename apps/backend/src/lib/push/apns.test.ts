@@ -75,9 +75,29 @@ describe('sendApns', () => {
     expect(calls[0]?.headers['apns-topic']).toBe('ai.nuphos.ios')
     expect(calls[0]?.headers['apns-push-type']).toBe('alert')
     expect(calls[0]?.headers['apns-collapse-id']).toBe('session-1')
+    expect(calls[0]?.headers['apns-priority']).toBe('10')
     expect(calls[0]?.headers.authorization).toStartWith('bearer ')
     expect(calls[1]?.headers.authorization).toBe(calls[0]?.headers.authorization ?? '')
     expect(JSON.parse(calls[0]?.body ?? '{}')).toEqual(request.payload)
+  })
+
+  test('sends the requested priority', async () => {
+    const priorities: string[] = []
+
+    setApnsTransportForTests(async (_host, headers) => {
+      priorities.push(headers['apns-priority'] ?? '')
+
+      return { status: 200 }
+    })
+    await sendApns(credentials, {
+      deviceToken: 'ab'.repeat(32),
+      environment: 'production',
+      pushType: 'liveactivity',
+      priority: 5,
+      payload: { aps: { event: 'update' } },
+    })
+
+    expect(priorities).toEqual(['5'])
   })
 
   test('refreshes the provider token once it ages out', async () => {

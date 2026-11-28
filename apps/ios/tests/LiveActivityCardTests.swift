@@ -16,5 +16,8 @@ enum LiveActivityCardTests {
         precondition(!card([.running, .done]).finished && !card([.approval]).finished)
         // Rows past the shown ones are unknown here.
         precondition(!card([.done, .done, .done], more: 1).finished)
+        // The island's headline and tint count shown approvals apart from running.
+        precondition(card([.approval, .running, .approval]).needsYou == 2)
+        precondition(card([.running, .done]).needsYou == 0)
     }
 }

@@ -23,6 +23,9 @@ export type ApnsRequest = {
   collapseId?: string
   /** Live Activity updates go to the activity's own token under their own topic. */
   pushType?: 'alert' | 'liveactivity'
+  /** 10 delivers at once; 5 lets iOS batch it and does not count against the
+   *  Live Activity update budget. Defaults to 10. */
+  priority?: 5 | 10
 }
 
 export type ApnsResponse = { status: number; reason?: string }
@@ -233,7 +236,7 @@ export async function sendApns(
         ? `${credentials.bundleId}.push-type.liveactivity`
         : credentials.bundleId,
     'apns-push-type': pushType,
-    'apns-priority': '10',
+    'apns-priority': String(request.priority ?? 10),
     'content-type': 'application/json',
   }
 
