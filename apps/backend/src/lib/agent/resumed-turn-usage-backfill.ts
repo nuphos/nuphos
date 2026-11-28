@@ -164,49 +164,41 @@ export const RESUMED_TURN_ROWS = {
 } as const
 
 /**
- * Writes one session's corrections in one transaction: the step_total row and
- * the same turn's input and output rows. Only tokens change; the recorded ones
- * go to `resumedUsageCorrection.original`, and a row that has it is skipped.
+ * Writes one session's corrections in one transaction and one bulk write (a
+ * busy session has hundreds, and a transaction must finish within a minute):
+ * the step_total row and the same turn's input and output rows. Only tokens
+ * change; the recorded ones go to `resumedUsageCorrection.original`, and a row
+ * that has it is skipped.
  */
 export async function applyResumedTurnCorrections(
   sessionId: string,
   decisions: ResumedUsageDecision[],
 ): Promise<void> {
-  await withTransaction(async (session) => {
-    for (const d of decisions) {
-      if (d.action !== 'correct') continue
-      const marker = { resumedUsageCorrection: { original: d.before, method: d.method } }
-      const turn = { ...RESUMED_TURN_ROWS, sessionId, modelId: d.modelId, createdAt: d.createdAt }
-      const untouched = { resumedUsageCorrection: { $exists: false } }
-      const { inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens } = d.after
-      const input = {
-        'tokens.inputTokens': inputTokens,
-        'tokens.cachedInputTokens': cachedInputTokens,
-        'tokens.cacheWriteTokens': cacheWriteTokens,
-      }
-
-      await agentTokenUsage().updateOne(
-        { recordId: d.recordId, ...untouched },
-        {
-          $set: {
-            ...marker,
-            ...input,
-            'tokens.outputTokens': outputTokens,
-            'tokens.totalTokens': inputTokens + outputTokens,
-          },
-        },
-        { session },
-      )
-      await agentTokenUsage().updateMany(
-        { ...turn, kind: 'input', ...untouched },
-        { $set: { ...marker, ...input } },
-        { session },
-      )
-      await agentTokenUsage().updateMany(
-        { ...turn, kind: 'output', ...untouched },
-        { $set: { ...marker, 'tokens.outputTokens': outputTokens } },
-        { session },
-      )
+  const untouched = { resumedUsageCorrection: { $exists: false } }
+  const updates = decisions.flatMap((d) => {
+    if (d.action !== 'correct') return []
+    const marker = { resumedUsageCorrection: { original: d.before, method: d.method } }
+    const turn = { ...RESUMED_TURN_ROWS, sessionId, modelId: d.modelId, createdAt: d.createdAt }
+    const { inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens } = d.after
+    const input = {
+      'tokens.inputTokens': inputTokens,
+      'tokens.cachedInputTokens': cachedInputTokens,
+      'tokens.cacheWriteTokens': cacheWriteTokens,
     }
+    const output = { 'tokens.outputTokens': outputTokens }
+    const total = { 'tokens.totalTokens': inputTokens + outputTokens }
+
+    return [
+      { filter: { recordId: d.recordId }, $set: { ...marker, ...input, ...output, ...total } },
+      { filter: { ...turn, kind: 'input' as const }, $set: { ...marker, ...input } },
+      { filter: { ...turn, kind: 'output' as const }, $set: { ...marker, ...output } },
+    ].map(({ filter, $set }) => ({
+      updateMany: { filter: { ...filter, ...untouched }, update: { $set } },
+    }))
+  })
+
+  if (updates.length === 0) return
+  await withTransaction(async (session) => {
+    await agentTokenUsage().bulkWrite(updates, { session })
   })
 }
