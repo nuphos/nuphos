@@ -14,7 +14,8 @@ import type { ReactNode } from 'react'
 
 type Props = {
   open: boolean
-  onClose: () => void
+  /** Without it nothing dismisses the modal (no X, Escape or backdrop); only its own actions do. */
+  onClose?: () => void
   title: string
   description?: ReactNode
   children: ReactNode
@@ -123,19 +124,18 @@ export function Modal({
   }, [open])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !onClose) return
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
-      // A modal opened over this one (a bind dialog or a confirm over
-      // Connectors) takes Escape for itself; only the topmost layer closes.
-      // Toasts are non-modal alert dialogs and do not count.
+      // A modal opened over this one (a bind dialog, a confirm over Connectors) takes Escape for
+      // itself; only the topmost layer closes. Toasts are non-modal alert dialogs and don't count.
       const dialogs = document.querySelectorAll(
         '[role="dialog"][aria-modal="true"], [role="alertdialog"]:not([aria-modal="false"])',
       )
       const topmost = dialogs.item(dialogs.length - 1) as Element | null
 
       if (topmost && panelRef.current && topmost !== panelRef.current) return
-      onClose()
+      onClose?.()
     }
     document.addEventListener('keydown', onKey)
 
@@ -255,20 +255,22 @@ export function Modal({
           )}
         >
           {headerActions}
-          <button
-            type="button"
-            aria-label={t('Close modal')}
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={onClose}
-            className={clsx(
-              'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
-              isLight
-                ? 'text-[rgb(126,122,133)] hover:bg-[rgb(245,244,245)] hover:text-[rgb(15,14,17)]'
-                : 'text-tertiary hover:bg-state-hover hover:text-main',
-            )}
-          >
-            <X className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
+          {onClose && (
+            <button
+              type="button"
+              aria-label={t('Close modal')}
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={onClose}
+              className={clsx(
+                'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md transition-colors',
+                isLight
+                  ? 'text-[rgb(126,122,133)] hover:bg-[rgb(245,244,245)] hover:text-[rgb(15,14,17)]'
+                  : 'text-tertiary hover:bg-state-hover hover:text-main',
+              )}
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+          )}
         </div>
         {/* min-h-0 lets this flex child shrink below its content and actually
             scroll internally, instead of forcing the column taller than 80vh

@@ -1,10 +1,16 @@
 import { ipcRenderer } from 'electron'
 
-import type { BotImportSelection, BotImportTarget } from '../../src/api/bot-import-types'
+import type {
+  BotImportSelection,
+  BotImportTarget,
+  StarterBotOptions,
+} from '../../src/api/bot-import-types'
 
 export const channelsApi = {
   agentGetBotImportStatus: (target: BotImportTarget, id: string) =>
     ipcRenderer.invoke('agent:getBotImportStatus', target, id),
+  agentPreviewStarterBot: (target: BotImportTarget, options: StarterBotOptions) =>
+    ipcRenderer.invoke('agent:previewStarterBot', target, options),
   agentChooseBotImport: (target: BotImportTarget, newCopy?: boolean) =>
     ipcRenderer.invoke('agent:chooseBotImport', target, newCopy),
   agentApplyBotImport: (target: BotImportTarget, id: string, selection: BotImportSelection) =>

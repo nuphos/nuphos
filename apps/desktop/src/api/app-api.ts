@@ -23,6 +23,10 @@ import type {
 export const appApi = {
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     window.api.authUpdateProfile(input),
+  authAIConsent: () => window.api.authAIConsent(),
+  authSetAIConsent: (accepted: boolean) => window.api.authSetAIConsent(accepted),
+  appRequestNotifications: () => window.api.appRequestNotifications(),
+  appOpenNotificationSettings: () => window.api.appOpenNotificationSettings(),
   atlasListPersonalCredentials: () => window.api.atlasListPersonalCredentials(),
   atlasStartPersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
     window.api.atlasStartPersonalCredential(provider, teamId),

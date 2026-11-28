@@ -389,9 +389,12 @@
   transition-delay: 0s;
 }
 
+/* InstaBox's striped mark, printed in white on the top at 30% of its width, as on iOS. */
 .desk-mini .desk-mark.is-nuphos {
-  width: 64px;
-  height: 64px;
+  width: 50px;
+  height: 56px;
+  background: rgba(255, 255, 255, 0.95);
+  mask: url(/instabox-mark.svg) center / contain no-repeat;
 }
 
 /* The face: its round corners turn away from the light at both ends; ports on the left, the power

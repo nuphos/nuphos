@@ -1,18 +1,16 @@
 /* eslint-disable max-lines -- the chat pane composes its rows; each row source lives in its own hook */
 import { clsx } from 'clsx'
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 
 import { api } from '../../api'
 import { t } from '../../i18n'
 import { runtimeStateOf, subscribeRuntimeStates } from '../../lib/agentRuntimeStates'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
-import { forgetSessionDesktops, publishSessionDesktops } from '../../lib/sessionDesktops'
 import { makeAttachmentTurn } from '../agent/panel/attachments'
 import { ChatColumn } from '../agent/panel/ChatColumn'
 import { Composer } from '../agent/panel/Composer'
 import { composerDraftKey } from '../agent/panel/composerDrafts'
 import { FileDropZone } from '../agent/panel/FileDropZone'
-import { sessionDesktopsOf } from '../agent/panel/shells'
 import { useConversationRead } from '../agent/panel/useConversationRead'
 import { SessionParticipants } from '../agent/SessionParticipants'
 import { HeaderEdge } from '../ui/header-edge'
@@ -24,11 +22,13 @@ import { BotStatusPill } from './BotStatusPill'
 import { ChannelEmptyState } from './ChannelEmptyState'
 import { ChannelMessages } from './ChannelMessages'
 import { ReplyingBanner } from './channelParts'
+import { OnboardingConnectorActions } from './OnboardingConnectorActions'
 import { sendingPost, stillSending } from './sendingPosts'
 import { toolApprovalRows } from './toolApprovalRows'
 import { useBotChatCards } from './useBotChatCards'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotComposerControls } from './useBotComposerControls'
+import { useBotDesktops } from './useBotDesktops'
 import { useBotTaskEntry } from './useBotTaskEntry'
 import { useChannel } from './useChannel'
 import { useStickToBottom } from './useStickToBottom'
@@ -89,15 +89,7 @@ export function ChannelPane({
   const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
   const { canRead, canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
 
-  useEffect(() => {
-    if (!bot) return
-    publishSessionDesktops(bot, {
-      ...sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !botOwned }),
-      dock: channelId,
-    })
-
-    return () => forgetSessionDesktops(bot, channelId)
-  }, [bot, teamId, botState, botOwned, channelId])
+  useBotDesktops(teamId, channelId, bot, botState, botOwned)
   const stored = detail?.messages ?? []
   const pending = stillSending(stored, sending)
 
@@ -260,7 +252,14 @@ export function ChannelPane({
               }}
             >
               <Composer
-                aboveStatus={replying && <ReplyingBanner reply={replying} onCancel={setReplying} />}
+                aboveStatus={
+                  replying ? (
+                    <ReplyingBanner reply={replying} onCancel={setReplying} />
+                  ) : (
+                    bot &&
+                    botOwned && <OnboardingConnectorActions {...{ teamId, channelId, bot, send }} />
+                  )
+                }
                 onSend={send}
                 onStop={() => {}}
                 readOnly={detail?.readOnly === true}

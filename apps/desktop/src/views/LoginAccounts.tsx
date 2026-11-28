@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react'
 import { useState } from 'react'
 
 import { accountName, backendLabel } from '../app/accounts'
@@ -9,15 +10,29 @@ import { t } from '../i18n'
 import type { AccountSummary } from '../types'
 
 /** The accounts still signed in on this computer, to continue as one without signing in. */
-export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
+export function LoginAccounts({
+  accounts,
+  onContinue,
+}: {
+  accounts: AccountSummary[]
+  /** Lists the account in use too (as iOS does); choosing it continues as it is. */
+  onContinue?: () => void
+}) {
   const [busy, setBusy] = useState<string | null>(null)
   // Accounts signed out here because they have to sign in again.
   const [gone, setGone] = useState<string[]>([])
-  const shown = accounts.filter((a) => !gone.includes(a.key))
+  const shown = accounts
+    .filter((a) => !gone.includes(a.key) && (onContinue || !a.active))
+    .sort((a, b) => Number(b.active) - Number(a.active))
 
   if (shown.length === 0) return null
 
   async function choose(account: AccountSummary) {
+    if (account.active && onContinue) {
+      onContinue()
+
+      return
+    }
     setBusy(account.key)
     try {
       const outcome = await chooseAccount(account, 'signIn')
@@ -59,7 +74,18 @@ export function LoginAccounts({ accounts }: { accounts: AccountSummary[] }) {
                       ? `${account.userInfo?.email ?? ''} · ${backend}`
                       : account.userInfo?.email}
                   </span>
+                  {account.active && onContinue && (
+                    <span className="block truncate text-[12px] text-tertiary">
+                      {t('Continue with this account')}
+                    </span>
+                  )}
                 </span>
+                {account.active && onContinue && (
+                  <Check
+                    className="h-4 w-4 flex-shrink-0 text-main"
+                    aria-label={t('Active account')}
+                  />
+                )}
               </button>
             </li>
           )

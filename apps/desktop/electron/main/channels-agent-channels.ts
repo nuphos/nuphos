@@ -2,13 +2,19 @@ import { BrowserWindow } from 'electron'
 
 import * as agent from '../agent'
 
-import type { BotImportSelection, BotImportTarget } from '../../src/api/bot-import-types'
+import type {
+  BotImportSelection,
+  BotImportTarget,
+  StarterBotOptions,
+} from '../../src/api/bot-import-types'
 import type { IpcMainInvokeEvent } from 'electron'
 
 // Channels: places where people and agents talk.
 export const agentChannelChannels = {
   'agent:getBotImportStatus': (_e: unknown, target: BotImportTarget, id: string) =>
     agent.getBotImportStatus(target, id),
+  'agent:previewStarterBot': (_e: unknown, target: BotImportTarget, options: StarterBotOptions) =>
+    agent.previewStarterBot(target, options),
   'agent:chooseBotImport': (_e: unknown, target: BotImportTarget, newCopy?: boolean) =>
     agent.chooseBotImport(target, newCopy),
   'agent:applyBotImport': (

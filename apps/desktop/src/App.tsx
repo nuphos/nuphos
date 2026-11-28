@@ -22,6 +22,7 @@ import { AgentSetupHost } from './views/onboarding/setup/AgentSetupHost'
 import { BoxPaywallHost } from './views/settings/BoxPaywall'
 
 import type { AuthState } from './app/startupAuth'
+import type { AccountSummary } from './types'
 
 function Splash() {
   return (
@@ -48,6 +49,17 @@ function SignedInApp() {
   // Signing in to one more account, over the workspace.
   const adding = useSyncExternalStore(subscribeAddAccount, addAccountRequest)
   const signedIn = auth.status === 'authenticated'
+  const switching = Boolean(adding?.switching && signedIn)
+  // Switching lists every account signed in here, the one in use first among them.
+  const [signedInAccounts, setSignedInAccounts] = useState<AccountSummary[]>([])
+
+  useEffect(() => {
+    if (!switching) return
+    api
+      .authListAccounts()
+      .then(setSignedInAccounts)
+      .catch(() => setSignedInAccounts([]))
+  }, [switching])
   // The sign-in screen holds focus, so no shortcut reaches a card behind it.
   const takeFocus = useCallback((el: HTMLDivElement | null) => el?.focus(), [])
 
@@ -81,7 +93,8 @@ function SignedInApp() {
 
   const signIn = (
     <LoginView
-      accounts={auth.status === 'anonymous' ? auth.accounts : []}
+      accounts={auth.status === 'anonymous' ? auth.accounts : switching ? signedInAccounts : []}
+      switching={switching}
       notice={adding?.notice ?? signInNotice}
       onCancel={
         adding && signedIn

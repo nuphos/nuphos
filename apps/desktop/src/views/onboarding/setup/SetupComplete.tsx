@@ -50,7 +50,7 @@ export function SetupComplete({
 
   return (
     <SetupScreen
-      step={3}
+      step={2}
       title={workspaceCreated ? t('Your team is ready') : t('Continue to your team')}
       subtitle={
         empty

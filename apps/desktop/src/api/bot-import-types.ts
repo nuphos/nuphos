@@ -1,4 +1,10 @@
 export type BotImportTarget = { teamId: string; runtimeId: string; agentRuntime: string }
+export type StarterBotOptions = {
+  name: string
+  locale: string
+  connectorNames: string[]
+}
+
 export type BotImportSetup = {
   key: string
   name: string
