@@ -99,7 +99,7 @@ async function addOpenCode(page: Page, label: string, baseUrl: string, model: st
   await page.getByLabel('Runtime name').fill(label)
   await page.getByRole('combobox', { name: 'Provider' }).click()
   if (model === 'model-a') await shot(page, '1-provider-select')
-  await page.getByRole('option', { name: 'OpenAI-compatible' }).click()
+  await page.getByRole('option', { name: 'Custom endpoint' }).click()
   await page.getByLabel('Base URL').fill(baseUrl)
   await page.getByLabel('Model IDs').fill(model)
   if (model === 'model-a') await shot(page, '2-new-runtime')
