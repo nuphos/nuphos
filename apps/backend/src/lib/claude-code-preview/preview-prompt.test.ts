@@ -19,6 +19,7 @@ const devices: Record<string, Partial<AgentDevice>> = {
   mac: { label: 'MacBook', platform: 'darwin' },
   linux: { label: 'Linux PC', platform: 'linux' },
   'linux-desktops': { label: 'Linux server', platform: 'linux' },
+  'linux-screen': { label: 'Linux desktop', platform: 'linux' },
 }
 
 useAgentDeviceStore({
@@ -232,7 +233,7 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(mac).not.toContain('nuphos-desktop')
   // A Mac hands its own screen over too, so a sign-in reaches someone away from it (#5315).
   expect(mac).toContain(
-    'goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card',
+    'goes on this computer’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card',
   )
   // A Linux computer with a desktop pool hands its session's desktop over, as a Box does.
   const pool = await on('linux-desktops')
@@ -242,6 +243,17 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   expect(pool).not.toContain('MACHINE.md')
   expect(mac).not.toContain(noScreen)
   expect(pool).not.toContain(noScreen)
+  // A Linux computer on X11 hands its own screen over as a Mac does, with no desktop of its own (#5321).
+  await runtimePresenceStore().claim('user-1', 'linux-screen', 'c1')
+  await runtimePresenceStore().put('user-1', 'linux-screen', {
+    conn: 'c1',
+    status: { desktopOpen: true, ownScreen: true } as unknown as LocalRuntimeStatus,
+    seenAt: Date.now(),
+  })
+  const screen = await on('linux-screen')
+
+  expect(screen).not.toContain('nuphos-desktop')
+  expect(screen).toContain('goes on this computer’s screen (a page with local_browser show)')
   // A computer that cannot hand its screen over is not told to try.
   const linux = await on('linux')
 
