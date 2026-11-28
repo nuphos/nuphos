@@ -8,7 +8,7 @@ import { channelScenarios } from './channel-scenarios.ts'
 import { checkDecisionOutline, checkOutgoingChip } from './chat-presentation.ts'
 import { artifacts, until } from './processes.ts'
 import { replyDiskScenario } from './reply-disk-scenario.ts'
-import { send } from './ui.ts'
+import { send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -22,7 +22,7 @@ export const createBotScenario: Scenario = {
     await page.getByRole('button', { name: 'Create', exact: true }).click()
     // No user prompt precedes this reply: creating/opening the Bot starts its introduction.
     // The fixture's missing marker proves the turn did not originate from a delivery prompt.
-    await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+    await transcriptPost(page, 'POSTED E2E_DELIVERY:missing').waitFor()
     await until('the unprompted Bot introduction to finish', async () =>
       agentEvents(stack).includes('finish E2E_DELIVERY:missing'),
     )
@@ -31,7 +31,7 @@ export const createBotScenario: Scenario = {
       page,
       'Review https://github.com/nuphos/nuphos/issues/1 E2E_ASK_CREDENTIAL E2E_DELIVERY:bot',
     )
-    await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+    await transcriptPost(page, 'POSTED E2E_DELIVERY:bot').waitFor()
     await checkDecisionOutline(page)
     await checkOutgoingChip(page)
     await page.screenshot({ path: `${artifacts}/bot-question-outline.png` })

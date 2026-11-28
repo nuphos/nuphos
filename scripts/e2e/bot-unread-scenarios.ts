@@ -2,7 +2,7 @@
 import { agentEvents, agentLog } from './agent-log.ts'
 import { botSubtaskModelScenarios } from './bot-subtask-model-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -63,7 +63,7 @@ export const botUnreadScenarios: Scenario[] = [
       // Read in place: the Bot's own post here is read, its sub-Task's reply is not.
       // On the same agent: the runtime scenarios expect the second one unused.
       await send(page, 'Hand this off E2E_SUBTASK E2E_DELIVERY:bot-handoff')
-      await page.getByText('POSTED E2E_DELIVERY:bot-handoff', { exact: true }).waitFor()
+      await transcriptPost(page, 'POSTED E2E_DELIVERY:bot-handoff').waitFor()
       await until('the sub-Task to reply', async () =>
         agentEvents(stack).includes('finish E2E_DELIVERY:bot-kid'),
       )

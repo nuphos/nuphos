@@ -5,7 +5,7 @@ import { startDesktop } from './desktop.ts'
 import { entryPointScenarios, LONG_TASK, MORE_TASK } from './entry-point-scenarios.ts'
 import { artifacts, stopAll } from './processes.ts'
 import { startStack } from './stack.ts'
-import { send } from './ui.ts'
+import { send, transcriptPost } from './ui.ts'
 
 import type { Desktop } from './desktop.ts'
 
@@ -31,9 +31,9 @@ try {
   await page.getByRole('button', { name: 'Create', exact: true }).click()
   // The Bot introduces itself unprompted, then gets through getting started: a
   // Bot still on it has no Task of its own to open, on purpose.
-  await page.getByText('POSTED E2E_DELIVERY:missing', { exact: true }).waitFor()
+  await transcriptPost(page, 'POSTED E2E_DELIVERY:missing').waitFor()
   await send(page, 'Confirmed: watch the release branch. E2E_ONBOARDING_COMPLETE E2E_DELIVERY:bot')
-  await page.getByText('POSTED E2E_DELIVERY:bot', { exact: true }).waitFor()
+  await transcriptPost(page, 'POSTED E2E_DELIVERY:bot').waitFor()
   await page.getByText('Getting started', { exact: true }).first().waitFor({ state: 'hidden' })
   await page.getByRole('tab', { name: 'Tasks' }).click()
   await page.getByRole('button', { name: 'New task', exact: true }).click()

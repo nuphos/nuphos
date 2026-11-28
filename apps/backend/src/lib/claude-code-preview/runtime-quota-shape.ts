@@ -1,4 +1,6 @@
 // What the agent page shows of a runtime's usage, whichever provider reported it.
+import { z } from 'zod'
+
 import type { RuntimeInstance } from './runtime-instances'
 import type { OpenAbProvider } from './runtime-provider'
 
@@ -19,6 +21,8 @@ export type RuntimeQuota = {
   offline?: true
   plan?: string
   windows: RuntimeQuotaWindow[]
+  /** A used-up window does not stop the agent: the account pays with credits. */
+  onCredits?: true
   /** Which account's quota this is, hashed by the computer that holds it. */
   accountKey?: string
   /** The other agents on that account: they run out together. */
@@ -56,6 +60,26 @@ export function withSharedQuota(
   })
 }
 
+/** Whether Codex can still pay with purchased credits once a window is used up;
+ *  never the balance. */
+export const codexCreditsSchema = z
+  .object({
+    has_credits: z.boolean().optional(),
+    unlimited: z.boolean().optional(),
+    overage_limit_reached: z.boolean().optional(),
+  })
+  .nullable()
+  .optional()
+  .catch(undefined)
+
+export function onCodexCredits(value: unknown): boolean {
+  const credits = codexCreditsSchema.parse(value)
+
+  if (!credits || credits.overage_limit_reached) return false
+
+  return credits.has_credits === true || credits.unlimited === true
+}
+
 /** A Codex window by its width, which Codex reports in seconds. */
 export function codexWindowLabel(seconds: number | undefined, fallback: string): string {
   if (!seconds) return fallback
@@ -88,6 +112,7 @@ export function unavailable(
 
 /** Whether an agent's usage is used up, and when the latest used-up window resets. */
 export function usedUp(quota: RuntimeQuota | undefined): { resetsAt?: string } | undefined {
+  if (quota?.onCredits) return undefined
   const spent = (quota?.windows ?? []).filter((window) => window.usedPercent >= 100)
 
   if (spent.length === 0) return undefined

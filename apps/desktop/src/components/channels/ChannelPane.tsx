@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- the chat pane composes its rows; each row source lives in its own hook */
 import { clsx } from 'clsx'
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
@@ -25,6 +26,7 @@ import { ChannelMessages } from './ChannelMessages'
 import { ReplyingBanner } from './channelParts'
 import { sendingPost, stillSending } from './sendingPosts'
 import { toolApprovalRows } from './toolApprovalRows'
+import { useBotChatCards } from './useBotChatCards'
 import { useBotChatQuestions } from './useBotChatQuestions'
 import { useBotComposerControls } from './useBotComposerControls'
 import { useBotTaskEntry } from './useBotTaskEntry'
@@ -85,7 +87,7 @@ export function ChannelPane({
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const lent = { manage: fixes?.onOpenAgentSettings, agents }
   const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
-  const { canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
+  const { canRead, canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
 
   useEffect(() => {
     if (!bot) return
@@ -104,6 +106,7 @@ export function ChannelPane({
   const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
   const approvals = toolApprovalRows(teamId, bot, botOwned, botState)
+  const cards = useBotChatCards(teamId, channelId, bot, canRead, onOpenNuphosLink)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
@@ -233,7 +236,7 @@ export function ChannelPane({
                   onOpenSession={onOpenSession}
                   onOpenNuphosLink={onOpenNuphosLink}
                   channelId={channelId}
-                  extraRows={[...questions.rows, ...approvals]}
+                  extraRows={[...questions.rows, ...approvals, ...cards]}
                   fixes={fixes}
                   onReply={
                     detail.readOnly

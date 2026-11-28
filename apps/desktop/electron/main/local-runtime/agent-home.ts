@@ -14,7 +14,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { applyCodexProvider } from './custom-provider-codex.ts'
-import { claudeProviderSettings } from './custom-provider.ts'
+import { claudeProviderSettings, readCustomProviders } from './custom-provider.ts'
 import { linkOwnerFile } from './owner-file-link.ts'
 import { agentHomeName, prepareShimHome } from './providers.ts'
 
@@ -121,7 +121,7 @@ export function prepareCodexHome(
           mode: 0o600,
         },
       )
-    applyCodexProvider(userDir, config)
+    applyCodexProvider(config, readCustomProviders(userDir).codex)
 
     return home
   } catch {

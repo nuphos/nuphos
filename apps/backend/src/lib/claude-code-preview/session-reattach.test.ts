@@ -27,6 +27,7 @@ let attachment: { openabSessionId: string; runtimeUrl: string; forceNew?: boolea
 
 let attachmentError: Error | null = null
 let attachmentErrorOnce = false
+let archived = false
 let workLost: string | null = null
 const handoffs = new Map<string, string>()
 // Holder keys; a missing one has lapsed (or was never written).
@@ -68,6 +69,7 @@ useRedis({
 })
 
 useAgentDb({
+  isConversationArchived: () => Promise.resolve(archived),
   getConversationPreviewAttachment: async () => {
     const failure = attachmentError
 
@@ -129,6 +131,7 @@ beforeEach(() => {
   renewed.length = 0
   attachmentError = null
   attachmentErrorOnce = false
+  archived = false
   attachment = { openabSessionId: 'sess-1', runtimeUrl: endpoint.url }
   session = {
     teamId: 'team',
@@ -296,6 +299,37 @@ test('leaves a session alone once its attachment moved elsewhere', async () => {
   expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
   expect(acquire).not.toHaveBeenCalled()
   expect(session.client).toBe(lost)
+})
+
+// #5002: an archived conversation is not resumed on every reconnect, and its session goes.
+test('does not resume an archived conversation, and forgets its session', async () => {
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(fakeClient('replacement'))
+  archived = true
+  let released = false
+
+  session.stopObserving = () => {
+    released = true
+  }
+  const lost = session.client
+
+  expect(await reattachAfterTransportLoss(session, lost, [0], instant)).toBe(false)
+  expect(acquire).not.toHaveBeenCalled()
+  expect(session.client).toBe(lost)
+  expect(released).toBe(true)
+  expect(sessionsByConversation.has('team:conv')).toBe(false)
+  expect(workLost).toBeNull()
+})
+
+test('resumes an archived conversation that is still working, such as a turn that archived it', async () => {
+  const replacement = fakeClient('replacement')
+
+  acquire = spyOn(registry, 'acquire').mockResolvedValue(replacement)
+  archived = true
+  session.activeTurn = { cancelled: false }
+
+  expect(await reattachAfterTransportLoss(session, session.client, [0], instant)).toBe(true)
+  expect(session.client).toBe(replacement)
+  expect(sessionsByConversation.get('team:conv')).toBe(session)
 })
 
 // #2360: replicas that served the conversation earlier still hold it. Only the

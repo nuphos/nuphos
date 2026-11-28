@@ -121,7 +121,8 @@ data class ChannelPost(
 
         /** Posts, the loop guard's lines and the typing bubble, in the order they happened. */
         fun items(posts: List<ChannelPost>, events: List<AgentConversationDetail.TimelineEvent>,
-                  typing: List<ChannelAgent>, questions: List<BotQuestion> = emptyList()): List<ChannelItem> {
+                  typing: List<ChannelAgent>, questions: List<BotQuestion> = emptyList(),
+                  cards: List<Pair<Instant, ToolCard>> = emptyList()): List<ChannelItem> {
             data class Timed(val at: Instant, val order: Int, val item: ChannelItem)
             val rows = mutableListOf<Timed>()
             var previous: Instant? = null
@@ -153,6 +154,7 @@ data class ChannelPost(
                 val at = question.request.askedAt?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: Instant.MIN
                 rows += Timed(at, rows.size, ChannelItem.Question(question))
             }
+            cards.forEach { (at, card) -> rows += Timed(at, rows.size, ChannelItem.Card(card)) }
             val sorted = rows.sortedWith(compareBy<Timed>({ it.at }, { it.order })).map { it.item }
             return if (typing.isEmpty()) sorted else sorted + ChannelItem.Typing(typing)
         }
@@ -176,4 +178,6 @@ sealed class ChannelItem {
     data class Typing(val agents: List<ChannelAgent>) : ChannelItem() { override val key get() = "typing" }
     /** In a Bot's chat: a question the Bot or an agent under it waits on. */
     data class Question(val question: BotQuestion) : ChannelItem() { override val key get() = "question.${question.id}" }
+    /** In a Bot's chat: an artifact or chart the Bot made in its own conversation, for a viewer who may open it. */
+    data class Card(val card: ToolCard) : ChannelItem() { override val key get() = "card.${card.id}" }
 }

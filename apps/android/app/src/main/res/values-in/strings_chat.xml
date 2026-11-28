@@ -186,6 +186,9 @@
     </plurals>
     <string name="chat_work_duration">Bekerja selama %1$s</string>
     <string name="chat_work">Selesai bekerja</string>
+    <string name="tool_card_open">Buka</string>
+    <string name="tool_card_document">Dokumen</string>
+    <string name="tool_card_code">Kode</string>
     <string name="chat_share_access_invited">Hanya orang yang diundang</string>
     <string name="chat_share_access_view">Tim dapat melihat</string>
     <string name="chat_share_access_reply">Tim dapat melihat dan membalas</string>
