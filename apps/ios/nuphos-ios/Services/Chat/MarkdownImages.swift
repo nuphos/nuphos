@@ -1,9 +1,9 @@
 import Foundation
 
 /// The Markdown renderer draws `![alt](url)` as the URL's text. An answer is
-/// split around the lines that hold only https images, so those can be shown
-/// as images, the way Desktop and Android already show them. An image in the
-/// middle of a sentence, or in a code block, stays as written.
+/// split around the https images that end a line, after an optional label such
+/// as `A1`, so those can be shown as images, the way Desktop and Android already
+/// show them. An image in the middle of a sentence, or in a code block, stays as written.
 enum MarkdownImages {
     enum Segment: Equatable {
         case markdown(String)
@@ -46,7 +46,8 @@ enum MarkdownImages {
                 if trimmed.hasPrefix(open) { fence = nil }
             } else if trimmed.hasPrefix("```") || trimmed.hasPrefix("~~~") {
                 fence = trimmed.prefix(3)
-            } else if line.count - trimmed.count < 4, let images = imagesOnly(String(trimmed)) {
+            } else if line.count - trimmed.count < 4, let (label, images) = trailingImages(String(line)) {
+                if !label.isEmpty { lines.append(Substring(label)) }
                 flush()
                 segments += images
                 continue
@@ -57,20 +58,20 @@ enum MarkdownImages {
         return segments.isEmpty ? [.markdown(text)] : segments
     }
 
-    /// The images on a line that holds nothing else.
-    private static func imagesOnly(_ line: String) -> [Segment]? {
-        let range = NSRange(line.startIndex..., in: line)
-        let matches = image.matches(in: line, range: range)
-        guard !matches.isEmpty,
-              image.stringByReplacingMatches(in: line, range: range, withTemplate: "")
-                  .allSatisfy(\.isWhitespace)
-        else { return nil }
-        return matches.compactMap { match in
-            guard let alt = Range(match.range(at: 1), in: line),
+    /// The images that end a line, and the label before them.
+    private static func trailingImages(_ line: String) -> (label: String, images: [Segment])? {
+        var end = line.endIndex
+        var images: [Segment] = []
+        for match in image.matches(in: line, range: NSRange(line.startIndex..., in: line)).reversed() {
+            guard let whole = Range(match.range, in: line), line[whole.upperBound..<end].allSatisfy(\.isWhitespace),
+                  let alt = Range(match.range(at: 1), in: line),
                   let src = Range(match.range(at: 2), in: line),
                   let url = URL(string: String(line[src]))
-            else { return nil }
-            return .image(url, alt: String(line[alt]))
+            else { break }
+            images.insert(.image(url, alt: String(line[alt])), at: 0)
+            end = whole.lowerBound
         }
+        guard !images.isEmpty else { return nil }
+        return (String(line[..<end].reversed().drop(while: \.isWhitespace).reversed()), images)
     }
 }
