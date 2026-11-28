@@ -87,7 +87,7 @@ export function ChannelPane({
   const botOwned = ownsBot(teamId, bot, user.id, detail && agents)
   const lent = { manage: fixes?.onOpenAgentSettings, agents }
   const controls = useBotComposerControls(teamId, bot, botOwned, user, refresh, lent)
-  const { canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
+  const { canRead, canOpenTask, earlier } = useBotTaskEntry(teamId, bot, botOwned, detail)
 
   useEffect(() => {
     if (!bot) return
@@ -106,7 +106,7 @@ export function ChannelPane({
   const stickToBottom = useStickToBottom(scrollRef, composer)
   const questions = useBotChatQuestions(teamId, bot, botOwned, onOpenSession, !messages.length)
   const approvals = toolApprovalRows(teamId, bot, botOwned, botState)
-  const cards = useBotChatCards(teamId, channelId, bot, canOpenTask && stored, onOpenNuphosLink)
+  const cards = useBotChatCards(teamId, channelId, bot, canRead && stored, onOpenNuphosLink)
   const send: ComposerSend = (text, filePaths, mentions, options) => {
     void postDraft(text, filePaths, mentions, options)
 
