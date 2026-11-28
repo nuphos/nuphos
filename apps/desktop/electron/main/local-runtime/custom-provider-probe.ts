@@ -6,7 +6,11 @@ type Agent = 'claude-code' | 'codex' | 'opencode'
 const trimmed = (baseUrl: string) => (baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl)
 
 /** The request each API answers without running a model, and its headers besides the key. */
-function requestFor(provider: Agent, azure: boolean, key: string) {
+function requestFor(
+  provider: Agent,
+  azure: boolean,
+  key: string,
+): { method: string; route: string; headers: Record<string, string> } {
   if (provider === 'codex')
     return {
       method: 'POST',
