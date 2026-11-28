@@ -1192,7 +1192,8 @@ final class ChatSession {
             receiveRuntime(detail.runtimeState, observedAt: observedAt)
             adoptRuntime(from: detail)
             // A waiting message leaves the strip once its turn starts, and a usage hold once it lifts.
-            if !serverQueued.isEmpty || queueHold != nil { await refreshQueue() }
+            // A Trigger's turn can be held before it shows here, so a moved transcript reads it too.
+            if moved || !serverQueued.isEmpty || queueHold != nil { await refreshQueue() }
             if !pendingModelSettings.isEmpty { await refreshSessionConfig() }
             guard moved, !submitting, attachedStreamId == attached else { continue }
             let follow = RuntimeTranscript.runToFollow(active: detail.activeRun?.streamId, attached: attached, stopped: endedStreamId)
