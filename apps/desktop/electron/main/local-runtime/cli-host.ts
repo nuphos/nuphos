@@ -104,7 +104,7 @@ setTokenSource(() => Promise.resolve(currentToken())) // API calls go out with t
 
 // e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
 const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
-// A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
+// A Linux computer with Xvnc, XFCE and open-computer-use gives every session its own desktop (see desktop-session.mjs).
 const desktopPool = e2eMacScreenHost ? null : enableDesktopPool(bundleRoot, dataDir)
 const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
 

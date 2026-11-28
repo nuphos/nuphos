@@ -1,4 +1,4 @@
-// A desktop per conversation on a Linux Box: the agents' env names the wrapper
+// A desktop per conversation on a Linux computer: the agents' env names the wrapper
 // Claude runs as each session's `nuphos-desktop` MCP server (desktop-session.mjs),
 // and a pool sized to the CPUs; a reaper frees displays whose session is gone.
 
@@ -111,19 +111,38 @@ export function withDesktopRequests(
   }
 }
 
+/** What desktop-session.mjs runs on each display, and what to install for it. */
+const DESKTOP_NEEDS = {
+  Xvnc: 'tigervnc-standalone-server',
+  'xfce4-session': 'xfce4',
+  'open-computer-use': 'npm install -g open-computer-use',
+}
+
+/** What this computer lacks, of DESKTOP_NEEDS, to host desktops. */
+export function missingForDesktops(PATH = process.env.PATH ?? ''): string[] {
+  const dirs = PATH.split(path.delimiter).filter(Boolean)
+
+  return Object.entries(DESKTOP_NEEDS)
+    .filter(([command]) => !dirs.some((dir) => existsSync(path.join(dir, command))))
+    .map(([, install]) => install)
+}
+
 /** Returns the pool directory, or null where this computer cannot host desktops. */
 // TODO(team Box): a Box shared by a team runs every session as the same OS user,
 // so this pool must stay off there until sessions get Unix users of their own.
 export function enableDesktopPool(bundleRoot: string, dataDir: string): string | null {
   const wrapper = path.join(bundleRoot, 'desktop-session.mjs')
 
-  if (
-    process.platform !== 'linux' ||
-    !existsSync(wrapper) ||
-    !existsSync('/usr/local/bin/open-computer-use') ||
-    !['/usr/bin/Xvnc', '/usr/local/bin/Xvnc'].some((xvnc) => existsSync(xvnc))
-  )
+  if (process.platform !== 'linux' || !existsSync(wrapper)) return null
+  const missing = missingForDesktops()
+
+  if (missing.length > 0) {
+    console.log(
+      `To hand this computer's screen to you for a sign-in, install: ${missing.join(', ')}.`,
+    )
+
     return null
+  }
   const pool = path.join(dataDir, 'desktops')
 
   process.env.NUPHOS_DESKTOP_SESSION = wrapper

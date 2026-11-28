@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// A desktop per conversation on a Linux Box. Claude Code runs this as the
+// A desktop per conversation on a Linux computer. Claude Code runs this as the
 // session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs), relaying to
-// instabox's computer-use MCP (open-computer-use behind its proxy). Agents start
+// the computer-use MCP (open-computer-use, from npm, on PATH). Agents start
 // every MCP server with the session, so the desktop waits for the first tool
 // call: until then the server runs without a display, which is enough to list
 // its tools. That call takes a display from the pool, brings up Xvnc + XFCE on
@@ -44,9 +44,35 @@ import path from 'node:path'
 // person through the backend's desktop stream (computer-desktop.ts in the backend).
 const FIRST_DISPLAY = 2
 const GEOMETRY = '1280x800'
-const PROXY = '/usr/local/bin/instabox-computer-use-proxy'
-const SERVER = '/usr/local/bin/open-computer-use'
 export const MANUAL_IDLE_MS = 10 * 60_000
+// The tools that send input to the desktop: they wait while a person holds it.
+const INPUT_TOOLS = new Set([
+  'click',
+  'perform_secondary_action',
+  'scroll',
+  'drag',
+  'type_text',
+  'press_key',
+  'set_value',
+])
+// A person's hold lapses this long after the desktop stream last renewed it (vnc-stream.ts).
+const HUMAN_HOLD_MS = 30_000
+export const HELD =
+  'A person has taken over this desktop. Do not retry now: end your turn, and continue when you are told they handed it back.'
+
+/** Whether a person holds the display whose XDG_RUNTIME_DIR is `xdg`, per the control file the desktop stream renews. */
+export function humanHolds(xdg, now = Date.now()) {
+  let control = ''
+
+  try {
+    control = readFileSync(path.join(xdg, 'instabox-control'), 'utf8')
+  } catch {
+    return false
+  }
+  const [owner, , since] = control.trim().split(' ')
+
+  return owner === 'human' && now - Number(since) * 1000 < HUMAN_HOLD_MS
+}
 
 export const lockFile = (pool, display) => path.join(pool, `${String(display)}.lock`)
 export const xdgDir = (pool, display) => path.join(pool, `${String(display)}.xdg`)
@@ -394,6 +420,12 @@ export function desktopRelay({ send, start, desktop }) {
       server.onMessage(fromServer)
       for (const line of handshake) server.send(line)
     }
+    // Input waits while a person holds the desktop; looking at it does not.
+    if (INPUT_TOOLS.has(message.params?.name) && humanHolds(ready.env.XDG_RUNTIME_DIR ?? '')) {
+      send(toolError(message.id, HELD))
+
+      return
+    }
     server.send(message)
   }
   let queue = Promise.resolve()
@@ -420,7 +452,7 @@ export function desktopRelay({ send, start, desktop }) {
 
 /** The computer-use server as a child process, on `env`'s display or none. */
 function computerUse(env) {
-  const child = spawn('python3', ['-I', PROXY, '--', SERVER, 'mcp'], {
+  const child = spawn('open-computer-use', ['mcp'], {
     env: {
       PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
       HOME: process.env.HOME,
@@ -436,8 +468,7 @@ function computerUse(env) {
     child,
     send: (message) => child.stdin.write(`${JSON.stringify(message)}\n`),
     onMessage: (handle) => lines(child.stdout, handle),
-    // EOF, not a signal: the runtime's stop already signals the whole process group,
-    // and a second signal hangs the proxy for good.
+    // EOF, not a signal: the runtime's stop already signals the whole process group (#4727).
     kill: () => {
       child.removeAllListeners('exit')
       child.stdin.end()
