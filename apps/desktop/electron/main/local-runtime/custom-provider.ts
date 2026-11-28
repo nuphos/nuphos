@@ -8,7 +8,7 @@ import path from 'node:path'
 
 import { atlasErrorInfo, buildAtlasError } from '../../atlas/error.ts'
 
-import { prepareCodexCatalog } from './custom-provider-codex.ts'
+import { CODEX_KEY_ENV, prepareCodexCatalog } from './custom-provider-codex.ts'
 import { checkWithKey } from './custom-provider-probe.ts'
 
 import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
@@ -38,7 +38,7 @@ export const PROVIDER_KEYCHAIN_SERVICE = 'ai.nuphos.desktop.provider'
 /** Claude Code's gateway token, and the variable Codex's provider names as its `env_key`. */
 export const PROVIDER_KEY_ENV: Record<CustomProviderAgent, string> = {
   'claude-code': 'ANTHROPIC_AUTH_TOKEN',
-  codex: 'NUPHOS_CODEX_PROVIDER_KEY',
+  codex: CODEX_KEY_ENV,
 }
 
 const FILE = 'custom-providers.json'

@@ -6,13 +6,14 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
-import { PROVIDER_KEY_ENV, readCustomProviders } from './custom-provider.ts'
-
 import type { CustomProvider } from './custom-provider.ts'
 
 const BEGIN = '# Nuphos custom provider (begin)'
 const END = '# Nuphos custom provider (end)'
 const CODEX_PROVIDER_ID = 'nuphos-custom'
+
+/** The variable Codex's provider names as its `env_key`, which holds the key. */
+export const CODEX_KEY_ENV = 'NUPHOS_CODEX_PROVIDER_KEY'
 /** The custom provider's models as Codex's own catalog, beside config.toml. */
 const CATALOG = 'nuphos-models.json'
 
@@ -36,7 +37,7 @@ export function codexProviderConfig(
   const table = [
     `name = "Custom provider"`,
     `base_url = ${JSON.stringify(provider.baseUrl)}`,
-    `env_key = ${JSON.stringify(PROVIDER_KEY_ENV.codex)}`,
+    `env_key = ${JSON.stringify(CODEX_KEY_ENV)}`,
   ].join(', ')
 
   return [
@@ -50,12 +51,8 @@ export function codexProviderConfig(
   ].join('\n')
 }
 
-/** Brings a Codex home's config.toml in line with the provider saved beside it, or the one given. */
-export function applyCodexProvider(
-  userDir: string,
-  config: string,
-  provider = readCustomProviders(userDir).codex,
-): void {
+/** Brings a Codex home's config.toml in line with this provider, or with none. */
+export function applyCodexProvider(config: string, provider: CustomProvider | undefined): void {
   const current = existsSync(config) ? readFileSync(config, 'utf8') : ''
   const catalog = path.join(path.dirname(config), CATALOG)
   const next = codexProviderConfig(
@@ -130,5 +127,5 @@ export async function prepareCodexCatalog(
 
   if (catalog) writeFileSync(file, catalog, { mode: 0o600 })
   else rmSync(file, { force: true })
-  applyCodexProvider(path.dirname(agentHome), path.join(agentHome, 'config.toml'), provider)
+  applyCodexProvider(path.join(agentHome, 'config.toml'), provider)
 }
