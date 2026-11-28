@@ -1,7 +1,7 @@
 // A model provider of the user's own (a gateway, a proxy, another vendor's compatible API) for
-// this computer's Claude Code, Codex and OpenCode, wired the way each CLI already supports one.
-// The base URL and model ids are kept in a file; the key only in the OS credential store, and it
-// reaches the agent only through process environments, never a file Nuphos writes.
+// this computer's Claude Code and Codex, wired the way each CLI already supports one. The base
+// URL and model ids are kept in a file; the key only in the OS credential store, and it reaches
+// the agent only through process environments, never a file Nuphos writes.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -10,12 +10,12 @@ import { atlasErrorInfo, buildAtlasError } from '../../atlas/error.ts'
 
 import { checkWithKey } from './custom-provider-probe.ts'
 
+import type { LocalRuntimeControllerDeps, RuntimeProcess } from './controller-types.ts'
 import type { CustomProviderCheck } from './custom-provider-probe.ts'
 import type { LocalAgentProvider } from './providers.ts'
 
-export type CustomProviderAgent = 'claude-code' | 'codex' | 'opencode'
-/** `azure`: an Azure OpenAI resource, at `https://<resource>.openai.azure.com`; OpenCode only. */
-export type CustomProvider = { baseUrl: string; models: string[]; type?: 'azure' }
+export type CustomProviderAgent = 'claude-code' | 'codex'
+export type CustomProvider = { baseUrl: string; models: string[] }
 
 /** What a launch needs: the key in the CLI's own variable, and the models to report. */
 export type CustomProviderLaunch = { models: string[]; env: Record<string, string> }
@@ -34,42 +34,21 @@ export type KeyStore = {
 /** The credential store's service the keys are kept under, one item per account and agent. */
 export const PROVIDER_KEYCHAIN_SERVICE = 'ai.nuphos.desktop.provider'
 
-/** Claude Code's gateway token, and the variables Codex's and OpenCode's configs name. */
+/** Claude Code's gateway token, and the variable Codex's provider names as its `env_key`. */
 export const PROVIDER_KEY_ENV: Record<CustomProviderAgent, string> = {
   'claude-code': 'ANTHROPIC_AUTH_TOKEN',
   codex: 'NUPHOS_CODEX_PROVIDER_KEY',
-  opencode: 'NUPHOS_OPENCODE_PROVIDER_KEY',
 }
-
-/** OpenCode's provider of OpenAI's shape, which prefixes its model ids; Azure's is `azure`. */
-export const OPENCODE_PROVIDER_ID = 'nuphos-custom'
-export const opencodeModel = (provider: CustomProvider, id: string) =>
-  `${provider.type === 'azure' ? 'azure' : OPENCODE_PROVIDER_ID}/${id}`
 
 const FILE = 'custom-providers.json'
 const MAX_MODELS = 50
 const MODEL_ID = /^[\w.:/@[\]-]{1,200}$/u
 const KEY = /^\S{1,4096}$/u
-const AZURE = /^https:\/\/[a-z0-9][a-z0-9-]{1,62}\.openai\.azure\.com$/iu
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]'])
+const isAgent = (provider: unknown): provider is CustomProviderAgent =>
+  provider === 'claude-code' || provider === 'codex'
 
-export const isAgent = (provider: unknown): provider is CustomProviderAgent =>
-  provider === 'claude-code' || provider === 'codex' || provider === 'opencode'
-
-/**
- * The key's item, named after the directory the provider is saved in: `users/<userId>`, or
- * `instances/<id>/users/<userId>` for an added agent. Only OpenCode keeps one per runtime;
- * the others, one per account.
- */
-export function providerAccount(userDir: string, provider: CustomProviderAgent): string {
-  const userId = path.basename(userDir)
-
-  if (provider !== 'opencode') return `${userId}:${provider}`
-  const runtime = path.dirname(path.dirname(userDir))
-  const added = path.basename(path.dirname(runtime)) === 'instances'
-
-  return `${userId}:opencode:${added ? path.basename(runtime) : 'default'}`
-}
+const account = (userId: string, provider: CustomProviderAgent) => `${userId}:${provider}`
 
 /**
  * HTTPS, or plain HTTP to a gateway on this computer; never credentials in the URL. Codex
@@ -79,8 +58,7 @@ export function parseCustomProvider(
   value: unknown,
   provider?: CustomProviderAgent,
 ): CustomProvider {
-  const { baseUrl, models, type } = (value ?? {}) as Record<string, unknown>
-  const azure = provider === 'opencode' && type === 'azure'
+  const { baseUrl, models } = (value ?? {}) as { baseUrl?: unknown; models?: unknown }
   let url: URL
 
   try {
@@ -94,8 +72,6 @@ export function parseCustomProvider(
     url.password
   )
     throw new Error('The base URL must use https://, or http:// to this computer.')
-  if (azure && !AZURE.test(url.origin))
-    throw new Error('Enter only the resource name, such as acme-openai, not the full URL.')
   const ids = [
     ...new Set(
       (Array.isArray(models) ? models : []).map((id) => (typeof id === 'string' ? id.trim() : '')),
@@ -110,13 +86,8 @@ export function parseCustomProvider(
         ? 'Enter one model ID without spaces.'
         : 'Enter up to 50 model IDs, one per line, without spaces.',
     )
-  // OpenCode has no model of its own to fall back on.
-  if (provider === 'opencode' && ids.length === 0)
-    throw new Error(azure ? 'Enter at least one deployment name.' : 'Enter at least one model ID.')
 
-  return azure
-    ? { baseUrl: url.origin, models: ids, type: 'azure' }
-    : { baseUrl: (baseUrl as string).trim(), models: ids }
+  return { baseUrl: (baseUrl as string).trim(), models: ids }
 }
 
 export function readCustomProviders(
@@ -132,7 +103,7 @@ export function readCustomProviders(
       Object.entries(saved).flatMap(([provider, value]) => {
         try {
           if (!isAgent(provider)) return []
-          const parsed = parseCustomProvider(value, provider === 'opencode' ? provider : undefined)
+          const parsed = parseCustomProvider(value)
 
           // One saved before Codex took a single ID keeps the one it ran.
           return [
@@ -172,29 +143,25 @@ const typedKey = (value: unknown) => {
 /** The typed key, or else the stored one. */
 const keyFor = async (
   store: KeyStore,
-  userDir: string,
+  userId: string,
   provider: CustomProviderAgent,
   value: unknown,
-) => typedKey(value) || (await store.get(providerAccount(userDir, provider)).catch(() => null))
-
-/** A gateway of OpenAI's shape on this computer may need no key at all. */
-const keyOptional = (provider: CustomProviderAgent, parsed: CustomProvider) =>
-  provider === 'opencode' && !parsed.type && LOOPBACK.has(new URL(parsed.baseUrl).hostname)
+) => typedKey(value) || (await store.get(account(userId, provider)).catch(() => null))
 
 /** Tests a provider before it is saved, with the typed key or else the stored one. */
 export async function checkCustomProvider(
   store: KeyStore,
-  userDir: string,
+  userId: string,
   provider: unknown,
   value: unknown,
 ): Promise<CustomProviderCheck> {
   if (!isAgent(provider)) throw new Error('Unknown runtime.')
   const parsed = parseCustomProvider(value, provider)
-  const key = await keyFor(store, userDir, provider, value)
+  const key = await keyFor(store, userId, provider, value)
 
-  if (!key && !keyOptional(provider, parsed)) throw new Error('Enter the API key.')
+  if (!key) throw new Error('Enter the API key.')
 
-  return checkWithKey(provider, parsed, key ?? '')
+  return checkWithKey(provider, parsed, key)
 }
 
 /** A refusal as the app shows it: coded, since the app shows no uncoded error. */
@@ -211,12 +178,13 @@ export const notSaved = (cause: unknown): never => {
 export async function saveCustomProvider(
   store: KeyStore,
   userDir: string,
+  userId: string,
   provider: unknown,
   value: unknown,
 ): Promise<void> {
   if (!isAgent(provider)) throw new Error('Unknown runtime.')
   if (value === null) {
-    await store.delete(providerAccount(userDir, provider))
+    await store.delete(account(userId, provider))
     writeCustomProvider(userDir, provider, null)
 
     return
@@ -225,7 +193,7 @@ export async function saveCustomProvider(
   const key = typedKey(value)
 
   if (key && !KEY.test(key)) throw new Error('Paste the whole API key.')
-  const probeKey = provider === 'codex' && (await keyFor(store, userDir, provider, value))
+  const probeKey = provider === 'codex' && (await keyFor(store, userId, provider, value))
 
   // An unreachable one may be saved: the gateway may simply not be running yet.
   const check = probeKey && (await checkWithKey(provider, parsed, probeKey))
@@ -237,7 +205,7 @@ export async function saveCustomProvider(
 
   if (key) {
     try {
-      await store.set(providerAccount(userDir, provider), key)
+      await store.set(account(userId, provider), key)
     } catch {
       throw new Error(
         `This computer has no secure credential store Nuphos can use, so the key was not saved.${
@@ -247,8 +215,7 @@ export async function saveCustomProvider(
         }`,
       )
     }
-  } else if (!readCustomProviders(userDir)[provider] && !keyOptional(provider, parsed))
-    throw new Error('Enter the API key.')
+  } else if (!readCustomProviders(userDir)[provider]) throw new Error('Enter the API key.')
   writeCustomProvider(userDir, provider, parsed)
 }
 
@@ -266,16 +233,49 @@ export async function customProviderLaunch(
   const saved = isAgent(provider) ? readCustomProviders(dir)[provider] : undefined
 
   if (!saved || !isAgent(provider)) return
-  const key = await store.get(providerAccount(dir, provider))
+  const key = await store.get(account(path.basename(dir), provider))
 
-  if (!key && !keyOptional(provider, saved))
-    throw new Error('The custom provider’s API key is missing. Enter it again.')
+  if (!key) throw new Error('The custom provider’s API key is missing. Enter it again.')
 
+  return { models: saved.models, env: { [PROVIDER_KEY_ENV[provider]]: key } }
+}
+
+/**
+ * A CLI probe in which a saved provider stands in for the sign-in, found beside the home.
+ * A key that cannot be read leaves the agent signed out, which the card reports as such.
+ */
+export function withProviderStatus(
+  probe: LocalRuntimeControllerDeps['probeCli'],
+  store: KeyStore,
+): LocalRuntimeControllerDeps['probeCli'] {
+  return async (provider, env, agentHome) => {
+    const cli = await probe(provider, env, agentHome)
+    const saved =
+      agentHome && isAgent(provider) ? readCustomProviders(path.dirname(agentHome))[provider] : null
+
+    if (!agentHome || !saved || !cli.installed) return cli
+    const readable = await customProviderLaunch(store, provider, agentHome).then(
+      () => true,
+      () => false,
+    )
+
+    return { ...cli, loggedIn: readable, customProvider: new URL(saved.baseUrl).host }
+  }
+}
+
+/**
+ * An openab process that hands the saved provider's key to its agent. Found from the agent's
+ * home, so an added agent, whose home is elsewhere, keeps its own sign-in.
+ */
+export function withProviderKey(process: RuntimeProcess, store: KeyStore): RuntimeProcess {
   return {
-    // OpenCode names a model by its provider too, as its config does (custom-provider-opencode.ts).
-    models:
-      provider === 'opencode' ? saved.models.map((id) => opencodeModel(saved, id)) : saved.models,
-    env: key ? { [PROVIDER_KEY_ENV[provider]]: key } : {},
+    start: async (options) => {
+      const custom = await customProviderLaunch(store, options.provider, options.agentHome)
+
+      return process.start(custom ? { ...options, secretEnv: custom.env } : options)
+    },
+    stop: () => process.stop(),
+    onExit: (listener) => process.onExit(listener),
   }
 }
 

@@ -14,8 +14,9 @@ import {
   parseCustomProvider,
   readCustomProviders,
   saveCustomProvider,
+  withProviderKey,
+  withProviderStatus,
 } from './custom-provider.ts'
-import { withProviderKey, withProviderStatus } from './custom-provider-local.ts'
 
 import type { LocalRuntimeLaunch } from './config.ts'
 import type { CustomProviderCheck } from './custom-provider-probe.ts'
@@ -116,7 +117,7 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
 
   for (const baseUrl of [`/v1`, `/v1/chat/completions`].map((p) => `http://127.0.0.1:${port}${p}`))
     await assert.rejects(
-      saveCustomProvider(store, dir, 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
+      saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl, apiKey: 'sk-gw-secret' }),
       /Codex needs the OpenAI Responses API, which this URL doesn’t serve/u,
     )
   assert.deepEqual(seen, [
@@ -127,13 +128,13 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   assert.equal(readCustomProviders(dir).codex, undefined)
 
   // An edit without a key is asked with the stored one; Claude Code is not asked at all.
-  await saveCustomProvider(store, dir, 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   await assert.rejects(
-    saveCustomProvider(store, dir, 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
+    saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
     /Responses API/u,
   )
   assert.equal(seen.at(-1)?.auth, 'Bearer sk-gw')
-  await saveCustomProvider(store, dir, 'claude-code', {
+  await saveCustomProvider(store, dir, 'u1', 'claude-code', {
     baseUrl: `http://127.0.0.1:${port}/v1`,
     apiKey: 'sk-claude',
   })
@@ -215,9 +216,9 @@ test('the key goes only to the credential store, and an edit without one keeps i
   const dir = tempDir(t)
   const store = memoryStore()
 
-  await assert.rejects(saveCustomProvider(store, dir, 'codex', codexGateway), /API key/u)
-  await saveCustomProvider(store, dir, 'codex', { ...codexGateway, apiKey: 'sk-gw-secret' })
-  await saveCustomProvider(store, dir, 'codex', { ...codexGateway, models: ['kimi-k2'] })
+  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', codexGateway), /API key/u)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw-secret' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, models: ['kimi-k2'] })
 
   assert.equal(store.items.get('u1:codex'), 'sk-gw-secret')
   assert.doesNotMatch(readFileSync(path.join(dir, 'custom-providers.json'), 'utf8'), /sk-gw/u)
@@ -227,7 +228,7 @@ test('the key goes only to the credential store, and an edit without one keeps i
     env: { NUPHOS_CODEX_PROVIDER_KEY: 'sk-gw-secret' },
   })
 
-  await saveCustomProvider(store, dir, 'codex', null)
+  await saveCustomProvider(store, dir, 'u1', 'codex', null)
   assert.equal(store.items.size, 0)
   assert.equal(await customProviderLaunch(store, 'codex', path.join(dir, 'codex-home')), undefined)
 })
@@ -238,7 +239,7 @@ test('without a credential store nothing is saved', async (t) => {
 
   store.set = () => Promise.reject(new Error('the keychain is used only by the packaged app'))
   await assert.rejects(
-    saveCustomProvider(store, dir, 'claude-code', { ...gateway, apiKey: 'sk-gw' }),
+    saveCustomProvider(store, dir, 'u1', 'claude-code', { ...gateway, apiKey: 'sk-gw' }),
     /secure credential store/u,
   )
   assert.deepEqual(readCustomProviders(dir), {})
@@ -255,7 +256,7 @@ test('Claude Code gets the gateway and its models in its own settings, not the k
     path.join(dir, 'claude-home', 'settings.json'),
     JSON.stringify({ env: { ANTHROPIC_API_KEY: 'sk-ant-old' } }),
   )
-  await saveCustomProvider(store, dir, 'claude-code', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'claude-code', { ...gateway, apiKey: 'sk-gw' })
   const home = prepareClaudeHome(dir, workspace) ?? ''
   const settings = JSON.parse(readFileSync(path.join(home, 'settings.json'), 'utf8')) as Record<
     string,
@@ -345,7 +346,7 @@ test('a saved provider stands in for the sign-in, and its key reaches only opena
 
   assert.deepEqual(await probe('codex', {}, home), signedOut)
   await process.start(options)
-  await saveCustomProvider(store, dir, 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   assert.deepEqual(await probe('codex', {}, home), {
     ...signedOut,
     loggedIn: true,
@@ -360,16 +361,16 @@ test('a key the store will not delete keeps the provider listed; a key already g
   const store = memoryStore()
   const remove = store.delete
 
-  await saveCustomProvider(store, dir, 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
   store.delete = () => Promise.reject(new Error('User canceled the operation.'))
-  await assert.rejects(saveCustomProvider(store, dir, 'codex', null), /canceled/u)
+  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', null), /canceled/u)
   assert.ok(readCustomProviders(dir).codex)
   assert.equal(store.items.get('u1:codex'), 'sk-gw')
 
   // The store resolves a delete of a missing item, as `deletePassword` resolves false.
   store.delete = remove
   store.items.clear()
-  await saveCustomProvider(store, dir, 'codex', null)
+  await saveCustomProvider(store, dir, 'u1', 'codex', null)
   assert.deepEqual(readCustomProviders(dir), {})
 })
 
@@ -396,7 +397,7 @@ test('a key that cannot be read signs the agent out and keeps it from starting',
     typeof process.start
   >[0]
 
-  await saveCustomProvider(store, dir, 'claude-code', { ...gateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'claude-code', { ...gateway, apiKey: 'sk-gw' })
   for (const unreadable of [
     () => Promise.reject(new Error('The keychain is locked.')),
     () => Promise.resolve(null),
