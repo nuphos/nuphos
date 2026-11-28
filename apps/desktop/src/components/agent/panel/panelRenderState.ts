@@ -88,13 +88,12 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
   const visibleHomeCredentialSelector = !showingConversationPage
     ? credentialSelectorControl
     : undefined
-  const visibleConversationCredentialSelector =
+  // A Task under a Bot changes the Bot's selection here: its Connect cards still select.
+  const conversationCredentialSelector =
     activeTab &&
     (!activeTab.foreign || activeTab.canManage) &&
     credentialSelectorControl &&
-    (!activeTab.readOnly || activeTab.slackThread) &&
-    // A Task under a Bot uses the Bot's selection and has no picker of its own.
-    !activeTab.credentialSource
+    (!activeTab.readOnly || activeTab.slackThread)
       ? {
           ...credentialSelectorControl,
           unseen: credentialOptionsLoaded(credentialOptions)
@@ -105,6 +104,10 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
             : undefined,
         }
       : undefined
+  // A Task under a Bot uses the Bot's selection and has no picker of its own.
+  const visibleConversationCredentialSelector = activeTab?.credentialSource
+    ? undefined
+    : conversationCredentialSelector
   const pendingPromptReady =
     pendingPrompt?.newChat && activeId !== HOME_TAB_ID ? null : pendingPrompt
   // Switching conversations must not leave the previous transcript on screen
@@ -123,6 +126,7 @@ export function computePanelRenderState(acc: Acc): PanelRenderState {
     onPanelDrop,
     credentialSelectorControl,
     visibleHomeCredentialSelector,
+    conversationCredentialSelector,
     visibleConversationCredentialSelector,
     pendingPromptReady,
     switchingConversation,

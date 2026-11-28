@@ -67,6 +67,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
     teamId,
     url,
     variant,
+    conversationCredentialSelector,
     visibleConversationCredentialSelector,
   } = c
   const { runtimeControl: conversationControl } = useConversationRuntimeControl(c)
@@ -159,9 +160,7 @@ export function PanelConversationPage({ c }: { c: PanelViewCtx }) {
             >
               <ConnectCardContext.Provider
                 value={{
-                  credentials: activeTab?.readOnly
-                    ? undefined
-                    : visibleConversationCredentialSelector,
+                  credentials: activeTab?.readOnly ? undefined : conversationCredentialSelector,
                   send: (text, card) =>
                     sendInActive(text, [], undefined, card && cardReplyId(card, questions)),
                   answer: canReply
