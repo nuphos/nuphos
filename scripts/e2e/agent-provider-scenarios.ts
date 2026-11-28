@@ -107,6 +107,32 @@ export const agentProviderScenarios: Scenario[] = [
           { teamId: stack.teamId, instanceId },
         )
 
+      // A computer's signed-out agent is signed in before another is added (newAgentAction); a
+      // provider of its own stands in for this one's sign-in.
+      const signIn = (on: boolean) =>
+        page.evaluate(
+          async ({ on, gateway }) => {
+            const key = 'e2e-fictional-key'
+
+            await window.api.localRuntimeSetCustomProvider(
+              'codex',
+              on
+                ? {
+                    type: 'azure',
+                    baseUrl: 'https://acme-default.openai.azure.com',
+                    apiKey: key,
+                    models: ['gpt-4o-prod'],
+                  }
+                : null,
+            )
+            await window.api.localRuntimeSetCustomProvider(
+              'claude-code',
+              on ? { baseUrl: gateway, apiKey: key, models: ['claude-e2e-model'] } : null,
+            )
+          },
+          { on, gateway: gateway.url },
+        )
+
       try {
         uninstall.push(install('codex', '@openai/codex@0.172.0'))
         uninstall.push(install('claude', '@anthropic-ai/claude-code@2.1.332'))
@@ -115,6 +141,7 @@ export const agentProviderScenarios: Scenario[] = [
           document.documentElement.classList.add('light')
         })
         await page.evaluate(() => window.api.localRuntimeRefresh())
+        await signIn(true)
         await openComputers(page)
         const computer = (
           (await page
@@ -205,6 +232,7 @@ export const agentProviderScenarios: Scenario[] = [
           throw new Error('Claude Code did not ask its gateway after Codex went')
       } finally {
         for (const instanceId of added) await remove(instanceId).catch(() => {})
+        await signIn(false).catch(() => {})
         azure.server.close()
         gateway.server.close()
         for (const undo of uninstall) undo()
