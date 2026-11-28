@@ -52,6 +52,7 @@ import { emailDomainScenarios } from './email-domain-scenarios.ts'
 import { fallbackScenarios } from './fallback-scenarios.ts'
 import { formScenario } from './form-scenario.ts'
 import { mcpNotificationScenarios } from './mcp-notification-scenarios.ts'
+import { mediaViewerScenarios } from './media-viewer-scenarios.ts'
 import { memberStreamScenarios } from './member-stream-scenarios.ts'
 import { mentionScenarios } from './mention-scenarios.ts'
 import { newTaskGreetingScenario } from './new-task-greeting-scenario.ts'
@@ -150,6 +151,7 @@ const scenarios: Scenario[] = [
   // Before the Stop scenarios: a Stop while its turn was being saved was lost (#3403).
   ...longTranscriptScenarios,
   ...replyFileScenarios,
+  ...mediaViewerScenarios,
   ...agentWordScenarios,
   ...turnScenarios,
   ...questionScenarios,
