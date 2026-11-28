@@ -60,8 +60,8 @@ export function ChannelMessage({
   /** The same link handling as a conversation's messages: Nuphos links open in the app. */
   links: Links
   onOpenSession: (sessionId: string) => void
-  /** Right-click: the post's menu, unless text is selected to copy. */
-  onMenu?: (event: ReactMouseEvent) => void
+  /** Right-click: the post's menu, with the text selected in it, if any, to copy. */
+  onMenu?: (event: ReactMouseEvent, selection: string) => void
   /** Replies to the post from the button beside it on hover; absent where the viewer cannot. */
   onReply?: () => void
   /** The last post of an answer given in the Inbox: it says so beneath. */
@@ -109,10 +109,11 @@ export function ChannelMessage({
   const post = {
     'data-post-id': message.id,
     title: exactTime(at),
+    // Desktop has no native menu to copy a selection from, so the post's menu offers it (#5107).
     onContextMenu: (event: ReactMouseEvent) => {
-      if (!onMenu || !window.getSelection()?.isCollapsed) return
+      if (!onMenu) return
       event.preventDefault()
-      onMenu(event)
+      onMenu(event, selectedIn(event.currentTarget))
     },
   }
 
@@ -218,4 +219,21 @@ function DecisionRecord({ text }: { text: string }) {
       ))}
     </div>
   )
+}
+
+/** The selected text, when part of the selection is inside `post`; one that only touches it is not. */
+function selectedIn(post: Element): string {
+  const selection = window.getSelection()
+
+  if (!selection || selection.isCollapsed) return ''
+  const selected = selection.getRangeAt(0)
+  const inPost = document.createRange()
+
+  inPost.selectNodeContents(post)
+  if (selected.compareBoundaryPoints(Range.START_TO_START, inPost) > 0)
+    inPost.setStart(selected.startContainer, selected.startOffset)
+  if (selected.compareBoundaryPoints(Range.END_TO_END, inPost) < 0)
+    inPost.setEnd(selected.endContainer, selected.endOffset)
+
+  return inPost.toString().trim() ? selection.toString() : ''
 }
