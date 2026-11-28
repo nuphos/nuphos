@@ -163,11 +163,14 @@ struct HomeView: View {
             NavigationStack {
             ZStack {
                 if let channel = openChat?.channel {
-                    ChannelView(channel: channel) { task, title in
+                    ChannelView(channel: channel, openTask: { task, title in
                         guard let store else { return }
                         botTask = store.session(sessionId: task, title: title, teamId: channel.teamId)
                         showBotTask = true
-                    }
+                    }, onLeft: {
+                        openChat = nil
+                        Task { await store?.reload(afterChange: true) }
+                    })
                         .id(channel.channelId)
                         .toolbar { newAgentItem }
                 } else if let openChat, let chatSession = openChat.session {

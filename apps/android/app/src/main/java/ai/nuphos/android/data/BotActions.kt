@@ -31,6 +31,12 @@ object BotActions {
             listOf("teamId" to team), JsonValue.obj("sessionId" to JsonValue.Str(botId)))
     }
 
+    /** `DELETE …/agents/<id>`: the chat's owner, or the Bot's, takes it out of the chat. */
+    suspend fun removeBot(token: String, team: String, channel: String, botId: String, request: Request = AgentChatApi::send) {
+        request("DELETE", "agent/conversations/${ConversationActions.segment(channel)}/agents/${ConversationActions.segment(botId)}", token,
+            listOf("teamId" to team), null)
+    }
+
     /** Make a Task a Bot, which also asks it to name itself, or take the face away to turn it back. */
     suspend fun setBot(token: String, team: String, session: String, bot: Boolean, request: Request = AgentChatApi::send) {
         val conversation = "agent/conversations/${ConversationActions.segment(session)}"

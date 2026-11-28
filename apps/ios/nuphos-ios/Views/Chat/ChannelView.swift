@@ -11,6 +11,8 @@ struct ChannelView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     /// Opens a Task over this chat by its id and title: the Bot's own, or one it dispatched.
     var openTask: (String, String) -> Void = { _, _ in }
+    /// After the viewer leaves the chat from its members.
+    var onLeft: () -> Void = {}
     @State private var canOpenTask = false
     /// The Bot's details, opened from its name (#2983).
     @State private var detailsOpen = false
@@ -53,11 +55,11 @@ struct ChannelView: View {
         return store.stateLine(under: bot, team: channel.teamId)
     }
 
-    @State private var botsOpen = false
+    @State private var membersOpen = false
 
     /// A Bot's chat opens its details; a group chat lists its Bots.
     private func openDetails() {
-        if channel.botId != nil { detailsOpen = botSession != nil } else { botsOpen = !channel.agents.isEmpty }
+        if channel.botId != nil { detailsOpen = botSession != nil } else { membersOpen = channel.loaded }
     }
 
     /// The Bot's details: its card, then what its own Task's summary lists.
@@ -157,8 +159,9 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
-            .sheet(isPresented: $botsOpen) {
-                ChannelBotsList(agents: channel.agents)
+            .sheet(isPresented: $membersOpen) {
+                // Tall enough for every row, with the chat still showing above it.
+                ChannelMembersSheet(channel: channel, onLeft: onLeft).presentationDetents([.fraction(0.85), .large])
             }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in
@@ -233,7 +236,7 @@ struct ChannelView: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .disabled(channel.botId == nil && channel.agents.isEmpty)
+        .disabled(channel.botId == nil && !channel.loaded)
         .accessibilityIdentifier("bot-details-entry")
     }
 

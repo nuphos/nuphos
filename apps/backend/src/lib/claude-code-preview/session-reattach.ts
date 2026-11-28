@@ -1,4 +1,4 @@
-import { getConversationPreviewAttachment } from '@/lib/agent/db'
+import { getConversationPreviewAttachment, isConversationArchived } from '@/lib/agent/db'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { parseLocalRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
 import { tunnelBus } from '@/lib/agent/devices/local-runtime/bus'
@@ -186,9 +186,24 @@ async function owned(
 }
 
 async function stillOwned(session: TeamSession, transport: TeamPreviewClient): Promise<boolean> {
+  const key = `${session.teamId}:${session.conversationId}`
+
   if (session.client !== transport) return false
-  if (sessionsByConversation.get(`${session.teamId}:${session.conversationId}`) !== session)
+  if (sessionsByConversation.get(key) !== session) return false
+  // An idle archived conversation's session goes instead of coming back on each reconnect: its
+  // next prompt after an unarchive opens one from the store. One still working comes back.
+  const working =
+    session.activeTurn?.cancelled === false || session.autonomousTranscriptOpen === true
+
+  if (!working && (await isConversationArchived(session.conversationId, session.teamId))) {
+    // A turn that unarchived it may have taken the session over while this read ran.
+    if (session.client === transport && sessionsByConversation.get(key) === session) {
+      session.stopObserving?.()
+      sessionsByConversation.delete(key)
+    }
+
     return false
+  }
   const attachment = await getConversationPreviewAttachment(session.conversationId, session.teamId)
 
   if (

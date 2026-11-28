@@ -181,6 +181,9 @@ class AgentStore(
     var bots by mutableStateOf<List<AgentConversation>>(emptyList())
         private set
 
+    /** A word for the Bots list once the screen that had it is gone, as "You left …" after leaving a chat. */
+    var notice by mutableStateOf<String?>(null)
+
     /** The title of one of the viewer's Bots or tasks the store has loaded. */
     fun title(sessionId: String): String? = (bots + conversations).firstOrNull { it.sessionId == sessionId }?.title
     private var channelGeneration = 0
