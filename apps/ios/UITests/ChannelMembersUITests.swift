@@ -53,7 +53,8 @@ final class ChannelMembersUITests: XCTestCase {
         app.buttons["channel.addPeople"].tap()
         let row = app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Morgan Diaz")).firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10), "Morgan was not offered")
-        XCTAssertFalse(app.buttons.containing(NSPredicate(format: "label CONTAINS %@", "Riley Chen")).firstMatch.exists,
+        // The chat's header behind the sheet names its faces too; only the offered people count.
+        XCTAssertFalse(app.buttons.matching(NSPredicate(format: "label CONTAINS %@ AND identifier != %@", "Riley Chen", "bot-details-entry")).firstMatch.exists,
                        "Someone already here was offered")
         shot("channel-members-ios-add-people")
         row.tap()
