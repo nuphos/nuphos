@@ -115,7 +115,8 @@ async function turn(page: Page, computer: string, label: string, reply: string) 
   await page.getByRole('button', { name: /^Runtime:/ }).click()
   await pickInRow(page, computer, new RegExp(label))
   await send(page, `Say hello, ${label}`)
-  await page.getByText(reply).first().waitFor({ timeout: 180_000 })
+  // An earlier Task's same reply stays in the page, hidden.
+  await page.getByText(reply).filter({ visible: true }).first().waitFor({ timeout: 180_000 })
 }
 
 /** The provider in a runtime's details, and Azure's form with a pasted URL, never saved. */
