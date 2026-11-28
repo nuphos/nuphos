@@ -162,18 +162,20 @@ private fun ChartBody(chart: ToolCard.Chart, modifier: Modifier) {
     val labelStyle = TextStyle(fontSize = 11.sp, color = scheme.onSurfaceVariant)
     val grid = scheme.outlineVariant
     val values = chart.rows.map { row -> chart.series.map { (key, _) -> row[key]?.numberValue } }
-    val max = values.flatten().filterNotNull().maxOrNull()?.takeIf { it > 0 } ?: 1.0
+    val bounds = remember(chart) { chart.bounds }
     val labels = chart.rows.map { row -> row[chart.xKey]?.let(::axisText).orEmpty() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Canvas(Modifier.fillMaxWidth().weight(1f)) {
             val axis = 18.dp.toPx()
             val plot = Size(size.width, size.height - axis)
-            listOf(0.0, 0.5, 1.0).forEach { f ->
+            listOf(0.0, 1.0).forEach { f ->
                 val y = plot.height * (1 - f).toFloat()
                 drawLine(grid, Offset(0f, y), Offset(plot.width, y), 1f)
             }
             val slot = plot.width / chart.rows.size
-            fun y(v: Double) = plot.height * (1 - v / max).toFloat()
+            fun y(v: Double) = plot.height * ((bounds.endInclusive - v) / (bounds.endInclusive - bounds.start)).toFloat()
+            val zero = y(0.0)
+            drawLine(grid, Offset(0f, zero), Offset(plot.width, zero), 2f)
             if (chart.type == "line" || chart.type == "area") {
                 chart.series.indices.forEach { s ->
                     val points = values.mapIndexedNotNull { i, row -> row[s]?.let { Offset(slot * (i + 0.5f), y(it)) } }
@@ -181,7 +183,7 @@ private fun ChartBody(chart: ToolCard.Chart, modifier: Modifier) {
                     val color = palette[s % palette.size]
                     val line = Path().apply { points.forEachIndexed { i, p -> if (i == 0) moveTo(p.x, p.y) else lineTo(p.x, p.y) } }
                     if (chart.type == "area") drawPath(Path().apply {
-                        addPath(line); lineTo(points.last().x, plot.height); lineTo(points.first().x, plot.height); close()
+                        addPath(line); lineTo(points.last().x, zero); lineTo(points.first().x, zero); close()
                     }, color.copy(alpha = 0.25f))
                     drawPath(line, color, style = Stroke(2.dp.toPx()))
                 }
@@ -191,7 +193,8 @@ private fun ChartBody(chart: ToolCard.Chart, modifier: Modifier) {
                     row.forEachIndexed { s, v ->
                         if (v == null) return@forEachIndexed
                         val x = slot * i + slot * 0.15f + bar * s
-                        drawRect(palette[s % palette.size], Offset(x, y(v)), Size(bar - 2f, plot.height - y(v)))
+                        val top = minOf(y(v), zero)
+                        drawRect(palette[s % palette.size], Offset(x, top), Size(bar - 2f, kotlin.math.abs(zero - y(v))))
                     }
                 }
             }

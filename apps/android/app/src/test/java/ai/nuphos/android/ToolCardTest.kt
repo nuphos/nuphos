@@ -29,6 +29,14 @@ class ToolCardTest {
         assertNull(ToolCard.from(terminal("t")))
     }
 
+    @Test fun aChartScaleHoldsZeroAndLosses() {
+        fun bounds(json: String) = (ToolCard.from(chart.copy(input = JsonValue.parse(json), output = null)) as ToolCard.Chart).bounds
+        assertEquals(0.0..240.0, bounds("""{"type":"bar","title":"t","xKey":"m","series":[{"key":"v"}],"data":[{"m":"a","v":240},{"m":"b","v":40}]}"""))
+        assertEquals(-80.0..120.0, bounds("""{"type":"bar","title":"t","xKey":"m","series":[{"key":"v"}],"data":[{"m":"a","v":120},{"m":"b","v":-80}]}"""))
+        assertEquals(-50.0..0.0, bounds("""{"type":"line","title":"t","xKey":"m","series":[{"key":"v"}],"data":[{"m":"a","v":-50},{"m":"b","v":-10}]}"""))
+        assertEquals(0.0..1.0, bounds("""{"type":"bar","title":"t","xKey":"m","series":[{"key":"v"}],"data":[{"m":"a","v":0}]}"""))
+    }
+
     @Test fun cardsStayOutOfWorkedAndToolRuns() {
         val message = ChatMessage(id = "m", parts = listOf(
             ChatPart.Text(text = "Let me look."), terminal("a"), artifact, chart, terminal("b"), ChatPart.Text(text = "Opened them beside the chat."),

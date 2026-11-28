@@ -204,13 +204,14 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     // Posts never carry the Bot's tool calls, so what it made comes from its own conversation,
     // already read and polled above, and only for a viewer who may open it.
-    val cards = if (canOpenTask && bot != null) bot.messages.flatMap { message ->
+    val botMessages = if (canOpenTask) bot?.messages.orEmpty() else emptyList()
+    val cards = remember(botMessages) { botMessages.flatMap { message ->
         message.parts.filterIsInstance<ChatPart.Tool>().mapNotNull { part ->
             ToolCard.from(part)?.let { card ->
                 (part.completedAt?.let { Instant.ofEpochMilli(it.toLong()) } ?: message.createdAt ?: Instant.MIN) to card
             }
         }
-    } else emptyList()
+    } }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions, cards)
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {

@@ -19,7 +19,16 @@ sealed class ToolCard {
         val xKey: String,
         val series: List<Pair<String, String>>,
         val rows: List<Map<String, JsonValue>>,
-    ) : ToolCard()
+    ) : ToolCard() {
+        /** The scale always holds zero, so bars grow up for gains and down for losses. */
+        val bounds: ClosedFloatingPointRange<Double>
+            get() {
+                val values = rows.flatMap { row -> series.mapNotNull { (key, _) -> row[key]?.numberValue } }
+                val low = minOf(0.0, values.minOrNull() ?: 0.0)
+                val high = maxOf(0.0, values.maxOrNull() ?: 0.0)
+                return if (high > low) low..high else low..low + 1
+            }
+    }
 
     companion object {
         fun from(part: ChatPart.Tool): ToolCard? {

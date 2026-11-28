@@ -51,6 +51,8 @@ class ToolCardFixtureDeviceTest {
     private var savedAccess: Any? = null
     /** The viewer is in the chat but does not own the Bot and cannot read its Task. */
     @Volatile private var stranger = false
+    /** The Bot is still getting started, as a new customer's Bot is in its first chat. */
+    @Volatile private var onboarding = false
     private val reply = "I opened the itinerary and the budget chart beside the chat."
     @Suppress("UNCHECKED_CAST") private fun access() = AiAccess::class.java.getDeclaredField("state")
         .also { it.isAccessible = true }.get(AiAccess) as MutableState<Any?>
@@ -60,7 +62,7 @@ class ToolCardFixtureDeviceTest {
         {"id":"u","role":"user","metadata":{"version":1,"sender":{"type":"user","id":"viewer","displayName":"Preview User"},"sentAt":"2026-11-08T09:55:00Z"},"parts":[{"type":"text","text":"Make me an itinerary page and a budget chart."}]},
         {"id":"a","role":"user","metadata":{"version":1,"sender":{"type":"agent","id":"bot-trip","displayName":"Trip planner"},"sourceSessionId":"bot-trip","sentAt":"2026-11-08T09:56:00Z"},"parts":[{"type":"text","text":"$reply"}]}]}"""
     private val chart = """{"type":"bar","title":"Trip budget (EUR)","xKey":"item","series":[{"key":"eur","label":"EUR"}],"data":[{"item":"Hotel","eur":240},{"item":"Food","eur":120},{"item":"Transit","eur":40}]}"""
-    private val bot = """{"sessionId":"bot-trip","title":"Trip planner","avatar":"05-rembrandt","isOwner":true,"canManage":true,"readOnly":false,"messages":[
+    private val bot get() = """{"sessionId":"bot-trip","title":"Trip planner","avatar":"05-rembrandt","isOwner":true,"canManage":true,"readOnly":false${onboarding()},"messages":[
         {"id":"t-u","role":"user","parts":[{"type":"text","text":"Make me an itinerary page and a budget chart."}]},
         {"id":"t-a","role":"assistant","parts":[
           {"type":"tool-render_artifact","toolCallId":"t-art","state":"output-available","completedAt":1794131730000,
@@ -70,6 +72,8 @@ class ToolCardFixtureDeviceTest {
           {"type":"tool-render_chart","toolCallId":"t-chart","state":"output-available","completedAt":1794131731000,"input":$chart,"output":$chart},
           {"type":"text","text":"$reply"}]}],
         "runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle","actions":{"send":true}}}"""
+
+    private fun onboarding() = if (onboarding) ""","botOnboarding":"active"""" else ""
 
     @Before fun before() {
         val target = inst.targetContext
@@ -89,6 +93,8 @@ class ToolCardFixtureDeviceTest {
                 path.endsWith("/agents") -> """{"agents":[{"sessionId":"bot-trip","title":"Trip planner","avatar":"05-rembrandt","ownerId":"${if (stranger) "another-viewer" else "viewer"}"}]}"""
                 path.endsWith("/ai-consent") -> """{"version":"${ai.nuphos.android.data.AccountApi.AI_CONSENT_VERSION}","accepted":true}"""
                 path.endsWith("/auth/me") -> """{"id":"viewer","email":"viewer@example.com","name":"Preview User"}"""
+                path.endsWith("/agent/conversations") && request.url.queryParameter("bots") == "true" ->
+                    """{"conversations":[{"sessionId":"bot-trip","title":"Trip planner","avatar":"05-rembrandt","isOwner":true${onboarding()}}],"hasMore":false}"""
                 path.endsWith("/agent/conversations") -> """{"conversations":[],"hasMore":false}"""
                 path.endsWith("/agent/triggers") -> "[]"
                 path.endsWith("/resources") -> """{"resources":[]}"""
@@ -162,6 +168,14 @@ class ToolCardFixtureDeviceTest {
     @Test fun aBotsChatShowsWhatTheBotMade() {
         render(task = false)
         assertCardsOpen("tool-cards-bot")
+    }
+
+    /** A new customer's first chat is with a Bot still getting started: what it made shows all the same. */
+    @Test fun aBotStillGettingStartedShowsWhatItMade() {
+        onboarding = true
+        inst.runOnMainSync { store.refresh() }
+        render(task = false)
+        assertCardsOpen("tool-cards-bot-onboarding")
     }
 
     @Test fun aViewerWhoCannotOpenTheBotsTaskSeesNoCards() {
