@@ -25,15 +25,8 @@ import { localFileConnectors } from './attachment-stream.ts'
 import { browserStreams } from './browser-streams.ts'
 import { readCliCache, writeCliCache } from './cli-cache.ts'
 import { readBundle } from './config.ts'
-import {
-  PROVIDER_KEYCHAIN_SERVICE,
-  readCustomProviders,
-  checkCustomProvider,
-  notSaved,
-  saveCustomProvider,
-  withProviderKey,
-  withProviderStatus,
-} from './custom-provider.ts'
+import { localProviders, withProviderKey, withProviderStatus } from './custom-provider-local.ts'
+import { PROVIDER_KEYCHAIN_SERVICE } from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
 import { desktopVaultTokens } from './desktop-vault-tokens.ts'
@@ -69,7 +62,7 @@ function bundleRoot(): string {
 
 const findBundle = (): LocalRuntimeBundle | null => readBundle(bundleRoot())
 const providerKeys = keychainFor(PROVIDER_KEYCHAIN_SERVICE)
-const ownDir = (userId: string) => path.join(dataDir(), 'users', userId)
+const providers = localProviders(dataDir, providerKeys, () => controller)
 
 export async function userEnv(fresh?: boolean): Promise<NodeJS.ProcessEnv> {
   return { ...process.env, ...((await resolveShellEnv(fresh)) ?? {}) }
@@ -103,6 +96,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
   registerDevice: () => syncDeviceRegistration(),
   createProcess: () => withProviderKey(new OpenabProcess(), providerKeys),
   probeModels: bundledModelProbe(findBundle, providerKeys),
+  providerKeys,
   createTunnel: (runtime, runtimeStatus, onChange, agentInstances) => {
     // Its owner updates this Nuphos from another computer (app-update-request.ts).
     const { status, instances } = appUpdateTunnel(runtimeStatus, agentInstances, {
@@ -245,32 +239,23 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
     claudeLogin: logins.state('claude-code'),
     codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
-    ...(state.userId ? { customProviders: readCustomProviders(ownDir(state.userId)) } : {}),
+    ...(state.userId ? providers.of(state.userId) : {}),
   }
 }
 
-/** Saves this account's provider for one agent, or with null removes it, then restarts it. */
+/** Saves a provider for one agent, or with null removes it, then restarts that agent. */
 export async function setLocalCustomProvider(
   provider: unknown,
   value: unknown,
+  instanceId?: unknown,
 ): Promise<LocalRuntimeState> {
-  const { userId } = controller.state()
-
-  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
-  await saveCustomProvider(providerKeys, ownDir(userId), userId, provider, value).catch(notSaved)
-  await controller.refresh(true, [provider === 'codex' ? 'codex' : 'claude-code'])
+  await providers.set(provider, value, instanceId)
 
   return getLocalRuntimeState()
 }
 
 /** Tests a provider for one agent with one request, before or without saving it. */
-export function checkLocalCustomProvider(provider: unknown, value: unknown) {
-  const { userId } = controller.state()
-
-  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
-
-  return checkCustomProvider(providerKeys, userId, provider, value).catch(notSaved)
-}
+export const checkLocalCustomProvider = providers.check
 
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {
   await controller.refresh()

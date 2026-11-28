@@ -25,13 +25,15 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:applyApiKey', provider, key),
   /** The key goes only to the main process, which keeps it in the OS credential store. */
   localRuntimeSetCustomProvider: (
-    provider: 'claude-code' | 'codex',
-    value: { baseUrl: string; apiKey?: string; models: string[] } | null,
-  ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value),
+    provider: 'claude-code' | 'codex' | 'opencode',
+    value: { baseUrl: string; apiKey?: string; models: string[]; type?: 'azure' } | null,
+    instanceId?: string,
+  ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value, instanceId),
   localRuntimeCheckCustomProvider: (
-    provider: 'claude-code' | 'codex',
-    value: { baseUrl: string; apiKey?: string; models: string[] },
-  ) => ipcRenderer.invoke('localRuntime:checkCustomProvider', provider, value),
+    provider: 'claude-code' | 'codex' | 'opencode',
+    value: { baseUrl: string; apiKey?: string; models: string[]; type?: 'azure' },
+    instanceId?: string,
+  ) => ipcRenderer.invoke('localRuntime:checkCustomProvider', provider, value, instanceId),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),

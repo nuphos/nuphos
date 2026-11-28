@@ -28,10 +28,16 @@ function setup(
   t.after(() => rmSync(root, { recursive: true, force: true }))
   const fakes = new Map<string, Fake>()
   const removedCredentials: string[] = []
+  const deletedKeys: string[] = []
   let now = Date.parse('2026-10-15T00:00:00Z')
   const deps = {
     dataDir: () => root,
     userEnv: async () => ({}),
+    providerKeys: {
+      delete: async (account: string) => {
+        deletedKeys.push(account)
+      },
+    },
   } as unknown as LocalRuntimeControllerDeps
   const instances = new InstanceControllers(
     deps,
@@ -96,6 +102,7 @@ function setup(
     fakeOf,
     inventory,
     removedCredentials,
+    deletedKeys,
     advance: (ms: number) => {
       now += ms
     },
@@ -179,6 +186,20 @@ test('remove stops the agent and deletes its directory, Keychain entry and recor
     instances.request({ method: 'remove', instanceId: '../escape' }, 'alice'),
     /Invalid/u,
   )
+})
+
+test('removing an OpenCode deletes its own custom provider key with its directory', async (t) => {
+  const { instances, dirOf, deletedKeys, removedCredentials } = setup(t)
+
+  await instances.load('alice')
+  const agent = { instanceId: randomUUID(), provider: 'opencode' as const, label: 'OpenCode' }
+
+  await instances.request({ method: 'create', ...agent }, 'alice')
+  mkdirSync(path.join(dirOf(agent.instanceId), 'users', 'alice'), { recursive: true })
+  await instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice')
+  assert.deepEqual(deletedKeys, [`alice:opencode:${agent.instanceId}`])
+  assert.deepEqual(removedCredentials, [])
+  assert.equal(existsSync(dirOf(agent.instanceId)), false)
 })
 
 test('remove says so when the Keychain entry could not be deleted, and still deletes the directory', async (t) => {

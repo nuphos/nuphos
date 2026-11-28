@@ -108,9 +108,18 @@ export type LocalRuntimeState = {
   userId: string | null
   /** This computer's own connection to Nuphos, while someone is signed in. */
   connection?: 'online' | 'reconnecting' | 'superseded' | 'revoked'
-  customProviders?: Partial<Record<CliLoginProvider, { baseUrl: string; models: string[] }>>
+  customProviders?: Partial<Record<CustomProviderAgent, CustomProviderSaved>>
+  /** Each added OpenCode's own provider, by instance id. */
+  instanceProviders?: Record<string, CustomProviderSaved>
   deviceId?: string
 }
+
+/** The agents a custom provider can stand in for: the CLI sign-ins, and OpenCode per runtime. */
+export type CustomProviderAgent = CliLoginProvider | 'opencode'
+/** `azure`: an Azure OpenAI resource at `https://<resource>.openai.azure.com`; OpenCode only. */
+export type CustomProviderSaved = { baseUrl: string; models: string[]; type?: 'azure' }
+/** What Save and Test connection send; no key keeps the stored one. */
+export type CustomProviderInput = CustomProviderSaved & { apiKey?: string }
 
 /** One test request to a custom provider (custom-provider.ts in the main process). */
 export type CustomProviderCheck =
