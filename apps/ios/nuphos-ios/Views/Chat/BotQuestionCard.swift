@@ -23,12 +23,27 @@ struct BotQuestionCard: View {
     var onLink: ((URL) -> Void)?
 
     @State private var expanded = false
+    @State private var form: QuestionForm
     /// The secret was sent: nothing is left to dismiss while the listing catches up.
     @State private var saved = false
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.openURL) private var openURL
 
     private var wide: Bool { sizeClass == .regular }
+
+    init(question: BotQuestion, showsFrom: Bool = true, onOpen: @escaping () -> Void, teamId: String,
+         questions: OpenQuestions, onAnswer: @escaping (DecisionAnswer) -> Void,
+         onDismiss: @escaping () -> Void, onLink: ((URL) -> Void)? = nil) {
+        self.question = question
+        self.showsFrom = showsFrom
+        self.onOpen = onOpen
+        self.teamId = teamId
+        self.questions = questions
+        self.onAnswer = onAnswer
+        self.onDismiss = onDismiss
+        self.onLink = onLink
+        _form = State(initialValue: QuestionForm(question.choices ?? [], typed: question.typed))
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -85,8 +100,8 @@ struct BotQuestionCard: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let choices = question.choices {
-            QuestionOptions(questions: choices, typed: question.typed, onSubmit: onAnswer) { dismiss }
+        if question.choices != nil {
+            QuestionOptions(form: $form, typed: question.typed, onSubmit: onAnswer) { dismiss }
         } else {
             let connect = QuestionConnect(questions: questions, question: question, height: wide ? 40 : 44, size: 15, fill: !wide)
             VStack(alignment: .leading, spacing: 8) {
@@ -135,119 +150,140 @@ struct BotQuestionCard: View {
     }
 }
 
-/// A question card's options, one design for every question: the options, "Other…" and `trailing`
-/// (Snooze and Dismiss) one wrapping row of the same pill, as Paper draws a choice. One question with one answer is
-/// answered by a tap; a multi-select, or several questions, pick theirs (a check once picked) and
-/// send them with Send, the row's one ink button, at its end. Here and in the Inbox; the desktop's
-/// `DecisionOptions`.
+/// A question card's options, one design for every question. One question with one answer is
+/// answered by a tap: its options, "Other…" and `trailing` (Snooze and Dismiss) one wrapping row of
+/// the same pill. A multi-select, or several questions, is a form: each question picks its options or
+/// "Other" with its words under it, and one footer, `QuestionFooter`, sends them. Here and in the
+/// Inbox; the desktop's `DecisionOptions`.
 struct QuestionOptions<Trailing: View>: View {
-    let questions: [AgentConversation.DecisionQuestion]
+    @Binding var form: QuestionForm
     /// It may be answered in words, with "Other…".
     let typed: Bool
     let onSubmit: (DecisionAnswer) -> Void
-    /// Another box took the words' place, as Dismiss's reason: "Other…" closes.
-    var closesWords = false
-    /// "Other…" opened or closed its box.
-    var onWords: ((Bool) -> Void)?
+    /// Off where the caller pins the footer apart, as the iPhone Inbox does.
+    var footer = true
     @ViewBuilder let trailing: () -> Trailing
 
-    @State private var picked: [[String]]
-    @State private var words: [String]
-    /// The question whose "Other…" is open; only its words answer it.
-    @State private var open: Int?
-    @FocusState private var focused: Bool
-
-    init(questions: [AgentConversation.DecisionQuestion], typed: Bool, onSubmit: @escaping (DecisionAnswer) -> Void,
-         closesWords: Bool = false, onWords: ((Bool) -> Void)? = nil, @ViewBuilder trailing: @escaping () -> Trailing) {
-        self.questions = questions
-        self.typed = typed
-        self.onSubmit = onSubmit
-        self.closesWords = closesWords
-        self.onWords = onWords
-        self.trailing = trailing
-        _picked = State(initialValue: questions.map { _ in [] })
-        _words = State(initialValue: questions.map { _ in "" })
-        // One question answered only in words has its box open from the start.
-        _open = State(initialValue: typed && questions.count == 1 && (questions[0].options ?? []).isEmpty ? 0 : nil)
-    }
-
-    /// One question with one answer: a tap answers it.
-    private var instant: Bool { questions.count == 1 && questions[0].multiSelect != true }
-
-    private var typedWords: [String] { questions.indices.map { open == $0 ? words[$0] : "" } }
-
-    private var complete: Bool {
-        questions.indices.allSatisfy {
-            !picked[$0].isEmpty || !typedWords[$0].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
-    }
-
-    private func send() {
-        guard complete else { return }
-        focused = false
-        onSubmit(BotQuestion.formAnswer(questions, picked: picked, typed: typedWords))
-    }
-
-    private func tap(_ option: String, at index: Int) {
-        if instant { return onSubmit(DecisionAnswer(choices: [option])) }
-        if picked[index].contains(option) {
-            picked[index].removeAll { $0 == option }
-        } else {
-            picked[index] = questions[index].multiSelect == true ? picked[index] + [option] : [option]
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            ForEach(questions.indices, id: \.self) { index in
-                if questions.count > 1 {
-                    Text(questions[index].question)
-                        .font(Theme.Text.label.weight(.medium))
-                        .foregroundStyle(Theme.heading)
-                        .padding(.top, index > 0 ? 8 : 0)
-                }
-                let options = questions[index].options ?? []
-                // One row of the same pill: the options, "Other…", and on the last row `trailing` and Send.
-                FlowLayout(spacing: 8) {
-                    ForEach(options, id: \.self) { option in
-                        QuestionPill(title: option, checked: instant ? nil : picked[index].contains(option)) {
-                            tap(option, at: index)
-                        }
-                    }
-                    if typed {
-                        QuestionPill(title: options.isEmpty ? String(localized: "Reply…") : String(localized: "Other…"), on: open == index) {
-                            open = open == index ? nil : index
-                            focused = open != nil
-                            onWords?(open != nil)
-                        }
-                    }
-                    if index == questions.count - 1 {
-                        trailing()
-                        if !instant { sendButton }
-                    }
-                }
-                if open == index {
-                    AnswerField(words: $words[index], focused: $focused, send: send)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(form.questions.indices, id: \.self) { index in
+                question(index).padding(.top, index > 0 ? 24 : 0)
+            }
+            if footer, !form.instant {
+                QuestionFooter(form: form, onSubmit: onSubmit, trailing: trailing).padding(.top, 16)
             }
         }
-        .onChange(of: closesWords) { _, closes in if closes { open = nil } }
     }
 
-    /// Send, the row's one ink button, for the picks.
-    private var sendButton: some View {
-        Button(action: send) {
-            Text("Send")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Theme.chatCanvas)
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                .background(Theme.heading, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                .contentShape(Rectangle())
+    private func question(_ index: Int) -> some View {
+        let options = form.questions[index].options ?? []
+        return VStack(alignment: .leading, spacing: 0) {
+            if form.questions.count > 1 {
+                QuestionHeader(number: index + 1, question: form.questions[index], answered: form.answered(index))
+                    .padding(.bottom, 12)
+            }
+            FlowLayout(spacing: 8) {
+                ForEach(options, id: \.self) { option in
+                    QuestionPill(title: option, checked: form.instant ? nil : form.picked[index].contains(option)) {
+                        if form.instant { return onSubmit(DecisionAnswer(choices: [option])) }
+                        form.pick(option, at: index)
+                    }
+                }
+                if typed, !options.isEmpty {
+                    if form.instant {
+                        QuestionPill(title: String(localized: "Other…"), on: form.other[index]) { form.pickOther(at: index) }
+                    } else {
+                        QuestionPill(title: form.other[index] ? String(localized: "Other") : String(localized: "Other…"),
+                                     checked: form.other[index]) { form.pickOther(at: index) }
+                    }
+                }
+                if form.instant { trailing() }
+            }
+            if form.other[index] {
+                // Focused only when "Other…" opened it; a question with nothing to pick shows it from the
+                // start, unfocused. A form's words have no send of their own: Return sends a complete card.
+                OtherField(words: $form.words[index], focus: !options.isEmpty, arrow: form.instant) {
+                    if form.left == 0 { onSubmit(form.answer) }
+                }
+                .padding(.top, 10)
+            }
         }
-        .buttonStyle(.plain)
-        .disabled(!complete)
-        .opacity(complete ? 1 : 0.4)
+    }
+}
+
+/// A form's one footer: `trailing` (Snooze and Dismiss), then Send, which says how many questions
+/// are left until every one is answered.
+struct QuestionFooter<Trailing: View>: View {
+    let form: QuestionForm
+    let onSubmit: (DecisionAnswer) -> Void
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        let ready = form.left == 0
+        HStack(spacing: 8) {
+            trailing()
+            Spacer(minLength: 0)
+            Button { onSubmit(form.answer) } label: {
+                Text(ready ? "Send" : "Answer \(form.left) more")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(ready ? Theme.surface : Theme.muted)
+                    .lineLimit(1)
+                    .padding(.horizontal, ready ? 18 : 16)
+                    .frame(minHeight: 44)
+                    .background(ready ? Theme.heading : Theme.sunken, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 9, style: .continuous).strokeBorder(ready ? .clear : Theme.hairline, lineWidth: 1))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(!ready)
+            .accessibilityIdentifier("question.send")
+        }
+    }
+}
+
+/// A form question's heading: its number in a ring until it is answered, then a check.
+private struct QuestionHeader: View {
+    let number: Int
+    let question: AgentConversation.DecisionQuestion
+    let answered: Bool
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            ZStack {
+                if answered {
+                    Circle().fill(Theme.heading)
+                    LucideIcon("check").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.surface)
+                } else {
+                    Circle().strokeBorder(Theme.stamp, lineWidth: 1.5)
+                    Text(verbatim: "\(number)").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.muted)
+                }
+            }
+            .frame(width: 20, height: 20)
+            .accessibilityHidden(true)
+            Text(question.question)
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.heading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if question.multiSelect == true {
+                Text("Choose any").font(.system(size: 13)).foregroundStyle(Theme.muted)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(answered ? Text("Answered") : Text(""))
+    }
+}
+
+/// "Other"'s words, focused when it is picked rather than shown from the start.
+private struct OtherField: View {
+    @Binding var words: String
+    let focus: Bool
+    let arrow: Bool
+    let send: () -> Void
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        AnswerField(words: $words, focused: $focused, arrow: arrow, send: send)
+            .onAppear { if focus { focused = true } }
     }
 }
 
@@ -256,7 +292,7 @@ struct QuestionOptions<Trailing: View>: View {
 struct QuestionPill: View {
     let title: String
     var checked: Bool?
-    /// Its box is open, as "Other…" while typing or Dismiss while asking for the reason.
+    /// Its box is open, as a one-tap question's "Other…" while typing or Dismiss while asking for the reason.
     var on = false
     let action: () -> Void
 
