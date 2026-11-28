@@ -17,8 +17,10 @@ import path from 'node:path'
 import { test } from 'node:test'
 
 import {
+  HELD,
   MANUAL_IDLE_MS,
   claimDisplay,
+  computerUse,
   desktopRelay,
   listDesktops,
   lockFile,
@@ -204,11 +206,68 @@ test('a full pool answers the call that needs a desktop, and the next call tries
   assert.equal(sent[1].result.content[0].text, ':2')
 })
 
+// While a person holds the desktop (Take over), the agent's input waits for them;
+// it may still look. The stream renews the hold, so a lapsed one frees it (#5321).
+test('input waits while a person holds the desktop, looking does not', async () => {
+  const { started, start } = fakeServers()
+  const xdg = mkdtempSync(path.join(os.tmpdir(), 'desktop-xdg-'))
+  const sent = []
+  const relay = desktopRelay({
+    send: (message) => sent.push(message),
+    start,
+    desktop: () => Promise.resolve({ display: 3, env: { DISPLAY: ':3', XDG_RUNTIME_DIR: xdg } }),
+  })
+  const call = (id, name) =>
+    relay.receive({ jsonrpc: '2.0', id, method: 'tools/call', params: { name } })
+  const hold = (since) =>
+    writeFileSync(path.join(xdg, 'instabox-control'), `human Sam ${String(since)}\n`)
+
+  for (const message of handshake) await relay.receive(message)
+  hold(Math.floor(Date.now() / 1000))
+  await call(3, 'click')
+  await call(4, 'type_text')
+  await call(5, 'get_app_state')
+  assert.deepEqual(
+    sent.slice(2).map((message) => [message.id, message.result.isError ?? false]),
+    [
+      [3, true],
+      [4, true],
+      [5, false],
+    ],
+  )
+  assert.equal(sent[2].result.content[0].text, HELD)
+  assert.deepEqual(
+    started
+      .at(-1)
+      .got.filter((message) => message.method === 'tools/call')
+      .map((message) => message.id),
+    [5],
+  )
+  // A tool it does not know as looking waits too, and so does each call in a batch (#5328).
+  await call(7, 'new_input_tool')
+  await relay.receive([
+    { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'click' } },
+    { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'list_apps' } },
+  ])
+  assert.deepEqual(
+    sent.slice(5).map((message) => [message.id, message.result.isError ?? false]),
+    [
+      [7, true],
+      [8, true],
+      [9, false],
+    ],
+  )
+  // A hold the stream stopped renewing has lapsed.
+  hold(Math.floor(Date.now() / 1000) - 31)
+  await call(6, 'click')
+  assert.equal(sent.at(-1).result.content[0].text, ':3')
+})
+
 // The agent's runtime ends a session by signalling its whole process group, which
-// already reaches the computer-use proxy; a second signal from here re-entered the
-// proxy's handler and left it hung for good, holding the session's home (#4727).
+// already reaches the computer-use server; a second signal from here re-entered its
+// handler and left it hung for good, holding the session's home (#4727).
 test(
-  "ending the session closes the proxy's stdin instead of signalling it",
+  "ending the session closes the computer-use server's stdin instead of signalling it",
   {
     skip: process.platform === 'win32',
   },
@@ -216,12 +275,12 @@ test(
     const dir = mkdtempSync(path.join(os.tmpdir(), 'desktop-session-'))
     const log = path.join(dir, 'proxy.log')
 
-    // Stands in for `python3 -I <proxy>`: notes each signal, then EOF on stdin.
+    // Stands in for `open-computer-use mcp`: notes each signal, then EOF on stdin.
     writeFileSync(
-      path.join(dir, 'python3'),
+      path.join(dir, 'open-computer-use'),
       `#!/bin/sh\ntrap 'echo signal >> "${log}"' TERM HUP INT\necho started >> "${log}"\nwhile read -r line; do :; done\necho eof >> "${log}"\n`,
     )
-    chmodSync(path.join(dir, 'python3'), 0o755)
+    chmodSync(path.join(dir, 'open-computer-use'), 0o755)
     const session = spawn(
       process.execPath,
       [new URL('desktop-session.mjs', import.meta.url).pathname, 'serve'],
@@ -245,6 +304,35 @@ test(
     await new Promise((resolve) => session.once('exit', resolve))
     await until(() => readFileSync(log, 'utf8').includes('eof'))
     assert.equal(readFileSync(log, 'utf8'), 'started\neof\n')
+  },
+)
+
+// A Box wraps the server in its proxy, which also logs each call for the Box
+// dashboard's activity panel; any other Linux computer runs it from PATH (#5328).
+test(
+  "a Box's proxy runs the server when present, otherwise the server runs from PATH",
+  { skip: process.platform === 'win32' },
+  async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'desktop-session-'))
+    const log = path.join(dir, 'ran.log')
+    const proxy = path.join(dir, 'proxy')
+
+    writeFileSync(
+      proxy,
+      `import sys\nopen(${JSON.stringify(log)}, 'a').write(' '.join(['proxy', *sys.argv[1:]]) + '\\n')\n`,
+    )
+    writeFileSync(path.join(dir, 'open-computer-use'), `#!/bin/sh\necho "server $*" >> "${log}"\n`)
+    chmodSync(path.join(dir, 'open-computer-use'), 0o755)
+    const run = async (proxyPath) => {
+      const { child } = computerUse({ PATH: `${dir}:/usr/bin:/bin` }, proxyPath)
+
+      child.stdin.end()
+      await new Promise((resolve) => child.once('exit', resolve))
+    }
+
+    await run(proxy)
+    await run(path.join(dir, 'no-proxy'))
+    assert.equal(readFileSync(log, 'utf8'), 'proxy -- open-computer-use mcp\nserver mcp\n')
   },
 )
 

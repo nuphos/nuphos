@@ -171,14 +171,19 @@ export function localSignIn(
     : 'runtime'
 }
 
-/** This Desktop's own Claude Code or Codex: settings saved on this computer, such as its custom provider. */
+/**
+ * This Desktop's own Claude Code, Codex or OpenCode: settings saved on this computer, such as its
+ * custom provider. OpenCode keeps one per runtime, an added one too; the others, one per account.
+ */
 export function ownCliProvider(
   instance: RuntimeInstance,
   thisComputer: ThisComputer,
-): 'claude-code' | 'codex' | undefined {
+): 'claude-code' | 'codex' | 'opencode' | undefined {
   const local = instance.local
 
-  if (!local || local.instanceId || !isThisComputer(thisComputer, computerOf(local))) return
+  if (!local || !isThisComputer(thisComputer, computerOf(local))) return
+  if (instance.provider === 'opencode') return 'opencode'
+  if (local.instanceId) return
   if (instance.provider === 'claude-code' || instance.provider === 'codex') return instance.provider
 }
 

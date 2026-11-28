@@ -180,7 +180,7 @@
     <string name="shell_desktop">Desktop</string>
     <string name="shell_desktop_decode_failed">Could not decode this desktop. Retry to start a fresh connection.</string>
     <string name="shell_desktop_connecting">Connecting…</string>
-    <string name="shell_desktop_mac_shared">You have the Mac’s screen; the agent can still use it too.</string>
+    <string name="shell_desktop_mac_shared">You have this computer’s screen; the agent can still use it too.</string>
     <string name="shell_desktop_in_control">You have control. Hand back to let the agent use this desktop.</string>
     <string name="shell_desktop_watching">Watching. Take over to use the pointer and keyboard.</string>
     <string name="shell_desktop_failed">Desktop connection failed.</string>

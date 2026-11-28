@@ -10,6 +10,7 @@ import {
   macScreenDeps,
   macScreenStatus,
   openMacScreen,
+  screenHost,
   screenSocket,
   startHost,
   stopHost,
@@ -20,9 +21,9 @@ const started = async () => undefined
 const newPool = () => mkdtempSync(path.join(tmpdir(), 'screen-'))
 const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
 
-/** A stand-in for mac-screen-host: a shell script with the given body. */
-function fakeHost(body: string): string {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), 'host-')), 'mac-screen-host')
+/** A stand-in for mac-screen-host (or `name`): a shell script with the given body. */
+function fakeHost(body: string, name = 'mac-screen-host'): string {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), 'host-')), name)
 
   writeFileSync(file, `#!/bin/sh\n${body}\n`)
   chmodSync(file, 0o755)
@@ -30,11 +31,44 @@ function fakeHost(body: string): string {
   return file
 }
 
-test('only a Mac shows its screen', () => {
+// #5321: a Linux computer at its own X11 screen hands it over as a Mac does.
+test('a Mac, or a Linux computer on X11 with x0vncserver, shows its screen', () => {
+  const PATH = path.dirname(fakeHost('exit 0', 'x0vncserver'))
+  const on = (env: NodeJS.ProcessEnv) =>
+    enableMacScreen(newPool(), () => undefined, 'linux', env) !== null
+
+  assert.equal(on({ DISPLAY: ':0', PATH }), true)
+  // No screen, Wayland, a desktop pool, or nothing to serve it with.
+  assert.equal(on({ PATH }), false)
+  assert.equal(on({ DISPLAY: ':0', NUPHOS_DESKTOP_POOL: '/pool', PATH }), false)
+  assert.equal(on({ DISPLAY: ':0', WAYLAND_DISPLAY: 'wayland-0', PATH }), false)
+  assert.equal(on({ DISPLAY: ':0', PATH: tmpdir() }), false)
   assert.equal(
-    enableMacScreen(tmpdir(), () => undefined, 'linux'),
+    enableMacScreen(newPool(), () => undefined, 'win32', { DISPLAY: ':0', PATH }),
     null,
   )
+})
+
+test('x0vncserver serves the screen on the pool’s socket only, and says it is this computer’s own', async () => {
+  const pool = newPool()
+  const host = fakeHost('echo "$@" >&2; exit 1', 'x0vncserver')
+
+  await assert.rejects(
+    startHost(pool, host, true),
+    new RegExp(
+      `^Error: -rfbunixpath ${screenSocket(pool)} -rfbunixmode 0600 -rfbport -1 -SecurityTypes None -MaxDisconnectionTime 60$`,
+      'u',
+    ),
+  )
+  assert.equal(macScreenStatus(pool).ownScreen, true)
+  // Debian's x0vncserver is a wrapper that forks the server and exits; the server itself runs (#5321).
+  const both = path.dirname(fakeHost('exit 0', 'x0vncserver'))
+
+  writeFileSync(path.join(both, 'X0tigervnc'), '')
+  chmodSync(path.join(both, 'X0tigervnc'), 0o755)
+  assert.equal(screenHost('/bundle', 'linux', both), 'X0tigervnc')
+  assert.equal(screenHost('/bundle', 'linux', path.dirname(host)), 'x0vncserver')
+  assert.equal(screenHost('/bundle', 'darwin'), '/bundle/mac-screen-host')
 })
 
 test('the screen opens on request, and streams only to the account signed in on this Mac', async (t) => {
@@ -150,6 +184,7 @@ test('another conversation gets the screen only once nobody watches it', async (
   assert.deepEqual(macScreenStatus(pool), {
     desktops: [{ display: 0, sessionId: 's1' }],
     desktopOpen: true,
+    ownScreen: true,
   })
   // The stream touches the lock every minute while someone watches; four idle minutes free it.
   const idle = new Date(Date.now() - 4 * 60_000)

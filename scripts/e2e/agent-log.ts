@@ -19,6 +19,8 @@ type AgentEntry = {
   history?: { chars: number; omitted: boolean; readConversation: boolean }
   /** Whether the system prompt a session opened with tells it to delegate work (#4156). */
   delegates?: boolean
+  /** Whether that system prompt says its computer has no screen to hand over (#5321). */
+  noScreen?: boolean
   /** A model discovery attempt, and whether the fixture refused it. */
   failed?: boolean
   /** The E2E_RULE:<name> the system prompt a session was loaded with names. */

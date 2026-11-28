@@ -2,14 +2,20 @@ import { Check, Loader2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { api } from '../../api'
+import { parseAtlasError } from '../../api/errors'
 import { AgentProviderIcon } from '../../components/agent/panel/icons'
 import { Modal } from '../../components/Modal'
 import { Button } from '../../components/ui/button'
 import { toast } from '../../components/ui/toast'
+import { RUNTIME_INSTANCES_CHANGED } from '../../hooks/useRuntimeInstances'
+import { useThisComputer } from '../../hooks/useThisComputer'
 import { t } from '../../i18n'
+import { isThisComputer } from '../../lib/agentName'
 import { agentProvider } from '../../types/runtime'
 
 import { agentNameTaken, defaultAgentName } from './boxPresentation'
+import { draftIncomplete, draftValue, providerDraft } from './customProviderDraft'
+import { CustomProviderFields } from './CustomProviderFields'
 import { RuntimeLoginBody } from './RuntimeLoginBody'
 import { RuntimeLoginActions } from './RuntimeLoginDialog'
 import { Field } from './shared'
@@ -63,7 +69,8 @@ function Stepper({ step }: { step: number }) {
 /**
  * A new agent on a Box, in one dialog: its settings, then its sign-in. It exists only once
  * signed in: made pending when the settings are confirmed, and removed again unless the
- * sign-in succeeds. `onDone` gets its runtime id when it does.
+ * sign-in succeeds. `onDone` gets its runtime id when it does. An OpenCode on this computer may
+ * take a provider of its own instead, which saved there stands in for the sign-in.
  */
 export function BoxAgentSetup({
   teamId,
@@ -83,13 +90,21 @@ export function BoxAgentSetup({
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState<DeviceAgentInstance | null>(null)
   const [ready, setReady] = useState(false)
+  const [draft, setDraft] = useState(() => providerDraft(undefined, 'none'))
+  const [providerError, setProviderError] = useState<string | null>(null)
   const left = useRef(false)
   const body = useRef<HTMLDivElement>(null)
   const instance = useMemo(() => created && pendingInstance(created, device), [created, device])
+  const here = useThisComputer()
+  const ownProvider =
+    provider === 'opencode' &&
+    isThisComputer(here, { userId: device.ownerUserId, deviceId: device.deviceId })
+  const custom = ownProvider && draft.kind !== 'none'
   // Idle until the agent exists; then it starts at once, the backend waiting for the agent.
+  // Never with a provider of its own: ready already, it has no sign-in to start.
   const login = useRuntimeLogin(
     teamId,
-    instance,
+    ready ? null : instance,
     // Ready rather than signed in: OpenCode's free models finish here with no sign-in, and
     // an API key is not checked until a turn runs.
     () => setReady(true),
@@ -118,12 +133,30 @@ export function BoxAgentSetup({
       )
 
       if (left.current) remove(agent.instanceId)
+      else if (custom) await saveProvider(agent)
       else setCreated(agent)
     } catch (cause) {
       if (!left.current) toast.apiError(t('Could not add {name}', { name: label }), cause)
     } finally {
       setCreating(false)
     }
+  }
+
+  /** Saving the provider keeps the agent; a refusal removes it again, with the form left as typed. */
+  const saveProvider = async (agent: DeviceAgentInstance) => {
+    setProviderError(null)
+    try {
+      await api.localRuntimeSetCustomProvider('opencode', draftValue(draft), agent.instanceId)
+    } catch (cause) {
+      remove(agent.instanceId)
+      setProviderError(parseAtlasError(cause).message)
+
+      return
+    }
+    if (left.current) return remove(agent.instanceId)
+    window.dispatchEvent(new Event(RUNTIME_INSTANCES_CHANGED))
+    setCreated(agent)
+    setReady(true)
   }
 
   const leave = async () => {
@@ -178,7 +211,12 @@ export function BoxAgentSetup({
             <Button size="sm" variant="secondary" onClick={() => void leave()}>
               {t('Cancel')}
             </Button>
-            <Button size="sm" type="submit" form={FORM} disabled={creating || !name.trim()}>
+            <Button
+              size="sm"
+              type="submit"
+              form={FORM}
+              disabled={creating || !name.trim() || (custom && draftIncomplete(draft))}
+            >
               {creating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {creating ? t('Starting {name}…', { name: label }) : t('Continue')}
             </Button>
@@ -213,7 +251,7 @@ export function BoxAgentSetup({
           className="space-y-4 p-5"
           onSubmit={(event) => {
             event.preventDefault()
-            if (name.trim() && !creating) void create()
+            if (name.trim() && !creating && !(custom && draftIncomplete(draft))) void create()
           }}
         >
           <Field
@@ -239,6 +277,15 @@ export function BoxAgentSetup({
               onChange={(event) => setName(event.target.value)}
             />
           </Field>
+          {ownProvider && (
+            <CustomProviderFields
+              modal
+              provider="opencode"
+              draft={draft}
+              error={providerError}
+              onChange={setDraft}
+            />
+          )}
         </form>
       )}
     </Modal>

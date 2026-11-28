@@ -142,8 +142,9 @@ export const localRuntimeStatusSchema = z.object({
   localBrowser: z.boolean().optional(),
   /** This computer's Desktop streams a dock browser tab to its owner's phone. */
   localBrowserView: z.boolean().optional(),
-  /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
+  /** This computer opens a conversation's desktop on request (`method: 'desktop'`), or its own screen (#5321). */
   desktopOpen: z.boolean().optional(),
+  ownScreen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
   /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
@@ -243,8 +244,7 @@ export type HolderMessage =
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
-  /** Close what one person opened; the tunnel and everyone else's streams stay. */
-  /** Without a team, every team's streams of that person close; with one, only that team's. */
+  /** Close what one person opened, of every team or only `teamId`'s; the tunnel and everyone else's streams stay. */
   | { t: 'revoke-actor'; actorId: string; teamId?: string }
   /** The holder's own echo, proving its subscription still delivers. */
   | { t: 'ping'; conn: string }
