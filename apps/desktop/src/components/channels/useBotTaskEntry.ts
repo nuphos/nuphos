@@ -9,7 +9,8 @@ import type { AgentConversation } from '../../api'
 /**
  * Whether a Bot's chat may open the Bot's own Task, as its title bar pill does,
  * and whether that Task holds a conversation from before this chat (#5061).
- * Neither while the Bot is still being set up.
+ * Neither while the Bot is still being set up, though the viewer may still read
+ * its turns then (`canRead`).
  */
 export function useBotTaskEntry(
   teamId: string,
@@ -19,7 +20,8 @@ export function useBotTaskEntry(
 ) {
   const row = useAgentSessions(teamId).data?.find((session) => session.sessionId === bot)
   const settingUp = row ? botIsOnboarding(row) : false
-  const canOpenTask = useBotTaskAccess(teamId, bot, owned) && !settingUp
+  const canRead = useBotTaskAccess(teamId, bot, owned)
+  const canOpenTask = canRead && !settingUp
 
-  return { canOpenTask, earlier: canOpenTask && hasEarlierBotChat(row, chat) }
+  return { canRead, canOpenTask, earlier: canOpenTask && hasEarlierBotChat(row, chat) }
 }

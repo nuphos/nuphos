@@ -10,6 +10,12 @@
     <string name="chats_show_more">Mostrar más</string>
     <string name="chats_question_your_answer">Tu respuesta</string>
     <string name="chats_question_send_answer">Enviar respuesta</string>
+    <string name="chats_question_other_picked">Otra</string>
+    <string name="chats_question_choose_any">Elige las que quieras</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="one">Responde %1$d más</item>
+        <item quantity="other">Responde %1$d más</item>
+    </plurals>
     <string name="chats_question_heading_approval">Se necesita aprobación</string>
     <string name="chats_question_heading_preference">Tu elección</string>
     <string name="chats_question_heading_credential">Se necesita una credencial</string>
@@ -69,4 +75,28 @@
     <string name="chats_presence_sign_in">Requiere iniciar sesión</string>
     <string name="chats_presence_usage">Sin uso disponible</string>
     <string name="chats_presence_unavailable">No disponible</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">Miembros</string>
+    <string name="chats_members_people">Personas</string>
+    <string name="chats_members_add_bot">Añadir Bot</string>
+    <string name="chats_members_your_bots">Tus Bots</string>
+    <string name="chats_members_add_bot_note">Al añadir tu Bot, todos aquí pueden hablar con él. Lo que necesite aprobación te sigue esperando en su propio chat.</string>
+    <string name="chats_members_no_bots">Todos tus Bots ya están aquí.</string>
+    <string name="chats_members_owner_only">Solo el propietario puede añadir personas.</string>
+    <string name="chats_members_you">%1$s (tú)</string>
+    <string name="chats_members_more">Más opciones para %1$s</string>
+    <string name="chats_members_add">Añadir a %1$s</string>
+    <string name="chats_members_leave">Salir del chat</string>
+    <string name="chats_members_leave_title">¿Salir de “%1$s”?</string>
+    <string name="chats_members_leave_owner">%1$s pasa a ser el propietario. Solo podrás volver si alguien te añade.</string>
+    <string name="chats_members_leave_member">Solo podrás volver si alguien te añade.</string>
+    <string name="chats_members_leave_last">Eres la última persona aquí, así que el chat se archivará.</string>
+    <string name="chats_members_leave_confirm">Salir</string>
+    <string name="chats_members_left">Saliste de “%1$s”</string>
+    <string name="chats_members_leave_failed">No se pudo salir del chat</string>
+    <string name="chats_members_add_bot_failed">No se pudo añadir el Bot</string>
+    <string name="chats_members_add_person_failed">No se pudo añadir a esta persona</string>
+    <string name="chats_members_remove_failed">No se pudo quitar</string>
+    <string name="chats_members_load_failed">No se pudieron cargar los miembros</string>
+    <string name="chats_members_retry">Reintentar</string>
 </resources>

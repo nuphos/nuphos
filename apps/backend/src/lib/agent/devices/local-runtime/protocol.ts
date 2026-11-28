@@ -2,6 +2,8 @@ import { z } from 'zod'
 
 import { boxMetricsSchema } from '../metrics-schema'
 
+import { localUsageSchema } from './usage-schema'
+
 import type { TunnelPurpose } from './tunnel-purpose'
 
 export type { TunnelPurpose }
@@ -72,34 +74,6 @@ export const localModelCatalogSchema = z.object({
   failed: z.literal(true).optional(),
 })
 
-/** One usage window as Anthropic or ChatGPT reports it. A window that does not
- *  fit becomes null rather than failing: the good windows beside it still count. */
-const usageWindowSchema = z
-  .object({
-    utilization: z.number().optional(),
-    resets_at: z.string().max(60).nullable().optional(),
-    used_percent: z.number().optional(),
-    limit_window_seconds: z.number().optional(),
-    reset_after_seconds: z.number().optional(),
-  })
-  .nullable()
-  .catch(null)
-
-const localUsageSchema = z.object({
-  five_hour: usageWindowSchema.optional(),
-  seven_day: usageWindowSchema.optional(),
-  seven_day_opus: usageWindowSchema.optional(),
-  seven_day_sonnet: usageWindowSchema.optional(),
-  plan_type: z.string().max(60).optional(),
-  rate_limit: z
-    .object({
-      primary_window: usageWindowSchema.optional(),
-      secondary_window: usageWindowSchema.optional(),
-    })
-    .nullable()
-    .optional(),
-})
-
 /** One agent the computer is running right now; absent from `agents` when it is not. */
 const localAgentStatusSchema = z.object({
   cli: z.object({
@@ -168,8 +142,9 @@ export const localRuntimeStatusSchema = z.object({
   localBrowser: z.boolean().optional(),
   /** This computer's Desktop streams a dock browser tab to its owner's phone. */
   localBrowserView: z.boolean().optional(),
-  /** This computer opens a conversation's desktop on request (`method: 'desktop'`). */
+  /** This computer opens a conversation's desktop on request (`method: 'desktop'`), or its own screen (#5321). */
   desktopOpen: z.boolean().optional(),
+  ownScreen: z.boolean().optional(),
   /** The `nuphos` CLI running this host; a Box updates by installing a newer one. */
   cliVersion: z.string().max(50).optional(),
   /** The Nuphos Desktop running this host, and an update it found: downloading, or staged for
@@ -269,8 +244,7 @@ export type HolderMessage =
   | { t: 'close'; s: string }
   | { t: 'supersede'; conn: string; previous?: string }
   | { t: 'revoke' }
-  /** Close what one person opened; the tunnel and everyone else's streams stay. */
-  /** Without a team, every team's streams of that person close; with one, only that team's. */
+  /** Close what one person opened, of every team or only `teamId`'s; the tunnel and everyone else's streams stay. */
   | { t: 'revoke-actor'; actorId: string; teamId?: string }
   /** The holder's own echo, proving its subscription still delivers. */
   | { t: 'ping'; conn: string }

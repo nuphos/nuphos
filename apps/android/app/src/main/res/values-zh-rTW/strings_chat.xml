@@ -186,6 +186,9 @@
     </plurals>
     <string name="chat_work_duration">處理了 %1$s</string>
     <string name="chat_work">已處理</string>
+    <string name="tool_card_open">打開</string>
+    <string name="tool_card_document">文件</string>
+    <string name="tool_card_code">程式碼</string>
     <string name="chat_share_access_invited">僅限受邀者</string>
     <string name="chat_share_access_view">團隊可檢視</string>
     <string name="chat_share_access_reply">團隊可檢視及回覆</string>

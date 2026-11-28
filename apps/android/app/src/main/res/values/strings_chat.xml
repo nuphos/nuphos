@@ -192,6 +192,9 @@
     </plurals>
     <string name="chat_work_duration">Worked for %1$s</string>
     <string name="chat_work">Worked</string>
+    <string name="tool_card_open">Open</string>
+    <string name="tool_card_document">Document</string>
+    <string name="tool_card_code">Code</string>
     <string name="chat_share_access_invited">Only people invited</string>
     <string name="chat_share_access_view">Team can view</string>
     <string name="chat_share_access_reply">Team can view and reply</string>

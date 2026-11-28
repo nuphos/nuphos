@@ -6,7 +6,7 @@ import type { AgentCliStatus, LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstance } from './agent-instances.ts'
 import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
-import type { CustomProvider, CustomProviderAgent } from './custom-provider.ts'
+import type { CustomProvider, CustomProviderAgent, KeyStore } from './custom-provider.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
@@ -41,6 +41,8 @@ export type LocalRuntimeViewState = LocalRuntimeState & {
   sleepPrevention: SleepState
   /** This account's own model providers; the keys stay in the credential store. */
   customProviders?: Partial<Record<CustomProviderAgent, CustomProvider>>
+  /** Each added OpenCode's own provider, by instance id. */
+  instanceProviders?: Record<string, CustomProvider>
   claudeLogin: ReturnType<LocalAgentLogin['state']>
   codexLogin: ReturnType<LocalAgentLogin['state']>
 }
@@ -113,6 +115,8 @@ export type LocalRuntimeControllerDeps = {
   /** A Box: Nuphos owns the whole computer, so its default agents' logins are Nuphos's
    *  to delete. A person's computer never removes them; their CLIs keep their logins. */
   ownsMachine?: boolean
+  /** Where custom providers' keys are kept; an added OpenCode's goes with it. */
+  providerKeys?: KeyStore
 }
 
 export type Agent = {

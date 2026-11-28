@@ -11,7 +11,7 @@ import { agentProvider } from '../../types/runtime'
 import { ownCliProvider } from './agentPresentation'
 import { CustomProviderForm } from './CustomProviderForm'
 
-import type { CliLoginProvider } from '../../api'
+import type { CustomProviderAgent } from '../../api'
 import type { RuntimeInstance } from '../../types/runtime'
 
 function hostOf(url: string): string {
@@ -31,13 +31,26 @@ function hostOf(url: string): string {
 export function CustomProviderSettings({ instance }: { instance: RuntimeInstance }) {
   const provider = ownCliProvider(instance, useThisComputer())
 
-  return provider ? <ProviderRow provider={provider} /> : null
+  return provider ? (
+    <ProviderRow provider={provider} instanceId={instance.local?.instanceId} />
+  ) : null
 }
 
-function ProviderRow({ provider }: { provider: CliLoginProvider }) {
+function ProviderRow({
+  provider,
+  instanceId,
+}: {
+  provider: CustomProviderAgent
+  /** An added OpenCode, which keeps a provider of its own. */
+  instanceId?: string
+}) {
   const state = useLocalRuntimeState()
-  const agent = state?.agents[provider]
-  const saved = state?.customProviders?.[provider]
+  const agent = instanceId
+    ? state?.instances?.find((added) => added.instanceId === instanceId)
+    : state?.agents[provider]
+  const saved = instanceId
+    ? state?.instanceProviders?.[instanceId]
+    : state?.customProviders?.[provider]
   const name = agentProvider(provider).label
   const [editing, setEditing] = useState(false)
   const [removing, setRemoving] = useState(false)
@@ -45,7 +58,7 @@ function ProviderRow({ provider }: { provider: CliLoginProvider }) {
   async function remove() {
     setRemoving(true)
     try {
-      await api.localRuntimeSetCustomProvider(provider, null)
+      await api.localRuntimeSetCustomProvider(provider, null, instanceId)
       toast.success(t('Custom provider removed'))
     } catch (cause) {
       toast.apiError(t('Could not remove the custom provider'), cause)
@@ -60,10 +73,11 @@ function ProviderRow({ provider }: { provider: CliLoginProvider }) {
     return (
       <CustomProviderForm
         provider={provider}
+        instanceId={instanceId}
         saved={saved}
         onCancel={() => setEditing(false)}
         onSave={async (value) => {
-          await api.localRuntimeSetCustomProvider(provider, value)
+          await api.localRuntimeSetCustomProvider(provider, value, instanceId)
           setEditing(false)
           toast.success(t('Custom provider saved'))
         }}

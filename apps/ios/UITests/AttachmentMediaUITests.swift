@@ -97,11 +97,24 @@ final class AttachmentMediaUITests: XCTestCase {
         shot("video-loading")
     }
 
-    /// The video's link fails: its page says so, rather than an empty player.
-    func testVideoThatFailsToLoadSaysSo() throws {
-        let app = try launch(videoLink: "https://api.preview.invalid/fixture-media/gone.mp4", videoName: "gone.mp4", extra: [
-            "GET /fixture-media/gone.mp4": ["status": 404, "body": ""],
+    /// The video's link answers only after 20 s: tapping the video opens it
+    /// at once, to play from its link, rather than waiting for its download.
+    func testVideoOpensWithoutWaitingForItsDownload() throws {
+        let app = try launch(videoLink: "https://api.preview.invalid/fixture-media/slow.mp4", videoName: "slow.mp4", extra: [
+            "GET /fixture-media/slow.mp4": ["status": 200, "body": "", "delayMs": 20000],
         ])
+        let video = app.buttons["Open slow.mp4"]
+        XCTAssertTrue(video.waitForExistence(timeout: 10), "The video never showed")
+        video.tap()
+        XCTAssertTrue(app.staticTexts["1 / 3"].waitForExistence(timeout: 8), "Opening the video waited for its download")
+        shot("video-opened")
+    }
+
+    /// The video's link fails: its page says so, rather than an empty player.
+    /// The player reads the link itself, not through the preview's responses,
+    /// so the link is a file that isn't there.
+    func testVideoThatFailsToLoadSaysSo() throws {
+        let app = try launch(videoLink: "file://$FIXTURE_DIR/media/gone.mp4", videoName: "gone.mp4")
         let image = app.buttons["Open wide.png"]
         XCTAssertTrue(image.waitForExistence(timeout: 10), "The image never showed")
         image.tap()

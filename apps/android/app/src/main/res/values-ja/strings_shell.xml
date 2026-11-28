@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">このユーザー名はすでに使われています。別のユーザー名を選んでください。</string>
     <string name="shell_auth_profile_failed">プロフィールを保存できませんでした。</string>
     <string name="shell_auth_unreachable">Nuphos に接続できませんでした。接続を確認して、もう一度お試しください。</string>
+    <string name="shell_auth_account_expired">このアカウントのセッションの有効期限が切れました。もう一度サインインしてください。</string>
     <string name="shell_auth_window_failed">サインイン画面を開けませんでした。もう一度お試しください。</string>
     <string name="shell_auth_secure_incomplete">安全なサインインが完了しませんでした。接続を確認して、もう一度お試しください。</string>
     <string name="shell_auth_wrong_password">メールアドレスまたはパスワードが正しくありません。</string>
@@ -154,7 +155,7 @@
     <string name="shell_desktop">デスクトップ</string>
     <string name="shell_desktop_decode_failed">このデスクトップをデコードできませんでした。再試行して新しい接続を開始してください。</string>
     <string name="shell_desktop_connecting">接続中…</string>
-    <string name="shell_desktop_mac_shared">Mac の画面を操作中です。エージェントも引き続き使用できます。</string>
+    <string name="shell_desktop_mac_shared">このコンピュータの画面を操作中です。エージェントも引き続き使用できます。</string>
     <string name="shell_desktop_in_control">操作権はあなたにあります。返却すると、エージェントがこのデスクトップを使用できます。</string>
     <string name="shell_desktop_watching">視聴中です。引き継ぐとポインターとキーボードを使用できます。</string>
     <string name="shell_desktop_failed">デスクトップへの接続に失敗しました。</string>

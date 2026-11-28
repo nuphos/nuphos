@@ -10,6 +10,11 @@
     <string name="chats_show_more">もっと見る</string>
     <string name="chats_question_your_answer">あなたの回答</string>
     <string name="chats_question_send_answer">回答を送信</string>
+    <string name="chats_question_other_picked">その他</string>
+    <string name="chats_question_choose_any">複数選択可</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">あと %1$d 問に回答</item>
+    </plurals>
     <string name="chats_question_heading_approval">承認が必要</string>
     <string name="chats_question_heading_preference">選択してください</string>
     <string name="chats_question_heading_credential">認証情報が必要</string>
@@ -69,4 +74,28 @@
     <string name="chats_presence_sign_in">サインインが必要</string>
     <string name="chats_presence_usage">使用量の上限</string>
     <string name="chats_presence_unavailable">利用不可</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">メンバー</string>
+    <string name="chats_members_people">ユーザー</string>
+    <string name="chats_members_add_bot">ボットを追加</string>
+    <string name="chats_members_your_bots">あなたのボット</string>
+    <string name="chats_members_add_bot_note">ボットを追加すると、ここにいる全員がそのボットと話せます。承認が必要なものは、引き続きボット自身のチャットであなたを待ちます。</string>
+    <string name="chats_members_no_bots">あなたのボットはすべて追加済みです。</string>
+    <string name="chats_members_owner_only">ユーザーを追加できるのはオーナーだけです。</string>
+    <string name="chats_members_you">%1$s（あなた）</string>
+    <string name="chats_members_more">%1$s のその他のオプション</string>
+    <string name="chats_members_add">%1$s を追加</string>
+    <string name="chats_members_leave">チャットから退出</string>
+    <string name="chats_members_leave_title">「%1$s」から退出しますか？</string>
+    <string name="chats_members_leave_owner">%1$s さんがオーナーになります。誰かに追加してもらわない限り戻れません。</string>
+    <string name="chats_members_leave_member">誰かに追加してもらわない限り戻れません。</string>
+    <string name="chats_members_leave_last">ここにいるのはあなただけなので、チャットはアーカイブされます。</string>
+    <string name="chats_members_leave_confirm">退出</string>
+    <string name="chats_members_left">「%1$s」から退出しました</string>
+    <string name="chats_members_leave_failed">チャットから退出できませんでした</string>
+    <string name="chats_members_add_bot_failed">ボットを追加できませんでした</string>
+    <string name="chats_members_add_person_failed">追加できませんでした</string>
+    <string name="chats_members_remove_failed">削除できませんでした</string>
+    <string name="chats_members_load_failed">メンバーを読み込めませんでした</string>
+    <string name="chats_members_retry">再試行</string>
 </resources>

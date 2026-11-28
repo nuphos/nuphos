@@ -10,6 +10,11 @@
     <string name="chats_show_more">顯示更多</string>
     <string name="chats_question_your_answer">你的回答</string>
     <string name="chats_question_send_answer">送出回答</string>
+    <string name="chats_question_other_picked">其他</string>
+    <string name="chats_question_choose_any">可複選</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">還需回答 %1$d 題</item>
+    </plurals>
     <string name="chats_question_heading_approval">需要核准</string>
     <string name="chats_question_heading_preference">由你選擇</string>
     <string name="chats_question_heading_credential">需要憑證</string>
@@ -69,4 +74,28 @@
     <string name="chats_presence_sign_in">需要登入</string>
     <string name="chats_presence_usage">用量已用完</string>
     <string name="chats_presence_unavailable">無法使用</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">成員</string>
+    <string name="chats_members_people">人員</string>
+    <string name="chats_members_add_bot">新增 Bot</string>
+    <string name="chats_members_your_bots">你的 Bot</string>
+    <string name="chats_members_add_bot_note">新增你的 Bot 後，這裡的每個人都能和它對話。需要核准的事項仍會在它自己的聊天中等你處理。</string>
+    <string name="chats_members_no_bots">你的 Bot 都已在這裡。</string>
+    <string name="chats_members_owner_only">只有擁有者可以新增人員。</string>
+    <string name="chats_members_you">%1$s（你）</string>
+    <string name="chats_members_more">%1$s 的更多選項</string>
+    <string name="chats_members_add">新增 %1$s</string>
+    <string name="chats_members_leave">離開聊天</string>
+    <string name="chats_members_leave_title">要離開「%1$s」嗎？</string>
+    <string name="chats_members_leave_owner">%1$s 將成為擁有者。只有有人重新新增你，你才能回來。</string>
+    <string name="chats_members_leave_member">只有有人重新新增你，你才能回來。</string>
+    <string name="chats_members_leave_last">你是這裡的最後一個人，聊天將被封存。</string>
+    <string name="chats_members_leave_confirm">離開</string>
+    <string name="chats_members_left">你已離開「%1$s」</string>
+    <string name="chats_members_leave_failed">無法離開聊天</string>
+    <string name="chats_members_add_bot_failed">無法新增 Bot</string>
+    <string name="chats_members_add_person_failed">無法新增</string>
+    <string name="chats_members_remove_failed">無法移除</string>
+    <string name="chats_members_load_failed">無法載入成員</string>
+    <string name="chats_members_retry">重試</string>
 </resources>

@@ -1,4 +1,4 @@
-// A Bot's owner rewrites its instructions in Bot details, in place; anyone else only reads them.
+// A Bot's owner rewrites its instructions in Edit Bot's Advanced page, saved with the rest.
 import { execFileSync } from 'node:child_process'
 import { resolve } from 'node:path'
 
@@ -17,9 +17,8 @@ const LONG = Array.from(
 ).join('\n')
 
 const details = (page: Page) => page.getByRole('complementary', { name: 'Bot details' })
-const section = (page: Page) =>
-  details(page).getByRole('region', { name: 'Bot instructions', exact: true })
-const pencil = (page: Page) => section(page).getByRole('button', { name: 'Edit instructions' })
+const dialog = (page: Page) => page.getByRole('dialog', { name: 'Edit Bot' })
+const field = (page: Page) => dialog(page).getByRole('textbox', { name: /^Instructions/ })
 
 /** Runs a script against the E2E database and returns what it printed. */
 function mongo(stack: Stack, script: string, ...args: string[]): string {
@@ -59,6 +58,12 @@ async function openChat(page: Page, name: string) {
   await page.locator(`[aria-placeholder="Message ${name}"]`).waitFor()
 }
 
+async function openAdvanced(page: Page) {
+  await details(page).getByRole('button', { name: 'Edit Bot' }).click()
+  await dialog(page).getByRole('tab', { name: 'Advanced' }).click()
+  await field(page).waitFor()
+}
+
 async function api(stack: Stack, path: string, body: object, method = 'POST', token = stack.token) {
   const response = await fetch(`${stack.apiUrl}${path}`, {
     method,
@@ -72,7 +77,7 @@ async function api(stack: Stack, path: string, body: object, method = 'POST', to
 }
 
 const scenario: Scenario = {
-  name: "a Bot's owner rewrites its instructions in Bot details; anyone else only reads them",
+  name: "a Bot's owner rewrites its instructions in Edit Bot, saved with the rest",
   // The over-long save is refused on purpose, to show where the reason goes.
   expected:
     /"method":"PATCH","path":"\/agent\/conversations\/[0-9a-f-]+\/instructions","status":400/,
@@ -81,43 +86,43 @@ const scenario: Scenario = {
 
     await openChat(page, NAME)
     await setBotDetails(page, true)
-    await section(page).getByText('None yet').waitFor()
-    await pencil(page).waitFor()
-    await shoot(page, 'none-yet')
+    // Bot details no longer carries the instructions: they live in Edit Bot.
+    if ((await details(page).getByText('Bot instructions').count()) > 0)
+      throw new Error('Bot details still shows the instructions')
+    await openAdvanced(page)
+    await dialog(page).getByText('No triggers yet').waitFor()
+    await shoot(page, 'empty')
 
-    // Editing: the text becomes a field that grows to 320px, then scrolls.
-    await pencil(page).click()
-    const field = section(page).getByRole('textbox', { name: 'Bot instructions' })
-
-    await field.fill(LONG)
-    if ((await pencil(page).count()) > 0) throw new Error('The pencil shows while editing')
-    await field.evaluate((node) => node.scrollTo({ top: node.scrollHeight }))
+    // Saving: the dialog closes and the instructions are stored as typed.
+    await field(page).fill(LONG)
     await shoot(page, 'editing')
-    await field.press(process.platform === 'darwin' ? 'Meta+Enter' : 'Control+Enter')
-    await field.waitFor({ state: 'detached' })
-    const items = section(page).getByRole('listitem')
-
-    await items.nth(29).getByText('Check the release notes.', { exact: true }).waitFor()
-    if ((await items.count()) !== 30) throw new Error('The instructions list is incomplete')
-    await items.last().scrollIntoViewIfNeeded()
+    await dialog(page).getByRole('button', { name: 'Save' }).click()
+    await dialog(page).waitFor({ state: 'detached' })
     await until(
       'the instructions to be stored',
       async () => stored(stack, bot.sessionId) === JSON.stringify(LONG),
     )
     await page.reload()
-    await items.first().getByText('Check the release notes.', { exact: true }).waitFor()
-    await shoot(page, 'owner')
+    await openChat(page, NAME)
+    await openAdvanced(page)
+    if ((await field(page).inputValue()) !== LONG) throw new Error('Edit Bot lost the Markdown')
 
-    // Refused: the field stays with its text and the reason under it.
-    await pencil(page).click()
-    if ((await field.inputValue()) !== LONG) throw new Error('Editing lost the Markdown source')
-    await field.fill('x'.repeat(8001))
-    await section(page).getByRole('button', { name: 'Save' }).click()
-    await section(page).getByText('Instructions must be at most 8000 characters').waitFor()
-    if ((await field.inputValue()).length !== 8001) throw new Error('A refused save lost the text')
+    // Refused: the dialog stays open with the text, and the reason shows in a toast.
+    await field(page).fill('x'.repeat(8001))
+    await dialog(page).getByRole('button', { name: 'Save' }).click()
+    const toasts = page.getByRole('region', { name: 'Notifications' })
+    const reason = toasts.getByText('Instructions must be at most 8000 characters')
+
+    await reason.waitFor()
+    if ((await field(page).inputValue()).length !== 8001)
+      throw new Error('A refused save lost the text')
     await shoot(page, 'save-failed')
-    await field.press('Escape')
-    await field.waitFor({ state: 'detached' })
+    await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+    await dialog(page).waitFor({ state: 'detached' })
+    // An error toast stays until dismissed, and would cover what the next scenario clicks.
+    for (const dismiss of await toasts.getByLabel('Dismiss', { exact: true }).all())
+      await dismiss.click()
+    await reason.waitFor({ state: 'detached' })
     if (stored(stack, bot.sessionId) !== JSON.stringify(LONG))
       throw new Error('A refused save changed the instructions')
 

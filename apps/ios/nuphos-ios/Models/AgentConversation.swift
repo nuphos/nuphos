@@ -159,6 +159,8 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
     var faces: [ChatFace]?
     /// A chat's agent members, all of them; a Bot in any chat needs no row of its own.
     var agentSessionIds: [String]?
+    /// A Bot's: whether it can reply now, as a chat's member list shows it.
+    var presence: BotPresence? = nil
     /// The folder a Task works in; Tasks group under it as projects, as on Desktop.
     var workspace: Workspace?
     struct Workspace: Codable, Equatable, Hashable, Sendable { var path: String? }
@@ -254,6 +256,7 @@ struct AgentConversation: Codable, Identifiable, Equatable, Hashable, Sendable {
         inputRequests = try? c.decodeIfPresent([InputRequest].self, forKey: .inputRequests)
         botOnboarding = try? c.decodeIfPresent(String.self, forKey: .botOnboarding)
         instructions = try? c.decodeIfPresent(String.self, forKey: .instructions)
+        presence = try? c.decodeIfPresent(BotPresence.self, forKey: .presence)
     }
 
     init(

@@ -1,6 +1,6 @@
 import { executable } from './agent-cli-apps.ts'
 import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
-import { discoverModels } from './agent-models.ts'
+import { discoverModels, rereadModels } from './agent-models.ts'
 import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
@@ -60,7 +60,7 @@ export class LocalRuntimeController {
         (childDeps, provider) => new LocalRuntimeController(childDeps, [provider], true),
         this.reportChange,
         {
-          refreshDefault: (provider, restart) => this.refresh(restart, [provider]),
+          refreshDefault: (provider, restart, read) => this.refresh(restart, [provider], read),
           pauseDefault: this.whileStopped,
         },
       )
@@ -120,10 +120,8 @@ export class LocalRuntimeController {
 
     return [launches]
   }
-  async refresh(
-    restart = false,
-    providers: readonly LocalAgentProvider[] = this.providers,
-  ): Promise<LocalRuntimeState> {
+  /** Checks agents again; `signedIn` after a sign-in through Nuphos, to read their models now. */
+  async refresh(restart = false, providers = this.providers, signedIn = false) {
     const userId = this.userId
 
     if (!userId) return this.state()
@@ -145,9 +143,11 @@ export class LocalRuntimeController {
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
-      providers
-        .filter((provider) => restart || !this.agents[provider].process || moved.has(provider))
-        .map((provider) => this.launch(provider)),
+      providers.map(async (provider) => {
+        if (restart || !this.agents[provider].process || moved.has(provider))
+          await this.launch(provider)
+        else if (signedIn) await rereadModels(this.agents[provider])
+      }),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
     await this.instances?.refresh(restart, providers)

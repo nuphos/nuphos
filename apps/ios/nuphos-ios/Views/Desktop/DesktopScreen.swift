@@ -241,7 +241,7 @@ struct DesktopScreen: View {
             LucideIcon("mouse-pointer-2")
                 .font(.system(size: 28, weight: .light))
             Text(desktop.isMacScreen
-                 ? "Take over to click, type and scroll on the Mac from here."
+                 ? "Take over to click, type and scroll on this computer from here."
                  : "Take over to click, type and scroll here. Work pauses until you hand the desktop back.")
                 .font(Theme.Text.caption)
                 .multilineTextAlignment(.center)

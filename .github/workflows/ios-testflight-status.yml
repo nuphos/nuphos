@@ -1,0 +1,59 @@
+name: iOS TestFlight status
+
+# Read-only: lists the newest iOS builds on App Store Connect with their
+# processing and Beta App Review state, so a release can be checked without a
+# signed-in Mac. It changes nothing on App Store Connect. The table goes to the
+# run summary and to the log, which the API can read.
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  status:
+    environment: ios-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: List the newest builds
+        env:
+          API_KEY_BASE64: ${{ secrets.APPLE_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APP_ID: '6812533633'
+          # Same version as release-ios.yml.
+          ASC_VERSION: 5.14.3
+          ASC_SHA256: c8e964528c3861a476b0d257d357533d8431b362fab2a7db078cc450ef48b6e9
+        run: |
+          set -euo pipefail
+          KEY_PATH="$RUNNER_TEMP/AuthKey.p8"
+          (umask 077 && echo "$API_KEY_BASE64" | base64 -d > "$KEY_PATH")
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/asc" \
+            "https://github.com/rudrankriyam/App-Store-Connect-CLI/releases/download/$ASC_VERSION/asc_${ASC_VERSION}_linux_amd64"
+          echo "$ASC_SHA256  $RUNNER_TEMP/asc" | sha256sum -c - >/dev/null
+          chmod +x "$RUNNER_TEMP/asc"
+          "$RUNNER_TEMP/asc" auth login --bypass-keychain --skip-validation --name ci \
+            --key-id "$KEY_ID" --issuer-id "$ISSUER" --private-key "$KEY_PATH" >/dev/null
+          "$RUNNER_TEMP/asc" builds list --app "$APP_ID" --platform IOS --sort=-uploadedDate --limit 20 \
+            --include preReleaseVersion,buildBetaDetail,betaAppReviewSubmission --output json > "$RUNNER_TEMP/builds.json"
+          {
+            echo "Checked at $(date -u +%Y-%m-%dT%H:%M:%SZ). The 20 newest iOS builds:"
+            echo
+            echo '| Version | Build | Uploaded | Processing | Beta review | Submitted | External | Internal | Expired |'
+            echo '| --- | --- | --- | --- | --- | --- | --- | --- | --- |'
+            jq -r '
+              (.included // []) as $inc
+              | def rel($build; $name): $build.relationships[$name].data as $ref
+                  | first($inc[] | select($ref != null and .type == $ref.type and .id == $ref.id) | .attributes) // {};
+              .data[]
+              | . as $b
+              | rel($b; "betaAppReviewSubmission") as $review
+              | rel($b; "buildBetaDetail") as $detail
+              | [ rel($b; "preReleaseVersion").version, .attributes.version, .attributes.uploadedDate,
+                  .attributes.processingState, $review.betaReviewState, $review.submittedDate,
+                  $detail.externalBuildState, $detail.internalBuildState, .attributes.expired ]
+              | "| " + (map(if . == null then "-" else tostring end) | join(" | ")) + " |"
+            ' "$RUNNER_TEMP/builds.json"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          rm -f "$KEY_PATH"

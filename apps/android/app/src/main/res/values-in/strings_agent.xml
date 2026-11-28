@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">Balasan belum dibaca</string>
     <string name="agent_archived">Diarsipkan</string>
+    <string name="agent_no_project">Tanpa proyek</string>
     <string name="agent_unlink_task_title">Lepas tautan tugas?</string>
     <string name="agent_unlink_task_body">“%1$s” akan muncul sendiri di daftar tugas. Pesan dan izin berbaginya tetap sama.</string>
     <string name="agent_select_runtime_before_start">Pilih runtime yang tersedia sebelum memulai agen baru.</string>

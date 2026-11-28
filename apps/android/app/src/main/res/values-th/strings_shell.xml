@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">ชื่อผู้ใช้นี้ถูกใช้แล้ว โปรดเลือกชื่ออื่น</string>
     <string name="shell_auth_profile_failed">บันทึกโปรไฟล์ของคุณไม่ได้</string>
     <string name="shell_auth_unreachable">เชื่อมต่อ Nuphos ไม่ได้ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
+    <string name="shell_auth_account_expired">เซสชันของบัญชีนี้หมดอายุแล้ว โปรดลงชื่อเข้าใช้อีกครั้ง</string>
     <string name="shell_auth_window_failed">เปิดหน้าต่างลงชื่อเข้าใช้ไม่ได้ โปรดลองอีกครั้ง</string>
     <string name="shell_auth_secure_incomplete">การลงชื่อเข้าใช้อย่างปลอดภัยไม่สำเร็จ ตรวจสอบการเชื่อมต่อแล้วลองอีกครั้ง</string>
     <string name="shell_auth_wrong_password">อีเมลหรือรหัสผ่านไม่ถูกต้อง</string>
@@ -154,7 +155,7 @@
     <string name="shell_desktop">เดสก์ท็อป</string>
     <string name="shell_desktop_decode_failed">ถอดรหัสเดสก์ท็อปนี้ไม่ได้ ลองอีกครั้งเพื่อเริ่มการเชื่อมต่อใหม่</string>
     <string name="shell_desktop_connecting">กำลังเชื่อมต่อ…</string>
-    <string name="shell_desktop_mac_shared">คุณควบคุมหน้าจอของ Mac อยู่ เอเจนต์ยังใช้ได้เช่นกัน</string>
+    <string name="shell_desktop_mac_shared">คุณควบคุมหน้าจอของคอมพิวเตอร์เครื่องนี้อยู่ เอเจนต์ยังใช้ได้เช่นกัน</string>
     <string name="shell_desktop_in_control">คุณควบคุมอยู่ ส่งคืนเพื่อให้เอเจนต์ใช้เดสก์ท็อปนี้ได้</string>
     <string name="shell_desktop_watching">กำลังดูอยู่ เข้าควบคุมเพื่อใช้ตัวชี้และแป้นพิมพ์</string>
     <string name="shell_desktop_failed">การเชื่อมต่อเดสก์ท็อปล้มเหลว</string>

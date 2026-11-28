@@ -10,6 +10,11 @@
     <string name="chats_show_more">แสดงเพิ่มเติม</string>
     <string name="chats_question_your_answer">คำตอบของคุณ</string>
     <string name="chats_question_send_answer">ส่งคำตอบ</string>
+    <string name="chats_question_other_picked">อื่นๆ</string>
+    <string name="chats_question_choose_any">เลือกได้หลายข้อ</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">ตอบอีก %1$d ข้อ</item>
+    </plurals>
     <string name="chats_question_heading_approval">ต้องการการอนุมัติ</string>
     <string name="chats_question_heading_preference">ตัวเลือกของคุณ</string>
     <string name="chats_question_heading_credential">ต้องการข้อมูลรับรอง</string>
@@ -69,4 +74,28 @@
     <string name="chats_presence_sign_in">ต้องลงชื่อเข้าใช้</string>
     <string name="chats_presence_usage">ใช้งานครบโควตา</string>
     <string name="chats_presence_unavailable">ไม่พร้อมใช้งาน</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">สมาชิก</string>
+    <string name="chats_members_people">ผู้คน</string>
+    <string name="chats_members_add_bot">เพิ่มบอท</string>
+    <string name="chats_members_your_bots">บอทของคุณ</string>
+    <string name="chats_members_add_bot_note">เมื่อเพิ่มบอทของคุณ ทุกคนที่นี่จะคุยกับบอทได้ สิ่งที่ต้องอนุมัติยังคงรอคุณอยู่ในแชทของบอทเอง</string>
+    <string name="chats_members_no_bots">บอททั้งหมดของคุณอยู่ที่นี่แล้ว</string>
+    <string name="chats_members_owner_only">มีเพียงเจ้าของที่เพิ่มผู้คนได้</string>
+    <string name="chats_members_you">%1$s (คุณ)</string>
+    <string name="chats_members_more">ตัวเลือกเพิ่มเติมสำหรับ %1$s</string>
+    <string name="chats_members_add">เพิ่ม %1$s</string>
+    <string name="chats_members_leave">ออกจากแชท</string>
+    <string name="chats_members_leave_title">ออกจาก “%1$s” ไหม</string>
+    <string name="chats_members_leave_owner">%1$s จะเป็นเจ้าของ คุณจะกลับมาได้ก็ต่อเมื่อมีคนเพิ่มคุณ</string>
+    <string name="chats_members_leave_member">คุณจะกลับมาได้ก็ต่อเมื่อมีคนเพิ่มคุณ</string>
+    <string name="chats_members_leave_last">คุณเป็นคนสุดท้ายที่นี่ แชทจึงจะถูกเก็บถาวร</string>
+    <string name="chats_members_leave_confirm">ออก</string>
+    <string name="chats_members_left">คุณออกจาก “%1$s” แล้ว</string>
+    <string name="chats_members_leave_failed">ออกจากแชทไม่ได้</string>
+    <string name="chats_members_add_bot_failed">เพิ่มบอทไม่ได้</string>
+    <string name="chats_members_add_person_failed">เพิ่มไม่ได้</string>
+    <string name="chats_members_remove_failed">นำออกไม่ได้</string>
+    <string name="chats_members_load_failed">โหลดสมาชิกไม่ได้</string>
+    <string name="chats_members_retry">ลองอีกครั้ง</string>
 </resources>

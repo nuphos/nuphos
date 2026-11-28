@@ -30,6 +30,7 @@ import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { localToolStreams } from './cua-stream.ts'
 import {
   enableDesktopPool,
   desktopStatus,
@@ -38,7 +39,6 @@ import {
   withDesktopRequests,
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
-import { LocalExecStream } from './exec-stream.ts'
 import { withHostProvider } from './host-provider.ts'
 import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
@@ -104,7 +104,7 @@ setTokenSource(() => Promise.resolve(currentToken())) // API calls go out with t
 
 // e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
 const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
-// A Linux Box with Xvnc gives every session its own desktop (see desktop-session.mjs).
+// A Linux computer with Xvnc, XFCE and open-computer-use gives every session its own desktop (see desktop-session.mjs).
 const desktopPool = e2eMacScreenHost ? null : enableDesktopPool(bundleRoot, dataDir)
 const desktopWrapper = path.join(bundleRoot, 'desktop-session.mjs')
 
@@ -185,7 +185,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
         void controller.shutdown().then(() => exitRevoked())
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
-      connectExec: () => new LocalExecStream(),
+      ...localToolStreams(bundleRoot),
       ...cliBrowser(dataDir, findBrowser(), desktopPool),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
@@ -215,7 +215,7 @@ const controller = new LocalRuntimeController(withHostProvider(process.env, deps
 
 // A desktop appearing or going changes the status; the pool directory says when.
 if (desktopPool) watchDesktops(desktopPool, () => tunnel?.sendStatus())
-// A Mac shows its own screen (mac-screen.ts); its host, not node, holds the screen permissions.
+// A Mac, or Linux on X11 with no desktop pool, shows its own screen (mac-screen.ts).
 const macScreen = enableMacScreen(
   dataDir,
   () => tunnel?.sendStatus(),

@@ -106,7 +106,7 @@ function ChangeBotAvatarDialog({
           className="[&_img]:[background:var(--bot-avatar-background)]"
           style={
             {
-              '--bot-avatar-background': (shown && botAvatarBackgroundColor(background)) || 'none',
+              '--bot-avatar-background': shown ? botAvatarBackgroundColor(background) : 'none',
             } as React.CSSProperties
           }
         >

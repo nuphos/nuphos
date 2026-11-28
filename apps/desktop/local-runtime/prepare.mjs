@@ -11,6 +11,7 @@
 // get an openab binary is staged without one, and the app reports the Local
 // runtime as unavailable in that build.
 import { execFileSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   chmodSync,
   cpSync,
@@ -182,6 +183,46 @@ async function buildAdapter(provider) {
   return out
 }
 
+/**
+ * The Cua Driver (MIT, github.com/trycua/cua) behind `local_cua` on a Mac, pinned to one release
+ * and its digest. Its LICENSE and THIRD_PARTY_NOTICES ship beside it.
+ */
+const CUA_DRIVER = {
+  version: '0.64.3',
+  sha256: '4f7a888cc3f60422680a84c1f9817ad87f530619fcec7aa13383c7ee0f56b758',
+}
+
+/** Stages `cua-driver` thinned to `arch`, ad-hoc signed until a release signs it as Nuphos. */
+function stageCuaDriver(out, arch) {
+  const name = `cua-driver-rs-${CUA_DRIVER.version}-darwin-universal`
+  const dir = join(homedir(), '.cache', 'nuphos', name)
+  const archive = `${dir}.tar.gz`
+
+  if (!existsSync(dir)) {
+    const partial = `${dir}.partial`
+
+    rmSync(partial, { recursive: true, force: true })
+    mkdirSync(partial, { recursive: true })
+    run('curl', [
+      '-fsSL',
+      '-o',
+      archive,
+      `https://github.com/trycua/cua/releases/download/cua-driver-rs-v${CUA_DRIVER.version}/${name}.tar.gz`,
+    ])
+    const digest = createHash('sha256').update(readFileSync(archive)).digest('hex')
+
+    if (digest !== CUA_DRIVER.sha256) throw new Error(`${name}.tar.gz has sha256 ${digest}`)
+    run('tar', ['-xzf', archive, '-C', partial])
+    renameSync(join(partial, name), dir)
+    rmSync(partial, { recursive: true })
+    rmSync(archive)
+  }
+  run('lipo', [join(dir, 'cua-driver'), '-thin', arch, '-output', join(out, 'cua-driver')])
+  run('codesign', ['--force', '--sign', '-', join(out, 'cua-driver')])
+  cpSync(join(dir, 'LICENSE'), join(out, 'cua-driver-LICENSE'))
+  cpSync(join(dir, 'THIRD_PARTY_NOTICES.md'), join(out, 'cua-driver-THIRD_PARTY_NOTICES.md'))
+}
+
 function buildOpenab(target, revision) {
   const triple = RUST_TARGETS[target]
 
@@ -299,6 +340,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
         ],
         desktopDir,
       )
+      stageCuaDriver(out, arch)
     }
     const binary = skipOpenab ? null : (openab ?? buildOpenab(target, revision))
 

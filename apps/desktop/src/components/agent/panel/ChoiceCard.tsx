@@ -25,7 +25,7 @@ import type { ReactNode } from 'react'
  * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
  * and "Dismiss" to withdraw it unanswered, all one row of the same pill
  * (`DecisionOptions`). A multi-select or several questions pick their options and
- * send them at once. The answer
+ * send them at once with Send, in one footer after Snooze and Dismiss. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
 export function ChoiceCard({

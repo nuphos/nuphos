@@ -34,6 +34,8 @@ const neverResponds = () =>
 const triggerQueries: unknown[][] = []
 const bypassQueries: unknown[] = []
 const renames: unknown[][] = []
+// Conversations a test lets load; every other one stays pending.
+const conversations = new Map<string, unknown>()
 const pending = new Proxy(
   {},
   {
@@ -50,6 +52,8 @@ const pending = new Proxy(
 
           return Promise.resolve({ title: args[1] })
         }
+        if (key === 'agentGetConversation' && conversations.has(args[0] as string))
+          return Promise.resolve(conversations.get(args[0] as string))
         if (key === 'agentGetAutoModeBypass') {
           bypassQueries.push(args[0])
 
@@ -175,10 +179,9 @@ test('a listed Bot chat opens with its name, runtime and credentials before it l
 
   assert.ok(panel, 'the Bot details panel opens beside the chat')
   assert.ok(buttonNamed(panel, 'Edit Bot'), 'its owner can edit the Bot')
-  assert.ok(triggerQueries.length > 0)
-  for (const query of triggerQueries)
-    assert.deepEqual(query, ['team', 'bot'], 'queries the Bot, not its chat or the team')
-  assert.ok(panel.textContent.includes('Ask here to schedule recurring work.'))
+  // Its instructions and Triggers are edited in Edit Bot, so the details list neither.
+  assert.equal(triggerQueries.length, 0)
+  assert.ok(!panel.textContent.includes('Triggers'))
   assert.equal(
     panel.querySelector('section[aria-label="Changes"]'),
     null,
@@ -390,3 +393,149 @@ test("a group chat's owner renames it from its header", async () => {
   await act(() => root.unmount())
   queryClient.clear()
 })
+
+// A new Bot shows cards in its first chat too, while it is still getting started.
+for (const botOnboarding of [undefined, 'active'] as const)
+  test(`#5272: a Bot chat shows the artifact its Bot made and opens it beside the chat (onboarding: ${botOnboarding})`, async () => {
+    queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+      row({
+        sessionId: 'cards',
+        kind: 'channel',
+        faces: [{ id: 'maker', name: 'Ada', agent: {} }],
+      }),
+      row({ sessionId: 'maker', title: 'Ada', isOwner: true, botOnboarding }),
+    ])
+    // The chat has loaded: one post from the Bot saying it showed something.
+    queryClient.setQueryData(queryKeys.channel('team', 'cards'), {
+      detail: {
+        ...row({
+          sessionId: 'cards',
+          kind: 'channel',
+          faces: [{ id: 'maker', name: 'Ada', agent: {} }],
+        }),
+        messages: [
+          {
+            id: 'post',
+            role: 'assistant',
+            index: 0,
+            createdAt: new Date().toISOString(),
+            parts: [{ type: 'text', text: 'Opened it beside the chat.' }],
+            metadata: { version: 1, sender: { type: 'agent', id: 'maker', displayName: 'Ada' } },
+          },
+        ],
+      },
+      agents: [{ id: 'maker', name: 'Ada', sessionId: 'maker', title: 'Ada', ownerId: 'me' }],
+      revision: 'loaded',
+    })
+    // The Bot's own turn holds the call; its chat only holds what it posted.
+    conversations.set('maker', {
+      sessionId: 'maker',
+      messages: [
+        {
+          id: 'turn',
+          role: 'assistant',
+          createdAt: new Date().toISOString(),
+          parts: [
+            {
+              type: 'tool',
+              toolCallId: `call-${botOnboarding}`,
+              toolName: 'render_artifact',
+              state: 'output-available',
+              completedAt: Date.now(),
+              input: {
+                artifactId: `notes-${botOnboarding}`,
+                title: 'Launch notes',
+                kind: 'markdown',
+                content: '# Hi',
+              },
+              output: 'Shown beside the chat.',
+            },
+          ],
+        },
+      ],
+    })
+    const opened: unknown[][] = []
+    const container = dom.document.createElement('div')
+
+    dom.document.body.append(container)
+    const root = createRoot(container as unknown as HTMLElement)
+
+    await act(() =>
+      root.render(
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(ChannelPane, {
+            teamId: 'team',
+            channelId: 'cards',
+            user: { id: 'me', name: 'Me' } as UserInfo,
+            dockOpen: false,
+            onOpenSession: () => {},
+            onOpenNuphosLink: (...args: unknown[]) => {
+              opened.push(args)
+
+              return true
+            },
+          }),
+        ),
+      ),
+    )
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+
+    assert.ok(container.textContent.includes('Launch notes'), 'the chat shows the artifact card')
+    assert.deepEqual(
+      opened.at(-1),
+      [`/teams/team/artifacts/notes-${botOnboarding}`, false],
+      'the artifact opens beside the chat, as in a Task',
+    )
+    // A Bot that shows a card after its post: the chat reads again when the Bot's turns change.
+    conversations.set('maker', {
+      sessionId: 'maker',
+      messages: [
+        {
+          id: 'later',
+          role: 'assistant',
+          createdAt: new Date().toISOString(),
+          parts: [
+            {
+              type: 'tool',
+              toolCallId: `call-later-${botOnboarding}`,
+              toolName: 'render_artifact',
+              state: 'output-available',
+              completedAt: Date.now(),
+              input: {
+                artifactId: `later-${botOnboarding}`,
+                title: 'Release notes',
+                kind: 'markdown',
+                content: '# Hi',
+              },
+              output: 'Shown beside the chat.',
+            },
+          ],
+        },
+      ],
+    })
+    await act(() => {
+      queryClient.setQueryData<AgentConversation[]>(queryKeys.agentSessions('team'), [
+        row({
+          sessionId: 'cards',
+          kind: 'channel',
+          faces: [{ id: 'maker', name: 'Ada', agent: {} }],
+        }),
+        row({
+          sessionId: 'maker',
+          title: 'Ada',
+          isOwner: true,
+          botOnboarding,
+          transcriptUpdatedAt: 'later',
+        }),
+      ])
+    })
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)))
+    assert.ok(
+      container.textContent.includes('Release notes'),
+      'a card shown after the post appears too',
+    )
+    await act(() => root.unmount())
+    container.remove()
+  })

@@ -5,7 +5,7 @@ import { parseInstance, readInstances, writeInstances } from './agent-instances.
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
-import { instanceControllerDeps, secureStorageEnv, signOutInstance } from './instance-deps.ts'
+import { deleteInstanceSecrets, instanceControllerDeps, signOutInstance } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
 import { watchVaultAgents } from './vault-instances.ts'
 
@@ -207,8 +207,9 @@ export class InstanceControllers {
     await entry.starting?.catch(() => {})
     await entry.controller.shutdown()
     try {
-      if (entry.metadata.provider === 'claude-code')
-        await this.removeCredential(secureStorageEnv(dir, userId))
+      const { provider } = entry.metadata
+
+      await deleteInstanceSecrets(this.deps, dir, userId, provider, this.removeCredential)
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
@@ -236,7 +237,7 @@ export class InstanceControllers {
 
   /** A request about an added agent, which names it by its instance id. */
   private async instanceRequest(
-    method: 'remove' | 'commit' | 'reset',
+    method: 'remove' | 'commit' | 'reset' | 'restart',
     instanceId: unknown,
     userId: string,
   ): Promise<unknown> {
@@ -248,7 +249,7 @@ export class InstanceControllers {
     if (!entry) throw new Error('Runtime instance not found')
     if (method === 'reset') return this.reset(entry, userId)
     await entry.starting?.catch(() => {})
-    await entry.controller.refresh(false)
+    await entry.controller.refresh(method === 'restart', undefined, method === 'commit')
     if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
 
     return { instance: publicMetadata(entry.metadata) }
@@ -264,7 +265,7 @@ export class InstanceControllers {
     // The computer's own agent is named by its provider, an added one by its instance id.
     if (named && body.instanceId === undefined)
       return defaultAgentRequest(this.deps, userId, method, body.provider, this.defaults)
-    if (named) return this.instanceRequest(method, body.instanceId, userId)
+    if (named || method === 'restart') return this.instanceRequest(method, body.instanceId, userId)
     if (method === 'list')
       return {
         instances: [...this.entries.values()].map(({ metadata }) => publicMetadata(metadata)),

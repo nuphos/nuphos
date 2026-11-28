@@ -51,28 +51,35 @@ for (const [key, value] of Object.entries(browser))
 
 const { createRoot } = await import('react-dom/client')
 const { ChatSummaryTriggers } = await import('./ChatSummaryTriggers')
+const { AdvancedPage } = await import('../EditBotPages')
 
-async function mount() {
+/** Edit Bot's list, where Edit hands the change to the chat; a Task summary asks here instead. */
+const editBot = () =>
+  createElement(AdvancedPage, {
+    teamId: 'team',
+    sessionId: 'bot',
+    name: 'Ledger',
+    instructions: '',
+    onInstructionsChange: () => {},
+    onEditTrigger: (message: string) => edits.push(message),
+  })
+const summary = () => createElement(ChatSummaryTriggers, { teamId: 'team', sessionId: 'bot' })
+
+async function mount(element = summary()) {
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
   const root = createRoot(container as unknown as HTMLElement)
 
   await act(async () => {
-    root.render(
-      createElement(ChatSummaryTriggers, {
-        teamId: 'team',
-        sessionId: 'bot',
-        onEdit: (name: string) => edits.push(name),
-      }),
-    )
+    root.render(element)
   })
 
   return container
 }
 
 test('a Trigger row opens its details, and its switch does not', async () => {
-  const container = await mount()
+  const container = await mount(editBot())
 
   assert.ok(container.textContent?.includes('Runs on day 1 of each month at 01:00 UTC'))
   assert.ok(!container.textContent?.includes('Schedule: 0 1 1 * *'))
@@ -100,6 +107,16 @@ test('a Trigger row opens its details, and its switch does not', async () => {
   await act(async () => toggle.click())
   assert.deepEqual(updates, [{ id: 'trg-1', patch: { enabled: false } }])
   assert.equal(row.getAttribute('aria-expanded'), 'false', 'the switch leaves the row closed')
+})
+
+test('a Task summary row asks here to change it, with no Edit', async () => {
+  const container = await mount()
+
+  await act(async () =>
+    container.querySelector<HTMLButtonElement>('button[aria-expanded]')?.click(),
+  )
+  assert.ok(container.textContent?.includes('Ask here to change this trigger.'))
+  assert.ok(![...container.querySelectorAll('button')].some((b) => b.textContent === 'Edit'))
 })
 
 test('a zoned schedule stays on one short line, and a paused row says nothing the switch does not', async () => {

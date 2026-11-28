@@ -3,11 +3,11 @@ import assert from 'node:assert/strict'
 import { mock, test } from 'bun:test'
 import { Window } from 'happy-dom'
 import { act, createElement } from 'react'
-import { createRoot } from 'react-dom/client'
 
 import type { ReactNode } from 'react'
 
 const saved: unknown[][] = []
+const instructions: unknown[][] = []
 
 mock.module('../../../api', () => ({
   api: {
@@ -15,6 +15,12 @@ mock.module('../../../api', () => ({
     agentSetConversationAvatar: async (...args: unknown[]) => {
       saved.push(args)
     },
+    agentSetBotInstructions: async (...args: unknown[]) => {
+      instructions.push(args)
+
+      return { instructions: args[1] }
+    },
+    agentListTriggers: async () => [],
   },
 }))
 mock.module('../../Modal', () => ({
@@ -23,29 +29,34 @@ mock.module('../../Modal', () => ({
 mock.module('../../ui/toast', () => ({ toast: { apiError: () => undefined } }))
 mock.module('../AgentAvatarGrid', () => ({ AgentAvatarGrid: () => null }))
 mock.module('../BotAvatarImage', () => ({ BotAvatarImage: () => null }))
+// React reads the DOM it runs in once, on import: its change events need the window first.
+const dom = new Window()
+
+const browser: Record<string, unknown> = {
+  window: dom,
+  navigator: dom.navigator,
+  IS_REACT_ACT_ENVIRONMENT: true,
+}
+
+for (const key of Object.getOwnPropertyNames(dom))
+  if (!(key in globalThis)) browser[key] = Reflect.get(dom, key)
+for (const [key, value] of Object.entries(browser))
+  Object.defineProperty(globalThis, key, { configurable: true, writable: true, value })
+const { createRoot } = await import('react-dom/client')
 const { receiveAgentAvatars, agentAvatarBackground } =
   await import('../../../lib/agentAvatarChoices')
+const { queryClient } = await import('../../../lib/query/client')
+const { queryKeys } = await import('../../../lib/query/keys')
 const { RenameConversationDialog } = await import('./ConversationTitleEditor')
 
-test('Edit Bot shows, previews and saves the background of the same character', async () => {
-  const dom = new Window()
-  const values = {
-    window: dom,
-    document: dom.document,
-    HTMLElement: dom.HTMLElement,
-    Node: dom.Node,
-    IS_REACT_ACT_ENVIRONMENT: true,
-  }
-  const original = Object.keys(values).map(
-    (key) => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const,
-  )
-
-  for (const [key, value] of Object.entries(values))
-    Object.defineProperty(globalThis, key, { configurable: true, value })
+test('Edit Bot saves the background and, from Advanced, the instructions with one Save', async () => {
   receiveAgentAvatars(
     [{ sessionId: 'bot-1', avatar: '07-ada', avatarBackground: 'sky' }],
     Date.now(),
   )
+  queryClient.setQueryData(queryKeys.agentSessions('team-1'), [
+    { sessionId: 'bot-1', title: 'Pip', instructions: 'Be brief.' },
+  ])
   const container = dom.document.createElement('div')
 
   dom.document.body.append(container)
@@ -81,21 +92,32 @@ test('Edit Bot shows, previews and saves the background of the same character', 
 
     await act(() => mint.click())
     assert.ok(preview().some((color) => color.includes('avatar-mint')))
+    const advanced = container.querySelector('[role="tab"]:nth-child(2)') as unknown as HTMLElement
+
+    await act(async () => advanced.click())
+    assert.match(container.textContent, /No triggers yet/)
+    const textarea = container.querySelector('textarea') as unknown as HTMLTextAreaElement
+
+    assert.equal(textarea.value, 'Be brief.', 'Advanced opens on the saved instructions')
+    const setValue = Object.getOwnPropertyDescriptor(dom.HTMLTextAreaElement.prototype, 'value')
+
+    await act(() => {
+      setValue?.set?.call(textarea, 'Be brief and kind.')
+      textarea.dispatchEvent(new dom.Event('input', { bubbles: true }))
+    })
     const form = container.querySelector('form')
 
     assert.ok(form)
     await act(async () => {
       form.dispatchEvent(new dom.Event('submit', { bubbles: true, cancelable: true }))
+      // The face is saved first, then the instructions.
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
     assert.deepEqual(saved, [['bot-1', '07-ada', 'team-1', 'mint']])
+    assert.deepEqual(instructions, [['bot-1', 'Be brief and kind.', 'team-1']])
     assert.equal(agentAvatarBackground('bot-1'), 'mint')
     assert.equal(closed, true)
   } finally {
     await act(() => root.unmount())
-    await dom.happyDOM.close()
-    for (const [key, descriptor] of original) {
-      if (descriptor) Object.defineProperty(globalThis, key, descriptor)
-      else Reflect.deleteProperty(globalThis, key)
-    }
   }
 })

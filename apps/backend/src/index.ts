@@ -12,7 +12,10 @@ import { wakeOnRuntime } from '@/lib/agent/channel-missed-posts'
 import { startFreeBoxSweep } from '@/lib/agent/devices/box-free-sweep'
 import { startBoxUpdateSweep } from '@/lib/agent/devices/box-update-sweep'
 import { closeTunnelsForRestart } from '@/lib/agent/devices/local-runtime/holder'
-import { conversationAutoArchive } from '@/lib/agent/conversation-auto-archive'
+import {
+  conversationAutoArchive,
+  restoreStrandedBotChats,
+} from '@/lib/agent/conversation-auto-archive'
 import { assertRegistryInvariants } from '@/lib/agent/memory-slots'
 import {
   initMemoryRetentionRollup,
@@ -114,11 +117,12 @@ if (cancelledPlans > 0) {
   logEvent('info', 'backend.migration.agent_plans_cancelled', { plans: cancelledPlans })
 }
 
+await restoreStrandedBotChats()
 await backfillPersonalTokenExpiry()
 
 // A queued message starts when the turn ahead lets go; a runtime back wakes its agents.
 installQueuedTurnStarter(startQueuedTurn)
-installRuntimeWake(wakeOnRuntime)
+installRuntimeWake((teamId, endpoint) => void wakeOnRuntime(teamId, endpoint))
 await dashboardRefreshScheduler.init()
 if (await initTriggerScheduler()) logEvent('info', 'backend.trigger_scheduler.ready')
 

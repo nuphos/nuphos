@@ -15,6 +15,30 @@ test('a computer reports usage the quota normalizer can read', () => {
   expect(parsed.agents['claude-code']?.usage).toEqual(usage)
 })
 
+test('a Codex reading keeps whether credits still pay, never the balance', () => {
+  const parsed = localRuntimeStatusSchema.parse({
+    agents: {
+      codex: {
+        cli: { installed: true, loggedIn: true },
+        usage: {
+          plan_type: 'pro',
+          credits: {
+            has_credits: true,
+            unlimited: false,
+            overage_limit_reached: false,
+            balance: '43256.31',
+          },
+        },
+      },
+    },
+  })
+
+  expect(parsed.agents.codex?.usage).toEqual({
+    plan_type: 'pro',
+    credits: { has_credits: true, unlimited: false, overage_limit_reached: false },
+  })
+})
+
 test('anything else in the usage field is stripped before the team can see it', () => {
   const parsed = localRuntimeStatusSchema.parse({
     agents: {

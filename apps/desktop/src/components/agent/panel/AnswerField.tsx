@@ -10,7 +10,8 @@ import { useVoiceDictation } from './useVoiceDictation'
 import { dictationInsert, isVoiceShortcut } from './voiceDictation'
 
 /**
- * A question answered in words: a field and "Send", opened by "Other…". Esc
+ * A question answered in words: a field and "Send", opened by "Other…"; in a form,
+ * no button, the card's one Send being its own (`action={null}`). Esc
  * closes it; the caller keeps `text`, so what was typed is there when it opens again.
  * With `voiceTeamId`, a microphone (or mod+shift+U) dictates: while it records, a
  * bar like the iOS composer's takes the field's place. ■ puts the transcript in
@@ -26,6 +27,7 @@ export function AnswerField({
   optional = false,
   maxLength,
   voiceTeamId,
+  autoFocus = true,
 }: {
   text: string
   onText: (text: string) => void
@@ -33,13 +35,15 @@ export function AnswerField({
   onClose: () => void
   /** The field's name, shown while it is empty. */
   label?: string
-  /** What the button does. */
-  action?: string
+  /** What the button does; null for none, where Return alone sends. */
+  action?: string | null
   /** It may be sent empty. */
   optional?: boolean
   /** The most characters it takes, where the server takes no more. */
   maxLength?: number
   voiceTeamId?: string
+  /** It takes the caret as it opens; false for one shown from the start, as a form's "Reply…". */
+  autoFocus?: boolean
 }) {
   const field = useRef<HTMLInputElement>(null)
   const voice = useVoiceDictation({
@@ -56,8 +60,11 @@ export function AnswerField({
   const idle = voice.phase.kind === 'idle'
 
   // On opening, and when a take ends: the field is back, with any transcript in it.
+  const focusNext = useRef(autoFocus)
+
   useEffect(() => {
-    if (idle) field.current?.focus()
+    if (!idle) focusNext.current = true
+    else if (focusNext.current) field.current?.focus()
   }, [idle])
 
   if (!idle)
@@ -103,15 +110,17 @@ export function AnswerField({
         className="h-[38px] min-w-0 flex-1 rounded-[10px] bg-surface-raised px-3 text-[13.5px] text-main shadow-[0_0_0_1px_rgb(var(--color-line-control))] outline-none placeholder:text-tertiary focus:shadow-[0_0_0_1px_rgb(var(--color-line-focus)),0_0_0_4px_rgba(28,26,23,0.05)]"
       />
       {voice.available && <ComposerVoiceButton hero={false} onStart={() => void voice.start()} />}
-      <Button
-        type="submit"
-        size="md"
-        className="h-[38px] px-3.5 text-[13px]"
-        disabled={!optional && !text.trim()}
-      >
-        {action}
-        <kbd className="rounded bg-white/15 px-1 text-[11px] font-normal">↵</kbd>
-      </Button>
+      {action !== null && (
+        <Button
+          type="submit"
+          size="md"
+          className="h-[38px] px-3.5 text-[13px]"
+          disabled={!optional && !text.trim()}
+        >
+          {action}
+          <kbd className="rounded bg-white/15 px-1 text-[11px] font-normal">↵</kbd>
+        </Button>
+      )}
     </form>
   )
 }

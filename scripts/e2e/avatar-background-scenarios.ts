@@ -3,6 +3,7 @@ import { client, must } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 
 import type { Scenario } from './ui.ts'
+import type { Page } from 'playwright-core'
 
 export const avatarBackgroundScenarios: Scenario[] = [
   {
@@ -51,20 +52,22 @@ export const avatarBackgroundScenarios: Scenario[] = [
         .first()
 
       await row.waitFor({ timeout: 30_000 })
-      // None is today's look: no disc behind the face.
-      must(
-        (await row.locator('[data-avatar-background]').count()) === 0,
-        'a new Bot to have no background',
-      )
+      // A new Bot has no tint picked, so its face sits on the white disc.
+      await row.locator('[data-avatar-background="none"]').waitFor({ timeout: 10_000 })
+      await shootBothThemes(page, 'none-sidebar')
       await row.click({ button: 'right' })
       await page.getByRole('menuitem', { name: 'Change avatar' }).click()
       const background = page.getByRole('radiogroup', { name: 'Background' })
+
+      await background.getByRole('radio', { name: 'White', checked: true }).waitFor()
+      await shootBothThemes(page, 'none-dialog')
 
       await background.getByRole('radio', { name: 'Sky' }).click()
       await page.screenshot({ path: `${artifacts}/avatar-background-dialog.png` })
       await page.getByRole('button', { name: 'Save', exact: true }).click()
       await row.locator('[data-avatar-background="sky"]').waitFor({ timeout: 10_000 })
       await row.screenshot({ path: `${artifacts}/avatar-background-sidebar.png` })
+      await shootBothThemes(page, 'sky-sidebar')
 
       // Saved on the server, not only shown.
       await until('the server to hold the background', async () => {
@@ -93,9 +96,20 @@ export const avatarBackgroundScenarios: Scenario[] = [
 
       await members.waitFor({ timeout: 10_000 })
       await page.screenshot({ path: `${artifacts}/avatar-background-chat.png` })
+      await shootBothThemes(page, 'sky-chat')
       await members.click()
       await page.screenshot({ path: `${artifacts}/avatar-background-members.png` })
+      await shootBothThemes(page, 'sky-members')
       await page.keyboard.press('Escape')
     },
   },
 ]
+
+/** For review: the window in light and then dark, back to the system theme after. */
+async function shootBothThemes(page: Page, name: string) {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme })
+    await page.screenshot({ path: `${artifacts}/avatar-background-${name}-${colorScheme}.png` })
+  }
+  await page.emulateMedia({ colorScheme: null })
+}

@@ -53,10 +53,18 @@ export const deviceChannels = {
   'localRuntime:cancelClaudeLogin': () => cancelLocalClaudeLogin(),
   'localRuntime:applyApiKey': (_e: unknown, provider: unknown, key: unknown) =>
     applyLocalApiKey(provider, key),
-  'localRuntime:setCustomProvider': (_e: unknown, provider: unknown, value: unknown) =>
-    setLocalCustomProvider(provider, value),
-  'localRuntime:checkCustomProvider': (_e: unknown, provider: unknown, value: unknown) =>
-    checkLocalCustomProvider(provider, value),
+  'localRuntime:setCustomProvider': (
+    _e: unknown,
+    provider: unknown,
+    value: unknown,
+    instanceId?: unknown,
+  ) => setLocalCustomProvider(provider, value, instanceId),
+  'localRuntime:checkCustomProvider': (
+    _e: unknown,
+    provider: unknown,
+    value: unknown,
+    instanceId?: unknown,
+  ) => checkLocalCustomProvider(provider, value, instanceId),
   'localRuntime:setSleepPreferences': (_e: unknown, value: unknown) => setSleepPreferences(value),
   'localRuntime:getState': () => getLocalRuntimeState(),
   'atlas:readLinkedFile': async (_e: unknown, ...args: [string, string, string, string]) => {

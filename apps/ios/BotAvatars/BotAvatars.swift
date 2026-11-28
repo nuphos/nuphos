@@ -109,10 +109,16 @@ enum BotAvatars {
 
     /// The tints a Bot's character may sit on (`avatar.*` in packages/design-tokens).
     /// The characters are drawn for light discs, so the tints stay light in the dark.
+    /// A Bot without one sits on white.
     static let backgrounds: [String: UInt32] = [
         "sand": 0xF2E7D3, "peach": 0xF8DCCB, "rose": 0xF6D5DE, "lilac": 0xE5DCF5,
         "sky": 0xD6E6F7, "mint": 0xD3EEDF, "sage": 0xE1E9D1, "slate": 0xE1E4EA,
     ]
+
+    /// None, unset or a tint this build doesn't know is a white disc.
+    static func backgroundHex(_ name: String?) -> UInt32 {
+        name.flatMap { backgrounds[$0] } ?? 0xFFFFFF
+    }
 
     /// A Bot shows its own face; a Task (no avatar) its runtime's mark. Old payloads,
     /// unknown faces and runtimes this build has no logo for keep the app icon.
@@ -143,11 +149,10 @@ enum BotAvatars {
         guard let asset = asset(named: avatar),
               let face = UIImage(named: asset, in: bundle, compatibleWith: nil) else { return nil }
         return UIGraphicsImageRenderer(size: size).pngData { context in
-            if let tint = background.flatMap({ backgrounds[$0] }) {
-                UIColor(red: CGFloat(tint >> 16 & 0xFF) / 255, green: CGFloat(tint >> 8 & 0xFF) / 255,
-                        blue: CGFloat(tint & 0xFF) / 255, alpha: 1).setFill()
-                context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size))
-            }
+            let tint = backgroundHex(background)
+            UIColor(red: CGFloat(tint >> 16 & 0xFF) / 255, green: CGFloat(tint >> 8 & 0xFF) / 255,
+                    blue: CGFloat(tint & 0xFF) / 255, alpha: 1).setFill()
+            context.cgContext.fillEllipse(in: CGRect(origin: .zero, size: size))
             face.draw(in: CGRect(origin: .zero, size: size))
             if let mark {
                 let disc = CGRect(x: 74, y: 74, width: 32, height: 32)

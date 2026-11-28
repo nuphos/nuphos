@@ -47,6 +47,7 @@
     </plurals>
     <string name="agent_unread_reply">Unread reply</string>
     <string name="agent_archived">Archived</string>
+    <string name="agent_no_project">No project</string>
     <string name="agent_unlink_task_title">Unlink task?</string>
     <string name="agent_unlink_task_body">“%1$s” will appear on its own in the task list. Its messages and sharing permissions will stay the same.</string>
     <string name="agent_select_runtime_before_start">Select an available runtime before starting a new agent.</string>

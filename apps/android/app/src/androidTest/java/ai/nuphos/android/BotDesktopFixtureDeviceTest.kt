@@ -59,6 +59,9 @@ class BotDesktopFixtureDeviceTest {
     /** The Bot's instructions save is refused with the server's reason (#4084). */
     @Volatile private var refuseInstructions = false
     @Volatile private var sentInstructions: String? = null
+    /** The Bot's own read is held until released, or fails, while the Bots list already names its runtime. */
+    @Volatile private var holdBotRead: java.util.concurrent.CountDownLatch? = null
+    @Volatile private var failBotRead = false
     private val tasks = listOf(
         Triple("task-old", "Prune stale branches", """"lastActiveAt":"2026-11-01T09:00:00Z","runtimeState":{"schemaVersion":2,"state":"idle","phase":"idle"}"""),
         Triple("task-wait", "Confirm the release date", """"lastActiveAt":"2026-11-02T09:00:00Z","inputRequests":[{"id":"q1","question":"Ship 0.26 on Friday?"}]"""),
@@ -115,6 +118,9 @@ class BotDesktopFixtureDeviceTest {
             val ofTask = tasks.firstOrNull { path.endsWith("/agent/conversations/${it.first}") }
             if (ofBot != null) {
                 botReads.incrementAndGet()
+                holdBotRead?.await(30, java.util.concurrent.TimeUnit.SECONDS)
+                if (failBotRead) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
+                    .code(500).message("fixture").body("""{"error":{"message":"internal"}}""".toResponseBody(Http.jsonMedia)).build()
                 if (denyBotTask) return@addInterceptor Response.Builder().request(request).protocol(Protocol.HTTP_1_1)
                     .code(403).message("fixture").body("""{"error":{"message":"Session access denied"}}""".toResponseBody(Http.jsonMedia)).build()
             }
@@ -376,6 +382,44 @@ class BotDesktopFixtureDeviceTest {
         compose.onNodeWithText("Claude Code · Fixture Box").assertIsDisplayed()
         compose.onNodeWithText("Only the owner can change model settings.").assertIsDisplayed()
         captureComposer("bot-details-android-member")
+    }
+
+    /** A Bot whose own read is slow still shows what it runs and its model while that read is on its way. */
+    @Test fun runtimeShowsWhileBotLoads() {
+        composerFixture = true
+        val hold = java.util.concurrent.CountDownLatch(1).also { holdBotRead = it }
+        try {
+            render("chat-plain", listBots = true)
+            compose.onNodeWithTag("bot-details-entry").performClick()
+            compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-details-runtime").fetchSemanticsNodes().isNotEmpty() }
+            compose.waitForIdle()
+            assertTrue("The runtime read as unset", compose.onAllNodesWithText("Claude Code · Fixture Box").fetchSemanticsNodes().isNotEmpty())
+            val model = runCatching { compose.waitUntil(6_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() } }
+            assertTrue("The Bot's model did not show while it loads", model.isSuccess)
+            assertFalse("The Bot's read landed before the check", store.session("bot-plain", "Release notes").loaded)
+            captureComposer("bot-details-android-loading")
+        } finally { hold.countDown() }
+        compose.waitUntil(10_000) { store.session("bot-plain", "Release notes").loaded }
+        compose.waitForIdle()
+        compose.onNodeWithTag("bot-details-runtime").assertHasClickAction()
+        captureComposer("bot-details-android-loaded")
+    }
+
+    /** A Bot whose own read fails still shows what it runs and its model. */
+    @Test fun runtimeAndModelShowWhenBotReadFails() {
+        composerFixture = true
+        failBotRead = true
+        render("chat-plain", listBots = true)
+        compose.waitUntil(5_000) { store.session("bot-plain", "Release notes").loadError != null }
+        compose.onNodeWithTag("bot-details-entry").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("bot-details-runtime").fetchSemanticsNodes().isNotEmpty() }
+        compose.waitForIdle()
+        assertTrue("The Bot's runtime is missing", compose.onAllNodesWithText("Claude Code · Fixture Box").fetchSemanticsNodes().isNotEmpty())
+        val model = runCatching { compose.waitUntil(10_000) { compose.onAllNodesWithText("Sonnet").fetchSemanticsNodes().isNotEmpty() } }
+        assertTrue("The Bot's model never showed", model.isSuccess)
+        assertTrue("The runtime picker opens for a Bot whose read failed",
+            compose.onAllNodes(androidx.compose.ui.test.hasTestTag("bot-details-runtime") and hasClickAction()).fetchSemanticsNodes().isEmpty())
+        captureComposer("bot-details-android-failed")
     }
 
     /** The owner rewrites a Bot's instructions in Bot details (#4084): Edit opens them in place,

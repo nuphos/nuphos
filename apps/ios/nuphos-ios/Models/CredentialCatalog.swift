@@ -161,10 +161,15 @@ struct CredentialSelection: Equatable, Sendable {
     /// A stored selection sends only these and the kinds changed here: for several kinds a missing
     /// key means "all", which an empty list would revoke.
     var stored: Set<String>?
+    /// All: every credential (or computer) the owner can use when the server reads the
+    /// selection, ones added later included, as the desktop's `allCredentials` / `allDevices`.
+    /// Narrowing a scope here turns its All off; adding to it keeps All.
+    var allCredentials = false
+    var allDevices = false
 
     var isEmpty: Bool { ids.values.allSatisfy(\.isEmpty) }
-    /// Nothing to send: no selection here and no keys only a newer client understands.
-    var isBlank: Bool { isEmpty && (unknown ?? [:]).isEmpty }
+    /// Nothing to send: no selection or All here and no keys only a newer client understands.
+    var isBlank: Bool { isEmpty && !allCredentials && !allDevices && (unknown ?? [:]).isEmpty }
     var count: Int { ids.values.reduce(0) { $0 + $1.count } }
 
     func count(in scope: CredentialScope) -> Int {
@@ -178,7 +183,12 @@ struct CredentialSelection: Equatable, Sendable {
 
     mutating func toggle(_ item: CredentialCatalog.Item) {
         var set = ids[item.provider.selectionKey] ?? []
-        if set.contains(item.id) { set.remove(item.id) } else { set.insert(item.id) }
+        if set.contains(item.id) {
+            set.remove(item.id)
+            if item.provider.selectionKey == "deviceIds" { allDevices = false } else { allCredentials = false }
+        } else {
+            set.insert(item.id)
+        }
         ids[item.provider.selectionKey] = set
     }
 
@@ -190,7 +200,9 @@ struct CredentialSelection: Equatable, Sendable {
         }
         if scope != .devices {
             unknown = unknown?.mapValues { $0.arrayValue == nil ? $0 : .array([]) }
+            allCredentials = false
         }
+        if scope != .credentials { allDevices = false }
     }
 
     /// Every usable credential, the member's own GitHub / Linear included, as the desktop's Select all.
@@ -198,14 +210,13 @@ struct CredentialSelection: Equatable, Sendable {
         for item in catalog.allItems where item.selectable && !contains(item) { toggle(item) }
     }
 
-    /// What a conversation starts with when nobody has chosen: everything
-    /// usable, the member's own Personal Credentials included, except Resend,
-    /// whose mail is irreversible and so stays opt-in, and Trello.
-    /// Mirrors the desktop's `defaultCredentialAccess`.
+    /// What a conversation starts with when nobody has chosen: All, so ones added later are
+    /// included too, with every usable one ticked, Resend, Trello and the member's own Personal
+    /// Credentials included. Mirrors the desktop's `defaultCredentialAccess` (#4940).
     mutating func selectDefaults(in catalog: CredentialCatalog) {
         selectAll(in: catalog)
-        ids["resendIntegrationIds"] = []
-        ids["trelloIntegrationIds"] = []
+        allCredentials = true
+        allDevices = true
     }
 
     func containsAll(in catalog: CredentialCatalog) -> Bool {
@@ -220,6 +231,9 @@ struct CredentialSelection: Equatable, Sendable {
         where stored.map({ $0.contains(provider.selectionKey) || ids[provider.selectionKey] != nil }) ?? true {
             o[provider.selectionKey] = .array((ids[provider.selectionKey] ?? []).sorted().map(JSONValue.string))
         }
+        // Sent only when on: the server reads a missing flag as off, so a narrowed All is stored as the list.
+        if allCredentials { o["allCredentials"] = .bool(true) }
+        if allDevices { o["allDevices"] = .bool(true) }
         return .object(o)
     }
 
@@ -236,6 +250,10 @@ struct CredentialSelection: Equatable, Sendable {
                 if value != .null { stored?.insert(key) }
                 let set = Set(value.arrayValue?.compactMap(\.stringValue) ?? [])
                 if !set.isEmpty { ids[key] = set }
+            } else if key == "allCredentials" {
+                allCredentials = value.boolValue == true
+            } else if key == "allDevices" {
+                allDevices = value.boolValue == true
             } else if !Self.metadataKeys.contains(key) {
                 unknown = (unknown ?? [:]).merging([key: value]) { _, new in new }
             }

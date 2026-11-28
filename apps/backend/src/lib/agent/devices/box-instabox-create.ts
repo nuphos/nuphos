@@ -168,18 +168,22 @@ async function setUp(
     })
 
     issued = true
-    // The template comes from instabox's warm pool, so the install is the longest step.
-    // It is one long exec request, so it runs on a connection without the per-request
-    // cap: the exec request then waits as long as the command may run.
+    // A command whose answer matters runs on a connection without the per-request cap:
+    // its exec request then waits as long as the command may run, as instabox can answer
+    // after the cap (#4620).
     const machine = sandbox
+    const uncapped = async (timeoutMs: number) =>
+      Sandbox.connect(machine.sandboxId, {
+        ...(await boxConnection(box, timeoutMs)),
+        requestTimeoutMs: undefined,
+        resume: false,
+      })
+    // The template comes from instabox's warm pool, so the install is the longest step.
     const install = async () =>
-      (
-        await Sandbox.connect(machine.sandboxId, {
-          ...(await boxConnection(box, INSTALL_TIMEOUT_MS)),
-          requestTimeoutMs: undefined,
-          resume: false,
-        })
-      ).commands.run(BOX_INSTALL_COMMAND, { envs: downloadEnv(), timeoutMs: INSTALL_TIMEOUT_MS })
+      (await uncapped(INSTALL_TIMEOUT_MS)).commands.run(BOX_INSTALL_COMMAND, {
+        envs: downloadEnv(),
+        timeoutMs: INSTALL_TIMEOUT_MS,
+      })
 
     // A dropped connection loses the answer, not the machine: the install runs again there,
     // after the first if it is still going, and adds only what is missing.
@@ -190,7 +194,10 @@ async function setUp(
       return install()
     })
     // Before the host starts, so OpenCode's first launch already has it. A Box without it still works.
-    if (openRouterGift) keyHash = await giveBoxOpenRouterKey(userId, deviceId, box.teamId, sandbox)
+    if (openRouterGift)
+      keyHash = await giveBoxOpenRouterKey(userId, deviceId, box.teamId, () =>
+        uncapped(QUICK_TIMEOUT_MS),
+      )
     // Setup is done when the machine is actually here, not when its commands returned:
     // instabox can answer a started command after the request cap, when the host has
     // already joined (#4620). A host that never started fails the wait below instead.

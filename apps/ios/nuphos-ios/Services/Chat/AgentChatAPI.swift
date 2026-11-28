@@ -190,6 +190,18 @@ enum AgentChatAPI {
         return channelId
     }
 
+    /// `agent/conversations/:id/participants` and `…/access`, a Task's or a chat's:
+    /// every call answers with the whole access state.
+    static func access<B: Encodable>(
+        _ method: String, _ path: String, body: B?, token: String, teamId: String, sessionId: String
+    ) async throws -> SessionAccess {
+        let data = try await send(
+            method, "agent/conversations/\(sessionId)/\(path)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: body, timeout: 12
+        )
+        return try JSONDecoder().decode(SessionAccess.self, from: data)
+    }
+
     private struct Created: Decodable { let sessionId: String }
 
     /// `POST /agent/conversations/:id/bot` makes a Task a Bot and asks it to

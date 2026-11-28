@@ -91,4 +91,6 @@ export type LocalRuntimeTunnelStatus = {
   desktops?: { sessionId: string; display: number }[]
   /** Opens a conversation's desktop on request (`method: 'desktop'`). */
   desktopOpen?: boolean
+  /** What it opens is this computer's own screen, not a desktop per conversation (#5321). */
+  ownScreen?: boolean
 }

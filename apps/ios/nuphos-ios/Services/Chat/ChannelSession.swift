@@ -102,7 +102,8 @@ final class ChannelSession {
                 changePending = false
                 await refresh(force: true)
             case .tick:
-                if !pushed { await refresh() }
+                // A pushed chat is read only when it changes; its links still run out.
+                if pushed { await resolveFiles(of: stored) } else { await refresh() }
                 await refreshQuestions()
             }
         }
@@ -140,18 +141,21 @@ final class ChannelSession {
     }
 
     /// The probe, then the full read when the chat changed; `force` skips the probe.
+    /// Either way, files whose links ran out are read again.
     func refresh(force: Bool = false) async {
         do {
-            if !force, loaded {
-                // The probe reads the newest post, so an open chat is read up to it: a
-                // post's activity can land after the transcript change the probe compares.
-                let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
-                guard probe.channelRevision != revision else { return }
+            // The probe reads the newest post, so an open chat is read up to it: a
+            // post's activity can land after the transcript change the probe compares.
+            var changed = force || !loaded
+            if !changed {
+                changed = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1).channelRevision != revision
             }
-            async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
-            async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
-            let (read, people) = try await (detail, listed)
-            apply(read, agents: people)
+            if changed {
+                async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
+                async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
+                let (read, people) = try await (detail, listed)
+                apply(read, agents: people)
+            }
             await resolveFiles(of: stored)
         } catch {
             // Cancelled (the chat closed, the app left the foreground): not a
@@ -178,7 +182,9 @@ final class ChannelSession {
     }
 
     private func resolveFiles(of posts: [ChannelPost]) async {
-        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
+        // Unread, or read with links that no longer load.
+        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads })
+            .filter { files[$0]?.contains(where: \.linkExpired) ?? true }
         await withTaskGroup(of: (String, [TransferDownloadGroup.File]?).self) { group in
             for id in missing {
                 group.addTask { [self] in
@@ -325,6 +331,32 @@ final class ChannelSession {
                 replying = reply
             }
         }
+    }
+
+    // MARK: - Members
+
+    /// Who is in this chat: `agent/conversations/:id/participants`, as a Task's Share sheet reads it.
+    func access<B: Encodable>(_ method: String, _ path: String = "participants", body: B? = JSONValue?.none) async throws -> SessionAccess {
+        try await AgentChatAPI.access(method, path, body: body, token: token, teamId: teamId, sessionId: channelId)
+    }
+
+    func teamMembers() async throws -> [TeamMember] {
+        try await NuphosAPI.teamMembers(token: token, teamId: teamId, includeRemoved: false)
+    }
+
+    /// Brings one of the viewer's Bots in; the server answers with who is here now.
+    func addAgent(_ agentId: String) async throws {
+        let data = try await AgentChatAPI.send(
+            "POST", "agent/conversations/\(channelId)/agents",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: ["sessionId": agentId])
+        agents = try JSONDecoder().decode(AgentsEnvelope.self, from: data).agents
+    }
+
+    func removeAgent(_ agentId: String) async throws {
+        _ = try await AgentChatAPI.send(
+            "DELETE", "agent/conversations/\(channelId)/agents/\(agentId)",
+            query: [URLQueryItem(name: "teamId", value: teamId)], token: token, body: JSONValue?.none)
+        agents.removeAll { $0.sessionId == agentId }
     }
 
     /// Retry after an agent could not reply: it reads again what it has not read yet.

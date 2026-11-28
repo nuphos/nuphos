@@ -166,7 +166,8 @@ const scenario: Scenario = {
     const card = details(page).getByRole('region', { name: 'E2E Bot' })
 
     await card.waitFor()
-    await details(page).getByText('Bot instructions').waitFor()
+    for (const moved of ['Bot instructions', 'Triggers'])
+      await details(page).getByText(moved, { exact: true }).waitFor({ state: 'detached' })
     await shoot(page, 'owner-wide-open')
     // Replying: the transcript runs under the reply bar, beside the details.
     await replyAndScroll(page)
@@ -174,7 +175,7 @@ const scenario: Scenario = {
     await page.getByRole('button', { name: 'Cancel reply' }).click()
     // Its owner renames the Bot in Edit Bot, the dialog the title bar's rename opened.
     await card.getByRole('button', { name: 'Edit Bot' }).click()
-    const name = page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' })
+    const name = page.getByRole('dialog').getByRole('textbox', { name: 'Name', exact: true })
 
     if ((await name.inputValue()) !== 'E2E Bot') throw new Error('Edit Bot has no name to change')
     await shoot(page, 'owner-edit-bot')
@@ -210,7 +211,7 @@ const scenario: Scenario = {
       .waitFor()
     // Renaming in Edit Bot renames the Bot, its chat and the name button.
     await details(page).getByRole('button', { name: 'Edit Bot' }).click()
-    await page.getByRole('dialog').getByRole('textbox', { name: 'Bot name' }).fill(RENAMED)
+    await page.getByRole('dialog').getByRole('textbox', { name: 'Name', exact: true }).fill(RENAMED)
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
     await page.getByRole('dialog').waitFor({ state: 'detached' })
     await details(page).getByRole('region', { name: RENAMED }).waitFor()

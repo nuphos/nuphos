@@ -10,6 +10,12 @@
     <string name="chats_show_more">Show more</string>
     <string name="chats_question_your_answer">Your answer</string>
     <string name="chats_question_send_answer">Send answer</string>
+    <string name="chats_question_other_picked">Other</string>
+    <string name="chats_question_choose_any">Choose any</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="one">Answer %1$d more</item>
+        <item quantity="other">Answer %1$d more</item>
+    </plurals>
     <string name="chats_question_heading_approval">Approval needed</string>
     <string name="chats_question_heading_preference">Your choice</string>
     <string name="chats_question_heading_credential">Credential needed</string>
@@ -69,4 +75,28 @@
     <string name="chats_presence_sign_in">Needs sign-in</string>
     <string name="chats_presence_usage">Out of usage</string>
     <string name="chats_presence_unavailable">Unavailable</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">Members</string>
+    <string name="chats_members_people">People</string>
+    <string name="chats_members_add_bot">Add Bot</string>
+    <string name="chats_members_your_bots">Your Bots</string>
+    <string name="chats_members_add_bot_note">Adding your Bot lets everyone here talk to it. Anything that needs approval still waits for you in its own chat.</string>
+    <string name="chats_members_no_bots">All your Bots are already here.</string>
+    <string name="chats_members_owner_only">Only the owner can add people.</string>
+    <string name="chats_members_you">%1$s (you)</string>
+    <string name="chats_members_more">More options for %1$s</string>
+    <string name="chats_members_add">Add %1$s</string>
+    <string name="chats_members_leave">Leave chat</string>
+    <string name="chats_members_leave_title">Leave “%1$s”?</string>
+    <string name="chats_members_leave_owner">%1$s becomes the owner. You can come back only if someone adds you.</string>
+    <string name="chats_members_leave_member">You can come back only if someone adds you.</string>
+    <string name="chats_members_leave_last">You’re the last one here, so the chat is archived.</string>
+    <string name="chats_members_leave_confirm">Leave</string>
+    <string name="chats_members_left">You left “%1$s”</string>
+    <string name="chats_members_leave_failed">Couldn’t leave the chat</string>
+    <string name="chats_members_add_bot_failed">Couldn’t add the Bot</string>
+    <string name="chats_members_add_person_failed">Couldn’t add them</string>
+    <string name="chats_members_remove_failed">Couldn’t remove them</string>
+    <string name="chats_members_load_failed">Couldn’t load the members</string>
+    <string name="chats_members_retry">Retry</string>
 </resources>

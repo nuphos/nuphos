@@ -98,7 +98,10 @@ try {
           `${process.env.SystemRoot}\\System32\\WindowsPowerShell\\v1.0\\powershell.exe`,
           '-NoProfile',
           '-Command',
-          'if ($env:NUPHOS_TOKEN -ne "scoped-actor" -or $env:OPENAB_ACP_AUTH_KEY) { exit 3 }; Write-Output NUPHOS_OK',
+          // A bare string, not Write-Output: resolving a cmdlet auto-loads its
+          // module, and without the runner's module analysis cache that takes
+          // 20 to 60+ s (#5290).
+          'if ($env:NUPHOS_TOKEN -ne "scoped-actor" -or $env:OPENAB_ACP_AUTH_KEY) { exit 3 }; "NUPHOS_OK"',
         ]
       : [
           '/bin/sh',
@@ -110,8 +113,6 @@ try {
     command,
     cwd: base,
     sandboxPolicy: { type: 'dangerFullAccess' },
-    // The Windows runner image starts PowerShell quickly only with its own
-    // PSModuleAnalysisCachePath. Without it, as here, a start takes about 20 s.
     timeoutMs: 60000,
   })
 

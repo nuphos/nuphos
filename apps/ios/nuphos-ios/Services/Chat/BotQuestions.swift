@@ -80,16 +80,6 @@ struct BotQuestion: Identifiable, Equatable, Sendable {
         form ?? options.map { [.init(question: request.question, options: $0, multiSelect: false)] }
     }
 
-    /// The desktop's `formAnswer`: one question's picks or typed text, or one entry per question.
-    static func formAnswer(_ questions: [AgentConversation.DecisionQuestion], picked: [[String]],
-                           typed: [String]) -> DecisionAnswer {
-        func one(_ index: Int) -> DecisionAnswer {
-            let words = typed[index].trimmingCharacters(in: .whitespacesAndNewlines)
-            return words.isEmpty ? DecisionAnswer(choices: picked[index]) : DecisionAnswer(text: words)
-        }
-        return questions.count == 1 ? one(0) : DecisionAnswer(questions: questions.indices.map(one))
-    }
-
     /// The backend's `writtenQuestions`: the questions as markdown after a `---` separator, one line each.
     static func writtenQuestions(_ questions: [AgentConversation.DecisionQuestion]) -> String {
         func line(_ text: String) -> String { text.split(whereSeparator: \.isWhitespace).joined(separator: " ") }
@@ -193,6 +183,60 @@ extension BotQuestion {
     /// The conversation that asked, opened in the app like any Nuphos link.
     func link(team: String) -> URL {
         URL(string: "https://nuphos.ai/teams/\(team)/agent/\(sessionId)")!
+    }
+}
+
+/// A card's answers so far, per question: its picked options, whether "Other" is picked, and its
+/// words. "Other" is one more option, never sent with the others; its words answer the question.
+struct QuestionForm: Equatable {
+    let questions: [AgentConversation.DecisionQuestion]
+    var picked: [[String]]
+    var other: [Bool]
+    var words: [String]
+
+    /// `typed`, a question with nothing to pick is answered in words from the start.
+    init(_ questions: [AgentConversation.DecisionQuestion], typed: Bool) {
+        self.questions = questions
+        picked = questions.map { _ in [] }
+        other = questions.map { typed && ($0.options ?? []).isEmpty }
+        words = questions.map { _ in "" }
+    }
+
+    /// One question with one answer: a tap answers it, and there is nothing to send.
+    var instant: Bool { Self.instant(questions) }
+
+    private static func instant(_ questions: [AgentConversation.DecisionQuestion]) -> Bool {
+        questions.count == 1 && questions[0].multiSelect != true
+    }
+
+    func answered(_ index: Int) -> Bool {
+        other[index] ? !words[index].trimmingCharacters(in: .whitespacesAndNewlines).isEmpty : !picked[index].isEmpty
+    }
+
+    /// How many questions are still unanswered.
+    var left: Int { questions.indices.filter { !answered($0) }.count }
+
+    mutating func pick(_ option: String, at index: Int) {
+        other[index] = false
+        if picked[index].contains(option) {
+            picked[index].removeAll { $0 == option }
+        } else {
+            picked[index] = questions[index].multiSelect == true ? picked[index] + [option] : [option]
+        }
+    }
+
+    mutating func pickOther(at index: Int) {
+        other[index].toggle()
+        if other[index] { picked[index] = [] }
+    }
+
+    /// One question's picks or words, or one entry per question.
+    var answer: DecisionAnswer {
+        func one(_ index: Int) -> DecisionAnswer {
+            other[index] ? DecisionAnswer(text: words[index].trimmingCharacters(in: .whitespacesAndNewlines))
+                : DecisionAnswer(choices: picked[index])
+        }
+        return questions.count == 1 ? one(0) : DecisionAnswer(questions: questions.indices.map(one))
     }
 }
 

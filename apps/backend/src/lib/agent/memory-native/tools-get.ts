@@ -25,7 +25,8 @@ export function createMemoryGetTool(deps: {
   return tool({
     description:
       'Load a memory by `memoryId` (from an earlier search result) OR search the full memory pool by `query`. ' +
-      'Nothing from memory is placed in your context for you: when a relevant memory may exist, search with `query` (keyword full-text over every saved memory AND team experience entry you can read, including older/imported ones) instead of assuming none exists. ' +
+      'Nothing from memory is placed in your context for you: when a relevant memory may exist, search with `query` (keyword full-text over every saved memory AND team experience entry you can read) instead of assuming none exists. ' +
+      'Memories have no names or keys: a name your instructions cite is only a keyword, so also search the concrete terms at hand (places, IPs, devices). ' +
       'Write the query as English keywords — most memories are stored in English; add the Chinese term too only when you expect it verbatim (error strings, product names). ' +
       'If a search returns nothing, retry once with different or broader keywords before concluding no memory exists. ' +
       'Team experience matches come back as one-line summaries — load the full strategy with memory_get(memoryId). ' +

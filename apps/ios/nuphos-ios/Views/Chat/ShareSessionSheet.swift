@@ -1,41 +1,5 @@
 import SwiftUI
 
-/// `ConversationAccessState` in the desktop's `api/agent-types.ts`: who in the
-/// team may read without an invite, and each person invited. Whoever may use
-/// the computer the session runs on replies, invited or not.
-struct SessionAccess: Decodable, Equatable {
-    enum General: String, Decodable, CaseIterable {
-        /// `reply` is a chat's only: in a session, reply follows its computer.
-        case onlyInvited = "none", view, reply
-
-        var title: LocalizedStringKey {
-            switch self {
-            case .onlyInvited: "Only people invited"
-            case .view: "Team can view"
-            case .reply: "Team can view and reply"
-            }
-        }
-    }
-
-    struct Participant: Decodable, Identifiable, Equatable {
-        let id: String
-        let name: String
-        let email: String
-        let avatarURL: String?
-        let deactivated: Bool?
-        let isOwner: Bool
-        /// `owner`, `reply`, or `view` for someone who cannot use the session's computer yet.
-        let role: String?
-
-        var user: NuphosUser { NuphosUser(id: id, email: email, name: name, username: "", avatarURL: avatarURL ?? "") }
-
-        var canReply: Bool { role != "view" }
-    }
-
-    var generalAccess: General
-    var participants: [Participant]
-}
-
 /// The backend refuses an invite with `computer_use_required` while an invitee
 /// cannot use the session's computer, until the invite confirms giving them `use` of it.
 enum ComputerUse {
@@ -99,11 +63,8 @@ struct ShareSessionSheet: View {
             } message: {
                 Text(error ?? "")
             }
-            .alert("Also give use of this computer?", isPresented: Binding(get: { needsComputer != nil }, set: { if !$0 { needsComputer = nil } }), presenting: needsComputer) { person in
-                Button("Continue") { invite(person.id, grantComputerUse: true) }
-                Button("Cancel", role: .cancel) {}
-            } message: { _ in
-                Text("Adding this person to the task also gives them use of this computer. Continue?")
+            .computerUseConfirmation($needsComputer, message: "Adding this person to the task also gives them use of this computer. Continue?") {
+                invite($0, grantComputerUse: true)
             }
             .task {
                 do { access = try await session.access("GET") } catch { if !Task.isCancelled { loadError = error.localizedDescription } }
@@ -188,36 +149,18 @@ struct ShareSessionSheet: View {
     }
 
     private func inviteSection(joined: Set<String>) -> some View {
-        let query = search.trimmingCharacters(in: .whitespaces)
-        let invitable = (members ?? []).filter { member in
-            !joined.contains(member.id) && !member.isRemoved
-                && (query.isEmpty || member.displayName.localizedCaseInsensitiveContains(query) || member.email.localizedCaseInsensitiveContains(query))
-        }
-        return Section {
+        Section {
             if let membersError {
                 Text(membersError).foregroundStyle(Theme.muted)
-            } else if members == nil {
-                ProgressView().frame(maxWidth: .infinity)
-            } else {
+            } else if let members {
                 TextField("Search teammates", text: $search)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                ForEach(invitable) { member in
-                    Button {
-                        invite(member.id, name: member.displayName)
-                    } label: {
-                        HStack(spacing: 12) {
-                            AvatarView(user: member.asUser, size: 28)
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(member.displayName).foregroundStyle(Theme.heading).lineLimit(1)
-                                Text(member.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
-                            }
-                            Spacer(minLength: 8)
-                            if pending == member.id { ProgressView() } else { LucideIcon("circle-plus").foregroundStyle(Theme.brandText) }
-                        }
-                    }
-                    .disabled(pending != nil)
+                InviteRows(members: members, joined: joined, search: search, pending: pending) {
+                    invite($0.id, name: $0.displayName)
                 }
+            } else {
+                ProgressView().frame(maxWidth: .infinity)
             }
         } header: {
             Text("Add people")
@@ -247,6 +190,55 @@ struct ShareSessionSheet: View {
         Task {
             defer { pending = nil }
             do { access = try await request() } catch { self.error = error.localizedDescription }
+        }
+    }
+}
+
+/// The team's people not yet in, matching a search, each invited with a tap:
+/// a Task's Share sheet and a chat's Add people list.
+struct InviteRows: View {
+    let members: [TeamMember]
+    let joined: Set<String>
+    let search: String
+    /// The person being invited, if any; every row waits for them.
+    let pending: String?
+    let invite: (TeamMember) -> Void
+
+    var body: some View {
+        let query = search.trimmingCharacters(in: .whitespaces)
+        ForEach(members.filter { member in
+            !joined.contains(member.id) && !member.isRemoved
+                && (query.isEmpty || member.displayName.localizedCaseInsensitiveContains(query) || member.email.localizedCaseInsensitiveContains(query))
+        }) { member in
+            Button {
+                invite(member)
+            } label: {
+                HStack(spacing: 12) {
+                    AvatarView(user: member.asUser, size: 28)
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(member.displayName).foregroundStyle(Theme.heading).lineLimit(1)
+                        Text(member.email).font(.caption).foregroundStyle(Theme.muted).lineLimit(1)
+                    }
+                    Spacer(minLength: 8)
+                    if pending == member.id { ProgressView() } else { LucideIcon("circle-plus").foregroundStyle(Theme.brandText) }
+                }
+            }
+            .disabled(pending != nil)
+        }
+    }
+}
+
+extension View {
+    /// Asks before an invite refused with `computer_use_required` is sent again giving use of the computer.
+    func computerUseConfirmation(
+        _ person: Binding<(id: String, name: String)?>, message: LocalizedStringKey, confirm: @escaping (String) -> Void
+    ) -> some View {
+        alert("Also give use of this computer?", isPresented: Binding(get: { person.wrappedValue != nil }, set: { if !$0 { person.wrappedValue = nil } }),
+              presenting: person.wrappedValue) { person in
+            Button("Continue") { confirm(person.id) }
+            Button("Cancel", role: .cancel) {}
+        } message: { _ in
+            Text(message)
         }
     }
 }

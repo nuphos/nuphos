@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">此用户名已被使用。请选择其他名称。</string>
     <string name="shell_auth_profile_failed">无法保存你的个人资料。</string>
     <string name="shell_auth_unreachable">无法连接 Nuphos。请检查网络连接后重试。</string>
+    <string name="shell_auth_account_expired">这个账号的登录已过期。请重新登录。</string>
     <string name="shell_auth_window_failed">无法打开登录窗口。请重试。</string>
     <string name="shell_auth_secure_incomplete">安全登录未完成。请检查网络连接后重试。</string>
     <string name="shell_auth_wrong_password">电子邮件或密码不正确。</string>
@@ -154,7 +155,7 @@
     <string name="shell_desktop">桌面</string>
     <string name="shell_desktop_decode_failed">无法解码此桌面。请重试以建立新的连接。</string>
     <string name="shell_desktop_connecting">正在连接…</string>
-    <string name="shell_desktop_mac_shared">你正在使用这台 Mac 的屏幕；Agent 仍可同时使用。</string>
+    <string name="shell_desktop_mac_shared">你正在使用这台电脑的屏幕；Agent 仍可同时使用。</string>
     <string name="shell_desktop_in_control">你已取得控制权。交还后 Agent 才能使用此桌面。</string>
     <string name="shell_desktop_watching">观看中。接管后即可使用指针和键盘。</string>
     <string name="shell_desktop_failed">桌面连接失败。</string>

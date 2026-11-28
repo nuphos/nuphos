@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">Nama pengguna itu sudah dipakai. Pilih yang lain.</string>
     <string name="shell_auth_profile_failed">Kami tidak dapat menyimpan profil Anda.</string>
     <string name="shell_auth_unreachable">Kami tidak dapat menjangkau Nuphos. Periksa koneksi Anda lalu coba lagi.</string>
+    <string name="shell_auth_account_expired">Sesi akun ini telah kedaluwarsa. Masuk lagi.</string>
     <string name="shell_auth_window_failed">Kami tidak dapat membuka jendela masuk. Coba lagi.</string>
     <string name="shell_auth_secure_incomplete">Proses masuk aman tidak selesai. Periksa koneksi Anda lalu coba lagi.</string>
     <string name="shell_auth_wrong_password">Email atau kata sandi salah.</string>
@@ -154,7 +155,7 @@
     <string name="shell_desktop">Desktop</string>
     <string name="shell_desktop_decode_failed">Tidak dapat mendekode desktop ini. Coba lagi untuk memulai koneksi baru.</string>
     <string name="shell_desktop_connecting">Menghubungkan…</string>
-    <string name="shell_desktop_mac_shared">Anda memegang layar Mac; agen tetap dapat menggunakannya juga.</string>
+    <string name="shell_desktop_mac_shared">Anda memegang layar komputer ini; agen tetap dapat menggunakannya juga.</string>
     <string name="shell_desktop_in_control">Anda memegang kendali. Kembalikan agar agen dapat menggunakan desktop ini.</string>
     <string name="shell_desktop_watching">Menonton. Ambil alih untuk menggunakan penunjuk dan keyboard.</string>
     <string name="shell_desktop_failed">Koneksi desktop gagal.</string>

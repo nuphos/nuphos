@@ -2,7 +2,7 @@
 // its first turn runs a tool call without asking anyone.
 import { client } from './binding-access-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { send } from './ui.ts'
+import { send, transcriptPost } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 
@@ -132,7 +132,7 @@ export const botImportModeScenarios: Scenario[] = [
       await page.locator('[data-sidebar-row]').filter({ hasText: NAME }).first().click()
       await page.locator(`[aria-placeholder="Message ${NAME}"]`).waitFor()
       await send(page, `Say hello ${MARKER}`)
-      await page.getByText(`POSTED ${MARKER}`, { exact: true }).waitFor()
+      await transcriptPost(page, `POSTED ${MARKER}`).waitFor()
       must(
         (await page.locator('[data-tool-approval]').count()) === 0 &&
           (await page.getByRole('button', { name: /^Allow/ }).count()) === 0,
