@@ -101,6 +101,10 @@ submits it for Beta App Review. The build number is the run's UTC minute
 workflow existed. A build that is still processing after 30 minutes is left for
 a maintainer to attach by hand.
 
+To see where the newest builds stand, run `ios-testflight-status.yml` from
+`main`. It is read-only and lists each build's processing and Beta App Review
+state in the run summary.
+
 Once the build is processed, the workflow also submits the version for App
 Store review, released automatically after approval, and publishes an
 `iOS vX.Y.Z` GitHub Release. Both use `apps/ios/whats-new.txt` as the release
