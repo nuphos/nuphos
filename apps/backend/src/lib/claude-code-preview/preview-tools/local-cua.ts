@@ -59,7 +59,9 @@ const definition = {
     'Pass `tool` and `arguments` to call one tool of the Cua Driver built into Nuphos on that device. ' +
     'Start with `get_guide` (no arguments) for the workflow and tool list, then e.g. `list_apps`, `get_window_state` {pid, window_id}, `click`, `type_text`, `press_key`; `run_steps` batches several actions in one call. ' +
     "Pass `code` instead only to run JavaScript in the ChatGPT/Codex App's `cua_repl` when that App is installed there; start with `await cua.getState()`, whose result documents its API. " +
+    'It needs the same access to the device as local_exec. ' +
     'macOS asks the user once to grant Nuphos Screen Recording and Accessibility; an approval the user denies returns an error. ' +
+    'A Nuphos too old to bundle the Cua Driver answers a `tool` call as if no code was given (usually that Computer Use is not installed) or cannot serve it at all; then ask the user to update Nuphos. ' +
     'Prefer local_exec, a CLI, or an API when one can do the job, and your own native Computer Use tool when you have one; use this only for work that needs the GUI.',
   inputSchema: {
     type: 'object',

@@ -315,7 +315,7 @@ test('without the Codex App a tool call runs on the bundled Cua Driver', async (
   await driver?.close()
 })
 
-test('Desktop runs the Cua Driver embedded in its own grants; the CLI’s holds its own', () => {
+test('Desktop runs the Cua Driver embedded in its own grants; the CLI does not', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'bundle-'))
 
   assert.equal(cuaDriverConfig(dir, true), null)

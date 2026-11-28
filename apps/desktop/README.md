@@ -41,8 +41,9 @@ tool, with or without the App. A call with `tool` runs one tool of the
 [Cua Driver](https://github.com/trycua/cua) (MIT) that the macOS bundle ships,
 pinned in `local-runtime/prepare.mjs`. Desktop starts it embedded, so macOS
 answers it with Nuphos's own Screen Recording and Accessibility grants and
-shows no second app; under the CLI it holds its own grants, like
-mac-screen-host. A call with `code` runs the App's `cua_repl` on the Mac for the
+shows no second app. Under the CLI it uses the grants of whatever macOS holds
+responsible for the CLI, its terminal or, under launchd, its own runtime, like
+the commands `local_exec` runs. A call with `code` runs the App's `cua_repl` on the Mac for the
 conversation, started through the App's own `codex` because Computer Use only
 answers a caller whose parent OpenAI signed. Desktop relays each call over the
 device tunnel; approval prompts appear as the conversation's approval card, and

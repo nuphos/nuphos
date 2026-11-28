@@ -52,7 +52,8 @@ export function cuaServerConfig(env: NodeJS.ProcessEnv = process.env): ServerCon
 /**
  * The Cua Driver (MIT, github.com/trycua/cua) the bundle ships, pinned in prepare.mjs. Under
  * Desktop it runs embedded, so macOS answers it with the app's own Screen Recording and
- * Accessibility grants; under the CLI it holds its own, like mac-screen-host.
+ * Accessibility grants; under the CLI it uses whatever process macOS holds responsible for the
+ * CLI (its terminal, or its own runtime under launchd), like the commands local_exec runs.
  */
 export function cuaDriverConfig(bundleRoot: string, embedded: boolean): ServerConfig | null {
   const command = path.join(bundleRoot, 'cua-driver')
