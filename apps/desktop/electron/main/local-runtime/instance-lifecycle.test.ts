@@ -191,18 +191,20 @@ test('remove stops the agent and deletes its directory, Keychain entry and recor
   )
 })
 
-test('removing an OpenCode deletes its own custom provider key with its directory', async (t) => {
-  const { instances, dirOf, deletedKeys, removedCredentials } = setup(t)
+test('removing an added agent deletes its own custom provider key with its directory', async (t) => {
+  const { instances, dirOf, deletedKeys } = setup(t)
 
   await instances.load('alice')
-  const agent = { instanceId: randomUUID(), provider: 'opencode' as const, label: 'OpenCode' }
+  for (const provider of ['opencode', 'codex', 'claude-code'] as const) {
+    const agent = { instanceId: randomUUID(), provider, label: provider }
 
-  await instances.request({ method: 'create', ...agent }, 'alice')
-  mkdirSync(path.join(dirOf(agent.instanceId), 'users', 'alice'), { recursive: true })
-  await instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice')
-  assert.deepEqual(deletedKeys, [`alice:opencode:${agent.instanceId}`])
-  assert.deepEqual(removedCredentials, [])
-  assert.equal(existsSync(dirOf(agent.instanceId)), false)
+    await instances.request({ method: 'create', ...agent }, 'alice')
+    mkdirSync(path.join(dirOf(agent.instanceId), 'users', 'alice'), { recursive: true })
+    await instances.request({ method: 'remove', instanceId: agent.instanceId }, 'alice')
+    assert.equal(deletedKeys.at(-1), `alice:${provider}:${agent.instanceId}`)
+    assert.equal(existsSync(dirOf(agent.instanceId)), false)
+  }
+  assert.equal(deletedKeys.length, 3)
 })
 
 test('a provider saved on a pending OpenCode keeps it; removed, it succeeds signed out', async (t) => {

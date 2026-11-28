@@ -250,6 +250,7 @@ export function prepareIsolatedAgentHome(
 
     if (!existsSync(config))
       writeFileSync(config, 'cli_auth_credentials_store = "file"\n', { mode: 0o600 })
+    applyCodexProvider(config, readCustomProviders(userDir).codex)
 
     return home
   } catch {

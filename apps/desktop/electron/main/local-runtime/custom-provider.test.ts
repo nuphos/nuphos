@@ -189,6 +189,39 @@ test('Test connection sends each CLI’s one request and says what it found', as
   )
 })
 
+test('Codex on Azure tests the resource with its own header, against the stand-in origin', async (t) => {
+  const seen: { url?: string; key?: string; bearer?: string }[] = []
+  const server = createServer((req, res) => {
+    seen.push({
+      url: req.url,
+      key: req.headers['api-key'] as string,
+      bearer: req.headers.authorization,
+    })
+    res.writeHead(req.headers['api-key'] === 'sk-good' ? 200 : 401).end('{"data":[]}')
+  })
+
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+
+  process.env.NUPHOS_E2E_AZURE_ORIGIN = `http://127.0.0.1:${port}`
+  t.after(() => {
+    delete process.env.NUPHOS_E2E_AZURE_ORIGIN
+    server.close()
+  })
+  const check = await checkCustomProvider(memoryStore(), 'u1', 'codex', {
+    type: 'azure',
+    baseUrl: 'https://acme-openai.openai.azure.com',
+    apiKey: 'sk-good',
+    models: ['gpt-4o-prod'],
+  })
+
+  assert.equal(check.reached, true)
+  assert.equal(check.failure, undefined)
+  assert.deepEqual(seen, [
+    { url: '/openai/models?api-version=2024-10-21', key: 'sk-good', bearer: undefined },
+  ])
+})
+
 test('the key goes only to the credential store, and an edit without one keeps it', async (t) => {
   const dir = tempDir(t)
   const store = memoryStore()
@@ -273,6 +306,19 @@ test('Codex gets its own provider entry at the top of config.toml, replaced in p
   )
   assert.equal(codexProviderConfig(once, gateway), once)
   assert.equal(codexProviderConfig(once, undefined), base)
+  // Azure's v1 API, no api-version; named Azure, Codex sends Azure's headers.
+  const azure = codexProviderConfig(base, {
+    type: 'azure',
+    baseUrl: 'https://acme-openai.openai.azure.com',
+    models: ['gpt-4o-prod'],
+  })
+
+  assert.match(azure, /model = "gpt-4o-prod"/u)
+  assert.match(
+    azure,
+    /\{ name = "Azure", base_url = "https:\/\/acme-openai\.openai\.azure\.com\/openai\/v1", /u,
+  )
+  assert.doesNotMatch(azure, /api-version/u)
 })
 
 test(

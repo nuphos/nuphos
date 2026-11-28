@@ -121,12 +121,13 @@ test('this computer’s own Codex sets up, shows and removes its custom provider
   try {
     assert.ok(container.textContent?.includes('Custom provider'))
     await act(async () => button(container, 'Set up')?.click())
-    const [baseUrl, apiKey] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
+    const baseUrl = container.querySelector('input[type="url"]') as unknown as HTMLInputElement
+    const apiKey = container.querySelector('input[type="password"]') as unknown as HTMLInputElement
     const models = container.querySelector('textarea') as unknown as HTMLTextAreaElement
 
     await act(async () => {
-      type(dom, baseUrl!, 'https://gateway.example.com/v1')
-      type(dom, apiKey!, 'sk-fictional')
+      type(dom, baseUrl, 'https://gateway.example.com/v1')
+      type(dom, apiKey, 'sk-fictional')
       type(dom, models, 'model-a\nmodel-b')
     })
     await act(async () => {
@@ -172,7 +173,7 @@ test('a saved provider whose key cannot be read says so', async () => {
   }
 })
 
-test('only this computer’s default Claude Code or Codex has one', async () => {
+test('only a runtime this computer lists has one', async () => {
   broadcast(HERE)
   for (const instance of [
     codex({ deviceId: 'elsewhere' }),
@@ -202,14 +203,14 @@ test('the form checks the URL as it is typed, tests it, and keeps a refusal in p
   try {
     await act(async () => button(container, 'Edit')?.click())
     // The saved key is not a field until it is replaced.
-    assert.equal(container.querySelectorAll('input').length, 1)
+    assert.equal(container.querySelector('input[type="password"]'), null)
     assert.ok(container.textContent?.includes('•••• saved'))
-    const [baseUrl] = container.querySelectorAll('input') as unknown as HTMLInputElement[]
+    const baseUrl = container.querySelector('input[type="url"]') as unknown as HTMLInputElement
 
-    await act(async () => type(dom, baseUrl!, 'http://gw.example/v1'))
+    await act(async () => type(dom, baseUrl, 'http://gw.example/v1'))
     assert.ok(container.textContent?.includes('The base URL must use https://'))
     assert.equal(button(container, 'Test connection')?.disabled, true)
-    await act(async () => type(dom, baseUrl!, 'https://gw.example/v1'))
+    await act(async () => type(dom, baseUrl, 'https://gw.example/v1'))
     check = { host: 'gw.example', reached: false }
     await act(async () => button(container, 'Test connection')?.click())
     assert.deepEqual(calls.at(-1), [

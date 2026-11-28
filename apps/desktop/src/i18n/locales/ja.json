@@ -4832,7 +4832,6 @@
   "The initial catalog will use an explicit allowlist and distinguish dynamic, restart-required, startup-only, node, replica, and cluster parameters. Unknown or sensitive parameters remain read-only or hidden.": "初期カタログでは明示的な許可リストを使用し、動的、再起動が必要、起動時のみ、ノード、レプリカ、クラスタの各パラメータを区別します。不明なパラメータや機密性の高いパラメータは読み取り専用または非表示のままです。",
   "The installer exited before {name} was ready. You can also install it yourself on this computer, then try again.": "{name} の準備が整う前にインストーラーが終了しました。このコンピューターに自分でインストールしてから、もう一度お試しください。",
   "The journal page is truncated — this call's result may exist beyond the loaded events": "ジャーナルのページが途中で切れています。この呼び出しの結果は、読み込まれていないイベントに含まれている可能性があります",
-  "The key is kept in this computer’s secure credential store and never shown again. Usage and quota from a custom provider show as unknown.": "キーはこのコンピューターの安全な資格情報ストアに保存され、再表示されません。カスタムプロバイダーの使用量とクォータは不明と表示されます。",
   "The key is kept in this computer’s secure credential store for this runtime only and never shown again. Usage and quota from a custom provider show as unknown.": "キーはこのランタイム専用として、このコンピューターの安全な認証情報ストアに保存され、再表示されません。カスタムプロバイダーの使用量とクォータは不明と表示されます。",
   "The key is removed from the runtime first, then you approve on the {account} sign-in page.": "まずランタイムからキーを削除し、その後 {account} のサインインページで承認します。",
   "The key is saved only on the runtime, in the CLI’s own settings. Nuphos only relays it, encrypted, and never shows it again.": "キーはランタイム上の CLI 自身の設定にのみ保存されます。Nuphos は暗号化して受け渡すだけで、キーが再表示されることはありません。",

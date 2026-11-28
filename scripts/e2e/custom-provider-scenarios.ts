@@ -77,18 +77,15 @@ else if (args[0] === 'login' && args[1] === 'status') console.log('Logged in usi
         if ((await page.getByText(/Error invoking remote method/u).count()) > 0)
           throw new Error('The refusal shows the IPC wrapper')
 
-        // The base URL itself passes the check. A dev build keeps no key in the OS credential
-        // store, so the save stops there, and says so.
+        // The base URL itself passes the check and is saved; a dev build keeps its key in memory.
         await save(base)
-        await page
-          .getByText(/no secure credential store/u)
-          .first()
-          .waitFor()
+        await page.getByText('Custom provider saved').first().waitFor()
         await page.waitForTimeout(500)
         await page.screenshot({ path: join(artifacts, 'custom-provider-2-base-url.png') })
         if (asked.join(' ') !== '/v1/chat/completions/responses /v1/responses')
           throw new Error(`The provider was asked ${asked.join(', ')}`)
-        await card.getByRole('button', { name: 'Cancel', exact: true }).click()
+        await card.getByRole('button', { name: 'Remove', exact: true }).click()
+        await card.getByRole('button', { name: 'Set up', exact: true }).waitFor()
         // Escape closes the details and leaves Settings.
         await page.keyboard.press('Escape')
         await page.getByText('Back to app', { exact: true }).waitFor({ state: 'detached' })

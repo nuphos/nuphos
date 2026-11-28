@@ -1,5 +1,5 @@
-// This computer's custom providers as the app saves and shows them: the account's own, one per
-// agent, and each added OpenCode's own, saved in that runtime's directory.
+// This computer's custom providers as the app saves and shows them: one per runtime, the own
+// agents' in the account's directory and each added agent's in that runtime's directory.
 
 import path from 'node:path'
 
@@ -25,16 +25,15 @@ export function localProviders(
   const ownDir = (userId: string) => userDir(dataDir(), userId)
   const instanceDir = (userId: string, instanceId: string) =>
     userDir(path.join(dataDir(), 'instances', instanceId), userId)
-  const openCodes = () =>
-    (controller().state().instances ?? []).filter(({ provider }) => provider === 'opencode')
+  const added = () => controller().state().instances ?? []
 
-  /** Where a provider is saved: the account's own, or an added OpenCode's, named by its id. */
+  /** Where a provider is saved: the account's own, or an added agent's, named by its id. */
   function dirOf(provider: unknown, instanceId: unknown): string {
     const { userId } = controller().state()
 
     if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
     if (!instanceId) return ownDir(userId)
-    if (provider !== 'opencode' || !openCodes().some((added) => added.instanceId === instanceId))
+    if (!added().some((agent) => agent.instanceId === instanceId && agent.provider === provider))
       return notSaved(new Error('Runtime instance not found'))
 
     return instanceDir(userId, instanceId as string)
@@ -44,8 +43,10 @@ export function localProviders(
     of(userId: string) {
       const instanceProviders: Record<string, CustomProvider> = {}
 
-      for (const { instanceId } of openCodes()) {
-        const saved = readCustomProviders(instanceDir(userId, instanceId)).opencode
+      for (const { instanceId, provider } of added()) {
+        const saved = isAgent(provider)
+          ? readCustomProviders(instanceDir(userId, instanceId))[provider]
+          : undefined
 
         if (saved) instanceProviders[instanceId] = saved
       }
@@ -64,7 +65,7 @@ export function localProviders(
       }
       const restart = controller().instanceRequest({ method: 'restart', instanceId })
 
-      // Saved, it is the sign-in that keeps a pending OpenCode. Removed, the runtime may be left
+      // Saved, it is the sign-in that keeps a pending agent. Removed, the runtime may be left
       // signed out, which its card shows; the removal itself has succeeded.
       await (value === null ? restart.catch(() => {}) : restart)
     },
