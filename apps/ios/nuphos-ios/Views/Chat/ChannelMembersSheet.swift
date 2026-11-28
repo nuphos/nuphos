@@ -54,6 +54,13 @@ struct ChannelMembersSheet: View {
                     }
                     .disabled(access == nil || pending != nil)
                     .accessibilityIdentifier("channel.leave")
+                    // From the button, as iOS shows a question about what it does.
+                    .confirmationDialog(Text("Leave “\(channel.title)”?"), isPresented: $confirmLeave, titleVisibility: .visible) {
+                        Button("Leave chat", role: .destructive, action: leave)
+                        Button("Cancel", role: .cancel) {}
+                    } message: {
+                        Text(leaveMessage)
+                    }
                 }
             }
             .navigationTitle("Members")
@@ -69,13 +76,6 @@ struct ChannelMembersSheet: View {
             }
         }
         .presentationDragIndicator(.visible)
-        // On the sheet, not the List or a row, so an iPhone shows it from the bottom.
-        .confirmationDialog(Text("Leave “\(channel.title)”?"), isPresented: $confirmLeave, titleVisibility: .visible) {
-            Button("Leave chat", role: .destructive, action: leave)
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text(leaveMessage)
-        }
         .alert(failure?.title ?? "", isPresented: Binding(get: { failure != nil }, set: { if !$0 { failure = nil } })) {
             Button("OK") {}
         } message: {
