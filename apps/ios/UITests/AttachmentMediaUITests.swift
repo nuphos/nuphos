@@ -2,7 +2,8 @@ import XCTest
 
 /// A message's videos and images open in one viewer: tapping a video opens
 /// that video, even beside a wide image, and swiping reaches every item.
-/// Tapping an image never waits for the message's videos to download.
+/// Tapping an image never waits for the message's videos to download, nor
+/// downloads the image again.
 /// Uses a copy of the offline chats fixture whose first screenshot group
 /// holds a 16:9 video and a 16:9 image.
 final class AttachmentMediaUITests: XCTestCase {
@@ -125,13 +126,32 @@ final class AttachmentMediaUITests: XCTestCase {
         shot("video-failed")
     }
 
+    /// Once its thumbnail shows, an image opens from the bytes the thumbnail
+    /// read: its group can no longer be read, and it still opens.
+    func testImageOpensFromItsThumbnailsCopy() throws {
+        // A new id, so no copy left by an earlier test opens it.
+        let app = try launch(videoLink: "file://$FIXTURE_DIR/media/clip.mp4", imageId: "f-wide-\(UUID().uuidString)")
+        let image = app.buttons["Open wide.png"]
+        XCTAssertTrue(image.waitForExistence(timeout: 10), "The image never showed")
+        // The thumbnails are local files; give them a moment to be copied.
+        Thread.sleep(forTimeInterval: 2)
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: live)) as? [String: Any])
+        for group in ["g-shot1", "g-shot2"] {
+            responses["GET /agent/conversations/chat-release/attachments/\(group)"] = ["status": 404, "body": ["error": ["message": "gone"]]]
+        }
+        try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
+        image.tap()
+        let counter = app.staticTexts["2 / 3"]
+        _ = counter.waitForExistence(timeout: 8)
+        shot("image-opened-offline")
+        XCTAssertTrue(counter.exists, "Opening the image read it again")
+        XCTAssertTrue(app.images["wide.png"].exists, "The viewer did not show the image")
+    }
+
     /// Opens the release chat, whose first screenshot group is the video at
     /// `videoLink` and `wide.png`, followed by the fixture's `shot-2.png`.
-    private func launch(videoLink: String, videoName: String = "clip.mp4", extra: [String: Any] = [:]) throws -> XCUIApplication {
-        let fixtures = URL(filePath: #filePath)
-            .deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "tests/fixtures")
-        let live = fixtures.appending(path: "attachment-media-live.json")
+    private func launch(videoLink: String, videoName: String = "clip.mp4", imageId: String = "f-wide", extra: [String: Any] = [:]) throws -> XCUIApplication {
+        let live = live
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(
             with: Data(contentsOf: fixtures.appending(path: "channel-responses.json"))) as? [String: Any])
         let file = { (id: String, name: String, type: String, link: String) -> [String: Any] in
@@ -140,7 +160,7 @@ final class AttachmentMediaUITests: XCTestCase {
         responses["GET /agent/conversations/chat-release/attachments/g-shot1"] = ["status": 200, "body": [
             "groupId": "g-shot1", "createdAt": "2026-11-03T09:00:00.000Z", "expiresAt": "2027-12-31T00:00:00.000Z",
             "files": [file("f-\(videoName)", videoName, "video/mp4", videoLink),
-                      file("f-wide", "wide.png", "image/png", "file://$FIXTURE_DIR/media/wide.png")],
+                      file(imageId, "wide.png", "image/png", "file://$FIXTURE_DIR/media/wide.png")],
         ]]
         responses.merge(extra) { $1 }
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
@@ -153,6 +173,11 @@ final class AttachmentMediaUITests: XCTestCase {
         app.staticTexts["release-planning"].firstMatch.tap()
         return app
     }
+
+    private let fixtures = URL(filePath: #filePath)
+        .deletingLastPathComponent().deletingLastPathComponent()
+        .appending(path: "tests/fixtures")
+    private var live: URL { fixtures.appending(path: "attachment-media-live.json") }
 
     private func shot(_ name: String) {
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())

@@ -7,8 +7,9 @@ import SwiftUI
 /// grows once it loads; a video shows its first frame under a play glyph.
 /// A lone image shows whole, fitted within a 260pt square, so a portrait
 /// screenshot is not cropped and a wide one is not boxed in empty space.
-/// Images and videos open in the pager, which swipes through all of them in
-/// grid order. Other files (chips) open in Quick Look from a freshly signed
+/// An image draws from the local copy its tap opens, so the tap reads nothing
+/// again. Images and videos open in the pager, which swipes through all of
+/// them in grid order. Other files (chips) open in Quick Look from a freshly signed
 /// link, with Save and Share.
 struct TransferCard: View {
     /// One message's groups, drawn as one grid so its images sit in one row.
@@ -121,10 +122,10 @@ struct TransferCard: View {
 
     @ViewBuilder
     private func label(_ file: TransferDownloadGroup.File, lone: Bool = false) -> some View {
-        if lone, let url = file.downloadUrl.flatMap(URL.init(string:)) {
+        if lone, file.downloadUrl.flatMap(URL.init(string:)) != nil {
             let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
             FitWithin(side: Self.loneSide) {
-                AsyncImage(url: url) { image in
+                CopiedImage(file: file) { image in
                     image.resizable().scaledToFit()
                         .clipShape(shape)
                         .overlay(shape.strokeBorder(Theme.bubble))
@@ -139,7 +140,7 @@ struct TransferCard: View {
                 if file.isVideo {
                     VideoFrame(url: url)
                 } else {
-                    AsyncImage(url: url) { image in
+                    CopiedImage(file: file) { image in
                         image.resizable().scaledToFill()
                     } placeholder: {
                         Theme.bubble
@@ -246,6 +247,21 @@ private struct FitWithin: Layout {
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
         subviews.first?.place(at: bounds.origin, proposal: ProposedViewSize(bounds.size))
+    }
+}
+
+/// An image's thumbnail, drawn from its local copy: the copy its tap opens.
+private struct CopiedImage<Content: View, Placeholder: View>: View {
+    let file: TransferDownloadGroup.File
+    @ViewBuilder let content: (Image) -> Content
+    @ViewBuilder let placeholder: () -> Placeholder
+    @State private var copy: URL?
+
+    var body: some View {
+        AsyncImage(url: copy) { phase in
+            if let image = phase.image { content(image) } else { placeholder() }
+        }
+        .task(id: file.id) { copy = try? await TransferFiles.localCopies(of: [file], tapped: file) { [file] }[file.id] }
     }
 }
 
