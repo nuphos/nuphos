@@ -27,7 +27,7 @@ export function listDesktops(wrapper: string, pool: string): SessionDesktop[] {
   }
 }
 
-/** The computer-use proxy forgets a human owner this long after their last renewal (vnc-stream.ts). */
+/** The computer-use proxy forgets a human owner this long after their last renewal (vnc-stream.ts); desktop-session.mjs reads the same hold. */
 const HUMAN_HOLD_MS = 30_000
 
 export const HELD =

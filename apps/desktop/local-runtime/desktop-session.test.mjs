@@ -242,6 +242,20 @@ test('input waits while a person holds the desktop, looking does not', async () 
       .map((message) => message.id),
     [5],
   )
+  // A tool it does not know as looking waits too, and so does each call in a batch (#5328).
+  await call(7, 'new_input_tool')
+  await relay.receive([
+    { jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'click' } },
+    { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'list_apps' } },
+  ])
+  assert.deepEqual(
+    sent.slice(5).map((message) => [message.id, message.result.isError ?? false]),
+    [
+      [7, true],
+      [8, true],
+      [9, false],
+    ],
+  )
   // A hold the stream stopped renewing has lapsed.
   hold(Math.floor(Date.now() / 1000) - 31)
   await call(6, 'click')
