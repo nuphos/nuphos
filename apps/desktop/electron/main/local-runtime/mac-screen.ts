@@ -36,12 +36,20 @@ const lockFile = (pool: string) => path.join(pool, `${String(SCREEN)}.lock`)
 
 export const screenSocket = (pool: string) => path.join(pool, `${String(SCREEN)}.sock`)
 
-/** The Linux host: TigerVNC's x0vncserver on this X11 session's display. */
-const X0 = 'x0vncserver'
+/**
+ * The Linux host: TigerVNC's x0vncserver on this X11 session's display. Debian and Ubuntu
+ * name the server X0tigervnc and put a perl wrapper that forks it into the background
+ * at x0vncserver, so the server itself is run where it exists.
+ */
+const X11_HOSTS = ['X0tigervnc', 'x0vncserver']
+const x11Host = (PATH?: string) => X11_HOSTS.find((command) => onPath(command, PATH))
 
 /** Whether this is a Linux computer whose own X11 screen x0vncserver can serve; a desktop pool's sessions have their own (desktop-pool.ts). */
 export const linuxScreen = (env = process.env) =>
-  Boolean(env.DISPLAY) && !env.WAYLAND_DISPLAY && !env.NUPHOS_DESKTOP_POOL && onPath(X0, env.PATH)
+  Boolean(env.DISPLAY) &&
+  !env.WAYLAND_DISPLAY &&
+  !env.NUPHOS_DESKTOP_POOL &&
+  Boolean(x11Host(env.PATH))
 
 /**
  * The pool directory for this computer's own screen, or null where there is none
@@ -120,23 +128,22 @@ export async function startHost(
   // x0vncserver serves $DISPLAY on the socket alone, with no VNC password: as with
   // the Mac's host, only this process connects (0600), and it exits a minute
   // after its last viewer leaves.
-  const args =
-    path.basename(binary) === X0
-      ? [
-          '-rfbunixpath',
-          socket,
-          '-rfbunixmode',
-          '0600',
-          '-rfbport',
-          '-1',
-          '-SecurityTypes',
-          'None',
-          '-MaxDisconnectionTime',
-          '60',
-        ]
-      : ownPermissions
-        ? [socket, '--own-permissions']
-        : [socket]
+  const args = X11_HOSTS.includes(path.basename(binary))
+    ? [
+        '-rfbunixpath',
+        socket,
+        '-rfbunixmode',
+        '0600',
+        '-rfbport',
+        '-1',
+        '-SecurityTypes',
+        'None',
+        '-MaxDisconnectionTime',
+        '60',
+      ]
+    : ownPermissions
+      ? [socket, '--own-permissions']
+      : [socket]
   const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
   let output = ''
 
@@ -203,9 +210,13 @@ export async function openMacScreen(
   return SCREEN
 }
 
-/** The screen host: a Mac's bundled binary, or x0vncserver on Linux. */
-export const screenHost = (bundleRoot: string, platform = process.platform) =>
-  platform === 'linux' ? X0 : path.join(bundleRoot, 'mac-screen-host')
+/** The screen host: a Mac's bundled binary, or TigerVNC's on Linux. */
+export const screenHost = (
+  bundleRoot: string,
+  platform = process.platform,
+  PATH = process.env.PATH,
+) =>
+  platform === 'linux' ? (x11Host(PATH) ?? 'x0vncserver') : path.join(bundleRoot, 'mac-screen-host')
 
 /** The CLI's screen host: screenHost, a Mac's holding its own permissions, or e2e's stand-in. */
 export function cliMacScreenHost(

@@ -1,6 +1,7 @@
 // #5321: a Linux computer that is not a Box, running `nuphos agent`. With Xvnc and
 // open-computer-use installed its host runs a desktop pool, so a computer card shows the
-// conversation's own desktop and Take over works; without them the card is refused.
+// conversation's own desktop and Take over works. With neither but on an X11 screen with
+// x0vncserver (E2E_LINUX_SCREEN=1), the card shows that screen. Otherwise it is refused.
 import { join } from 'node:path'
 
 import { agentLog } from './agent-log.ts'
@@ -15,6 +16,8 @@ import type { Page } from 'playwright-core'
 const LABEL = 'E2E Linux server'
 const QUESTION = 'Sign in to the example dashboard'
 const POOL = process.env.E2E_LINUX_POOL === '1'
+const SCREEN = process.env.E2E_LINUX_SCREEN === '1'
+const MODE = POOL ? 'pool' : SCREEN ? 'screen' : 'none'
 
 async function painted(page: Page) {
   return page.evaluate((question) => {
@@ -28,16 +31,17 @@ async function painted(page: Page) {
 
 export const linuxComputerCardScenarios: Scenario[] = [
   {
-    name: POOL
-      ? 'a Linux computer with a desktop pool hands its desktop over with a computer card'
-      : 'a Linux computer without a desktop pool cannot hand a computer card over',
+    name: {
+      pool: 'a Linux computer with a desktop pool hands its desktop over with a computer card',
+      screen: 'a Linux computer on X11 hands its own screen over with a computer card',
+      none: 'a Linux computer with no desktop or screen to share cannot hand a computer card over',
+    }[MODE],
     expected: /\/runtime-desktop\/[^"]+","status":404/u,
     run: async (page, stack) => {
       const computer = await startSecondComputer(stack, LABEL, {
         runtimeDir: fixtureBundle(stack, 'linux-card'),
       })
-      const shot = (name: string) =>
-        join(artifacts, `linux-card-${POOL ? 'pool' : 'none'}-${name}.png`)
+      const shot = (name: string) => join(artifacts, `linux-card-${MODE}-${name}.png`)
 
       try {
         await newTaskOn(page, LABEL)
@@ -63,9 +67,9 @@ export const linuxComputerCardScenarios: Scenario[] = [
           `told no screen: ${opened?.noScreen}; computer card result: ${result.slice(0, 600)}`,
         )
         // The agent is told up front whether a computer card can work here (#5326).
-        if (opened?.noScreen !== !POOL)
-          throw new Error(`Expected noScreen ${!POOL}, got ${opened?.noScreen}`)
-        if (!POOL) {
+        if (opened?.noScreen !== (MODE === 'none'))
+          throw new Error(`Expected noScreen ${MODE === 'none'}, got ${opened?.noScreen}`)
+        if (MODE === 'none') {
           if (!result.includes('no desktop to hand over'))
             throw new Error('Expected the no-desktop refusal')
           await page.screenshot({ path: shot('refused') })

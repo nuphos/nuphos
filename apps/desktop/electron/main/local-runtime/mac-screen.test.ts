@@ -61,7 +61,13 @@ test('x0vncserver serves the screen on the pool’s socket only, and says it is 
     ),
   )
   assert.equal(macScreenStatus(pool).ownScreen, true)
-  assert.equal(screenHost('/bundle', 'linux'), 'x0vncserver')
+  // Debian's x0vncserver is a wrapper that forks the server and exits; the server itself runs (#5321).
+  const both = path.dirname(fakeHost('exit 0', 'x0vncserver'))
+
+  writeFileSync(path.join(both, 'X0tigervnc'), '')
+  chmodSync(path.join(both, 'X0tigervnc'), 0o755)
+  assert.equal(screenHost('/bundle', 'linux', both), 'X0tigervnc')
+  assert.equal(screenHost('/bundle', 'linux', path.dirname(host)), 'x0vncserver')
   assert.equal(screenHost('/bundle', 'darwin'), '/bundle/mac-screen-host')
 })
 
