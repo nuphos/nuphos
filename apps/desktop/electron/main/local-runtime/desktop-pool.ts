@@ -115,7 +115,9 @@ export function withDesktopRequests(
 const DESKTOP_NEEDS = {
   Xvnc: 'tigervnc-standalone-server',
   'xfce4-session': 'xfce4',
-  'open-computer-use': 'npm install -g open-computer-use',
+  // Its Linux runtime reads apps through AT-SPI.
+  'open-computer-use':
+    'npm install -g open-computer-use (with python3-gi, gir1.2-atspi-2.0 and at-spi2-core)',
 }
 
 /** What this computer lacks, of DESKTOP_NEEDS, to host desktops. */

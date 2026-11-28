@@ -40,7 +40,7 @@ test('a computer lacking Xvnc, XFCE or the computer-use server is told what to i
   assert.deepEqual(missingForDesktops(bin), [
     'tigervnc-standalone-server',
     'xfce4',
-    'npm install -g open-computer-use',
+    'npm install -g open-computer-use (with python3-gi, gir1.2-atspi-2.0 and at-spi2-core)',
   ])
   for (const command of ['Xvnc', 'xfce4-session', 'open-computer-use'])
     writeFileSync(join(bin, command), '')
