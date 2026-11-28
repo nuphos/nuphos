@@ -93,7 +93,7 @@ class ChannelMembersFlowFixtureDeviceTest {
             val body = when {
                 request.method == "DELETE" && path.endsWith("/agent/conversations/chat-launch/participants/jordan") -> {
                     left = true
-                    participants.replace(""""id":"jordan","name":"Jordan Lee","email":"jordan@acme.example","isOwner":true,"role":"owner"},""", "")
+                    participants.replace("""{"id":"jordan","name":"Jordan Lee","email":"jordan@acme.example","isOwner":true,"role":"owner"},""", "")
                 }
                 path.endsWith("/agent/conversations/chat-launch/participants") -> participants
                 path.endsWith("/agent/conversations/chat-launch/agents") ->
