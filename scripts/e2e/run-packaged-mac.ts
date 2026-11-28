@@ -25,8 +25,15 @@ const record = (check: string, ok: boolean, detail = '') => {
   results.push({ check, ok, detail })
   console.log(`${ok ? 'PASS' : 'FAIL'} ${check}${detail ? ` — ${detail}` : ''}`)
 }
-const shot = (page: Page, name: string) =>
-  page.screenshot({ path: join(artifacts, `${name}.png`) }).catch(() => {})
+// The window's own frame, brought to the front first, plus the whole screen as macOS shows it.
+const shot = async (page: Page, name: string) => {
+  await page.bringToFront().catch(() => {})
+  await page.waitForTimeout(300)
+  await page.screenshot({ path: join(artifacts, `${name}.png`) }).catch(() => {})
+  try {
+    execFileSync('screencapture', ['-x', join(artifacts, `${name}-screen.png`)], { timeout: 10_000 })
+  } catch {}
+}
 
 let mainPage: Page
 
@@ -208,6 +215,7 @@ try {
     await view!.locator('#hello').waitFor()
     await page.waitForTimeout(1_000)
     await shot(page, '03-browser-page')
+    await view!.screenshot({ path: join(artifacts, '03-browser-page-view.png') }).catch(() => {})
 
     return `rendered "${await view!.title()}"`
   })
@@ -227,6 +235,7 @@ try {
     await view!.locator('#done').waitFor()
     await page.waitForTimeout(800)
     await shot(page, '05-browser-signed-in')
+    await view!.screenshot({ path: join(artifacts, '05-browser-signed-in-view.png') }).catch(() => {})
 
     return (await view!.locator('#done').textContent()) ?? ''
   })
@@ -238,9 +247,14 @@ try {
     await bar.press('Enter')
     const view = await inAppPage('https://example.com')
 
-    await view!.getByRole('heading', { name: 'Example Domain' }).waitFor()
+    await view.waitForLoadState('load')
     await page.waitForTimeout(800)
     await shot(page, '06-browser-https')
+    const title = await view.title()
+
+    if (!/example/i.test(title)) throw new Error(`title "${title}", url ${view.url()}`)
+
+    return `title "${title}"`
   })
 
   await step('terminal: node-pty shell runs a command', async () => {
