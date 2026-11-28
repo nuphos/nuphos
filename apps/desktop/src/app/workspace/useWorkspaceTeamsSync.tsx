@@ -109,6 +109,8 @@ export function useWorkspaceTeamsSync(a: Args) {
     refreshTeamsSilently,
     invitationsFetchTokenRef,
     applyPendingInvitations,
+    /** False until the auto-entry decision is made; the shell holds a blank splash meanwhile. */
+    onboardingDecided: onboardingAutoEntryChecked,
   }
 }
 

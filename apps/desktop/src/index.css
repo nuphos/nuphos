@@ -1555,6 +1555,53 @@
   }
 }
 
+/* Inline scroll-edge fade — .t-scroll-fade on the horizontal axis, for a row
+   that scrolls sideways: each side fades only while content is hidden past it. */
+@property --t-scroll-fade-start {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+@property --t-scroll-fade-end {
+  syntax: '<length>';
+  inherits: false;
+  initial-value: 0px;
+}
+.t-scroll-fade-x {
+  --t-scroll-fade-size: 3rem;
+
+  mask-image: linear-gradient(
+    to right,
+    transparent 0,
+    #000 var(--t-scroll-fade-start),
+    #000 calc(100% - var(--t-scroll-fade-end)),
+    transparent 100%
+  );
+  animation:
+    t-scroll-fade-in-start linear both,
+    t-scroll-fade-out-end linear both;
+  animation-timeline: scroll(self inline), scroll(self inline);
+  animation-range:
+    0 var(--t-scroll-fade-size),
+    calc(100% - var(--t-scroll-fade-size)) 100%;
+}
+@keyframes t-scroll-fade-in-start {
+  from {
+    --t-scroll-fade-start: 0px;
+  }
+  to {
+    --t-scroll-fade-start: var(--t-scroll-fade-size, 3rem);
+  }
+}
+@keyframes t-scroll-fade-out-end {
+  from {
+    --t-scroll-fade-end: var(--t-scroll-fade-size, 3rem);
+  }
+  to {
+    --t-scroll-fade-end: 0px;
+  }
+}
+
 /* Hover marquee — a single-line label that fades out at the inline edge it is
    clipped on instead of ending in an ellipsis. Same scroll-driven technique as
    .t-scroll-fade on the inline axis: no fade when the label fits, and as

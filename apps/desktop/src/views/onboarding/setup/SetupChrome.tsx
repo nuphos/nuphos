@@ -15,7 +15,8 @@ export function SetupScreen({
   actions,
 }: {
   title: string
-  step?: 2 | 3
+  /** "I'll use my own computer" has two steps: the runtimes here, then Ready. */
+  step?: 1 | 2
   subtitle?: ReactNode
   children: ReactNode
   hint?: ReactNode
@@ -26,7 +27,7 @@ export function SetupScreen({
       <header className="space-y-2">
         {step && (
           <p className="pb-2 text-[12px] text-tertiary">
-            {t('Step {step} of 3', { step })} · {step === 2 ? t('Runtimes') : t('Ready')}
+            {t('Step {step} of 2', { step })} · {step === 1 ? t('Runtimes') : t('Ready')}
           </p>
         )}
         <h1 className="text-[22px] font-semibold text-main">{title}</h1>
@@ -46,6 +47,7 @@ const PILL: Record<LocalAgentStatus, { label: string; className: string }> = {
   ready: { label: t('Ready'), className: 'bg-success/15 text-success' },
   'signed-out': { label: t('Not signed in'), className: 'bg-warning/15 text-warning' },
   missing: { label: t('Not installed'), className: 'bg-surface-sunken text-tertiary' },
+  found: { label: t('Installed'), className: 'bg-surface-sunken text-secondary' },
   checking: { label: t('Checking…'), className: 'bg-surface-sunken text-tertiary' },
 }
 

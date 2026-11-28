@@ -14,6 +14,7 @@ import { readThisComputerFile, resolveThisComputerFile } from './linked-file.ts'
 import { installAgentCli } from './local-runtime/agent-cli-install.ts'
 import { latestAgentCliVersions, updateAgentCli } from './local-runtime/agent-cli-update.ts'
 import { refreshRunningModels } from './local-runtime/agent-models.ts'
+import { findInstalledAgents } from './local-runtime/installed-scan.ts'
 import {
   cancelLocalClaudeLogin,
   cancelLocalCodexLogin,
@@ -96,6 +97,8 @@ export const deviceChannels = {
     await shell.openExternal(pathToFileURL(target).href)
   },
   'localRuntime:refresh': () => refreshLocalRuntime(),
+  // Read-only: which runtimes are on this computer, even where detection is off.
+  'localRuntime:findInstalled': async () => findInstalledAgents(await userEnv()),
   // An opened model picker: true when a running agent's list changed.
   'localRuntime:refreshModels': (_event: unknown, pickerOpened?: boolean) =>
     refreshRunningModels(pickerOpened === true),

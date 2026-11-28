@@ -6,7 +6,7 @@ import { deskOpenDelay } from './boxDeskModel'
 import './BoxDesk.css'
 
 import type { DeskModel } from './boxDeskModel'
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 
 // Every machine on the page shares one opening, however many there are and whenever each appears.
 const openingWave = { at: -Infinity }
@@ -45,11 +45,12 @@ function Keyboard() {
   )
 }
 
-/** Only a Nuphos Box carries a maker's mark, the app icon; the desk draws other machines' shape, not someone else's logo. */
+/** Only a Box carries a maker's mark, InstaBox's, as iOS prints it; the desk draws other machines'
+ * shape, not someone else's logo. */
 function Mark({ brand }: { brand: DeskModel['brand'] }) {
   if (brand !== 'nuphos') return null
 
-  return <img className="desk-mark is-nuphos" src="/nuphos-icon.png" alt="" aria-hidden />
+  return <i className="desk-mark is-nuphos" aria-hidden />
 }
 
 /** Folded shut under the viewer; the lid swings up as the view turns to face it. */
@@ -78,10 +79,21 @@ function Laptop({ brand, screen }: { brand: DeskModel['brand']; screen: ReactNod
 }
 
 /** A Mac mini, a Linux machine or a Box: its top from above, then its front as the view turns. */
-function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
+/** How many outlines of the top stack up into a solid body: one every 2px of its 56px height. */
+const BODY_SLICES = 28
+
+function MiniBox({ brand, solid = false }: { brand: DeskModel['brand']; solid?: boolean }) {
   return (
     <>
       <i className="desk-mini-shadow" />
+      {solid &&
+        Array.from({ length: BODY_SLICES }, (_, index) => (
+          <i
+            key={index}
+            className="desk-mini-slice"
+            style={{ '--up': index / (BODY_SLICES - 1) } as CSSProperties}
+          />
+        ))}
       <div className="desk-mini">
         <Mark brand={brand} />
         <div className="desk-mini-front">
@@ -100,20 +112,29 @@ function MiniBox({ brand }: { brand: DeskModel['brand'] }) {
 export function DeskArt({
   model,
   on,
+  facing = false,
+  solid = false,
   children,
 }: {
   model: DeskModel
   /** A paused or unreachable machine stays shut, with an unlit power light and no readings. */
   on: boolean
-  /** The machine's readings and agents. */
-  children: ReactNode
+  /** Already facing the viewer when it appears, with no turn: one arriving from elsewhere. */
+  facing?: boolean
+  /**
+   * A box with a solid body under its top, so its sides keep the top's round corners at every
+   * angle of the turn: for whoever shows it turning up close.
+   */
+  solid?: boolean
+  /** The machine's readings and agents. A box without them has no card beside it. */
+  children?: ReactNode
 }) {
-  const [opened, setOpened] = useState(false)
+  const [opened, setOpened] = useState(facing)
   // A machine that is off stays shut; it opens once it is on.
   const open = on && opened
 
   useEffect(() => {
-    if (!on) return
+    if (!on || opened) return
 
     const timer = window.setTimeout(
       () => setOpened(true),
@@ -121,7 +142,7 @@ export function DeskArt({
     )
 
     return () => window.clearTimeout(timer)
-  }, [on])
+  }, [on, opened])
 
   const laptop = model.form === 'laptop'
   // Nothing on it can be reached until it has turned to face the viewer.
@@ -148,9 +169,13 @@ export function DeskArt({
       )}
     >
       <div className="desk-rig" aria-hidden={laptop ? !on : true}>
-        {laptop ? <Laptop brand={model.brand} screen={screen} /> : <MiniBox brand={model.brand} />}
+        {laptop ? (
+          <Laptop brand={model.brand} screen={screen} />
+        ) : (
+          <MiniBox brand={model.brand} solid={solid} />
+        )}
       </div>
-      {!laptop && on && panel('desk-panel desk-side')}
+      {!laptop && on && children !== undefined && panel('desk-panel desk-side')}
     </div>
   )
 }

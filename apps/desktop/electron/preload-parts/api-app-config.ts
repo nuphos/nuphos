@@ -9,6 +9,8 @@ import type { LoginItemState } from '../main/login-item'
 // URL inside link-rendering paths that cannot await.
 export const appConfigApi = {
   claimFirstLaunchIntro: (): Promise<boolean> => ipcRenderer.invoke('app:claimFirstLaunchIntro'),
+  appRequestNotifications: () => ipcRenderer.invoke('app:requestNotifications'),
+  appOpenNotificationSettings: () => ipcRenderer.invoke('app:openNotificationSettings'),
   // "Send crash reports and usage data" (main process owns the setting).
   sendDiagnostics: (): boolean => ipcRenderer.sendSync('diagnostics:enabled') === true,
   // Whether usage data is sent: the setting is on and the backend is Nuphos Cloud.

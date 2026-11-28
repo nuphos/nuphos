@@ -20,14 +20,15 @@ import {
   readyLocalAgents,
 } from './agentSetup'
 import { openCloudComputer } from './agentSetupStore'
+import { rescanRuntimes, useScannedRuntimes } from './runtimeScan'
 import { SetupScreen, StatusPill } from './SetupChrome'
 
-import type { CliLoginProvider } from '../../../api'
+import type { CliLoginProvider, LocalAgentProvider } from '../../../api'
 
 const ICON = { 'claude-code': ClaudeIcon, codex: CodexIcon } as const
 
 /** Sign-in inside the card: start it, then follow the browser step until the CLI reports back. */
-function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
+export function InlineSignIn({ provider }: { provider: CliLoginProvider }) {
   const { login, busy, retry, start, cancel } = useLocalAgentLogin(provider, true)
   const [codePre, codePost = ''] = t('Enter this one-time code: {code}').split('{code}')
 
@@ -91,13 +92,13 @@ function MissingCli({ command }: { command: string }) {
 }
 
 /** Install it from here, or look again after installing it some other way. */
-function MissingCliActions({ provider }: { provider: CliLoginProvider }) {
+function MissingCliActions({ provider }: { provider: LocalAgentProvider }) {
   const [checking, setChecking] = useState(false)
 
   async function check() {
     setChecking(true)
     try {
-      await api.localRuntimeRefresh()
+      await Promise.all([api.localRuntimeRefresh(), rescanRuntimes()])
     } catch {
       // The state push is the answer; a failed look leaves the card as it is.
     } finally {
@@ -116,14 +117,28 @@ function MissingCliActions({ provider }: { provider: CliLoginProvider }) {
   )
 }
 
-function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
+function LocalAgentSetupCard({
+  provider,
+  scanned,
+  plain,
+}: {
+  provider: CliLoginProvider
+  scanned: readonly string[] | null
+  plain: boolean
+}) {
   const state = useLocalRuntimeState()
-  const status = setupAgentStatus(state, provider)
+  const status = setupAgentStatus(state, provider, scanned)
   const { name, installUrl, command } = LOCAL_AGENT_INFO[provider]
   const Icon = ICON[provider]
 
   return (
-    <div className="space-y-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3.5">
+    <div
+      className={
+        plain
+          ? 'space-y-2.5 py-3 text-left'
+          : 'space-y-3 rounded-xl border border-line-control bg-surface-sheet px-4 py-3.5'
+      }
+    >
       <div className="flex items-center gap-3">
         <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken text-main">
           <Icon className="h-5 w-5" />
@@ -135,6 +150,7 @@ function LocalAgentSetupCard({ provider }: { provider: CliLoginProvider }) {
             {status === 'checking' && t('Checking installation and sign-in…')}
             {status === 'signed-out' && t('Sign in to use your subscription')}
             {status === 'missing' && t('Install this runtime to get started')}
+            {status === 'found' && t('Installed. Development builds don’t check sign-in.')}
             {status === 'unavailable' && t('Local runtime detection is unavailable')}
           </p>
         </div>
@@ -178,7 +194,7 @@ export function LocalAgentsStep({
 
   return (
     <SetupScreen
-      step={2}
+      step={1}
       title={isMac ? t('Connect runtimes on this Mac') : t('Connect runtimes on this computer')}
       subtitle={
         isMac
@@ -211,20 +227,23 @@ export function LocalAgentsStep({
 /**
  * The same account cards, usable in-place without the onboarding screen. With a team its
  * admins may rent a computer from Nuphos there instead; `onCloud` closes what the cards sit in.
+ * `plain` draws them as rows, under the onboarding's picture of this computer.
  */
 export function LocalAgentSetupCards({
   teamId,
   onCloud,
-}: { teamId?: string; onCloud?: () => void } = {}) {
+  plain = false,
+}: { teamId?: string; onCloud?: () => void; plain?: boolean } = {}) {
   const state = useLocalRuntimeState()
+  const scanned = useScannedRuntimes(Boolean(state?.detectionDisabled))
   const devices = useAgentDevices(() => 0, teamId ?? '', {
     teamId,
     enabled: Boolean(teamId),
   }).list
 
   return (
-    <div className="space-y-3">
-      {state?.detectionDisabled && (
+    <div className={plain ? 'divide-y divide-line-control/70' : 'space-y-3'}>
+      {state?.detectionDisabled && !scanned && (
         <p
           role="status"
           className="rounded-lg bg-state-selected px-4 py-3 text-[12.5px] leading-5 text-secondary"
@@ -235,7 +254,7 @@ export function LocalAgentSetupCards({
         </p>
       )}
       {LOCAL_SETUP_PROVIDERS.map((provider) => (
-        <LocalAgentSetupCard key={provider} provider={provider} />
+        <LocalAgentSetupCard key={provider} provider={provider} scanned={scanned} plain={plain} />
       ))}
       {teamId && devices?.boxAvailable && devices.canCreateBox && (
         // Drawn as this list's rows, a little apart: not on this computer.

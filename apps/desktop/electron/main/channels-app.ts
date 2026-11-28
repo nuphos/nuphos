@@ -11,6 +11,7 @@ import { setSendDiagnostics } from '../crash-reporter'
 import { selectAsciiInputSource } from '../input-source'
 import * as atlas from '../atlas'
 import * as auth from '../auth'
+import { readAIConsent, saveAIConsent } from '../auth/ai-consent'
 import { removeAvatar, updateProfile, uploadAvatar } from '../auth/profile'
 import * as fileTransfer from '../fileTransfer'
 import { readImageAttachment } from '../imageAttachment'
@@ -28,6 +29,7 @@ import { readLoginItem, writeLoginItem } from './login-item'
 import { writePersistedThemeSource } from './theme'
 import { fileTransferReadChannels } from './channels-file-transfer'
 import { updaterChannels } from './channels-updater'
+import { openNotificationSettings, requestNotifications } from './notification-permission'
 import { mostRecentlyFocusedVisibleAppWindow } from './windows'
 
 import type { PastedAttachmentPayload } from './dialogs'
@@ -40,6 +42,10 @@ export const appChannels = {
     _e: unknown,
     input: { name: string; username: string; avatarURL: string },
   ) => updateProfile(input),
+  'auth:aiConsent': () => readAIConsent(),
+  'auth:setAIConsent': (_e: unknown, accepted: unknown) => saveAIConsent(accepted === true),
+  'app:requestNotifications': () => requestNotifications(),
+  'app:openNotificationSettings': () => openNotificationSettings(),
   'atlas:listPersonalCredentials': () => atlas.listPersonalCredentials(),
   'atlas:startPersonalCredential': (
     _e: unknown,

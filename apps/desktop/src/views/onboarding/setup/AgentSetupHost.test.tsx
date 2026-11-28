@@ -30,7 +30,7 @@ mock.module('../../../components/Modal', () => ({
 }))
 mock.module('../../../hooks/useLocalRuntimeState', () => ({ useLocalRuntimeState: () => null }))
 mock.module('../../settings/useAgentDevices', () => ({
-  useAgentDevices: () => ({ list: devices, error: false, reload: () => undefined }),
+  useAgentDevices: () => ({ list: devices, error: false, reload: () => {} }),
 }))
 mock.module('../../settings/AddAgentDialog', () => ({
   AddAgentDialog: (props: DialogProps) => {

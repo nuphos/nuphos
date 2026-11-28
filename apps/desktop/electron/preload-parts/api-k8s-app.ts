@@ -223,6 +223,8 @@ export const k8sAppApi = {
     ),
   authUpdateProfile: (input: { name: string; username: string; avatarURL: string }) =>
     ipcRenderer.invoke('auth:updateProfile', input),
+  authAIConsent: () => ipcRenderer.invoke('auth:aiConsent'),
+  authSetAIConsent: (accepted: boolean) => ipcRenderer.invoke('auth:setAIConsent', accepted),
   atlasListPersonalCredentials: () => ipcRenderer.invoke('atlas:listPersonalCredentials'),
   atlasStartPersonalCredential: (provider: PersonalCredentialProvider, teamId?: string) =>
     ipcRenderer.invoke('atlas:startPersonalCredential', provider, teamId),

@@ -1,0 +1,107 @@
+/* The runtimes card sits where the Computers page puts it, over the machine's right side, but
+   only as wide as its tiles: a set number of columns with even padding either side. */
+.tour-computer .desk-side {
+  right: auto;
+  left: 160px;
+  width: auto;
+}
+
+/* Here the page centers the machine itself, so it must not move sideways as it turns. The
+   Computers page centers it from above, then slides it 36px left; here it starts where it ends,
+   at 112.5px (the middle of the 175px the card gives it), and the lens sits right above it so
+   tipping it back widens it evenly both ways instead of pushing it toward the art's middle. */
+.tour-computer .desk-art {
+  perspective-origin: 112.5px 20%;
+}
+
+.tour-computer .desk-box .desk-rig {
+  transform: translate(-37.5px, 0) rotateX(0deg);
+}
+
+.tour-computer .desk-box.is-open .desk-rig {
+  transform: translate(-37.5px, 78px) rotateX(68deg);
+}
+
+/* The turn is built as the iOS tour builds it. Under the top, outlines of it stack from the desk
+   up into a solid body, so its sides keep the top's round corners at every angle. The near
+   corners of top and body sharpen together in the first half of the turn, a little softer toward
+   the desk to meet the front's round foot. Only then, with the body's outline already the front's,
+   does the front's shading fade in over a body of the same color. So no frame shows the faces it
+   is made of. */
+.tour-computer .desk-box {
+  --body-top: #e7e7ea;
+  --body-bottom: #c6c6cb;
+  --end-shade: 0.1;
+  --turn: calc(var(--duration-very-slow) * 2);
+}
+
+.tour-computer .desk-box.is-other {
+  --body-top: #333437;
+  --body-bottom: #2a2b2e;
+  --end-shade: 0.3;
+}
+
+.tour-computer .desk-box.is-nuphos {
+  --body-top: #2e2e32;
+  --body-bottom: #1b1b1e;
+  --end-shade: 0.3;
+}
+
+.tour-computer .desk-box .desk-rig,
+.tour-computer .desk-box.is-open .desk-rig {
+  transition: transform var(--turn) var(--ease-in-out);
+}
+
+.tour-computer .desk-mini-slice {
+  position: absolute;
+  /* A pixel behind the front, which hangs 1px in from the near edge: close enough that no ledge
+     shows between them, apart enough that they never share a plane. */
+  inset: 0 0 2px;
+  border-radius: 26px;
+  background: color-mix(in srgb, var(--body-top) calc(var(--up) * 100%), var(--body-bottom));
+  transform: translateZ(calc(8px + var(--up) * 54px));
+  transition: border-radius var(--duration-very-slow) var(--ease-in-out);
+}
+
+.tour-computer .desk-box.is-open .desk-mini-slice {
+  border-radius: 26px 26px calc(5px - var(--up) * 3px) calc(5px - var(--up) * 3px);
+}
+
+.tour-computer .desk-box .desk-mini,
+.tour-computer .desk-box.is-open .desk-mini {
+  transition: border-radius var(--duration-very-slow) var(--ease-in-out);
+}
+
+.tour-computer .desk-art.desk-box .desk-mini-front {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(0 0 0 / var(--end-shade)),
+      transparent 10%,
+      transparent 90%,
+      rgb(0 0 0 / var(--end-shade))
+    ),
+    linear-gradient(var(--body-top), var(--body-bottom));
+  transition: opacity var(--duration-slow) var(--ease-in-out);
+}
+
+.tour-computer .desk-art.desk-box.is-open .desk-mini-front {
+  transition-delay: var(--duration-very-slow);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-computer .desk-box .desk-rig,
+  .tour-computer .desk-box.is-open .desk-rig,
+  .tour-computer .desk-mini-slice,
+  .tour-computer .desk-box .desk-mini,
+  .tour-computer .desk-box.is-open .desk-mini,
+  .tour-computer .desk-art.desk-box .desk-mini-front {
+    transition: none;
+  }
+}
+
+.tour-computer .desk-agents {
+  display: grid;
+  grid-template-columns: repeat(var(--tile-columns, 3), 28px);
+  gap: 4px;
+}

@@ -3,6 +3,7 @@ import type {
   CliLoginProvider,
   LocalRuntimeState,
 } from '../../../api/device-types.ts'
+import type { LocalAgentProvider } from '../../../api/local-agent-providers.ts'
 
 export const LOCAL_SETUP_PROVIDERS = [
   'claude-code',
@@ -26,7 +27,9 @@ export const LOCAL_AGENT_INFO: Record<
   },
 }
 
-export type LocalAgentStatus = 'checking' | 'ready' | 'signed-out' | 'missing' | 'unavailable'
+/** `found`: installed, by a read-only look where local runtimes are off, so sign-in is unknown. */
+export type LocalAgentStatus =
+  'checking' | 'ready' | 'signed-out' | 'missing' | 'found' | 'unavailable'
 
 /** Where one local agent stands, from its own CLI as this computer last saw it. */
 export function localAgentStatus(cli: AgentCliStatus | null | undefined): LocalAgentStatus {
@@ -42,13 +45,19 @@ export function readyLocalAgents(state: LocalRuntimeState | null): CliLoginProvi
   )
 }
 
-/** A disabled or failed check must not look like an in-flight check. */
+/**
+ * A disabled or failed check must not look like an in-flight check. Where local
+ * runtimes are off, `scanned` (a read-only look for their tools) still tells
+ * installed from missing.
+ */
 export function setupAgentStatus(
   state: LocalRuntimeState | null,
-  provider: CliLoginProvider,
+  provider: LocalAgentProvider,
+  scanned?: readonly string[] | null,
 ): LocalAgentStatus {
   const agent = state?.agents[provider]
 
+  if (state?.detectionDisabled && scanned) return scanned.includes(provider) ? 'found' : 'missing'
   if (state?.detectionDisabled || (!agent?.cli && agent?.error)) return 'unavailable'
 
   return localAgentStatus(agent?.cli)

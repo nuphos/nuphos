@@ -6,6 +6,7 @@ import { ConfettiBurst } from '../../components/ConfettiBurst'
 import { PortForwardBottomBar } from '../../components/PortForwardBottomBar'
 import { ShortcutsHelpModal } from '../../components/ShortcutsHelpModal'
 import { NoTeamSidebar } from '../../components/sidebar/NoTeamSidebar'
+import { setSidebarMode } from '../../components/sidebar/sidebarModeStore'
 import { TeamInvitationsTakeover } from '../../components/TeamInvitationsPanel'
 import { t } from '../../i18n'
 import { recordSessionVisit } from '../../lib/sessionHistory'
@@ -55,6 +56,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
     teamsLoading,
     backendUnreachable,
     teamsLoaded,
+    onboardingDecided,
     onboardingActive,
     onboardingForced,
     onboardingNonce,
@@ -129,9 +131,25 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
           onAcceptInvitation={acceptInvitation}
           onJoinDiscoverableTeam={joinDiscoverableTeam}
           onLogout={handleLogout}
-          onFinish={finishOnboarding}
+          onFinish={(teamId, channelId) => {
+            finishOnboarding(teamId)
+            // The first Bot's chat, on the Bots page, as iOS lands after its tour.
+            if (teamId) setSidebarMode(teamId, 0)
+            if (teamId && channelId) openConversationInNewTab(channelId, teamId)
+          }}
         />
       </>
+    )
+  }
+
+  // Until both lists have loaded we don't know whether this account enters
+  // onboarding, so hold a blank splash in the onboarding surface: a new user's
+  // first screen is then the consent notice, not a flash of the empty shell.
+  if (!scope && !onboardingDecided && !error && !backendUnreachable) {
+    return (
+      <div className="fixed inset-0 z-40 sidebar-surface" aria-busy="true">
+        <div className="titlebar-drag absolute inset-x-0 top-0 h-11" aria-hidden="true" />
+      </div>
     )
   }
 

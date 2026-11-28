@@ -16,6 +16,7 @@ import { cssDurationMs, prefersReducedMotion } from '../lib/motion'
 
 import { LoginAccounts } from './LoginAccounts'
 import { LoginApiEndpoint } from './LoginApiEndpoint'
+import { LoginLanguageMenu } from './LoginLanguageMenu'
 import { LoginMfaStep } from './LoginMfaStep'
 import { LoginSocialButtons } from './LoginSocialButtons'
 
@@ -29,11 +30,13 @@ type Props = {
   notice?: string
   /** Signing in to one more account: back to the workspace without it. */
   onCancel?: () => void
+  /** Switching from onboarding: plain sign-in, and the account in use continues as Cancel does. */
+  switching?: boolean
 }
 
 const inputClasses = codeInputClasses
 
-export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
+export function LoginView({ onLogin, accounts = [], notice, onCancel, switching }: Props) {
   const { resolved } = useTheme()
   const [step, setStep] = useState<'start' | 'code' | 'mfa'>('start')
   const [mfaToken, setMfaToken] = useState<string | null>(null)
@@ -143,7 +146,7 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
   let title: string | null = null
 
   if (notice) title = t('Sign in again')
-  else if (onCancel) title = t('Add an account')
+  else if (onCancel && !switching) title = t('Add an account')
 
   const lockup = <img className="block h-10" src={`/nuphos-lockup-${resolved}.png`} alt="Nuphos" />
 
@@ -151,7 +154,9 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
 
   return (
     <div className="titlebar-drag h-full flex flex-col login-surface">
-      <div className="h-[44px] flex-shrink-0" />
+      <div className="h-[44px] flex-shrink-0 flex items-center justify-end px-3">
+        <LoginLanguageMenu />
+      </div>
       {/* Scrolls, so a long account list never pushes the form out of reach. */}
       <div className="flex-1 min-h-0 overflow-y-auto flex items-start justify-center px-8 pt-[18vh] pb-8">
         <div className="w-full max-w-[360px] flex flex-col items-start text-left">
@@ -160,11 +165,13 @@ export function LoginView({ onLogin, accounts = [], notice, onCancel }: Props) {
           {title && <h1 className="text-[20px] font-semibold text-main mb-1.5">{title}</h1>}
           <p className="text-[13.5px] text-secondary leading-relaxed mb-8">
             {notice ??
-              (onCancel
+              (onCancel && !switching
                 ? t('You stay signed in to the others, and can switch back any time.')
                 : t('The open source Grok Bot alternative'))}
           </p>
-          {step === 'start' && <LoginAccounts accounts={accounts} />}
+          {step === 'start' && (
+            <LoginAccounts accounts={accounts} onContinue={switching ? onCancel : undefined} />
+          )}
 
           <div
             className="t-page-slide t-wizard-slide w-full"

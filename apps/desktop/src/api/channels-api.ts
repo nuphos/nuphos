@@ -3,6 +3,8 @@ import { receiveAgentAvatars } from '../lib/agentAvatarChoices.ts'
 export const channelsApi = {
   agentGetBotImportStatus: (...args: Parameters<typeof window.api.agentGetBotImportStatus>) =>
     window.api.agentGetBotImportStatus(...args),
+  agentPreviewStarterBot: (...args: Parameters<typeof window.api.agentPreviewStarterBot>) =>
+    window.api.agentPreviewStarterBot(...args),
   agentChooseBotImport: (...args: Parameters<typeof window.api.agentChooseBotImport>) =>
     window.api.agentChooseBotImport(...args),
   agentApplyBotImport: (...args: Parameters<typeof window.api.agentApplyBotImport>) =>

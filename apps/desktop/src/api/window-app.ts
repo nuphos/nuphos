@@ -52,6 +52,12 @@ export type LoginItemState = { supported: boolean; openAtLogin: boolean }
 export type WindowAppApi = {
   claimFirstLaunchIntro?(): Promise<boolean>
   authUpdateProfile(input: { name: string; username: string; avatarURL: string }): Promise<UserInfo>
+  /** The AI data sharing notice this build shows, and whether the account agreed to it. */
+  authAIConsent(): Promise<{ version: string; accepted: boolean }>
+  authSetAIConsent(accepted: boolean): Promise<{ version: string; accepted: boolean }>
+  /** Shows a first notification, which is what makes macOS ask for permission. */
+  appRequestNotifications(): Promise<'shown' | 'failed' | 'pending' | 'unsupported'>
+  appOpenNotificationSettings(): Promise<void>
   atlasListPersonalCredentials(): Promise<PersonalCredential[]>
   atlasStartPersonalCredential(
     provider: PersonalCredentialProvider,

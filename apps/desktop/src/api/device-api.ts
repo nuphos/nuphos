@@ -40,6 +40,7 @@ export const deviceApi = {
   onLocalRuntimeState: (cb: (state: LocalRuntimeState) => void) =>
     window.api.onLocalRuntimeState(cb),
   localRuntimeRefresh: () => window.api.localRuntimeRefresh(),
+  localRuntimeFindInstalled: () => window.api.localRuntimeFindInstalled(),
   localRuntimeRefreshModels: (pickerOpened?: boolean) =>
     window.api.localRuntimeRefreshModels(pickerOpened),
   localRuntimeUpdateAgent: (provider: LocalAgentProvider) =>

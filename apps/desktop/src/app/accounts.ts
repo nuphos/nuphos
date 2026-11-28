@@ -31,6 +31,11 @@ export function waitingAccounts(accounts: AccountSummary[]): AccountSummary[] {
 export type AddAccountRequest = {
   /** Why the sign-in screen is shown, e.g. an account that must sign in again. */
   notice?: string
+  /**
+   * Switching from onboarding, as on iOS: the account in use is listed too, to
+   * continue with it, and the screen reads as sign-in rather than "Add an account".
+   */
+  switching?: boolean
 }
 
 // The open request to add an account, as an external store for

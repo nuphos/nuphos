@@ -10,10 +10,25 @@ import { agentProvider } from '../../types/runtime'
 
 import { AGENT_INSTALL } from './agentInstall'
 
-import type { CliLoginProvider } from '../../api'
+import type { LocalAgentProvider } from '../../api'
 
-/** Runs the vendor's own installer here, so nobody has to find a terminal first. */
-export function InstallButton({ provider }: { provider: CliLoginProvider }) {
+/**
+ * Runs the vendor's own installer here, so nobody has to find a terminal first. `short` drops
+ * the name from its label, for a row that already shows it; `onDone` runs once it has finished,
+ * either way.
+ */
+export function InstallButton({
+  provider,
+  short = false,
+  quiet = false,
+  onDone,
+}: {
+  provider: LocalAgentProvider
+  short?: boolean
+  /** A text-style button, for a list where every row has one. */
+  quiet?: boolean
+  onDone?: () => void
+}) {
   const [installing, setInstalling] = useState(false)
   const name = agentProvider(provider).label
   const command = AGENT_INSTALL[provider]
@@ -38,17 +53,25 @@ export function InstallButton({ provider }: { provider: CliLoginProvider }) {
       })
     } finally {
       setInstalling(false)
+      onDone?.()
     }
   }
 
   return (
-    <Button size="sm" variant="secondary" disabled={installing} onClick={() => void start()}>
+    <Button
+      size="sm"
+      variant={quiet ? 'ghost' : 'secondary'}
+      className={quiet ? 'h-7 px-2 text-[12.5px]' : undefined}
+      disabled={installing}
+      onClick={() => void start()}
+    >
       {installing ? (
         <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin motion-reduce:animate-none" />
       ) : (
         <Download strokeWidth={1.5} className="mr-1.5 h-3.5 w-3.5" />
       )}
-      {installing ? t('Installing…') : t('Install {name}', { name })}
+      {installing && t('Installing…')}
+      {!installing && (short ? t('Install') : t('Install {name}', { name }))}
     </Button>
   )
 }

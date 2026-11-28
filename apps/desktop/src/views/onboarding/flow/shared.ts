@@ -32,7 +32,7 @@ export type OnboardingFlowProps = {
    */
   onLogout?: () => void
   /** Finish onboarding and land in the app on the given team (if any). */
-  onFinish: (teamId: string | null) => void
+  onFinish: (teamId: string | null, channelId?: string) => void
 }
 
 // The onboarding conversation asks for a workspace name, then shows it being
