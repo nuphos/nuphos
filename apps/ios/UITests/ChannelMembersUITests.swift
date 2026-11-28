@@ -115,8 +115,13 @@ final class ChannelMembersUITests: XCTestCase {
         let entry = app.buttons["bot-details-entry"]
         XCTAssertTrue(waitUntil { entry.exists && entry.isEnabled }, "The chat's title did not open its members")
         if let header {
-            // Once the chat has slid all the way in.
-            XCTAssertTrue(waitUntil { entry.isHittable && abs(entry.frame.midX - self.app.frame.midX) < 2 }, "The chat did not finish opening")
+            // Once the chat has slid all the way in: its title stays put between two looks.
+            var last = CGRect.null
+            XCTAssertTrue(waitUntil {
+                let frame = entry.frame
+                defer { last = frame }
+                return entry.isHittable && frame == last
+            }, "The chat did not finish opening")
             shot(header)
         }
         entry.tap()
