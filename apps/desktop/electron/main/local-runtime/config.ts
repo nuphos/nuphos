@@ -46,6 +46,7 @@ export type LocalRuntimeLaunch = {
   secretEnv?: Record<string, string>
 }
 
+const PROXY_ENV = ['HTTPS_PROXY', 'HTTP_PROXY', 'ALL_PROXY', 'NO_PROXY']
 const AGENT_ENV_PASSTHROUGH = [
   'HOME',
   'PATH',
@@ -58,14 +59,7 @@ const AGENT_ENV_PASSTHROUGH = [
   'TERM',
   'NODE_EXTRA_CA_CERTS',
   'SSL_CERT_FILE',
-  'HTTPS_PROXY',
-  'HTTP_PROXY',
-  'ALL_PROXY',
-  'NO_PROXY',
-  'https_proxy',
-  'http_proxy',
-  'all_proxy',
-  'no_proxy',
+  ...PROXY_ENV.flatMap((key) => [key, key.toLowerCase()]),
   'USERPROFILE',
   'APPDATA',
   'LOCALAPPDATA',
