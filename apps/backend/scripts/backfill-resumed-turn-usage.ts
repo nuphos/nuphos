@@ -23,18 +23,17 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { CORRECTED_FIELDS, resumedTurnDecisions } from '@/lib/agent/resumed-turn-usage-backfill'
+import {
+  applyResumedTurnCorrections,
+  CORRECTED_FIELDS,
+  RESUMED_TURN_ROWS,
+  resumedTurnDecisions,
+} from '@/lib/agent/resumed-turn-usage-backfill'
 import { agentTokenUsage } from '@/lib/agent/token-usage-db'
 import { refreshConversationTokenUsageSummary } from '@/lib/agent/token-usage-summary'
-import { closeDb, connectDb, withTransaction } from '@/lib/db'
+import { closeDb, connectDb } from '@/lib/db'
 
 import type { Counts, ResumedUsageDecision } from '@/lib/agent/resumed-turn-usage-backfill'
-
-const ROWS = {
-  operation: 'agent.turn',
-  accounting: 'upstream_reported',
-  provider: 'claude-code',
-} as const
 
 function flagValue(name: string): string | undefined {
   const index = process.argv.indexOf(`--${name}`)
@@ -62,50 +61,6 @@ function date(name: string, fallback?: Date): Date {
 const csv = (rows: (string | number)[][]): string => `${rows.map((r) => r.join(',')).join('\n')}\n`
 const values = (c?: Counts): number[] => CORRECTED_FIELDS.map((f) => c?.[f] ?? '') as number[]
 
-async function applySession(sessionId: string, decisions: ResumedUsageDecision[]): Promise<void> {
-  await withTransaction(async (session) => {
-    for (const d of decisions) {
-      if (d.action !== 'correct') continue
-      const marker = { resumedUsageCorrection: { original: d.before, method: d.method } }
-      const turn = { ...ROWS, sessionId, modelId: d.modelId, createdAt: d.createdAt }
-      const untouched = { resumedUsageCorrection: { $exists: false } }
-      const { inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens } = d.after
-
-      await agentTokenUsage().updateOne(
-        { recordId: d.recordId, ...untouched },
-        {
-          $set: {
-            ...marker,
-            'tokens.inputTokens': inputTokens,
-            'tokens.cachedInputTokens': cachedInputTokens,
-            'tokens.cacheWriteTokens': cacheWriteTokens,
-            'tokens.outputTokens': outputTokens,
-            'tokens.totalTokens': inputTokens + outputTokens,
-          },
-        },
-        { session },
-      )
-      await agentTokenUsage().updateMany(
-        { ...turn, kind: 'input', ...untouched },
-        {
-          $set: {
-            ...marker,
-            'tokens.inputTokens': inputTokens,
-            'tokens.cachedInputTokens': cachedInputTokens,
-            'tokens.cacheWriteTokens': cacheWriteTokens,
-          },
-        },
-        { session },
-      )
-      await agentTokenUsage().updateMany(
-        { ...turn, kind: 'output', ...untouched },
-        { $set: { ...marker, 'tokens.outputTokens': outputTokens } },
-        { session },
-      )
-    }
-  })
-}
-
 async function main(): Promise<void> {
   const apply = process.argv.includes('--apply')
   const refresh = process.argv.includes('--refresh-summaries')
@@ -117,7 +72,7 @@ async function main(): Promise<void> {
   if (refresh && !apply) fail('--refresh-summaries only makes sense with --apply')
 
   await connectDb()
-  const window = { ...ROWS, kind: 'step_total', createdAt: { $gte: from, $lt: to } }
+  const window = { ...RESUMED_TURN_ROWS, kind: 'step_total', createdAt: { $gte: from, $lt: to } }
   const sessionIds = await agentTokenUsage().distinct('sessionId', {
     ...window,
     'tokens.inputTokens': { $gt: 10_000_000 },
@@ -174,6 +129,10 @@ async function main(): Promise<void> {
           ...values(d.suggested),
         ])
     }
+    if (apply && corrections.length > 0) await applyResumedTurnCorrections(sessionId, decisions)
+    // Also for a session an interrupted run corrected but did not refresh.
+    if (refresh && decisions.some((d) => d.action !== 'manual'))
+      await refreshConversationTokenUsageSummary(sessionId, rows[0].userId, rows[0].teamId)
     if (decisions.every((d) => d.action === 'already_corrected')) continue
     total.sessions++
     total.rows += corrections.length
@@ -183,12 +142,6 @@ async function main(): Promise<void> {
       total.after[i] += sum.after[i]
     }
     sessionRows.push([sessionId, corrections.length, ...sum.before, ...sum.after])
-
-    if (apply && corrections.length > 0) {
-      await applySession(sessionId, decisions)
-      if (refresh)
-        await refreshConversationTokenUsageSummary(sessionId, rows[0].userId, rows[0].teamId)
-    }
   }
 
   if (out) {

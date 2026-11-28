@@ -13,6 +13,10 @@
 // reading has nothing to subtract from; those rows are estimated from the
 // session's ordinary turns of that model and say so. Anything that does not fit
 // is left as it is and reported for a person to look at.
+import { withTransaction } from '@/lib/db'
+
+import { agentTokenUsage } from './token-usage-db'
+
 import type { AgentTokenUsageTokens } from './token-usage-db'
 
 export const CORRECTED_FIELDS = [
@@ -151,4 +155,58 @@ export function resumedTurnDecisions(rows: ResumedUsageRow[]): ResumedUsageDecis
   }
 
   return decisions.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+}
+
+export const RESUMED_TURN_ROWS = {
+  operation: 'agent.turn',
+  accounting: 'upstream_reported',
+  provider: 'claude-code',
+} as const
+
+/**
+ * Writes one session's corrections in one transaction: the step_total row and
+ * the same turn's input and output rows. Only tokens change; the recorded ones
+ * go to `resumedUsageCorrection.original`, and a row that has it is skipped.
+ */
+export async function applyResumedTurnCorrections(
+  sessionId: string,
+  decisions: ResumedUsageDecision[],
+): Promise<void> {
+  await withTransaction(async (session) => {
+    for (const d of decisions) {
+      if (d.action !== 'correct') continue
+      const marker = { resumedUsageCorrection: { original: d.before, method: d.method } }
+      const turn = { ...RESUMED_TURN_ROWS, sessionId, modelId: d.modelId, createdAt: d.createdAt }
+      const untouched = { resumedUsageCorrection: { $exists: false } }
+      const { inputTokens, cachedInputTokens, cacheWriteTokens, outputTokens } = d.after
+      const input = {
+        'tokens.inputTokens': inputTokens,
+        'tokens.cachedInputTokens': cachedInputTokens,
+        'tokens.cacheWriteTokens': cacheWriteTokens,
+      }
+
+      await agentTokenUsage().updateOne(
+        { recordId: d.recordId, ...untouched },
+        {
+          $set: {
+            ...marker,
+            ...input,
+            'tokens.outputTokens': outputTokens,
+            'tokens.totalTokens': inputTokens + outputTokens,
+          },
+        },
+        { session },
+      )
+      await agentTokenUsage().updateMany(
+        { ...turn, kind: 'input', ...untouched },
+        { $set: { ...marker, ...input } },
+        { session },
+      )
+      await agentTokenUsage().updateMany(
+        { ...turn, kind: 'output', ...untouched },
+        { $set: { ...marker, 'tokens.outputTokens': outputTokens } },
+        { session },
+      )
+    }
+  })
 }
