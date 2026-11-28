@@ -21,20 +21,21 @@ type Args = {
   device?: string
 }
 
+const given = (value: unknown) => typeof value === 'string' && value.trim() !== ''
+
 const cuaTool: DeviceTool = {
   name: 'local_cua',
   label: 'Computer Use',
   purpose: 'cua',
   invalid: (raw) => {
     const { tool, code } = raw as Args
-    const given = [tool, code].filter((value) => typeof value === 'string' && value.trim())
 
-    return given.length === 1 ? undefined : 'Pass either tool or code.'
+    return [tool, code].filter(given).length === 1 ? undefined : 'Pass either tool or code.'
   },
   frame: (raw) => {
     const args = raw as Args
 
-    if (args.tool) return { tool: args.tool, arguments: args.arguments ?? {} }
+    if (given(args.tool)) return { tool: args.tool, arguments: args.arguments ?? {} }
 
     return {
       code: args.code,

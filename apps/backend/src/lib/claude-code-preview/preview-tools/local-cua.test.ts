@@ -164,6 +164,17 @@ describe('local_cua', () => {
     expect(device.sockets).toHaveLength(0)
   })
 
+  test('a blank tool does not turn a code call into a tool call', async () => {
+    const device = fakeDevice((message, socket) => {
+      if (message.t === 'call') socket.emit('message', { t: 'result', result: { content: [] } })
+    })
+
+    await createLocalCuaHandler(ctx, deps({ connect: device.connect }))({ tool: ' ', code: '1' })
+
+    expect(device.sockets[0]?.sent[0]).toMatchObject({ t: 'call', code: '1' })
+    expect(device.sockets[0]?.sent[0]).not.toHaveProperty('tool')
+  })
+
   test("answers the App's approval prompt with the user's decision", async () => {
     const asked: string[] = []
     const device = fakeDevice((message, socket) => {
