@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">Could not load triggers</string>
     <string name="chat_triggers_update_failed">Could not update trigger</string>
     <string name="chat_triggers_title">Triggers</string>
-    <string name="chat_triggers_empty">Ask the agent to schedule recurring work in this conversation.</string>
+    <string name="chat_triggers_empty">Ask here to schedule recurring work.</string>
     <string name="chat_trigger_paused">Paused</string>
     <string name="chat_trigger_next_run">Next: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Waiting for webhook</string>
@@ -128,8 +128,14 @@
     <string name="chat_retry_steering">Retry steering</string>
     <string name="chat_attachment_message">Attachment message</string>
     <string name="chat_upload_preparing">Preparing upload…</string>
-    <string name="chat_upload_progress">Uploading %1$d / %2$d bytes</string>
+    <string name="chat_upload_progress">Uploading %1$s of %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="one">%1$s byte</item>
+        <item quantity="other">%1$s bytes</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">Checking uploaded files…</string>
+    <string name="chat_upload_sending">Sending…</string>
     <string name="chat_upload_ready">Files ready</string>
     <string name="chat_upload_cancel">Cancel upload</string>
     <string name="chat_upload_retry">Retry attachment message</string>
@@ -139,7 +145,7 @@
     <string name="chat_always_allow_title">Always allow</string>
     <string name="chat_always_allow_body">Commands matching this description will run without asking.</string>
     <string name="chat_allow">Allow</string>
-    <string name="chat_agent_fallback_title">Agent</string>
+    <string name="chat_agent_fallback_title">Task</string>
     <string name="chat_memory_updated">Memory updated</string>
     <string name="chat_reasoning_thinking">Thinking…</string>
     <string name="chat_reasoning_thought">Thought</string>
@@ -200,13 +206,13 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">Command</string>
     <string name="chat_summary_running">Running</string>
-    <string name="chat_summary_open">Agent summary</string>
+    <string name="chat_summary_open">Task summary</string>
     <string name="chat_summary_output_truncated">Earlier output is hidden.</string>
     <string name="chat_summary_changes">Changes</string>
     <string name="chat_summary_children">Sub-tasks</string>
     <string name="chat_summary_files">Files</string>
     <string name="chat_summary_triggers">Triggers</string>
-    <string name="chat_summary_no_triggers">Ask the agent to schedule recurring work in this task.</string>
+    <string name="chat_summary_no_triggers">Ask here to schedule recurring work.</string>
     <string name="chat_summary_idle">Idle</string>
     <string name="chat_bot_details_title">Bot details</string>
     <string name="chat_bot_state_waiting">%1$d needs input</string>
@@ -214,4 +220,7 @@
     <string name="chat_summary_idle_since">Idle · %1$s</string>
     <string name="chat_bot_details_no_triggers">Ask here to schedule recurring work.</string>
     <string name="chat_summary_paused">Paused</string>
+    <string name="chat_bot_instructions">Bot instructions</string>
+    <string name="chat_bot_instructions_edit">Edit instructions</string>
+    <string name="chat_bot_instructions_none">None yet</string>
 </resources>

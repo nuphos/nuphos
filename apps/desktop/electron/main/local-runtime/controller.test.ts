@@ -609,6 +609,7 @@ test('a host run by the `nuphos` CLI reports that CLI, which a Box updates by', 
     dsh: { runtime: null },
     hermes: { runtime: null },
     pi: { runtime: null },
+    cursor: { runtime: null },
   } as unknown as Parameters<typeof tunnelStatusOf>[0]
   const before = process.env.NUPHOS_CLI_VERSION
 
@@ -633,10 +634,17 @@ test('a running agent reports which account it spends beside its usage, not in i
     accountKey: '359cc9796000792b',
   }
   const agents = Object.fromEntries(
-    ['claude-code', 'codex', 'grok', 'antigravity', 'opencode', 'dsh', 'hermes', 'pi'].map((p) => [
-      p,
-      p === 'claude-code' ? { runtime: {}, cli: signedIn } : { runtime: null },
-    ]),
+    [
+      'claude-code',
+      'codex',
+      'grok',
+      'antigravity',
+      'opencode',
+      'dsh',
+      'hermes',
+      'pi',
+      'cursor',
+    ].map((p) => [p, p === 'claude-code' ? { runtime: {}, cli: signedIn } : { runtime: null }]),
   ) as unknown as Parameters<typeof tunnelStatusOf>[0]
 
   assert.deepEqual(tunnelStatusOf(agents, 'https://api.test').agents['claude-code'], {

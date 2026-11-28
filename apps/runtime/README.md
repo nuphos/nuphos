@@ -90,8 +90,8 @@ until someone re-reviews the patch.
 
 | Path in the image                           | What it does                                                                                                                                                                                                                                                                                                                                                   |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.330), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
-| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.171.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
+| `/opt/nuphos-claude-agent-acp`              | Claude adapter (0.74.0, Agent SDK 0.3.332), patched to publish session state and to bridge HTTP MCP servers                                                                                                                                                                                                                                                    |
+| `/opt/nuphos-codex-acp`                     | Codex adapter (1.1.4, Codex CLI 0.172.0), patched for per-session instructions and environment, MCP bridging, and steering an active turn                                                                                                                                                                                                                      |
 | `/usr/local/bin/nuphos-runtime-start`       | The entrypoint: checks a password set in the environment and derives the operator key from it, points openab's console at a password file from an earlier version, lays out `/workspace` the way a provisioned pod does, then becomes openab                                                                                                                   |
 | `/etc/openab/config.toml`                   | The gateway config openab reads, so the container starts with nothing mounted; a mount at this path replaces it                                                                                                                                                                                                                                                |
 | `/opt/runtime-defaults.mjs`                 | Applies a model, reasoning effort and fast-mode default to a new session                                                                                                                                                                                                                                                                                       |
@@ -346,11 +346,12 @@ runtime's address and asks which team to connect it to. Only teams you administe
 can be picked. Confirm, and that team gets its own key for this runtime. To add the
 runtime to another team, press **Connect to Nuphos** again.
 
-If Nuphos Desktop does not open, go to **Settings → Agent → Connect your own**,
-choose the pairing code option, and enter the agent URL and pairing code the console
-shows. A code works once and expires after 10 minutes. Plain `ws://` is accepted only
-for an in-cluster `*.svc` host; anything reached over the internet has to be
-`wss://`.
+The link carries a pairing code that works once and expires after 10 minutes. If
+Nuphos Desktop does not open, check that it is installed and signed in, then press
+**Connect to Nuphos** again. A Desktop run from source handles `nuphos://` links only
+with `ATLAS_REGISTER_NUPHOS_PROTOCOL=1`. **Settings → Computers → Add computer** does
+not accept a runtime's address or pairing code. Plain `ws://` is accepted only for an
+in-cluster `*.svc` host; anything reached over the internet has to be `wss://`.
 
 The URL Nuphos connects to is taken from the address you opened the console at. If
 Nuphos reaches the runtime at a different address, set it under **Agent URL Nuphos

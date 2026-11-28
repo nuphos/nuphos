@@ -5,7 +5,7 @@ import { resolve } from 'node:path'
 
 import { client } from './binding-access-scenarios.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, openRow, send } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Scenario } from './ui.ts'
@@ -79,11 +79,7 @@ export const longTranscriptScenarios: Scenario[] = [
       storeHistory(stack.mongoUri, session.sessionId, session.userId)
       // Away and back, as a person returns to it: it catches up on what the server now holds.
       await newTask(page)
-      // On the new Task, its title shows only in the sidebar row.
-      await page
-        .getByText('Open the long history E2E_DELIVERY:long-0', { exact: true })
-        .first()
-        .click()
+      await openRow(page, 'Open the long history E2E_DELIVERY:long-0')
       await page.getByText(filler(EARLIER - 1), { exact: true }).waitFor()
       // The turn ends with the stored tail of a transcript longer than it reads back.
       await send(page, 'After the long history E2E_DELIVERY:long-1')

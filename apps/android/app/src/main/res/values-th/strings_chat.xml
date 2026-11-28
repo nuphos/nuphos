@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">ไม่สามารถโหลดทริกเกอร์</string>
     <string name="chat_triggers_update_failed">ไม่สามารถอัปเดตทริกเกอร์</string>
     <string name="chat_triggers_title">ทริกเกอร์</string>
-    <string name="chat_triggers_empty">ขอให้เอเจนต์กำหนดเวลางานประจำในการสนทนานี้</string>
+    <string name="chat_triggers_empty">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
     <string name="chat_trigger_paused">หยุดชั่วคราว</string>
     <string name="chat_trigger_next_run">ครั้งถัดไป: %1$s</string>
     <string name="chat_trigger_waiting_webhook">กำลังรอเว็บฮุก</string>
@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">ลองปรับทิศทางอีกครั้ง</string>
     <string name="chat_attachment_message">ข้อความพร้อมไฟล์แนบ</string>
     <string name="chat_upload_preparing">กำลังเตรียมอัปโหลด…</string>
-    <string name="chat_upload_progress">กำลังอัปโหลด %1$d / %2$d ไบต์</string>
+    <string name="chat_upload_progress">กำลังอัปโหลด %1$s จาก %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s ไบต์</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">กำลังตรวจสอบไฟล์ที่อัปโหลด…</string>
+    <string name="chat_upload_sending">กำลังส่ง…</string>
     <string name="chat_upload_ready">ไฟล์พร้อมแล้ว</string>
     <string name="chat_upload_cancel">ยกเลิกการอัปโหลด</string>
     <string name="chat_upload_retry">ลองส่งข้อความพร้อมไฟล์แนบอีกครั้ง</string>
@@ -139,7 +144,7 @@
     <string name="chat_always_allow_title">อนุญาตเสมอ</string>
     <string name="chat_always_allow_body">คำสั่งที่ตรงกับคำอธิบายนี้จะทำงานโดยไม่ถาม</string>
     <string name="chat_allow">อนุญาต</string>
-    <string name="chat_agent_fallback_title">เอเจนต์</string>
+    <string name="chat_agent_fallback_title">งาน</string>
     <string name="chat_memory_updated">อัปเดตความจำแล้ว</string>
     <string name="chat_reasoning_thinking">กำลังคิด…</string>
     <string name="chat_reasoning_thought">คิดแล้ว</string>
@@ -195,18 +200,21 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">คำสั่ง</string>
     <string name="chat_summary_running">กำลังทำงาน</string>
-    <string name="chat_summary_open">สรุปเอเจนต์</string>
+    <string name="chat_summary_open">สรุปงาน</string>
     <string name="chat_summary_output_truncated">ซ่อนผลลัพธ์ก่อนหน้านี้</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">การเปลี่ยนแปลง</string>
     <string name="chat_summary_children">งานย่อย</string>
     <string name="chat_summary_files">ไฟล์</string>
     <string name="chat_summary_triggers">ทริกเกอร์</string>
-    <string name="chat_summary_no_triggers">ขอให้เอเจนต์ตั้งเวลาทำงานซ้ำในงานนี้</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_no_triggers">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
+    <string name="chat_summary_idle">ว่าง</string>
     <string name="chat_bot_details_title">รายละเอียดบอท</string>
     <string name="chat_bot_state_waiting">รอคำตอบจากคุณ %1$d รายการ</string>
     <string name="chat_bot_state_running">กำลังทำงาน %1$d รายการ</string>
     <string name="chat_summary_idle_since">ว่าง · %1$s</string>
     <string name="chat_bot_details_no_triggers">ขอที่นี่เพื่อกำหนดเวลางานประจำ</string>
     <string name="chat_summary_paused">หยุดชั่วคราว</string>
+    <string name="chat_bot_instructions">คำสั่งของบอท</string>
+    <string name="chat_bot_instructions_edit">แก้ไขคำสั่ง</string>
+    <string name="chat_bot_instructions_none">ยังไม่มี</string>
 </resources>

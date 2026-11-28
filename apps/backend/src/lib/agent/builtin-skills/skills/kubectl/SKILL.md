@@ -1,6 +1,6 @@
 ---
 name: kubectl
-description: Inspect and operate the team's Kubernetes clusters (EKS, GKE, TKE, ACK, LKE, VKE, AKS, on-prem) with kubectl. One get_kubeconfig call writes a context for each cluster.
+description: "Inspect and operate the team's Kubernetes clusters with kubectl."
 ---
 
 # kubectl

@@ -19,6 +19,7 @@ import { createLocalTools } from '@/lib/agent/tools-skilled/local-tools'
 import { toolError, toolResult } from '@/lib/mcp/protocol'
 import { logError, logEvent } from '@/lib/observability'
 
+import { computerDesktop } from '../computer-desktop'
 import { registerPreviewWait } from '../decision-waiter'
 import { previewRunStreamId, publishPreviewFrame } from '../run-frame-bridge'
 
@@ -64,6 +65,9 @@ function definitionsOf(tools: ClassicTools) {
       name,
       description: tool.description ?? name,
       inputSchema: toolInputJsonSchema(tool.inputSchema),
+      // Claude Code defers every MCP tool behind ToolSearch; an agent that has to
+      // look the card up first writes its question in chat instead.
+      ...(name === REQUEST ? { _meta: { 'anthropic/alwaysLoad': true } } : {}),
     }))
 }
 
@@ -150,6 +154,10 @@ function requestHandler(
     const about = await aboutRefs(ctx, args.about)
 
     if (typeof about === 'string') return toolError(about)
+    const desktop =
+      args.category === 'computer' ? await computerDesktop(ctx.teamId, ctx.sessionId) : undefined
+
+    if (typeof desktop === 'string') return toolError(desktop)
 
     return presentedByRuntime(options.publish, ctx, REQUEST, shown, async (toolCallId) => {
       const output = (await tool.execute!(shown, {
@@ -181,13 +189,14 @@ function requestHandler(
           ? { credentials: args.credentials as PersonalCredentialRef[] }
           : {}),
         ...(about.length ? { about } : {}),
+        ...(desktop ? { desktop } : {}),
         askedAt: new Date(),
       }).catch((err: unknown) => {
         // The card is already in the transcript; only the Inbox misses it.
         logError('agent.pending_decision.persist_failed', err, { session_id: ctx.sessionId })
       })
 
-      return { ...output, requestId: toolCallId }
+      return { ...output, ...(desktop ? { desktop } : {}), requestId: toolCallId }
     })
   }
 

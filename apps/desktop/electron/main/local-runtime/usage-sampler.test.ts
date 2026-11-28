@@ -17,6 +17,7 @@ function sampler(read: () => Promise<unknown>, readTookMs = 0) {
     dsh: freshAgent(),
     hermes: freshAgent(),
     pi: freshAgent(),
+    cursor: freshAgent(),
   }
 
   for (const agent of Object.values(agents))

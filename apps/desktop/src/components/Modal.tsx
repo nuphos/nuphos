@@ -7,6 +7,8 @@ import { t } from '../i18n'
 import { cssDurationMs } from '../lib/motion'
 
 import { useModalFocus } from './modalFocus'
+import { ModalScrollFade } from './modalScroll'
+import { useModalScroll } from './useModalScroll'
 
 import type { ReactNode } from 'react'
 
@@ -35,7 +37,7 @@ type Props = {
   headerCompact?: boolean
   /** Whether the header draws its bottom divider (default true). Turn off when
    *  the body opens with its own surface and the line would double up. */
-  headerDivider?: boolean
+  headerDivider?: boolean | 'scroll'
   /** Optional icon button rendered before the title (e.g. a back arrow). */
   headerLeading?: ReactNode
   /** Optional icon buttons rendered in the top-right corner, just left of
@@ -50,8 +52,10 @@ type Props = {
   closeOnBackdrop?: boolean
   /** Focus the first control in the body on open (default); false focuses the panel itself, so nothing looks selected and Tab still enters the body. */
   focusFirstControl?: boolean
-  /** `wide` lines the header controls up with a body that pads its content 32px from each side. */
+  /** `wide` lines the header controls up with a body that pads its content 24px from each side. */
   headerInset?: 'default' | 'wide'
+  /** Reset body scroll when navigating between views within this modal. */
+  scrollResetKey?: string
   /** Keep the title for screen readers only, when the body already shows it as a heading. */
   titleHidden?: boolean
 }
@@ -75,6 +79,7 @@ export function Modal({
   focusFirstControl = true,
   headerInset = 'default',
   titleHidden = false,
+  scrollResetKey,
 }: Props) {
   const isLight = surface === 'light'
   const isPrompt = appearance === 'prompt'
@@ -92,6 +97,8 @@ export function Modal({
   if (!open && shown) setShown(false)
 
   const { panelRef, bodyRef, titleId } = useModalFocus(open, focusFirstControl)
+
+  const { bodyScrolled, onScrollCapture } = useModalScroll(open, scrollResetKey, bodyRef)
 
   useEffect(() => {
     if (open) {
@@ -189,24 +196,29 @@ export function Modal({
             // squeeze the header — which otherwise let the scrollable content
             // layer overlap the close button and swallow its clicks.
             'relative z-20 flex shrink-0 items-start gap-2',
+            titleHidden && headerInset === 'wide' && 'min-h-14',
             headerInset === 'wide'
-              ? 'px-8 pb-2 pt-4 pr-16'
+              ? titleHidden
+                ? 'items-center px-6 py-3.5 pr-14'
+                : 'px-6 py-4 pr-14'
               : headerCompact
                 ? 'px-4 py-2.5 pr-12'
                 : 'px-5 py-4 pr-14',
-            headerDivider &&
+            headerDivider === true &&
               !isPrompt && [
                 'border-b',
                 isLight ? 'border-[rgb(208,206,212)]' : 'border-line-control',
               ],
           )}
         >
+          {headerDivider === 'scroll' && bodyScrolled && <ModalScrollFade isLight={isLight} />}
           {headerLeading}
           <div className="min-w-0">
             <div
               id={titleId}
               className={clsx(
                 titleHidden && 'sr-only',
+                !titleHidden && headerInset === 'wide' && 'flex min-h-8 items-center',
                 isPrompt
                   ? 'text-xl font-semibold tracking-tight'
                   : headerCompact
@@ -234,7 +246,9 @@ export function Modal({
           className={clsx(
             'titlebar-no-drag absolute z-50 flex items-center gap-0.5',
             headerInset === 'wide'
-              ? 'right-[26px] top-4'
+              ? titleHidden
+                ? 'right-4 top-3.5 min-h-8'
+                : 'right-4 top-4 min-h-8'
               : headerCompact
                 ? 'right-2 top-1.5'
                 : 'right-3.5 top-3.5',
@@ -261,6 +275,7 @@ export function Modal({
             and squeezing the header above. */}
         <div
           ref={bodyRef}
+          onScrollCapture={onScrollCapture}
           className="titlebar-no-drag relative z-0 min-h-0 flex-1 overflow-auto scrollbar-thin"
         >
           {children}

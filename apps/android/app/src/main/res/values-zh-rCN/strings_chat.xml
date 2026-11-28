@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">无法加载触发器</string>
     <string name="chat_triggers_update_failed">无法更新触发器</string>
     <string name="chat_triggers_title">触发器</string>
-    <string name="chat_triggers_empty">请在此对话中告诉代理要定期执行的工作。</string>
+    <string name="chat_triggers_empty">请在这里要求安排定期执行的工作。</string>
     <string name="chat_trigger_paused">已暂停</string>
     <string name="chat_trigger_next_run">下次：%1$s</string>
     <string name="chat_trigger_waiting_webhook">等待 Webhook</string>
@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">重试引导</string>
     <string name="chat_attachment_message">附件消息</string>
     <string name="chat_upload_preparing">正在准备上传…</string>
-    <string name="chat_upload_progress">正在上传 %1$d / %2$d 字节</string>
+    <string name="chat_upload_progress">正在上传 %1$s / %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s字节</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">正在检查已上传的文件…</string>
+    <string name="chat_upload_sending">正在发送…</string>
     <string name="chat_upload_ready">文件已就绪</string>
     <string name="chat_upload_cancel">取消上传</string>
     <string name="chat_upload_retry">重试附件消息</string>
@@ -139,7 +144,7 @@
     <string name="chat_always_allow_title">始终允许</string>
     <string name="chat_always_allow_body">符合此描述的命令将直接运行，不再询问。</string>
     <string name="chat_allow">允许</string>
-    <string name="chat_agent_fallback_title">Agent</string>
+    <string name="chat_agent_fallback_title">任务</string>
     <string name="chat_memory_updated">记忆已更新</string>
     <string name="chat_reasoning_thinking">正在思考…</string>
     <string name="chat_reasoning_thought">已思考</string>
@@ -195,18 +200,21 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">命令</string>
     <string name="chat_summary_running">运行中</string>
-    <string name="chat_summary_open">Agent 摘要</string>
+    <string name="chat_summary_open">任务摘要</string>
     <string name="chat_summary_output_truncated">已隐藏较早的输出。</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">变更</string>
     <string name="chat_summary_children">子任务</string>
     <string name="chat_summary_files">文件</string>
     <string name="chat_summary_triggers">触发器</string>
-    <string name="chat_summary_no_triggers">请代理为此任务安排定期工作。</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_no_triggers">请在这里要求安排定期执行的工作。</string>
+    <string name="chat_summary_idle">空闲</string>
     <string name="chat_bot_details_title">Bot 详情</string>
     <string name="chat_bot_state_waiting">%1$d 个需要你的回复</string>
     <string name="chat_bot_state_running">%1$d 个运行中</string>
     <string name="chat_summary_idle_since">空闲 · %1$s</string>
     <string name="chat_bot_details_no_triggers">请在这里要求安排定期执行的工作。</string>
     <string name="chat_summary_paused">已暂停</string>
+    <string name="chat_bot_instructions">Bot 指令</string>
+    <string name="chat_bot_instructions_edit">编辑指令</string>
+    <string name="chat_bot_instructions_none">暂无</string>
 </resources>

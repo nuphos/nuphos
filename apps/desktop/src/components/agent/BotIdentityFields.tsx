@@ -33,9 +33,9 @@ export function BotIdentityFields({
   onNameChange: (name: string) => void
   avatar?: BotAvatarFile
   onAvatarChange: (avatar: BotAvatarFile) => void
-  /** With `onBackgroundChange`, the tint the face sits on is picked here too. */
-  background?: BotAvatarBackground
-  onBackgroundChange?: (background: BotAvatarBackground) => void
+  /** The tint a character sits on; a photo has none. */
+  background: BotAvatarBackground
+  onBackgroundChange: (background: BotAvatarBackground) => void
   photo?: string
   busy: boolean
   disabled?: boolean
@@ -52,12 +52,10 @@ export function BotIdentityFields({
       <div className="flex items-center gap-3">
         {shown ? (
           <span className="relative size-10 shrink-0">
-            {botAvatarBackgroundColor(background) && (
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{ background: botAvatarBackgroundColor(background) }}
-              />
-            )}
+            <span
+              className="absolute inset-0 rounded-full"
+              style={{ background: botAvatarBackgroundColor(background) }}
+            />
             <BotAvatarImage file={shown} className="relative size-10 object-contain" />
           </span>
         ) : (
@@ -90,9 +88,9 @@ export function BotIdentityFields({
       {children}
       <fieldset disabled={busy || identityLocked} className="m-0 min-w-0 border-0 p-0">
         <AgentAvatarGrid value={avatar} onChange={onAvatarChange} onPreview={setPreview} />
-        {onBackgroundChange && (
+        {avatar && (
           <div className="mt-3">
-            <AvatarBackgroundPicker value={background ?? 'none'} onChange={onBackgroundChange} />
+            <AvatarBackgroundPicker value={background} onChange={onBackgroundChange} />
           </div>
         )}
       </fieldset>

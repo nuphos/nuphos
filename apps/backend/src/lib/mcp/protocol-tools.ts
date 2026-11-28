@@ -89,6 +89,13 @@ export const TOOL_DEFINITIONS = [
             "and starts on the Bot's agent, model and effort unless runtime_id, model " +
             'or effort say otherwise.',
         },
+        webhook_id: {
+          type: 'string',
+          description:
+            "Send a NEW session's events, and its Tasks' events, to this enabled team " +
+            'webhook (an id from nuphos_webhooks). Sessions started without one send no ' +
+            'webhook events. Task events name their parent as parent_session_id.',
+        },
         request_id: {
           type: 'string',
           description:

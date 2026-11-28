@@ -1,6 +1,6 @@
 ---
 name: cloudflare
-description: Use Cloudflare API credentials bound in Nuphos to inspect or change Cloudflare account resources.
+description: "Cloudflare account resources (DNS, zones, Workers…) via a Nuphos-bound API token."
 ---
 
 # cloudflare

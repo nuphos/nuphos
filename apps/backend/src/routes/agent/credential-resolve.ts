@@ -1,3 +1,4 @@
+import { expandAllCredentialAccess } from './credential-access'
 import { getAgentCredentialOptions } from './credential-options'
 import { resolveConnectorCredentialAccess } from './credential-resolve-connectors'
 import { includeBoundOnpremCluster } from './credential-resolve-onprem'
@@ -67,6 +68,21 @@ export function availableCredentialAccess(
     kubeContext,
   )
 
+  return expandAllCredentialAccess(
+    {
+      ...selectedCredentialAccess(selection, options, onpremClusterIds),
+      ...(selection.allCredentials ? { allCredentials: true } : {}),
+      ...(selection.allDevices ? { allDevices: true } : {}),
+    },
+    options,
+  )
+}
+
+function selectedCredentialAccess(
+  selection: AgentCredentialSelection,
+  options: AgentCredentialOptions,
+  onpremClusterIds: string[],
+) {
   return {
     awsRoleIds: keep(selection.awsRoleIds, options.awsRoles, (role) => role.roleId),
     gcpServiceAccountIds: keep(

@@ -239,7 +239,7 @@ export function WorkspaceAgentPane({
           rootRef={transcriptRef}
           active={paneInFront && !workspaceExpanded}
         />
-        <HeaderEdge className="@container relative flex min-h-0 min-w-0 flex-1">
+        <HeaderEdge data-takeover-area className="@container relative flex min-h-0 min-w-0 flex-1">
           <div ref={transcriptRef} className="flex min-h-0 min-w-0 flex-1">
             <AgentPanel
               key={`agent-main-${teamId}`}

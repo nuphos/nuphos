@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">トリガーを読み込めませんでした</string>
     <string name="chat_triggers_update_failed">トリガーを更新できませんでした</string>
     <string name="chat_triggers_title">トリガー</string>
-    <string name="chat_triggers_empty">この会話で定期的な作業をエージェントに依頼してください。</string>
+    <string name="chat_triggers_empty">定期的な作業はここで依頼してください。</string>
     <string name="chat_trigger_paused">一時停止中</string>
     <string name="chat_trigger_next_run">次回: %1$s</string>
     <string name="chat_trigger_waiting_webhook">Webhook を待機中</string>
@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">割り込みを再試行</string>
     <string name="chat_attachment_message">添付ファイル付きメッセージ</string>
     <string name="chat_upload_preparing">アップロードを準備中…</string>
-    <string name="chat_upload_progress">アップロード中 %1$d / %2$d バイト</string>
+    <string name="chat_upload_progress">アップロード中 %1$s / %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$sバイト</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s %2$s</string>
     <string name="chat_upload_checking">アップロードしたファイルを確認中…</string>
+    <string name="chat_upload_sending">送信中…</string>
     <string name="chat_upload_ready">ファイルの準備ができました</string>
     <string name="chat_upload_cancel">アップロードをキャンセル</string>
     <string name="chat_upload_retry">添付ファイル付きメッセージを再試行</string>
@@ -139,7 +144,7 @@
     <string name="chat_always_allow_title">常に許可</string>
     <string name="chat_always_allow_body">この説明に一致するコマンドは確認なしで実行されます。</string>
     <string name="chat_allow">許可</string>
-    <string name="chat_agent_fallback_title">エージェント</string>
+    <string name="chat_agent_fallback_title">タスク</string>
     <string name="chat_memory_updated">メモリを更新しました</string>
     <string name="chat_reasoning_thinking">考え中…</string>
     <string name="chat_reasoning_thought">思考完了</string>
@@ -195,18 +200,21 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">コマンド</string>
     <string name="chat_summary_running">実行中</string>
-    <string name="chat_summary_open">エージェントの概要</string>
+    <string name="chat_summary_open">タスクの概要</string>
     <string name="chat_summary_output_truncated">以前の出力は省略されています。</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">変更</string>
     <string name="chat_summary_children">サブタスク</string>
     <string name="chat_summary_files">ファイル</string>
     <string name="chat_summary_triggers">トリガー</string>
-    <string name="chat_summary_no_triggers">このタスクの定期的な作業をエージェントに依頼できます。</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_no_triggers">定期的な作業はここで依頼してください。</string>
+    <string name="chat_summary_idle">待機中</string>
     <string name="chat_bot_details_title">Bot の詳細</string>
     <string name="chat_bot_state_waiting">%1$d 件が入力待ち</string>
     <string name="chat_bot_state_running">%1$d 件実行中</string>
     <string name="chat_summary_idle_since">待機中 · %1$s</string>
     <string name="chat_bot_details_no_triggers">定期的な作業はここで依頼してください。</string>
     <string name="chat_summary_paused">一時停止中</string>
+    <string name="chat_bot_instructions">ボットの指示</string>
+    <string name="chat_bot_instructions_edit">指示を編集</string>
+    <string name="chat_bot_instructions_none">まだなし</string>
 </resources>

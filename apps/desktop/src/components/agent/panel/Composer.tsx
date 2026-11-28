@@ -61,6 +61,7 @@ export function Composer({
   promptSuggestion,
   recall,
   agentMenu,
+  queued,
   aboveStatus,
 }: {
   variant?: 'compact' | 'hero'
@@ -106,6 +107,7 @@ export function Composer({
   promptSuggestion?: string | null
   recall?: ComposerRecall
   agentMenu?: [boolean, (open: boolean) => void] // the panel's, for a failed turn's Switch runtime
+  queued?: ReactNode // what waits to send: under the banners above the composer, not behind them
 } & Pick<Parameters<typeof ComposerOverlays>[0], 'aboveStatus'>) {
   // A transport never authorizes execution or a client-owned follow-up queue.
   const streaming = false
@@ -122,7 +124,9 @@ export function Composer({
   const [agentMenuOpen, setAgentMenuOpen] = agentMenu ?? ownAgentMenu
   const agentMenuRequested = useAgentMenuRequested(runtimeControl?.sessionId)
   const switchAgent =
-    newChat || shouldSwitchAgent(runtimeControl) ? () => setAgentMenuOpen(true) : undefined
+    newChat || (!runtimeControl?.statusOnly && shouldSwitchAgent(runtimeControl))
+      ? () => setAgentMenuOpen(true)
+      : undefined
   const sendBlocked = Boolean(runtimeSendBlock ?? agentSendBlock) || modelControl.saving
   const state = useComposerState({
     hero,
@@ -140,7 +144,7 @@ export function Composer({
     state.ref,
     state.composingRef,
     state.syncEmpty,
-    modelSession && !modelSession.lockedHint && modelControl.data?.status !== 'unsupported'
+    modelSession && modelControl.data?.status !== 'unsupported'
       ? () => modelControl.setOpen(true)
       : undefined,
     { commands: runtimeState?.commands, runtimeId: runtimeControl?.value?.id },
@@ -172,6 +176,7 @@ export function Composer({
     >
       <div className="relative w-full">
         <ComposerOverlays {...{ aboveStatus, readOnly, runtimeControl, hero, switchAgent }} />
+        {queued}
         <div
           className={clsx(
             'relative',
@@ -252,7 +257,7 @@ export function Composer({
                 <CredentialSelectorButton {...credentialSelector} hero={hero} personalIdentity />
               )}
               {bypassControl && <BypassControlMenu bypassControl={bypassControl} hero={hero} />}
-              {runtimeControl && !runtimeControl.offlineAgent && (
+              {runtimeControl && !runtimeControl.statusOnly && (
                 <RuntimeSelector
                   {...runtimeControl}
                   menuOpen={agentMenuOpen || agentMenuRequested}
@@ -265,12 +270,7 @@ export function Composer({
               )}
             </ComposerTools>
             {modelSession ? (
-              <ModelSelector
-                control={modelControl}
-                disabled={readOnly || Boolean(modelSession.lockedHint)}
-                disabledHint={modelSession.lockedHint}
-                hero={hero}
-              />
+              <ModelSelector control={modelControl} disabled={readOnly} hero={hero} />
             ) : (
               newConversationModelControl
             )}

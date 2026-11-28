@@ -10,6 +10,7 @@ before(async () => {
   mock.module('../../../lib/analytics.ts', {
     namedExports: { track: () => {}, trackError: () => {} },
   })
+  // A fixed decision drives the ordering under test; endEventDecision.test.ts covers the real one.
   mock.module('./endEventDecision.ts', {
     namedExports: {
       emptyEndDecision: () => ({ updaterRan: false, stopNotification: null }),

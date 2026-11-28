@@ -14,6 +14,7 @@
     <string name="agent_restore">복원</string>
     <string name="agent_archive">보관</string>
     <string name="agent_rename_task">작업 이름 변경</string>
+    <string name="agent_rename_bot">봇 이름 변경</string>
     <string name="agent_title">제목</string>
     <string name="agent_save">저장</string>
     <string name="agent_watch_failed">구독을 업데이트하지 못했습니다</string>
@@ -34,13 +35,14 @@
     <string name="agent_collapsed">접힘</string>
     <string name="agent_expanded">펼쳐짐</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">하위 에이전트 %1$d개 보기</item>
+        <item quantity="other">하위 작업 %1$d개 보기</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">하위 에이전트 %1$d개 숨기기</item>
+        <item quantity="other">하위 작업 %1$d개 숨기기</item>
     </plurals>
     <string name="agent_unread_reply">읽지 않은 답장</string>
     <string name="agent_archived">보관됨</string>
+    <string name="agent_no_project">프로젝트 없음</string>
     <string name="agent_unlink_task_title">작업 연결을 해제할까요?</string>
     <string name="agent_unlink_task_body">“%1$s”이(가) 작업 목록에 단독으로 표시됩니다. 메시지와 공유 권한은 그대로 유지됩니다.</string>
     <string name="agent_select_runtime_before_start">새 에이전트를 시작하기 전에 사용 가능한 런타임을 선택하세요.</string>
@@ -62,7 +64,7 @@
     <string name="agent_working">처리 중…</string>
     <string name="agent_ok">확인</string>
     <string name="agent_first_runtime_title">첫 런타임 연결</string>
-    <string name="agent_first_runtime_body">컴퓨터에서 Nuphos를 열어 Box를 추가하거나 내 컴퓨터를 연결하세요. 또는 워크스페이스 관리자에게 연결을 요청하세요.</string>
+    <string name="agent_first_runtime_body">컴퓨터에서 Nuphos를 열어 Box를 추가하거나 내 컴퓨터를 연결하세요. 또는 팀 관리자에게 연결을 요청하세요.</string>
     <string name="agent_first_runtime_starting_title">%1$s 준비 중</string>
     <string name="agent_first_runtime_starting_body">온라인이 되면 바로 여기에 표시됩니다. 1~2분 정도 걸릴 수 있습니다.</string>
     <string name="agent_cloud">클라우드</string>
@@ -103,11 +105,11 @@
     <string name="agent_ask_owner_sign_in">소유자에게 로그인을 요청하세요</string>
     <string name="agent_sign_in_on">%1$s에서 로그인</string>
     <string name="agent_ask_admin_sign_in">관리자에게 로그인을 요청하세요</string>
-    <string name="agent_runtime_gone_body">이 런타임은 더 이상 현재 워크스페이스에 없습니다. 계속하기 전에 런타임을 새로고침하세요.</string>
+    <string name="agent_runtime_gone_body">이 런타임은 더 이상 현재 팀에 없습니다. 계속하기 전에 런타임을 새로고침하세요.</string>
     <string name="agent_runtime_disabled_body">이 런타임은 비활성화되었거나 제거 중입니다. 관리자에게 저장된 상태를 확인해 달라고 요청하세요.</string>
     <string name="agent_teammate_sign_in_body">%1$s은(는) 팀원의 컴퓨터이므로 그 팀원만 로그인할 수 있습니다. 해당 컴퓨터에서 Nuphos를 열고 런타임 페이지에서 로그인을 선택해 달라고 요청하세요.</string>
     <string name="agent_host_sign_in_body">%1$s에서 Nuphos를 열고 런타임 페이지로 이동한 다음 이 런타임의 로그인을 선택하세요.</string>
-    <string name="agent_admin_sign_in_body">워크스페이스 관리자가 자신의 컴퓨터에 있는 Nuphos 런타임 페이지에서 로그인할 수 있습니다.</string>
+    <string name="agent_admin_sign_in_body">팀 관리자가 자신의 컴퓨터에 있는 Nuphos 런타임 페이지에서 로그인할 수 있습니다.</string>
     <string name="agent_back_to_runtimes">런타임으로 돌아가기</string>
     <string name="agent_runtime">런타임</string>
     <string name="agent_runtime_removed">이 런타임은 제거되었습니다.</string>
@@ -123,7 +125,7 @@
     <string name="agent_removal_in_progress">제거가 진행 중입니다. 새로고침하여 저장된 상태를 확인하세요.</string>
     <string name="agent_manage_on_host">이 런타임과 로그인은 런타임을 호스팅하는 컴퓨터에서 관리하세요.</string>
     <string name="agent_manage_in_development">이 런타임은 로컬 개발 구성에서 관리하세요.</string>
-    <string name="agent_admins_only_manage">워크스페이스 관리자만 이 런타임의 이름을 변경하거나 활성화 또는 제거하고 로그인을 관리할 수 있습니다.</string>
+    <string name="agent_admins_only_manage">팀 관리자만 이 런타임의 이름을 변경하거나 활성화 또는 제거하고 로그인을 관리할 수 있습니다.</string>
     <string name="agent_unreconciled">요청이 서버에 도달했을 수 있습니다. 다른 변경을 하기 전에 저장된 상태를 새로고침하세요.</string>
     <string name="agent_refresh_runtime">런타임 새로고침</string>
     <string name="agent_remove_named">%1$s 런타임을 제거할까요?</string>
@@ -156,7 +158,7 @@
     <string name="agent_review_new_sign_in">확인 후 새 로그인 허용</string>
     <string name="agent_self_hosted_unavailable">자체 호스팅 런타임의 제공업체 설정은 여기에서 사용할 수 없습니다.</string>
     <string name="agent_sign_in_unavailable">로그인할 수 없습니다. 런타임 목록을 새로고침하고 컴퓨터 접근 권한을 확인하세요.</string>
-    <string name="agent_admins_only_create">현재 워크스페이스 관리자만 런타임을 만들 수 있습니다.</string>
+    <string name="agent_admins_only_create">현재 팀 관리자만 런타임을 만들 수 있습니다.</string>
     <string name="agent_closing_stops_polling">이 시트를 닫으면 로컬 폴링이 중지되지만 서버의 로그인은 취소되지 않습니다.</string>
     <string name="agent_close">닫기</string>
 </resources>

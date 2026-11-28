@@ -14,6 +14,7 @@
     <string name="agent_restore">Pulihkan</string>
     <string name="agent_archive">Arsipkan</string>
     <string name="agent_rename_task">Ganti nama tugas</string>
+    <string name="agent_rename_bot">Ganti nama Bot</string>
     <string name="agent_title">Judul</string>
     <string name="agent_save">Simpan</string>
     <string name="agent_watch_failed">Gagal memperbarui pantauan</string>
@@ -34,13 +35,14 @@
     <string name="agent_collapsed">Diciutkan</string>
     <string name="agent_expanded">Diluaskan</string>
     <plurals name="agent_show_sub_agents">
-        <item quantity="other">Tampilkan %1$d subagen</item>
+        <item quantity="other">Tampilkan %1$d subtugas</item>
     </plurals>
     <plurals name="agent_hide_sub_agents">
-        <item quantity="other">Sembunyikan %1$d subagen</item>
+        <item quantity="other">Sembunyikan %1$d subtugas</item>
     </plurals>
     <string name="agent_unread_reply">Balasan belum dibaca</string>
     <string name="agent_archived">Diarsipkan</string>
+    <string name="agent_no_project">Tanpa proyek</string>
     <string name="agent_unlink_task_title">Lepas tautan tugas?</string>
     <string name="agent_unlink_task_body">“%1$s” akan muncul sendiri di daftar tugas. Pesan dan izin berbaginya tetap sama.</string>
     <string name="agent_select_runtime_before_start">Pilih runtime yang tersedia sebelum memulai agen baru.</string>
@@ -62,7 +64,7 @@
     <string name="agent_working">Memproses…</string>
     <string name="agent_ok">OK</string>
     <string name="agent_first_runtime_title">Hubungkan runtime pertama Anda</string>
-    <string name="agent_first_runtime_body">Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri, atau minta administrator workspace untuk menghubungkannya.</string>
+    <string name="agent_first_runtime_body">Buka Nuphos di komputer Anda untuk menambahkan Box atau menghubungkan komputer Anda sendiri, atau minta administrator tim untuk menghubungkannya.</string>
     <string name="agent_first_runtime_starting_title">%1$s sedang disiapkan</string>
     <string name="agent_first_runtime_starting_body">Akan muncul di sini segera setelah online. Ini bisa memakan waktu satu atau dua menit.</string>
     <string name="agent_cloud">Cloud</string>
@@ -103,11 +105,11 @@
     <string name="agent_ask_owner_sign_in">Minta pemiliknya untuk masuk</string>
     <string name="agent_sign_in_on">Masuk di %1$s</string>
     <string name="agent_ask_admin_sign_in">Minta administrator untuk masuk</string>
-    <string name="agent_runtime_gone_body">Runtime ini tidak lagi ada di workspace saat ini. Muat ulang runtime sebelum melanjutkan.</string>
+    <string name="agent_runtime_gone_body">Runtime ini tidak lagi ada di tim saat ini. Muat ulang runtime sebelum melanjutkan.</string>
     <string name="agent_runtime_disabled_body">Runtime ini dinonaktifkan atau sedang dihapus. Minta administrator untuk memeriksa status tersimpannya.</string>
     <string name="agent_teammate_sign_in_body">%1$s milik rekan tim, jadi hanya mereka yang dapat masuk. Minta mereka membuka Nuphos di komputer itu dan memilih Masuk di halaman Runtime.</string>
     <string name="agent_host_sign_in_body">Di %1$s, buka Nuphos, buka halaman Runtime, lalu pilih Masuk untuk runtime ini.</string>
-    <string name="agent_admin_sign_in_body">Administrator workspace dapat masuk dari halaman Runtime di Nuphos pada komputer mereka.</string>
+    <string name="agent_admin_sign_in_body">Administrator tim dapat masuk dari halaman Runtime di Nuphos pada komputer mereka.</string>
     <string name="agent_back_to_runtimes">Kembali ke runtime</string>
     <string name="agent_runtime">Runtime</string>
     <string name="agent_runtime_removed">Runtime ini telah dihapus.</string>
@@ -123,7 +125,7 @@
     <string name="agent_removal_in_progress">Penghapusan sedang berlangsung. Muat ulang untuk memeriksa status tersimpan.</string>
     <string name="agent_manage_on_host">Kelola runtime ini dan proses masuknya di komputer yang menjadi host-nya.</string>
     <string name="agent_manage_in_development">Kelola runtime ini di konfigurasi pengembangan lokalnya.</string>
-    <string name="agent_admins_only_manage">Hanya administrator workspace yang dapat mengganti nama, mengaktifkan, atau menghapus runtime ini serta mengelola proses masuknya.</string>
+    <string name="agent_admins_only_manage">Hanya administrator tim yang dapat mengganti nama, mengaktifkan, atau menghapus runtime ini serta mengelola proses masuknya.</string>
     <string name="agent_unreconciled">Permintaan mungkin sudah sampai ke server. Muat ulang status tersimpan sebelum melakukan perubahan lain.</string>
     <string name="agent_refresh_runtime">Muat ulang runtime</string>
     <string name="agent_remove_named">Hapus %1$s?</string>
@@ -156,7 +158,7 @@
     <string name="agent_review_new_sign_in">Tinjau dan izinkan proses masuk baru</string>
     <string name="agent_self_hosted_unavailable">Penyiapan penyedia untuk runtime yang di-host sendiri tidak tersedia di sini.</string>
     <string name="agent_sign_in_unavailable">Proses masuk tidak tersedia. Muat ulang daftar runtime dan periksa akses komputer Anda.</string>
-    <string name="agent_admins_only_create">Hanya administrator workspace saat ini yang dapat membuat runtime.</string>
+    <string name="agent_admins_only_create">Hanya administrator tim saat ini yang dapat membuat runtime.</string>
     <string name="agent_closing_stops_polling">Menutup panel ini menghentikan polling lokal. Ini tidak membatalkan proses masuk di server.</string>
     <string name="agent_close">Tutup</string>
 </resources>

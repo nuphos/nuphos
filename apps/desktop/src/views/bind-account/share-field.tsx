@@ -1,19 +1,13 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 
-import { api } from '../../api'
 import { AllowListSelect } from '../../components/binding-access-allow-list'
 import { useCurrentUser } from '../../hooks/useCurrentUser'
 import { t } from '../../i18n'
 import { useTeamMembers } from '../../lib/bindingAccess'
 
-import { HIGH_PRIVILEGE_PROVIDERS } from './share'
-
-import type { TeamShareDefault } from '../../lib/bindingShare'
-
-/** Who may use the connection being added; untouched, it shows the team default. */
+/** New connections start private; sharing must be explicitly selected. */
 export function BindShareField({
   teamId,
-  provider,
   value,
   onChange,
   onDefaultChange,
@@ -23,40 +17,17 @@ export function BindShareField({
   value: string[] | null
   onChange: (list: string[]) => void
   /** What the picker shows while untouched; the dialog sends it as the choice. */
-  onDefaultChange: (list: string[]) => void
+  onDefaultChange?: (list: string[]) => void
 }) {
   const members = useTeamMembers(teamId)
   const me = useCurrentUser()?.id
-  const [teamShares, setTeamShares] = useState(false)
-
-  useEffect(() => {
-    let live = true
-
-    api
-      .atlasListTeams()
-      .then((teams) => {
-        const team: (TeamShareDefault & { id: string }) | undefined = teams.find(
-          (x) => x.id === teamId,
-        )
-
-        if (live) setTeamShares(team?.bindingShareDefault === 'team')
-      })
-      .catch(() => {})
-
-    return () => {
-      live = false
-    }
-  }, [teamId])
-
-  const shared = teamShares && !HIGH_PRIVILEGE_PROVIDERS.has(provider)
   const onlyMe = me ? [me] : []
-  const fallback = shared ? ['*'] : onlyMe
+  const fallback = onlyMe
   const fallbackKey = fallback.join(',')
 
-  // Until the team default loads this is only the member, so a failed read
-  // connects privately rather than with whatever the default is.
+  // An untouched picker always submits the connecting member alone.
   useEffect(
-    () => onDefaultChange(fallbackKey ? fallbackKey.split(',') : []),
+    () => onDefaultChange?.(fallbackKey ? fallbackKey.split(',') : []),
     [fallbackKey, onDefaultChange],
   )
 
@@ -65,7 +36,7 @@ export function BindShareField({
       <AllowListSelect
         title={t('Who can use it')}
         subtitle={t(
-          'You can always use a connection you add, and admins can too once it is shared with anyone. Change this later from its page.',
+          'New connections are private. Once shared, only administrators can manage them.',
         )}
         allowList={value ?? fallback}
         members={members}

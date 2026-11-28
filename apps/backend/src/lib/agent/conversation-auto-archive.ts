@@ -1,6 +1,11 @@
 import { config } from '@/config'
 import { retryArchivedHomes, retryArchivedTaskTriggers } from '@/lib/agent/archive-cleanup'
-import { archiveUpdate, withdrawQuestionsAbout } from '@/lib/agent/db/archive'
+import {
+  archiveUpdate,
+  isBotChat,
+  restoreArchivedConversation,
+  withdrawQuestionsAbout,
+} from '@/lib/agent/db/archive'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { reclaimSessionHomes } from '@/lib/claude-code-preview/runtime-session-home'
 import { logError, logEvent } from '@/lib/observability'
@@ -34,9 +39,12 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   const idleDays = config.agent.autoArchiveIdleDays
 
   if (idleDays <= 0) return 0
+  const filter = idleConversationFilter(now, idleDays)
+  // A Bot's chat is part of its Bot and only ever moves with it (see `botUnit`).
+  const bots = (await botChats(filter)).map(({ chat }) => chat.sessionId)
   const result = await agentConversations().updateMany(
-    idleConversationFilter(now, idleDays),
-    archiveUpdate(now),
+    { ...filter, sessionId: { $nin: bots } },
+    archiveUpdate(now, { source: 'auto_archive' }),
   )
 
   if (result.modifiedCount > 0) {
@@ -56,6 +64,75 @@ export async function archiveIdleConversations(now = new Date()): Promise<number
   }
 
   return result.modifiedCount
+}
+
+/**
+ * Run at start. Before #5277 the sweep filed a Bot's chat away without its Bot,
+ * which left the Bot in Bots but impossible to open. Each Bot that is open and
+ * has only archived chats gets them back, as restoring any of them does (see
+ * `botUnit`). Idempotent: a no-op once no such Bot remains.
+ */
+export async function restoreStrandedBotChats(): Promise<void> {
+  const byBot = Map.groupBy(
+    await botChats({}, { archivedAt: { $exists: false } }),
+    ({ bot }) => bot.sessionId,
+  )
+  let restored = 0
+
+  for (const own of byBot.values()) {
+    const [first] = own
+
+    if (!first || own.some(({ chat }) => !chat.archivedAt)) continue
+    if (await restoreArchivedConversation(first.chat.sessionId, { source: 'bot_chat_stranded' }))
+      restored += 1
+  }
+  if (restored > 0) logEvent('info', 'backend.migration.bot_chats_restored', { bots: restored })
+}
+
+/** The Bots' 1:1 chats matching `filter`, each with its Bot matching `botFilter`, as
+ *  `botUnit` finds them: `isBotChat`, with the agent its owner's Bot in the same team. */
+async function botChats(filter: Filter<AgentConversation>, botFilter = {}) {
+  const chats = (
+    await agentConversations()
+      .find(
+        { ...filter, kind: 'channel', group: { $exists: false } },
+        {
+          projection: {
+            sessionId: 1,
+            userId: 1,
+            teamId: 1,
+            kind: 1,
+            group: 1,
+            agentSessionIds: 1,
+            participantIds: 1,
+            archivedAt: 1,
+          },
+        },
+      )
+      .toArray()
+  ).filter(isBotChat)
+  const bots = await agentConversations()
+    .find(
+      {
+        ...botFilter,
+        sessionId: { $in: chats.flatMap((chat) => chat.agentSessionIds ?? []) },
+        kind: { $exists: false },
+        avatar: { $exists: true },
+      },
+      { projection: { sessionId: 1, userId: 1, teamId: 1 } },
+    )
+    .toArray()
+
+  return chats.flatMap((chat) => {
+    const bot = bots.find(
+      (one) =>
+        one.sessionId === chat.agentSessionIds?.[0] &&
+        one.userId === chat.userId &&
+        one.teamId === chat.teamId,
+    )
+
+    return bot ? [{ chat, bot }] : []
+  })
 }
 
 let timer: ReturnType<typeof setTimeout> | undefined

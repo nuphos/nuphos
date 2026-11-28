@@ -7,6 +7,8 @@ import { inTokenTeamScope, tokenTeamScope } from '@/lib/identity/token-team-scop
  * follows its members, so it keeps team-wide 'reply'.
  */
 export type GeneralAccess = 'none' | 'view' | 'reply'
+/** "All" on a conversation's credential selection: what the owner can use whenever read, added-later ones too. */
+export type CredentialAllFlags = { allCredentials?: boolean; allDevices?: boolean }
 /** What one viewer may do: whoever may use the conversation's computer replies. */
 export type ConversationAccess = 'owner' | 'reply' | 'view'
 
@@ -24,7 +26,12 @@ export type ReadGrants = {
   kind?: string
   participantIds?: string[]
 }
-type AccessFields = ReadGrants & { userId: string; teamId?: string; avatar?: string }
+type AccessFields = ReadGrants & {
+  userId: string
+  teamId?: string
+  avatar?: string
+  external?: string
+}
 
 /** A Bot is its owner's alone: nobody else is invited to it or sees it. */
 export const isBot = (conversation: { kind?: string; avatar?: string }) =>
@@ -39,6 +46,7 @@ export const ACCESS_PROJECTION = {
   participantIds: 1,
   kind: 1,
   avatar: 1,
+  external: 1,
 } as const
 
 // Absent is every conversation from before access existed, which the whole
@@ -68,6 +76,8 @@ export function conversationAccess(
 ): ConversationAccess | null {
   // An agent token reaches only its own team's conversations, its user's included.
   if (!inTokenTeamScope(conversation.teamId)) return null
+  // A Slack channel's record is its Bots' alone, not a Nuphos chat (#4936).
+  if (conversation.external) return null
   if (conversation.userId === viewerId) return 'owner'
   if (!conversation.teamId || isBot(conversation)) return null
   // Without a computer, being invited is what lets someone reply.
@@ -141,5 +151,6 @@ export function readableConversationScope(
   teamId = tokenTeamScope() ?? teamId
   if (!teamId) return { ...base, userId: viewerUserId }
 
-  return { ...base, teamId, ...readableByFilter(viewerUserId) }
+  // A Slack channel's record is its Bots' alone, not a Nuphos chat (#4936).
+  return { ...base, teamId, external: { $exists: false }, ...readableByFilter(viewerUserId) }
 }

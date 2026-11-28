@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { ChevronDown, X } from 'lucide-react'
-import { useContext, useLayoutEffect, useRef, useState } from 'react'
+import { useContext, useEffect, useRef, useState } from 'react'
 
 import { t } from '../../../i18n'
 import { comboText } from '../../../lib/platform'
@@ -14,11 +14,9 @@ import { clickOptions, formQuestions, ownBody } from './decisionFormModel'
 import { DecisionOptions, PILL } from './DecisionOptions'
 import { DecisionTitle } from './DecisionTitle'
 import { useDecisionKeys } from './useDecisionKeys'
+import { useDecisionSubmit as useSubmit } from './useDecisionSubmit'
 
-import type { ConnectCardContextValue } from './connectCardContext'
 import type { DecisionQuestion } from './decisionFormModel'
-import type { DecisionCardRef } from './replyTarget'
-import type { DecisionAnswer } from '../../../api/agent-chat-types'
 import type { ReactNode } from 'react'
 
 /**
@@ -27,7 +25,7 @@ import type { ReactNode } from 'react'
  * "Other…" to type one in the card instead, then "Snooze" to set it aside until a time
  * and "Dismiss" to withdraw it unanswered, all one row of the same pill
  * (`DecisionOptions`). A multi-select or several questions pick their options and
- * send them at once. The answer
+ * send them at once with Send, in one footer after Snooze and Dismiss. The answer
  * wakes the agent that asked; no message is sent. Once answered, the options go.
  */
 export function ChoiceCard({
@@ -154,35 +152,6 @@ function SelectToAnswer({ children }: { children: ReactNode }) {
   )
 }
 
-/**
- * Sends a card's answer: the card goes quiet at once, and is live again with
- * an error if the server refuses it or it could not be sent.
- */
-function useSubmit(
-  ctx: ConnectCardContextValue | null,
-  card: DecisionCardRef,
-  recorded: string | undefined,
-) {
-  const [sent, setSent] = useState(false)
-  const [failed, setFailed] = useState(false)
-  const submit = (answer: DecisionAnswer) => {
-    const taken = ctx?.answer?.(answer, card)
-
-    if (taken === false) return false
-    setSent(true)
-    setFailed(false)
-    void Promise.resolve(taken).then((ok) => {
-      if (ok !== false) return
-      setSent(false)
-      setFailed(true)
-    })
-
-    return true
-  }
-
-  return { chosen: sent || recorded !== undefined, failed, submit }
-}
-
 /** What answered the card, that it was dismissed, or that its answer was not taken. */
 function AnswerStatus({
   recorded,
@@ -213,36 +182,31 @@ function AnswerStatus({
 }
 
 /**
- * The question's markdown body: four lines at first, the last fading out, and a
- * full-width "Show more" under them. The collapsed lines open it too.
+ * The question's markdown body: four whole lines at first, the last ending in an
+ * ellipsis, and a full-width "Show more" under them when that cuts it.
  */
-function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
+export function DecisionBody({ text, full = false }: { text: string | undefined; full?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
-  const [overflows, setOverflows] = useState(false)
+  const [cut, setCut] = useState(false)
   const [expanded, setExpanded] = useState(full)
-  const clipped = overflows && !expanded
 
-  useLayoutEffect(() => {
+  // Measured whenever its size changes, so a card laid out while hidden still finds out.
+  useEffect(() => {
     const el = ref.current
 
-    if (el && !expanded) setOverflows(el.scrollHeight > el.clientHeight + 1)
+    if (!el || expanded) return
+    const observer = new ResizeObserver(() => setCut(el.scrollHeight > el.clientHeight + 1))
+
+    observer.observe(el)
+
+    return () => observer.disconnect()
   }, [text, expanded])
 
   if (!text) return null
 
   return (
     <div className="flex flex-col gap-2 pt-1.5">
-      {/* Keyboard users open it with the row below. */}
-      <div
-        ref={ref}
-        onClick={clipped ? () => setExpanded(true) : undefined}
-        className={clsx(
-          'overflow-hidden',
-          !expanded && 'max-h-[88px]',
-          clipped &&
-            'cursor-pointer [mask-image:linear-gradient(to_bottom,black_calc(100%-28px),transparent)]',
-        )}
-      >
+      <div ref={ref} className={clsx(!expanded && 'line-clamp-4')}>
         <MessageResponse
           className="selectable text-[13.5px] leading-[22px] text-secondary"
           streaming={false}
@@ -250,7 +214,7 @@ function DecisionBody({ text, full = false }: { text: string | undefined; full?:
           {text}
         </MessageResponse>
       </div>
-      {!full && (overflows || expanded) && (
+      {!full && (cut || expanded) && (
         <button
           type="button"
           aria-expanded={expanded}

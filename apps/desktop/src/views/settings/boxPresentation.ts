@@ -1,5 +1,5 @@
 import { t } from '../../i18n/index.ts'
-import { AGENT_PROVIDER } from '../../types/runtime.ts'
+import { agentProvider } from '../../types/runtime.ts'
 
 import { agentName, canManage } from './agentPresentation.ts'
 
@@ -141,12 +141,25 @@ export function boxSetupFailed(label: string): { title: string; description: str
   }
 }
 
-/** Boxes that were creating and are gone: #355 drops a Box whose machine could not be made. */
-export function vanishedBoxes(previous: AgentDevice[], next: AgentDevice[]): BoxDevice[] {
+/** Boxes this window asked to delete: their leaving the list is no failure. */
+export const deletedBoxIds = new Set<string>()
+
+/**
+ * Boxes that were being set up and are gone: #355 drops a Box whose machine could not be
+ * made, or whose host never joined.
+ */
+export function vanishedBoxes(
+  previous: AgentDevice[],
+  next: AgentDevice[],
+  deleted: ReadonlySet<string> = deletedBoxIds,
+): BoxDevice[] {
   const ids = new Set(next.map((device) => device.deviceId))
 
   return boxes(previous).filter(
-    (device) => device.box.state === 'creating' && !ids.has(device.deviceId),
+    (device) =>
+      setupStates.has(device.box.state) &&
+      !ids.has(device.deviceId) &&
+      !deleted.has(device.deviceId),
   )
 }
 
@@ -166,7 +179,7 @@ export function agentNameTaken(agents: RuntimeInstance[], name: string): boolean
 
 /** A new agent's name: its provider's, numbered past the ones this machine already has. */
 export function defaultAgentName(agents: RuntimeInstance[], provider: LocalAgentProvider): string {
-  const base = AGENT_PROVIDER[provider].label
+  const base = agentProvider(provider).label
   const named = (n: number) => (n === 1 ? base : `${base} ${String(n)}`)
   let n = 1
 

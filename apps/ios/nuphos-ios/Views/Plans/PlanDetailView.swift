@@ -174,7 +174,7 @@ struct PlanDetailView: View {
         card {
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("The agent is still building this plan — steps, cost and risk arrive before it can be approved.")
+                Text("This plan is still being built — steps, cost and risk arrive before it can be approved.")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }
@@ -504,7 +504,7 @@ struct PlanChatTarget: Identifiable, Hashable {
         planId = plan.id
         self.sessionId = sessionId
         title = plan.title
-        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in agent" : "Open agent"
+        buttonTitle = plan.status == "proposed" || plan.status == "approved" ? "Continue in the task" : "Open task"
     }
 
     static func == (a: PlanChatTarget, b: PlanChatTarget) -> Bool { a.id == b.id }

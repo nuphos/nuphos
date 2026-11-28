@@ -1,6 +1,6 @@
 // Run with: cd apps/backend && bun test src/lib/agent/devices/store.test.ts
 
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, spyOn, test } from 'bun:test'
 
 import { useDb } from '@/lib/test/doubles/db'
 
@@ -11,8 +11,21 @@ type Doc = Record<string, unknown>
 
 type Push = { $each: Doc[]; $slice: number }
 
-// The only operator filter the store uses: no added agent with that instance id yet.
+// One `$elemMatch` term on a pending entry's agent; `$exists: false` is the only operator.
+const agentField = (entry: Doc, key: string, value: unknown) =>
+  (entry.agent as Doc)[key.replace('agent.', '')] ===
+  (typeof value === 'object' ? undefined : value)
+
+// The operator filters the store uses: no added agent with that instance id yet, and no
+// pending entry for that agent yet.
 function matches(doc: Doc, [key, value]: [string, unknown]): boolean {
+  if (key === 'removedAgents' || key === 'pendingResets') {
+    const same = (value as { $not: { $elemMatch: Doc } }).$not.$elemMatch
+
+    return !((doc[key] ?? []) as Doc[]).some((entry) =>
+      Object.entries(same).every(([field, wanted]) => agentField(entry, field, wanted)),
+    )
+  }
   if (key !== 'addedAgents.instanceId') return doc[key] === value
   const ne = (value as { $ne: unknown }).$ne
 
@@ -30,7 +43,7 @@ class FakeCollection {
   }
   async updateOne(
     filter: Doc,
-    update: { $set?: Doc; $setOnInsert?: Doc; $push?: Record<string, Push>; $pull?: Doc },
+    update: { $set?: Doc; $setOnInsert?: Doc; $push?: Record<string, Push | Doc>; $pull?: Doc },
     options?: { upsert?: boolean },
   ) {
     const hit = await this.findOne(filter)
@@ -38,7 +51,13 @@ class FakeCollection {
     if (hit) Object.assign(hit, update.$set)
     else if (options?.upsert) this.docs.push({ ...filter, ...update.$set, ...update.$setOnInsert })
     for (const [field, push] of Object.entries(update.$push ?? {}))
-      if (hit) hit[field] = [...((hit[field] ?? []) as Doc[]), ...push.$each].slice(push.$slice)
+      if (hit)
+        hit[field] =
+          '$each' in push
+            ? [...((hit[field] ?? []) as Doc[]), ...(push as Push).$each].slice(
+                (push as Push).$slice,
+              )
+            : [...((hit[field] ?? []) as Doc[]), push]
     for (const [field, pulled] of Object.entries(update.$pull ?? {})) {
       const id = (pulled as Doc).instanceId
       const drop = (value: unknown) =>
@@ -46,19 +65,86 @@ class FakeCollection {
 
       if (hit && field === 'addedAgents')
         hit[field] = ((hit[field] ?? []) as Doc[]).filter((entry) => !drop(entry.instanceId))
+      else if (hit && 'id' in (pulled as Doc))
+        hit[field] = ((hit[field] ?? []) as Doc[]).filter(
+          (entry) => entry.id !== (pulled as Doc).id,
+        )
+      else if (hit && 'at' in (pulled as Doc)) {
+        // The agent's entries older than `at.$lt`: an added agent's id, or a default's provider.
+        const { at, ...agent } = pulled as Doc
+        const named = (entry: Doc) =>
+          Object.entries(agent).every(([path, want]) => {
+            const value = (entry.agent as Doc)[path.split('.')[1] ?? '']
+
+            return want && typeof want === 'object' ? value === undefined : value === want
+          })
+
+        hit[field] = ((hit[field] ?? []) as Doc[]).filter(
+          (entry) => !(named(entry) && (entry.at as Date) < (at as { $lt: Date }).$lt),
+        )
+      }
+      if (hit && field === 'signIns')
+        hit[field] = ((hit[field] ?? []) as Doc[]).filter(
+          (entry) => entry.agent !== (pulled as Doc).agent,
+        )
     }
 
     return { matchedCount: hit ? 1 : 0 }
   }
+  async findOneAndUpdate(filter: Doc, update: Parameters<FakeCollection['updateOne']>[1]) {
+    const hit = await this.findOne(filter)
+    const before = hit ? structuredClone(hit) : null
+
+    await this.updateOne(filter, update)
+
+    return before
+  }
+  countDocuments(filter: Doc) {
+    return Promise.resolve(
+      this.docs.filter((doc) =>
+        Object.entries(filter).every(([key, value]) =>
+          key === 'archivedAt' ? doc.archivedAt === undefined : doc[key] === value,
+        ),
+      ).length,
+    )
+  }
+  async findOneAndDelete(filter: Doc) {
+    const hit = await this.findOne(filter)
+
+    this.docs = this.docs.filter((doc) => doc !== hit)
+
+    return hit
+  }
+  async deleteOne(filter: Doc) {
+    return { deletedCount: (await this.findOneAndDelete(filter)) ? 1 : 0 }
+  }
+  async replaceOne(filter: Doc, replacement: Doc) {
+    await this.findOneAndDelete(filter)
+    this.docs.push(replacement)
+  }
 }
 
 const devices = new FakeCollection()
+// Any other collection the store keeps: what a forgotten computer leaves behind.
+const others = new FakeCollection()
 
-useDb({ db: (() => ({ collection: () => devices })) as unknown as typeof dbActual.db })
+useDb({
+  db: (() => ({
+    collection: (name: string) => (name === 'agent_devices' ? devices : others),
+  })) as unknown as typeof dbActual.db,
+})
 
-const { getAgentDevice, renameAgentDevice, upsertAgentDevice } = await import('./store')
-const { recordAgentAddition, recordDeviceAgents, removeDeviceAgent, renameDeviceAgent } =
-  await import('./agent-registry-store')
+const { deleteAgentDevice, getAgentDevice, renameAgentDevice, upsertAgentDevice } =
+  await import('./store')
+const {
+  forgetAgentReset,
+  recordAgentAddition,
+  recordAgentReset,
+  retireAgentResets,
+  recordDeviceAgents,
+  removeDeviceAgent,
+  renameDeviceAgent,
+} = await import('./agent-registry-store')
 
 const registration = {
   deviceId: 'mac-1',
@@ -95,6 +181,31 @@ describe('agent device registration', () => {
   })
 })
 
+describe('forgetting a computer', () => {
+  beforeEach(() => {
+    devices.docs = []
+    others.docs = []
+  })
+
+  test('keeps who signed its agents in, and the resets they owe, for when it registers again', async () => {
+    const at = new Date('2026-11-13T00:00:00Z')
+    const signIns = [{ agent: 'claude-code', userId: 'lead', teamId: 't1', at, endedAt: at }]
+    const pendingResets = [
+      { id: 'r1', agent: { instanceId: 'i1' }, actorId: 'lead', teamId: 't1', at },
+    ]
+
+    await upsertAgentDevice('u1', registration)
+    Object.assign(devices.docs[0]!, { signIns, pendingResets })
+    expect(await deleteAgentDevice('u1', 'mac-1')).toBe(true)
+    expect(await getAgentDevice('u1', 'mac-1')).toBeNull()
+    // Opening Nuphos there again registers it again: its ended sign-in stays ended.
+    await upsertAgentDevice('u1', registration)
+
+    expect(await getAgentDevice('u1', 'mac-1')).toMatchObject({ signIns, pendingResets })
+    expect(others.docs).toEqual([])
+  })
+})
+
 describe('agent names', () => {
   const work = '11111111-1111-4111-8111-111111111111'
   const report = {
@@ -126,6 +237,30 @@ describe('agent names', () => {
     ])
   })
 
+  test('an agent a Vault-shared token signs in is never kept', async () => {
+    const shared = '22222222-2222-4222-8222-222222222222'
+    const withShared = {
+      ...report,
+      instances: [
+        ...(report.instances ?? []),
+        {
+          instanceId: shared,
+          provider: 'claude-code',
+          label: "Claude Code (Ann's token)",
+          vault: true,
+          cli: { installed: true, loggedIn: true },
+        },
+      ],
+    } as unknown as LocalRuntimeStatus
+
+    await recordDeviceAgents('u1', 'mac-1', withShared)
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.agents?.map((a) => a.instanceId)).toEqual([
+      undefined,
+      work,
+    ])
+  })
+
   test('an agent or device that is not registered is not renamed', async () => {
     expect(await renameDeviceAgent('u1', 'mac-1', 'codex', 'Mine')).toBe(false)
     expect(await renameDeviceAgent('u2', 'mac-1', work, 'Mine')).toBe(false)
@@ -154,6 +289,32 @@ describe('who added an agent', () => {
     expect((await getAgentDevice('u1', 'mac-1'))?.addedAgents).toEqual([first])
     await removeDeviceAgent('u1', 'mac-1', { instanceId: work })
     expect((await getAgentDevice('u1', 'mac-1'))?.addedAgents).toEqual([])
+  })
+
+  test('an agent its host removed takes its sign-in along; a forgotten one keeps it', async () => {
+    const at = new Date()
+
+    await devices.updateOne(
+      { userId: 'u1', deviceId: 'mac-1' },
+      {
+        $set: {
+          signIns: [
+            { agent: work, userId: 'u3', teamId: 't1', at, endedAt: at },
+            { agent: 'codex', userId: 'u3', teamId: 't1', at },
+            { agent: 'claude-code', userId: 'u3', teamId: 't1', at },
+          ],
+        },
+      },
+    )
+    await removeDeviceAgent('u1', 'mac-1', { instanceId: work })
+    // A Box's default agent removed through its host goes with its accounts too.
+    await removeDeviceAgent('u1', 'mac-1', { provider: 'codex' })
+    // A person's own default agent forgotten keeps its CLI login, so its sign-in stays to be ended.
+    await removeDeviceAgent('u1', 'mac-1', { provider: 'claude-code' }, { forgetOnly: true })
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.signIns?.map((entry) => entry.agent)).toEqual([
+      'claude-code',
+    ])
   })
 
   test('a report from the host forgets an agent it no longer has', async () => {
@@ -190,5 +351,128 @@ describe('who added an agent', () => {
     await recordAgentAddition('u2', 'mac-1', first)
 
     expect((await getAgentDevice('u1', 'mac-1'))?.addedAgents).toBeUndefined()
+  })
+})
+
+const reset = (id: string, agent: { instanceId: string } | { provider: 'codex' }) => ({
+  id,
+  agent,
+  actorId: 'u2',
+  teamId: 't1',
+  at: new Date(0),
+})
+
+describe('pending resets', () => {
+  beforeEach(async () => {
+    devices.docs = []
+    await upsertAgentDevice('u1', registration)
+  })
+
+  test('one per agent: a repeat adds nothing, another agent is noted', async () => {
+    await recordAgentReset('u1', 'mac-1', reset('r1', { instanceId: 'a1' }))
+    await recordAgentReset('u1', 'mac-1', reset('r2', { instanceId: 'a1' }))
+    await recordAgentReset('u1', 'mac-1', reset('r3', { provider: 'codex' }))
+    await recordAgentReset('u1', 'mac-1', reset('r4', { provider: 'codex' }))
+    await recordAgentReset('u1', 'mac-1', reset('r5', { instanceId: 'a2' }))
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.pendingResets?.map(({ id }) => id)).toEqual([
+      'r1',
+      'r3',
+      'r5',
+    ])
+  })
+
+  test('is forgotten by id, and never hides the agent as a removal does', async () => {
+    await recordAgentReset('u1', 'mac-1', reset('r1', { instanceId: 'a1' }))
+    await recordAgentReset('u1', 'mac-1', reset('r2', { instanceId: 'a2' }))
+    await forgetAgentReset('u1', 'mac-1', 'r1')
+
+    const device = await getAgentDevice('u1', 'mac-1')
+
+    expect(device?.pendingResets?.map(({ id }) => id)).toEqual(['r2'])
+    expect(device?.removedAgents).toBeUndefined()
+  })
+
+  test('a reset run since retires the agent’s older ones, not newer ones or other agents’', async () => {
+    await recordAgentReset('u1', 'mac-1', reset('r1', { instanceId: 'a1' }))
+    await recordAgentReset('u1', 'mac-1', reset('r2', { provider: 'codex' }))
+    await recordAgentReset('u1', 'mac-1', { ...reset('r3', { instanceId: 'a3' }), at: new Date(9) })
+    await retireAgentResets('u1', 'mac-1', { instanceId: 'a1' }, new Date(5))
+    await retireAgentResets('u1', 'mac-1', { instanceId: 'a3' }, new Date(5))
+
+    expect((await getAgentDevice('u1', 'mac-1'))?.pendingResets?.map(({ id }) => id)).toEqual([
+      'r2',
+      'r3',
+    ])
+  })
+})
+
+// #4489: an expired sign-in is told once, when it happens, not on each turn that then fails.
+describe('an agent that signs out', () => {
+  const work = '33333333-3333-4333-8333-333333333333'
+  const report = (loggedIn: boolean | null) =>
+    ({
+      agents: { 'claude-code': { cli: { installed: true, loggedIn: true } } },
+      instances: [
+        { instanceId: work, provider: 'codex', label: 'Codex', cli: { installed: true, loggedIn } },
+      ],
+    }) as unknown as LocalRuntimeStatus
+  let warn: ReturnType<typeof spyOn<Console, 'warn'>>
+  const signedOut = () =>
+    warn.mock.calls
+      .map(([line]) => JSON.parse(String(line)) as Doc)
+      .filter((line) => line.event === 'agent.runtime.signed_out')
+
+  beforeEach(async () => {
+    devices.docs = []
+    others.docs = [
+      { runtimeId: `local_u1_mac-1_codex_${work}` },
+      { runtimeId: `local_u1_mac-1_codex_${work}` },
+      { runtimeId: `local_u1_mac-1_codex_${work}`, archivedAt: new Date() },
+      { runtimeId: 'local_u1_mac-1' },
+    ]
+    await upsertAgentDevice('u1', registration)
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+    warn = spyOn(console, 'warn').mockImplementation(() => null)
+  })
+  afterEach(() => {
+    warn.mockRestore()
+  })
+
+  test('is logged once, with the conversations still on it', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toEqual([
+      expect.objectContaining({
+        level: 'warn',
+        runtime_id: `local_u1_mac-1_codex_${work}`,
+        user_id: 'u1',
+        device_id: 'mac-1',
+        provider: 'codex',
+        conversation_count: 2,
+      }),
+    ])
+  })
+
+  test('is logged again after it signs back in and out', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toHaveLength(2)
+  })
+
+  test('a report that could not tell does not hide the sign-out after it', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(null))
+    await recordDeviceAgents('u1', 'mac-1', report(false))
+
+    expect(signedOut()).toHaveLength(1)
+  })
+
+  test('a report that keeps it signed in logs nothing', async () => {
+    await recordDeviceAgents('u1', 'mac-1', report(true))
+
+    expect(signedOut()).toEqual([])
   })
 })

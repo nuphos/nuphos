@@ -31,6 +31,10 @@ export type InputRequest = ExplicitUserDecision & {
   credentials?: PersonalCredentialRef[]
   /** The linked resources and sub-agent threads it is about: their changes remind the agent of it. */
   about?: string[]
+  /** The desktop a `computer` request hands over: its Box, its display and the title its card shows. */
+  desktop?: ComputerDesktop
+  /** When someone first took that desktop over, for how long they held it. */
+  takenOverAt?: Date
   askedAt: Date
   /** When the agent last corrected it with update_user_decision. */
   updatedAt?: Date
@@ -39,6 +43,8 @@ export type InputRequest = ExplicitUserDecision & {
   /** Always 'open': clients still filter on it. */
   status: 'open'
 }
+
+export type ComputerDesktop = { deviceId: string; display: number; title: string }
 
 /** The questions a conversation document keeps for its owner. */
 export type ConversationInputRequests = {
@@ -190,6 +196,28 @@ export async function resolveInputRequest(
 ): Promise<boolean> {
   const result = await agentConversations().updateOne(
     { sessionId, userId, 'inputRequests.id': id },
+    { $pull: { inputRequests: { id } } },
+  )
+
+  return result.matchedCount > 0
+}
+
+/**
+ * The agent withdraws a request it asked, or one `about` its conversation: that
+ * conversation acts on the answer, so it may let the approval lapse, though only
+ * the asker corrects the card. False when neither has it open.
+ */
+export async function withdrawInputRequest(
+  sessionId: string,
+  userId: string,
+  id: string,
+): Promise<boolean> {
+  const result = await agentConversations().updateOne(
+    {
+      userId,
+      'inputRequests.id': id,
+      $or: [{ sessionId }, { inputRequests: { $elemMatch: { id, about: sessionId } } }],
+    },
     { $pull: { inputRequests: { id } } },
   )
 

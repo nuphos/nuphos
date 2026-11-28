@@ -1,6 +1,6 @@
 ---
 name: discord
-description: "Read and act in the team's Discord: channels, threads, pins, search, members, posting and reactions. Use on every Discord turn and whenever Discord is mentioned."
+description: "Read and act in the team's Discord. Use on every Discord turn and whenever Discord is mentioned."
 ---
 
 # Discord
@@ -40,7 +40,7 @@ on non-2xx responses. Put request bodies in files.
   user was in when they mentioned you; `rootMessageId` is that mention.
 
 `409 discord_not_installed` means the team has not connected Discord. Say so
-and point to Settings → Integrations; do not look for another route.
+and point to Settings → Connectors; do not look for another route.
 
 ## When a Discord message does not say what it means
 

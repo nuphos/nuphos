@@ -18,7 +18,7 @@ export function ArchivedChatsSection({
   if (!teamId) {
     return (
       <div className="max-w-[640px] mx-auto py-10 px-8 text-[13px] text-tertiary">
-        {t('No workspace selected.')}
+        {t('No team selected.')}
       </div>
     )
   }

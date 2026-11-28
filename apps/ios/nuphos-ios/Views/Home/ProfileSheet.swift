@@ -13,6 +13,7 @@ struct ProfileSheet: View {
     var openTwoFactor = false
     private var currentUser: NuphosUser { session.user ?? user }
     @AppStorage(BotAvatars.enabledKey, store: BotAvatars.defaults) private var botAvatars = true
+    @AppStorage(Analytics.sendUsageDataKey, store: Analytics.defaults) private var sendUsageData = true
 
     @State private var editing = false
     @State private var showAppIcons = false
@@ -93,11 +94,16 @@ struct ProfileSheet: View {
                 } header: {
                     Text("Appearance")
                 } footer: {
-                    Text("Give Agents a character avatar. Turn off to show Runtime icons.")
+                    Text("Give Bots a character avatar. Turn off to show Runtime icons.")
                 }
                 .listRowBackground(Theme.surface)
 
-                Section("Privacy") {
+                Section {
+                    Toggle("Send usage data", isOn: $sendUsageData)
+                        .accessibilityIdentifier("privacy.usageData")
+                        .onChange(of: sendUsageData) { _, on in
+                            Analytics.shared.setSendUsageData(on, user: session.user)
+                        }
                     Link("Privacy policy", destination: URL(string: "https://nuphos.ai/privacy")!)
                     if session.aiConsentAccepted {
                         Button("Withdraw AI data sharing permission") {
@@ -110,6 +116,10 @@ struct ProfileSheet: View {
                         Text("AI data sharing is off. Close Account to read the notice.")
                     }
                     if let privacyError { Text(privacyError).foregroundStyle(.red) }
+                } header: {
+                    Text("Privacy")
+                } footer: {
+                    Text("Usage data shows Nuphos which features are used, never what you write. It is sent only while you use Nuphos Cloud. This setting is saved on this device.")
                 }
                 .listRowBackground(Theme.surface)
 

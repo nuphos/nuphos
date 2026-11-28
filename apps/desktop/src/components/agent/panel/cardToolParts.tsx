@@ -16,6 +16,8 @@ import type { ReactElement } from 'react'
 
 export type CardContext = {
   teamId: string | undefined
+  /** The chat the card is shown in. */
+  sessionId: string | undefined
   onOpen: OpenLink | undefined
   now: number
   /** The latest idle reply: decision cards can act. */
@@ -30,13 +32,15 @@ export type CardContext = {
 export function renderCardToolPart(
   part: ToolPart,
   key: string,
-  { teamId, onOpen, now, canAct, canReply, canApprove }: CardContext,
+  { teamId, sessionId, onOpen, now, canAct, canReply, canApprove }: CardContext,
 ): ReactElement | null {
   if (isThreadBadgePart(part)) {
     return <ThreadBadge key={key} part={part} teamId={teamId} onOpen={onOpen} />
   }
   if (isTriggerCardPart(part)) {
-    return <TriggerCard key={key} part={part} teamId={teamId} onOpen={onOpen} />
+    return (
+      <TriggerCard key={key} part={part} teamId={teamId} sessionId={sessionId} onOpen={onOpen} />
+    )
   }
   if (part.toolName === 'render_chart') {
     return <ChartToolPart key={key} part={part} now={now} teamId={teamId} onOpen={onOpen} />

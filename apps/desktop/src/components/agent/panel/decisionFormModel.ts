@@ -65,19 +65,37 @@ export function ownBody(
     : body
 }
 
-/** What a form answers: one question's picks or typed text, or one entry per question. */
-export function formAnswer(
+/** Where a form stands on one question: its picked options, or "Other" picked and the words under it. */
+export type QuestionState = { picked: string[]; other: boolean; words: string }
+
+/** A form's state before anything is picked: a question with nothing to pick shows its field, when it takes words. */
+export function initialStates(
   questions: readonly DecisionQuestion[],
-  picked: readonly (readonly string[])[],
-  typed: readonly string[],
-): DecisionAnswer {
-  const one = (index: number) => {
-    const words = typed[index]?.trim()
+  typeable: boolean,
+): QuestionState[] {
+  return questions.map((q) => ({
+    picked: [],
+    other: typeable && q.options.length === 0,
+    words: '',
+  }))
+}
 
-    return words ? { text: words } : { choices: [...(picked[index] ?? [])] }
-  }
+/** A question is answered by its words when "Other" is picked, by its picks otherwise. */
+export function isAnswered(state: QuestionState) {
+  return state.other ? state.words.trim() !== '' : state.picked.length > 0
+}
 
-  return questions.length === 1 ? one(0) : { questions: questions.map((_, index) => one(index)) }
+/** How many questions are still unanswered. */
+export function unanswered(states: readonly QuestionState[]) {
+  return states.filter((state) => !isAnswered(state)).length
+}
+
+/** What a form answers: words or picks, never both, alone for one question or one entry per question. */
+export function formAnswer(states: readonly QuestionState[]): DecisionAnswer {
+  const one = ({ picked, other, words }: QuestionState) =>
+    other ? { text: words.trim() } : { choices: [...picked] }
+
+  return states.length === 1 ? one(states[0]) : { questions: states.map(one) }
 }
 
 /** `list` with its `index` entry replaced. */
@@ -85,11 +103,22 @@ export function replaceAt<T>(list: readonly T[], index: number, value: T): T[] {
   return list.map((entry, at) => (at === index ? value : entry))
 }
 
-/** A question's picked options after tapping `option`: one at a time, or any number. */
-export function togglePick(picked: readonly string[], option: string, multiSelect: boolean) {
-  if (picked.includes(option)) return picked.filter((o) => o !== option)
+/** A question after tapping `option`: one at a time, or any number; it unpicks "Other". */
+export function pickOption(
+  state: QuestionState,
+  option: string,
+  multiSelect: boolean,
+): QuestionState {
+  const { picked } = state
 
-  return multiSelect ? [...picked, option] : [option]
+  if (picked.includes(option)) return { ...state, picked: picked.filter((o) => o !== option) }
+
+  return { ...state, picked: multiSelect ? [...picked, option] : [option], other: false }
+}
+
+/** A question after tapping "Other": picking it unpicks the options; its words stay either way. */
+export function toggleOther(state: QuestionState): QuestionState {
+  return state.other ? { ...state, other: false } : { ...state, picked: [], other: true }
 }
 
 /** Parses a card's `questions` from a stored call or request, dropping malformed entries. */

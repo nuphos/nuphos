@@ -24,6 +24,7 @@ struct NewBotSheet: View {
                 VStack(spacing: 20) {
                     Image(BotAvatars.asset(named: face) ?? "").resizable().scaledToFit()
                         .frame(width: 88, height: 88)
+                        .background(Circle().fill(Theme.avatarBackground(nil)))
                         .accessibilityHidden(true)
                     TextField("Name", text: $name)
                         .focused($nameFocused)

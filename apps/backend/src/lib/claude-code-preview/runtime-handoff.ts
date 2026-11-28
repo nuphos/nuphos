@@ -73,9 +73,12 @@ async function sessionsToHandOff(): Promise<TeamSession[]> {
 }
 
 /**
- * Close this replica's transports to the handed-off sessions, then advertise
- * them. Closing first matters: the gateway routes a running turn's output to
- * the connection that started it until that connection goes away.
+ * Let go of every session and close this replica's transports, then advertise
+ * the sessions that need a new carrier. Closing first matters: the gateway
+ * routes a running turn's output to the connection that started it until that
+ * connection goes away. An idle session is let go of too: left observed, a
+ * transport it loses later, such as a computer leaving another draining
+ * replica, would run its reattach after storage closed (#4866).
  */
 export async function publishRuntimeHandoffs(): Promise<number> {
   const sessions = await sessionsToHandOff()
@@ -83,7 +86,7 @@ export async function publishRuntimeHandoffs(): Promise<number> {
   const handoffs = sessions.map((session) => ({ ...sessionHandoff(session), at }))
   const clients = new Set<TeamPreviewClient>()
 
-  for (const session of sessions) {
+  for (const session of sessionsByConversation.values()) {
     session.stopObserving?.()
     clients.add(session.client)
   }

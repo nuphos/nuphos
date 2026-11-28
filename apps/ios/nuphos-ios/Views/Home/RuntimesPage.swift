@@ -34,12 +34,12 @@ struct RuntimesPage: View {
         let store = store
         return Group {
             if store.phase == .loaded, store.selectedTeam == nil {
-                SetupEmptyState(title: "No workspace yet", message: "Create or join a workspace before connecting a computer.", actionTitle: "Set up workspace") { showWorkspaceSetup = true }
+                SetupEmptyState(title: "No team yet", message: "Create or join a team before connecting a computer.", actionTitle: "Set up a team") { showWorkspaceSetup = true }
             } else if !store.runtimesLoaded, let error = store.runtimesError {
                 ContentUnavailableView {
                     Label("Couldn't load runtimes", image: "lucide-wifi-off")
                 } description: { Text(error) } actions: {
-                    Button("Try again") { Task { await store.loadRuntimes(force: true) } }.buttonStyle(.bordered)
+                    Button("Try again") { Task { await store.loadRuntimes() } }.buttonStyle(.bordered)
                 }
             } else if !store.runtimesLoaded {
                 ProgressView().tint(Theme.muted)
@@ -62,7 +62,7 @@ struct RuntimesPage: View {
         .environment(\.desktopBeside, nil)
         .task(id: store.selectedTeam?.id) {
             if store.teams.isEmpty { await store.loadTeams() }
-            async let agents: Void = store.loadRuntimes(force: true)
+            async let agents: Void = store.loadRuntimes()
             async let quotas: Void = store.loadQuotas()
             _ = await (agents, quotas)
         }
@@ -98,10 +98,10 @@ struct RuntimesPage: View {
         } message: { Text($0) }
         // A Box's runtimes join once it is up, and leave when it pauses: read them again then.
         .onChange(of: store.agentDevices.map { $0.box?.state ?? "" }) { _, _ in
-            Task { await store.loadRuntimes(force: true) }
+            Task { await store.loadRuntimes() }
         }
         .refreshable {
-            async let agents: Void = store.loadRuntimes(force: true)
+            async let agents: Void = store.loadRuntimes()
             async let quotas: Void = store.loadQuotas()
             async let devices: Void = store.loadAgentDevices()
             _ = await (agents, quotas, devices)
@@ -115,7 +115,7 @@ struct RuntimesPage: View {
                 "DELETE", NewBox.deletePath(deviceId: device.deviceId), query: [URLQueryItem(name: "teamId", value: team.id)],
                 token: store.token, body: JSONValue?.none, timeout: 60)
             async let devices: Void = store.loadAgentDevices()
-            async let runtimes: Void = store.loadRuntimes(force: true)
+            async let runtimes: Void = store.loadRuntimes()
             _ = await (devices, runtimes)
         } catch {
             deleteFailure = error.localizedDescription
@@ -237,7 +237,7 @@ private struct AgentSignInInstructions: View {
     /// The Runtimes page is in Nuphos on a computer, not in this app.
     private var steps: String {
         guard let local = runtime.local else {
-            return String(localized: "A workspace administrator can sign it in from the Runtimes page in Nuphos on their computer.")
+            return String(localized: "A team administrator can sign it in from the Runtimes page in Nuphos on their computer.")
         }
         return teammate
             ? String(localized: "\(local.deviceLabel) belongs to a teammate, so only they can sign it in. Ask them to open Nuphos on it and choose Sign in on the Runtimes page.")

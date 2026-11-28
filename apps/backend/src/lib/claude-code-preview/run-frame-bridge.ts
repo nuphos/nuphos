@@ -5,6 +5,8 @@
 // duration of the preview turn.
 import { getSubscriber, redisEnabled, withRedis } from '@/lib/redis'
 
+import { logNonStringToolError } from './non-string-tool-error'
+
 import type { PublishPreviewFrame } from './preview-tool-context'
 import type { AgentRun } from '@/routes/agent/types'
 
@@ -57,6 +59,7 @@ export function createPreviewFrameBridge(host: () => Promise<RunHost>) {
     const run = runs.findLocalRun(runOwnerUserId, ctx.sessionId)
 
     if (run) {
+      logNonStringToolError(frame, 'tool-handler')
       if (consumers.get(run.key)?.(frame)) return
       runs.appendFrame(run, `data: ${JSON.stringify(frame)}\n\n`)
 
@@ -106,6 +109,7 @@ export function createPreviewFrameBridge(host: () => Promise<RunHost>) {
         try {
           const frame = JSON.parse(message) as Record<string, unknown>
 
+          logNonStringToolError(frame, 'relayed')
           if (consumers.get(run.key)?.(frame)) return
         } catch {
           // Invalid bridge payloads retain the old behavior and reach the run;

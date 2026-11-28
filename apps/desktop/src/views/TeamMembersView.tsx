@@ -149,7 +149,7 @@ export function TeamMembersView({
         <>
           <PageHeader
             title={t('Members')}
-            subtitle={t('Invite teammates and review workspace access')}
+            subtitle={t('Invite teammates and review team access')}
           />
           <div className="flex h-[42px] flex-shrink-0 items-center gap-2 border-b border-line-control/60 px-6">
             <SearchBox

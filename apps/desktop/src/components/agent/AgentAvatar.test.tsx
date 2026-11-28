@@ -47,12 +47,13 @@ test("a Bot's character sits on a full-size disc in its tint, under the runtime 
   assert.ok(disc < html.indexOf('<img'), html)
 })
 
-test('None, or a tint this build does not know, looks exactly as before', async () => {
-  const plain = await render({})
-
-  assert.doesNotMatch(plain, /data-avatar-background/)
-  assert.equal(await render({ avatarBackground: 'none' }), plain)
-  assert.equal(await render({ avatarBackground: 'teal' }), plain)
+test('unset, None or a tint this build does not know sits on a white disc, never transparent', async () => {
+  for (const avatarBackground of [undefined, 'none', 'teal'])
+    assert.match(
+      await render({ avatarBackground }),
+      /data-avatar-background[^>]*background: rgb\(var\(--color-avatar-white\)\)/,
+      String(avatarBackground),
+    )
 })
 
 test('an uploaded photo is not given a background', async () => {
@@ -63,4 +64,19 @@ test('an uploaded photo is not given a background', async () => {
     }),
     /data-avatar-background/,
   )
+})
+
+/** The runtime badge's width on a face of this size. */
+async function badge(size: number) {
+  const html = await render({ provider: 'claude', size })
+
+  return /bottom-0 right-0[^>]*style="width: (\d+)px; height: \1px/.exec(html)?.[1]
+}
+
+test('the runtime badge keeps to about a third of a large face, and its old sizes below', async () => {
+  assert.equal(await badge(24), '9')
+  assert.equal(await badge(28), '12')
+  assert.equal(await badge(36), '12')
+  assert.equal(await badge(56), '19')
+  assert.equal(await badge(72), '24')
 })

@@ -1,6 +1,6 @@
 ---
 name: plaud
-description: "Read Plaud recordings in a team-bound account: search, transcripts, AI summaries, highlights and audio URLs. Use for summaries, action items or quotes from a recorded call."
+description: "Read Plaud recordings: transcripts, summaries and highlights from a recorded call."
 ---
 
 # plaud

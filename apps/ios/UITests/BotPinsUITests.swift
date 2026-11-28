@@ -3,7 +3,7 @@ import XCTest
 final class BotPinsUITests: XCTestCase {
     override func setUpWithError() throws { continueAfterFailure = false }
 
-    func testPinnedShelfAndUnpinKeepConversationInRecentList() throws {
+    func testPinnedRowLeavesTheListAndUnpinBringsItBack() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/channel-responses.json")
         var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
@@ -30,6 +30,12 @@ final class BotPinsUITests: XCTestCase {
         let pin = shelf.buttons.firstMatch
         XCTAssertTrue(pin.exists)
         XCTAssertFalse(pin.label.isEmpty, "VoiceOver needs the pinned conversation title")
+        // As on Desktop, the pinned chat sits only in the shelf, not in the list below it.
+        let pinnedTitle = app.staticTexts.matching(identifier: "release-planning")
+        XCTAssertTrue(app.staticTexts["design-review"].waitForExistence(timeout: 5))
+        XCTAssertEqual(pinnedTitle.count, shelf.staticTexts.matching(identifier: "release-planning").count,
+                       "A pinned chat must leave the Bots list")
+        shot("pinned-row-leaves-list")
         pin.press(forDuration: 1)
         let unpin = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Unpin'")).firstMatch
         XCTAssertTrue(unpin.waitForExistence(timeout: 5))
@@ -39,6 +45,8 @@ final class BotPinsUITests: XCTestCase {
         responses["GET /teams/\(team)/favorites"] = ["status": 200, "body": ["entries": [], "revision": 2]]
         try JSONSerialization.data(withJSONObject: responses).write(to: live, options: .atomic)
         XCTAssertTrue(shelf.waitForNonExistence(timeout: 3))
+        XCTAssertTrue(pinnedTitle.firstMatch.waitForExistence(timeout: 5), "Unpinning returns the chat to the list")
+        shot("unpinned-row-returns")
         let row = app.staticTexts["design-review"].firstMatch
         XCTAssertTrue(row.exists)
         row.press(forDuration: 1)
@@ -49,6 +57,8 @@ final class BotPinsUITests: XCTestCase {
         shot("bot-row-preview")
         pinAction.tap()
         XCTAssertTrue(shelf.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.staticTexts.matching(identifier: "design-review").count,
+                       shelf.staticTexts.matching(identifier: "design-review").count, "Pinning a chat takes it out of the list")
     }
     func testLongPressingSecondPinUsesItsOwnConversation() throws {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
@@ -113,8 +123,11 @@ final class BotPinsUITests: XCTestCase {
         app.launch()
         let row = app.staticTexts["Release notes"].firstMatch
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
-        let entry = app.navigationBars.buttons["chat.botTask"]
-        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's header has no Task button")
+        let more = app.buttons["chat.more"]
+        XCTAssertTrue(more.waitForExistence(timeout: 10), "The Bot chat's header has no More button")
+        more.tap()
+        let entry = app.buttons["Task"]
+        XCTAssertTrue(entry.waitForExistence(timeout: 10), "The Bot chat's More has no Task")
         shot("bot-header-task")
         entry.tap()
         XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The header's Task button did not open the Bot's Task")
@@ -196,6 +209,44 @@ final class BotPinsUITests: XCTestCase {
         }
     }
 
+    /// As on Desktop (#4080): a pull request linked to the Bot's own session stays off Bot details.
+    /// A Task's summary keeps it (AgentSummaryUITests).
+    func testBotDetailsLeavesOutChanges() throws {
+        let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appending(path: "tests/fixtures/bot-desktop-responses.json")
+        var responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
+        var detail = try XCTUnwrap(responses["GET /agent/conversations/chat-bot-plain"] as? [String: Any])
+        var body = try XCTUnwrap(detail["body"] as? [String: Any])
+        body["botId"] = "bot-plain"
+        detail["body"] = body
+        responses["GET /agent/conversations/chat-bot-plain"] = detail
+        let listing = responses["GET /agent/conversations"] as! [String: Any]
+        var task = ((listing["body"] as! [String: Any])["conversations"] as! [[String: Any]])[1]
+        task["messages"] = body["messages"]; task["messagesFirstIndex"] = 0; task["readOnly"] = false
+        responses["GET /agent/conversations/bot-plain"] = ["status": 200, "body": task]
+        responses["GET /agent/conversations/bot-plain/resources"] = ["status": 200, "body": ["resources": [[
+            "id": "pr1", "provider": "github", "title": "Release notes for 0.26",
+            "url": "https://github.com/example/project/pull/42", "state": "open", "number": 42,
+        ]]]]
+        let live = URL.temporaryDirectory.appending(path: "bot-details-changes-\(UUID()).json")
+        try JSONSerialization.data(withJSONObject: responses).write(to: live)
+        defer { try? FileManager.default.removeItem(at: live) }
+        let app = XCUIApplication()
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "chats"]
+        app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path]
+        app.launch()
+        let row = app.staticTexts["Release notes"].firstMatch
+        XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
+        let name = app.buttons["bot-details-entry"]
+        XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
+        XCTAssertTrue(app.staticTexts["Bot details"].firstMatch.waitForExistence(timeout: 10))
+        // Long enough for the Bot's linked pull request to load, so its absence is the panel's choice.
+        XCTAssertFalse(app.staticTexts["Release notes for 0.26"].waitForExistence(timeout: 5))
+        for _ in 0..<3 where app.scrollViews["agent-summary-list"].exists { app.scrollViews["agent-summary-list"].swipeUp() }
+        XCTAssertFalse(app.staticTexts["Changes"].exists)
+        XCTAssertFalse(app.staticTexts["Release notes for 0.26"].exists)
+        shot("bot-details-no-changes")
+    }
+
     /// On a phone, a Bot's runtime and model are in view without scrolling the composer's
     /// controls row, and Bot details names the model (#4204).
     func testBotRuntimeAndModelAreInViewOnAPhone() throws {
@@ -226,7 +277,7 @@ final class BotPinsUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 10)); row.tap()
         let name = app.buttons["bot-details-entry"]
         XCTAssertTrue(name.waitForExistence(timeout: 10)); name.tap()
-        let model = app.staticTexts.matching(NSPredicate(format: "label CONTAINS ' · Sonnet'")).firstMatch
+        let model = app.buttons.matching(NSPredicate(format: "identifier == 'bot-details-model' AND label CONTAINS 'Sonnet'")).firstMatch
         XCTAssertTrue(model.waitForExistence(timeout: 10), "Bot details does not name the Bot's model")
         shot("bot-details-model")
         let entry = app.buttons["bot-task-entry"]

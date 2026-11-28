@@ -51,8 +51,8 @@ function withoutConcealParameter(prefix: string, params: string): string {
 }
 
 // Keep presentation-only terminal styling, but do not let an untrusted
-// workload rewrite or conceal log content. ansi-to-react otherwise interprets
-// backspace/carriage-return as terminal edits and SGR 8 as visibility:hidden.
+// workload rewrite or conceal log content: drop backspace/carriage-return,
+// which a terminal treats as edits, and SGR 8, which hides text.
 export function safeAnsiLogMessage(message: string): string {
   return message
     .replaceAll('\b', '')

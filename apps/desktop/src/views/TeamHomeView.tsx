@@ -35,7 +35,7 @@ export function TeamHomeView({
         >
           <div>
             <h2 className="text-sm font-medium text-main">{t('Virtual office')}</h2>
-            <p className="mt-1 text-xs text-tertiary">{t('A shared space for your bots.')}</p>
+            <p className="mt-1 text-xs text-tertiary">{t('A shared space for your Bots.')}</p>
           </div>
           <span className="shrink-0 rounded-full bg-state-selected px-2.5 py-1 text-xs text-tertiary">
             {t('Coming soon')}

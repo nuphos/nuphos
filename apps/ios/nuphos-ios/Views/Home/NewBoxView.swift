@@ -16,7 +16,7 @@ struct NewBoxView: View {
 
     private var agents: [RuntimeInstance] {
         guard let made else { return [] }
-        return store.runtimes.filter { $0.local?.deviceId == made.deviceId }
+        return NewRuntime.ordered(store.runtimes.filter { $0.local?.deviceId == made.deviceId })
     }
 
     private var phase: NewBox.Phase {
@@ -63,7 +63,7 @@ struct NewBoxView: View {
             while made != nil, phase.reads, !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 async let devices: Void = store.loadAgentDevices()
-                async let runtimes: Void = store.loadRuntimes(force: true)
+                async let runtimes: Void = store.loadRuntimes()
                 _ = await (devices, runtimes)
                 now = Date()
             }

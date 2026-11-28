@@ -10,6 +10,7 @@ import { readAccountKey } from './agent-account.ts'
 import { appManagedCli, homeOf } from './agent-cli-apps.ts'
 import { locateAgentCli } from './agent-cli-find.ts'
 import { OPENCODE_AUTH_LIST, parseOpenCodeAuthList } from './agent-cli-opencode.ts'
+import { CODEX_MIN_VERSION, olderThan, versionOf } from './agent-cli-version.ts'
 import { claudeKeychainService } from './claude-keychain.ts'
 import { agentCliEnv } from './config.ts'
 import { homeLogin } from './providers.ts'
@@ -39,7 +40,6 @@ export type AgentCliStatus =
       apiKey?: true
       /** The host of the user's own model provider, which stands in for a sign-in. */
       customProvider?: string
-      plan?: string
       /** Which account's quota it spends, hashed (agent-account.ts); absent when unknown. */
       accountKey?: string
       /** Kept by a desktop app (Claude, ChatGPT), which updates it, even when reached through a symlink. */
@@ -55,7 +55,7 @@ const PROBE_TIMEOUT_MS = 15_000
 
 export { findAgentCli, locateAgentCli } from './agent-cli-find.ts'
 
-function run(
+export function run(
   file: string,
   args: string[],
   env: NodeJS.ProcessEnv,
@@ -130,8 +130,6 @@ async function claudeLogin(
     | {
         accessToken?: unknown
         refreshToken?: unknown
-        subscriptionType?: unknown
-        rateLimitTier?: unknown
       }
     | undefined
   const config = env.CLAUDE_CONFIG_DIR
@@ -149,25 +147,7 @@ async function claudeLogin(
   return {
     loggedIn: Boolean(oauth?.accessToken || oauth?.refreshToken),
     ...(typeof email === 'string' ? { account: email } : {}),
-    // Claude Code stores "max" for Max 20x (now Ultra) too; only the rate limit tier tells it
-    // from Max 5x. The backend's runtime-quota-probe.ts reads a remote login the same way.
-    ...(typeof oauth?.subscriptionType === 'string'
-      ? {
-          plan:
-            oauth.subscriptionType === 'max' && oauth.rateLimitTier === 'default_claude_max_20x'
-              ? 'ultra'
-              : oauth.subscriptionType,
-        }
-      : {}),
   }
-}
-
-/** OpenCode 2.x prints "opencode v2.1.4"; the others print the bare version. */
-function versionOf(output: string): string | undefined {
-  return output
-    .split(/\s+/u)
-    .find((token) => /^v?\d+\.\d+\.\d+/u.test(token))
-    ?.replace(/^v/u, '')
 }
 
 export async function readJson(file: string): Promise<Record<string, unknown> | null> {
@@ -259,14 +239,7 @@ export async function probeAgentCli(
         () => 'unavailable',
       )
 
-      const [major = Number.NaN, minor = Number.NaN] = node
-        .replace(/^v/u, '')
-        .split('.')
-        .map(Number)
-      const outdated =
-        Number.isFinite(major) &&
-        Number.isFinite(minor) &&
-        (major < 24 || (major === 24 && minor < 9))
+      const outdated = olderThan(node.replace(/^v/u, ''), '24.9')
 
       return {
         installed: false,
@@ -283,6 +256,12 @@ export async function probeAgentCli(
     loginOf(provider, file, runtimeEnv, agentHome),
     runtimeEnv ? readAccountKey(provider, runtimeEnv) : undefined,
   ])
+
+  if (provider === 'codex' && version && olderThan(version, CODEX_MIN_VERSION))
+    return {
+      installed: false,
+      error: `Codex ${version} is too old to run here. Update Codex to ${CODEX_MIN_VERSION} or newer, then try again.`,
+    }
 
   // Usage is sampled on its own timer, never here: this probe gates the agent's
   // startup, and a provider that hangs must not hold an agent back.

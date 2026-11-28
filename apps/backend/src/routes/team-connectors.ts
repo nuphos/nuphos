@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 
 import { syncZeaburProviderBindings } from '@/lib/byos/account'
+import { connectorSharing } from '@/lib/byos/connector-sharing'
 import { getDiscordConnection } from '@/lib/discord/connection'
 import { getLarkBindingForTeam, publicLarkInstallationView } from '@/lib/lark/installations'
 import { parseObjectId } from '@/lib/objectid'
@@ -100,6 +101,7 @@ teamConnectorsRoutes.get('/', async (c) => {
   const slackLinkedChannels = await summarizeSlackLinkedChannels(slackMappings, slackBinding)
 
   return c.json({
+    sharing: connectorSharing(doc, userId, teamRole),
     aws,
     gcp,
     cloudflare: connectorViews('cloudflare', doc?.cloudflareAccounts, cloudflareAccountView),

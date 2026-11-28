@@ -1,6 +1,6 @@
 ---
 name: soc2-incident-report
-description: Write an incident report, post-mortem, PIR or outage/failure report, in any language, that meets SOC 2 Type II audit needs (optional ISO 22301), as Markdown.
+description: "Write an incident report, post-mortem, PIR or outage report that meets SOC 2 audit needs."
 ---
 
 # SOC 2 incident report

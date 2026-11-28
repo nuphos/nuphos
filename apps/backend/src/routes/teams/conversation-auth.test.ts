@@ -1,12 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
 import {
-  appendAliyunAccountLines,
-  appendTencentAccountLines,
-  appendVolcengineAccountLines,
-} from '@/routes/agent/credential-prompt-sections'
-
-import {
   conversationCanonicalTeamApiPathAllowed,
   conversationTeamApiPathAllowed,
   conversationTeamApiRoute,
@@ -180,47 +174,6 @@ describe('conversation team API capabilities', () => {
     }
   })
 
-  // The boundary has to match what the agent is told: an endpoint the prompt
-  // advertises and the allow-list denies reads to the model as a permission
-  // the user withheld. These lines are the ones built for these providers.
-  test('allows every endpoint the prompt advertises for Tencent, Aliyun and Volcengine', () => {
-    const teamId = 'team-1'
-    const lines: string[] = []
-
-    appendTencentAccountLines(
-      lines,
-      [{ accountId: 'tencent-1', label: 'Tencent', roleArn: 'arn:aws:iam::1:role/r' }],
-      teamId,
-    )
-    appendAliyunAccountLines(
-      lines,
-      [{ accountId: 'aliyun-1', label: 'Aliyun', roleArn: 'acs:ram::1:role/r' }],
-      teamId,
-    )
-    appendVolcengineAccountLines(
-      lines,
-      [{ accountId: 'volcengine-1', label: 'Volcengine', roleTrn: 'trn:iam::1:role/r' }],
-      teamId,
-    )
-
-    const endpoints = lines
-      .flatMap((line) => [...line.matchAll(/\b\w*[Ee]ndpoint="([^"]+)"/gu)])
-      .map((match) => match[1]!)
-
-    // Seven today; a new one belongs in the allow-list in the same change.
-    expect(endpoints).toHaveLength(7)
-    expect(new Set(endpoints.map((endpoint) => endpoint.split('/')[3]))).toEqual(
-      new Set(['tencent-accounts', 'aliyun-accounts', 'volcengine-accounts']),
-    )
-    for (const endpoint of endpoints) {
-      expect(endpoint.startsWith(`/teams/${teamId}/`), endpoint).toBe(true)
-      expect(
-        conversationTeamApiRoute('GET', endpoint.slice(`/teams/${teamId}`.length)),
-        endpoint,
-      ).toBe('canonical')
-    }
-  })
-
   test('keeps selected credential routes on the conversation-isolated handlers', () => {
     const selectedCredentialPaths = [
       '/aws-accounts/123456789012/credentials',
@@ -387,7 +340,7 @@ describe('conversation denial message', () => {
 
     expect(message).toContain('POST on /gcp-projects')
     expect(message).toContain('gcp-projects binding is deliberately reserved for a person')
-    expect(message).toContain('Settings -> Integrations')
+    expect(message).toContain('Settings -> Connectors')
   })
 
   test('sends a denied connector read to the connector skill, not to a rebind', () => {
@@ -395,7 +348,7 @@ describe('conversation denial message', () => {
 
     expect(message).toContain('GET on /aws-accounts')
     expect(message).toContain('do not send the user off to rebind')
-    expect(message).not.toContain('Settings -> Integrations')
+    expect(message).not.toContain('Settings -> Connectors')
   })
 
   test('says the denial is not about the user role, for every denied shape', () => {

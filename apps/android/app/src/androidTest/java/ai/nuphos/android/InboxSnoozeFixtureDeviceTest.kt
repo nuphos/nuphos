@@ -105,6 +105,29 @@ class InboxSnoozeFixtureDeviceTest {
         assertEquals("q-region" to "We deploy the docs from CI now.", source.dismissed.single())
     }
 
+    /** #5112: return in Dismiss's reason dismisses with it, as Dismiss beside it does, and adds no new line. */
+    @Test fun theReturnKeyDismissesWithTheReason() {
+        val source = Source()
+        val inbox = OpenQuestions(source)
+        runBlocking { inbox.refresh() }
+        val store = agents
+        compose.setContent {
+            NuphosTheme {
+                androidx.compose.runtime.CompositionLocalProvider(ai.nuphos.android.ui.LocalAgentStore provides store) {
+                    InboxPage(inbox, rememberNavController(), allowed = { true })
+                }
+            }
+        }
+        compose.onNodeWithText("Ship release 4.2 to production?").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("bot-question-dismiss").performClick()
+        val reason = compose.onNodeWithTag("bot-question-dismiss-reason")
+        reason.performTextInput("Shipped by hand")
+        reason.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+        // The dismissal goes out off the main thread: give it a moment, then say what was sent.
+        runCatching { compose.waitUntil(2_000) { source.dismissed.isNotEmpty() } }
+        assertEquals("Return does not dismiss", listOf("q-ship" to "Shipped by hand"), source.dismissed.toList())
+    }
+
     /** #3474: a secret could only be answered with its value. Dismiss sits under its masked card too. */
     @Test fun theInboxDismissesASecretWithAReason() {
         val source = Source(listOf(AgentConversation(sessionId = "ops", title = "Release ops", isOwner = true,

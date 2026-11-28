@@ -14,8 +14,6 @@ export type ModelSession = {
   sessionId: string
   teamId: string
   runtimeId?: string
-  /** Why the viewer may see the model but not change it. */
-  lockedHint?: string
 }
 
 export function useSessionConfig(session: ModelSession | undefined, streaming: boolean) {
@@ -73,6 +71,8 @@ export function useSessionConfig(session: ModelSession | undefined, streaming: b
 
   return {
     ...state,
+    teamId,
+    runtimeId,
     open,
     setOpen: (next: boolean) => {
       setOpen(next)

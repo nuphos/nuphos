@@ -48,10 +48,35 @@ final class AgentSummaryUITests: XCTestCase {
         app.buttons["Close summary"].tap()
     }
 
-    private func launch(empty: Bool = false) -> XCUIApplication {
+    /// A question answered from the summary closes, and leaves the summary's list.
+    func testAnAnswerClosesTheQuestion() throws {
+        continueAfterFailure = false
+        let app = launch()
+        let button = app.buttons["agent-summary-button"]
+        XCTAssertTrue(button.waitForExistence(timeout: 10))
+        button.tap()
+        let question = app.staticTexts["Ship the release after checks pass?"]
+        XCTAssertTrue(question.waitForExistence(timeout: 10))
+        question.tap()
+        XCTAssertTrue(app.buttons["Ship it"].waitForExistence(timeout: 5))
+        app.buttons["Ship it"].tap()
+        XCTAssertTrue(app.buttons["Close question"].waitForNonExistence(timeout: 5), "The answered question stays open")
+        XCTAssertTrue(app.staticTexts["No questions waiting for you."].waitForExistence(timeout: 5),
+                      "The answered question is still listed")
+    }
+
+    /// A link opens its chat while the lists behind it still load: a slow runner loads them for
+    /// longer than the wait for the chat.
+    func testALinkOpensItsChatBeforeTheListsLoad() throws {
+        let app = launch(listDelay: 12_000)
+        XCTAssertTrue(app.buttons["agent-summary-button"].waitForExistence(timeout: 10), "The chat waited for the lists")
+    }
+
+    private func launch(empty: Bool = false, listDelay: Int? = nil) -> XCUIApplication {
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/agent-summary-responses.json")
         var responses = try! JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as! [String: Any]
+        responses["POST /agent/conversations/dock-a/decisions/summary-question/answer"] = ["status": 200, "body": ["ok": true]]
         if empty {
             var detail = responses["GET /agent/conversations/dock-a"] as! [String: Any]
             var body = detail["body"] as! [String: Any]
@@ -65,6 +90,11 @@ final class AgentSummaryUITests: XCTestCase {
             responses["GET /agent/conversations/dock-a/resources"] = ["status": 200, "body": ["resources": []]]
             responses["GET /agent/triggers"] = ["status": 200, "body": []]
             responses["GET /agent-sessions/dock-a/teams/64b5f1c2e4b0a1d2c3e4f5a6/file-transfers/downloads"] = ["status": 200, "body": ["groups": []]]
+        }
+        if let listDelay {
+            var favorites = responses["GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites"] as! [String: Any]
+            favorites["delayMs"] = listDelay
+            responses["GET /teams/64b5f1c2e4b0a1d2c3e4f5a6/favorites"] = favorites
         }
         let file = FileManager.default.temporaryDirectory.appending(path: "summary-\(UUID().uuidString).json")
         try! JSONSerialization.data(withJSONObject: responses).write(to: file)

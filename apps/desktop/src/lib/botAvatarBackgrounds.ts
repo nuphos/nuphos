@@ -1,7 +1,7 @@
 import { t } from '../i18n'
 
 // The tints a Bot's character may sit on, as the backend stores them
-// (apps/backend/src/lib/agent/bot-avatars.ts). `none` keeps no background.
+// (apps/backend/src/lib/agent/bot-avatars.ts). `none` (or unset) is a white disc.
 export const BOT_AVATAR_BACKGROUNDS = [
   'none',
   'sand',
@@ -16,16 +16,21 @@ export const BOT_AVATAR_BACKGROUNDS = [
 
 export type BotAvatarBackground = (typeof BOT_AVATAR_BACKGROUNDS)[number]
 
-/** The theme token a tint paints with; undefined for None or a tint this build doesn't know. */
-export function botAvatarBackgroundColor(name: string | null | undefined): string | undefined {
-  return name && name !== 'none' && (BOT_AVATAR_BACKGROUNDS as readonly string[]).includes(name)
-    ? `rgb(var(--color-avatar-${name}))`
-    : undefined
+/** A stored tint as a picker value: unset or unknown to this build is None. */
+export function botAvatarBackground(name: string | null | undefined): BotAvatarBackground {
+  return BOT_AVATAR_BACKGROUNDS.find((known) => known === name) ?? 'none'
+}
+
+/** The theme token a tint paints with; None, unset or a tint this build doesn't know is white. */
+export function botAvatarBackgroundColor(name: string | null | undefined): string {
+  const tint = botAvatarBackground(name)
+
+  return `rgb(var(--color-avatar-${tint === 'none' ? 'white' : tint}))`
 }
 
 export function botAvatarBackgroundLabel(name: BotAvatarBackground): string {
   return {
-    none: t('None'),
+    none: t('White'),
     sand: t('Sand'),
     peach: t('Peach'),
     rose: t('Rose'),

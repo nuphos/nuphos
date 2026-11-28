@@ -28,6 +28,7 @@ test('the card leads with its question, answers with its buttons, and is snoozed
     HTMLTextAreaElement: dom.HTMLTextAreaElement,
     Element: dom.Element,
     Node: dom.Node,
+    ResizeObserver: dom.ResizeObserver,
     IS_REACT_ACT_ENVIRONMENT: true,
   }
   const originals = Object.keys(values).map(
@@ -246,15 +247,23 @@ test('a single- and a multi-select question are one option row: multiSelect only
     assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss'])
 
     await render(true)
-    // The same row of pills, with Send for the picks at its end.
-    assert.deepEqual(row(), ['us-east', 'eu-west', 'ap-northeast', 'Other…', 'Dismiss', 'Send'])
+    // The same pills, then one footer: Dismiss, and the send button, saying what is left.
+    assert.deepEqual(row(), [
+      'us-east',
+      'eu-west',
+      'ap-northeast',
+      'Other…',
+      'Dismiss',
+      'Answer 1 more',
+    ])
     assert.equal(container.querySelector('input'), null)
-    // Its options are checkboxes: a click picks, and only Send answers.
+    // Its options are checkboxes: a click picks, and only Send answers. Other opens a field.
     assert.deepEqual(
       [...container.querySelectorAll('[role="checkbox"]')].map((item) => item.textContent),
       ['us-east', 'eu-west', 'ap-northeast'],
     )
-    assert.equal(button('Send')?.disabled, true)
+    assert.equal(button('Other…')?.getAttribute('aria-expanded'), 'false')
+    assert.equal(button('Answer 1 more')?.disabled, true)
     await click('us-east')
     await click('ap-northeast')
     assert.equal(answers.length, 1)
@@ -268,7 +277,7 @@ test('a single- and a multi-select question are one option row: multiSelect only
     await render(false, [
       { question: 'Which regions first?', options: ['x', 'y'], multiSelect: true },
     ])
-    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Send'])
+    assert.deepEqual(row(), ['x', 'y', 'Other…', 'Dismiss', 'Answer 1 more'])
     assert.equal(container.querySelectorAll('[role="checkbox"]').length, 2)
     const sent = answers.length
 

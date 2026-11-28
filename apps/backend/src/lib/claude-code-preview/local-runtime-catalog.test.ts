@@ -300,9 +300,14 @@ describe('local runtime catalog', () => {
   test('a signed-out CLI refuses turns with its own reason', async () => {
     presence = online(false)
 
-    await expect(
-      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', deps),
-    ).rejects.toMatchObject({ code: 'runtime_login_required' })
+    for (const purpose of ['transport', 'steer'] as const)
+      await expect(
+        resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', purpose, deps),
+      ).rejects.toMatchObject({ code: 'runtime_login_required' })
+    // A status read still reaches it: a queued wake is not held as if its computer were away.
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'control', deps)).authKey,
+    ).toBe('control')
   })
 
   test('an agent removed while its computer was offline is gone, not waiting for it', async () => {
@@ -583,6 +588,73 @@ describe('a computer that reports settings without a model list', () => {
 
     expect(catalog.models.map((entry) => entry.id)).toEqual(['opus'])
     expect(catalog.controls?.modelId).toBe('opus')
+  })
+})
+
+describe('who an agent is signed in as', () => {
+  const at = new Date('2026-11-13T00:00:00Z')
+  const signedInAs = (endedAt?: Date): LocalRuntimeCatalogDeps => {
+    const mac = {
+      ...device('owner', 'mac-1', 'Olivia’s MacBook'),
+      signIns: [
+        {
+          agent: 'claude-code',
+          userId: 'owner',
+          teamId: 't1',
+          at,
+          ...(endedAt ? { endedAt } : {}),
+        },
+      ],
+    }
+
+    return {
+      ...deps,
+      access: { ...deps.access, getDevice: async () => mac, listDevices: async () => [mac] },
+    }
+  }
+
+  test('the listing says who signed the agent in through Nuphos', async () => {
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', signedInAs())
+
+    expect(listed?.local).toMatchObject({
+      signedIn: true,
+      signedInBy: { userId: 'owner', at: at.toISOString() },
+    })
+  })
+
+  test('an ended sign-in runs nothing until someone who manages the computer signs in again', async () => {
+    const ended = signedInAs(at)
+    const [listed] = await listOwnLocalRuntimes('t1', 'owner', ended)
+
+    expect(listed?.local.signedIn).toBe(false)
+    expect(listed?.local.signedInBy).toBeUndefined()
+    // The Desktop then renews it through Nuphos, not the CLI's own login.
+    expect(listed?.local.signInEnded).toBe(true)
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'transport', ended),
+    ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'login', ended)).authKey,
+    ).toBe('control')
+  })
+
+  test('a turn still running when its sign-in ended can be stopped, not steered', async () => {
+    const ended = signedInAs(at)
+
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'control', ended)).authKey,
+    ).toBe('control')
+    // Steering is new input on the ended sign-in, so it waits for a new one, like a turn.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'steer', ended),
+    ).rejects.toMatchObject({ status: 409, code: 'runtime_login_required' })
+    expect(
+      (await resolveLocalRuntimeEndpoint('t1', runtimeId, 'owner', 'steer', signedInAs())).authKey,
+    ).toBe('control')
+    // Still only for someone who may use the computer.
+    await expect(
+      resolveLocalRuntimeEndpoint('t1', runtimeId, 'teammate', 'control', ended),
+    ).rejects.toMatchObject({ status: 404, code: 'runtime_not_found' })
   })
 })
 

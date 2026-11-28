@@ -11,6 +11,7 @@ export function ChannelEmptyState({
   preparingFirstReply,
   firstReplyFailed,
   banner,
+  onOpenEarlier,
 }: {
   faces: ComponentProps<typeof ChatIcon>['faces']
   title: string
@@ -19,6 +20,8 @@ export function ChannelEmptyState({
   firstReplyFailed: boolean
   /** A line for the Bot's owner, in the intro's column, 16px under it (the gap and pt-1). */
   banner?: ReactNode
+  /** Opens the Bot's own session, where the conversation it had before this chat still is. */
+  onOpenEarlier?: () => void
 }) {
   return (
     <div className="flex flex-col items-start gap-3 pt-10">
@@ -42,6 +45,17 @@ export function ChannelEmptyState({
                 })}
               </p>
             ))}
+          {onOpenEarlier && (
+            <p>
+              <button
+                type="button"
+                onClick={onOpenEarlier}
+                className="font-medium text-link hover:underline"
+              >
+                {t('See earlier messages with {name}', { name: title })}
+              </button>
+            </p>
+          )}
         </div>
       ) : (
         <div className="max-w-[560px] text-[13px] leading-relaxed text-secondary">

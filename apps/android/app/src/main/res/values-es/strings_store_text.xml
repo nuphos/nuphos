@@ -35,7 +35,7 @@
     <string name="storetext_runtime_admin_required">Se necesita permiso de administrador. Tu cuenta sigue con la sesión iniciada.</string>
     <string name="storetext_runtime_unconfirmed">No pudimos confirmar el resultado del entorno de ejecución. Actualiza el estado guardado antes de continuar.</string>
     <string name="storetext_runtimes_refresh_failed">No se pudieron actualizar los entornos de ejecución.</string>
-    <string name="storetext_runtimes_access_lost">El acceso a los entornos de ejecución ya no está disponible en este espacio de trabajo.</string>
+    <string name="storetext_runtimes_access_lost">El acceso a los entornos de ejecución ya no está disponible en este equipo.</string>
     <string name="storetext_runtimes_usage_unavailable">Uso no disponible. Prueba a actualizar.</string>
     <string name="storetext_runtimes_computers_unavailable">Estado del ordenador no disponible. Prueba a actualizar.</string>
     <string name="storetext_runtime_unknown">Entorno de ejecución desconocido</string>

@@ -10,7 +10,7 @@ export type AgentTier = 'local' | 'remote' | 'cloud'
 type NamedAgent = { id?: string; label: string; local?: LocalRuntimeSummary }
 
 const LOCAL_ID =
-  /^local_([A-Za-z0-9-]+)_([A-Za-z0-9-]+)(?:_(?:codex|grok|opencode|dsh|hermes|pi))?$/u
+  /^local_([A-Za-z0-9-]+)_([A-Za-z0-9-]+)(?:_(?:codex|grok|opencode|dsh|hermes|pi|cursor))?$/u
 
 function localRef(agent: NamedAgent): { userId: string; deviceId: string } | null {
   if (agent.local) return { userId: agent.local.ownerUserId, deviceId: agent.local.deviceId }

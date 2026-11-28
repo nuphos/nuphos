@@ -4,11 +4,18 @@ import type { CliInstall } from './instance-deps.ts'
 import type { LocalRuntimeState } from './controller-types.ts'
 import type { RunningRuntime } from './openab-process.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
+import type { VaultToken } from './vault-token.ts'
 
 export type Controller = {
   setUser(userId: string | null): Promise<void>
   shutdown(): Promise<void>
-  refresh(restart: boolean): Promise<LocalRuntimeState>
+  refresh(
+    restart: boolean,
+    providers?: readonly LocalAgentProvider[],
+    signedIn?: boolean,
+  ): Promise<LocalRuntimeState>
+  /** Runs `work` with the agent stopped; the next refresh starts it. */
+  whileStopped<T>(provider: LocalAgentProvider, work: () => Promise<T>): Promise<T | undefined>
   state(): LocalRuntimeState
   runtime(provider: LocalAgentProvider): RunningRuntime | null
   /** `runtime`, for a stream that asks for the agent. */
@@ -22,6 +29,8 @@ export type Entry = {
   install?: CliInstall
   starting?: Promise<void>
   expiry?: ReturnType<typeof setTimeout>
+  /** The shared token this agent signs in with; it is listed, not stored. */
+  vault?: VaultToken
 }
 
 /** What the backend sees: legacy records count as signed-in agents until settled. */
@@ -41,11 +50,12 @@ export function instanceStates(entries: Iterable<Entry>, online: boolean) {
 export function instanceStatus(
   entries: Iterable<Entry>,
 ): NonNullable<LocalRuntimeTunnelStatus['instances']> {
-  return [...entries].map(({ metadata, controller, install }) => {
+  return [...entries].map(({ metadata, controller, install, vault }) => {
     const cli = controller.state().agents[metadata.provider].cli
 
     return {
       ...publicMetadata(metadata),
+      ...(vault && { vault: true as const }),
       ...controller.status().agents[metadata.provider],
       cli: {
         installed: cli?.installed ?? false,

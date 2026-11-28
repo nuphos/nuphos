@@ -22,7 +22,7 @@ function memberNote(askAdmin: string | null | undefined): string {
 
   return askAdmin
     ? t('Not signed in. Ask {name} to sign it in.', { name: askAdmin })
-    : t('Not signed in. Ask a workspace administrator to sign it in.')
+    : t('Not signed in. Ask a team administrator to sign it in.')
 }
 
 /** The agent owns its login; this only shows what the agent reports. */

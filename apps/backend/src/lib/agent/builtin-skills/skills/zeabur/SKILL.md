@@ -1,6 +1,6 @@
 ---
 name: zeabur
-description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs and environment variables, via the Zeabur GraphQL API or CLI."
+description: "Inspect or manage a Nuphos-bound Zeabur provider: projects, services, deployments, logs."
 ---
 
 # Zeabur
@@ -44,6 +44,8 @@ bash .claude/skills/zeabur/scripts/inspect-project.sh <teamId> <zeaburId> <proje
 This performs setup and returns the project's environments and services together. Use the
 returned IDs to build a Plan or perform the requested read. Only enumerate projects when the user
 did not identify one.
+
+To enumerate, prefer the Nuphos list routes over GraphQL: `GET /teams/:teamId/zeabur-providers/:zeaburId/projects` and `GET /teams/:teamId/zeabur-providers/:zeaburId/servers`.
 
 ## Parsing a Zeabur dashboard URL
 

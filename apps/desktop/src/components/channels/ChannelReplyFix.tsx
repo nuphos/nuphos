@@ -1,6 +1,6 @@
 import { useRuntimeInstances } from '../../hooks/useRuntimeInstances'
 import { t } from '../../i18n'
-import { InstallButton } from '../../views/settings/LocalAgentCard'
+import { InstallButton } from '../../views/settings/InstallAgentButton'
 import { AgentSignInButton } from '../agent/panel/AgentSignInAction'
 import { useAgentSignInRoute } from '../agent/panel/useAgentSignInRoute'
 import { useAgentSessions } from '../sidebar/agentSessions'
@@ -68,7 +68,7 @@ export function ChannelReplyFix({
       <span className="text-[12px] text-tertiary">
         {route.name
           ? t('Ask {name} to sign this runtime in.', { name: route.name })
-          : t('Ask a workspace administrator to reconnect this runtime.')}
+          : t('Ask a team administrator to reconnect this runtime.')}
       </span>
     )
   if (fix === 'settings')

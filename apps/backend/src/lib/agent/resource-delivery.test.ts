@@ -21,6 +21,13 @@ let stateUpdates: unknown[] = []
 
 type CommitPull = { number: number; state: string; head: { sha: string } }
 const openPull: CommitPull = { number: 56, state: 'open', head: { sha: 'a'.repeat(40) } }
+
+type CheckRun = { id: number; name: string; status: string; conclusion: string | null }
+const backend: CheckRun = { id: 1, name: 'Backend', status: 'completed', conclusion: 'success' }
+
+// The head's CI as the health read sees it; a council status failed on it.
+let checkRuns: CheckRun[] = [backend]
+let statuses = [{ id: 9, context: 'openab/council', state: 'failure' }]
 let commitPulls: { status: number; pulls: CommitPull[] } = { status: 200, pulls: [openPull] }
 const conversationId = new ObjectId()
 const conversation = {
@@ -90,6 +97,11 @@ useGithubHttp({
       lookups.push(url)
     if (url.endsWith('/pulls'))
       return Response.json(commitPulls.pulls, { status: commitPulls.status })
+    if (url.endsWith('/pulls/56')) return Response.json(openPull)
+    if (url.includes('/reviews')) return Response.json([])
+    if (url.includes('/check-runs')) return Response.json({ check_runs: checkRuns })
+    if (url.endsWith('/status'))
+      return Response.json({ state: 'failure', total_count: statuses.length, statuses })
 
     return Response.json({ permission: permission.permission }, { status: permission.status })
   },
@@ -103,6 +115,8 @@ beforeEach(() => {
   repoLinked = true
   stateUpdates = []
   commitPulls = { status: 200, pulls: [openPull] }
+  checkRuns = [backend]
+  statuses = [{ id: 9, context: 'openab/council', state: 'failure' }]
 })
 
 test('redelivery has the same durable job identity while a new delivery is distinct', async () => {
@@ -259,7 +273,7 @@ test('a finished commit status wakes the linked PR that holds the commit', async
   await routeResourceWebhook('status', status, 'delivery')
   expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
   expect(queued).toHaveLength(1)
-  expect(queued[0]?.summary).toContain('status.failure (openab/council)')
+  expect(queued[0]?.summary).toBe('GitHub CI finished on aaaaaaa: failed (openab/council).')
 })
 test("a fork PR's finished check suite, which lists no PRs, wakes it from its head commit", async () => {
   await routeResourceWebhook(
@@ -273,7 +287,9 @@ test("a fork PR's finished check suite, which lists no PRs, wakes it from its he
     'delivery',
   )
   expect(lookups).toEqual([`https://api.github.com/repos/acme/app/commits/${sha}/pulls`])
-  expect(queued.map((turn) => turn.summary)).toEqual(['GitHub check_suite.completed.'])
+  expect(queued.map((turn) => turn.summary)).toEqual([
+    'GitHub CI finished on aaaaaaa: failed (openab/council).',
+  ])
 })
 test('statuses ask GitHub nothing unless the repository has a linked PR', async () => {
   repoLinked = false
@@ -305,4 +321,45 @@ test('statuses do not wake merged PRs or PRs whose head moved past the commit', 
   }
   await routeResourceWebhook('status', status, 'delivery')
   expect(queued).toHaveLength(0)
+})
+
+const suite = {
+  installation: { id: 12 },
+  repository: { id: 34, full_name: 'acme/app' },
+  action: 'completed',
+  check_suite: { pull_requests: [{ number: 56 }], status: 'completed', conclusion: 'success' },
+}
+
+test('the suites of one push wake the session once, when the last of them finishes', async () => {
+  statuses = []
+  checkRuns = [backend, { id: 2, name: 'Desktop', status: 'in_progress', conclusion: null }]
+  await routeResourceWebhook('check_suite', suite, 'delivery-1')
+  expect(queued).toHaveLength(0)
+
+  checkRuns = [backend, { id: 2, name: 'Desktop', status: 'completed', conclusion: 'success' }]
+  await routeResourceWebhook('check_suite', suite, 'delivery-2')
+  await routeResourceWebhook('check_suite', suite, 'delivery-3')
+  expect(queued.map((turn) => turn.summary)).toEqual([
+    'GitHub CI finished on aaaaaaa: passed.',
+    'GitHub CI finished on aaaaaaa: passed.',
+  ])
+  // Both suites settle the same result, so the queue keeps one turn.
+  expect(new Set(queued.map((turn) => turn.messageId)).size).toBe(1)
+})
+test('a pending commit status keeps CI unsettled', async () => {
+  statuses = [{ id: 9, context: 'openab/council', state: 'pending' }]
+  await routeResourceWebhook('check_suite', suite, 'delivery')
+  expect(queued).toHaveLength(0)
+})
+test('a re-run that settles again wakes the session again', async () => {
+  statuses = []
+  checkRuns = [{ ...backend, conclusion: 'failure' }]
+  await routeResourceWebhook('check_suite', suite, 'delivery-1')
+  checkRuns = [{ ...backend, id: 3 }]
+  await routeResourceWebhook('check_suite', suite, 'delivery-2')
+  expect(queued.map((turn) => turn.summary)).toEqual([
+    'GitHub CI finished on aaaaaaa: failed (Backend).',
+    'GitHub CI finished on aaaaaaa: passed.',
+  ])
+  expect(new Set(queued.map((turn) => turn.messageId)).size).toBe(2)
 })

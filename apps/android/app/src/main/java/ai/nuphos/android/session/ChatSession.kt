@@ -10,6 +10,7 @@ import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
 import ai.nuphos.android.data.RuntimeApi
 import ai.nuphos.android.data.Http
+import ai.nuphos.android.model.AgentConversation
 import ai.nuphos.android.model.AgentConversationDetail
 import ai.nuphos.android.data.SseClient
 import ai.nuphos.android.model.ChatRow
@@ -92,7 +93,7 @@ class ChatSession(
         modelScopeRevision++
         modelSettings?.invalidate()
         modelSettings = null
-        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || !serverMetadataObserved || !isNative) return
+        if (!modelScopeActive || !modelViewCurrent() || !hasAiAccess || !(serverMetadataObserved || listRowObserved) || !isNative) return
         val revision = modelScopeRevision
         modelSettings = ModelSettingsStore(
             isCurrent = { modelScopeActive && modelViewCurrent() && revision == modelScopeRevision && hasAiAccess },
@@ -345,7 +346,12 @@ class ChatSession(
     private var autoResumeAttempts = 0
     private var transcriptFullResend = false
     private var transcriptRebasedTo: Int? = null
-    private var lastStoppedStreamId: String? = null
+    /**
+     * A run we aborted, or one whose stream ended or is gone. The conversation can go on naming
+     * it as active; neither the idle poll nor a reload attaches to it again, or each attach would
+     * end the same way (#5266). A connection that failed says nothing about the run, so it stays followable.
+     */
+    private var endedStreamId: String? = null
 
     fun updatePermissionMode(mode: PermissionMode) {
         if (!canManage) return
@@ -414,7 +420,7 @@ class ChatSession(
             // Nothing stored is still stored: every kind shows, and a save sends back only what changed.
             credentialAccess = CredentialSelection(detail.credentialAccess ?: JsonValue.Obj(emptyMap()))
             followsBot = detail.credentialSource != null
-            val run = detail.activeRun
+            val run = detail.activeRun?.takeIf { it.streamId != endedStreamId }
             if (run != null) {
                 val lastUser = msgs.indexOfLast { it.role == ChatMessage.Role.User }
                 if (!isNative && lastUser >= 0) msgs = msgs.take(lastUser + 1)
@@ -496,6 +502,18 @@ class ChatSession(
         private set
     var isBot by mutableStateOf(false)
         private set
+    /** The conversation is known to exist from its list row, though its own read has not landed. */
+    private var listRowObserved = false
+    /** What the list already knows about this conversation, so it can say what it runs before its
+     *  own read lands, and if that read fails. That read replaces all of it. */
+    fun seedFromListRow(row: AgentConversation) {
+        if (serverMetadataObserved || row.sessionId != sessionId) return
+        listRowObserved = true
+        agentRuntime = row.agentRuntime
+        runtimeDeviceLabel = row.runtimeLabel?.takeIf { it.isNotBlank() }
+        isBot = row.isBot
+        resetModelSettings(preservePending = true)
+    }
     /** Offered Share: a Task a person opened, as the server decides it. */
     var shareable by mutableStateOf(false)
         private set
@@ -776,7 +794,7 @@ class ChatSession(
         phaseLabel = null
         queued = emptyList()
         currentStreamId?.let { streamId ->
-            lastStoppedStreamId = streamId
+            endedStreamId = streamId
             scope.launch { if (hasAiAccess) AgentChatApi.abort(token, streamId) }
         }
         scheduleTranscriptSync(250)
@@ -821,6 +839,7 @@ class ChatSession(
             while (isActive && hasAiAccess) {
                 val result = runTurn(options, generation)
                 if (!hasAiAccess) return@launch
+                if (result is TurnResult.Completed) endedStreamId = options.streamId
                 when (result) {
                     TurnResult.Aborted -> return@launch
                     TurnResult.Queued -> {
@@ -1064,7 +1083,7 @@ class ChatSession(
     }
 
     private fun followOptions(active: String?): TurnOptions? {
-        if (active == null || active == lastStoppedStreamId || (isStreaming && active == currentStreamId)) return null
+        if (active == null || active == endedStreamId || (isStreaming && active == currentStreamId)) return null
         return TurnOptions(active, explicitResume = true, resumeFrom = if (isNative || runtimeRecoveryRequired) streamCursors[active] ?: 0 else 0)
     }
 
@@ -1295,6 +1314,7 @@ class ChatSession(
                         accepted = true
                         if (type == "error") {
                             val code = frame["errorCode"]?.stringValue
+                            if (code == "stream_unresumable") endedStreamId = options.streamId
                             if (code == "stream_unresumable" && sawTurnComplete) return@collect
                             // Another turn took the runtime mid-start; the server put the message back at the head of the queue.
                             if (code == "message_queued") { queuedByServer = true; throw Terminal() }
@@ -1391,8 +1411,11 @@ class ChatSession(
                         }
                         continue
                     }
-                    else -> return TurnResult.Failed(conflict.message ?: conflict.toString(), err.code in 400..499 && err.code != 408 && !accepted && !shouldResume,
-                        conflict as? AgentChatApi.Conflict.RuntimeBlocked)
+                    else -> {
+                        if (conflict is AgentChatApi.Conflict.StreamNotResumable) endedStreamId = options.streamId
+                        return TurnResult.Failed(conflict.message ?: conflict.toString(), err.code in 400..499 && err.code != 408 && !accepted && !shouldResume,
+                            conflict as? AgentChatApi.Conflict.RuntimeBlocked)
+                    }
                 }
             }
             if (err is SseClient.Failure.IdleTimeout) {

@@ -21,6 +21,10 @@ export const deviceApi = {
     provider: CliLoginProvider,
     value: { baseUrl: string; apiKey?: string; models: string[] } | null,
   ) => window.api.localRuntimeSetCustomProvider(provider, value),
+  localRuntimeCheckCustomProvider: (
+    provider: CliLoginProvider,
+    value: { baseUrl: string; apiKey?: string; models: string[] },
+  ) => window.api.localRuntimeCheckCustomProvider(provider, value),
   localRuntimeSubmitClaudeLoginCode: (code: string) =>
     window.api.localRuntimeSubmitClaudeLoginCode(code),
   localRuntimeStartClaudeLogin: () => window.api.localRuntimeStartClaudeLogin(),
@@ -41,7 +45,6 @@ export const deviceApi = {
     window.api.localRuntimeInstallAgent(provider),
   localRuntimeLatestAgentVersions: () => window.api.localRuntimeLatestAgentVersions(),
   localRuntimeOpenWorkspace: () => window.api.localRuntimeOpenWorkspace(),
-  localRuntimeListActivity: (before?: string) => window.api.localRuntimeListActivity(before),
   boxListDevices: (options?: AgentDeviceListOptions) => window.api.boxListDevices(options),
   boxCreate: (
     label?: string,
@@ -55,6 +58,8 @@ export const deviceApi = {
     window.api.bindInstaboxAccount(teamId, label, apiKey),
   unbindInstaboxAccount: (teamId: string, accountId: string) =>
     window.api.unbindInstaboxAccount(teamId, accountId),
+  replaceInstaboxKey: (teamId: string, accountId: string, apiKey: string) =>
+    window.api.replaceInstaboxKey(teamId, accountId, apiKey),
   instaboxSizes: (teamId: string, accountId: string) => window.api.instaboxSizes(teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => window.api.boxPause(deviceId, teamId),
   boxResume: (deviceId: string, teamId: string) => window.api.boxResume(deviceId, teamId),

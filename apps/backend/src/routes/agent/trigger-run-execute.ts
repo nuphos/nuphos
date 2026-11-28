@@ -65,6 +65,7 @@ export type TriggerRunParams = {
   initialSessionConfig?: RuntimeDefaults
   /** The Bot a new conversation starts under, already checked against the caller: its credentials and mode apply. */
   parentSessionId?: string
+  webhookId?: string // nuphos_ask's webhook_id, already checked.
   locale?: string
   slackReply?: SlackReplyToolContext
   larkReply?: LarkReplyToolContext
@@ -113,7 +114,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
   const runtimeProvider = chatRuntime.runtime
   const runtimeModelId = chatRuntime.runtime
 
-  await restoreArchivedForTurn(existingConversation, params.origin ?? 'user')
+  await restoreArchivedForTurn(existingConversation, params)
   // A conversation opened over MCP starts with the app's default selection, as a
   // new chat does; a Task under a Bot uses the Bot's instead.
   const mcpFirstTurn = source === 'mcp' && !existingConversation && !params.parentSessionId
@@ -189,6 +190,7 @@ export async function executeAgentForTrigger(params: TriggerRunParams): Promise<
       runtimeId: chatRuntime.runtimeId,
       runtimeLabel: chatRuntime.runtimeLabel,
       ...(params.parentSessionId ? { parentSessionId: params.parentSessionId } : {}),
+      ...(params.webhookId ? { webhookId: params.webhookId } : {}),
     })
       .then((acceptedTurn) => acceptedTurn?.isNew ?? isPotentialNewConversation)
       .catch((err: unknown) => {

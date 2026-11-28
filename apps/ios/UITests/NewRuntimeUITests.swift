@@ -14,14 +14,14 @@ final class NewRuntimeUITests: XCTestCase {
         app.staticTexts.matching(NSPredicate(format: "label == %@", label)).firstMatch
     }
 
-    private func computers() -> XCUIApplication {
+    private func computers(_ responses: String = "new-runtime-responses", language: [String] = []) -> XCUIApplication {
         let fixture = URL(filePath: #filePath)
             .deletingLastPathComponent().deletingLastPathComponent()
-            .appending(path: "tests/fixtures/new-runtime-responses.json")
+            .appending(path: "tests/fixtures/\(responses).json")
         let app = XCUIApplication()
         // `-page runtimes` opens the Runtimes page itself, which is what these check; the
         // home toolbar's own way in is #3433's.
-        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "runtimes"]
+        app.launchArguments = ["-preview-home", "-preview-no-push", "-page", "runtimes"] + language
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": fixture.path]
         app.launch()
         // A freshly installed app asks about notifications, and that alert takes every tap.
@@ -51,13 +51,14 @@ final class NewRuntimeUITests: XCTestCase {
     }
 
     /// Desktop's LOCAL_AGENT_PROVIDERS and newAgentAction: every provider, in that order,
-    /// a signed-out one offered its sign-in, and Antigravity's shared sign-in offered to
-    /// neither.
+    /// a signed-out one offered its sign-in, and Antigravity, which this computer does not
+    /// have, left out.
     func testTheListOffersDesktopsProvidersAndSignsInASignedOutOne() {
         let app = computers()
         app.buttons["new-runtime-device:macbook"].tap()
 
-        let order = ["claude-code", "codex", "grok", "antigravity", "opencode", "dsh", "hermes", "pi"]
+        // Antigravity's sign-in is the computer's own, so there is none to add.
+        let order = ["claude-code", "codex", "grok", "opencode", "dsh", "hermes", "pi", "cursor"]
         for provider in order {
             XCTAssertTrue(app.buttons["provider-\(provider)"].waitForExistence(timeout: 15),
                           "\(provider) is missing from the New runtime list")
@@ -71,9 +72,7 @@ final class NewRuntimeUITests: XCTestCase {
         XCTAssertTrue(text(app, "Claude Code").exists, "Claude Code is not offered as a new runtime")
         XCTAssertTrue(text(app, "DeepSeek Harness · Preview").exists, "DeepSeek Harness is not marked a preview")
         XCTAssertTrue(text(app, "Pi · Preview").exists, "Pi is not marked a preview")
-        XCTAssertFalse(app.buttons["provider-antigravity"].isEnabled, "Antigravity is offered as a new runtime")
-        XCTAssertTrue(text(app, "Antigravity uses this computer’s shared sign-in").exists,
-                      "Antigravity does not say why it is not offered")
+        XCTAssertTrue(text(app, "Cursor · Preview").exists, "Cursor is not marked a preview")
     }
 
     func testANewRuntimeIsNamedThenTakenToItsSignIn() {
@@ -94,5 +93,30 @@ final class NewRuntimeUITests: XCTestCase {
         XCTAssertTrue(text(app, "Sign in to OpenCode").waitForExistence(timeout: 60),
                       "The new runtime did not reach its sign-in")
         XCTAssertTrue(button(app, "Cancel").exists, "Leaving the sign-in is the only way to undo the runtime")
+    }
+
+    /// Antigravity's sign-in is the computer's own, so the list offers it only to sign in
+    /// again (#4905): not on a computer without it, and not where it is signed in. Each list
+    /// is captured, in Simplified Chinese, before any assertion.
+    func testAntigravityIsListedOnlyWhenItCanBeSignedIn() {
+        let app = computers("new-runtime-antigravity-responses",
+                            language: ["-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_CN"])
+        var listed: [String: Bool] = [:]
+
+        for (state, device) in [("no-antigravity", "macbook"), ("signed-in", "studio-signed-in"),
+                                ("signed-out", "studio-signed-out")] {
+            reveal(app, "new-runtime-device:\(device)").tap()
+            XCTAssertTrue(app.buttons["provider-codex"].waitForExistence(timeout: 15), "The \(state) list did not open")
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "new-runtime-antigravity-\(state)"
+            shot.lifetime = .keepAlways
+            add(shot)
+            listed[state] = app.buttons["provider-antigravity"].exists
+            app.navigationBars.buttons.firstMatch.tap()
+            XCTAssertTrue(app.buttons["new-runtime-device:macbook"].waitForExistence(timeout: 15))
+        }
+        XCTAssertEqual(listed["no-antigravity"], false, "Antigravity is listed with nothing to offer")
+        XCTAssertEqual(listed["signed-in"], false, "A signed-in Antigravity is listed again")
+        XCTAssertEqual(listed["signed-out"], true, "A signed-out Antigravity is not offered its sign-in")
     }
 }

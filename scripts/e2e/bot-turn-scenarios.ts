@@ -72,7 +72,7 @@ export const botTurnScenarios: Scenario[] = [
             entry.agent === 'second' && entry.marker === marker && entry.event === 'finish',
         ),
       )
-      await task.getByRole('button', { name: 'Back to conversation' }).click()
+      await task.getByRole('button', { name: 'Back to chat' }).click()
       // The scenarios after this one find a single composer on the page, and the chat at full width.
       await task.waitFor({ state: 'detached' })
       await setBotDetails(page, false)

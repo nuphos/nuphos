@@ -24,6 +24,7 @@ import {
   clearPendingUserMessages,
   enqueuePendingUserMessage,
   QUEUED_SESSIONS_KEY,
+  removePendingUserMessage,
 } from './pending-messages'
 import {
   hasQueuedTranscriptMessage,
@@ -285,17 +286,43 @@ test('a refused queued turn goes back to the front of the queue', async () => {
 test('a usage reset days away is looked at again within the hour, in case it comes early', async () => {
   const before = Date.now()
 
-  await requeueTurnQueue(
-    OWNER,
-    SESSION,
-    [],
-    human('limited'),
-    new Date(before + 5 * 86_400_000).toISOString(),
-  )
+  await requeueTurnQueue(OWNER, SESSION, [], human('limited'), {
+    until: new Date(before + 5 * 86_400_000).toISOString(),
+  })
   const until = Date.parse((await listPendingUserMessages(OWNER, SESSION))[0]?.retryAfter ?? '')
 
   expect(until - before).toBeGreaterThan(59 * 60_000)
   expect(until - Date.now()).toBeLessThanOrEqual(60 * 60_000)
+})
+
+test('a usage-limit refusal marks the head as held, and its next ordinary refusal clears it', async () => {
+  const until = new Date(Date.now() + 3_600_000).toISOString()
+
+  await requeueTurnQueue(OWNER, SESSION, [], human('limited'), { until })
+  const [held] = await listPendingUserMessages(OWNER, SESSION)
+
+  expect(held?.usageHold).toEqual({ until })
+  await removePendingUserMessage(OWNER, SESSION, held?.id ?? '')
+  await requeueTurnQueue(OWNER, SESSION, [], held)
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.usageHold).toBeUndefined()
+})
+
+test("the user's own queued message refused for usage goes back held", async () => {
+  const { requeueUnsent } = await import('@/routes/agent/chat-preview-run')
+  const turn = {
+    userId: OWNER,
+    teamId: 'team',
+    sessionId: SESSION,
+    queued: human('limited'),
+    endpoint: {},
+  } as Parameters<typeof requeueUnsent>[0]
+  const outOfUsage = new OpenAbRpcError(
+    "**Internal Error** (code: -32603)\nInternal error: You've hit your session limit · resets 8:10am (UTC)",
+    -32603,
+  )
+
+  await requeueUnsent(turn, [], [], false, outOfUsage)
+  expect((await listPendingUserMessages(OWNER, SESSION))[0]?.usageHold).toEqual({})
 })
 
 test('a head stored before refusedAt still waits out its own releases', () => {
@@ -424,6 +451,29 @@ test('a send whose agent cannot run it is kept with the reason instead of retrie
   expect(await waiting()).toEqual(['next'])
   expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain('Its agent was deleted.')
 })
+
+// Each answers 409, as a busy runtime does, but only a person ends them, not time.
+for (const failure of [
+  new AppError(409, 'runtime_login_required', 'Sign in to Claude Code on that computer.'),
+  new AppError(409, 'runtime_not_installed', 'Claude Code 1.0.0 is too old to run here.'),
+  new AppError(409, 'runtime_disabled', 'This conversation’s agent is disabled.'),
+  new AppError(409, 'claude_code_setup_required', 'Add a runtime on the Runtimes page.'),
+]) {
+  test(`a send refused with "${failure.message}" is kept with the reason, not retried`, async () => {
+    installTurnRunner({
+      hasActiveAgentRunForSession: async () => false,
+      claimAgentRunForSession: async () => () => {},
+      launchQueuedChatTurn: async () => {
+        throw failure
+      },
+    })
+    await queue(human('refused'), human('next'))
+    await startQueuedTurn(OWNER, SESSION)
+
+    expect(await waiting()).toEqual(['next'])
+    expect(JSON.stringify(kept[0]?.messages[1]?.parts)).toContain(failure.message)
+  })
+}
 
 for (const failure of [
   new Error('Mongo blip'),

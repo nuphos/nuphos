@@ -119,7 +119,7 @@ export function ConnectAgentDialog({
         ) : noAdminTeam ? (
           <p className="text-[13px] leading-5 text-secondary">
             {t(
-              'Only workspace administrators can connect runtimes, and you are not an administrator of any workspace. Ask an administrator to open the link from the runtime console.',
+              'Only team administrators can connect runtimes, and you are not an administrator of any team. Ask an administrator to open the link from the runtime console.',
             )}
           </p>
         ) : (

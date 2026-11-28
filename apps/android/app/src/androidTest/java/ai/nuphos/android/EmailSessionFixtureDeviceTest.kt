@@ -44,7 +44,7 @@ class EmailSessionFixtureDeviceTest {
                     """{"token":"synthetic-session"}"""
                 }
                 "/auth/me" -> """{"id":"fixture","name":"Fixture","email":"fixture@example.com"}"""
-                "/auth/ai-consent" -> """{"version":"2026-09-28","accepted":false}"""
+                "/auth/ai-consent" -> """{"version":"2026-11-23","accepted":false}"""
                 else -> error("Unexpected synthetic request path")
             }
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
@@ -69,7 +69,7 @@ class EmailSessionFixtureDeviceTest {
                 } else {
                     assertTrue(auth.state is AuthSession.State.SignedIn)
                     assertTrue("Synthetic token persisted", store.read() != null)
-                    assertEquals("2026-09-28", auth.consentVersion)
+                    assertEquals("2026-11-23", auth.consentVersion)
                     assertFalse(auth.aiAllowed)
                 }
             }

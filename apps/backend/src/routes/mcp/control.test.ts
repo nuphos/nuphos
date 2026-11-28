@@ -5,8 +5,8 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 
 import { agentRuns } from '@/lib/agent/run-admission'
 import { useAgentDb } from '@/lib/test/doubles/agent-db'
-import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useAgentRunStore } from '@/lib/test/doubles/agent-run-store'
+import { useArchiveCleanup } from '@/lib/test/doubles/archive-cleanup'
 import { useConversationComputer } from '@/lib/test/doubles/conversation-computer'
 import { useIdentity } from '@/lib/test/doubles/identity'
 import { usePendingMessages } from '@/lib/test/doubles/pending-messages'
@@ -35,12 +35,12 @@ let frames: Record<string, { id: string; frame: string }[]>
 let redisOn: boolean
 
 useArchiveCleanup({ cleanUpArchived: async () => {} })
-useIdentity({ getTeamMembership: async () => (member ? ({ role: 'MEMBER' } as never) : null) })
+useIdentity({ getTeamMembership: async () => (member ? { role: 'MEMBER' } : null) })
 useAgentDb({
   getReadableConversation: async () => readable,
-  archiveConversationAs: async (conversation, userId, archived) => {
+  archiveConversationAs: async (conversation, actor, archived) => {
     if (!movable) return null
-    moves.push([conversation.sessionId, userId, archived])
+    moves.push([conversation.sessionId, actor.userId, archived])
 
     return { sessionIds: [conversation.sessionId, 'child'] }
   },
@@ -94,7 +94,7 @@ usePendingMessages({
   },
 })
 useAgentRunStore({
-  getActiveAgentRunForSession: async () => (redisOn ? (active as never) : null),
+  getActiveAgentRunForSession: async () => (redisOn ? active : null),
   readAgentRunFramesAfter: async (_owner, streamId, after, count) => {
     if (!redisOn) return null
     const all = frames[streamId] ?? []

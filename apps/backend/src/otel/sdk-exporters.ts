@@ -5,7 +5,7 @@ import { metricsRegistry } from '@/otel/metrics'
 
 import type { ExportResult } from '@opentelemetry/core'
 import type {
-  Aggregation,
+  AggregationOption,
   AggregationTemporality,
   InstrumentType,
   PushMetricExporter,
@@ -81,7 +81,7 @@ class ExportFailureThrottle {
 
 export class TolerantMetricExporter implements PushMetricExporter {
   readonly selectAggregationTemporality?: (instrumentType: InstrumentType) => AggregationTemporality
-  readonly selectAggregation?: (instrumentType: InstrumentType) => Aggregation
+  readonly selectAggregation?: (instrumentType: InstrumentType) => AggregationOption
 
   private readonly failures = new ExportFailureThrottle('otel.metric_export_failed', 'otlp_http')
 

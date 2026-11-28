@@ -26,7 +26,7 @@ const GROUPS: Record<
     headerDescription: t(
       'Standing guidance every new Bot and task in this team follows, like CLAUDE.md or AGENTS.md. Applies to all of them, including Slack, Discord, and trigger runs.',
     ),
-    description: t('Shared with everyone in this workspace. Injected first.'),
+    description: t('Shared with everyone in this team. Injected first.'),
   },
   personal: {
     title: t('Personal'),
@@ -128,7 +128,7 @@ export function InstructionsSection({
       <ConfirmDialog
         open={deleting !== null}
         title={t('Delete instruction')}
-        description={t('Delete “{title}”? New tasks will stop receiving it.', {
+        description={t('Delete “{title}”? Tasks stop receiving it from their next turn.', {
           title: deleting?.title ?? '',
         })}
         confirmLabel={t('Delete')}
@@ -191,7 +191,7 @@ function InstructionGroup({
               : t('No personal instructions yet.')
             : admin
               ? t('No team instructions yet. Ask {name} to add some.', { name: admin })
-              : t('No team instructions yet. Ask a workspace administrator to add some.')}
+              : t('No team instructions yet. Ask a team administrator to add some.')}
         </p>
       ) : (
         <div className="space-y-3">

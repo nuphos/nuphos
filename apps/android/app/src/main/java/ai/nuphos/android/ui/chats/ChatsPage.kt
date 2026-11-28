@@ -70,6 +70,9 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     LaunchedEffect(store, team, store.workspaceRevision, lifecycle, active) {
         if (!active) return@LaunchedEffect
         lifecycle.repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.RESUMED) {
+            // The poll does not read the runtimes, so read them once on opening and on each return,
+            // as the Tasks page does: a runtime added elsewhere then replaces the first-runtime prompt.
+            store.refreshRuntimes()
             while (true) {
                 store.loadChannels()
                 // The agent list too, as iOS polls it: its runtime states are what a Bot's row reads for its dots.
@@ -78,7 +81,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
             }
         }
     }
-    val rows = store.botsList
+    val rows = store.listedBots
     var pinRetry by remember(team, store.workspaceRevision) { mutableStateOf<Pair<AgentConversation, Boolean>?>(null) }
     fun pin(row: AgentConversation, pinned: Boolean) {
         pinRetry = row to pinned
@@ -125,7 +128,7 @@ internal fun ChatsPage(nav: NavHostController, selectedSessionId: String? = null
     )
     if (store.hasRuntimes == false) ai.nuphos.android.ui.agent.FirstRuntimePrompt()
     // Like iOS, no "+" either: a Bot would have nothing to run on.
-    else if (!store.channelsLoaded && rows.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+    else if (!store.channelsLoaded && store.botsList.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     // Without the list's "+", an empty workspace says what a Bot is and offers the first one, as Desktop does.
     } else if (!showCreateButton && rows.isEmpty() && store.search.isEmpty() && store.pins.isEmpty()) ai.nuphos.android.ui.agent.EmptyState(
@@ -187,30 +190,31 @@ private fun ChatRow(chat: AgentConversation, typing: Boolean, selected: Boolean,
             .testTag("chat-row:${chat.sessionId}").semantics {
             contentDescription = listOfNotNull(title, if (typing) typingLabel else preview, unreadLabel.takeIf { unread }, openingLabel.takeIf { opening }).joinToString(", ")
         },
-        colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.background),
+        colors = ListItemDefaults.colors(containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface),
         // Flat, as the row was: the expressive default rounds it and reshapes it on press.
         shapes = RectangleShape.let { ListItemDefaults.shapes(it, it, it, it, it, it) },
-        // As on iOS: the avatar and chevron sit centred on a two-line row, and the time stays on the name's line.
+        // As on iOS: the avatar sits centred on a two-line row, with the unread dot in a gutter before it.
         verticalAlignment = Alignment.CenterVertically,
         leadingContent = {
-            if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
-            else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.width(18.dp)) {
+                    if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface).testTag("chat-unread"))
+                }
+                if (chat.isChannel) ChatIcon(chat.faces.orEmpty(), title, 40.dp)
+                else AgentAvatar(chat.sessionId, chat.agentRuntime, 40.dp)
+            }
         },
         // As iMessage does: the dots stand in for the newest post until the reply lands. The post gets two lines (#4508).
         supportingContent = if (typing) ({ TypingDots(Modifier.padding(vertical = 7.dp)) })
-            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) } },
-        trailingContent = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (unread) Box(Modifier.size(10.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary).testTag("chat-unread"))
-                if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.testTag("chat-chevron"), tint = MaterialTheme.colorScheme.outline)
-            }
-        },
+            else preview?.let { { Text(it, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f), maxLines = 2, overflow = TextOverflow.Ellipsis) } },
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+            val stamp = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+            Text(HistoryTime.format(chat.lastActiveAt), style = MaterialTheme.typography.labelMedium, color = stamp, maxLines = 1)
+            // The time and the chevron share the name's line, as on iOS.
+            if (opening) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+            else Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(20.dp).testTag("chat-chevron"), tint = stamp)
         }
     }
     }

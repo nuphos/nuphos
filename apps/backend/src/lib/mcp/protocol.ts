@@ -65,6 +65,18 @@ export function calledToolName(payload: unknown): string | undefined {
     : undefined
 }
 
+/**
+ * Whether a payload lists or calls tools. The handshake (initialize, its
+ * notification, ping) never reads the tool definitions or handlers.
+ */
+export function usesTools(payload: unknown): boolean {
+  return (Array.isArray(payload) ? payload : [payload]).some((message) => {
+    const method = (message as { method?: unknown } | null)?.method
+
+    return method === 'tools/list' || method === 'tools/call'
+  })
+}
+
 // Streamable-HTTP JSON-mode framing over a parsed request body: one message or
 // a batch, 202 with no body when everything was a notification, 400 for an
 // empty batch. The HTTP routes own only parsing and auth.

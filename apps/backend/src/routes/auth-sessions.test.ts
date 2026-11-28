@@ -28,12 +28,11 @@ useDb({
 })
 useIdentity({
   authenticateToken: (async (token: string) => {
-    // A 30-day sign-in JWT from before sessions: a user, but no session.
-    if (token === 'old-sign-in') return { user: USER, cacheHit: false, provider: 'nuphos' }
+    // A user without a sign-in session.
+    if (token === 'no-session') return { user: USER, cacheHit: false, provider: 'nuphos' }
     if (token === 'session')
       return { user: USER, cacheHit: false, provider: 'nuphos', sessionId: CURRENT }
     if (token === 'run') return { user: USER, cacheHit: false, provider: 'nuphos', agentRun: true }
-    if (token === 'legacy') return { user: USER, cacheHit: false, provider: 'nuphos' }
 
     return null
   }) as unknown as typeof identityActual.authenticateToken,
@@ -80,8 +79,8 @@ test('signing out the other devices keeps this one', async () => {
   expect(othersRevoked).toEqual([[USER.id, CURRENT]])
 })
 
-test('a sign-in from before sessions is asked to sign in again', async () => {
-  const res = await call('GET', '/auth/sessions', 'old-sign-in')
+test('a credential without a sign-in session is asked to sign in again', async () => {
+  const res = await call('GET', '/auth/sessions', 'no-session')
 
   expect(res.status).toBe(403)
   expect(((await res.json()) as { error: { code: string } }).error.code).toBe('session_required')
@@ -124,7 +123,5 @@ test('an agent run cannot mint lasting credentials; a sign-in can', async () => 
   for (const path of ['/auth/cli-tokens', '/auth/device/approve', '/agent/devices/join-tokens']) {
     expect((await post(path, 'run')).status).toBe(403)
     expect((await post(path, 'session')).status).toBe(200)
-    // Sign-ins from before sessions still work until they expire.
-    expect((await post(path, 'legacy')).status).toBe(200)
   }
 })

@@ -6,6 +6,9 @@ import { GithubMark } from '../components/GithubMark'
 import { Modal } from '../components/Modal'
 import { Button } from '../components/ui/button'
 import { t } from '../i18n'
+import { shareFromAllowList } from '../lib/bindingShare'
+
+import { BindShareField } from './bind-account/share-field'
 
 import { Fill } from './bind-account/shared'
 import { useResetOnKey } from './useResetOnKey'
@@ -20,6 +23,7 @@ type Props = {
 type Phase = { kind: 'idle' } | { kind: 'waiting' } | { kind: 'error'; message: string }
 
 export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
+  const [shareList, setShareList] = useState<string[] | null>(null)
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' })
   // Per-attempt token. close() / startInstall() bump it; the resolve / reject
   // path of an in-flight startInstall captures its own token at start and
@@ -28,6 +32,7 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
   const attemptRef = useRef(0)
 
   useResetOnKey(String(open), () => {
+    if (open) setShareList(null)
     if (!open) setPhase({ kind: 'idle' })
   })
 
@@ -43,7 +48,10 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
 
     setPhase({ kind: 'waiting' })
     try {
-      await api.atlasStartGithubInstall(teamId)
+      await api.atlasStartGithubInstall(
+        teamId,
+        shareList ? shareFromAllowList(shareList) : undefined,
+      )
       if (attempt !== attemptRef.current) return
       onBound()
       onClose()
@@ -78,6 +86,15 @@ export function BindGithubDialog({ open, teamId, onClose, onBound }: Props) {
               )}
             </div>
           </div>
+        )}
+
+        {phase.kind !== 'waiting' && (
+          <BindShareField
+            teamId={teamId}
+            provider="github"
+            value={shareList}
+            onChange={setShareList}
+          />
         )}
 
         {phase.kind === 'waiting' && (

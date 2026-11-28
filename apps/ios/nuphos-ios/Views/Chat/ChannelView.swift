@@ -44,16 +44,35 @@ struct ChannelView: View {
     }
 
     /// What the Bot's Tasks are doing, under its name: those the viewer can see.
+    /// An offline Bot says so first: nothing it runs moves until it is back.
     private var state: (text: String, waiting: Bool)? {
-        channel.botId.flatMap { store.stateLine(under: $0, team: channel.teamId) }
+        guard let bot = channel.botId else { return nil }
+        if let presence = channel.agents.first(where: { $0.sessionId == bot })?.presence, presence.state == "offline" {
+            return (presence.tag.word, true)
+        }
+        return store.stateLine(under: bot, team: channel.teamId)
     }
 
-    private func openDetails() { detailsOpen = botSession != nil }
+    @State private var botsOpen = false
+
+    /// A Bot's chat opens its details; a group chat lists its Bots.
+    private func openDetails() {
+        if channel.botId != nil { detailsOpen = botSession != nil } else { botsOpen = !channel.agents.isEmpty }
+    }
 
     /// The Bot's details: its card, then what its own Task's summary lists.
     private func details(of bot: ChatSession) -> some View {
-        let card = BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
-        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(card)) { task in
+        let lead = VStack(spacing: 16) {
+            BotDetailsCard(channel: channel, openTask: canOpenTask ? { open(bot.sessionId, title: channel.title) } : nil)
+            BotRuntimeCard(bot: bot) { runtime in
+                Task {
+                    do { try await bot.move(to: runtime); await store.reload() }
+                    catch { switchError = error.localizedDescription }
+                }
+            }
+            BotInstructionsCard(botId: bot.sessionId)
+        }
+        return AgentSummaryPanel(session: bot, close: { detailsOpen = false }, archive: {}, lead: AnyView(lead)) { task in
             open(task.sessionId, title: task.displayTitle)
         }
         .environment(store)
@@ -109,56 +128,22 @@ struct ChannelView: View {
             .keepsNavigationBar()
             #endif
             .toolbar {
-                ToolbarItem(placement: .principal) {
-                    Button(action: openDetails) {
-                        HStack(spacing: 8) {
-                            ChatIcon(faces: channel.faces, title: channel.title, size: 24)
-                            VStack(alignment: .leading, spacing: 0) {
-                                Text(channel.title)
-                                    .font(Theme.Text.label.weight(.semibold))
-                                    .foregroundStyle(Theme.heading)
-                                    .lineLimit(1)
-                                if let state {
-                                    Text(state.text)
-                                        .font(.caption2)
-                                        .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
-                                        .lineLimit(1)
-                                }
-                            }
-                        }
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(channel.botId == nil)
-                    .accessibilityIdentifier("bot-details-entry")
-                }
-                // One tap to the Bot's own Task, where its runtime and model are switched.
-                if let bot = channel.botId, canOpenTask {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            open(bot, title: channel.title)
-                        } label: {
-                            Label { Text("Task") } icon: { LucideIcon("clipboard-list") }
-                        }
-                        .accessibilityIdentifier("chat.botTask")
-                    }
-                }
-                if let bot = desktopBot {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button {
-                            desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
-                        } label: {
-                            LucideIcon("monitor")
-                        }
-                        .accessibilityLabel("Desktop")
-                        .accessibilityIdentifier("chat.desktop")
-                    }
+                ToolbarItem(placement: .principal) { header }
+                    .sharedBackgroundHidden()
+                if (channel.botId != nil && canOpenTask) || desktopBot != nil {
+                    ToolbarItem(placement: .topBarTrailing) { more }
                 }
             }
             .task(id: channel.botId) {
                 canOpenTask = false
                 // Made before the details open: a sheet shown in the same update that
                 // sets what its content reads comes up empty.
-                botSession = channel.botId.map { store.session(sessionId: $0, title: channel.title, teamId: channel.teamId) }
+                // From the Bot's row when the list has it, so its details show what it runs
+                // before the Bot's own read lands, and if that read fails.
+                botSession = channel.botId.map { id in
+                    store.bots.first { $0.sessionId == id }.map(store.session(for:))
+                        ?? store.session(sessionId: id, title: channel.title, teamId: channel.teamId)
+                }
                 guard let bot = channel.botId else { return }
                 await botSession?.load()
                 guard !Task.isCancelled, channel.botId == bot else { return }
@@ -172,6 +157,9 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
+            .sheet(isPresented: $botsOpen) {
+                ChannelBotsList(agents: channel.agents)
+            }
             .sheet(isPresented: Binding(get: { switchingBot != nil }, set: { if !$0 { switchingBot = nil } })) {
                 RuntimePickerSheet(session: switchingBot) { runtime in
                     guard let bot = switchingBot else { return }
@@ -219,6 +207,53 @@ struct ChannelView: View {
             #endif
     }
 
+    /// The chat's face and name on a floating capsule: a Bot's opens its
+    /// details, a group chat's lists its Bots.
+    private var header: some View {
+        Button(action: openDetails) {
+            HStack(spacing: 8) {
+                ChatIcon(faces: channel.faces, title: channel.title, size: 32)
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(channel.title)
+                        .font(Theme.Text.label.weight(.semibold))
+                        .foregroundStyle(Theme.heading)
+                        .lineLimit(1)
+                    if let state {
+                        Text(state.text)
+                            .font(.caption2)
+                            .foregroundStyle(state.waiting ? Theme.attention : Theme.muted)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .padding(.leading, 6)
+            .padding(.trailing, 16)
+            .frame(height: 44)
+            .glass(interactive: true, in: Capsule())
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .disabled(channel.botId == nil && channel.agents.isEmpty)
+        .accessibilityIdentifier("bot-details-entry")
+    }
+
+    /// The Bot's Task, where its runtime and model are switched, and its desktop.
+    private var more: some View {
+        Menu {
+            if let bot = channel.botId, canOpenTask {
+                Button { open(bot, title: channel.title) } label: { Label("Task", image: "lucide-clipboard-list") }
+            }
+            if let bot = desktopBot {
+                Button {
+                    desktop = DesktopSession(teamId: channel.teamId, sessionId: bot, token: store.token)
+                } label: { Label("Desktop", image: "lucide-monitor") }
+            }
+        } label: {
+            Label("More", image: "lucide-ellipsis")
+        }
+        .accessibilityIdentifier("chat.more")
+    }
+
     @ViewBuilder
     private var placeholder: some View {
         if !channel.loaded {
@@ -251,6 +286,10 @@ struct ChannelView: View {
 
     private var composer: some View {
         VStack(spacing: 6) {
+            if let away = BotPresence.offlineStrip(channel.agents, botId: channel.botId) {
+                HintRow(text: away, isError: true,
+                        onSwitchRuntime: owns(channel.botId) && botSession != nil ? { switchingBot = botSession } : nil)
+            }
             if let reply = channel.replying { ReplyChip(reply: reply) { channel.replying = nil } }
             ChatComposerBar(
                 text: $draft,
@@ -265,24 +304,8 @@ struct ChannelView: View {
                 voiceTeamId: channel.teamId,
                 recipient: channel.title,
                 focusRequest: replyFocus,
-                alwaysShowControls: channel.botId != nil,
-                controlsAvailable: channel.botId != nil,
                 onSend: { channel.send($0) },
-                controls: {
-                    if let botSession, botSession.loaded {
-                        ComposerControls(
-                            selection: Binding(
-                                get: { (botSession.credentialAccess ?? CredentialSelection()).reaching(store.credentialCatalog) },
-                                set: { botSession.setCredentials($0) }
-                            ),
-                            mode: Binding(get: { botSession.permissionMode }, set: { botSession.setPermissionMode($0) }),
-                            session: botSession,
-                            switchRuntime: { switchingBot = botSession },
-                            botChat: true,
-                            locked: !botSession.isOwner
-                        )
-                    }
-                }
+                controls: { EmptyView() }
             )
         }
     }
@@ -320,10 +343,10 @@ struct ChannelView: View {
         TranscriptList(rows: channel.loaded && channel.loadError == nil ? rows : [], submittedRowID: channel.lastSubmittedRowID,
                        sessionID: channel.channelId,
                        composer: AnyView(composer.environment(store).readableWidth()), placeholder: AnyView(placeholder),
-                       animatesArrivals: true, jump: jump, swipeAction: replyAction) { row in
+                       animatesArrivals: true, softTopEdge: true, jump: jump, swipeAction: replyAction) { row in
             AnyView(rowView(row)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 12)
+                .padding(.bottom, channel.botId == nil ? 12 : 16)
                 .readableWidth())
         }
         .ignoresSafeArea(.all, edges: .bottom)
@@ -350,8 +373,9 @@ struct ChannelView: View {
             case .time(let date):
                 TimestampLabel(date: date)
             case .post(let post, let first):
-                ChannelPostRow(post: post, first: first, mine: post.isMine(viewerId: channel.viewerId),
-                               attachments: channel.sendingAttachments[post.id] ?? [], channel: channel,
+                // A Bot's 1:1 chat names nobody: the header already says who answers.
+                ChannelPostRow(post: post, first: first && post.senderId != channel.botId, mine: post.isMine(viewerId: channel.viewerId),
+                               upload: channel.sendingUploads[post.id], channel: channel,
                                onLink: open(link:),
                                flashed: flashed == post.id,
                                onReply: channel.readOnly || post.sending ? nil : { reply(to: post) },
@@ -487,7 +511,8 @@ private struct ChannelPostRow: View {
     let post: ChannelPost
     let first: Bool
     let mine: Bool
-    let attachments: [ComposerAttachment]
+    /// A post still on its way: its files from the device, and how far they have uploaded.
+    let upload: ChannelSession.SendingUpload?
     /// The chat: its file groups read so far, and fresh links for them. Read
     /// here, not passed in, so a group read after the row was drawn shows.
     let channel: ChannelSession
@@ -523,8 +548,9 @@ private struct ChannelPostRow: View {
                                  names: post.uploads.flatMap { $0.files.map(\.fileName) },
                                  files: read(post.uploads.map(\.groupId)), resolve: channel.transferGroup)
                 }
-                if !attachments.isEmpty { localAttachments }
+                if let upload { localAttachments(upload.attachments) }
                 if !post.text.isEmpty || post.replyTo != nil { bubble }
+                if let upload { UploadProgressBar(progress: upload.progress) }
                 if !downloads.isEmpty {
                     TransferCard(groupIds: downloads, fromUser: false, files: read(downloads), resolve: channel.transferGroup)
                 }
@@ -611,7 +637,7 @@ private struct ChannelPostRow: View {
     }
 
     /// The photos and files of a post still on its way, from the device.
-    private var localAttachments: some View {
+    private func localAttachments(_ attachments: [ComposerAttachment]) -> some View {
         HStack(spacing: 6) {
             ForEach(attachments.prefix(4)) { attachment in
                 AttachmentPreview(attachment: attachment)
@@ -686,23 +712,24 @@ private struct ReplyFailedLine: View {
     }
 }
 
-/// iMessage-style dots for each agent in a turn.
+/// A compact typing bubble beside each replying agent, as on Desktop.
 private struct TypingRow: View {
     let agents: [ChannelAgent]
+    @Environment(AgentStore.self) private var store
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The bubble grows from its tail as it comes in; the row itself fades in.
     @State private var shown = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(agents) { agent in
+                let runtime = agent.provider ?? store.conversations.first { $0.sessionId == agent.sessionId }?.agentRuntime
                 HStack(alignment: .bottom, spacing: 8) {
-                    AgentAvatar(agentId: agent.sessionId, runtime: agent.provider, size: 28)
-                    TypingDots()
+                    AgentAvatar(agentId: agent.sessionId, runtime: runtime, size: 28)
+                    TypingDots(size: 6)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
                         .background(Theme.sunken, in: UnevenRoundedRectangle(cornerRadii: .init(
-                            topLeading: 18, bottomLeading: 6, bottomTrailing: 18, topTrailing: 18), style: .continuous))
+                            topLeading: 16, bottomLeading: 6, bottomTrailing: 16, topTrailing: 16), style: .continuous))
                         .scaleEffect(shown || reduceMotion ? 1 : 0.5, anchor: .bottomLeading)
                 }
                 .accessibilityElement(children: .ignore)

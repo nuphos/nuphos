@@ -20,8 +20,12 @@ swiftc NuphosShare/ShareFollowState.swift tests/ShareFollowStateTests.swift -o "
 "$test_dir/share-follow-tests"
 swiftc nuphos-ios/Views/Home/HomeColumns.swift tests/HomeColumnsTests.swift -o "$test_dir/home-columns-tests"
 "$test_dir/home-columns-tests"
+swiftc nuphos-ios/Views/Home/HistoryTime.swift tests/HistoryTimeTests.swift -o "$test_dir/history-time-tests"
+"$test_dir/history-time-tests"
 swiftc nuphos-ios/Views/Home/NewBox.swift tests/NewBoxTests.swift -o "$test_dir/new-box-tests"
 "$test_dir/new-box-tests"
+swiftc nuphos-ios/Services/PushTarget.swift tests/PushTargetTests.swift -o "$test_dir/push-target-tests"
+"$test_dir/push-target-tests"
 swiftc tests/StringCatalogTests.swift -o "$test_dir/string-catalog-tests"
 "$test_dir/string-catalog-tests" Shared/Localizable.xcstrings
 "$test_dir/string-catalog-tests" nuphos-ios/InfoPlist.xcstrings
@@ -56,6 +60,7 @@ chat_sources=(
   nuphos-ios/Services/Chat/OpenQuestions.swift \
   nuphos-ios/Services/BotFaces.swift \
   nuphos-ios/Services/Chat/AgentChatAPI.swift \
+  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Views/Home/ComposerAttachment.swift \
   nuphos-ios/Services/AccountAPI.swift \
   nuphos-ios/Models/TeamMember.swift \
@@ -65,7 +70,7 @@ chat_sources=(
   nuphos-ios/Services/Passkeys.swift \
   nuphos-ios/Services/Chat/SSEClient.swift \
   nuphos-ios/Services/Chat/ChannelSession.swift)
-for chat_test in CancelledLoadTests ChannelPushTests; do
+for chat_test in CancelledLoadTests ChannelPushTests ExpiredFilesTests HeldFilesTests QueueHoldTests StaleLinksTests UploadProgressTests; do
   swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
     -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
     "${chat_sources[@]}" "tests/$chat_test.swift" -o "$test_dir/$chat_test"
@@ -75,12 +80,12 @@ done
 swiftc BotAvatars/BotAvatars.swift tests/HostedBotAvatarTests.swift -o "$test_dir/hosted-bot-avatar-tests"
 "$test_dir/hosted-bot-avatar-tests"
 
-# The store and the session it keeps (#3525), with what they name. Analytics and AuthSession are stand-ins in the test.
+# The store and the session it keeps (#3525), the runtimes it reloads, a chat moved between them (#4214), and a run over that the conversation still names (#5248), with what they name. Analytics and AuthSession are stand-ins in the tests.
+for store_test in ChatReopenTests RuntimeReloadTests RuntimeMoveTests EndedRunTests; do
 swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk/System/iOSSupport/System/Library/Frameworks" \
   -I "$macos_sdk/System/iOSSupport/usr/lib/swift" -L "$macos_sdk/System/iOSSupport/usr/lib/swift" -parse-as-library -default-isolation MainActor \
   "${chat_sources[@]}" \
   nuphos-ios/Services/AgentStore.swift \
-  nuphos-ios/Services/LaunchCache.swift \
   nuphos-ios/Services/Chat/ChatSession.swift \
   nuphos-ios/Services/Chat/UIStreamReducer.swift \
   nuphos-ios/Services/Chat/RuntimeTranscript.swift \
@@ -99,5 +104,6 @@ swiftc -target arm64-apple-ios18.0-macabi -sdk "$macos_sdk" -Fsystem "$macos_sdk
   nuphos-ios/Views/Home/NewBox.swift \
   ShareSupport/SubmissionAdmission.swift \
   ShareSupport/SharedShareSession.swift \
-  tests/ChatReopenTests.swift -o "$test_dir/ChatReopenTests"
-"$test_dir/ChatReopenTests"
+  "tests/$store_test.swift" -o "$test_dir/$store_test"
+"$test_dir/$store_test"
+done

@@ -15,9 +15,12 @@ import type React from 'react'
 export function AvatarBackgroundPicker({
   value,
   onChange,
+  start = false,
 }: {
   value: BotAvatarBackground
   onChange: (background: BotAvatarBackground) => void
+  /** Lines the tiles up with the fields above them; the caller labels the group. */
+  start?: boolean
 }) {
   const tiles = useRef<(HTMLButtonElement | null)[]>([])
   const current = Math.max(BOT_AVATAR_BACKGROUNDS.indexOf(value), 0)
@@ -44,12 +47,12 @@ export function AvatarBackgroundPicker({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="px-1 text-[12px] text-tertiary">{t('Background')}</span>
+      {!start && <span className="px-1 text-[12px] text-tertiary">{t('Background')}</span>}
       <div
         role="radiogroup"
         aria-label={t('Background')}
         onKeyDown={move}
-        className="flex justify-center gap-1"
+        className={clsx('flex gap-1', !start && 'justify-center')}
       >
         {BOT_AVATAR_BACKGROUNDS.map((name, index) => {
           const selected = index === current
@@ -73,12 +76,13 @@ export function AvatarBackgroundPicker({
                 selected ? 'bg-state-selected ring-1 ring-line-focus' : 'hover:bg-state-hover',
               )}
             >
+              {/* White would vanish on a light dialog without its outline. */}
               <span
                 className={clsx(
                   'size-6 rounded-full',
-                  !color && 'border border-dashed border-line-control',
+                  name === 'none' && 'border border-line-control',
                 )}
-                style={color ? { background: color } : undefined}
+                style={{ background: color }}
               />
             </button>
           )

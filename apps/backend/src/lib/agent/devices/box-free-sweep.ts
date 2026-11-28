@@ -22,7 +22,7 @@ import { runtimePresenceStore } from './local-runtime/presence'
 
 const SWEEP_MS = 60_000
 
-type RunningBox = { teamId: string; userId: string; deviceId: string }
+export type RunningBox = { teamId: string; userId: string; deviceId: string }
 
 export type FreeSweepDeps = {
   /** The deployment account's running Boxes; a team's own account has no allowance. */
@@ -37,13 +37,17 @@ export type FreeSweepDeps = {
   noteUsage: (teamId: string) => void
 }
 
+/** The deployment account's running Boxes. */
+export async function runningBoxes(): Promise<RunningBox[]> {
+  return (await Sandbox.list(connection(QUICK_TIMEOUT_MS))).flatMap(({ state, metadata }) =>
+    isRunning(state) && metadata.teamId && metadata.deviceId && metadata.createdBy
+      ? [{ teamId: metadata.teamId, userId: metadata.createdBy, deviceId: metadata.deviceId }]
+      : [],
+  )
+}
+
 const defaultDeps: FreeSweepDeps = {
-  running: async () =>
-    (await Sandbox.list(connection(QUICK_TIMEOUT_MS))).flatMap(({ state, metadata }) =>
-      isRunning(state) && metadata.teamId && metadata.deviceId && metadata.createdBy
-        ? [{ teamId: metadata.teamId, userId: metadata.createdBy, deviceId: metadata.deviceId }]
-        : [],
-    ),
+  running: runningBoxes,
   subscribed: async (teamIds) => {
     const found = await teams()
       .find(

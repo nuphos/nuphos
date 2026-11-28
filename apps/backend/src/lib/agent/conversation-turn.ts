@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto'
 
-import { isRuntimeRefusal, outOfUsageUntilReset } from '@/lib/claude-code-preview/runtime-refusal'
+import { outOfUsageUntilReset, refusedForNow } from '@/lib/claude-code-preview/runtime-refusal'
 import { AppError } from '@/lib/errors'
 import { signNuphosToken } from '@/lib/identity'
 import { logError } from '@/lib/observability'
 import { persistedMessageToUiMessage } from '@/routes/mcp/transcript'
 
-import { channelIdOf, withChannelPosts } from './channel-wake'
+import { channelIdOf, remindUnanswered, withChannelPosts } from './channel-wake'
 import { agentMessages, getConversationBySessionId } from './db'
 import { systemSender } from './message-metadata'
 import { buildPendingUserMessage, hasPendingUserMessage } from './pending-messages'
@@ -178,12 +178,12 @@ export async function runTurn(
         // Only an unbroken run of offline tries counts; out of usage waits for its reset.
         const offlineSince = offline ? (head.offlineSince ?? new Date().toISOString()) : undefined
         const requeued = { ...head, offlineSince }
-        const until = limited ? await usageResetsAtOf(target).catch(() => undefined) : undefined
+        const usage = limited && { until: await usageResetsAtOf(target).catch(() => undefined) }
 
-        if (!offline && !draining && !limited && !isRuntimeRefusal(error)) throw error
+        if (!offline && !draining && !limited && !refusedForNow(error)) throw error
         taken = []
         await unmarkRead?.()
-        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, until)
+        await requeueTurnQueue(data.userId, data.targetSessionId, rest, requeued, usage)
         // A channel that woke it says why, once per post, however often it retries.
         if (limited)
           for (const channelId of new Set(fresh.flatMap((m) => channelIdOf(m) ?? [])))
@@ -193,10 +193,10 @@ export async function runTurn(
       })
 
     if (!outcome) return
-
     if (outcome.status === 'failed')
       throw new Error('Thread run failed; inspect the target conversation.')
     await recordFiresRan(fresh)
+    await remindUnanswered(target, fresh, outcome.finishReason, startConversationTurn)
     if (outcome.finishReason === 'connection-lost') void reportIfRestarted(data, fresh, unmarkRead)
 
     return outcome.finishReason
@@ -225,9 +225,10 @@ async function reportIfRestarted(
     const [wake, ...wakes] = messages.filter((message) => channelIdOf(message))
 
     await requeueTurnQueue(data.userId, data.targetSessionId, wakes, wake)
+    // The runtime took the turn, so an answer in it was delivered: it stays answered (#5109).
     await reportUndelivered(
       data,
-      messages.filter((message) => !channelIdOf(message)),
+      messages.filter((message) => !channelIdOf(message) && !message.answers),
       LOST_TURN,
     )
   } catch (error) {

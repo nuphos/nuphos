@@ -99,11 +99,11 @@ test('attention follows what the row shows: its dot or its error mark', () => {
   assert.equal(chatRowNeedsAttention({ dot: null }, failed), true)
 })
 
-test('an open question needs attention while working, an unread reply does not', () => {
+test('a dot needs attention while the chat works, since it still shows', () => {
   assert.equal(chatRowNeedsAttention({ dot: 'waiting' }, turn), true)
   assert.equal(chatRowNeedsAttention({ dot: 'waiting' }, background), true)
-  assert.equal(chatRowNeedsAttention({ dot: 'unread' }, turn), false)
-  assert.equal(chatRowNeedsAttention({ dot: 'unread' }, background), false)
+  assert.equal(chatRowNeedsAttention({ dot: 'unread' }, turn), true)
+  assert.equal(chatRowNeedsAttention({ dot: 'unread' }, background), true)
 })
 
 test('the attention filter stops at a folded parent for a row it hides', () => {

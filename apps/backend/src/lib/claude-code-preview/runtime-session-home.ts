@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 
 import { agentConversations } from '@/lib/agent/db/shared'
-import { parseLocalRuntimeId, sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
 import { AppError } from '@/lib/errors'
 import { logError, logEvent } from '@/lib/observability'
 
@@ -21,9 +21,9 @@ const RETRY_WINDOW_MS = 30 * 24 * 60 * 60 * 1000
 // OpenAB ends an inner session idle this long (also its own default).
 const SESSION_TTL_HOURS = 4
 
-// Conversations whose home is no longer needed: archived ones, trigger runs nobody
-// archives once the runtime has ended their inner session for idleness, and moved
-// ones, whose home on the agent they left is never used again.
+// Conversations whose home is no longer needed: archived ones, and trigger runs
+// nobody archives once the runtime has ended their inner session for idleness. A
+// move queues the home it leaves, like an archive (see moveConversationRuntime).
 function reclaimableFilter(now: Date, since = new Date(0)): Filter<AgentConversation> {
   return {
     $or: [
@@ -35,18 +35,13 @@ function reclaimableFilter(now: Date, since = new Date(0)): Filter<AgentConversa
           $gt: since,
         },
       },
-      { 'runtimeMigration.movedAt': { $gt: since } },
     ],
   }
 }
 
-/** What made a conversation's home reclaimable, and when; `leftOn` only for a move. */
+/** What made a conversation's home reclaimable, and when. */
 function reclaimReason(conversation: ReclaimCandidate) {
-  const move = conversation.runtimeMigration
-
   if (conversation.archivedAt) return { field: 'archivedAt', at: conversation.archivedAt }
-  if (move?.fromRuntimeId)
-    return { field: 'runtimeMigration.movedAt', at: move.movedAt, leftOn: move.fromRuntimeId }
 
   // An idle trigger run, the only other match.
   return conversation.lastActiveAt ? { field: 'lastActiveAt', at: conversation.lastActiveAt } : null
@@ -94,10 +89,8 @@ export async function reclaimSessionHome(sessionId: string, now = new Date()): P
 
   if (!conversation) return false
   const { teamId, runtimeId, agentRuntime: provider = 'claude-code' } = conversation
-  const left = reclaimReason(conversation)?.leftOn
 
   if (!teamId || !runtimeId) return true
-  if (left) return reclaimLeftHome(teamId, sessionId, left, runtimeId, provider)
   const endpoint = await controlEndpoint(teamId, runtimeId, provider)
 
   if (!endpoint) return false
@@ -171,40 +164,6 @@ const runtimeRemoved = (teamId: string, runtimeId: string) =>
     (error: unknown) => error instanceof AppError && error.code === 'runtime_not_found',
   )
 
-/**
- * A moved conversation's home on the agent it left. Every agent on one computer,
- * and every agent in one runtime, shares its session homes, so a move between them
- * leaves nothing behind. One that cannot be resolved is left to that agent's own
- * idle sweep.
- */
-async function reclaimLeftHome(
-  teamId: string,
-  sessionId: string,
-  left: string,
-  current: string,
-  provider: NonNullable<AgentConversation['agentRuntime']>,
-): Promise<boolean> {
-  const [from, to] = [parseLocalRuntimeId(left), parseLocalRuntimeId(current)]
-
-  if (from) {
-    if (to?.userId === from.userId && to.deviceId === from.deviceId) return true
-    const endpoint = await controlEndpoint(teamId, left, provider)
-
-    return endpoint ? runReclaimJob(teamId, endpoint, sessionId) : false
-  }
-  const leftProvider = (await requireRuntimeInstance(teamId, left).catch(() => null))?.provider
-  const endpoint = leftProvider && (await controlEndpoint(teamId, left, leftProvider))
-
-  if (!endpoint) return true
-  if (!to) {
-    const now = await controlEndpoint(teamId, current, provider)
-
-    if (!now || sameRuntimeUrl(endpoint.url, now.url)) return true
-  }
-
-  return runReclaimJob(teamId, endpoint, sessionId)
-}
-
 async function controlEndpoint(
   teamId: string,
   runtimeId: string,
@@ -267,7 +226,6 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
         archivedAt: 1,
         archiveHomePendingEpochs: 1,
         lastActiveAt: 1,
-        runtimeMigration: 1,
         sessionHomeReclaimedAt: 1,
       },
     })
@@ -276,8 +234,7 @@ export async function reclaimSessionHomes(now = new Date()): Promise<number> {
 
   for (const conversation of candidates) {
     if (conversation.archiveHomePendingEpochs?.length) continue
-    // An unarchived trigger run counts from its last turn, a moved conversation from
-    // its move; a later turn or move reclaims again.
+    // An unarchived trigger run counts from its last turn; a later turn reclaims again.
     const reason = reclaimReason(conversation)
 
     if (!reason) continue

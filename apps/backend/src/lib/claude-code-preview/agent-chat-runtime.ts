@@ -1,5 +1,6 @@
 import { getConversationPreviewAttachment } from '@/lib/agent/db'
 import { sameRuntimeUrl } from '@/lib/agent/devices/local-runtime/address'
+import { instructionsUpdate } from '@/lib/instructions/prompt'
 import { RunHandoff } from '@/lib/lifecycle'
 
 import { registry } from './agent-chat-registry'
@@ -8,22 +9,22 @@ import {
   setClaudeCodeAutonomousUpdateHandler,
 } from './autonomous-session-observer'
 import { backgroundWorkPrompt, markBackgroundWorkLost } from './background-work'
-import { pendingTurnDefaults } from './own-session-config'
 import { openConversationSession } from './open-conversation-session'
+import { pendingTurnDefaults } from './own-session-config'
+import { promptFailure } from './prompt-failure'
 import { redactedPromptUpdates } from './redacted-prompt-updates'
 import { retractedPrompt } from './retracted-notice'
-import { promptFailure } from './prompt-failure'
 import { materializeRuntimeAttachments } from './runtime-attachments'
 import { noteTurnSignIn } from './runtime-auth-refusal'
 import { assertConversationRuntimeAvailable } from './runtime-portability-store'
 import { refusal } from './runtime-refusal'
+import { settledTurn } from './session-config-record'
 import {
   previewSessionPrincipalChanged,
   sessionContextStale,
   turnDefaults,
 } from './session-context'
 import { pushSessionCredentials } from './session-credential-push'
-import { settledTurn } from './session-config-record'
 import { probeExecutionState } from './session-execution-state'
 import { observeSession, resumeSessionOn } from './session-reattach'
 import {
@@ -205,11 +206,7 @@ async function promptTurn(args: {
     // credentials or personal context.
     const rebind = session.client !== client || principalChanged
 
-    if (
-      rebind ||
-      nextContext.systemPrompt !== session.systemPrompt ||
-      sessionContextStale(session, Date.now())
-    ) {
+    if (rebind || sessionContextStale(session, Date.now())) {
       const { alive } = await client.loadSession(
         session.openabSessionId,
         RUNTIME_CWD,
@@ -235,17 +232,18 @@ async function promptTurn(args: {
     )
 
     if (activeTurn.cancelled) return { stopReason: 'cancelled', unsent: true }
+    const update = await instructionsUpdate(args.teamId, args.userId, args.conversationId, fresh)
     // The lead ends with the current message's header, nearest its words.
     const lead = [
       attachments.length
         ? 'Attached files are already on this runtime. Use your native image/file reading tools to inspect them before answering.'
         : '',
       await retractedPrompt(session, fresh),
+      session.endpoint.provider === 'codex' ? '' : update.text,
       await backgroundWorkPrompt(session, fresh, args),
     ]
       .filter(Boolean)
       .join('\n\n')
-    const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate)
     const target = {
       teamId: session.teamId,
       conversationId: session.conversationId,
@@ -255,6 +253,7 @@ async function promptTurn(args: {
       runtimeUrl: session.endpoint.url,
       openabSessionId: session.openabSessionId,
     }
+    const text = redactedPromptUpdates(args.onTextDelta, args.onAgentUpdate, target)
 
     if (args.renewRuntimeEnv)
       renewal = renewTurnCredentials({
@@ -275,10 +274,11 @@ async function promptTurn(args: {
           // Runtime admission, not a backend flag, selects the command whose
           // principal and cancellation route own subsequent output.
           Object.assign(session, nextContext)
+          void update.given()
           session.activeTurn = activeTurn
           if (activeTurn.cancelled) client.cancel(session.openabSessionId)
         },
-        nextContext,
+        { ...nextContext, instructionsUpdate: update.text },
         attachments,
         lead,
       )

@@ -1,6 +1,6 @@
 import { t } from '../../i18n/index.ts'
 import { isThisComputer } from '../../lib/agentName.ts'
-import { AGENT_PROVIDER } from '../../types/runtime.ts'
+import { agentProvider } from '../../types/runtime.ts'
 
 import type { AgentDevice, LocalAgentProvider } from '../../api/device-types'
 import type { ThisComputer } from '../../lib/agentName.ts'
@@ -56,7 +56,7 @@ const RUNS_ON: Record<RuntimeInstance['kind'], string> = {
  */
 export function agentName(instance: RuntimeInstance): string {
   return instance.kind === 'local'
-    ? (instance.local?.agentLabel ?? AGENT_PROVIDER[instance.provider].label)
+    ? (instance.local?.agentLabel ?? agentProvider(instance.provider).label)
     : instance.label
 }
 
@@ -72,7 +72,7 @@ function agentNameOfPerson(agent: Pick<RuntimeInstance, 'provider' | 'local'>): 
   const label = agent.local?.agentLabel
 
   if (!label) return undefined
-  const base = AGENT_PROVIDER[agent.provider].label
+  const base = agentProvider(agent.provider).label
 
   if (label === base) return undefined
   if (label.startsWith(`${base} `) && NUMBERED_DEFAULT.test(label.slice(base.length + 1)))
@@ -98,7 +98,7 @@ export function agentDisplayName(
     agentNameOfPerson(instance) ??
     local.accountLabel ??
     local.agentLabel ??
-    AGENT_PROVIDER[instance.provider].label
+    agentProvider(instance.provider).label
   )
 }
 
@@ -165,9 +165,21 @@ export function localSignIn(
   if (!local || local.signedIn === true) return undefined
   if (instance.provider !== 'claude-code' && instance.provider !== 'codex') return 'runtime'
 
+  // An ended sign-in too: the CLI's login here tells the backend it runs as this person now.
   return !local.instanceId && isThisComputer(thisComputer, computerOf(local))
     ? instance.provider
     : 'runtime'
+}
+
+/** This Desktop's own Claude Code or Codex: settings saved on this computer, such as its custom provider. */
+export function ownCliProvider(
+  instance: RuntimeInstance,
+  thisComputer: ThisComputer,
+): 'claude-code' | 'codex' | undefined {
+  const local = instance.local
+
+  if (!local || local.instanceId || !isThisComputer(thisComputer, computerOf(local))) return
+  if (instance.provider === 'claude-code' || instance.provider === 'codex') return instance.provider
 }
 
 /**
@@ -185,4 +197,9 @@ export function newAgentAction(
 
   // Native keyring sign-in is shared; another home does not create another account.
   return provider === 'antigravity' ? null : { create: true }
+}
+
+/** Whose account a computer's agent runs as: whoever signed it in through Nuphos. */
+export function signedInAs(name: string, signerId: string, viewerId: string | undefined): string {
+  return signerId === viewerId ? t('Signed in as you') : t('Signed in as {name}', { name })
 }

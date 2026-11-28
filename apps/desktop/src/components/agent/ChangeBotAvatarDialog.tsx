@@ -10,7 +10,7 @@ import {
   receiveAgentAvatars,
 } from '../../lib/agentAvatarChoices'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { BOT_AVATAR_BACKGROUNDS, botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
+import { botAvatarBackground, botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
 import { botAvatarFile, botAvatarName } from '../../lib/botAvatars'
 import { closeChangeBotAvatar, useChangeBotAvatarRequest } from '../../lib/changeBotAvatar'
 import { AvatarPicker } from '../../views/settings/AvatarPicker'
@@ -45,11 +45,7 @@ function ChangeBotAvatarDialog({
     photo ? undefined : botAvatarFile(botId, agentAvatarPick(botId)),
   )
   const [picked, setPicked] = useState(current)
-  const [savedBackground] = useState(() => {
-    const known = agentAvatarBackground(botId)
-
-    return BOT_AVATAR_BACKGROUNDS.find((name) => name === known) ?? 'none'
-  })
+  const [savedBackground] = useState(() => botAvatarBackground(agentAvatarBackground(botId)))
   const [background, setBackground] = useState<BotAvatarBackground>(savedBackground)
   const [preview, setPreview] = useState<BotAvatarFile | null>(null)
   const [busy, setBusy] = useState(false)
@@ -110,7 +106,7 @@ function ChangeBotAvatarDialog({
           className="[&_img]:[background:var(--bot-avatar-background)]"
           style={
             {
-              '--bot-avatar-background': (shown && botAvatarBackgroundColor(background)) || 'none',
+              '--bot-avatar-background': shown ? botAvatarBackgroundColor(background) : 'none',
             } as React.CSSProperties
           }
         >

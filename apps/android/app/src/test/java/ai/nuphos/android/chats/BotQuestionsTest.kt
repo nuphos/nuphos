@@ -16,6 +16,7 @@ import ai.nuphos.android.model.InputRequest
 import ai.nuphos.android.session.BotQuestion
 import ai.nuphos.android.session.BotQuestions
 import ai.nuphos.android.session.ChannelSession
+import ai.nuphos.android.session.FormEntry
 import ai.nuphos.android.session.OpenQuestions
 import ai.nuphos.android.ui.chats.cardReplies
 import ai.nuphos.android.ui.chats.isLongBody
@@ -485,14 +486,56 @@ class BotQuestionsTest {
     }
 
     @Test fun theFormSendsOneAnswerPerQuestionAsDesktopDoes() {
-        val questions = twoQuestions.questions!!
-        val answer = BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("us", "eu")), listOf("", ""))
+        val answer = BotQuestion.formAnswer(listOf(FormEntry(listOf("Send")), FormEntry(listOf("us", "eu"))))
         assertEquals("""{"questions":[{"choices":["Send"]},{"choices":["us","eu"]}]}""", answer.compact)
-        // Typed words take the place of the picks; one question is answered on its own.
+        // Other's words, trimmed, never beside choices; one question is answered on its own.
         assertEquals("""{"questions":[{"text":"Hold until Monday"},{"choices":["eu"]}]}""",
-            BotQuestion.formAnswer(questions, listOf(listOf("Send"), listOf("eu")), listOf(" Hold until Monday ", "")).compact)
-        assertEquals("""{"choices":["a","b"]}""",
-            BotQuestion.formAnswer(listOf(DecisionQuestion("Which?", listOf("a", "b"), true)), listOf(listOf("a", "b")), listOf("")).compact)
+            BotQuestion.formAnswer(listOf(FormEntry(other = true, words = " Hold until Monday "), FormEntry(listOf("eu")))).compact)
+        assertEquals("""{"choices":["a","b"]}""", BotQuestion.formAnswer(listOf(FormEntry(listOf("a", "b")))).compact)
+        // Words kept from an Other picked and then unpicked are not sent.
+        assertEquals("""{"choices":["a"]}""", BotQuestion.formAnswer(listOf(FormEntry(listOf("a"), words = "kept"))).compact)
+    }
+
+    @Test fun otherIsExclusiveWithTheOptionsMultiSelectToo() {
+        val many = FormEntry(listOf("us", "eu"))
+        val other = many.toggleOther()
+        assertEquals(FormEntry(other = true), other)
+        // Picking an option unpicks Other, keeping its words for when it is picked again.
+        val typed = other.copy(words = "Only ap")
+        assertEquals(FormEntry(listOf("us"), words = "Only ap"), typed.toggle("us", multiSelect = true))
+        assertEquals(FormEntry(listOf("Send"), words = "Only ap"), typed.toggle("Send", multiSelect = false))
+        // Picking Other again unpicks it; its words come back with it.
+        assertEquals(FormEntry(words = "Only ap"), typed.toggleOther())
+        assertEquals(typed, typed.toggleOther().toggleOther())
+        // Options as before: any number for a multi-select, one for a single choice, a second tap unpicks.
+        assertEquals(listOf("us", "eu", "ap"), many.toggle("ap", multiSelect = true).picked)
+        assertEquals(listOf("eu"), many.toggle("us", multiSelect = true).picked)
+        assertEquals(listOf("Hold"), FormEntry(listOf("Send")).toggle("Hold", multiSelect = false).picked)
+        assertEquals(emptyList<String>(), FormEntry(listOf("Send")).toggle("Send", multiSelect = false).picked)
+    }
+
+    @Test fun eachQuestionKeepsItsOwnWords() {
+        val entries = mutableListOf(FormEntry(), FormEntry())
+        entries[0] = entries[0].toggleOther().copy(words = "Hold until Monday")
+        // Other on the second question opens its own field, empty, and leaves the first's words alone.
+        entries[1] = entries[1].toggleOther()
+        assertEquals(FormEntry(other = true, words = "Hold until Monday"), entries[0])
+        assertEquals(FormEntry(other = true), entries[1])
+        entries[1] = entries[1].copy(words = "Only eu")
+        assertEquals("""{"questions":[{"text":"Hold until Monday"},{"text":"Only eu"}]}""", BotQuestion.formAnswer(entries).compact)
+    }
+
+    @Test fun answerNMoreCountsTheUnansweredQuestions() {
+        val questions = twoQuestions.questions!! + DecisionQuestion("Anything else?", emptyList())
+        val start = questions.map { FormEntry.start(it) }
+        // A question without options starts with its field open, unanswered until words are typed.
+        assertEquals(listOf(false, false, true), start.map { it.other })
+        assertEquals(3, BotQuestion.unanswered(start))
+        val picked = listOf(start[0].toggle("Send", false), start[1].toggle("eu", true), start[2])
+        assertEquals(1, BotQuestion.unanswered(picked))
+        // Other picked, blank words: still unanswered.
+        assertEquals(2, BotQuestion.unanswered(listOf(picked[0].toggleOther().copy(words = "  "), picked[1], picked[2])))
+        assertEquals(0, BotQuestion.unanswered(listOf(picked[0], picked[1], picked[2].copy(words = "No"))))
     }
 
     @Test fun aFormAnswerIsSentAsBuiltAndHidesTheCard() = runTest {
@@ -502,7 +545,7 @@ class BotQuestionsTest {
         val inbox = OpenQuestions(transport)
         inbox.refresh()
         val card = inbox.list.single()
-        val body = BotQuestion.formAnswer(card.form!!, listOf(listOf("Hold"), listOf("us")), listOf("", ""))
+        val body = BotQuestion.formAnswer(listOf(FormEntry(listOf("Hold")), FormEntry(listOf("us"))))
         inbox.answer(card, body, this)
         assertTrue(inbox.list.isEmpty())
         testScheduler.advanceUntilIdle()

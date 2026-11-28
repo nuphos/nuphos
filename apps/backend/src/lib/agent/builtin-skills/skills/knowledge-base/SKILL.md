@@ -1,6 +1,6 @@
 ---
 name: knowledge-base
-description: Search the Nuphos knowledge base, report a bad knowledge chunk, or contribute reusable knowledge through the canonical team REST API.
+description: "Search, report or contribute to the Nuphos knowledge base."
 ---
 
 # Nuphos knowledge base

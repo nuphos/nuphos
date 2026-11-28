@@ -228,8 +228,9 @@ export const channelScenarios: Scenario[] = [
   },
   ...botAccessScenarios,
   {
-    // #3252: the Bot composer's runtime line hid the usage bar the Task composer shows.
-    name: 'the Bot composer and the Task composer both show the runtime usage bar',
+    // #3252: Bot details' Runtime section (#4766) and the Task composer's runtime
+    // line both show the usage bar.
+    name: 'Bot details and the Task composer both show the runtime usage bar',
     run: async (page, stack) => {
       const computer = 'E2E usage computer'
       const fixture = 'E2E fixture agent'
@@ -238,7 +239,12 @@ export const channelScenarios: Scenario[] = [
       try {
         // Still in the Bot chat the scenarios before opened.
         await pickRuntime(page, computer, /^Claude Code/)
-        const bot = await shootRuntimeLine(page, 'bot')
+        const bot = await page
+          .getByRole('complementary', { name: 'Bot details' })
+          .getByRole('progressbar', { name: 'Usage remaining' })
+          .waitFor({ timeout: 30_000 })
+          .then(() => true)
+          .catch(() => false)
 
         await pickRuntime(page, fixture, /^E2E fixture agent.*Claude Code/)
         await newTask(page)

@@ -295,6 +295,7 @@ fun HomeRoute(
                         // A link or notification can name a chat: it opens as a chat, never as an agent.
                         else if (!fresh && agentStore.channel(id) != null)
                             ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                                onLink = ai.nuphos.android.ui.chat.rememberLinkHandler(nav),
                                 onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
                         else ConversationScreen(sessionId = id, fresh = fresh, onBack = { nav.popBackStack() }, nav = nav,
                             newChat = wide)
@@ -303,6 +304,7 @@ fun HomeRoute(
                         val id = entry.arguments?.getString("id").orEmpty()
                         if (membershipsLoading) SplashScreen()
                         else ai.nuphos.android.ui.chats.ChannelScreen(sessionId = id, onBack = { nav.popBackStack() },
+                            onLink = ai.nuphos.android.ui.chat.rememberLinkHandler(nav),
                             onOpenTask = { bot -> nav.navigate("conversation/${android.net.Uri.encode(bot)}") { launchSingleTop = true } })
                     }
                     composable("plan/{id}") { entry ->
@@ -420,8 +422,10 @@ fun HomeScreen(
     val inboxBadgeLabel = stringResource(R.string.shell_inbox_badge, inbox?.waiting?.size ?: 0)
     val profileLabel = stringResource(R.string.home_toolbar_account)
     val switchTeamLabel = stringResource(R.string.home_toolbar_switch_team)
+    // The Bots and Tasks lists sit on the surface, as on iOS.
+    val canvas = if (current == HomePage.Chats || current == HomePage.Agent) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.background
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = canvas,
         contentWindowInsets = WindowInsets.safeDrawing,
         bottomBar = {
             NavigationBar {
@@ -469,7 +473,7 @@ fun HomeScreen(
                         Text(stringResource(if (unavailablePage) R.string.shell_page_unavailable else current.label))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = canvas),
                 actions = {
                     Box {
                         IconButton(
@@ -605,7 +609,9 @@ fun HomeScreen(
         ProfileSheet(
             user = user,
             onDismiss = { showProfile = false },
+            showIntegrations = true,
             workspaceName = store.selectedTeam?.name,
+            teamId = store.selectedTeam?.id,
             workspacePicker = workspacePicker,
         )
     }

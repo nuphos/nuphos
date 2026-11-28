@@ -1,6 +1,6 @@
 ---
 name: aws
-description: Run AWS CLI v2 to inspect or change AWS resources. Use at once for a Nuphos /s3-buckets/ link (fetch and show it), AccessDenied on the BYOC role, or CloudWatch alarms into Triggers.
+description: "AWS CLI. Use at once for a Nuphos /s3-buckets/ link, AccessDenied on the BYOC role, or alarms."
 ---
 
 # AWS CLI
@@ -141,7 +141,7 @@ The workflow is not live when only the trigger exists. Finish every step, read i
    Status: {{payload.status}}; alarm: {{payload.alarm.name}}; state: {{payload.alarm.newState}}
    Reason: {{payload.alarm.reason}}; changed at: {{payload.alarm.stateChangedAt}}
    If payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation and no Slack post.
-   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 

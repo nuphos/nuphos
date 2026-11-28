@@ -3,6 +3,8 @@ import { ObjectId } from 'mongodb'
 
 import { createSlackOutboundContext } from './agent-outbound'
 
+import { createNotificationTools } from '@/lib/agent/tools-skilled/notification-tools'
+
 import type { SlackOutboundDependencies } from './agent-outbound'
 
 const teamId = new ObjectId().toHexString()
@@ -13,12 +15,9 @@ let workspaceBot: { botToken: string; workspaceName: string } | null = {
   workspaceName: 'HostCo',
 }
 let selfMapping: { slackUserId: string } | null = { slackUserId: 'U1' }
-let existingThread: { slackChannelId: string } | null = null
 let postCount = 0
-const bindings: Record<string, unknown>[] = []
 const postedMessages: Record<string, unknown>[] = []
-const transcriptAppends: { key: Record<string, unknown>; message: Record<string, unknown> }[] = []
-const FORK_SESSION_ID = 'forked-session-1'
+let mayPost = true
 
 const dependencies: SlackOutboundDependencies = {
   getBinding: async () =>
@@ -34,16 +33,6 @@ const dependencies: SlackOutboundDependencies = {
   resolveWorkspaceBot: async () => workspaceBot,
   getSelfMapping: async () => selfMapping,
   canViewPrivateChannels: async () => true,
-  getThreadBySessionId: async () => existingThread,
-  bindThread: async (input) => {
-    bindings.push(input)
-
-    return input
-  },
-  appendThreadMessage: async (key, message) => {
-    transcriptAppends.push({ key, message })
-  },
-  newSessionId: () => FORK_SESSION_ID,
   listChannels: async () => [{ id: 'C1', name: 'ops', isPrivate: false }],
   getChannel: async (_token: string, channelId: string) => ({
     id: channelId,
@@ -60,6 +49,7 @@ const dependencies: SlackOutboundDependencies = {
   readHistory: async () => ({ messages: [], hasMore: false }),
   readReplies: async () => ({ messages: [], hasMore: false }),
   listMembers: async () => ({ members: [], truncated: false }),
+  mayPostIn: async () => mayPost,
 }
 
 beforeEach(() => {
@@ -67,27 +57,22 @@ beforeEach(() => {
   channelGrants = []
   workspaceBot = { botToken: 'grant-token', workspaceName: 'HostCo' }
   selfMapping = { slackUserId: 'U1' }
-  existingThread = null
   postCount = 0
-  bindings.length = 0
   postedMessages.length = 0
-  transcriptAppends.length = 0
+  mayPost = true
 })
 
 describe('agent outbound Slack context', () => {
   test('is absent without a team-owned Slack installation', async () => {
     installed = false
     await expect(
-      createSlackOutboundContext(
-        { userId: 'user-1', conversationId: 'conv-1', teamId },
-        dependencies,
-      ),
+      createSlackOutboundContext({ userId: 'user-1', teamId, sessionId: 'bot-1' }, dependencies),
     ).resolves.toBeNull()
   })
 
   test('lists joined channels and current-user DM availability', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -109,7 +94,7 @@ describe('agent outbound Slack context', () => {
 
   test('does not disclose private destination names to non-administrators', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       {
         ...dependencies,
         canViewPrivateChannels: async () => false,
@@ -127,47 +112,65 @@ describe('agent outbound Slack context', () => {
     )
   })
 
-  test('posts one root and binds it to the current conversation', async () => {
+  test('posts one message and reports where it went', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
     const first = await context?.post({
       destination: { type: 'channel', channelId: 'C1' },
       text: 'Incident report',
-      bindConversation: true,
     })
 
     expect(first).toEqual({
       ok: true,
       destination: { type: 'channel', channelId: 'C1', label: '#ops' },
-      delivery: 'root',
       messageTs: '123.456',
-      rootThreadTs: '123.456',
-      threadBound: true,
     })
-    expect(bindings).toEqual([
-      expect.objectContaining({
-        slackWorkspaceId: 'T1',
-        slackChannelId: 'C1',
-        slackThreadTs: '123.456',
-        teamId,
-        agentUserId: 'user-1',
-        sessionId: 'conv-1',
-      }),
-    ])
-    // A fresh root is seeded by bindThread's rootText — appending it too would
-    // record the same message twice.
-    expect(transcriptAppends).toHaveLength(0)
 
     await expect(
       context?.post({
         destination: { type: 'channel', channelId: 'C1' },
         text: 'Duplicate',
-        bindConversation: true,
       }),
     ).resolves.toEqual(expect.objectContaining({ ok: false }))
     expect(postCount).toBe(1)
+  })
+
+  test('every post says which conversation it is from, so its Bot is named', async () => {
+    const context = await createSlackOutboundContext(
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
+      dependencies,
+    )
+
+    await context?.post({ destination: { type: 'channel', channelId: 'C1' }, text: 'Done.' })
+    const again = await createSlackOutboundContext(
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
+      dependencies,
+    )
+
+    await again?.post({ destination: { type: 'dm_self' }, text: 'Done.' })
+
+    expect(postedMessages.map((one) => one.from)).toEqual([
+      { sessionId: 'bot-1', slackWorkspaceId: 'T1' },
+      { sessionId: 'bot-1', slackWorkspaceId: 'T1' },
+    ])
+  })
+
+  test("another Bot's chat refuses the post before anything reaches Slack", async () => {
+    mayPost = false
+    const context = await createSlackOutboundContext(
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
+      dependencies,
+    )
+
+    await expect(
+      context?.post({ destination: { type: 'channel', channelId: 'C1' }, text: 'Hello.' }),
+    ).resolves.toEqual({
+      ok: false,
+      error: "#ops is another Bot's chat. Only that Bot and its Tasks post there.",
+    })
+    expect(postCount).toBe(0)
   })
 
   test('a non-destination rejection is capped too, so no validation path loops', async () => {
@@ -176,14 +179,13 @@ describe('agent outbound Slack context', () => {
     // loop, not just a noisy one.
     selfMapping = null
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-dm-loop', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
     const unlinkedDm = () =>
       context?.post({
         destination: { type: 'dm_self' },
         text: 'Alert fired.',
-        bindConversation: true,
       })
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -202,7 +204,7 @@ describe('agent outbound Slack context', () => {
     // against their API rather than a local one.
     let lookups = 0
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-throwing', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       {
         ...dependencies,
         getChannel: async () => {
@@ -215,7 +217,6 @@ describe('agent outbound Slack context', () => {
       context?.post({
         destination: { type: 'channel', channelId: 'C1' },
         text: 'Alert fired.',
-        bindConversation: true,
       })
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
@@ -236,7 +237,7 @@ describe('agent outbound Slack context', () => {
     // tool calls in one step, so that check alone bounds nothing — commitAttempt
     // has to be the gate.
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-race', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       {
         ...dependencies,
         // Yield inside the pre-commit window so both calls get past the fast path.
@@ -251,7 +252,6 @@ describe('agent outbound Slack context', () => {
       context!.post({
         destination: { type: 'channel', channelId: 'C1' },
         text,
-        bindConversation: false,
       })
 
     const results = await Promise.all([send('first report'), send('second report')])
@@ -264,12 +264,12 @@ describe('agent outbound Slack context', () => {
   test('refuses DM when the current user has no Slack identity mapping', async () => {
     selfMapping = null
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
     await expect(
-      context?.post({ destination: { type: 'dm_self' }, text: 'Report', bindConversation: true }),
+      context?.post({ destination: { type: 'dm_self' }, text: 'Report' }),
     ).resolves.toEqual(
       expect.objectContaining({ ok: false, error: expect.stringContaining('not linked') }),
     )
@@ -285,7 +285,7 @@ describe('channel-grant Slack access (team without its own installation)', () =>
 
   test('exists when enabled channel mappings grant access through another workspace', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -308,16 +308,13 @@ describe('channel-grant Slack access (team without its own installation)', () =>
   test('is absent when the granting workspace has no installation', async () => {
     workspaceBot = null
     await expect(
-      createSlackOutboundContext(
-        { userId: 'user-1', conversationId: 'conv-1', teamId },
-        dependencies,
-      ),
+      createSlackOutboundContext({ userId: 'user-1', teamId, sessionId: 'bot-1' }, dependencies),
     ).resolves.toBeNull()
   })
 
   test('posts to a granted channel with the granting workspace bot', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -325,9 +322,8 @@ describe('channel-grant Slack access (team without its own installation)', () =>
       context?.post({
         destination: { type: 'channel', channelId: 'C9' },
         text: 'hello',
-        bindConversation: false,
       }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
+    ).resolves.toEqual(expect.objectContaining({ ok: true, messageTs: '123.456' }))
     expect(postedMessages).toEqual([
       expect.objectContaining({ token: 'grant-token', channel: 'C9' }),
     ])
@@ -335,7 +331,7 @@ describe('channel-grant Slack access (team without its own installation)', () =>
 
   test('rejects channels outside the grant', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -343,7 +339,6 @@ describe('channel-grant Slack access (team without its own installation)', () =>
       context?.post({
         destination: { type: 'channel', channelId: 'C-ELSEWHERE' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(
       expect.objectContaining({ ok: false, error: expect.stringContaining('not linked') }),
@@ -353,7 +348,7 @@ describe('channel-grant Slack access (team without its own installation)', () =>
 
   test('rejects any DM destination', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -361,7 +356,6 @@ describe('channel-grant Slack access (team without its own installation)', () =>
       context?.post({
         destination: { type: 'dm_self' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(
       expect.objectContaining({ ok: false, error: expect.stringContaining('DM is unavailable') }),
@@ -371,7 +365,7 @@ describe('channel-grant Slack access (team without its own installation)', () =>
 
   test('fails closed when the grant is revoked between planning and posting', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -380,30 +374,11 @@ describe('channel-grant Slack access (team without its own installation)', () =>
       context?.post({
         destination: { type: 'channel', channelId: 'C9' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(
       expect.objectContaining({ ok: false, error: expect.stringContaining('no longer connected') }),
     )
     expect(postCount).toBe(0)
-  })
-
-  test('binds the conversation to a root posted through the granting workspace', async () => {
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
-      dependencies,
-    )
-
-    await expect(
-      context?.post({
-        destination: { type: 'channel', channelId: 'C9' },
-        text: 'alert',
-        bindConversation: true,
-      }),
-    ).resolves.toEqual(expect.objectContaining({ ok: true, delivery: 'root' }))
-    expect(bindings).toEqual([
-      expect.objectContaining({ slackWorkspaceId: 'T9', slackChannelId: 'C9', teamId }),
-    ])
   })
 })
 
@@ -415,7 +390,7 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
 
   test('lists own joined channels and granted foreign channels together', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -444,7 +419,7 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
 
   test('routes a workspace-qualified granted destination through the granting bot', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -452,7 +427,6 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
       context?.post({
         destination: { type: 'channel', channelId: 'C9', slackWorkspaceId: 'T9' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(expect.objectContaining({ ok: true }))
     expect(postedMessages).toEqual([
@@ -462,7 +436,7 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
 
   test('falls back to the grant when the own bot cannot reach an unqualified channel', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       {
         ...dependencies,
         getChannel: async (token: string, channelId: string) => {
@@ -479,7 +453,6 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
       context?.post({
         destination: { type: 'channel', channelId: 'C9' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(expect.objectContaining({ ok: true }))
     expect(postedMessages).toEqual([
@@ -489,7 +462,7 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
 
   test('prefers the own bot for an unqualified channel it can reach', async () => {
     const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
 
@@ -497,7 +470,6 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
       context?.post({
         destination: { type: 'channel', channelId: 'C9' },
         text: 'hello',
-        bindConversation: false,
       }),
     ).resolves.toEqual(expect.objectContaining({ ok: true }))
     expect(postedMessages).toEqual([
@@ -506,116 +478,33 @@ describe('mixed access (own installation plus foreign channel grants)', () => {
   })
 })
 
-describe('a report that opens its own reply thread', () => {
-  test('posts the root, opens the thread, and gives it a conversation of its own', async () => {
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
+// Under the channel-binds-a-Bot design (#4758) a slack_post message is never a
+// handle on a conversation: a follow-up goes to the channel's Bot.
+describe('the slack_post tool as the model calls it', () => {
+  test('posts one message and opens no thread, whatever the model passes', async () => {
+    const slackOutbound = await createSlackOutboundContext(
+      { userId: 'user-1', teamId, sessionId: 'bot-1' },
       dependencies,
     )
-    const result = await context?.post({
+    const { slackNotificationTools } = createNotificationTools({
+      slackOutbound,
+      larkOutbound: null,
+    })
+    const slackPost = slackNotificationTools.slack_post as {
+      inputSchema: { parse: (input: unknown) => unknown }
+      execute: (input: unknown, options: unknown) => Promise<unknown>
+    }
+    const input = slackPost.inputSchema.parse({
+      label: 'Post alert',
       destination: { type: 'channel', channelId: 'C1' },
-      text: 'Lighthouse cost is up 12%',
+      text: 'Alert fired.',
       bindConversation: true,
-      replyThread: { text: 'Full breakdown per instance…' },
+      replyThread: { text: 'Detail.' },
     })
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        ok: true,
-        delivery: 'root',
-        threadBound: true,
-        replyThread: { opened: true, sessionId: FORK_SESSION_ID },
-      }),
+    await expect(slackPost.execute(input, {})).resolves.toEqual(
+      expect.objectContaining({ ok: true, messageTs: '123.456' }),
     )
-    // The root, then one reply under it.
-    expect(postedMessages).toEqual([
-      expect.objectContaining({ channel: 'C1', text: 'Lighthouse cost is up 12%' }),
-      expect.objectContaining({ channel: 'C1', threadTs: '123.456' }),
-    ])
-    expect(postedMessages[1]?.text).toContain('Full breakdown per instance…')
-    // The invitation is the server's, not the model's.
-    expect(postedMessages[1]?.text).toContain('Mention me in this thread')
-    // The root is seeded by bindThread's rootText; the reply under it must be
-    // appended separately or the fork's judge never sees the bot's own report.
-    expect(transcriptAppends).toEqual([
-      {
-        key: { slackWorkspaceId: 'T1', slackChannelId: 'C1', slackThreadTs: '123.456' },
-        message: expect.objectContaining({
-          ts: '123.789',
-          authorName: 'Nuphos',
-          fromBot: true,
-          text: postedMessages[1]?.text,
-        }),
-      },
-    ])
-  })
-
-  test('binds the fork, never the conversation that produced the report', async () => {
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
-      dependencies,
-    )
-
-    await context?.post({
-      destination: { type: 'channel', channelId: 'C1' },
-      text: 'Daily digest',
-      bindConversation: true,
-      replyThread: { text: 'Detail' },
-    })
-    expect(bindings).toEqual([
-      expect.objectContaining({ sessionId: FORK_SESSION_ID, slackThreadTs: '123.456' }),
-    ])
-    expect(bindings[0]?.sessionId).not.toBe('conv-1')
-  })
-
-  test('carries the untruncated report to the fork, so its first reply has it in hand', async () => {
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
-      dependencies,
-    )
-
-    await context?.post({
-      destination: { type: 'channel', channelId: 'C1' },
-      text: 'Root summary',
-      bindConversation: true,
-      replyThread: { text: 'Thread detail' },
-    })
-    const context_ = bindings[0]?.notificationContext as string
-
-    expect(context_).toContain('Root summary')
-    expect(context_).toContain('Thread detail')
-  })
-
-  test('a thread that fails to open never fails the report already delivered', async () => {
-    let posts = 0
-    const context = await createSlackOutboundContext(
-      { userId: 'user-1', conversationId: 'conv-1', teamId },
-      {
-        ...dependencies,
-        postMessage: async (input) => {
-          posts += 1
-          if (posts === 2) throw new Error('thread_not_found')
-          postedMessages.push(input)
-
-          return { ok: true, channel: input.channel, ts: '123.456' }
-        },
-      },
-    )
-    const result = await context?.post({
-      destination: { type: 'channel', channelId: 'C1' },
-      text: 'Digest',
-      bindConversation: true,
-      replyThread: { text: 'Detail' },
-    })
-
-    expect(result).toEqual(
-      expect.objectContaining({
-        ok: true,
-        messageTs: '123.456',
-        threadBound: false,
-        replyThread: expect.objectContaining({ opened: false, error: 'thread_not_found' }),
-      }),
-    )
-    expect(bindings).toEqual([])
+    expect(postedMessages).toEqual([expect.not.objectContaining({ threadTs: expect.anything() })])
   })
 })

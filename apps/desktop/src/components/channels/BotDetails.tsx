@@ -1,3 +1,4 @@
+import { ChevronRight } from 'lucide-react'
 import { useEffect, useLayoutEffect, useRef } from 'react'
 
 import { usePaneId, useWorkspacePane } from '../../app/workspace/WorkspacePaneContext'
@@ -10,6 +11,7 @@ import {
 } from '../../lib/botDetailsPanel'
 import { useChatSummaryDocked } from '../../lib/chatSummaryPanel'
 import { selectInboxQuestion } from '../../views/inbox/inboxSelection'
+import { EditableConversationTitle } from '../agent/panel/ConversationTitleEditor'
 import { useBypassControl } from '../agent/panel/sessionBypass'
 import { sessionDesktopsOf } from '../agent/panel/shells'
 import { ChatSummaryPanel } from '../agent/summary/ChatSummaryPanel'
@@ -18,15 +20,19 @@ import { useChatSummaryShortcut } from '../agent/summary/useChatSummaryShortcut'
 import { useSessionInputRequests } from '../agent/summary/useSessionInputRequests'
 import { useAgentSessions } from '../sidebar/agentSessions'
 import { setSidebarMode } from '../sidebar/sidebarModeStore'
+import { Kbd } from '../ui/kbd'
+import { Tooltip } from '../ui/tooltip'
 
 import { BotAccessSection } from './BotAccessSection'
 import { botOfChannel } from './botChats'
 import { BotDetailsCard } from './BotDetailsCard'
+import { BotRuntimeSection } from './BotRuntimeSection'
 import { ChatHeaderIcon } from './channelParts'
 
 import type { ChannelAgent, ChannelFace } from '../../api'
 import type { RuntimeExecution } from '../../lib/runtimeExecution'
 import type { CredentialSelectorControl } from '../agent/panel/credentialSections'
+import type { RuntimeControl } from '../agent/panel/RuntimeSelector'
 
 /** A Bot chat's face and name: one button for the Bot's details beside the chat, as ⌘I is. */
 function BotDetailsToggle({
@@ -52,30 +58,48 @@ function BotDetailsToggle({
     return true
   })
 
+  // The heading clips what overflows it, so the button stays inside it; a chevron says it opens
+  // something, and points back once it has.
   return (
-    <button
-      ref={ref}
-      type="button"
-      data-summary-toggle
-      aria-expanded={open}
-      aria-label={t('Bot details')}
-      onClick={() => setBotDetailsOpen(bot, !open)}
-      className="titlebar-no-drag -ml-1 flex h-7 min-w-0 shrink items-center gap-2 rounded-lg pr-2 pl-1 text-main outline-none hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-line-focus aria-expanded:bg-state-selected"
+    <Tooltip
+      side="bottom"
+      content={
+        <span className="flex items-center gap-2">
+          {t('Bot details')}
+          <Kbd combo="mod+i" />
+        </span>
+      }
     >
-      <ChatHeaderIcon faces={faces} title={title} loading={false} />
-      <span className="min-w-0 truncate">{title}</span>
-    </button>
+      <button
+        ref={ref}
+        type="button"
+        data-summary-toggle
+        aria-expanded={open}
+        aria-label={t('Bot details')}
+        onClick={() => setBotDetailsOpen(bot, !open)}
+        className="group titlebar-no-drag flex h-7 min-w-0 shrink items-center gap-1.5 rounded-lg pr-1.5 pl-1 text-main outline-none hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-line-focus aria-expanded:bg-state-selected"
+      >
+        <ChatHeaderIcon faces={faces} title={title} loading={false} />
+        <span className="ml-0.5 min-w-0 truncate">{title}</span>
+        <ChevronRight
+          aria-hidden
+          className="size-3.5 shrink-0 text-tertiary transition-transform group-hover:text-secondary group-aria-expanded:rotate-180 group-aria-expanded:text-secondary motion-reduce:transition-none"
+        />
+      </button>
+    </Tooltip>
   )
 }
 
-/** A chat's face and name in its header; a Bot's open the Bot's details. */
+/** A chat's face and name in its header; a Bot's open the Bot's details, a group chat's owner renames it. */
 export function ChannelHeading({
+  teamId,
   chat,
   title,
   visible,
 }: {
+  teamId: string
   /** Undefined while the chat loads. */
-  chat: { faces?: ChannelFace[]; group?: true } | undefined
+  chat: { sessionId: string; isOwner?: boolean; faces?: ChannelFace[]; group?: true } | undefined
   title: string
   visible: boolean
 }) {
@@ -86,7 +110,14 @@ export function ChannelHeading({
   return (
     <>
       <ChatHeaderIcon faces={chat?.faces} title={title} loading={!chat} />
-      <span className="min-w-0 truncate text-main">{title}</span>
+      <span className="flex min-w-0 text-main">
+        <EditableConversationTitle
+          sessionId={chat?.sessionId ?? null}
+          teamId={teamId}
+          title={title}
+          canRename={chat?.isOwner === true}
+        />
+      </span>
     </>
   )
 }
@@ -106,6 +137,7 @@ export function BotDetailsPanel({
   onOpenLink,
   onEditTrigger,
   credentials,
+  runtime,
 }: {
   teamId: string
   bot: string
@@ -122,6 +154,8 @@ export function BotDetailsPanel({
   onEditTrigger?: (message: string) => void
   /** The Bot's selection, for its Access section; undefined until it loads. */
   credentials: CredentialSelectorControl | undefined
+  /** The owner's control of the Bot's runtime, for its Runtime section. */
+  runtime: RuntimeControl | undefined
 }) {
   const frameRef = useRef<HTMLSpanElement>(null)
   const narrow = useNoRoomBeside(frameRef, useChatSummaryDocked(usePaneId()))
@@ -156,7 +190,6 @@ export function BotDetailsPanel({
         teamId={teamId}
         onOpenLink={(url) => onOpenLink?.(url)}
         onOpenSession={onOpenSession}
-        onEditTrigger={onEditTrigger}
         onOpenRequest={(sessionId) => onOpenSession(sessionId)}
         // A Bot's questions, its own and its Tasks', are answered in the Inbox, open on the one picked.
         onSelectRequest={(request) => {
@@ -172,21 +205,31 @@ export function BotDetailsPanel({
           <BotAccessSection credentials={credentials} bypassControl={bypassControl} owned={owned} />
         }
         lead={
-          <BotDetailsCard
-            teamId={teamId}
-            bot={bot}
-            title={title}
-            agent={agent}
-            runtimeLabel={listed?.runtimeLabel}
-            loading={loading && !listed}
-            owned={owned}
-            onOpenTask={onOpenTask && (() => onOpenTask(bot))}
-            canOpenDesktop={
-              sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !owned }).canOpen ===
-              true
-            }
-            onEdited={onEdited}
-          />
+          <>
+            <BotDetailsCard
+              teamId={teamId}
+              bot={bot}
+              title={title}
+              agent={agent}
+              loading={loading && !listed}
+              owned={owned}
+              onOpenTask={onOpenTask && (() => onOpenTask(bot))}
+              canOpenDesktop={
+                sessionDesktopsOf(teamId, { runtimeState: botState, foreign: !owned }).canOpen ===
+                true
+              }
+              onEdited={onEdited}
+              onEditTrigger={onEditTrigger}
+              onClose={() => setBotDetailsOpen(bot, false)}
+            />
+            <BotRuntimeSection
+              teamId={teamId}
+              bot={bot}
+              runtime={runtime}
+              listed={listed}
+              owned={owned}
+            />
+          </>
         }
       />
     </>

@@ -68,6 +68,19 @@ describe('outOfUsageUntilReset', () => {
       ),
     ).toBe(false)
   })
+
+  test('a usage limit that stopped automatic compaction is out of usage until the reset', () => {
+    const error = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: Prompt is too long · automatic compaction failed: You've hit your weekly limit · resets Nov 25, 3am (UTC)\n> {"errorKind":"invalid_request"}`,
+      -32603,
+    )
+
+    expect(outOfUsageUntilReset(error)).toBe(true)
+    expect(turnFailureCause(error)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(error)).toBe(
+      "You've hit your weekly limit · resets Nov 25, 3am (UTC)",
+    )
+  })
 })
 
 describe('turnFailureCause', () => {
@@ -84,6 +97,8 @@ describe('turnFailureCause', () => {
       'offline',
     )
     expect(turnFailureCause(new AppError(409, 'runtime_disabled', 'Retired'))).toBe('offline')
+    // Removed, or its computer no longer shared: only moving the conversation helps.
+    expect(turnFailureCause(new AppError(404, 'runtime_not_found', 'Gone'))).toBe('offline')
     expect(turnFailureCause(new AppError(409, 'conversation_busy', 'Busy'))).toBe('other')
   })
 
@@ -146,6 +161,23 @@ describe('turnFailureCause', () => {
     expect(isRuntimeAuthRequired(refused)).toBe(false)
   })
 
+  test('a model the subscription only serves with usage credits is the agent out of usage', () => {
+    // Claude Code 2.1.330's two wordings for one refusal, as the runtime relays them.
+    for (const notice of [
+      "You're out of usage credits. Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.",
+      'Fable 5.2 requires usage credits. Switch to another model, or manage usage credits at https://claude.ai/settings/usage?from=cc_cli_limit_message, to continue.',
+    ]) {
+      const refused = new OpenAbRpcError(
+        `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorKind":"rate_limit"}`,
+        -32603,
+        { code: -32603, message: `Internal error: ${notice}` },
+      )
+
+      expect(turnFailureCause(refused)).toBe('usage_limit')
+      expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
+    }
+  })
+
   test('OpenCode’s free usage limit, as the runtime relays it, is the agent out of usage', () => {
     const notice =
       'The model provider refused the request: Free usage limit reached. Free models work in OpenCode (https://opencode.ai); subscribe to OpenCode Go to keep going: https://opencode.ai/go'
@@ -157,6 +189,20 @@ describe('turnFailureCause', () => {
     expect(turnFailureCause(wrapped('The model provider refused the request: overloaded'))).toBe(
       'other',
     )
+  })
+
+  test('OpenCode 2.x’s own free usage limit error is the agent out of usage', () => {
+    // OpenCode 2.4.2's ACP reply to session/prompt, which the runtime forwards unchanged.
+    const notice =
+      'Free usage limit reached. Connect a provider or subscribe to OpenCode Go to keep going, or switch models.'
+    const refused = new OpenAbRpcError(
+      `**Internal Error** (code: -32603)\nInternal error: ${notice}\n> {"errorName":"provider.free-limit","service":"session"}`,
+      -32603,
+      { code: -32603, message: `Internal error: ${notice}` },
+    )
+
+    expect(turnFailureCause(refused)).toBe('usage_limit')
+    expect(runtimeUsageExhaustedMessage(refused)).toBe(notice)
   })
 })
 

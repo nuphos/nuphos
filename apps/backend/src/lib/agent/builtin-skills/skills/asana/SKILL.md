@@ -1,6 +1,6 @@
 ---
 name: asana
-description: Read, create, comment on and complete Asana tasks in a team-bound Asana account. Use for opening, tracking or closing a task, or checking its status.
+description: "Read, create, comment on and complete Asana tasks in a team-bound account."
 ---
 
 # asana

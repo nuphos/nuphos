@@ -47,13 +47,14 @@ type ExecutionStateConversation = Pick<
 export async function conversationExecutionState(
   conversation: ExecutionStateConversation,
 ): Promise<SessionExecutionState> {
-  // Status reads are polled and fall back to 'disconnected', so they wait briefly.
-  const state = await probeExecutionState(conversation, 3_000).catch(
-    (error: unknown): SessionExecutionState => ({
-      state:
-        error instanceof OpenAbRpcError && error.code === -32601 ? 'unsupported' : 'disconnected',
-    }),
-  )
+  // Polled, so it waits briefly. Only an agent out of reach lost its link; one refused (disabled, signed out, removed) meets that reason when a send starts.
+  const state = await probeExecutionState(conversation, 3_000).catch((error: unknown) => {
+    const code = error instanceof AppError || error instanceof OpenAbRpcError ? error.code : null
+
+    return error instanceof AppError && error.status < 500 && code !== 'runtime_offline'
+      ? READY_FOR_NEXT_MESSAGE
+      : ({ state: code === -32601 ? 'unsupported' : 'disconnected' } as const)
+  })
 
   return withSessionDesktops(state, conversation)
 }
@@ -125,7 +126,7 @@ export async function probeExecutionState(
 export async function cancelConversationRuntime(conversation: AgentConversation): Promise<void> {
   const attachment = liveAttachment(conversation)
 
-  if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
+  if (!attachment || !conversation.teamId) return
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
     purpose: 'control',
   })
@@ -235,9 +236,9 @@ export async function steerConversationRuntime(
   const attachment = liveAttachment(conversation)
 
   if (!attachment || !conversation.teamId) throw new Error('Conversation has no runtime session')
-  // Steering carries the sender's input, so it is resolved as theirs.
+  // Steering carries the sender's input, so it is resolved as theirs, on a current sign-in.
   const { endpoint } = await resolveConversationChatRuntime(conversation.teamId, conversation, {
-    purpose: 'control',
+    purpose: 'steer',
     userId: steer.userId,
   })
 

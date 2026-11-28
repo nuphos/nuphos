@@ -8,7 +8,7 @@ export const RUNTIME_FILE_BUDGET = 1_800
 export const RUNTIME_BYTE_BUDGET = 28 * 1024 * 1024
 /** A skill this large would crowd out dozens of others; leave it on this computer. */
 export const MAX_SYNCED_SKILL_BYTES = 4 * 1024 * 1024
-/** localSkillEntries stops walking at 200 files, so a skill that reaches it is incomplete. */
+/** A skill with this many files would crowd out the rest of the personal bundle. */
 export const MAX_SYNCED_SKILL_FILES = 200
 /** A store object larger than this is rejected, so it is never uploaded. */
 export const MAX_SYNCED_FILE_BYTES = 10_000_000
@@ -67,7 +67,7 @@ function skipReason(
   foreignNames: ReadonlySet<string | null>,
 ): SkippedSkill['reason'] | null {
   if (skill.unreviewed) return 'needs_review'
-  // The walk stops at 200 files or 5,000 entries, possibly before reaching
+  // The walk stops at 1,000 files or 5,000 entries, possibly before reaching
   // SKILL.md, so that comes first: a partial list must never drive deletions.
   if (skill.truncated || skill.files.length >= MAX_SYNCED_SKILL_FILES) return 'too_many_files'
   // A file could not be read, or SKILL.md vanished, so nothing would upload.

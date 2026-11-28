@@ -551,7 +551,7 @@ async fn handle_permission_request(
         return false;
     }
 
-    let Some(request_id) = message.id else {
+    let Some(request_id) = message.id.clone() else {
         warn!("agent emitted session/request_permission without an id; ignoring invalid request");
         return true;
     };
@@ -580,7 +580,7 @@ fn is_current_prompt_activity(message: &JsonRpcMessage, request_id: u64, session
     if message.method.as_deref() == Some("session/request_permission") {
         return is_permission_for_session(message, session_id);
     }
-    if message.id == Some(request_id) {
+    if message.id.as_ref().and_then(serde_json::Value::as_u64) == Some(request_id) {
         return true;
     }
 
@@ -995,9 +995,11 @@ impl AdapterRouter {
         let (idle_tx, mut idle_rx) = tokio::sync::mpsc::channel(ACP_NOTIFICATION_CAPACITY);
         let idle_adapter = adapter.clone();
         let idle_channel = thread_channel.clone();
+        let instructions_update = self.pool.take_instructions_update(thread_key).await;
         let result = self.pool
             .with_connection(thread_key, |conn| {
                 let content_blocks = content_blocks.clone();
+                let instructions_update = instructions_update.clone();
                 // Redacted out here, not in the async block: `with_connection` returns a future
                 // that outlives any borrow of `thread_key`, so it may only capture owned values.
                 let redacted_thread_key = crate::redact::redact_session_ids(thread_key);
@@ -1012,7 +1014,9 @@ impl AdapterRouter {
                         .acp_session_id
                         .clone()
                         .ok_or_else(|| anyhow::anyhow!("no session"))?;
-                    let (mut rx, request_id) = conn.session_prompt(content_blocks).await?;
+                    let (mut rx, request_id) = conn
+                        .session_prompt(content_blocks, instructions_update)
+                        .await?;
                     // The settings the session reported when it opened (or last changed) go
                     // up with every turn, so a client shows what this session runs while
                     // the turn is still going, not only once it ends (#3789).
@@ -1332,8 +1336,8 @@ impl AdapterRouter {
                         if handled_permission {
                             continue;
                         }
-                        if let Some(notification_id) = notification.id {
-                            if notification_id != request_id {
+                        if let Some(notification_id) = &notification.id {
+                            if notification_id.as_u64() != Some(request_id) {
                                 // Stale response from a previously-abandoned prompt.
                                 // No automated test seam: this path only triggers when a
                                 // real subprocess emits a late response after the broker

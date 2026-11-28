@@ -15,9 +15,14 @@ export const MODEL_ON_DEMAND_MS = 60_000
  */
 export const MODEL_FIRST_READ_MS: Partial<Record<string, number>> = { hermes: 60_000 }
 
-type Reader = { live: () => boolean; read: (pickerOpened: boolean) => Promise<boolean | undefined> }
+type Reader = {
+  live: () => boolean
+  read: (pickerOpened: boolean) => Promise<boolean | undefined>
+  reread: () => Promise<unknown>
+}
 
-const readers = new Set<Reader>()
+// The current run's reader of each agent; a restarted process replaces its own.
+const readers = new Map<Agent, Reader>()
 
 /**
  * Reads the models a started agent offers, and keeps reading while it runs:
@@ -79,6 +84,7 @@ export function discoverModels(
       .finally(() => {
         inFlight = undefined
       })
+    agent.probing = inFlight
 
     return inFlight
   }
@@ -116,13 +122,15 @@ export function discoverModels(
       : MODEL_ON_DEMAND_MS
   }
 
-  readers.add({
+  readers.set(agent, {
     live,
     read: (pickerOpened) =>
       inFlight ??
       (signedOut() || Date.now() - readAt < onDemandGap(pickerOpened)
         ? Promise.resolve(false)
         : read()),
+    // A read already under way may have started the CLI before the change.
+    reread: () => (inFlight ?? Promise.resolve()).then(() => (live() ? read() : undefined)),
   })
   const first = MODEL_FIRST_READ_MS[run.provider]
 
@@ -139,6 +147,15 @@ export function discoverModels(
  * one.
  */
 export async function refreshRunningModels(pickerOpened = false): Promise<void> {
-  for (const reader of readers) if (!reader.live()) readers.delete(reader)
-  await Promise.all([...readers].map((reader) => reader.read(pickerOpened)))
+  for (const [agent, reader] of readers) if (!reader.live()) readers.delete(agent)
+  await Promise.all([...readers.values()].map((reader) => reader.read(pickerOpened)))
+}
+
+/**
+ * Reads a running agent's models now, as its sign-in through Nuphos finished: a CLI that
+ * lists models signed out (OpenCode's free ones) never looks signed out, so nothing else
+ * reads the provider just signed in to before the next scheduled read.
+ */
+export async function rereadModels(agent: Agent): Promise<void> {
+  await readers.get(agent)?.reread()
 }

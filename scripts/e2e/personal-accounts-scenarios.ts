@@ -55,7 +55,13 @@ export const personalAccountScenarios: Scenario[] = [
 
       try {
         await page.getByRole('button', { name: 'Connectors', exact: true }).click()
-        const connectors = page.getByRole('dialog', { name: 'Connectors', exact: true })
+        await page
+          .getByRole('dialog', { name: 'Connectors', exact: true })
+          .getByRole('button', { name: 'Open GitHub', exact: true })
+          .first()
+          .click()
+        // The member's accounts are listed on the service's own page.
+        const connectors = page.getByRole('dialog', { name: 'GitHub', exact: true })
 
         await connectors.getByText(`Connected as ${WORK}`).waitFor()
         await connectors.getByText(`Connected as ${HOME}`).waitFor()
@@ -110,10 +116,16 @@ export const personalAccountScenarios: Scenario[] = [
         `/invitations/${String((invited.body as { invitation?: { id: string } }).invitation?.id)}/accept`,
       )
 
-      const connectors = page.getByRole('dialog', { name: 'Connectors', exact: true })
+      // A Google account still waiting for the client opens Gmail's own page, which says why.
+      const connectors = page.getByRole('dialog', { name: 'Gmail', exact: true })
       const hint = connectors.getByText(/Needs a Google OAuth client/).first()
       const open = async () => {
         await page.getByRole('button', { name: 'Connectors', exact: true }).click()
+        await page
+          .getByRole('dialog', { name: 'Connectors', exact: true })
+          .getByRole('button', { name: 'Add Gmail', exact: true })
+          .first()
+          .click()
         await hint.waitFor()
       }
       const close = async () => {
@@ -122,7 +134,7 @@ export const personalAccountScenarios: Scenario[] = [
       }
       const switchTo = async (from: RegExp, name: string) => {
         await page.getByText(from).first().click()
-        await page.getByRole('menuitem', { name: 'Switch workspace' }).click()
+        await page.getByRole('menuitem', { name: 'Switch team' }).click()
         await page.getByRole('menuitem', { name: new RegExp(`${name}$`) }).click()
       }
 

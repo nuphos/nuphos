@@ -3,7 +3,7 @@ import Foundation
 /// Account operations deliberately do not use the agent transport.
 enum AccountAPI {
     /// Bump together with the displayed notice and backend AI_CONSENT_VERSION.
-    static let aiConsentVersion = "2026-09-28"
+    static let aiConsentVersion = "2026-11-23"
     struct Consent: Codable { let version: String; let accepted: Bool }
     struct SignIn: Decodable { let token: String; let user: NuphosUser }
     struct OK: Decodable { let ok: Bool }
@@ -23,6 +23,8 @@ enum AccountAPI {
         request.timeoutInterval = 30
         request.setValue(upload == nil ? "application/json" : "application/octet-stream", forHTTPHeaderField: "Content-Type")
         request.setValue("nuphos-ios/\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "unknown")", forHTTPHeaderField: "x-atlas-client")
+        // GET ai-consent answers for the notice this build shows.
+        request.setValue(aiConsentVersion, forHTTPHeaderField: "x-nuphos-ai-consent-version")
         if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
         if let body { request.httpBody = try JSONSerialization.data(withJSONObject: body) }
         request.httpBody = upload ?? request.httpBody

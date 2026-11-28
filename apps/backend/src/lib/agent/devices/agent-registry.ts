@@ -16,6 +16,23 @@ export type RegisteredAgent = {
   signedIn: boolean | null
 }
 
+/**
+ * Who last signed one of a computer's agents in through Nuphos, one record per agent: its host
+ * resets the agent before each sign-in, so it holds that account alone. The agent acts as it
+ * for everyone who uses the computer, and whoever could reach the computer could reach the
+ * account through it. So it ends when its signer stops managing the computer, or anyone loses
+ * access to it, and the host resets the agent, which runs nothing until someone who manages
+ * the computer signs it in again. See agent-sign-ins.
+ */
+export type AgentSignIn = {
+  /** The agent's registryKey. */
+  agent: string
+  userId: string
+  teamId: string
+  at: Date
+  endedAt?: Date
+}
+
 /** Who added an agent to a computer through Nuphos, and when; only those agents have one. */
 export type AgentAddition = { instanceId: string; userId: string; at: Date }
 
@@ -35,14 +52,31 @@ export type PendingRemoval = {
   at: Date
 }
 
+/**
+ * A sign-in reset its computer could not run when it was asked for: offline, or a host too
+ * old to reset. The computer runs it, and this entry goes, once it reports in able to.
+ */
+export type PendingReset = {
+  id: string
+  agent: RemovableAgent
+  /** Who asked for it, and in which team, as for a removal. */
+  actorId: string
+  teamId: string
+  at: Date
+}
+
 /** What a computer's record keeps about its agents. */
 export type DeviceAgentRecords = {
   /** Agents this computer has ever had signed in. */
   agents?: RegisteredAgent[]
   /** Who added each of its added agents; absent for agents added before this was recorded. */
   addedAgents?: AgentAddition[]
+  /** Who signed each agent in through Nuphos; absent for sign-ins made before this was recorded. */
+  signIns?: AgentSignIn[]
   /** Agents removed while it was offline, until it deletes them. */
   removedAgents?: PendingRemoval[]
+  /** Agents to sign out once it can; unlike a removal, the agent stays listed meanwhile. */
+  pendingResets?: PendingReset[]
 }
 
 /** Whether a report's agent is one that was removed while its computer was offline. */
@@ -111,6 +145,17 @@ export function reportedAgentsKey(status: LocalRuntimeStatus): string {
     reportedAgents(status),
     status.instances?.map((agent) => [agent.instanceId, agent.state, agent.cli.installing]),
   ])
+}
+
+/** The agents a registry write signs out: signed out after it, but not before it. A report
+ *  that could not tell (null) sits between, so true, null, false still counts once. */
+export function signedOutAgents(
+  before: RegisteredAgent[],
+  after: RegisteredAgent[],
+): RegisteredAgent[] {
+  const signedIn = new Set(before.filter((agent) => agent.signedIn !== false).map(registryKey))
+
+  return after.filter((agent) => agent.signedIn === false && signedIn.has(registryKey(agent)))
 }
 
 /** Registered agents get the latest report, but keep their name; an agent seen signed in

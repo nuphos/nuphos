@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">บันทึกฉบับร่างนี้ไม่ได้ โปรดเพิ่มพื้นที่เก็บข้อมูลแล้วลองอีกครั้ง</string>
-    <string name="composer_voice_unavailable">เลือกเวิร์กสเปซและยืนยันตัวเลือกการแชร์กับ AI เพื่อใช้การป้อนด้วยเสียง</string>
+    <string name="composer_voice_unavailable">เลือกทีมและยืนยันตัวเลือกการแชร์กับ AI เพื่อใช้การป้อนด้วยเสียง</string>
     <string name="composer_voice_start_failed">เริ่มการป้อนด้วยเสียงไม่ได้ โปรดตรวจสอบสิทธิ์ไมโครโฟนแล้วลองอีกครั้ง</string>
     <string name="composer_voice_failed">การป้อนด้วยเสียงล้มเหลว</string>
     <string name="composer_add_to_draft">เพิ่มลงในฉบับร่าง</string>
@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">สลับรันไทม์ไม่ได้ โปรดรีเฟรชแล้วลองอีกครั้ง</string>
     <string name="composer_switching_runtime">กำลังสลับรันไทม์…</string>
     <string name="composer_runtime_view_only">คุณดูรันไทม์ของงานนี้ได้ แต่ย้ายไม่ได้</string>
-    <string name="composer_runtime_wait">โปรดรอให้คำตอบปัจจุบันหรือข้อความที่รอดำเนินการเสร็จก่อนสลับรันไทม์</string>
+    <string name="composer_runtime_wait">รอให้ข้อความที่กำลังส่งหรือการอัปโหลดเสร็จก่อน แล้วจึงสลับรันไทม์</string>
     <string name="composer_loading_runtimes">กำลังโหลดรันไทม์…</string>
     <string name="composer_no_runtimes">ไม่มีรันไทม์ที่ใช้ได้</string>
     <string name="composer_no_runtimes_body">เปิด Nuphos บนคอมพิวเตอร์ของคุณเพื่อเพิ่ม Box หรือเชื่อมต่อคอมพิวเตอร์ของคุณเอง</string>
@@ -79,13 +79,17 @@
     <string name="composer_runtime_offline">รันไทม์นี้ออฟไลน์อยู่ การตั้งค่าโมเดลจะกลับมาเมื่อเชื่อมต่อใหม่</string>
     <string name="composer_runtime_no_model">รันไทม์นี้ไม่มีการตั้งค่าโมเดล</string>
     <string name="composer_share_open_failed">เปิดฉบับร่างนี้ไม่ได้ ยังไม่ได้ส่งสิ่งที่คุณแชร์</string>
-    <string name="composer_share_no_workspace">เปิดเวิร์กสเปซในบัญชีเพื่อรับการแชร์นี้ ยังไม่มีการส่งสิ่งใด</string>
+    <string name="composer_share_no_workspace">เปิดทีมในบัญชีเพื่อรับการแชร์นี้ ยังไม่มีการส่งสิ่งใด</string>
     <string name="composer_preparing_draft">กำลังเตรียมฉบับร่าง</string>
     <string name="composer_open_draft_failed">เปิดฉบับร่างไม่ได้</string>
     <string name="composer_preparing_share">กำลังเตรียมเนื้อหาที่แชร์…</string>
     <string name="composer_opening_draft">กำลังเปิดฉบับร่างใหม่ของคุณ ยังไม่มีการส่งสิ่งใด</string>
     <string name="composer_cancel_share">ยกเลิกการแชร์</string>
     <string name="composer_queued_messages">ข้อความในคิว</string>
+    <string name="composer_queue_usage_held">ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ต</string>
+    <string name="composer_queue_usage_held_days">ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ตในอีก %1$d วัน %2$d ชม.</string>
+    <string name="composer_queue_usage_held_hours">ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ตในอีก %1$d ชม. %2$d นาที</string>
+    <string name="composer_queue_usage_held_minutes">ใช้งานครบโควตา ข้อความเหล่านี้จะทำงานเมื่อโควตารีเซ็ตในอีก %1$d นาที</string>
     <string name="composer_refresh_queue">รีเฟรชคิว</string>
     <string name="composer_taken_back">นำกลับมาแล้ว โปรดกู้คืนข้อความนี้ก่อนออกจากงาน</string>
     <string name="composer_queued_attachment">ไฟล์แนบในคิว</string>

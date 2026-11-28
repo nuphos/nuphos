@@ -28,6 +28,10 @@ export const deviceApi = {
     provider: 'claude-code' | 'codex',
     value: { baseUrl: string; apiKey?: string; models: string[] } | null,
   ) => ipcRenderer.invoke('localRuntime:setCustomProvider', provider, value),
+  localRuntimeCheckCustomProvider: (
+    provider: 'claude-code' | 'codex',
+    value: { baseUrl: string; apiKey?: string; models: string[] },
+  ) => ipcRenderer.invoke('localRuntime:checkCustomProvider', provider, value),
   localRuntimeStartClaudeLogin: () => ipcRenderer.invoke('localRuntime:startClaudeLogin'),
   localRuntimeStartCodexLogin: () => ipcRenderer.invoke('localRuntime:startCodexLogin'),
   localRuntimeCancelClaudeLogin: () => ipcRenderer.invoke('localRuntime:cancelClaudeLogin'),
@@ -51,8 +55,6 @@ export const deviceApi = {
     ipcRenderer.invoke('localRuntime:installAgent', provider),
   localRuntimeLatestAgentVersions: () => ipcRenderer.invoke('localRuntime:latestAgentVersions'),
   localRuntimeOpenWorkspace: () => ipcRenderer.invoke('localRuntime:openWorkspace'),
-  localRuntimeListActivity: (before?: string) =>
-    ipcRenderer.invoke('localRuntime:listActivity', before),
   boxListDevices: (options?: AgentDeviceListOptions) =>
     ipcRenderer.invoke('box:listDevices', options),
   boxCreate: (
@@ -67,6 +69,8 @@ export const deviceApi = {
     ipcRenderer.invoke('box:bindInstaboxAccount', teamId, label, apiKey),
   unbindInstaboxAccount: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('box:unbindInstaboxAccount', teamId, accountId),
+  replaceInstaboxKey: (teamId: string, accountId: string, apiKey: string) =>
+    ipcRenderer.invoke('box:replaceInstaboxKey', teamId, accountId, apiKey),
   instaboxSizes: (teamId: string, accountId: string) =>
     ipcRenderer.invoke('box:instaboxSizes', teamId, accountId),
   boxPause: (deviceId: string, teamId: string) => ipcRenderer.invoke('box:pause', deviceId, teamId),

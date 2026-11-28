@@ -10,6 +10,11 @@
     <string name="chats_show_more">もっと見る</string>
     <string name="chats_question_your_answer">あなたの回答</string>
     <string name="chats_question_send_answer">回答を送信</string>
+    <string name="chats_question_other_picked">その他</string>
+    <string name="chats_question_choose_any">複数選択可</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">あと %1$d 問に回答</item>
+    </plurals>
     <string name="chats_question_heading_approval">承認が必要</string>
     <string name="chats_question_heading_preference">選択してください</string>
     <string name="chats_question_heading_credential">認証情報が必要</string>

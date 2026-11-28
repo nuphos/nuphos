@@ -100,7 +100,9 @@ export function githubResourceEvents(event: string, payload: unknown, commitPull
   const commitNumbers = commitPulls.map((key) => Number(key.split('/').pop()))
   let numbers: number[] = []
   let actor: { login: string; repository: string } | undefined
-  let summary = `GitHub ${event}.${action}.`
+  const summary = `GitHub ${event}.${action}.`
+  // A CI event only wakes once the head's CI as a whole has settled.
+  let ci = false
 
   if (
     event === 'check_suite' &&
@@ -109,11 +111,12 @@ export function githubResourceEvents(event: string, payload: unknown, commitPull
   ) {
     // CI results are reported against our own pushes, so only they skip the self-event filter.
     numbers = [...body.check_suite.pull_requests.map((pull) => pull.number), ...commitNumbers]
+    ci = true
   } else if (ownEvent(body)) {
     return []
   } else if (event === 'status') {
     numbers = commitNumbers
-    summary = `GitHub status.${body.state ?? ''} (${body.context ?? ''}).`
+    ci = true
   } else if (
     event === 'pull_request' &&
     ['opened', 'reopened', 'closed', 'synchronize', 'ready_for_review'].includes(action)
@@ -141,6 +144,7 @@ export function githubResourceEvents(event: string, payload: unknown, commitPull
     installationId: body.installation.id,
     actor,
     summary,
+    ci,
   }))
 }
 
@@ -209,20 +213,19 @@ export type ResourceTurn = {
 }
 
 /**
- * Refreshes the tags an event may change and returns the open PRs of a status's
- * or fork suite's commit, resolved once so the wakeups can reuse them. A tag that
- * can't refresh keeps its last health.
+ * Refreshes the tags an event may change. Returns the open PRs of a status's or
+ * fork suite's commit, resolved once so the wakeups can reuse them, and the PRs
+ * whose CI has settled. A tag that can't refresh keeps its last health.
  */
 async function refreshHealth(event: string, payload: unknown) {
   // A fork PR's check suite names no PRs; like a status, its commit finds them.
   const commit = githubStatusCommit(event, payload) ?? githubUnattachedSuiteCommit(event, payload)
   const commitPulls = commit ? await commitPullKeys(commit) : []
-
-  await refreshLinkedPullHealth(
+  const settled = await refreshLinkedPullHealth(
     commit ? commitPulls.map((key) => ({ ...commit, key })) : githubHealthTargets(event, payload),
   )
 
-  return commitPulls
+  return { commitPulls, settled }
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
@@ -238,7 +241,8 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
       { arrayFilters: [{ 'resource.key': pullState.key }] },
     )
   }
-  const events = githubResourceEvents(event, payload, await refreshHealth(event, payload))
+  const { commitPulls, settled } = await refreshHealth(event, payload)
+  const events = githubResourceEvents(event, payload, commitPulls)
 
   if (!events.length) return
   if (!deliveryId || deliveryId.length > 200)
@@ -246,6 +250,9 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
   let actorAllowed: Promise<boolean> | undefined
 
   for (const routed of events) {
+    const ci = routed.ci ? settled.get(routed.key) : undefined
+
+    if (routed.ci && !ci) continue
     const conversations = agentConversations().find({
       'linkedResources.key': routed.key,
     })
@@ -262,15 +269,16 @@ export async function routeResourceWebhook(event: string, payload: unknown, deli
         actorAllowed ??= canPush(routed.installationId, routed.actor.repository, routed.actor.login)
         if (!(await actorAllowed)) return
       }
+      // Every suite that settles the same CI result shares one wake.
       const messageId = createHash('sha256')
-        .update(JSON.stringify([conversation.sessionId, resource.id, deliveryId]))
+        .update(JSON.stringify([conversation.sessionId, resource.id, ci ? ci.id : deliveryId]))
         .digest('hex')
 
       await enqueueResourceTurn({
         sessionId: conversation.sessionId,
         resourceId: resource.id,
         messageId,
-        summary: routed.summary,
+        summary: ci ? ci.summary : routed.summary,
       })
     }
   }

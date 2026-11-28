@@ -1,6 +1,9 @@
 package ai.nuphos.android.ui.agent
 
 import ai.nuphos.android.R
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -152,7 +156,7 @@ fun AgentPage(
         var title by remember(target.sessionId) { mutableStateOf(target.displayTitle) }
         val busy = store.rowActionSessionId != null
         AlertDialog(onDismissRequest = { if (!busy) { renameTarget = null; store.clearRowActionError() } },
-            title = { Text(stringResource(R.string.agent_rename_task)) },
+            title = { Text(stringResource(if (target.isBot) R.string.agent_rename_bot else R.string.agent_rename_task)) },
             text = { Column {
                 OutlinedTextField(value = title, onValueChange = { title = it }, singleLine = true,
                     enabled = !busy, label = { Text(stringResource(R.string.agent_title)) }, isError = ai.nuphos.android.data.ConversationActions.validTitle(title) == null)
@@ -186,8 +190,10 @@ fun AgentPage(
     }
     var foldedIds by rememberSaveable(account, team?.id) { mutableStateOf(store.foldedThreadIds(account, team?.id).toList()) }
     val showInitialLoading = store.phase == AgentStore.Phase.Loading || store.phase == AgentStore.Phase.Idle
-    val tree = remember(store.conversations, foldedIds, account) {
-        ConversationNesting.nest(store.conversations, foldedIds.toSet(), account, groupSections = false, byFamily = true)
+    val noProject = stringResource(R.string.agent_no_project)
+    val tree = remember(store.conversations, foldedIds, account, noProject) {
+        ConversationNesting.nest(ConversationNesting.withProjects(store.conversations, noProject), foldedIds.toSet(), account,
+            groupSections = false, attention = { it.isWaiting || HistoryStatus.unread(it) })
     }
     LaunchedEffect(tree.rows.map { Triple(it.conversation.sessionId, it.depth, it.section) }) { rowInteractions.dismiss() }
     LaunchedEffect(listState, store.hasMore, store.conversations) {
@@ -262,6 +268,13 @@ fun AgentPage(
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         items(tree.rows, key = { "history:${it.conversation.sessionId}" }) { row ->
+                                    val toggle = {
+                                        foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
+                                        store.saveFoldedThreadIds(account, team?.id, foldedIds.toSet())
+                                    }
+                                    // Tasks that need the viewer sit above this line, as on Desktop.
+                                    if (row.divider) HorizontalDivider(Modifier.padding(vertical = 8.dp).testTag("tasks-attention-divider"), color = MaterialTheme.colorScheme.outlineVariant)
+                                    if (row.conversation.isProject) ProjectRow(row, toggle) else
                                     ConversationTreeRow(row,
                                         ConversationNesting.status(row) { store.historyObservation(it)?.label(maxOf(statusClock, RuntimeObservation.now())) },
                                         onWatch = if (store.canWatch(row.conversation)) ({ scope.launch { store.setWatching(row.conversation) } }) else null,
@@ -281,10 +294,7 @@ fun AgentPage(
                                         }) else null,
                                         onRename = if (store.canRename(row.conversation)) ({ store.clearRowActionError(); renameTarget = row.conversation }) else null,
                                         actionBusy = store.rowActionSessionId != null,
-                                        onToggle = {
-                                            foldedIds = if (row.conversation.sessionId in foldedIds) foldedIds - row.conversation.sessionId else foldedIds + row.conversation.sessionId
-                                            store.saveFoldedThreadIds(account, team?.id, foldedIds.toSet())
-                                        },
+                                        onToggle = toggle,
                                         onClick = { nav.navigate("conversation/${android.net.Uri.encode(row.conversation.sessionId)}") { popUpTo("home"); launchSingleTop = true } },
                                         selected = row.conversation.sessionId == selectedSessionId)
                         }
@@ -318,40 +328,75 @@ private fun RefreshableHistoryState(content: @Composable () -> Unit) {
 internal fun ConversationTreeRow(row: ConversationNesting.Row, status: String?, onToggle: () -> Unit, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
     val depth = row.depth.coerceAtMost(4)
     val levelDescription = stringResource(R.string.agent_sub_agent_level, row.depth)
-    val line = MaterialTheme.colorScheme.outlineVariant
-    Box(Modifier.fillMaxWidth().drawWithContent {
-        drawContent()
-        val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
-        fun x(level: Int): Float {
-            val logical = (level * 32 + 18).dp.toPx()
-            return if (rtl) size.width - logical else logical
-        }
-        for (level in 0 until depth) {
-            val branch = x(level)
-            if (row.trail.getOrNull(level) == true) drawLine(line, Offset(branch, 0f), Offset(branch, size.height), 1.dp.toPx())
-            if (level == depth - 1) {
-                drawLine(line, Offset(branch, 0f), Offset(branch, size.height / 2), 1.dp.toPx())
-                val end = if (rtl) size.width - (depth * 32 - 3).dp.toPx() else (depth * 32 - 3).dp.toPx()
-                drawLine(line, Offset(branch, size.height / 2), Offset(end, size.height / 2), 1.dp.toPx())
-            }
-        }
-        if (row.threads > 0 && !row.folded) drawLine(line, Offset(x(depth), size.height / 2 + 21.dp.toPx()), Offset(x(depth), size.height), 1.dp.toPx())
-        // Match the list separator without cutting across an expanded tree.
-        if (row.depth == 0 && (row.threads == 0 || row.folded)) {
-            val inset = 56.dp.toPx().coerceAtMost(size.width)
-            val start = if (rtl) 0f else inset
-            val end = if (rtl) size.width - inset else size.width
-            drawLine(line, Offset(start, size.height - 0.5.dp.toPx()), Offset(end, size.height - 0.5.dp.toPx()), 1.dp.toPx())
-        }
-    }.padding(start = (depth * 32).dp).semantics {
+    Box(Modifier.fillMaxWidth().treeLines(row, MaterialTheme.colorScheme.outlineVariant).semantics {
         stateDescription = levelDescription; this.selected = selected
     }) {
-        ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot)
+        ConversationRow(row.conversation, status, row.threads, row.folded, onToggle, onClick, onUnlink, unlinking, onWatch, watchBusy, selected, interactions, onArchive, actionBusy, onRename, onSetBot, depth = depth)
     }
 }
 
+/** A folder, not a conversation: the whole row folds what it holds. */
 @Composable
-internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null) {
+internal fun ProjectRow(row: ConversationNesting.Row, onToggle: () -> Unit) {
+    val foldState = stringResource(if (row.folded) R.string.agent_collapsed else R.string.agent_expanded)
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 44.dp).treeLines(row, MaterialTheme.colorScheme.outlineVariant, mark = TreeGeometry.FOLDER)
+            .clickable(onClick = onToggle).semantics { stateDescription = foldState }.testTag("task-project:${row.conversation.sessionId}")
+            .padding(top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // The folder takes a Task's runtime mark place, so the tree line runs from its centre.
+        Spacer(Modifier.width((TreeGeometry.GUTTER + row.depth.coerceAtMost(4) * TreeGeometry.INDENT).dp))
+        Box(Modifier.width(TreeGeometry.MARK.dp), contentAlignment = Alignment.Center) {
+            Icon(painterResource(if (row.conversation.sessionId == ConversationNesting.NO_PROJECT) R.drawable.task_no_project else R.drawable.task_project),
+                contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(TreeGeometry.FOLDER.dp))
+        }
+        Text(row.conversation.title, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 12.dp))
+    }
+}
+
+/** The list's tree geometry, as iOS `ThreadTree`: a line runs through the centre of each level's mark. */
+internal object TreeGeometry {
+    /** The state's column before the mark. */
+    const val GUTTER = 16
+    /** A Task's runtime mark. */
+    const val MARK = 40
+    /** A project's folder, in the mark's place. */
+    const val FOLDER = 18
+    const val INDENT = 32
+    fun x(level: Int) = GUTTER + level * INDENT + MARK / 2
+}
+
+/**
+ * Tree lines behind a row: ancestors' branches that continue, this row's turn into its
+ * own mark, and a line down from its mark (of [mark] dp) while its children show.
+ */
+internal fun Modifier.treeLines(row: ConversationNesting.Row, line: androidx.compose.ui.graphics.Color, mark: Int = TreeGeometry.MARK): Modifier = drawWithContent {
+    drawContent()
+    val depth = row.depth.coerceAtMost(4)
+    val rtl = layoutDirection == androidx.compose.ui.unit.LayoutDirection.Rtl
+    fun x(level: Int): Float {
+        val logical = TreeGeometry.x(level).dp.toPx()
+        return if (rtl) size.width - logical else logical
+    }
+    val mid = size.height / 2
+    for (level in 0 until depth) {
+        val branch = x(level)
+        if (row.trail.getOrNull(level) == true) drawLine(line, Offset(branch, 0f), Offset(branch, size.height), 1.dp.toPx())
+        if (level == depth - 1) {
+            drawLine(line, Offset(branch, 0f), Offset(branch, mid), 1.dp.toPx())
+            // The turn stops short of this row's gutter, as on iOS.
+            val endLogical = (TreeGeometry.GUTTER + depth * TreeGeometry.INDENT - 3).dp.toPx()
+            drawLine(line, Offset(branch, mid), Offset(if (rtl) size.width - endLogical else endLogical, mid), 1.dp.toPx())
+        }
+    }
+    if (row.threads > 0 && !row.folded) drawLine(line, Offset(x(depth), mid + (mark / 2 + 3).dp.toPx()), Offset(x(depth), size.height), 1.dp.toPx())
+}
+
+@Composable
+internal fun ConversationRow(conversation: AgentConversation, status: String?, threads: Int = 0, folded: Boolean = false, onToggle: () -> Unit = {}, onClick: () -> Unit, onUnlink: (() -> Unit)? = null, unlinking: Boolean = false, onWatch: (() -> Unit)? = null, watchBusy: Boolean = false, selected: Boolean = false, interactions: ConversationRowInteractions = remember { ConversationRowInteractions() }, onArchive: (() -> Unit)? = null, actionBusy: Boolean = false, onRename: (() -> Unit)? = null, onSetBot: (() -> Unit)? = null, depth: Int = 0) {
     val rename = stringResource(R.string.agent_rename)
     val watch = stringResource(if (conversation.watching == true) R.string.agent_unwatch else R.string.agent_watch)
     val unlink = stringResource(if (unlinking) R.string.agent_unlinking else R.string.agent_unlink)
@@ -371,20 +416,32 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
     ConversationRowActions(conversation.sessionId, actions, interactions, onClick) { surface, more ->
         Surface(
             modifier = Modifier.fillMaxWidth().then(surface),
-            color = if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else MaterialTheme.colorScheme.background,
+            color = if (selected) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface,
             shape = MaterialTheme.shapes.small,
         ) {
             Row(
-                Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
+                Modifier.padding(end = 4.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // A Task row, Bot or not, leads with its runtime, never a face.
-                Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { TaskMark(conversation.agentRuntime) }
+                // As on iOS: the status sits in a gutter before the runtime mark, never a face.
+                Box(Modifier.width(16.dp), contentAlignment = Alignment.Center) {
+                    if (status == "Running") {
+                        CircularProgressIndicator(Modifier.size(10.dp).semantics { stateDescription = status }, strokeWidth = 1.5.dp)
+                    } else if (status != null && status != "Unread") {
+                        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape).semantics { stateDescription = status })
+                    } else if (status == "Unread" || HistoryStatus.unread(conversation)) {
+                        val unread = stringResource(R.string.agent_unread_reply)
+                        Box(Modifier.size(8.dp).background(MaterialTheme.colorScheme.onSurface, CircleShape).semantics { stateDescription = unread })
+                    }
+                }
+                // A thread indents after the gutter, so every state stays at the list's edge, as on iOS.
+                if (depth > 0) Spacer(Modifier.width((depth * TreeGeometry.INDENT).dp))
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.surfaceContainer, CircleShape), contentAlignment = Alignment.Center) {
+                    RuntimeMark(conversation.agentRuntime, 20.dp)
+                }
                 Column(Modifier.weight(1f).padding(start = 12.dp)) {
                     Text(conversation.displayTitle, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
-                    }
+                    Text(meta(conversation, status?.takeUnless { it == "Unread" }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.52f), maxLines = if (androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.3f) Int.MAX_VALUE else 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (threads > 0) {
                     val foldState = stringResource(if (folded) R.string.agent_collapsed else R.string.agent_expanded)
@@ -396,15 +453,7 @@ internal fun ConversationRow(conversation: AgentConversation, status: String?, t
                             contentDescription = pluralStringResource(if (folded) R.plurals.agent_show_sub_agents else R.plurals.agent_hide_sub_agents, threads, threads))
                     }
                 }
-                if (status == "Running") {
-                    CircularProgressIndicator(Modifier.size(14.dp).semantics { stateDescription = status }, strokeWidth = 1.5.dp)
-                } else if (status != null && status != "Unread") {
-                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.tertiary, CircleShape).semantics { stateDescription = status })
-                } else if (status == "Unread" || HistoryStatus.unread(conversation)) {
-                    val unread = stringResource(R.string.agent_unread_reply)
-                    Box(Modifier.size(7.dp).background(MaterialTheme.colorScheme.primary, CircleShape).semantics { stateDescription = unread })
-                }
-                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f))
                 if (conversation.isArchived) {
                     Icon(Icons.Outlined.Archive, contentDescription = stringResource(R.string.agent_archived), tint = MaterialTheme.colorScheme.outline, modifier = Modifier.size(18.dp))
                 }
@@ -549,11 +598,6 @@ fun NewTaskComposer(nav: NavHostController, bottomPadding: Dp, onSubmitted: () -
         agentEnabled = setup != null && auth.aiAllowed,
         onChooseAgent = { setupVisible = true },
     )
-}
-
-@Composable
-private fun TaskMark(runtime: String?) {
-    Box(Modifier.size(36.dp), contentAlignment = Alignment.Center) { RuntimeMark(runtime, 20.dp) }
 }
 
 /** Loads the next page once one of the last few loaded rows is on screen. */

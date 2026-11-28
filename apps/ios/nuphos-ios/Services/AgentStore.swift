@@ -112,14 +112,23 @@ final class AgentStore {
         if conversationPoll?.session === session { follow(nil) }
     }
 
+    /// Chats opened since sign-in: one opened again shows what it last read at once,
+    /// while its poll reads it again (#3525). One that failed to load starts over, as an agent session does.
+    private var openedChannels: [String: ChannelSession] = [:]
+
     func channel(sessionId: String, title: String, teamId: String? = nil) -> ChannelSession {
-        let channel = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+        let channel = openedChannels[sessionId].flatMap { $0.loadError == nil ? $0 : nil } ?? {
+            let fresh = ChannelSession(token: token, teamId: teamId ?? selectedTeam?.id ?? "", channelId: sessionId, title: title)
+            // The list row's icon shows at once; the chat's own load keeps it current.
+            let row = channels.first { $0.sessionId == sessionId }
+            fresh.faces = row?.faces ?? []
+            fresh.botId = row?.botId
+            return fresh
+        }()
+        // Who is signed in may have loaded since the chat was first opened.
         channel.viewerId = userId
         channel.me = me
-        // The list row's icon shows at once; the chat's own load keeps it current.
-        let row = channels.first { $0.sessionId == sessionId }
-        channel.faces = row?.faces ?? []
-        channel.botId = row?.botId
+        openedChannels[sessionId] = channel
         return channel
     }
 
@@ -177,6 +186,29 @@ final class AgentStore {
 
     // MARK: - Archive
 
+    /// The viewer's archived conversations, newest archived first, a page at a time.
+    private(set) var archived: [AgentConversation] = []
+    private(set) var archivedFailed = false
+    private var archivedCursor: String?
+    var archivedHasMore: Bool { archivedCursor != nil }
+
+    func loadArchived(more: Bool = false) async {
+        guard let team = selectedTeam?.id else { return }
+        do {
+            let page = try await NuphosAPI.conversations(
+                token: token, teamId: team, cursor: more ? archivedCursor : nil, archived: true
+            )
+            guard team == selectedTeam?.id else { return }
+            let seen = more ? Set(archived.map(\.sessionId)) : []
+            archived = (more ? archived : []) + page.conversations.filter { !seen.contains($0.sessionId) }
+            archivedCursor = page.hasMore ? page.nextCursor : nil
+            archivedFailed = false
+        } catch {
+            guard team == selectedTeam?.id else { return }
+            archivedFailed = true
+        }
+    }
+
     func archive(sessionId: String, teamId: String?) async {
         guard let teamId = teamId ?? selectedTeam?.id else { return }
         let scope = workspaceScope
@@ -187,7 +219,9 @@ final class AgentStore {
             // An archived Bot comes back folded, as on Desktop.
             updateFolds { _ = $0.remove("bots:\(sessionId)") }
             // A Bot goes with its chat on the server, so the chats list drops it too.
-            await loadChannels()
+            async let chats: () = loadChannels()
+            async let archivedLoad: () = loadArchived()
+            _ = await (chats, archivedLoad)
         } catch {
             rowActionFailed(error, scope: scope) { [weak self] in await self?.archive(sessionId: sessionId, teamId: teamId) }
         }
@@ -241,11 +275,18 @@ final class AgentStore {
 
     /// The Tasks rows: agent-opened threads under the conversation that opened them.
     var nestedConversations: [NestedConversation] {
-        ConversationNesting.nest(listedConversations, folded: foldedThreads[selectedTeam?.id ?? ""] ?? [], byFamily: true)
+        let team = selectedTeam?.id ?? ""
+        return ConversationNesting.nest(
+            ConversationNesting.withProjects(listedConversations), folded: foldedThreads[team] ?? [],
+            attention: { $0.isWaiting || self.unread.contains(team: $0.teamId ?? team, session: $0.sessionId) }
+        )
     }
 
     /// The Bots rows: each chat or Bot, flat. What a Bot dispatched opens from its page (#3592).
-    var nestedBots: [NestedConversation] { ConversationNesting.nest(botsList) }
+    /// A pinned row sits in the pin shelf instead, as on Desktop; a search hides the shelf, so it lists them all.
+    var nestedBots: [NestedConversation] {
+        ConversationNesting.nest(search.isEmpty ? botsList.filter { !isPinned($0) } : botsList)
+    }
 
     func isFolded(_ sessionId: String) -> Bool {
         foldedThreads[selectedTeam?.id ?? ""]?.contains(sessionId) == true
@@ -415,8 +456,8 @@ final class AgentStore {
         publishSharingContext()
     }
 
-    func loadRuntimes(force: Bool = false) async {
-        guard let team = selectedTeam, force || !runtimesLoaded else { return }
+    func loadRuntimes() async {
+        guard let team = selectedTeam else { return }
         do {
             let next = try await NuphosAPI.runtimeInstances(token: token, teamId: team.id)
             guard !Task.isCancelled, selectedTeam?.id == team.id else { return }
@@ -492,12 +533,12 @@ final class AgentStore {
         return "Model"
     }
 
-    /// The model a Bot runs, as its own Task's model settings name it; nil when unknown.
-    func botModel(_ botId: String) async -> String? {
-        guard let team = selectedTeam?.id,
-              let config = try? await AgentChatAPI.sessionConfig(token: token, teamId: team, sessionId: botId),
-              let model = config.model, !model.currentValue.isEmpty else { return nil }
-        return model.currentLabel
+    /// Saves a Bot's standing instructions; the error says why the server refused them.
+    func setBotInstructions(_ botId: String, _ text: String) async throws {
+        guard let team = selectedTeam?.id else { return }
+        let saved = try await AgentChatAPI.setBotInstructions(token: token, teamId: team, sessionId: botId, instructions: text)
+        if let i = bots.firstIndex(where: { $0.sessionId == botId }) { bots[i].instructions = saved }
+        if let i = conversations.firstIndex(where: { $0.sessionId == botId }) { conversations[i].instructions = saved }
     }
 
     func loadNewModelConfig() async {
@@ -549,6 +590,9 @@ final class AgentStore {
         channels = []
         bots = []
         favorites = nil
+        archived = []
+        archivedFailed = false
+        archivedCursor = nil
         runtimes = []
         agentDevices = []
         agentDevicesError = false
@@ -666,6 +710,11 @@ final class AgentStore {
         if let cached = LaunchCache.read(LaunchCache.Agents.self), cached.accountKey == LaunchCache.accountKey(token) {
             selectedTeam = cached.team
             conversations = cached.conversations
+            if let channels = cached.channels, let bots = cached.bots {
+                self.channels = channels
+                self.bots = bots
+                channelsLoaded = true
+            }
             selectedRuntimeId = UserDefaults.standard.string(forKey: runtimeKey(for: cached.team))
             phase = .loaded
         }
@@ -673,10 +722,21 @@ final class AgentStore {
 
     // MARK: - Teams
 
+    /// The load in flight: the home shell and a page that asks at the same time share it.
+    private var teamsLoad: Task<Void, Never>?
+
     /// Loads teams and picks the last-used one (or the first). Reloads the
     /// list if the selection changed.
     func loadTeams() async {
-        let shown = teamsPhase
+        if let teamsLoad { return await teamsLoad.value }
+        let load = Task { await loadTeamsNow() }
+        teamsLoad = load
+        await load.value
+        teamsLoad = nil
+    }
+
+    /// Not tied to the caller: a page that leaves mid-load no longer cancels it into an error (#3620).
+    private func loadTeamsNow() async {
         teamsPhase = .loading
         do {
             let firstLoad = self.teams.isEmpty
@@ -694,8 +754,6 @@ final class AgentStore {
                 await reload()
             }
         } catch {
-            // Cancelled: the teams stay as they were; the page's next appearance loads them (#3620).
-            guard !Task.isCancelled else { teamsPhase = shown; return }
             teamsPhase = .failed(error.localizedDescription)
             if teams.isEmpty && conversations.isEmpty { phase = .failed(error.localizedDescription) }
         }
@@ -766,19 +824,22 @@ final class AgentStore {
         async let runtimesLoad: () = loadRuntimes()
         async let channelsLoad: () = loadChannels()
         async let pinsLoad: () = loadFavorites()
+        async let archivedLoad: () = loadArchived()
 
         do {
             let rows = try await listConversations(teamId: team.id)
-            _ = await (runtimesLoad, channelsLoad, pinsLoad)
+            _ = await (runtimesLoad, channelsLoad, pinsLoad, archivedLoad)
             guard generation == loadGeneration else { return }
             conversations = rows
             phase = .loaded
             if search.isEmpty {
-                LaunchCache.write(LaunchCache.Agents(team: team, conversations: rows, accountKey: LaunchCache.accountKey(token)))
+                LaunchCache.write(LaunchCache.Agents(
+                    team: team, conversations: rows, accountKey: LaunchCache.accountKey(token),
+                    channels: channelsLoaded ? channels : nil, bots: channelsLoaded ? bots : nil))
             }
         } catch {
             guard generation == loadGeneration else { return }
-            // Cancelled (a pull or page that went away): the list stays as it was (#3620).
+            // Cancelled (a page that went away): the list stays as it was (#3620).
             guard !Task.isCancelled else { phase = shown; return }
             guard phase == .loaded else {
                 phase = .failed(error.localizedDescription)
@@ -802,7 +863,8 @@ final class AgentStore {
     /// work out afterwards, which can leave a page with nothing to show.
     /// Rows can repeat across pages because the cursor is a timestamp.
     private func listConversations(teamId: String) async throws -> [AgentConversation] {
-        var rows: [String: AgentConversation] = [:]
+        var rows: [AgentConversation] = []
+        var listed: Set<String> = []
         for scope in ["mine", "shared"] {
             var cursor: String?
             var cursors: Set<String> = []
@@ -810,12 +872,14 @@ final class AgentStore {
                 let page = try await NuphosAPI.conversations(
                     token: token, teamId: teamId, cursor: cursor, limit: 100, search: search, scope: scope
                 )
-                for row in page.rows where rows[row.sessionId] == nil { rows[row.sessionId] = row }
+                for row in page.rows where listed.insert(row.sessionId).inserted { rows.append(row) }
                 cursor = page.nextCursor
                 if let cursor, !cursors.insert(cursor).inserted { throw NuphosAPI.Failure.invalidResponse }
             } while cursor != nil
         }
-        return rows.values.sorted { $0.lastActiveAt > $1.lastActiveAt }
+        // Ties keep the server's order. A dictionary's changed from one read to the next,
+        // moving a row under a tap so the other one opened (#4732).
+        return rows.sorted { $0.lastActiveAt > $1.lastActiveAt }
     }
 
     /// A live session for an existing conversation, already loading. The
@@ -838,7 +902,8 @@ final class AgentStore {
             sessionId: conversation.sessionId,
             title: conversation.displayTitle,
             agentRuntime: conversation.agentRuntime,
-            runtimeLabel: conversation.runtimeLabel
+            runtimeLabel: conversation.runtimeLabel,
+            isBot: conversation.isBot
         )
         session.me = me
         session.userId = userId

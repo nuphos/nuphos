@@ -97,6 +97,8 @@ export async function startSecondComputer(
     home,
     /** How often the host stopped and started again on its own. */
     restarts: () => restarts,
+    /** The status the host exited with, null while it runs. */
+    exitCode: () => child.exitCode,
     stop: () => {
       stopped = true
 

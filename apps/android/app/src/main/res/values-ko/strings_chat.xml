@@ -34,7 +34,7 @@
     <string name="chat_triggers_load_failed">트리거를 불러올 수 없습니다</string>
     <string name="chat_triggers_update_failed">트리거를 업데이트할 수 없습니다</string>
     <string name="chat_triggers_title">트리거</string>
-    <string name="chat_triggers_empty">이 대화에서 에이전트에게 정기 작업을 예약해 달라고 요청하세요.</string>
+    <string name="chat_triggers_empty">정기 작업 예약은 여기에서 요청하세요.</string>
     <string name="chat_trigger_paused">일시 중지됨</string>
     <string name="chat_trigger_next_run">다음: %1$s</string>
     <string name="chat_trigger_waiting_webhook">웹훅 대기 중</string>
@@ -128,8 +128,13 @@
     <string name="chat_retry_steering">방향 전환 다시 시도</string>
     <string name="chat_attachment_message">첨부 파일 메시지</string>
     <string name="chat_upload_preparing">업로드 준비 중…</string>
-    <string name="chat_upload_progress">업로드 중 %1$d / %2$d바이트</string>
+    <string name="chat_upload_progress">업로드 중 %1$s / %2$s</string>
+    <plurals name="chat_byte_count">
+        <item quantity="other">%1$s바이트</item>
+    </plurals>
+    <string name="chat_byte_count_unit">%1$s%2$s</string>
     <string name="chat_upload_checking">업로드한 파일 확인 중…</string>
+    <string name="chat_upload_sending">전송 중…</string>
     <string name="chat_upload_ready">파일 준비 완료</string>
     <string name="chat_upload_cancel">업로드 취소</string>
     <string name="chat_upload_retry">첨부 파일 메시지 다시 시도</string>
@@ -139,7 +144,7 @@
     <string name="chat_always_allow_title">항상 허용</string>
     <string name="chat_always_allow_body">이 설명과 일치하는 명령은 묻지 않고 실행됩니다.</string>
     <string name="chat_allow">허용</string>
-    <string name="chat_agent_fallback_title">에이전트</string>
+    <string name="chat_agent_fallback_title">작업</string>
     <string name="chat_memory_updated">메모리 업데이트됨</string>
     <string name="chat_reasoning_thinking">생각 중…</string>
     <string name="chat_reasoning_thought">생각 완료</string>
@@ -195,18 +200,21 @@
     <string name="chat_summary_background">Background work</string>
     <string name="chat_summary_command">명령</string>
     <string name="chat_summary_running">실행 중</string>
-    <string name="chat_summary_open">에이전트 요약</string>
+    <string name="chat_summary_open">작업 요약</string>
     <string name="chat_summary_output_truncated">이전 출력은 숨겨져 있습니다.</string>
-    <string name="chat_summary_changes">Changes</string>
+    <string name="chat_summary_changes">변경 사항</string>
     <string name="chat_summary_children">하위 작업</string>
     <string name="chat_summary_files">파일</string>
     <string name="chat_summary_triggers">트리거</string>
-    <string name="chat_summary_no_triggers">에이전트에게 이 작업의 반복 일정을 요청하세요.</string>
-    <string name="chat_summary_idle">Idle</string>
+    <string name="chat_summary_no_triggers">정기 작업 예약은 여기에서 요청하세요.</string>
+    <string name="chat_summary_idle">유휴</string>
     <string name="chat_bot_details_title">봇 세부 정보</string>
     <string name="chat_bot_state_waiting">%1$d개 입력 필요</string>
     <string name="chat_bot_state_running">%1$d개 실행 중</string>
     <string name="chat_summary_idle_since">유휴 · %1$s</string>
     <string name="chat_bot_details_no_triggers">정기 작업 예약은 여기에서 요청하세요.</string>
     <string name="chat_summary_paused">일시 중지됨</string>
+    <string name="chat_bot_instructions">봇 지침</string>
+    <string name="chat_bot_instructions_edit">지침 편집</string>
+    <string name="chat_bot_instructions_none">아직 없음</string>
 </resources>

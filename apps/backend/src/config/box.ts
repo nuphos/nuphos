@@ -1,4 +1,4 @@
-import { boundedInt, optional } from './env'
+import { bool, boundedInt, optional } from './env'
 
 /**
  * Boxes: cloud machines Nuphos creates on instabox for a user, registered as that
@@ -18,6 +18,10 @@ export type BoxConfig = {
   defaultMonthlyHours?: number
   /** The billing service clients open to buy or change a plan; unset shows no Upgrade. */
   billingUrl?: string
+  /** Whether the backend updates idle Boxes whose CLI does not update itself between turns (#2104). */
+  autoUpdate: boolean
+  /** Makes each new account's free Box an OpenRouter key for its OpenCode; unset makes none. */
+  openRouterManagementKey?: string
 }
 
 export function boxConfig(): BoxConfig {
@@ -25,12 +29,16 @@ export function boxConfig(): BoxConfig {
   const downloadUrl = optional('NUPHOS_BOX_DOWNLOAD_URL') ?? optional('BOX_DEV_DOWNLOAD_URL')
 
   return {
+    autoUpdate: bool('BOX_AUTO_UPDATE', true),
     ...(downloadUrl ? { downloadUrl } : {}),
     ...(optional('BOX_DEFAULT_VCPU_LIMIT')
       ? { defaultVcpuLimit: boundedInt('BOX_DEFAULT_VCPU_LIMIT', 0, { min: 0, max: 10_000 }) }
       : {}),
     ...(optional('BOX_DEFAULT_MONTHLY_HOURS')
       ? { defaultMonthlyHours: boundedInt('BOX_DEFAULT_MONTHLY_HOURS', 0, { min: 0, max: 744 }) }
+      : {}),
+    ...(optional('OPENROUTER_MANAGEMENT_KEY')
+      ? { openRouterManagementKey: optional('OPENROUTER_MANAGEMENT_KEY') }
       : {}),
     ...(optional('NUPHOS_BILLING_URL') ? { billingUrl: optional('NUPHOS_BILLING_URL') } : {}),
     instabox: apiKey

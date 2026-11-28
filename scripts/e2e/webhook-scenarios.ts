@@ -1,9 +1,10 @@
-// #4361: an administrator adds a webhook in Team settings, and the team's own endpoint gets
-// what its conversations and Tasks do, retried after a failure and switched off by 410 Gone.
-// An MCP client then manages webhooks with nuphos_webhooks.
+// #4361: an administrator adds a webhook in Team settings, and the endpoint gets what the
+// conversations started for it and their Tasks do, retried after a failure and switched off
+// by 410 Gone. An MCP client then manages webhooks with nuphos_webhooks.
 import { writeFileSync } from 'node:fs'
 
 import { client, must } from './binding-access-scenarios.ts'
+import { REPORT_DATA } from './fixture-mcp.mjs'
 import { mcp } from './mcp-scenarios.ts'
 import { artifacts, until } from './processes.ts'
 import { replyWith, webhookRequests, webhookUrl } from './webhook-receiver.ts'
@@ -51,9 +52,11 @@ async function received(label: string, wanted: (request: WebhookRequest) => bool
 }
 
 type Client = ReturnType<typeof client>
+/** Starts a session for an endpoint, the one added in Settings unless another is named. */
+type Ask = (prompt: string, webhookId?: string) => Promise<string>
 
 /** Adds the endpoint in Settings with a secret header, and checks the header never comes back. */
-async function addWebhook(page: Page, as: Client, teamId: string) {
+async function addWebhook(page: Page, as: Client, teamId: string): Promise<string> {
   const main = page.locator('main').last()
 
   await openWebhooks(page)
@@ -84,10 +87,12 @@ async function addWebhook(page: Page, as: Client, teamId: string) {
   await page.getByText('Test event delivered').waitFor()
   await received('the test event', (r) => r.body.type === 'webhook.test')
   await shoot(page, 'webhook-test-delivered')
+
+  return (listed.body as { webhooks: { id: string }[] }).webhooks[0]!.id
 }
 
 /** A conversation that hands work to a Task, which reports back (`reportBack` in the fixture). */
-async function delegate(ask: (prompt: string) => Promise<string>) {
+async function delegate(ask: Ask) {
   const parent = await ask('Delegate E2E_REPORT_BACK E2E_DELIVERY:webhook-parent')
 
   await received(
@@ -97,15 +102,30 @@ async function delegate(ask: (prompt: string) => Promise<string>) {
   const reported = await received('the Task’s report', (r) => r.body.type === 'task.reported')
 
   must(reported.body.data.session_id !== parent, 'task.reported to name the Task')
+  must(
+    JSON.stringify(reported.body.data.task_report?.data) === JSON.stringify(REPORT_DATA),
+    `task.reported to carry the report's data unchanged (#4751), got ${JSON.stringify(reported.body.data)}`,
+  )
+  // #4749: a session with no parent reports too, and only the webhook hears it.
+  const report = {
+    label: 'Report',
+    report_id: 'top-1',
+    status: 'done',
+    summary: 'Top-level work finished.',
+  }
+  const top = await ask(
+    `Finish E2E_CALL report_task ${JSON.stringify(report)} E2E_DELIVERY:webhook-top`,
+  )
+  const own = await received(
+    'the top-level session’s report',
+    (r) => r.body.type === 'task.reported' && r.body.data.session_id === top,
+  )
+
+  must(own.body.data.task_report?.status === 'done', 'task.reported to carry the report')
 }
 
 /** A 503 is retried with the same event; 410 switches the endpoint off. */
-async function failures(
-  page: Page,
-  as: Client,
-  teamId: string,
-  ask: (p: string) => Promise<string>,
-) {
+async function failures(page: Page, as: Client, teamId: string, ask: Ask) {
   const retried = await ask('Reply E2E_DELIVERY:webhook-retry')
 
   replyWith(retried, 503)
@@ -137,11 +157,16 @@ async function failures(
   return hook!.id
 }
 
-/** An MCP client adds an endpoint that gets the next reply, then removes both endpoints. */
+const endpoint = (name: string) => [
+  { name: 'Authorization', value: KEY },
+  { name: 'X-Endpoint', value: name },
+]
+
+/** Over MCP: a session reports to the endpoint it was started for alone (#4747, #4928). */
 async function overMcp(
   tool: ReturnType<typeof mcp>['tool'],
   teamId: string,
-  ask: (p: string) => Promise<string>,
+  ask: Ask,
   switchedOff: string,
 ) {
   const manage = async (args: Record<string, unknown>) => {
@@ -151,27 +176,43 @@ async function overMcp(
     })
 
     must(!reply.isError, `nuphos_webhooks to ${String(args.action)}, got ${JSON.stringify(reply)}`)
+    must(!JSON.stringify(reply).includes(KEY), 'nuphos_webhooks to omit header values')
 
-    return reply
+    return reply.structuredContent!.webhook?.id ?? ''
   }
-  const created = await manage({
-    action: 'create',
-    name: 'E2E MCP endpoint',
-    url: webhookUrl(),
-    events: ['session.turn.completed'],
-    headers: [{ name: 'Authorization', value: KEY }],
+  const add = (name: string, tag: string) =>
+    manage({
+      action: 'create',
+      name,
+      url: webhookUrl(),
+      events: ['session.turn.completed'],
+      headers: endpoint(tag),
+    })
+  const team = await add('E2E MCP endpoint', 'team')
+  const own = await add('E2E session endpoint', 'own')
+  const session = await ask('Reply E2E_DELIVERY:webhook-own', own)
+  const at = (tag: string, id: string) => (r: WebhookRequest) =>
+    r.body.data.session_id === id && r.headers['x-endpoint'] === tag
+  const bare = await tool<{ session_id: string; status: string }>('nuphos_ask', {
+    team_id: teamId,
+    prompt: 'Reply E2E_DELIVERY:webhook-bare',
   })
 
-  must(!JSON.stringify(created).includes(KEY), 'nuphos_webhooks to omit header values')
-  const replied = await ask('Reply E2E_DELIVERY:webhook-mcp')
-
-  // The endpoint added in Settings is switched off, so only this one sends it.
-  await received(
-    'the reply, at the endpoint added over MCP',
-    (r) => r.body.data.session_id === replied,
+  must(
+    bare.structuredContent?.status === 'completed',
+    `the bare session to finish, got ${JSON.stringify(bare)}`,
   )
-  await manage({ action: 'delete', webhook_id: created.structuredContent!.webhook!.id })
-  await manage({ action: 'delete', webhook_id: switchedOff })
+  await received('the reply, at the endpoint that started it', at('own', session))
+  // Long past the settle delay a queued event would have waited out.
+  await new Promise((resolve) => setTimeout(resolve, 8_000))
+  const id = bare.structuredContent!.session_id
+
+  must(!webhookRequests().some(at('team', session)), 'the started session to skip other endpoints')
+  must(
+    !webhookRequests().some((r) => r.body.data.session_id === id),
+    'a bare session to send nothing',
+  )
+  for (const webhook_id of [team, own, switchedOff]) await manage({ action: 'delete', webhook_id })
 }
 
 export const webhookScenarios: Scenario[] = [
@@ -180,17 +221,19 @@ export const webhookScenarios: Scenario[] = [
     run: async (page, stack) => {
       const as = client(stack.apiUrl, stack.token)
       const { tool } = mcp(as)
-      const ask = async (prompt: string) => {
+      let settings = ''
+      const ask: Ask = async (prompt, webhook_id = settings) => {
         const asked = await tool<{ session_id: string }>('nuphos_ask', {
           team_id: stack.teamId,
           prompt,
           wait: false,
+          webhook_id,
         })
 
         return asked.structuredContent!.session_id
       }
 
-      await addWebhook(page, as, stack.teamId)
+      settings = await addWebhook(page, as, stack.teamId)
       await delegate(ask)
       const id = await failures(page, as, stack.teamId, ask)
 
@@ -200,6 +243,7 @@ export const webhookScenarios: Scenario[] = [
         'webhook-id': headers['webhook-id'],
         authorization: headers.authorization === KEY ? 'the saved value' : headers.authorization,
         type: body.type,
+        endpoint: headers['x-endpoint'],
         session_id: body.data.session_id,
       }))
 

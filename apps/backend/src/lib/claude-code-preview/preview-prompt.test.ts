@@ -72,10 +72,10 @@ describe('buildPreviewSystemPrompt', () => {
     expect(prompt).toContain('the kernel kills one process rather than the whole container')
     expect(prompt).toContain('## Credential handling')
     expect(prompt).toContain('`~/.aws/credentials`')
-    // A throwaway checkout goes with the conversation's home when it is archived (#3939).
+    // A throwaway checkout goes with the conversation's home when it is archived (#3939, #4988).
     expect(prompt).toContain('Make a throwaway clone or worktree for this conversation under `~`')
     expect(prompt).toContain(
-      'Never `git clone` or `git worktree add` into the working directory or next to a repository in it (`../<name>`)',
+      'Never `git clone` or `git worktree add` into `/tmp` or any other path outside `~`, into the working directory, or next to a repository in it (`../<name>`)',
     )
     expect(prompt).toContain('## Memory scope')
     expect(prompt).toContain('always pass `scope` explicitly')
@@ -200,6 +200,8 @@ test('a computer’s own agent is told it runs there, not in the team sandbox', 
   )
   expect(box).toContain("local_exec is for the user's other devices, only when they ask for one")
   expect(box).not.toContain('inside the team sandbox')
+  // A sign-in only the user can do is handed to them on this desktop.
+  expect(box).toContain('handed to them with a request_user_decision `computer` card')
   expect(await on('mac')).not.toContain('nuphos-desktop')
   // A runtime that is not a computer's, or one gone from the registry, keeps the sandbox line.
   expect(await on('gone')).toContain('inside the team sandbox')

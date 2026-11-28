@@ -14,16 +14,19 @@ const toneClasses: Record<StatusDotTone, string> = {
 
 /** A 6px state marker. `label` names the state for assistive technology and the hover title. */
 export function StatusDot({
+  id,
   tone,
   label,
   className,
 }: {
+  id?: string
   tone: StatusDotTone
   label: string
   className?: string
 }) {
   return (
     <span
+      id={id}
       role="img"
       aria-label={label}
       title={label}

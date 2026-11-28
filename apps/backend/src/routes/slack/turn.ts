@@ -99,6 +99,7 @@ export async function executeSlackAgentTurn(args: SlackAgentTurnArgs): Promise<v
         channel: args.channel,
         threadTs: args.threadTs,
         text,
+        from: { sessionId: args.sessionId, slackWorkspaceId: args.runtime.slackWorkspaceId },
       }),
     (status) => {
       void setAssistantStatusSafe(args.runtime.botToken, args.channel, args.threadTs, status)

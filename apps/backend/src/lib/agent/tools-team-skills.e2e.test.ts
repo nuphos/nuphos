@@ -311,6 +311,68 @@ description: Updated on-call playbook
     expect(skillMd).toContain('Acknowledge in Slack')
   })
 
+  test('skill_upsert stores base64 files byte for byte and refuses what it cannot decode', async () => {
+    const { skill_create, skill_upsert } = requireTeamSkillTools(
+      createTeamSkillTools(EDITOR_USER, TEAM_ID),
+    )
+    // A PNG signature and bytes that are not UTF-8: text content cannot carry them.
+    const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe, 0x00])
+
+    await execTool(skill_create, {
+      label: 'Seed sales page builder',
+      name: 'sales-page',
+      description: 'Builds image sales pages',
+      body: '# Sales page',
+      files: [{ path: 'assets/logo.png', content: png.toString('base64'), encoding: 'base64' }],
+    })
+    const upserted = await execTool(skill_upsert, {
+      label: 'Add a hero image',
+      files: [
+        {
+          key: 'skills/sales-page/assets/hero.png',
+          content: png.toString('base64'),
+          encoding: 'base64',
+        },
+      ],
+    })
+
+    expect(upserted.ok).toBe(true)
+    for (const name of ['logo.png', 'hero.png']) {
+      const stored = s3Store.get(`teams/${TEAM_ID}/skills/sales-page/assets/${name}`)
+
+      expect(stored?.body.equals(png)).toBe(true)
+      expect(stored?.contentType).toBe('application/octet-stream')
+    }
+
+    const invalid = await execTool(skill_upsert, {
+      label: 'Upload text as base64',
+      files: [
+        { key: 'skills/sales-page/assets/bad.png', content: 'not base64!', encoding: 'base64' },
+      ],
+    })
+
+    expect(invalid.ok).toBe(false)
+    expect(invalid.error).toContain('invalid_input')
+    expect(s3Store.has(`teams/${TEAM_ID}/skills/sales-page/assets/bad.png`)).toBe(false)
+  })
+
+  test('base64 does not let a secret past the scan', async () => {
+    const { skill_upsert } = requireTeamSkillTools(createTeamSkillTools(EDITOR_USER, TEAM_ID))
+    const leaked = await execTool(skill_upsert, {
+      label: 'Hide a token in base64',
+      files: [
+        {
+          key: 'skills/encoded/notes.txt',
+          content: Buffer.from('token sk-abcdefghijklmnopqrstuvwxyz123456').toString('base64'),
+          encoding: 'base64',
+        },
+      ],
+    })
+
+    expect(leaked.ok).toBe(false)
+    expect(leaked.error).toContain('unsafe_content')
+  })
+
   test('a VIEWER is offered the tools and told why a write is refused', async () => {
     membershipRole = 'VIEWER'
     const tools = requireTeamSkillTools(createTeamSkillTools(VIEWER_USER, TEAM_ID))

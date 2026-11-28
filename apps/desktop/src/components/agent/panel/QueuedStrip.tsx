@@ -22,7 +22,7 @@ export function QueuedStrip({
   canSteer?: boolean
   /** On a teammate's computer shared at "Ask me first": these wait for its owner, or were
    *  declined; or they wait for someone this person asked to sign the agent in. Said here,
-   *  not in the banner above the composer, which would cover them. */
+   *  beside what waits, not in the banner above the composer. */
   approval?: { status: 'pending' | 'denied'; text: string } | null
 }) {
   if (items.length === 0) return null

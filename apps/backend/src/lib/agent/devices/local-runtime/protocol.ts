@@ -15,6 +15,7 @@ export const LOCAL_AGENT_PROVIDERS = [
   'dsh',
   'hermes',
   'pi',
+  'cursor',
 ] as const
 
 export type LocalAgentProvider = (typeof LOCAL_AGENT_PROVIDERS)[number]
@@ -137,6 +138,7 @@ export const agentInstanceSchema = z.object({
   label: z.string().trim().min(1).max(200),
   /** Pending until its first sign-in; only ready agents are listed. Absent from older hosts. */
   state: z.enum(['pending', 'ready']).optional(),
+  vault: z.literal(true).optional(),
 })
 export type AgentInstance = z.infer<typeof agentInstanceSchema>
 export const localAgentInstanceStatusSchema = localAgentStatusSchema.merge(agentInstanceSchema)
@@ -144,6 +146,7 @@ export type LocalAgentInstanceStatus = z.infer<typeof localAgentInstanceStatusSc
 
 export const localRuntimeStatusSchema = z.object({
   agentInstances: z.boolean().optional(),
+  agentReset: z.boolean().optional(),
   instances: z
     .array(localAgentInstanceStatusSchema)
     .max(100)
@@ -199,6 +202,7 @@ export const localRuntimeStatusSchema = z.object({
     dsh: localAgentStatusSchema.optional(),
     hermes: localAgentStatusSchema.optional(),
     pi: localAgentStatusSchema.optional(),
+    cursor: localAgentStatusSchema.optional(),
   }),
   backendUrl: z.string().url().max(500).optional(),
 })

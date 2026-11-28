@@ -35,8 +35,8 @@ function app(overrides: Partial<DeviceAgentRouteDeps> = {}) {
     removeInstance: async (target, agent) => {
       calls.push({ target, removed: agent })
     },
-    forgetAgent: async (userId, deviceId, agent) => {
-      calls.push({ forgot: [userId, deviceId, agent] })
+    forgetAgent: async (userId, deviceId, agent, options) => {
+      calls.push({ forgot: [userId, deviceId, agent, ...(options ? [options] : [])] })
     },
     renameAgent: async (userId, deviceId, key, label) => {
       calls.push({ renamed: [userId, deviceId, key, label] })
@@ -208,9 +208,12 @@ test("a Box removes its default agent; a person's computer only forgets its own"
   ])
   const computer = app()
 
-  // Its CLI login is the person's: the computer is never asked to remove it.
+  // Its CLI login is the person's: the computer is never asked to remove it, and who signed
+  // it in is kept, while a Box's removal deletes its accounts and drops that record.
   expect((await computer.remove('claude-code')).status).toBe(204)
-  expect(computer.calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
+  expect(computer.calls).toEqual([
+    { forgot: ['owner', 'box', { provider: 'claude-code' }, { forgetOnly: true }] },
+  ])
 })
 
 test('remove without access or on an older host never reaches the host', async () => {
@@ -307,7 +310,9 @@ test("an offline person's computer's default agent is only forgotten, never queu
   const response = await remove('claude-code', '&force=true')
 
   expect(response.status).toBe(204)
-  expect(calls).toEqual([{ forgot: ['owner', 'box', { provider: 'claude-code' }] }])
+  expect(calls).toEqual([
+    { forgot: ['owner', 'box', { provider: 'claude-code' }, { forgetOnly: true }] },
+  ])
 })
 
 test("removing anyway is for the computer's managers only", async () => {
@@ -323,4 +328,37 @@ test("removing anyway is for the computer's managers only", async () => {
 
   expect(response.status).toBe(404)
   expect(calls).toEqual([])
+})
+
+test('an agent the host is too old to know is refused with the update it needs (#5082)', async () => {
+  const host = (client: string, status = {}) =>
+    app({
+      getPresence: async () => ({
+        conn: 'c1',
+        seenAt: Date.now(),
+        client,
+        status: { agents: {}, agentInstances: true, ...status },
+      }),
+    })
+  const old = host('nuphos-desktop/0.136.0')
+  const response = await old.create({ provider: 'cursor' })
+
+  expect(response.status).toBe(409)
+  expect(await response.json()).toEqual({
+    error: 'Nuphos on this computer is too old to add Cursor. Update it there, then try again.',
+  })
+  expect(old.calls).toEqual([])
+  // The version a host reports in its status wins over the one it connected with.
+  expect(
+    (
+      await host('nuphos-desktop/0.137.0', { app: { version: '0.132.0' } }).create({
+        provider: 'cursor',
+      })
+    ).status,
+  ).toBe(409)
+  expect((await host('nuphos-cli/0.29.5').create({ provider: 'cursor' })).status).toBe(409)
+  expect((await old.create({ provider: 'codex' })).status).toBe(201)
+  expect((await host('nuphos-desktop/0.137.0').create({ provider: 'cursor' })).status).toBe(201)
+  expect((await host('nuphos-cli/0.30.0').create({ provider: 'cursor' })).status).toBe(201)
+  expect((await host('nuphos-desktop/dev').create({ provider: 'cursor' })).status).toBe(201)
 })

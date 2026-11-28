@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test'
+import { describe, expect, spyOn, test } from 'bun:test'
 import { Hono } from 'hono'
 import { upgradeWebSocket } from 'hono/bun'
 
@@ -62,6 +62,38 @@ describe('errorHandler', () => {
     const res = await appThrowing(new AppError(409, 'conflict', 'taken')).request('/')
 
     expect(res.status).toBe(409)
+  })
+})
+
+describe('http.request.error log level', () => {
+  async function loggedLevel(err: AppError): Promise<string | undefined> {
+    const warn = spyOn(console, 'warn').mockImplementation(() => null)
+    const error = spyOn(console, 'error').mockImplementation(() => null)
+
+    try {
+      await appThrowing(err).request('/')
+      const lines = [...warn.mock.calls, ...error.mock.calls].map(
+        (call) => JSON.parse(String(call[0])) as { event: string; level: string },
+      )
+
+      return lines.find((line) => line.event === 'http.request.error')?.level
+    } finally {
+      warn.mockRestore()
+      error.mockRestore()
+    }
+  }
+
+  // A deployment that left a feature unconfigured must not page error alerts.
+  test('logs a feature this deployment did not configure at warn', async () => {
+    const level = await loggedLevel(
+      new AppError(503, 'knowledge_not_configured', 'The knowledge service is not configured'),
+    )
+
+    expect(level).toBe('warn')
+  })
+
+  test('keeps other server errors at error', async () => {
+    expect(await loggedLevel(new AppError(503, 'memory_unavailable', 'down'))).toBe('error')
   })
 })
 

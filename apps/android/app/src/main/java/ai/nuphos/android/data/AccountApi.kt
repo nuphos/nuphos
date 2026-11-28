@@ -15,7 +15,7 @@ class AccountApi internal constructor(private val token: String, private val cli
     constructor(token: String) : this(token, Http.client)
 
     companion object {
-        const val AI_CONSENT_VERSION = "2026-09-28"
+        const val AI_CONSENT_VERSION = "2026-11-23"
         private val MFA_CODE_ERRORS = setOf("invalid_mfa_code", "mfa_challenge_expired")
     }
 
@@ -176,6 +176,8 @@ class AccountApi internal constructor(private val token: String, private val cli
         val request = Request.Builder().url("${origin}/auth/$path")
             .header("Accept", "application/json")
             .header("x-atlas-client", Http.clientHeader())
+            // GET ai-consent answers for the notice this build shows.
+            .apply { if (path == "ai-consent") header("x-nuphos-ai-consent-version", AI_CONSENT_VERSION) }
             .apply { if (authenticated) header("Authorization", "Bearer $token") }
             // OkHttp refuses a POST without a body, so one without arguments sends `{}`.
             .method(method, upload?.toRequestBody("application/octet-stream".toMediaType())

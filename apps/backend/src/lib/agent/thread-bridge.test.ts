@@ -507,7 +507,7 @@ describe('conversation-scoped thread tools', () => {
       openabSessionId: 'live',
       runtimeUrl: 'http://runtime',
       runtimeDefaults: { model: 'default', effort: 'high' },
-    } as never
+    }
     try {
       const { threadId } = await createAgentThread(actor, 'Work', 'Task')
 
@@ -524,6 +524,24 @@ describe('conversation-scoped thread tools', () => {
     expect(picks).toEqual([])
     expect(archives).toEqual([])
     expect(claims).toHaveLength(1)
+  })
+
+  test("a parent's effort the thread's model does not offer is left to the agent, and the rest carries over", async () => {
+    const speeds = offered as Record<string, string[]>
+
+    speeds.fast = ['on', 'off']
+    source.initialSessionConfig = { model: 'claude-fable-5-1', effort: 'max', fast: 'on' }
+    try {
+      const { threadId } = await createAgentThread(actor, 'Work', 'Task')
+
+      expect(picks).toEqual([
+        { sessionId: threadId, configId: 'model', value: 'claude-fable-5-1' },
+        { sessionId: threadId, configId: 'fast', value: 'on' },
+      ])
+      expect(archives).toEqual([])
+    } finally {
+      delete speeds.fast
+    }
   })
 
   test('starts a thread on the agent it names, with no first turn on its parent', async () => {
@@ -584,7 +602,13 @@ describe('conversation-scoped thread tools', () => {
     )
     // Nothing ran; the unused conversation is archived.
     expect(claims).toHaveLength(0)
-    expect(archives).toEqual([[shells[0]?.sessionId, true]])
+    expect(archives).toEqual([
+      [
+        shells[0]?.sessionId,
+        true,
+        { source: 'create_thread', userId: 'owner', agentSessionId: 'source' },
+      ],
+    ])
   })
 
   test('send returns the delivered message id', async () => {
@@ -657,10 +681,13 @@ describe('archive thread', () => {
     target.archivedAt = new Date()
     await setAgentThreadArchived(actor, 'target', false)
     await setAgentThreadArchived(actor, 'source', true)
+    // Each names the agent that did it and the owner it acted for.
+    const by = { source: 'archive_thread', userId: 'owner', agentSessionId: 'source' }
+
     expect(archives).toEqual([
-      ['target', true],
-      ['target', false],
-      ['source', true],
+      ['target', true, by],
+      ['target', false, by],
+      ['source', true, by],
     ])
   })
   test('rejects missing, foreign-owner and cross-team targets without a write', async () => {

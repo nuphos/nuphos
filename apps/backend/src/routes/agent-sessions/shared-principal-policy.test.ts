@@ -70,6 +70,18 @@ describe('shared conversation execution principal policy', () => {
     expect(access.githubInstallationIds).toBeUndefined()
   })
 
+  test('the owner choosing All does not widen another actor past their own bindings', () => {
+    const access = credentialAccessForExecution(
+      { userId: 'actor-2', conversationOwnerUserId: 'owner-1', sessionId: 'conv-1' },
+      { allCredentials: true, allDevices: true, azureAccountIds: ['owner-azure'] },
+      optionsForActor(),
+    )
+
+    expect(access.azureAccountIds).toEqual(['actor-azure'])
+    expect(access.resendIntegrationIds).toEqual([])
+    expect(access.deviceIds).toEqual([])
+  })
+
   test('all-credential channel turns still select only the current actor bindings', () => {
     const options = optionsForActor()
 

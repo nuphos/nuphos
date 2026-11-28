@@ -55,8 +55,6 @@ mock.module('./persistence.ts', {
   namedExports: { fromPersistedMessages: identity, transcriptSignature: () => '' },
 })
 mock.module('./stall.ts', { namedExports: { INTERRUPTED_TOOL_MESSAGE: '', uid: () => 'tab' } })
-mock.module('./textUtils.ts', { namedExports: { getAgentLocale: () => 'en' } })
-mock.module('./toUiMessages.ts', { namedExports: { toUiMessages: identity } })
 
 const { queryKeys } = await import('../../../lib/query/keys.ts')
 const { cachedTask, keepTaskSelection, prefetchTask } = await import('./taskTranscript.ts')

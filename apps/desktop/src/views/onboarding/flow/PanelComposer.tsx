@@ -83,7 +83,7 @@ export function PanelComposer({
                     onCreate()
                   }
                 }}
-                placeholder={t('Name your workspace…')}
+                placeholder={t('Name your team…')}
                 className="titlebar-no-drag w-full text-[18px] leading-relaxed text-main placeholder:text-tertiary"
               />
             </div>
@@ -96,7 +96,7 @@ export function PanelComposer({
                     type="button"
                     onClick={onCreate}
                     disabled={!canCreate}
-                    aria-label={t('Create workspace')}
+                    aria-label={t('Create team')}
                     aria-keyshortcuts="Enter"
                     className={clsx(
                       'titlebar-no-drag flex h-8 w-8 items-center justify-center rounded-lg transition-colors',
@@ -168,7 +168,7 @@ export function PanelComposer({
               onClick={onShowCreateWorkspace}
               className="titlebar-no-drag"
             >
-              {t('Create a new workspace instead')}
+              {t('Create a new team instead')}
             </Button>
           </div>
         </div>

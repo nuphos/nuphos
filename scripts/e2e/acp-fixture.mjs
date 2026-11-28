@@ -33,7 +33,8 @@ import {
   longReply,
   turnFacts,
 } from './fixture-settings.mjs'
-import { discoveryFails, initialize, opening } from './fixture-session.mjs'
+import { discoveryFails, initialize, opening, updatedRule } from './fixture-session.mjs'
+import { reportWorking, steer } from './fixture-steering.mjs'
 import { retune } from './fixture-retune.mjs'
 import { refuse } from './fixture-turn-refusals.mjs'
 import { CLAUDE_TURN_QUOTA, CLAUDE_TURN_USAGE } from './fixture-usage.mjs'
@@ -90,7 +91,7 @@ const permission = (...args) => askPermission({ send, log }, ...args)
 // Sessions whose answer the first agent refuses as out of usage (#3055).
 const late = new Set()
 
-async function prompt({ sessionId, prompt: parts }) {
+async function prompt({ sessionId, prompt: parts, _meta }) {
   const text = parts
     .filter((part) => part.type === 'text')
     .map((part) => part.text)
@@ -103,6 +104,7 @@ async function prompt({ sessionId, prompt: parts }) {
     marker,
     markers,
     event: 'start',
+    update: updatedRule(parts, _meta),
     ...turnFacts(text),
     model: currentModel(sessionId),
   })
@@ -181,6 +183,7 @@ async function prompt({ sessionId, prompt: parts }) {
   }
   if (text.includes('E2E_RECHECK')) await recheck({ log, sessionId })
   if (text.includes('E2E_HOLD')) {
+    reportWorking(send, sessionId)
     await new Promise((resolve) => held.set(sessionId, resolve))
     log({ sessionId, marker, event: 'cancelled' })
 
@@ -250,6 +253,8 @@ async function answer(request) {
       log({ sessionId: request.params.sessionId, event: 'loaded', ...opening(request.params) })
 
       return {}
+    case '_session/steering':
+      return steer(log, request.params)
     case 'session/set_mode':
       return {}
     case 'session/set_config_option': {

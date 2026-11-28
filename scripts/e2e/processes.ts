@@ -2,7 +2,7 @@
 // artifact directory and is stopped, newest first, when the run ends.
 import { spawn as spawnChild } from 'node:child_process'
 import { randomInt } from 'node:crypto'
-import { createWriteStream, mkdtempSync } from 'node:fs'
+import { createWriteStream, mkdtempSync, readFileSync } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -18,13 +18,18 @@ export function logPath(name: string): string {
 }
 
 // Distinct free ports below the ephemeral range (Linux 32768+, macOS 49152+), where an outbound
-// connection could take one as its source port first. Held open together, none is handed out twice.
+// connection could take one as its source port first. None is handed out twice in a run: a
+// port from an earlier call may not be bound yet when the next call asks (#4394).
+const given = new Set<number>()
+
 export async function freePorts(count: number): Promise<number[]> {
   const servers: Server[] = []
 
   while (servers.length < count) {
-    const server = createServer()
     const port = randomInt(20_000, 32_000)
+
+    if (given.has(port)) continue
+    const server = createServer()
     const listening = await new Promise<boolean>((done) => {
       server.once('error', () => done(false))
       server.listen(port, '127.0.0.1', () => done(true))
@@ -33,6 +38,8 @@ export async function freePorts(count: number): Promise<number[]> {
     if (listening) servers.push(server)
   }
   const ports = servers.map((server) => (server.address() as { port: number }).port)
+
+  for (const port of ports) given.add(port)
 
   await Promise.all(servers.map((server) => new Promise((done) => server.close(done))))
 
@@ -129,4 +136,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void stopAll().finally(() => process.exit(1))
   })
+}
+
+/** The newest six-digit sign-in code the backend logged for this address. */
+export function signInCode(address: string): string | undefined {
+  return readFileSync(logPath('backend'), 'utf8')
+    .split('\n')
+    .filter((line) => line.includes(address) && line.includes('auth.email_otp.dev_code'))
+    .map((line) => /"sign_in_code"\s*:\s*"(\d{6})"/.exec(line)?.[1])
+    .findLast(Boolean)
 }

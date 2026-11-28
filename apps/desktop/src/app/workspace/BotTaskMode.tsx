@@ -108,7 +108,7 @@ function BotTaskBody({
           className="titlebar-no-drag flex h-7 flex-shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-secondary hover:bg-state-hover focus-visible:ring-2 focus-visible:ring-line-focus"
         >
           <ArrowLeft className="size-4" strokeWidth={1.7} />
-          {t('Back to conversation')}
+          {t('Back to chat')}
         </button>
         <div className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-medium text-main">
           <AgentProviderIcon provider={provider} className="size-4 shrink-0" />
@@ -120,7 +120,7 @@ function BotTaskBody({
           pendingCount={inputQueue.requests.length}
         />
       </header>
-      <div className="relative flex min-h-0 flex-1">
+      <div data-takeover-area className="relative flex min-h-0 flex-1">
         <SkeletonReveal
           ready={settled}
           skeleton={<TaskSkeleton />}

@@ -45,6 +45,7 @@ import { bundledModelProbe } from './model-probe.ts'
 import { OpenabProcess } from './openab-process.ts'
 import { LOCAL_AGENT_NAMES as NAMES } from './providers.ts'
 import { RuntimeTunnelClient } from './tunnel-client.ts'
+import { agentHostDeps } from './vault-token.ts'
 import { VncStream } from './vnc-stream.ts'
 
 import type { DeviceIdentity } from '../device-identity-core.ts'
@@ -99,8 +100,7 @@ delete process.env.NUPHOS_SESSION_TOKEN
 const launch = { token: launchToken, keychainAccount: readCliConfig()?.keychainAccount }
 const currentToken = () => cliSessionToken(readCliConfig(), launch)
 
-// API calls go out with the session, read as above.
-setTokenSource(() => Promise.resolve(currentToken()))
+setTokenSource(() => Promise.resolve(currentToken())) // API calls go out with the session.
 
 // e2e stands a fake Mac screen host in here (scripts/e2e/fake-mac-screen-host.mjs), on any computer.
 const e2eMacScreenHost = process.env.NUPHOS_E2E_MAC_SCREEN_HOST
@@ -115,6 +115,7 @@ const deviceCredential = await deviceCredentialFor({
   label: device.label,
   joinToken: process.env.NUPHOS_JOIN_TOKEN?.trim() || undefined,
   headers: { [CLIENT_VERSION_HEADER]: CLIENT_VERSION_VALUE },
+  vaultCli: process.env.NUPHOS_CLI_EXE || 'nuphos',
 })
 const deviceId = deviceCredential?.deviceId ?? device.deviceId
 // Signed out or signed in again since (the token changed): the agents stop.
@@ -142,7 +143,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
   dataDir: () => dataDir,
   nodeExecPath: process.execPath,
   backendUrl: apiUrl(),
-  userEnv: () => Promise.resolve(process.env),
+  ...agentHostDeps(deviceCredential),
   probeCli: probeAgentCli,
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir, userId),
@@ -181,11 +182,11 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
         return dialBackend(tunnelUrlFor(apiUrl(), deviceId, reclaim), headers)
       },
       onRevoked: () => {
-        void controller.shutdown().then(exitRevoked)
+        void controller.shutdown().then(() => exitRevoked())
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
       connectExec: () => new LocalExecStream(),
-      ...cliBrowser(dataDir, findBrowser()),
+      ...cliBrowser(dataDir, findBrowser(), desktopPool),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)
 
@@ -200,7 +201,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
       status,
       onChange: (connected, superseded, revoked) => {
         onChange(connected, superseded, revoked)
-        if (superseded) stop('Another Nuphos app on this computer took over the local runtime.')
+        if (superseded) void controller.shutdown().then(() => exitRevoked(dataDir))
       },
       ...desktops(status, instances),
     })

@@ -1,7 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
 
-import { logError } from '@/lib/observability'
-
 import { getSessionBypass, initializeSessionBypass } from './auto-mode/store'
 import {
   agentConversations,
@@ -95,19 +93,31 @@ export async function prepareThread(
   const inherits =
     !pick.model && !pick.effort && !pick.fast && (!runtime || runtime.id === source.runtimeId)
 
-  try {
-    await setThreadModel(threadId, actor.userId, inherits ? currentPick(source) : pick, {
-      actorId: actor.userId,
-      agentSessionId: actor.sessionId,
-      via: 'create_thread',
-    })
-  } catch (error) {
-    // A parent's model the thread cannot take leaves it on the agent's defaults.
-    if (inherits) {
-      logError('agent.thread.parent_model_failed', error, { session_id: threadId })
-    } else {
+  const by = {
+    actorId: actor.userId,
+    agentSessionId: actor.sessionId,
+    via: 'create_thread' as const,
+  }
+
+  if (inherits) {
+    // Each of the parent's settings carries over, the model first; one the thread's agent
+    // does not offer (an effort its model has no levels for) is left to the agent's default.
+    const parent = currentPick(source)
+
+    for (const configId of ['model', 'effort', 'fast'] as const)
+      await setThreadModel(threadId, actor.userId, { [configId]: parent[configId] }, by).catch(
+        () => {},
+      )
+  } else {
+    try {
+      await setThreadModel(threadId, actor.userId, pick, by)
+    } catch (error) {
       // Nothing ran yet; a refused pick hides the unused conversation.
-      await setConversationArchived(threadId, true)
+      await setConversationArchived(threadId, true, {
+        source: 'create_thread',
+        userId: actor.userId,
+        agentSessionId: actor.sessionId,
+      })
       throw error
     }
   }

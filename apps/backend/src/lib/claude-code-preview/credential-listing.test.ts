@@ -118,8 +118,10 @@ const VENDED_CLOUDS = [
 ]
 
 // teamIdentity picks who GitHub/Linear act as; it is not a credential to list.
+// Choices about the selection, not credential lists.
+const NOT_LISTED = new Set(['teamIdentity', 'allCredentials', 'allDevices'])
 const credentialKeys = Object.keys(agentCredentialSelectionSchema.shape).filter(
-  (key) => key !== 'teamIdentity',
+  (key) => !NOT_LISTED.has(key),
 )
 const selectableKeys = [...new Set([...credentialKeys, ...Object.keys(CREDENTIAL_LISTERS)])]
 
@@ -271,10 +273,22 @@ describe('usage notes', () => {
     )
 
     expect(entries.map((entry) => [entry.provider, entry.usage])).toEqual([
-      ['github', 'No raw value to fetch; use the github skill with this id.'],
-      ['gitlab', 'No raw value to fetch; use the gitlab skill with this id.'],
-      ['grafana', 'No raw value to fetch; use the grafana skill with this id.'],
-      ['sonarqube', 'No raw value to fetch; use the sonarqube skill with this id.'],
+      [
+        'github',
+        'No raw value to fetch; use the github skill (skills/github/SKILL.md) with this id.',
+      ],
+      [
+        'gitlab',
+        'No raw value to fetch; use the gitlab skill (skills/gitlab/SKILL.md) with this id.',
+      ],
+      [
+        'grafana',
+        'No raw value to fetch; use the grafana skill (skills/grafana/SKILL.md) with this id.',
+      ],
+      [
+        'sonarqube',
+        'No raw value to fetch; use the sonarqube skill (skills/sonarqube/SKILL.md) with this id.',
+      ],
     ])
   })
 })

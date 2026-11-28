@@ -8,6 +8,7 @@ import {
   utimesSync as nuphosUtimes,
   writeFileSync as nuphosWriteFile,
 } from 'node:fs'
+import { connect as nuphosConnect } from 'node:net'
 import { homedir as nuphosHostHome, userInfo as nuphosAccount } from 'node:os'
 import { join as nuphosJoin, delimiter as nuphosPathDelimiter } from 'node:path'
 
@@ -129,17 +130,38 @@ export function nuphosClaudeSessionEnv(
   sessionEnv,
   runtimeEnv = process.env,
   now = Date.now(),
+  vaultToken = null,
 ) {
   const configDir =
     runtimeEnv.CLAUDE_CONFIG_DIR ||
     nuphosJoin(runtimeEnv.HOME || runtimeEnv.USERPROFILE || nuphosHostHome(), '.claude')
-  // A token already in the environment was set on purpose and wins. Every spawn gets
-  // it, a session-less one (the model probe) too, or that one would refresh the old login.
-  const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN ? null : nuphosLongLivedToken(configDir, now)
+  // A token already in the environment was set on purpose and wins, then the one the owner
+  // shared with this computer from their vault (nuphosVaultToken). Every spawn gets it, a
+  // session-less one (the model probe) too, or that one would refresh the old login.
+  const token = runtimeEnv.CLAUDE_CODE_OAUTH_TOKEN
+    ? null
+    : (vaultToken ?? nuphosLongLivedToken(configDir, now))
   const withToken = token ? { ...env, CLAUDE_CODE_OAUTH_TOKEN: token } : env
   const isolated = nuphosSessionHomeEnv(sessionEnv, runtimeEnv)
   if (!isolated.HOME) return withToken
   return { ...withToken, CLAUDE_CONFIG_DIR: configDir, ...isolated }
+}
+
+// The setup token someone shared with this computer in their vault (nuphos/nuphos#5187),
+// which the runtime's host (Desktop or `nuphos agent`) opens with the computer's own key and
+// hands, on a private socket, to the one agent that token backs. Asked at every session start, so unsharing it stops new
+// sessions getting it. Only in the child's environment: never written or logged.
+export function nuphosVaultToken(runtimeEnv = process.env) {
+  const { NUPHOS_VAULT_SOCKET: pipe, NUPHOS_VAULT_KEY: key } = runtimeEnv
+  if (!pipe || !key) return Promise.resolve(null) // A host without a vault: as before.
+  return new Promise((resolve) => {
+    const chunks = []
+    const socket = nuphosConnect(pipe, () => socket.write(key))
+    socket.setTimeout(5000, () => socket.destroy())
+    socket.on('data', (chunk) => chunks.push(chunk))
+    socket.on('error', () => {})
+    socket.on('close', () => resolve(Buffer.concat(chunks).toString('utf8').trim() || null))
+  })
 }
 
 // The one-year token claude-login.mjs --long-lived stores. It never refreshes, so

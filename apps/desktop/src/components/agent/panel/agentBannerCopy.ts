@@ -68,7 +68,7 @@ function signedOutOrOfflineCopy(
     }
 
   return {
-    text: t('{name} is signed out. Ask a workspace administrator to reconnect this runtime.', {
+    text: t('{name} is signed out. Ask a team administrator to reconnect this runtime.', {
       name,
     }),
     action: null,

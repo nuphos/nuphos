@@ -56,6 +56,7 @@ export async function handleThreadMessage(envelope: SlackEventEnvelope): Promise
   const runtime: SlackRuntime = {
     botToken: botContext.botToken,
     botUserId: botContext.botUserId,
+    slackWorkspaceId,
   }
 
   if (

@@ -3,6 +3,8 @@ import { runtimeTypingIn, runtimeTurnActive } from '../../lib/runtimeExecution.t
 import { subAgentState } from '../../lib/subAgentState.ts'
 import { activityOf } from '../sidebar/bot-activity.ts'
 
+import { pendingToolApprovals } from './toolApprovals.ts'
+
 import type { RuntimeExecution } from '../../lib/runtimeExecution.ts'
 import type { Run } from '../sidebar/bot-activity.ts'
 
@@ -63,9 +65,16 @@ function reasonOf(bot: Run, kids: Run[], channelId: string): 'chat' | 'report' |
 export function botWorkOf(bot: Run | undefined, kids: Run[], channelId: string): BotWork | null {
   const working = activeKids(kids)
   // Every open question of the Bot and the agents under it, the oldest first.
-  const open = [...(bot ? [bot] : []), ...kids]
-    .flatMap((run) => attentionInputRequests(run.conversation))
-    .sort((a, b) => a.askedAt.localeCompare(b.askedAt))
+  // A tool call the Bot's turn waits on is asked too, by its title.
+  const approvals = pendingToolApprovals(bot?.runtimeState).map((approval) => ({
+    id: approval.toolCallId,
+    question: approval.title,
+    askedAt: new Date(approval.at).toISOString(),
+  }))
+  const open = [
+    ...approvals,
+    ...[...(bot ? [bot] : []), ...kids].flatMap((run) => attentionInputRequests(run.conversation)),
+  ].sort((a, b) => a.askedAt.localeCompare(b.askedAt))
   const oldest = open.at(0)
 
   if (oldest)

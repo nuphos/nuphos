@@ -160,7 +160,7 @@ class BotsPageFixtureDeviceTest {
                     composable("list") { page(nav) }
                     composable("channel/{id}") { entry ->
                         val id = entry.arguments?.getString("id").orEmpty()
-                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() })
+                        if (realChannel) ai.nuphos.android.ui.chats.ChannelScreen(id, onBack = { nav.popBackStack() }, onLink = {})
                         else Text("Opened $id")
                     }
                 }
@@ -247,11 +247,12 @@ class BotsPageFixtureDeviceTest {
         compose.onNodeWithText(long, useUnmergedTree = true).performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertEquals("The preview takes two lines", 2, layouts.single().lineCount)
         assertTrue("and is cut after them", layouts.single().hasVisualOverflow)
-        // As on iOS, the chevron sits in the middle of the two-line row, not at its top.
-        val bounds = row("chat-bot").fetchSemanticsNode().boundsInRoot
+        // As on iOS, the chevron follows the time on the name's line, above the preview.
+        val name = compose.onNode(hasText("Ada") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
         val chevron = compose.onNode(hasTestTag("chat-chevron") and hasAnyAncestor(hasTestTag("chat-row:chat-bot")), useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot
-        assertEquals("The chevron is centred on the row", bounds.center.y, chevron.center.y, 2f)
+        assertEquals("The chevron is on the name's line", name.center.y, chevron.center.y, 4f)
     }
 
     @Test fun aBotsRowShowsItsChatsDotsWhileItAnswersThenItsReply() {
@@ -382,7 +383,7 @@ class BotsPageFixtureDeviceTest {
         noRuntimes = true
         nameField().performTextInput("Grace")
         create().performClick()
-        waitText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.")
+        waitText("This team has no runtime yet. Add one on the Runtimes page, then create your Bot.")
         assertEquals("No Bot", 0, posts("/agent/bots"))
         assertEquals("No chat", 0, posts("/agent/channels"))
         nameField().assertTextContains("Grace")
@@ -401,7 +402,7 @@ class BotsPageFixtureDeviceTest {
         create().performClick()
         waitText("Couldn't create this Bot. Try again.")
         // A list that didn't load says nothing about whether there are runtimes.
-        compose.onNodeWithText("This workspace has no runtime yet. Add one on the Runtimes page, then create your Bot.").assertDoesNotExist()
+        compose.onNodeWithText("This team has no runtime yet. Add one on the Runtimes page, then create your Bot.").assertDoesNotExist()
         assertEquals(0, posts("/agent/bots"))
         runtimesFail = false
         create().performClick()
@@ -430,8 +431,8 @@ class BotsPageFixtureDeviceTest {
 
     // MARK: No runtime yet: the first-runtime prompt, as on iOS.
     private val prompt = "Connect your first runtime"
-    private val adminWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
-    private val memberWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a workspace administrator to connect one."
+    private val adminWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one."
+    private val memberWords = "Open Nuphos on your computer to add a Box or connect your own computer, or ask a team administrator to connect one."
     private fun asAdministrator() = InstrumentationRegistry.getInstrumentation().runOnMainSync {
         store.acceptMemberships(listOf(teamA.copy(role = "ADMINISTRATOR"), teamB), teamA.id)
     }
@@ -497,6 +498,19 @@ class BotsPageFixtureDeviceTest {
         compose.waitUntil(8_000) { !store.isRefreshing }
         noRuntimes = false
         compose.runOnIdle { store.refresh() }
+        compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
+        gone(prompt)
+    }
+
+    @Test fun aRuntimeAddedElsewhereReplacesThePromptOnReturn() {
+        noRuntimes = true
+        render()
+        waitText(prompt)
+        compose.waitUntil(8_000) { !store.isRefreshing }
+        noRuntimes = false
+        // No refresh here: leaving the app and coming back is what must read the runtimes again.
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(androidx.lifecycle.Lifecycle.State.RESUMED)
         compose.waitUntil(8_000) { compose.onAllNodesWithContentDescription("New Bot").fetchSemanticsNodes().isNotEmpty() }
         gone(prompt)
     }

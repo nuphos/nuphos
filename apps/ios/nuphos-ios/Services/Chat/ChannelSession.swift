@@ -24,10 +24,15 @@ final class ChannelSession {
     private(set) var readOnly = false
     /// Posts shown at once, until the chat returns them under the same id.
     private(set) var sending: [ChannelPost] = []
-    /// What a sending post attached, drawn from the device until it is posted.
-    private(set) var sendingAttachments: [String: [ComposerAttachment]] = [:]
-    /// Each posted file group's files, read before its post shows, so a post
-    /// is measured once at its final height.
+    /// What a sending post attached, drawn from the device until it is posted,
+    /// and how far it has uploaded.
+    private(set) var sendingUploads: [String: SendingUpload] = [:]
+    struct SendingUpload {
+        let attachments: [ComposerAttachment]
+        let progress = Progress()
+    }
+    /// Each posted file group's files, read once its post shows, so the chat
+    /// shows without waiting on them; a card drawn before then reads its own (#3525).
     private(set) var files: [String: [TransferDownloadGroup.File]] = [:]
     /// The latest send, so the transcript returns to the end for it.
     private(set) var lastSubmittedRowID: String?
@@ -53,6 +58,12 @@ final class ChannelSession {
         self.channelId = channelId
         self.title = title
         questions = OpenQuestions(token: token, teamId: teamId)
+        // The chat opens on its last read, as a messaging app does; `refresh` reads it again.
+        if let detail = NuphosAPI.cachedConversationDetail(token: token, sessionId: channelId) {
+            let agents = LaunchCache.chat(Self.agentsName(channelId), token: token)
+                .flatMap { try? JSONDecoder().decode(AgentsEnvelope.self, from: $0).agents }
+            apply(detail, agents: agents ?? [])
+        }
     }
 
     var posts: [ChannelPost] { stored + ChannelPost.stillSending(stored: stored, sending: sending) }
@@ -91,7 +102,8 @@ final class ChannelSession {
                 changePending = false
                 await refresh(force: true)
             case .tick:
-                if !pushed { await refresh() }
+                // A pushed chat is read only when it changes; its links still run out.
+                if pushed { await resolveFiles(of: stored) } else { await refresh() }
                 await refreshQuestions()
             }
         }
@@ -129,19 +141,22 @@ final class ChannelSession {
     }
 
     /// The probe, then the full read when the chat changed; `force` skips the probe.
+    /// Either way, files whose links ran out are read again.
     func refresh(force: Bool = false) async {
         do {
-            if !force, loaded {
-                // The probe reads the newest post, so an open chat is read up to it: a
-                // post's activity can land after the transcript change the probe compares.
-                let probe = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1)
-                guard probe.channelRevision != revision else { return }
+            // The probe reads the newest post, so an open chat is read up to it: a
+            // post's activity can land after the transcript change the probe compares.
+            var changed = force || !loaded
+            if !changed {
+                changed = try await NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: 1).channelRevision != revision
             }
-            async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
-            async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
-            let (read, people) = try await (detail, listed)
-            await resolveFiles(of: read.messages.compactMap(ChannelPost.init))
-            apply(read, agents: people)
+            if changed {
+                async let detail = NuphosAPI.conversationDetail(token: token, teamId: teamId, sessionId: channelId, tail: Self.tail)
+                async let listed = Self.listAgents(token: token, teamId: teamId, channelId: channelId)
+                let (read, people) = try await (detail, listed)
+                apply(read, agents: people)
+            }
+            await resolveFiles(of: stored)
         } catch {
             // Cancelled (the chat closed, the app left the foreground): not a
             // failure, and not loaded, so the next poll reads it (#3620).
@@ -152,7 +167,7 @@ final class ChannelSession {
     private func apply(_ detail: AgentConversationDetail, agents listed: [ChannelAgent]) {
         stored = detail.messages.compactMap(ChannelPost.init)
         sending = ChannelPost.stillSending(stored: stored, sending: sending)
-        sendingAttachments = sendingAttachments.filter { id, _ in sending.contains { $0.id == id } }
+        sendingUploads = sendingUploads.filter { id, _ in sending.contains { $0.id == id } }
         events = detail.timelineEvents
         agents = listed
         // A teammate's Bot is in none of this viewer's lists: its face comes from the chat.
@@ -167,12 +182,20 @@ final class ChannelSession {
     }
 
     private func resolveFiles(of posts: [ChannelPost]) async {
-        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads }).subtracting(files.keys)
+        // Unread, or read with links that no longer load.
+        let missing = Set(posts.flatMap { $0.uploads.map(\.groupId) + $0.downloads })
+            .filter { files[$0]?.contains(where: \.linkExpired) ?? true }
         await withTaskGroup(of: (String, [TransferDownloadGroup.File]?).self) { group in
             for id in missing {
-                group.addTask { [self] in (id, (try? await transferGroup(id))?.readyFiles) }
+                group.addTask { [self] in
+                    do { return (id, try await transferGroup(id).readyFiles) }
+                    // Gone for good (expired, or purged at its expiry): no files, so the
+                    // card shows it expired and no refresh reads it again.
+                    catch AgentChatAPI.Conflict.other(_, _, let status) where status == 404 || status == 410 { return (id, []) }
+                    catch { return (id, nil) }
+                }
             }
-            // A failed read stays out, so the next refresh, or the card itself, tries again.
+            // Any other failed read stays out, so the next refresh, or the card itself, tries again.
             for await (id, ready) in group { if let ready { files[id] = ready } }
         }
     }
@@ -183,11 +206,16 @@ final class ChannelSession {
                                        query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
     }
 
+    private struct AgentsEnvelope: Decodable { let agents: [ChannelAgent] }
+    private static func agentsName(_ channelId: String) -> String { "\(channelId).agents" }
+
     private static func listAgents(token: String, teamId: String, channelId: String) async throws -> [ChannelAgent] {
-        struct Envelope: Decodable { let agents: [ChannelAgent] }
-        let envelope: Envelope = try await WorkspaceAPI.request(
-            "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token)
-        return envelope.agents
+        let data = try await AgentChatAPI.send(
+            "GET", "agent/conversations/\(channelId)/agents", query: [URLQueryItem(name: "teamId", value: teamId)], token: token,
+            body: JSONValue?.none, timeout: 60)
+        let agents = try JSONDecoder().decode(AgentsEnvelope.self, from: data).agents
+        LaunchCache.storeChat(data, as: agentsName(channelId), token: token)
+        return agents
     }
 
     // MARK: - Questions
@@ -223,16 +251,17 @@ final class ChannelSession {
         sending.append(ChannelPost(
             id: id, senderId: viewerId ?? "", isAgent: false, name: me?.name ?? "You", avatar: me?.avatar,
             text: text, sentAt: .now, replyTo: reply, sending: true))
-        if !submission.attachments.isEmpty { sendingAttachments[id] = submission.attachments }
+        let upload = submission.attachments.isEmpty ? nil : SendingUpload(attachments: submission.attachments)
+        sendingUploads[id] = upload
         lastSubmittedRowID = "post.\(id)"
         Task {
             do {
                 var body: [String: JSONValue] = ["text": .string(text), "id": .string(id)]
                 if let replyId = reply?.id { body["replyTo"] = .string(replyId) }
-                if !submission.attachments.isEmpty {
-                    let upload = try await WorkspaceAPI.upload(
-                        token: token, team: teamId, attachments: submission.attachments, progress: Progress())
-                    body["upload"] = .string(upload.groupId)
+                if let upload {
+                    let group = try await WorkspaceAPI.upload(
+                        token: token, team: teamId, attachments: upload.attachments, progress: upload.progress)
+                    body["upload"] = .string(group.groupId)
                 }
                 _ = try await AgentChatAPI.send(
                     "POST", "agent/conversations/\(channelId)/channel-messages",
@@ -241,7 +270,7 @@ final class ChannelSession {
                 await refresh(force: true)
             } catch {
                 sending.removeAll { $0.id == id }
-                sendingAttachments[id] = nil
+                sendingUploads[id] = nil
                 sendError = error.localizedDescription
                 unsent = submission
                 replying = reply

@@ -7,6 +7,7 @@ import { adapterRpc } from './model-probe-rpc.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { ProbeModelsRun } from './controller-types.ts'
 import type { KeyStore } from './custom-provider.ts'
+import type { ChildProcess } from 'node:child_process'
 
 export type ModelControls = {
   effort: { value: string; name: string; description?: string }[]
@@ -104,18 +105,54 @@ export function controlsOf(options: ConfigOption[]): ModelControls {
   }
 }
 
+const isBare = (controls: ModelControls) => !controls.effort.length && !controls.fast.length
+
+/**
+ * Two models read and neither offers a control: the runtime has none per model.
+ * A custom provider's ids are never cut short, since setting each finds the ones refused.
+ */
+function noModelControls(controls: Record<string, ModelControls>, custom?: string[]) {
+  const read = Object.values(controls)
+
+  if (custom?.length) return false
+
+  return read.length > 1 && read.every(isBare)
+}
+
 /** A runtime's settings when it lists no models, or null when it offers no choices. */
 function settingsOnlyCatalog(configOptions: ConfigOption[]): LocalModelCatalog | null {
   const controls = controlsOf(configOptions)
 
   // Choices only: an empty level is nothing to pick, so it would open an empty popover.
-  if (!controls.effort.length && !controls.fast.length) return null
+  if (isBare(controls)) return null
 
   return {
     models: [],
     defaultModel: '',
     controls: { [CONTROLS_ONLY_KEY]: controls },
     controlsOnly: true,
+  }
+}
+
+/**
+ * Ends the adapter and the agent it started. Killing the adapter alone can orphan the
+ * agent: cursor-agent keeps running after its stdin closes.
+ */
+function endTree(child: ChildProcess) {
+  if (child.pid == null) return
+  if (process.platform === 'win32') {
+    const taskkill = `${process.env.SystemRoot ?? 'C:\\Windows'}\\System32\\taskkill.exe`
+
+    spawn(taskkill, ['/pid', String(child.pid), '/T', '/F']).on('error', () => {
+      // No taskkill: nothing else can end the tree.
+    })
+
+    return
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch {
+    // Already gone.
   }
 }
 
@@ -139,6 +176,8 @@ export function probeLocalModels(options: {
       env: { ...options.env, ...options.secretEnv },
       stdio: ['pipe', 'pipe', 'ignore'],
       windowsHide: true,
+      // Its own process group on POSIX, so endTree reaches the agent the adapter starts.
+      detached: process.platform !== 'win32',
     })
     let settled = false
     const timer = setTimeout(() => {
@@ -152,7 +191,7 @@ export function probeLocalModels(options: {
       settled = true
       clearTimeout(timer)
       rpc.stop(error ?? new Error('Model discovery finished'))
-      child.kill()
+      endTree(child)
       if (error) reject(error)
       else if (catalog) resolve(catalog)
     }
@@ -188,8 +227,15 @@ export function probeLocalModels(options: {
       const controls: Record<string, ModelControls> = {
         [defaultModel as string]: controlsOf(configOptions),
       }
+      let tried = 0
 
       for (const { id } of models) {
+        // Cursor names each model's settings in its id and has no control to read, and a
+        // set costs it half a second: across its ~50 models, longer than the probe may take.
+        // So once two models show no control, the rest are listed as advertised.
+        if (noModelControls(controls, options.models)) break
+        tried++
+
         // Claude validates full model ids with a network call that can fail
         // once; try again before reporting the model without its controls.
         for (let attempt = 0; attempt < 2 && !controls[id]; attempt++) {
@@ -210,7 +256,7 @@ export function probeLocalModels(options: {
         }
       }
       finish(null, {
-        models: models.filter(({ id }) => controls[id]),
+        models: models.filter(({ id }, index) => index >= tried || controls[id]),
         defaultModel: defaultModel as string,
         controls,
       })

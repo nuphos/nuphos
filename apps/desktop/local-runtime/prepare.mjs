@@ -64,6 +64,7 @@ export const ADAPTERS = {
   dsh: { shim: true, entry: 'index.mjs', version: 'dsh@acp-shim' },
   hermes: { shim: true, entry: 'index.mjs', version: 'hermes@acp-shim' },
   // Pi speaks its own RPC: the shim runs it through the pi-acp adapter, installed beside it.
+  cursor: { shim: true, entry: 'index.mjs', version: 'cursor@acp-shim' },
   pi: { shim: true, dir: 'pi-acp', entry: 'index.mjs', version: 'pi-acp@0.0.34' },
 }
 /** The shim and the modules it imports, as the image ships them. */
@@ -72,6 +73,7 @@ const SHIM_SOURCES = [
   'hermes-session.mjs',
   'opencode-session.mjs',
   'pi-session.mjs',
+  'process-death.mjs',
   'mcp-bridge-config.mjs',
   'mcp-http-bridge.mjs',
   'runtime-defaults.mjs',
@@ -259,6 +261,7 @@ export async function prepare({ targets, openab, skipOpenab, require }) {
     cpSync(join(RUNTIME_DIR, 'hermes-providers.json'), join(out, 'hermes-providers.json'))
     cpSync(join(RUNTIME_DIR, 'pi-login.mjs'), join(out, 'pi-login.mjs'))
     cpSync(join(RUNTIME_DIR, 'pi-session.mjs'), join(out, 'pi-session.mjs'))
+    cpSync(join(RUNTIME_DIR, 'cursor-login.mjs'), join(out, 'cursor-login.mjs'))
     // The `panel` job a machine Nuphos made offers, the one the runtime image runs.
     cpSync(join(RUNTIME_DIR, 'panel-job.mjs'), join(out, 'panel-job.mjs'))
     // A desktop per session on a Linux Box: the MCP wrapper Claude runs there.

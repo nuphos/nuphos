@@ -1,13 +1,13 @@
 import { executable } from './agent-cli-apps.ts'
 import { cliPath, LOCAL_AGENT_PROVIDERS } from './agent-cli.ts'
-import { discoverModels } from './agent-models.ts'
+import { discoverModels, rereadModels } from './agent-models.ts'
 import { runtimeStateOf, tunnelStatusOf } from './controller-status.ts'
 import {
   freshAgent,
   HEALTHY_AFTER_MS,
+  pauseAgent,
   prepareHomeFor,
   scheduleAgentRestart,
-  stopAgentProcess,
   saveCli,
   userDir,
 } from './controller-types.ts'
@@ -42,6 +42,12 @@ export class LocalRuntimeController {
   private revision = 0
   private endpoint: string | undefined
   private switching: Promise<unknown> = Promise.resolve()
+  readonly whileStopped = <T>(provider: LocalAgentProvider, work?: () => Promise<T> | T) =>
+    pauseAgent(this.agents[provider], this.reportChange, work)
+  private readonly reportChange = (): void => {
+    this.changed()
+    this.tunnel?.sendStatus()
+  }
   constructor(
     deps: LocalRuntimeControllerDeps,
     providers: readonly LocalAgentProvider[] = LOCAL_AGENT_PROVIDERS,
@@ -52,11 +58,11 @@ export class LocalRuntimeController {
       this.instances = new InstanceControllers(
         deps,
         (childDeps, provider) => new LocalRuntimeController(childDeps, [provider], true),
-        () => {
-          this.changed()
-          this.tunnel?.sendStatus()
+        this.reportChange,
+        {
+          refreshDefault: (provider, restart, read) => this.refresh(restart, [provider], read),
+          pauseDefault: this.whileStopped,
         },
-        { refreshDefault: (provider, restart) => this.refresh(restart, [provider]) },
       )
     this.deps = deps
     this.usage = createUsageSampler(
@@ -114,10 +120,8 @@ export class LocalRuntimeController {
 
     return [launches]
   }
-  async refresh(
-    restart = false,
-    providers: readonly LocalAgentProvider[] = this.providers,
-  ): Promise<LocalRuntimeState> {
+  /** Checks agents again; `signedIn` after a sign-in through Nuphos, to read their models now. */
+  async refresh(restart = false, providers = this.providers, signedIn = false) {
     const userId = this.userId
 
     if (!userId) return this.state()
@@ -139,9 +143,11 @@ export class LocalRuntimeController {
     this.tunnel?.sendStatus()
     this.changed()
     await Promise.all(
-      providers
-        .filter((provider) => restart || !this.agents[provider].process || moved.has(provider))
-        .map((provider) => this.launch(provider)),
+      providers.map(async (provider) => {
+        if (restart || !this.agents[provider].process || moved.has(provider))
+          await this.launch(provider)
+        else if (signedIn) await rereadModels(this.agents[provider])
+      }),
     )
     await Promise.all(this.providers.map((provider) => this.usage.sample(provider)))
     await this.instances?.refresh(restart, providers)
@@ -152,23 +158,18 @@ export class LocalRuntimeController {
     this.tunnel?.reconnectNow()
   }
   async shutdown(): Promise<void> {
+    this.userId = null
     this.usage.stop()
     this.tunnel?.stop()
     this.tunnel = undefined
     this.online = false
     this.superseded = false
     this.revoked = false
-    await Promise.all(this.providers.map((provider) => this.stopAgent(provider)))
+    await Promise.all(this.providers.map((provider) => this.whileStopped(provider)))
     await this.instances?.shutdown()
   }
   private changed(): void {
     this.deps.onChange?.()
-  }
-  private stopAgent(provider: LocalAgentProvider): Promise<void> {
-    return stopAgentProcess(this.agents[provider], () => {
-      this.tunnel?.sendStatus()
-      this.changed()
-    })
   }
   private openTunnel(): void {
     this.tunnel ??= this.deps.createTunnel(
@@ -220,7 +221,7 @@ export class LocalRuntimeController {
     const userId = this.userId
 
     if (!userId) return
-    await this.stopAgent(provider)
+    await this.whileStopped(provider)
     const agent = this.agents[provider]
     const generation = agent.generation
     const current = () => generation === agent.generation && userId === this.userId

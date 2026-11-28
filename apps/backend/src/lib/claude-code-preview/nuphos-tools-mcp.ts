@@ -46,8 +46,8 @@ export const ANTIGRAVITY_TOOLS_INSTRUCTIONS =
   `Nuphos's native tools for this conversation, limited to what fits Antigravity's tool ` +
   `budget: memory (save_memory / memory_get), sub-agents (create_thread / ` +
   `send_message_to_thread), Task reporting (report_task / update_self), decisions, commands ` +
-  `on the user's devices (local_exec) and channel posts (channel_post). Charts, artifacts, ` +
-  `listing conversations, reading channels, Kubernetes access and Desktop browser or ` +
+  `on the user's devices (local_exec) and channels (channel_read / channel_post). Charts, ` +
+  `artifacts, listing conversations, Kubernetes access and Desktop browser or ` +
   `terminal tools are not available here; say so rather than looking for them. ${SUB_AGENTS}${
     DECISIONS
   }${CALLS}`
@@ -93,15 +93,20 @@ export async function nuphosToolsMcp(
 }
 
 /**
- * A short hash of the tools' names and input schemas: a new parameter on an
- * existing tool counts too. Descriptions are left out, as they embed per-turn
- * data (the date, the selected credentials) that would respawn every turn.
+ * A short hash of the tools' names, input schemas and `_meta`: a new parameter on
+ * an existing tool counts too, and so does a tool Claude Code must stop deferring.
+ * Descriptions are left out, as they embed per-turn data (the date, the selected
+ * credentials) that would respawn every turn.
  */
 export function toolsHash(definitions: readonly unknown[]): string {
   const tools = definitions.map((definition) => {
-    const { name, inputSchema } = definition as { name: string; inputSchema?: unknown }
+    const { name, inputSchema, _meta } = definition as {
+      name: string
+      inputSchema?: unknown
+      _meta?: unknown
+    }
 
-    return JSON.stringify([name, inputSchema ?? null])
+    return JSON.stringify(_meta ? [name, inputSchema ?? null, _meta] : [name, inputSchema ?? null])
   })
 
   return createHash('sha256').update(tools.join('\n')).digest('hex').slice(0, 12)

@@ -1,6 +1,6 @@
 <resources>
     <string name="composer_draft_save_failed">無法儲存此草稿。請釋放儲存空間後再試一次。</string>
-    <string name="composer_voice_unavailable">請選擇工作區並確認 AI 分享選項，才能使用語音輸入。</string>
+    <string name="composer_voice_unavailable">請選擇團隊並確認 AI 分享選項，才能使用語音輸入。</string>
     <string name="composer_voice_start_failed">無法啟動語音輸入。請檢查麥克風權限後再試一次。</string>
     <string name="composer_voice_failed">語音輸入失敗</string>
     <string name="composer_add_to_draft">加入草稿</string>
@@ -63,7 +63,7 @@
     <string name="composer_switch_runtime_failed">無法切換執行環境。請重新整理後再試一次。</string>
     <string name="composer_switching_runtime">正在切換執行環境…</string>
     <string name="composer_runtime_view_only">你可以檢視此任務的執行環境，但無法移動它。</string>
-    <string name="composer_runtime_wait">請等目前的回應或待處理訊息完成後再切換執行環境。</string>
+    <string name="composer_runtime_wait">請等正在送出的訊息或上傳完成，再切換執行環境。</string>
     <string name="composer_loading_runtimes">正在載入執行環境…</string>
     <string name="composer_no_runtimes">沒有可用的執行環境。</string>
     <string name="composer_no_runtimes_body">在你的電腦上開啟 Nuphos，即可新增 Box 或連接你自己的電腦。</string>
@@ -79,13 +79,17 @@
     <string name="composer_runtime_offline">此執行環境已離線。重新連線後即可恢復模型設定。</string>
     <string name="composer_runtime_no_model">此執行環境不提供模型設定。</string>
     <string name="composer_share_open_failed">無法開啟此草稿。你的分享尚未傳送。</string>
-    <string name="composer_share_no_workspace">請在「帳號」中開啟工作區以接收此分享。尚未傳送任何內容。</string>
+    <string name="composer_share_no_workspace">請在「帳號」中開啟團隊以接收此分享。尚未傳送任何內容。</string>
     <string name="composer_preparing_draft">正在準備草稿</string>
     <string name="composer_open_draft_failed">無法開啟草稿</string>
     <string name="composer_preparing_share">正在準備分享的內容…</string>
     <string name="composer_opening_draft">正在開啟你的新草稿。尚未傳送任何內容。</string>
     <string name="composer_cancel_share">取消分享</string>
     <string name="composer_queued_messages">佇列中的訊息</string>
+    <string name="composer_queue_usage_held">用量已用完。將在用量重設後執行。</string>
+    <string name="composer_queue_usage_held_days">用量已用完。將在 %1$d 天 %2$d 小時後用量重設時執行。</string>
+    <string name="composer_queue_usage_held_hours">用量已用完。將在 %1$d 小時 %2$d 分後用量重設時執行。</string>
+    <string name="composer_queue_usage_held_minutes">用量已用完。將在 %1$d 分後用量重設時執行。</string>
     <string name="composer_refresh_queue">重新整理佇列</string>
     <string name="composer_taken_back">已取回。離開此任務前請還原這段文字。</string>
     <string name="composer_queued_attachment">佇列中的附件</string>

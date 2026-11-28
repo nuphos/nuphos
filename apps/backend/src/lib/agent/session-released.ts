@@ -17,7 +17,7 @@ type QueuedTurnStarter = (userId: string, sessionId: string, released: boolean) 
 // Installed at boot: the run locks that call this must not import the turn graph.
 let startQueuedTurn: QueuedTurnStarter | null = null
 
-export function installQueuedTurnStarter(start: QueuedTurnStarter): void {
+export function installQueuedTurnStarter(start: QueuedTurnStarter | null): void {
   startQueuedTurn = start
 }
 
@@ -54,10 +54,12 @@ function start(userId: string, sessionId: string, released = false): void {
 /**
  * A session's run or claim was let go. Whatever was queued behind it starts
  * the next turn. Both locks call this, and only the last one to go can claim.
- * While a retry is scheduled, that retry starts it instead.
+ * While a retry is scheduled, that retry starts it instead. `released` is false
+ * when nothing was let go (a message joined an idle queue): a head waiting out a
+ * refusal keeps waiting.
  */
-export function sessionReleased(userId: string, sessionId: string): void {
-  if (!backoff.get(backoffKey(userId, sessionId))?.timer) start(userId, sessionId, true)
+export function sessionReleased(userId: string, sessionId: string, released = true): void {
+  if (!backoff.get(backoffKey(userId, sessionId))?.timer) start(userId, sessionId, released)
 }
 
 /** The queue could not run now. Look again later, waiting longer each time. */
@@ -86,14 +88,15 @@ export function queuedTurnSettled(userId: string, sessionId: string): void {
 /**
  * A turn took these messages and could not run them. They go back to the
  * front, each counted, and the queue retries after a wait rather than on the
- * release that follows. Only the head's count sets that wait.
+ * release that follows. Only the head's count sets that wait. A head held by
+ * the usage limit says so, with its reset when known, until its next try.
  */
 export async function requeueTurnQueue(
   userId: string,
   sessionId: string,
   carried: PendingUserMessage[],
   queued?: PendingUserMessage,
-  until?: string,
+  usage?: PendingUserMessage['usageHold'] | false,
 ): Promise<void> {
   if (!queued) {
     for (const entry of carried) await enqueuePendingUserMessage(userId, sessionId, entry)
@@ -106,7 +109,7 @@ export async function requeueTurnQueue(
   // ones is busy for minutes, so every replica's backstop and retry wait it out.
   // A known end of the wait, such as a usage reset, is waited out from the first try.
   const waited = !queued.offlineSince && attempts >= QUICK_REFUSALS
-  const reset = Math.min(Date.parse(until ?? ''), now + USAGE_WAIT_MS)
+  const reset = Math.min(Date.parse((usage || undefined)?.until ?? ''), now + USAGE_WAIT_MS)
   const retryAfter =
     reset > now
       ? new Date(reset).toISOString()
@@ -114,9 +117,15 @@ export async function requeueTurnQueue(
 
   // A waiting head is the backstop's to start, or a release's.
   if (!retryAfter) retryQueuedTurn(userId, sessionId)
-  // Counted, each one runs on the retry although the refused turn stored it (turn-history).
+  // Counted, each one runs on the retry even if the refused turn's copy is still stored (turn-history).
   await requeuePendingAtHead(userId, sessionId, [
-    { ...queued, attempts, retryAfter, refusedAt: retryAfter && new Date(now).toISOString() },
+    {
+      ...queued,
+      attempts,
+      retryAfter,
+      refusedAt: retryAfter && new Date(now).toISOString(),
+      usageHold: usage || undefined,
+    },
     ...carried.map((entry) => ({ ...entry, attempts: (entry.attempts ?? 0) + 1 })),
   ])
 }

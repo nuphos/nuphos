@@ -43,7 +43,10 @@ conversations. Work is still executed by ordinary Tasks.
   current parent. `report_id` is immutable: a retry must use the same payload.
   Statuses are `waiting`, `ready`, `blocked`, `failed`, and `done`; routine
   progress is not reported, since each report wakes the parent.
-  Review pending means `ready`, not `done`.
+  Review pending means `ready`, not `done`. An optional `data` JSON object (up
+  to 8 KB) is passed unchanged as `task_report.data` in the `task.reported`
+  webhook and MCP session notification; whoever starts the Task defines its
+  shape.
 - Originating channel IDs are retained when a Task is created from a channel
   turn and included in its report. They are context only; channel posting still
   requires the parent's existing membership and permissions.

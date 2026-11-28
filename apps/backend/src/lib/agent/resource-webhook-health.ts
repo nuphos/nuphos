@@ -3,8 +3,10 @@ import { z } from 'zod'
 import { logEvent } from '@/lib/observability'
 
 import { agentConversations } from './db'
-import { fetchPullHealth } from './github-pull-health'
+import { readPull } from './github-pull-health'
 import { allowedResourceRecipients } from './session-resource-lookup'
+
+import type { SettledCi } from './github-pull-health'
 
 const pr = z.object({ number: z.number().int().positive() })
 // The parts of a GitHub webhook that say which linked PR an event is about.
@@ -84,27 +86,41 @@ export function githubUnattachedSuiteCommit(event: string, payload: unknown) {
 /** A linked PR to refresh; a status event knows the repository but not the number, so it comes from the key. */
 export type HealthTarget = { key: string; installationId: number; repository: string }
 
-/** Re-reads what blocks a linked PR and stores it on every tag for it that may still read it. */
+/**
+ * Re-reads what blocks a linked PR, stores it on every tag for it that may still
+ * read it, and returns its head's CI if that has settled.
+ */
 async function refreshPullHealth(target: HealthTarget) {
   const recipients = await allowedResourceRecipients(target.key)
 
-  if (!recipients.length) return
+  if (!recipients.length) return null
   const number = Number(target.key.split('/').pop())
-  const health = await fetchPullHealth(target.installationId, target.repository, number)
+  const read = await readPull(target.installationId, target.repository, number)
 
   await agentConversations().updateMany(
     { _id: { $in: recipients } },
-    { $set: { 'linkedResources.$[resource].health': health } },
+    { $set: { 'linkedResources.$[resource].health': read?.health ?? null } },
     { arrayFilters: [{ 'resource.key': target.key }] },
   )
+
+  return read?.ci ?? null
 }
 
+/** Refreshes each target's tags; returns the settled CI of each PR whose CI has settled. */
 export async function refreshLinkedPullHealth(targets: HealthTarget[]) {
+  const settled = new Map<string, SettledCi>()
+
   await Promise.all(
-    targets.map((target) =>
-      refreshPullHealth(target).catch((error: unknown) => {
+    targets.map(async (target) => {
+      const ci = await refreshPullHealth(target).catch((error: unknown) => {
         logEvent('warn', 'github.resource.health_refresh_failed', { error: String(error) })
-      }),
-    ),
+
+        return null
+      })
+
+      if (ci) settled.set(target.key, ci)
+    }),
   )
+
+  return settled
 }

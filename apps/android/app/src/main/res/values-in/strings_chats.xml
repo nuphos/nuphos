@@ -10,6 +10,11 @@
     <string name="chats_show_more">Tampilkan lebih banyak</string>
     <string name="chats_question_your_answer">Jawaban Anda</string>
     <string name="chats_question_send_answer">Kirim jawaban</string>
+    <string name="chats_question_other_picked">Lainnya</string>
+    <string name="chats_question_choose_any">Pilih berapa pun</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">Jawab %1$d lagi</item>
+    </plurals>
     <string name="chats_question_heading_approval">Perlu persetujuan</string>
     <string name="chats_question_heading_preference">Pilihan Anda</string>
     <string name="chats_question_heading_credential">Perlu kredensial</string>

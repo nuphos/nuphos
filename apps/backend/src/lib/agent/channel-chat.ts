@@ -171,7 +171,7 @@ export async function postAsAgent(
 
 async function slackPost(
   channel: AgentConversation,
-  agent: Pick<AgentConversation, 'title'>,
+  agent: Pick<AgentConversation, 'sessionId'>,
   text: string,
   files: object[],
   quote: MessageMetadata['replyTo'],

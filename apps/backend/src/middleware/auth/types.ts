@@ -38,6 +38,8 @@ export type AuthVariables = {
   previewCredentialLimit?: Readonly<Record<string, readonly string[]>>
   /** Set when the request came with a stored CLI token rather than a session. */
   cliToken?: CliTokenPrincipal
+  /** The request came with a token the backend minted for an agent run, not a sign-in. */
+  agentRun?: true
   /** The sign-in session behind the request; absent for CLI and agent-run tokens. */
   sessionId?: string
 }

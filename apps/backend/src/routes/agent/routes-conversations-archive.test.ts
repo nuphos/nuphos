@@ -9,7 +9,7 @@ import { useIdentity } from '@/lib/test/doubles/identity'
 
 import { agent } from './router'
 
-import type { ArchiveUnit } from '@/lib/agent/db/archive'
+import type { ArchiveActor, ArchiveUnit } from '@/lib/agent/db/archive'
 
 const teamId = 'aaaaaaaaaaaaaaaaaaaaaaaa'
 const caller = 'bbbbbbbbbbbbbbbbbbbbbbbb'
@@ -19,10 +19,12 @@ let kind: string | undefined
 let participantIds = [caller]
 let moved: ArchiveUnit = { sessionIds: [] }
 const calls: [string, boolean][] = []
+const actors: ArchiveActor[] = []
+let agentRun = false
 const memberCalls: [string, string, boolean][] = []
 
 useIdentity({
-  authenticateToken: async () => ({ user: { id: caller } }),
+  authenticateToken: async () => ({ user: { id: caller }, ...(agentRun ? { agentRun } : {}) }),
   getTeamMembership: async () => ({ role: 'MEMBER' }),
 })
 const cleaned: string[][] = []
@@ -37,8 +39,9 @@ useAgentDb({
     team === teamId
       ? { sessionId, userId: owner, teamId, participantIds, ...(kind ? { kind } : {}) }
       : null,
-  setConversationArchived: async (sessionId, archived) => {
+  setConversationArchived: async (sessionId, archived, actor) => {
     calls.push([sessionId, archived])
+    actors.push(actor)
 
     return moved
   },
@@ -59,6 +62,8 @@ beforeEach(() => {
   calls.length = 0
   memberCalls.length = 0
   cleaned.length = 0
+  actors.length = 0
+  agentRun = false
 })
 const archive = (sessionId: string, archived: unknown) =>
   app.request(`/agent/conversations/${sessionId}/archive?teamId=${teamId}`, {
@@ -123,4 +128,15 @@ test("someone else's group chat is left, not archived, and a Task they are not i
   participantIds = []
   expect((await archive('s1', true)).status).toBe(404)
   expect(memberCalls).toEqual([])
+})
+
+test('records who archived and restored it: the owner, or an agent run with their token', async () => {
+  await archive('s1', true)
+  agentRun = true
+  await archive('s1', false)
+
+  expect(actors).toEqual([
+    { source: 'user', userId: caller },
+    { source: 'agent_run', userId: caller },
+  ])
 })

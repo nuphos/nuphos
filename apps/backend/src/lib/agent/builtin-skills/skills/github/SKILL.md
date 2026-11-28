@@ -1,6 +1,6 @@
 ---
 name: github
-description: Work with GitHub repos, issues, PRs and Actions through a team-bound GitHub App or the member's own login. Use whenever the user names a repo or asks about code, PRs or issues.
+description: "GitHub repos, issues, PRs and Actions. Use whenever the user names a repo or asks about code or PRs."
 ---
 
 # github
@@ -64,6 +64,8 @@ Identity: when the turn's member connected a Personal Credential, `gh` acts as t
 Permissions: acting as a member and the member's own `personal` / `github` credential use the same token, issued by the Nuphos GitHub App on the member's behalf. It can do only what both the member and the App installation allow, so a member who owns an org still cannot do through Nuphos what the App was not granted there. The setup script prints each installation's permissions and its settings page. Read them before planning work beyond code, issues and pull requests (org Projects, for example, need `organization_projects`). For a 403 or `Resource not accessible by integration`, follow [Errors](#errors).
 
 Without a team installation: when `list_credentials` lists a selected `personal` / `github` entry, the conversation owner chose their own GitHub account for this conversation. Load it with `bash skills/github/scripts/setup-credentials.sh <teamId> personal`; it reaches what that member can reach.
+
+Several GitHub accounts: `list_credentials` shows each account with its `connectionId`. When more than one is connected and the request does not say which, ask the user; never pick one yourself. Pass the chosen id as `GITHUB_CONNECTION_ID=<id>` before `setup-credentials.sh <teamId> personal`. A 409 `personal_credential_account_required` lists the choices.
 
 `gh` is pre-installed in the runtime; the script retains a fallback for outdated images.
 

@@ -19,9 +19,17 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import ai.nuphos.android.model.BotAvatars
+import ai.nuphos.android.model.SenderAvatar
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import ai.nuphos.android.ui.theme.avatarBackground
 import androidx.compose.ui.platform.LocalContext
 import android.content.Context
+import ai.nuphos.android.NuphosApplication
 import coil3.svg.SvgDecoder
 import coil3.ImageLoader
 import coil3.compose.AsyncImage
@@ -42,15 +50,21 @@ private fun agentImageLoader(): ImageLoader = AgentImages.get(LocalContext.curre
 @Composable
 fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge: Boolean = true) {
     val loader = agentImageLoader()
-    val face = ai.nuphos.android.model.BotFaces.face(sessionId)
+    val app = LocalContext.current.applicationContext as NuphosApplication
+    val face = if (app.botAvatarsEnabled) ai.nuphos.android.model.BotFaces.face(sessionId) else null
     Box(Modifier.size(size).testTag("agent-identity-avatar"), contentAlignment = Alignment.Center) {
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) {
             // Behind the character, unclipped: a head may break out of the disc.
-            avatarBackground(ai.nuphos.android.model.BotFaces.background(sessionId))?.let { Box(Modifier.size(size).background(it, CircleShape)) }
-            AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
-            imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit,
-            modifier = Modifier.size(size))
+            Box(Modifier.size(size).background(avatarBackground(ai.nuphos.android.model.BotFaces.background(sessionId)), CircleShape))
+            // A photo the owner uploaded shows as-is, in a circle; until it loads, or if it fails, the derived face.
+            val photo = SenderAvatar.trusted(face)
+            var photoShown by remember(photo) { mutableStateOf(false) }
+            if (!photoShown) AsyncImage(model = "file:///android_asset/bot-avatars/${BotAvatars.named(face) ?: BotAvatars.file(sessionId)}",
+                imageLoader = loader, contentDescription = null, contentScale = ContentScale.Fit, modifier = Modifier.size(size))
+            if (photo != null) AsyncImage(model = photo, imageLoader = loader, contentDescription = null,
+                contentScale = ContentScale.Crop, onSuccess = { photoShown = true },
+                modifier = Modifier.size(size).clip(CircleShape).alpha(if (photoShown) 1f else 0f).testTag("agent-photo-avatar"))
             if (showBadge && runtime != null) Box(Modifier.align(Alignment.BottomEnd)) {
                 AgentRuntimeBadge(runtime, if (size <= 24.dp) 9.dp else 12.dp)
             }

@@ -130,10 +130,13 @@ class BotPinsFixtureDeviceTest {
 
     private fun instDensity() = InstrumentationRegistry.getInstrumentation().targetContext.resources.displayMetrics.density
 
-    @Test fun shelfPreviewAndPinUnpinKeepActivityOrderAndLegacyFavorites() {
+    @Test fun pinnedRowLeavesTheListAndUnpinBringsItBackInActivityOrder() {
         fun row(id: String) = compose.onNodeWithTag("chat-row:$id")
+        fun listed(id: String) = compose.onAllNodesWithTag("chat-row:$id").fetchSemanticsNodes().isNotEmpty()
         fun assertOrder() = assertTrue(row("newer").fetchSemanticsNode().positionInRoot.y < row("older").fetchSemanticsNode().positionInRoot.y)
-        assertOrder()
+        // As on iOS and Desktop (#2703 item 12): a pinned chat sits in the shelf, not twice.
+        assertFalse("A pinned chat must leave the Bots list", listed("older"))
+        assertTrue(listed("newer"))
         shot("01-shelf")
         compose.onNodeWithTag("pinned-bot:older").performTouchInput { longClick() }
         compose.onNodeWithTag("bot-conversation-preview").assertExists()
@@ -143,13 +146,18 @@ class BotPinsFixtureDeviceTest {
         compose.onNodeWithTag("pin-action:older").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("pinned-bots-shelf").fetchSemanticsNodes().isEmpty() }
         compose.waitUntil(5_000) { !store.savingPins }
+        // Unpinning brings the chat back to the list, in its activity place.
+        compose.waitUntil(5_000) { listed("older") }
         assertOrder()
         row("newer").performTouchInput { longClick() }
         assertPreviewInset()
         shot("03-pin-menu")
         compose.onNodeWithTag("pin-action:newer").performClick()
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("pinned-bot:newer").fetchSemanticsNodes().isNotEmpty() }
-        assertOrder()
+        // Pinning another chat takes that one out of the list.
+        compose.waitUntil(5_000) { !listed("newer") }
+        assertTrue(listed("older"))
+        shot("04-pinned-newer")
         compose.waitUntil(5_000) { writes.size == 2 }
         assertEquals(listOf("PUT /teams/${team.id}/favorites", "PUT /teams/${team.id}/favorites"), writes.toList())
         assertEquals(listOf("Legacy Task", "Docs", "Newer"), entries.arrayValue!!.map { it["label"]?.stringValue })
@@ -158,6 +166,9 @@ class BotPinsFixtureDeviceTest {
     @Test fun searchHidesShelfAndTileOpensItsOwnChat() {
         compose.runOnIdle { store.updateSearch("Newer") }
         compose.onNodeWithTag("pinned-bots-shelf").assertDoesNotExist()
+        // Without the shelf, the results list every matching chat, pinned ones too.
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("chat-row:older").fetchSemanticsNodes().isNotEmpty() }
+        shot("05-search")
         compose.runOnIdle { store.updateSearch("") }
         compose.waitUntil(10_000) { compose.onAllNodesWithTag("pinned-bot:older").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithTag("pinned-bot:older").performClick()

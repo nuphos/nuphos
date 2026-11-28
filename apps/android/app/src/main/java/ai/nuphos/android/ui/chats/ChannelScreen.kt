@@ -22,6 +22,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -38,6 +39,8 @@ import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.Memory
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -103,7 +106,7 @@ import androidx.compose.ui.res.stringResource
 /** A chat opened from the list, a link or a notification. It never runs an agent turn. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit = {}, onOpenTask: ((String) -> Unit)? = null) {
+fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Unit, onOpenTask: ((String) -> Unit)? = null) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val teamId = store.selectedTeam?.id
@@ -143,7 +146,11 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     // A Bot's chat opens the Bot's desktop: its session, read and gated as on its Task screen.
     val botFace = session.faces.botFace?.takeIf { it.id == session.botId }
-    val bot = remember(store, botFace?.id) { botFace?.let { store.session(it.id, it.name) } }
+    // Seeded from the Bot's row when the list has it, so its details say what it runs before the
+    // Bot's own read lands, and if that read fails.
+    val bot = remember(store, botFace?.id) {
+        botFace?.let { face -> store.session(face.id, face.name).also { s -> store.botRow(face.id)?.let(s::seedFromListRow) } }
+    }
     val taskWorkspace = store.workspaceRevision
     val taskConsent = AiAccess.revision
     val canOpenTask = botFace != null && auth.aiAllowed &&
@@ -158,6 +165,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
         if (onOpenTask != null && auth.aiAllowed && AiAccess.revision == taskConsent && store.workspaceRevision == taskWorkspace &&
             store.selectedTeam?.id == session.teamId) onOpenTask(id)
     }
+    // The Bot's own Task, opened from the title bar and its details card alike, under one visibility check.
+    val openBotTask: (() -> Unit)? = if (canOpenTask && onOpenTask != null && bot != null) {
+        { openTask(bot.sessionId) }
+    } else null
     // What the Bot dispatched comes from the Tasks list, read again while its chat is on screen.
     LaunchedEffect(store, botFace?.id, lifecycle) {
         if (botFace == null) return@LaunchedEffect
@@ -170,6 +181,8 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     val tasks = botFace?.let { store.tasks(under = it.id, teamId = session.teamId) }.orEmpty()
     var detailsOpen by remember(session.channelId) { mutableStateOf(false) }
+    // The Bot's own agent list: from its details, or after it could not reply, as on its Task screen.
+    var switching by remember(bot) { mutableStateOf(false) }
     var showMembers by remember(session.channelId) { mutableStateOf(false) }
     if (showMembers) ChannelMembersSheet(session.agents) { showMembers = false }
     if (detailsOpen && bot != null && auth.token != null) {
@@ -177,16 +190,16 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
             allowed = { auth.aiAllowed && store.selectedTeam?.id == session.teamId },
             onOpen = { id -> detailsOpen = false; openTask(id) },
             onDismiss = { detailsOpen = false },
-            lead = { BotDetailsCard(session, openTask = if (canOpenTask && onOpenTask != null) {
-                { detailsOpen = false; openTask(bot.sessionId) }
-            } else null) },
+            lead = {
+                BotDetailsCard(session, openTask = openBotTask?.let { open -> { detailsOpen = false; open() } })
+                BotRuntimeCard(session, bot, onSwitchAgent = { detailsOpen = false; switching = true })
+                BotInstructionsCard(bot.sessionId)
+            },
             canManage = bot.canManage)
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
     val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
-    // After the Bot could not reply: its own agent list, as on its Task screen.
-    var switching by remember(bot) { mutableStateOf(false) }
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {
         val workspaceRevision = store.workspaceRevision
@@ -215,6 +228,10 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 },
                 navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, stringResource(R.string.chats_back)) } },
                 actions = {
+                    // One tap to the Bot's own Task, as on iOS.
+                    if (openBotTask != null) IconButton(onClick = openBotTask, modifier = Modifier.testTag("chat-bot-task")) {
+                        Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), stringResource(R.string.chat_task_fallback_title))
+                    }
                     if (bot?.canOpenDesktop == true) IconButton(onClick = { desktop = true }) { Icon(Icons.Outlined.DesktopWindows, stringResource(R.string.chats_desktop)) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -255,7 +272,7 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
                 }
             }
             session.replying?.let { ReplyChip(it) { session.replying = null } }
-            ChannelComposer(session, bot, onSwitchAgent = { switching = true })
+            ChannelComposer(session)
         }
         }
     }
@@ -277,21 +294,137 @@ private fun BotStateLine(tasks: List<AgentConversation>) {
         color = if (waiting > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
-/** The card that leads a Bot's details, as on Desktop: its face, name and runtime, and the way into the Bot's own Task. */
+/** The card that leads a Bot's details, as on Desktop: its face, name, and the way into the Bot's own Task. */
 @Composable
 private fun BotDetailsCard(session: ChannelSession, openTask: (() -> Unit)?) {
-    val store = LocalAgentStore.current
-    val runtime = store.bots.firstOrNull { it.sessionId == session.botId }
-        ?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeLabel) }
     ai.nuphos.android.ui.chat.SummaryCard(horizontalAlignment = Alignment.CenterHorizontally) {
         ChatIcon(session.faces, session.title, 64.dp)
         Text(session.title, maxLines = 2, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        runtime?.takeIf { it.isNotEmpty() }?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         if (openTask != null) OutlinedButton(onClick = openTask, modifier = Modifier.testTag("bot-task-entry")) {
             Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_task), null, Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.chat_task_fallback_title))
         }
+    }
+}
+
+/** A Bot's runtime and model, where they are picked: its owner opens either picker; anyone else sees what it runs. */
+@Composable
+private fun BotRuntimeCard(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession, onSwitchAgent: () -> Unit) {
+    val store = LocalAgentStore.current
+    val auth = LocalAuthSession.current
+    DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
+        val workspace = store.workspaceRevision
+        val generation = auth.generation
+        val consent = AiAccess.revision
+        bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
+            auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
+                store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
+        }
+        onDispose { bot.activateModelSettings(false) }
+    }
+    val models = bot.modelSettings
+    // Again once the Bot's own read settles: a model read that failed with it gets another try.
+    LaunchedEffect(models, bot.loaded) { models?.refresh() }
+    var showModel by remember(models) { mutableStateOf(false) }
+    if (showModel && models != null) ai.nuphos.android.ui.chat.ModelSettingsSheet(models) { showModel = false }
+    // Only once the Bot's own read says so: a failed read leaves the owner unknown, so the row only shows.
+    val owns = bot.loaded && bot.loadError == null && bot.isOwner && auth.aiAllowed
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Text(stringResource(R.string.agent_runtime), style = MaterialTheme.typography.titleSmall)
+        BotRuntimeRow({ ai.nuphos.android.ui.components.RuntimeMark(bot.agentRuntime, 18.dp) }, stringResource(R.string.agent_runtime),
+            if (bot.loaded || bot.agentRuntime != null) ai.nuphos.android.model.RuntimeIdentity.detail(bot.agentRuntime, bot.runtimeDeviceLabel) else "",
+            onClick = if (owns) onSwitchAgent else null, tag = "bot-details-runtime")
+        BotRuntimeRow({ Icon(Icons.Outlined.Memory, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }, stringResource(R.string.composer_model),
+            models?.config?.modelTitle ?: "", onClick = models?.let { { showModel = true } }, tag = "bot-details-model")
+        if (bot.loaded && !bot.isOwner) Text(stringResource(R.string.chat_bot_settings_owner_only),
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** A Bot's standing instructions in full, as on Desktop and iOS (#4084). Only the owner sees them,
+ *  and rewrites them in place; the server's refusal shows under the field. */
+@Composable
+private fun BotInstructionsCard(botId: String) {
+    val store = LocalAgentStore.current
+    if (!store.ownsBot(botId)) return
+    val instructions = store.botRow(botId)?.instructions.orEmpty()
+    var draft by remember(botId) { mutableStateOf<String?>(null) }
+    var saving by remember(botId) { mutableStateOf(false) }
+    var error by remember(botId) { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    // Cancel and Save stay above the keyboard as it opens, and when a refusal adds a line under the field.
+    val editor = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    val keyboard = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current)
+    LaunchedEffect(draft != null, keyboard, error) {
+        if (draft != null) editor.bringIntoView()
+    }
+    ai.nuphos.android.ui.chat.SummaryCard {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.chat_bot_instructions), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+            if (draft == null) IconButton(onClick = { draft = instructions; error = null }, modifier = Modifier.size(32.dp).testTag("bot-instructions-edit")) {
+                Icon(androidx.compose.ui.res.painterResource(R.drawable.bot_instructions_edit), stringResource(R.string.chat_bot_instructions_edit), Modifier.size(16.dp))
+            }
+        }
+        val text = draft
+        when {
+            text != null -> {
+                // One target for the field and its buttons, so the field's own scroll into view on focus
+                // falls inside this request instead of cancelling it.
+                Column(Modifier.bringIntoViewRequester(editor), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(text, { draft = it; error = null },
+                        Modifier.fillMaxWidth().heightIn(min = 120.dp, max = 320.dp).testTag("bot-instructions-field"),
+                        enabled = !saving, isError = error != null,
+                        supportingText = error?.let { reason -> { Text(reason, Modifier.testTag("bot-instructions-error")) } })
+                    Row(Modifier.fillMaxWidth().testTag("bot-instructions-actions"),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { draft = null; error = null }, enabled = !saving) { Text(stringResource(R.string.cancel)) }
+                        Button(onClick = {
+                            saving = true
+                            error = null
+                            scope.launch {
+                                try {
+                                    store.setBotInstructions(botId, text)
+                                    draft = null
+                                } catch (e: kotlinx.coroutines.CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    error = e.message ?: e.toString()
+                                } finally {
+                                    saving = false
+                                }
+                            }
+                        }, enabled = text != instructions && !saving, modifier = Modifier.testTag("bot-instructions-save")) {
+                            if (saving) {
+                                CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(stringResource(R.string.chat_save))
+                        }
+                    }
+                }
+            }
+            instructions.isEmpty() -> Text(stringResource(R.string.chat_bot_instructions_none),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else -> androidx.compose.foundation.text.selection.SelectionContainer {
+                Text(instructions, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("bot-instructions-text"))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BotRuntimeRow(icon: @Composable () -> Unit, label: String, value: String, onClick: (() -> Unit)?, tag: String) {
+    Row(
+        Modifier.fillMaxWidth().then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 6.dp).testTag(tag),
+        horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,
+    ) {
+        icon()
+        Text(label, style = MaterialTheme.typography.bodyLarge)
+        // The value takes the rest of the row and wraps, so a long runtime name is read in full.
+        Text(value, style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.End,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        if (onClick != null) Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, null, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -490,6 +623,11 @@ private fun PostRow(session: ChannelSession, post: ChannelPost, first: Boolean, 
                     } else MarkdownText(shown, onLink = onLink, compact = true)
                 }
             }
+            // A post on its way says how far its files have uploaded, then that it is sending, as on iOS.
+            if (post.sending) session.sendingProgress[post.id]?.let { progress ->
+                Text(if (progress.filesSent) stringResource(R.string.chat_upload_sending) else ai.nuphos.android.ui.chat.uploadProgressText(progress), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp).testTag("channel-upload-progress"))
+            }
             // An agent's files show below its words, every group in one grid.
             if (post.downloads.isNotEmpty()) Box(Modifier.padding(top = 6.dp)) {
                 ChannelFiles(post.downloads.map { TransferUpload(it, emptyList()) }, mine, session::transferGroup, allowed, downloads)
@@ -627,27 +765,11 @@ internal fun TypingDots(modifier: Modifier = Modifier) {
 
 /** The conversation composer, posting to the chat: photos, files, paste and dictation work as there. */
 @Composable
-private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.session.ChatSession?, onSwitchAgent: () -> Unit) {
+private fun ChannelComposer(session: ChannelSession) {
     val store = LocalAgentStore.current
     val auth = LocalAuthSession.current
     val scope = rememberCoroutineScope()
     val account = auth.user?.id
-    val ownsBot = bot?.loaded == true && bot.isOwner
-    if (bot != null) {
-        DisposableEffect(bot, store.workspaceRevision, auth.generation, AiAccess.revision) {
-            val workspace = store.workspaceRevision
-            val generation = auth.generation
-            val consent = AiAccess.revision
-            bot.activateModelSettings(auth.aiAllowed && store.selectedTeam?.id == session.teamId) {
-                auth.aiAllowed && auth.generation == generation && AiAccess.revision == consent &&
-                    store.workspaceRevision == workspace && store.selectedTeam?.id == session.teamId
-            }
-            onDispose { bot.activateModelSettings(false) }
-        }
-        LaunchedEffect(bot.modelSettings, bot.isStreaming, bot.runtimeObservation?.phase) {
-            bot.modelSettings?.refresh()
-        }
-    }
     // Drafts persist per chat, like a conversation's.
     val draft = remember(account, session.teamId, session.channelId, auth.generation, AiAccess.revision) {
         account?.let { auth.composerDrafts.bind(it, session.teamId, ai.nuphos.android.session.ComposerDrafts.Destination.Chat(session.channelId),
@@ -659,13 +781,6 @@ private fun ChannelComposer(session: ChannelSession, bot: ai.nuphos.android.sess
     }
     ai.nuphos.android.ui.chat.ChatComposer(
         isStreaming = false,
-        showControls = bot?.loaded == true,
-        botControls = bot?.loaded == true,
-        followsBot = true,
-        agentLabel = bot?.takeIf { it.loaded }?.let { ai.nuphos.android.model.RuntimeIdentity.detail(it.agentRuntime, it.runtimeDeviceLabel) },
-        onChooseAgent = if (bot?.loaded == true) onSwitchAgent else null,
-        modelSettings = bot?.modelSettings,
-        lockedHint = if (bot != null && !ownsBot) stringResource(R.string.chat_bot_settings_owner_only) else null,
         onSend = { submission ->
             val user = auth.user
             // Captured now: a post whose upload outlives this account, workspace or consent is never sent.

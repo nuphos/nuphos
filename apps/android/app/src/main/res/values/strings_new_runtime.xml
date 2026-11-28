@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="new_runtime_title">New runtime</string>
+    <string name="new_runtime_sign_in">Sign in to %1$s</string>
+    <string name="new_runtime_preview">%1$s · Preview</string>
+    <string name="new_runtime_on_computer">On %1$s. You sign it in next.</string>
+    <string name="new_runtime_name">Runtime name</string>
+    <string name="new_runtime_name_taken">Another runtime on this computer already has this name.</string>
+    <string name="new_runtime_name_help">How this runtime appears on the computer and when choosing a runtime for an agent.</string>
+    <string name="new_runtime_ask_owner">No runtime yet. Ask its owner to add one.</string>
+    <string name="new_runtime_install">No runtime yet. Install Claude Code or Codex on %1$s and sign in.</string>
+    <string name="new_runtime_request_failed">Could not confirm the runtime request. Try again.</string>
+</resources>

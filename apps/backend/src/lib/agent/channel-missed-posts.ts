@@ -4,20 +4,19 @@ import { logError } from '@/lib/observability'
 import { notifyAgent } from './channel-chat'
 import { readChannelMessages } from './db/channels'
 import { agentConversations } from './db/shared'
-import { onDevice } from './deliver-waiting-answers'
 
 import type { TeamRuntimeEndpoint } from '@/lib/claude-code-preview/team-openab-runtime'
 
 /**
  * A runtime answered again, for any conversation's reason: its agents are woken for
- * the posts they missed while it was away (#3284).
+ * the posts they missed while it was away (#3284). Only that runtime's, in that team: on a
+ * person's computer, the others (another Claude Code, signed out, say) did not answer, and the
+ * computer coming back wakes them all already.
  */
-export function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint): void {
-  const filter = endpoint.local
-    ? onDevice(endpoint.local.userId, endpoint.local.deviceId)
-    : endpoint.runtimeId && { teamId, runtimeId: endpoint.runtimeId }
-
-  if (filter) void wakeMissedPosts(filter)
+export function wakeOnRuntime(teamId: string, endpoint: TeamRuntimeEndpoint): Promise<void> {
+  return endpoint.runtimeId
+    ? wakeMissedPosts({ teamId, runtimeId: endpoint.runtimeId })
+    : Promise.resolve()
 }
 
 /**
@@ -45,11 +44,20 @@ export async function wakeMissedPosts(filter: Record<string, unknown>): Promise<
         if (!channel.agentSessionIds?.includes(sessionId)) continue
         // Never woken here yet, so nothing it was sent went missing.
         if (!channel.teamId || channel.agentReadIndex?.[sessionId] === undefined) continue
-        const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
+        // One agent that cannot be woken now (being moved, say) keeps its place for
+        // the next wake and does not hold back the others (#4831).
+        try {
+          const { messages } = await readChannelMessages(channel, sessionId, channel.userId, true)
 
-        // Agents' posts past the turn budget wait for a person, as they do online.
-        if (messages.some((message) => message.sender?.type === 'user'))
-          await notifyAgent({ ...channel, teamId: channel.teamId }, sessionId, false)
+          // Agents' posts past the turn budget wait for a person, as they do online.
+          if (messages.some((message) => message.sender?.type === 'user'))
+            await notifyAgent({ ...channel, teamId: channel.teamId }, sessionId, false)
+        } catch (error) {
+          logError('agent.channel.missed_wake_failed', error, {
+            channel_id: channel.sessionId,
+            session_id: sessionId,
+          })
+        }
       }
     }
   } catch (error) {

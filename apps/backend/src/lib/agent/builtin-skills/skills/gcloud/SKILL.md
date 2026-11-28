@@ -1,6 +1,6 @@
 ---
 name: gcloud
-description: Run gcloud to inspect or change GCP resources (GKE, Compute Engine, IAM, networking). Includes scripts to install the SDK and load a token for a Nuphos-bound project.
+description: "GCP resources (GKE, Compute Engine, IAM, networking) with gcloud, using a Nuphos-bound project."
 ---
 
 # gcloud (Google Cloud SDK)
@@ -74,7 +74,7 @@ bash skills/gcloud/scripts/install.sh
 If `setup-credentials.sh` returns HTTP 403, your member account does not have
 Access to the selected service account binding, or the service account was not
 selected for this agent session. Ask a team admin to add your member account to
-the binding's Access allow list in Settings -> Integrations, or choose another
+the binding's Access allow list in Settings -> Connectors, or choose another
 service account already enabled for this session. Retry the setup command after
 the allow list changes.
 
@@ -162,7 +162,7 @@ Do the parts you can and leave only the click:
    for the team's workload identity principal with the user's own authenticated
    `gcloud` — through `local_exec` when it is available, otherwise by handing the
    user the exact commands.
-3. Tell the user to bind it in the Nuphos app under Settings -> Integrations,
+3. Tell the user to bind it in the Nuphos app under Settings -> Connectors,
    giving them the service account email and project id to enter, then retry.
 
 ## Common operations
@@ -229,7 +229,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
    Cloud Monitoring notification received (state: {{payload.incident.state}}).
    Policy: {{payload.incident.policy_name}} — {{payload.incident.summary}}
    If the payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation.
-   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 

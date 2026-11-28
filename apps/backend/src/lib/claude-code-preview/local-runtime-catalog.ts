@@ -16,13 +16,14 @@ import {
   parseLocalRuntimeId,
 } from '@/lib/agent/devices/local-runtime/address'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
-import { requireAgentSignInAccess, requireDeviceUse } from '@/lib/agent/devices/manage-access'
 import { isActiveTeamMember } from '@/lib/agent/devices/store'
 import { AppError } from '@/lib/errors'
 
+import { localAgentSignIn, requireLocalAgentAccess } from './local-agent-access'
 import { runtimeLabel } from './runtime-provider'
 import { runtimeGone } from './runtime-refusal'
 
+import type { LocalAgentSignIn } from './local-agent-access'
 import type { TeamRuntimeEndpoint } from './team-openab-runtime'
 import type { RegisteredAgent } from '@/lib/agent/devices/agent-registry'
 import type { DeviceAccessDeps } from '@/lib/agent/devices/box-access'
@@ -36,7 +37,7 @@ import type {
 import type { LocalShareLevel } from '@/lib/agent/devices/local-share-types'
 import type { AgentDeviceBox } from '@/lib/agent/devices/store'
 
-export type LocalRuntimeSummary = {
+export type LocalRuntimeSummary = LocalAgentSignIn & {
   /** Who owns the computer; its address names the transport owner, which a handover keeps. */
   ownerUserId: string
   deviceId: string
@@ -48,8 +49,6 @@ export type LocalRuntimeSummary = {
   addedBy?: { userId: string; at: string }
   /** Whether the computer reports this agent right now. */
   online: boolean
-  /** Whether the owner's own CLI is signed in; null when the computer cannot tell. */
-  signedIn: boolean | null
   /** Why the CLI is unusable, as reported by its existing probe. */
   probeError?: string
   /** Seen signed in at least once: the agent registry. A host's default agent no one used has none. */
@@ -163,7 +162,7 @@ export async function listOwnLocalRuntimes(
               ...(added ? { addedBy: { userId: added.userId, at: added.at.toISOString() } } : {}),
               // Reachable right now; offline, the last report still says who is signed in.
               online: reported !== undefined,
-              signedIn: reported ? reported.cli.loggedIn : agent.signedIn,
+              ...localAgentSignIn(device, agent, reported ? reported.cli.loggedIn : agent.signedIn),
               ...(reported?.cli.probeError ? { probeError: reported.cli.probeError } : {}),
               ...(registered.has(registryKey(agent)) ? { everSignedIn: true as const } : {}),
               ...(reported?.accountKey ? { accountKey: reported.accountKey } : {}),
@@ -191,8 +190,9 @@ export async function resolveLocalRuntimeEndpoint(
   teamId: string,
   runtimeId: string,
   userId: string,
-  /** `login` is the control channel for the agent's own sign-in, so signed out is fine. */
-  purpose: 'transport' | 'control' | 'login',
+  /** `login` and `steer` use the control channel: `login` for the agent's own sign-in, so signed
+   * out is fine; `steer` for new input to a running turn, so its sign-in must still be current. */
+  purpose: 'transport' | 'steer' | 'control' | 'login',
   deps: LocalRuntimeCatalogDeps = defaultDeps,
 ): Promise<TeamRuntimeEndpoint & { runtimeId: string }> {
   const ref = parseLocalRuntimeId(runtimeId)
@@ -202,8 +202,7 @@ export async function resolveLocalRuntimeEndpoint(
   let kept: boolean
 
   try {
-    const access = purpose === 'login' ? requireAgentSignInAccess : requireDeviceUse
-    const device = await access(userId, teamId, ref.deviceId, deps.access)
+    const device = await requireLocalAgentAccess(userId, teamId, ref, purpose, deps.access)
 
     // One removed while its computer was offline is gone, not waiting for the computer.
     if (device.userId !== ref.userId || isPendingRemoval(ref, device.removedAgents ?? []))
@@ -233,7 +232,9 @@ export async function resolveLocalRuntimeEndpoint(
     )
   if (agent?.cli.probeError && purpose !== 'login')
     throw new AppError(409, 'runtime_not_installed', agent.cli.probeError)
-  if (agent?.cli.loggedIn === false && purpose !== 'login')
+  // Only new input needs the CLI signed in. Checking or stopping a turn does not, so a status
+  // read still reaches a signed-out agent instead of reading as a runtime that is away.
+  if (agent?.cli.loggedIn === false && (purpose === 'transport' || purpose === 'steer'))
     throw new AppError(
       409,
       'runtime_login_required',
@@ -242,7 +243,7 @@ export async function resolveLocalRuntimeEndpoint(
 
   return {
     url: localRuntimeUrl(ref, teamId, userId),
-    authKey: purpose === 'login' ? 'control' : purpose,
+    authKey: purpose === 'transport' ? 'transport' : 'control',
     runtimeId,
     external: true,
     local: { userId: ref.userId, deviceId: ref.deviceId },

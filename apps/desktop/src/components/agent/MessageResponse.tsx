@@ -1,16 +1,19 @@
 import { cjk as cjkPlugin } from '@streamdown/cjk'
 import { createCodePlugin } from '@streamdown/code'
+import { math as mathPlugin } from '@streamdown/math'
+import { mermaid as mermaidPlugin } from '@streamdown/mermaid'
 import clsx from 'clsx'
 import { ExternalLink, Link2, PanelRight } from 'lucide-react'
 import { isValidElement, memo, useContext, useMemo, useState } from 'react'
 import { Streamdown, defaultRemarkPlugins } from 'streamdown'
+import 'katex/dist/katex.min.css'
 import 'streamdown/styles.css'
 
 import { t } from '../../i18n'
 import { remarkCodexDirectives } from '../../lib/codexDirectives'
 import { linkClickMode } from '../../lib/linkClickMode'
 import { isSynthesizedAutolink } from '../../lib/markdownAutolink'
-import { messageRehypePlugins } from '../../lib/messageRehypePlugins'
+import { markdownOnlyRehypePlugins, messageRehypePlugins } from '../../lib/messageRehypePlugins'
 import { isMac } from '../../lib/platform'
 import { ContextMenu } from '../ContextMenu'
 import { INLINE_LINK } from '../ui/inline-link'
@@ -228,6 +231,7 @@ type Props = {
   children: string
   className?: string
   streaming?: boolean
+  disableRawHtml?: boolean
   teamId?: string
   currentUrl?: string
   onLinkClick?: (href: string, beside: boolean) => boolean
@@ -236,7 +240,15 @@ type Props = {
 }
 
 export const MessageResponse = memo(
-  ({ children, className, streaming = false, teamId, onLinkClick, renderLink }: Props) => {
+  ({
+    children,
+    className,
+    streaming = false,
+    disableRawHtml = false,
+    teamId,
+    onLinkClick,
+    renderLink,
+  }: Props) => {
     const components = useMemo(
       () => createComponents(teamId, onLinkClick, renderLink),
       [teamId, onLinkClick, renderLink],
@@ -262,9 +274,10 @@ export const MessageResponse = memo(
           lineNumbers={false}
           // cjk: ends an autolink at CJK punctuation. Without it `https://…/ec2，然後`
           // swallows the rest of the sentence into the href.
-          plugins={{ code: codePlugin, cjk: cjkPlugin }}
+          plugins={{ code: codePlugin, cjk: cjkPlugin, math: mathPlugin, mermaid: mermaidPlugin }}
           remarkPlugins={messageRemarkPlugins}
-          rehypePlugins={messageRehypePlugins}
+          skipHtml={disableRawHtml}
+          rehypePlugins={disableRawHtml ? markdownOnlyRehypePlugins : messageRehypePlugins}
           components={components}
         >
           {children}
@@ -277,6 +290,7 @@ export const MessageResponse = memo(
     prev.className === next.className &&
     prev.teamId === next.teamId &&
     prev.streaming === next.streaming &&
+    prev.disableRawHtml === next.disableRawHtml &&
     prev.onLinkClick === next.onLinkClick &&
     prev.renderLink === next.renderLink,
 )

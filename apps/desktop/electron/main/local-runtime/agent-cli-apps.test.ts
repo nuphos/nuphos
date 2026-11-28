@@ -69,7 +69,8 @@ test(
     const newest = desktopClaude(home, '2.1.299')
 
     assert.equal(findAgentCli('claude-code', env), newest)
-    assert.equal(findAgentCli('codex', env), null)
+    // Not null: a Codex installed on the machine, as the ChatGPT app's, is found anyway.
+    assert.notEqual(findAgentCli('codex', env), newest)
     const status = await probeAgentCli('claude-code', env, undefined)
 
     assert.equal(status.installed && status.path, newest)

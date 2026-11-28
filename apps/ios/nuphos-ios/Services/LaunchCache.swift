@@ -12,11 +12,14 @@ enum LaunchCache {
         let aiConsentVersion: String
     }
 
-    /// The Agent page's first page for the team it was showing.
+    /// The home lists for the team they were showing: the Agent page's first
+    /// page, and the chats and Bots when they had loaded.
     struct Agents: Codable {
         let team: Team
         let conversations: [AgentConversation]
         var accountKey: String? = nil
+        var channels: [AgentConversation]? = nil
+        var bots: [AgentConversation]? = nil
     }
 
     static func accountKey(_ token: String) -> String {
@@ -24,36 +27,62 @@ enum LaunchCache {
     }
 
     static func read<T: Decodable>(_ type: T.Type) -> T? {
-        if isPreview { return nil }
-        guard let data = try? Data(contentsOf: url(for: type)) else { return nil }
+        guard let directory, let data = try? Data(contentsOf: directory.appending(path: "\(T.self).json")) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
 
     static func write<T: Encodable>(_ value: T) {
-        if isPreview { return }
-        guard let data = try? JSONEncoder().encode(value) else { return }
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try? data.write(to: url(for: T.self), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        guard let directory, let data = try? JSONEncoder().encode(value) else { return }
+        save(data, to: directory.appending(path: "\(T.self).json"))
     }
 
+    /// The last read of a chat, by name, so it opens on what it showed while it is read
+    /// again, after a relaunch too. Only the chats read last are kept.
+    static func chat(_ name: String, token: String) -> Data? {
+        guard let url = chatURL(name, token: token) else { return nil }
+        return try? Data(contentsOf: url)
+    }
+
+    static func storeChat(_ data: Data, as name: String, token: String) {
+        guard let url = chatURL(name, token: token) else { return }
+        save(data, to: url)
+        let keys: Set<URLResourceKey> = [.contentModificationDateKey]
+        guard let files = try? FileManager.default.contentsOfDirectory(
+            at: url.deletingLastPathComponent(), includingPropertiesForKeys: Array(keys)), files.count > chatLimit else { return }
+        let date = { (file: URL) in (try? file.resourceValues(forKeys: keys))?.contentModificationDate ?? .distantPast }
+        for file in files.sorted(by: { date($0) > date($1) }).dropFirst(chatLimit) {
+            try? FileManager.default.removeItem(at: file)
+        }
+    }
+
+    /// A chat keeps its read and, for a group chat, its agents: about twenty chats.
+    static let chatLimit = 40
+
     static func clear() {
+        guard let directory else { return }
         try? FileManager.default.removeItem(at: directory)
+    }
+
+    private static func save(_ data: Data, to url: URL) {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+    }
+
+    private static func chatURL(_ name: String, token: String) -> URL? {
+        directory?.appending(path: "chats/\(accountKey(token).prefix(16))-\(name).json")
     }
 
     /// A preview run answers from a fixture, so there is nothing here worth painting and
     /// nothing worth keeping: this cache outlives a launch, and UI test suites share one
-    /// installed app, so suite B would open on suite A's conversations.
-    private static var isPreview: Bool {
+    /// installed app, so suite B would open on suite A's conversations. A test that
+    /// relaunches onto its own cache names one, which no other run reads.
+    private static var directory: URL? {
         #if DEBUG
-        PreviewIsolation.isActive
-        #else
-        false
+        if PreviewIsolation.isActive {
+            guard let run = ProcessInfo.processInfo.environment["NUPHOS_PREVIEW_LAUNCH_CACHE"] else { return nil }
+            return URL.cachesDirectory.appending(path: "launch-preview-\(run)", directoryHint: .isDirectory)
+        }
         #endif
-    }
-
-    private static let directory = URL.cachesDirectory.appending(path: "launch", directoryHint: .isDirectory)
-
-    private static func url<T>(for type: T.Type) -> URL {
-        directory.appending(path: "\(T.self).json")
+        return URL.cachesDirectory.appending(path: "launch", directoryHint: .isDirectory)
     }
 }

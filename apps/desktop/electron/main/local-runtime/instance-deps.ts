@@ -1,8 +1,13 @@
 import { INSTALLABLE, installAgentCli } from './agent-cli-install.ts'
+import { credentialsLeft, deleteAgentCredentials } from './agent-credentials.ts'
 import { prepareIsolatedAgentHome } from './agent-home.ts'
 import { userDir } from './controller-types.ts'
+import { agentHomeName } from './providers.ts'
+import { serveVaultToken } from './vault-token.ts'
 
+import type { LocalAgentProvider } from './agent-cli.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
+import type { VaultToken } from './vault-token.ts'
 
 /** An added agent's own install of its missing CLI: tried once, reported while it runs. */
 export type CliInstall = { tried?: true; installing?: true; error?: string }
@@ -18,10 +23,18 @@ export function instanceControllerDeps(
   dir: string,
   userId: string,
   changed: () => void,
-  /** Present while the agent is being added: its missing CLI is installed. */
-  install?: CliInstall,
+  {
+    install,
+    vault,
+  }: {
+    /** Present while the agent is being added: its missing CLI is installed. */
+    install?: CliInstall
+    /** The token shared with this computer that this agent signs in with. */
+    vault?: VaultToken
+  } = {},
 ): LocalRuntimeControllerDeps {
   const installCli = deps.installCli ?? installAgentCli
+  const token = vault && serveVaultToken(vault.read)
 
   return {
     ...deps,
@@ -30,6 +43,8 @@ export function instanceControllerDeps(
     probeCli: async (provider, env, home) => {
       const cli = await deps.probeCli(provider, env, home)
 
+      // Signed in with the shared token, which the adapter reads for each session.
+      if (token && cli.installed) return { ...cli, loggedIn: true }
       if (
         cli.installed ||
         cli.error ||
@@ -59,6 +74,7 @@ export function instanceControllerDeps(
     userEnv: async (fresh) => ({
       ...(await deps.userEnv(fresh)),
       ...secureStorageEnv(dir, userId),
+      ...token,
     }),
     prepareAgentHome: prepareIsolatedAgentHome,
     readCliCache: () => ({}),
@@ -82,4 +98,27 @@ export function instanceControllerDeps(
     }),
     onChange: changed,
   }
+}
+
+/**
+ * Deletes an added agent's logins and Claude's Keychain entry, then checks with its own deps,
+ * which find that entry, whether it is still signed in: the error to fail a reset with.
+ */
+export async function signOutInstance(
+  deps: LocalRuntimeControllerDeps,
+  dir: string,
+  userId: string,
+  provider: LocalAgentProvider,
+  removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>,
+): Promise<Error | undefined> {
+  const home = userDir(dir, userId, agentHomeName(provider))
+
+  deleteAgentCredentials(provider, home)
+  if (provider === 'claude-code') await removeCredential(secureStorageEnv(dir, userId))
+
+  return credentialsLeft(
+    provider,
+    home,
+    instanceControllerDeps(deps, dir, userId, () => undefined),
+  )
 }

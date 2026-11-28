@@ -1,6 +1,8 @@
-import { expect, test } from 'bun:test'
+import { describe, expect, test } from 'bun:test'
 
 import { fcmMessage, isDeadFcmToken } from './fcm'
+
+import type { FcmRequest } from './fcm'
 
 test('FCM data payload preserves guarded routing and lets the app control display', () => {
   const payload = fcmMessage({
@@ -63,6 +65,46 @@ test('a Bot push names its face and runtime; other identities add nothing', () =
     expect(data).not.toHaveProperty('botAvatar')
     expect(data).not.toHaveProperty('botProvider')
   }
+})
+
+const pushData = (agentIdentity: FcmRequest['agentIdentity']): Record<string, string> =>
+  fcmMessage({
+    token: 'opaque',
+    userId: 'account',
+    teamId: 'team',
+    sessionId: 'session',
+    title: 'Ada',
+    body: 'Done',
+    agentIdentity,
+  }).message.data
+
+// #4969: Android draws a Bot's tinted face and a Task's runtime, as iOS does.
+describe('the identity Android draws', () => {
+  test('a Bot push adds its background, unless it has none', () => {
+    expect(
+      pushData({ isBot: true, avatar: '07-ada', background: 'sand', provider: 'grok' }),
+    ).toEqual({
+      ...pushData(undefined),
+      botAvatar: '07-ada',
+      botBackground: 'sand',
+      botProvider: 'grok',
+    })
+    expect(pushData({ isBot: true, avatar: '07-ada', background: 'none' })).not.toHaveProperty(
+      'botBackground',
+    )
+    expect(pushData({ isBot: true, avatar: '07-ada' })).not.toHaveProperty('botBackground')
+  })
+
+  test('a Task push adds its runtime, and a Bot push does not', () => {
+    expect(pushData({ isBot: false, provider: 'grok' })).toEqual({
+      ...pushData(undefined),
+      taskProvider: 'grok',
+    })
+    expect(pushData({ isBot: false })).toEqual(pushData(undefined))
+    expect(pushData({ isBot: true, avatar: '07-ada', provider: 'grok' })).not.toHaveProperty(
+      'taskProvider',
+    )
+  })
 })
 
 test('only the FCM UNREGISTERED error invalidates the registration', () => {

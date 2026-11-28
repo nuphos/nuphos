@@ -132,7 +132,7 @@ export const BOX_UPDATE_COMMAND = [
   // The written AGENTS.md (sent agents to /data/workspace and MACHINE.md) is emptied, not
   // removed: instabox writes it again, links included, wherever it is missing. Only while it
   // is exactly what was written; an edit keeps it, and the agents' links stay as they are.
-  `a=$(readlink -f "$HOME/AGENTS.md"); case "$(sha256sum "$a" 2>/dev/null | cut -d' ' -f1)" in ${IMAGE_AGENTS_SHA256.join('|')}) : > "$a" ;; esac`,
+  `case "$(sha256sum "$HOME/AGENTS.md" 2>/dev/null | cut -d' ' -f1)" in ${IMAGE_AGENTS_SHA256.join('|')}) : > "$HOME/AGENTS.md" ;; esac`,
   ') >> "$HOME/nuphos-update.log" 2>&1',
   AGENT_COMMAND,
 ].join('\n')
@@ -217,7 +217,7 @@ export function orderRefused(error: unknown, ownAccount: boolean): AppError {
     return new AppError(
       409,
       'instabox_key_rejected',
-      'Your instabox account no longer accepts its API key. A team administrator can bind the account again with a new key under Settings → Integrations.',
+      'Your instabox account no longer accepts its API key. A team administrator can replace the key under Settings → Connectors.',
     )
 
   return new AppError(

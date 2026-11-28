@@ -1,14 +1,13 @@
 import { clsx } from 'clsx'
-import { Monitor, Pencil } from 'lucide-react'
+import { Monitor, Pencil, X } from 'lucide-react'
 import { useState } from 'react'
 
 import { api } from '../../api'
 import { openSessionDesktop } from '../../app/workspace/openSessionDesktop'
 import { t } from '../../i18n'
 import { AgentAvatar } from '../agent/AgentAvatar'
-import { RenameConversationDialog } from '../agent/panel/ConversationTitleEditor'
+import { EditBotDialog } from '../agent/EditBotDialog'
 import { AgentProviderIcon } from '../agent/panel/icons'
-import { threadRuntimeName } from '../agent/panel/threadBadges'
 import { sectionClass } from '../agent/summary/ChatSummaryRows'
 import { Button } from '../ui/button'
 import { IconButton } from '../ui/icon-button'
@@ -16,32 +15,35 @@ import { toast } from '../ui/toast'
 
 import type { AgentFace } from '../../api/agent-types'
 
-/** The Bot itself, first in its chat's details: who it is, where it runs, and its Task and Desktop. */
+/** The Bot itself, first in its chat's details: who it is, and its Task and Desktop. */
 export function BotDetailsCard({
   teamId,
   bot,
   title,
   agent,
-  runtimeLabel,
   loading = false,
   owned,
   onOpenTask,
   canOpenDesktop,
   onEdited,
+  onEditTrigger,
+  onClose,
 }: {
   teamId: string
   bot: string
   title: string
   agent?: AgentFace
-  runtimeLabel?: string
   loading?: boolean
   owned: boolean
   onOpenTask?: () => void
   canOpenDesktop: boolean
   onEdited: () => void
+  /** Starts this message to the Bot in the chat's composer. */
+  onEditTrigger?: (message: string) => void
+  /** Hides the details; the chat's heading opens them again. */
+  onClose?: () => void
 }) {
   const [editing, setEditing] = useState(false)
-  const runsOn = threadRuntimeName(agent?.provider, runtimeLabel)
 
   if (loading)
     return (
@@ -49,7 +51,7 @@ export function BotDetailsCard({
         aria-busy="true"
         className={clsx(sectionClass, 'flex flex-col items-center gap-3 pt-5')}
       >
-        <span className="size-[72px] rounded-full bg-state-hover" />
+        <span className="size-14 rounded-full bg-state-hover" />
         <span className="h-4 w-24 rounded bg-state-hover" />
       </section>
     )
@@ -59,19 +61,20 @@ export function BotDetailsCard({
       aria-label={title}
       className={clsx(sectionClass, 'relative flex flex-col items-center pt-5 text-center')}
     >
-      {owned && (
-        <IconButton
-          label={t('Edit Bot')}
-          icon={<Pencil />}
-          className="absolute top-2 right-2"
-          onClick={() => setEditing(true)}
-        />
+      {(owned || onClose) && (
+        <div className="absolute top-2 right-2 flex items-center gap-0.5">
+          {owned && (
+            <IconButton label={t('Edit Bot')} icon={<Pencil />} onClick={() => setEditing(true)} />
+          )}
+          {onClose && (
+            <IconButton label={t('Close')} shortcut="mod+i" icon={<X />} onClick={onClose} />
+          )}
+        </div>
       )}
-      <AgentAvatar agentId={bot} avatar={agent?.avatar} provider={agent?.provider} size={72} />
-      <p className="mt-3 max-w-full truncate px-6 text-[15px] font-semibold text-main">{title}</p>
-      {runsOn && (
-        <p className="max-w-full truncate text-[12px] leading-5 text-tertiary">{runsOn}</p>
-      )}
+      <AgentAvatar agentId={bot} avatar={agent?.avatar} provider={agent?.provider} size={56} />
+      <p className="mt-2.5 max-w-full truncate px-16 text-[15px] font-semibold text-main">
+        {title}
+      </p>
       {(onOpenTask !== undefined || canOpenDesktop) && (
         <div className="mt-3 flex flex-wrap justify-center gap-2">
           {onOpenTask && (
@@ -97,10 +100,11 @@ export function BotDetailsCard({
         </div>
       )}
       {editing && (
-        <RenameConversationDialog
+        <EditBotDialog
           sessionId={bot}
           teamId={teamId}
           title={title}
+          onEditTrigger={onEditTrigger}
           onClose={() => {
             setEditing(false)
             onEdited()

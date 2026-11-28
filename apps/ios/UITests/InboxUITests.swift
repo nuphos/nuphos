@@ -23,7 +23,8 @@ final class InboxUITests: XCTestCase {
         responses["POST /agent/chat"] = ["status": 200, "body": [:], "headers": ["Content-Type": "text/event-stream"]]
         // An answer goes to the answer API; no message is sent.
         for (session, request) in [("agent-ops", "q-deploy"), ("agent-staging", "q-staging"),
-                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes"), ("bot-release", "q-blog")] {
+                                   ("agent-ops", "q-rollout"), ("bot-release", "q-deploy"), ("bot-release", "q-notes"), ("bot-release", "q-blog"),
+                                   ("agent-avery", "q-sign-in")] {
             responses["POST /agent/conversations/\(session)/decisions/\(request)/answer"] = ["status": 200, "body": ["ok": true]]
         }
         // The asking conversations, opened by "From …" and "Other…".
@@ -202,9 +203,21 @@ final class InboxUITests: XCTestCase {
         XCTAssertFalse(listed("Roll out 1.4 to production?").exists, "The snoozed question is still in the list")
         shot("snooze-4-snoozed-section")
 
-        try listQuestions([deploy, blog, staging])
+        // Tapped while the server still lists it snoozed: a poll that read the unsnoozed list
+        // first would take the button away (#5297). The next poll, every 15 s, brings it back.
         app.buttons["Unsnooze"].firstMatch.tap()
-        XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 10), "Unsnooze did not bring it back")
+        let unsnoozed = NSPredicate { _, _ in
+            let lines = (try? String(contentsOf: self.sent, encoding: .utf8))?.split(separator: "\n") ?? []
+            return lines.contains { line in
+                let sent = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any]
+                return sent?["request"] as? String == "POST /agent/conversations/agent-ops/decisions/q-deploy/snooze"
+                    && (sent?["body"] as? [String: Any])?["until"] is NSNull
+            }
+        }
+        XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: unsnoozed, object: nil)], timeout: 15),
+                       .completed, "Unsnooze sent nothing")
+        try listQuestions([deploy, blog, staging])
+        XCTAssertTrue(listed("Roll out 1.4 to production?").waitForExistence(timeout: 20), "Unsnooze did not bring it back")
         XCTAssertFalse(row.exists, "The question is still snoozed")
     }
 
@@ -259,6 +272,19 @@ final class InboxUITests: XCTestCase {
         openQuestion("Approve the plan \"Move staging to the new cluster\"?")
         XCTAssertTrue(app.buttons["Approve"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Other…"].exists, "A plan is answered in words")
+    }
+
+    /// The keyboard's return key sends an answer in words, as the arrow beside it does.
+    func testTheReturnKeySendsAnAnswerInWords() throws {
+        app = launch(page: "agent")
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+        openQuestion("Roll out 1.4 to production?")
+        XCTAssertTrue(app.buttons["Other…"].waitForExistence(timeout: 10), "No Other…")
+        app.buttons["Other…"].tap()
+        let words = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not open a text box")
+        words.typeText("Ship after the freeze\n")
+        XCTAssertEqual(try answerBody(session: "agent-ops", request: "q-deploy")["text"] as? String, "Ship after the freeze")
     }
 
     /// In a Bot's chat too, "Other…" asks for the answer in the card, not in the chat's composer.
@@ -372,7 +398,8 @@ final class InboxUITests: XCTestCase {
 
         field.tap()
         field.typeText("fixture-value")
-        XCTAssertEqual(field.value as? String, String(repeating: "•", count: 13), "The value is not masked")
+        // Masked, not counted: on slower Macs typeText drops some of a secure field's characters.
+        XCTAssertEqual(Set(field.value as? String ?? ""), ["•"], "The value is not masked")
         shot("16-bot-chat-secret-typed")
         app.buttons["Send securely"].tap()
         XCTAssertTrue(app.staticTexts["DEPLOY_TOKEN saved on the task's runtime."].waitForExistence(timeout: 10),
@@ -635,7 +662,7 @@ final class InboxUITests: XCTestCase {
     }
 
     /// #3468: a single- and a multi-select question are the same pills, "Other…", "Snooze" and "Dismiss"; a
-    /// multi-select only picks any number of them, with a check, and sends them with Send.
+    /// multi-select only picks any number of them, with a check, and sends them with the footer's Send.
     func testASingleAndAMultiSelectQuestionAreOneCard() throws {
         let single = InboxUITests.row(
             "agent-ops", "Release ops",
@@ -656,36 +683,39 @@ final class InboxUITests: XCTestCase {
         XCTAssertTrue(app.buttons["eu-west"].waitForExistence(timeout: 10), "No options")
         XCTAssertTrue(app.buttons["Other…"].exists && app.buttons["Snooze"].exists && app.buttons["Dismiss"].exists)
         XCTAssertFalse(app.buttons["Skip"].exists, "Skip is still offered")
-        XCTAssertFalse(app.buttons["Send"].exists, "A single-select is answered by its option")
+        XCTAssertFalse(app.buttons["question.send"].exists, "A single-select is answered by its option")
         shot("13-inbox-single-select")
 
         openQuestion("Which regions ship today?")
         XCTAssertTrue(app.buttons["us-east"].waitForExistence(timeout: 10), "No options")
         shot("14-inbox-multi-select")
-        let send = app.buttons["Send"]
+        let send = app.buttons["question.send"]
         XCTAssertTrue(send.waitForExistence(timeout: 10), "No Send for the picks")
+        XCTAssertEqual(send.label, "Answer 1 more", "Send does not say what is left")
         XCTAssertTrue(app.buttons["us-east"].exists && app.buttons["Other…"].exists && app.buttons["Dismiss"].exists,
                       "The multi-select is not the single-select's capsules")
         XCTAssertFalse(app.textFields["Your answer"].exists, "The text box shows before Other…")
         XCTAssertFalse(app.buttons["Send answer"].exists, "The multi-select is still a form")
         XCTAssertFalse(send.isEnabled, "Send before anything is picked")
-        // Where a single-select's options are: pinned under the question on iPhone.
+        // The footer, Snooze, Dismiss and Send, is pinned to the bottom on iPhone.
         if UIDevice.current.userInterfaceIdiom == .phone {
             XCTAssertGreaterThan(app.buttons["Dismiss"].firstMatch.frame.minY, app.frame.height * 0.7,
-                                 "The multi-select options are not where a single-select's are")
+                                 "The footer is not pinned to the bottom")
         }
         app.buttons["us-east"].tap()
         app.buttons["ap-south"].tap()
         XCTAssertTrue(app.buttons["us-east"].isSelected && app.buttons["ap-south"].isSelected && !app.buttons["eu-west"].isSelected,
                       "A tap does not pick, or picks one only")
-        XCTAssertTrue(send.isEnabled)
+        XCTAssertTrue(send.isEnabled && send.label == "Send")
         // Once the picks have settled, so both checks draw alike.
         sleep(1)
         shot("15-inbox-multi-select-picked")
-        // With "Other…" open, the keyboard up, Send stays above it.
+        // "Other" is an answer of its own: it clears the picks, and with the keyboard up Send stays above it.
         app.buttons["Other…"].tap()
         let words = app.textFields["Your answer"].firstMatch
         XCTAssertTrue(words.waitForExistence(timeout: 5), "Other… does not open a text box")
+        XCTAssertFalse(app.buttons["us-east"].isSelected, "Other is picked beside an option")
+        XCTAssertFalse(send.isEnabled, "Send with Other picked and nothing typed")
         XCTAssertTrue(send.isHittable && words.isHittable, "Send or the text box is hidden")
         // The pinned card on iPhone rides above the keyboard.
         if UIDevice.current.userInterfaceIdiom == .phone {
@@ -693,14 +723,19 @@ final class InboxUITests: XCTestCase {
             XCTAssertLessThan(send.frame.maxY, app.keyboards.firstMatch.frame.minY, "Send is under the keyboard")
         }
         shot("16-inbox-multi-select-other")
-        app.buttons["Other…"].tap()
+        words.typeText("Every region but ap-south")
+        XCTAssertTrue(send.isEnabled)
         send.tap()
+        let body = try answerBody(session: "agent-rollout", request: "q-today")
+        XCTAssertEqual(body["text"] as? String, "Every region but ap-south")
+        XCTAssertNil(body["choices"], "Picks are sent beside the words")
         try listQuestions([single])
         XCTAssertTrue(listed("Which regions ship today?").waitForNonExistence(timeout: 5), "The answered question stayed")
     }
 
     /// A card asking several questions, one of them multi-select, picks the same capsules per
-    /// question and sends them at once: options picked, or the answer typed with "Other…"/"Reply…".
+    /// question and sends them at once: options picked, or the answer typed, for a question with no
+    /// options in its field from the start.
     func testAnswersSeveralQuestionsInOneCard() throws {
         let rollout = InboxUITests.row(
             "agent-ops", "Release ops",
@@ -725,16 +760,19 @@ final class InboxUITests: XCTestCase {
                        "The list written out for older clients shows beside the form")
 
         // By label: the card's own identifier covers those inside it.
-        let send = app.buttons["Send"]
+        let send = app.buttons["question.send"]
         XCTAssertTrue(send.exists && !send.isEnabled, "Send before every question is answered")
+        XCTAssertEqual(send.label, "Answer 3 more")
         app.buttons["us-east"].tap()
         app.buttons["eu-west"].tap()
         app.buttons["Keep it for a week"].tap()
-        app.buttons["Reply…"].tap()
-        let note = app.textFields["Your answer"]
-        XCTAssertTrue(note.waitForExistence(timeout: 5), "Reply… does not open a text box")
+        XCTAssertEqual(send.label, "Answer 1 more")
+        XCTAssertFalse(app.buttons["Reply…"].exists, "A form question with no options still asks for Reply…")
+        let note = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(note.waitForExistence(timeout: 5), "No text box for the question with no options")
+        note.tap()
         note.typeText("Mention the new region picker.")
-        XCTAssertTrue(send.isEnabled)
+        XCTAssertTrue(send.isEnabled && send.label == "Send")
         shot("12-inbox-several-questions-filled")
 
         send.tap()
@@ -743,11 +781,105 @@ final class InboxUITests: XCTestCase {
                       "The answered question stayed")
     }
 
+    /// #5257: in a card of several questions, typing under one question's "Other…" and then picking
+    /// another's "Other…" keeps both answers, and Send stays reachable above the keyboard.
+    func testOtherOnTwoQuestionsKeepsBothAnswers() throws {
+        let rollout = InboxUITests.row(
+            "agent-ops", "Release ops",
+            ["id": "q-two", "category": "preference", "question": "How should the rollout go?",
+             "questions": [
+                ["question": "Which region goes first?", "options": ["us-east", "eu-west"]],
+                ["question": "When should it start?", "options": ["Today", "Tomorrow"]],
+             ],
+             "askedAt": "2026-11-03T09:40:00Z", "status": "open"])
+        try listQuestions([rollout])
+        app = launch(page: "agent")
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+        openQuestion("How should the rollout go?")
+        let other = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Other"))
+        XCTAssertTrue(other.firstMatch.waitForExistence(timeout: 10))
+        shot("17-inbox-two-questions")
+
+        other.element(boundBy: 0).tap()
+        let first = app.textFields["Your answer"].firstMatch
+        XCTAssertTrue(first.waitForExistence(timeout: 5), "Other… does not open a text box")
+        first.typeText("ap-south")
+        shot("18-inbox-two-questions-first-other")
+
+        // The bug itself first, so the parent fails here rather than on this change's own controls.
+        other.element(boundBy: 1).tap()
+        let fields = app.textFields.matching(identifier: "Your answer")
+        XCTAssertTrue(fields.element(boundBy: 1).waitForExistence(timeout: 5), "The second Other… does not open its own box")
+        XCTAssertEqual(fields.element(boundBy: 0).value as? String, "ap-south", "The first answer was lost")
+        fields.element(boundBy: 1).typeText("Next Monday")
+        let send = app.buttons["question.send"]
+        XCTAssertTrue(send.isEnabled && send.label == "Send")
+        XCTAssertTrue(send.isHittable, "Send is hidden")
+        if UIDevice.current.userInterfaceIdiom == .phone {
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "No keyboard")
+            XCTAssertLessThan(send.frame.maxY, app.keyboards.firstMatch.frame.minY, "Send is under the keyboard")
+        }
+        shot("19-inbox-two-questions-both-other")
+
+        send.tap()
+        let body = try answerBody(session: "agent-ops", request: "q-two")
+        let answers = try XCTUnwrap(body["questions"] as? [[String: Any]])
+        XCTAssertEqual(answers.map { $0["text"] as? String }, ["ap-south", "Next Monday"])
+    }
+
     /// Its row in the list; wide, it may already be open beside it.
     private func openQuestion(_ question: String) {
         let back = app.navigationBars.buttons.firstMatch
         if !listed(question).waitForExistence(timeout: 2), back.exists { back.tap() }
         listed(question).tap()
+    }
+
+    /// A computer question shows that computer live, Take over, and where the sign-in stays (#4977).
+    /// Offline, no desktop answers, so Take over waits for the picture. With `NUPHOS_DESKTOP_URL` set
+    /// to a desktop server, the run shows it live instead.
+    func testAComputerQuestionShowsItsDesktop() throws {
+        let ask: [String: Any] = [
+            "id": "q-sign-in", "category": "computer", "question": "Sign in to analytics.northwind.example",
+            "body": "The dashboard asks for your own account. Sign in on the desktop, then choose I’m done.",
+            "options": ["I'm done", "Skip"], "askedAt": "2026-11-03T09:40:00Z", "status": "open",
+            "desktop": ["deviceId": "box-demo", "display": 2, "title": "Northwind Box"]]
+        try listQuestions([InboxUITests.row("agent-avery", "Avery", ask)])
+        let server = ProcessInfo.processInfo.environment["NUPHOS_DESKTOP_URL"]
+        app = launch(page: "agent", extra: ["-AppleInterfaceStyle", "Light"] + (server.map { ["-apiBaseURL", $0] } ?? []))
+        app.tabBars.buttons["Inbox"].firstMatch.tap()
+        openQuestion("Sign in to analytics.northwind.example")
+
+        let title = app.descendants(matching: .any)["computer.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10), "The question did not open")
+        XCTAssertEqual(title.label, "Computer · Northwind Box")
+        XCTAssertTrue(app.descendants(matching: .any)["computer.signInNote"].label.hasPrefix("You sign in on Northwind Box, Avery’s computer"))
+        for option in ["I'm done", "Skip"] { XCTAssertTrue(app.buttons[option].exists, "No \(option)") }
+        let takeOver = app.buttons["computer.takeOver"]
+        guard server != nil else {
+            XCTAssertFalse(takeOver.isEnabled, "Take over is on with no desktop to show")
+            shot("computer-offline")
+            // I'm done answers the question, with or without a desktop on screen.
+            app.buttons["I'm done"].tap()
+            XCTAssertEqual(try answerBody(session: "agent-avery", request: "q-sign-in")["choices"] as? [String], ["I'm done"])
+            return
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The desktop did not go live")
+        shot("computer-waiting")
+        takeOver.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["desktop.handOffStatus"].waitForExistence(timeout: 10), "Take over did not hand the desktop over")
+        XCTAssertTrue(app.buttons["desktop.done"].exists, "No I'm done while in control")
+        sleep(3) // its first frame, for the picture
+        shot("computer-in-control")
+        // Closing it hands it back unanswered: the card shows the desktop live again, and for how long it was held.
+        app.buttons["Close desktop"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["computer.liveMark"].waitForExistence(timeout: 20), "The card's view did not come back")
+        XCTAssertTrue(app.descendants(matching: .any)["computer.handedBack"].exists, "No handed-back line")
+        shot("computer-handed-back")
+        // I'm done while in control answers the question and closes the desktop; the question leaves.
+        takeOver.tap()
+        XCTAssertTrue(app.buttons["desktop.done"].waitForExistence(timeout: 10), "No I'm done while in control")
+        app.buttons["desktop.done"].tap()
+        XCTAssertTrue(title.waitForNonExistence(timeout: 10), "I'm done did not answer the question")
     }
 
     /// Its row by its words, whatever it is to accessibility: wide, a row is a button.
@@ -822,9 +954,9 @@ final class InboxUITests: XCTestCase {
             .matching(NSPredicate(format: "identifier == %@ AND label == %@", "inbox.row", question)).firstMatch
     }
 
-    private func launch(page: String? = nil) -> XCUIApplication {
+    private func launch(page: String? = nil, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? [])
+        app.launchArguments = ["-preview-home", "-preview-no-push"] + (page.map { ["-page", $0] } ?? []) + extra
         app.launchEnvironment = ["NUPHOS_PREVIEW_RESPONSES": live.path, "NUPHOS_PREVIEW_REQUESTS": sent.path]
         app.launch()
         return app

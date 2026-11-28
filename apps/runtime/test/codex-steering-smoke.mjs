@@ -153,3 +153,33 @@ test('a steer after the turn settled requires a prompt instead of reporting deli
   assert.deepEqual(reply.result, { outcome: 'promptRequired', reason: 'noRunningTurn' })
   assert.equal(appServerCalls('turn/start').length, 1)
 })
+
+test('changed instructions reach the thread as a developer message before its turn', async () => {
+  const update =
+    '<nuphos_instructions_update>Your codeword is TANGERINE-7.</nuphos_instructions_update>'
+  const calls = () =>
+    readFileSync(record, 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line).method)
+
+  await rpc('session/prompt', {
+    sessionId,
+    prompt: [{ type: 'text', text: 'What is your codeword?' }],
+    _meta: { 'ai.nuphos/instructionsUpdate': update },
+  })
+  assert.deepEqual(appServerCalls('thread/inject_items').at(-1).params, {
+    threadId: sessionId,
+    items: [
+      { type: 'message', role: 'developer', content: [{ type: 'input_text', text: update }] },
+    ],
+  })
+  assert.equal(calls().lastIndexOf('thread/inject_items'), calls().lastIndexOf('turn/start') - 1)
+
+  await rpc('session/prompt', { sessionId, prompt: [{ type: 'text', text: 'And now?' }] })
+  assert.equal(
+    appServerCalls('thread/inject_items').length,
+    1,
+    'a prompt without one injects nothing',
+  )
+})

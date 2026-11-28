@@ -1,8 +1,13 @@
-import { faAlignLeft, faBell, faBolt, faChartLine } from '@fortawesome/free-solid-svg-icons'
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
+import {
+  AlignLeft as AlignLeftIcon,
+  Bell as BellIcon,
+  Zap as ZapIcon,
+  ChartLine as ChartLineIcon,
+} from 'lucide-react'
 
 import { api } from '../../api'
 import { awsResourceListCacheKey } from '../../app/accountScopes'
+import { UiIcon } from '../../components/ui/ui-icon'
 import { withResourceListCache } from '../../lib/resourceListCache'
 import {
   CloudWatchAlarmsView,
@@ -34,7 +39,7 @@ export function renderAwsObservabilityPages(ctx: ScopeRenderContext): React.Reac
 
     return renderActiveNavPage(
       lambdaDetail ? lambdaDetail.name : 'Lambda',
-      <FontAwesomeIcon icon={faBolt} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={ZapIcon} className="w-3.5 h-3.5 text-tertiary" />,
       <LambdaFunctionsView
         detail={lambdaDetail}
         setDetail={(d) => setAwsDetail(d ? { kind: 'lambda', ...d } : null)}
@@ -132,7 +137,7 @@ export function renderAwsObservabilityPages(ctx: ScopeRenderContext): React.Reac
 
     return renderActiveNavPage(
       alarmDetail ? alarmDetail.name : 'CloudWatch Alarms',
-      <FontAwesomeIcon icon={faBell} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={BellIcon} className="w-3.5 h-3.5 text-tertiary" />,
       <CloudWatchAlarmsView
         detail={alarmDetail}
         setDetail={(d) => setAwsDetail(d ? { kind: 'alarm', ...d } : null)}
@@ -180,7 +185,7 @@ export function renderAwsObservabilityPages(ctx: ScopeRenderContext): React.Reac
   if (active === 'aws.cloudwatch-metrics') {
     return renderActiveNavPage(
       'CloudWatch Metrics',
-      <FontAwesomeIcon icon={faChartLine} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={ChartLineIcon} className="w-3.5 h-3.5 text-tertiary" />,
       <CloudWatchMetricsExplorerView
         metricsLoader={(region, namespace) =>
           api.atlasListAwsCloudWatchMetrics(
@@ -213,7 +218,7 @@ export function renderAwsObservabilityPages(ctx: ScopeRenderContext): React.Reac
 
     return renderActiveNavPage(
       logGroupDetail ? logGroupDetail.name : 'CloudWatch Logs',
-      <FontAwesomeIcon icon={faAlignLeft} className="w-3.5 h-3.5 text-tertiary" />,
+      <UiIcon size={14} icon={AlignLeftIcon} className="w-3.5 h-3.5 text-tertiary" />,
       <CloudWatchLogGroupsView
         detail={logGroupDetail}
         setDetail={(d) => setAwsDetail(d ? { kind: 'logGroup', ...d } : null)}

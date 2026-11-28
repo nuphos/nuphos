@@ -5,26 +5,27 @@ import { parseInstance, readInstances, writeInstances } from './agent-instances.
 import { deleteClaudeKeychainEntry } from './claude-keychain.ts'
 import { defaultAgentRequest } from './default-agent.ts'
 import { userDir } from './controller-types.ts'
-import { instanceControllerDeps, secureStorageEnv } from './instance-deps.ts'
+import { instanceControllerDeps, secureStorageEnv, signOutInstance } from './instance-deps.ts'
 import { instanceStates, instanceStatus, publicMetadata } from './instance-entries.ts'
+import { watchVaultAgents } from './vault-instances.ts'
 
 import type { LocalAgentProvider } from './agent-cli.ts'
 import type { AgentInstanceRecord } from './agent-instances.ts'
 import type { LocalRuntimeControllerDeps } from './controller-types.ts'
-import type { RefreshDefault } from './default-agent.ts'
+import type { DefaultAgentControl } from './default-agent.ts'
 import type { CliInstall } from './instance-deps.ts'
 import type { Controller, Entry } from './instance-entries.ts'
 import type { RunningRuntime } from './openab-process.ts'
+import type { VaultToken } from './vault-token.ts'
 
 /** A sign-in left unfinished this long is abandoned: its login has long expired. */
 export const PENDING_TTL_MS = 20 * 60_000
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u
 
-export type InstanceControllersOptions = {
+export type InstanceControllersOptions = DefaultAgentControl & {
   now?: () => number
   /** Deletes what a removed agent stored outside its own directory. */
   removeCredential?: (env: NodeJS.ProcessEnv) => Promise<void>
-  refreshDefault?: RefreshDefault
 }
 
 /**
@@ -33,7 +34,7 @@ export type InstanceControllersOptions = {
  * sign-in removes it with everything it stored.
  */
 export class InstanceControllers {
-  private readonly entries = new Map<string, Entry>()
+  readonly entries = new Map<string, Entry>()
   private readonly deps: LocalRuntimeControllerDeps
   private readonly create: (
     deps: LocalRuntimeControllerDeps,
@@ -42,8 +43,10 @@ export class InstanceControllers {
   private readonly changed: () => void
   private readonly now: () => number
   private readonly removeCredential: (env: NodeJS.ProcessEnv) => Promise<void>
-  private readonly refreshDefault?: RefreshDefault
+  private readonly defaults: DefaultAgentControl
   private userId: string | null = null
+  private watch?: NodeJS.Timeout
+  private readonly instanceDir = (id: string) => path.join(this.deps.dataDir(), 'instances', id)
   constructor(
     deps: LocalRuntimeControllerDeps,
     create: InstanceControllers['create'],
@@ -55,16 +58,18 @@ export class InstanceControllers {
     this.changed = changed
     this.now = options.now ?? Date.now
     this.removeCredential = options.removeCredential ?? deleteClaudeKeychainEntry
-    this.refreshDefault = options.refreshDefault
+    this.defaults = options
   }
 
   async load(userId: string | null): Promise<void> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
     this.entries.clear()
     this.userId = userId
     if (!userId) return
     for (const metadata of readInstances(userDir(this.deps.dataDir(), userId)))
       this.add(metadata, userId)
+    this.watch = await watchVaultAgents(this, this.deps.vaultTokens, userId)
     await Promise.all(
       [...this.entries.values()].map(({ controller }) => controller.setUser(userId)),
     )
@@ -76,6 +81,7 @@ export class InstanceControllers {
   }
 
   async shutdown(): Promise<unknown> {
+    clearInterval(this.watch)
     for (const entry of this.entries.values()) clearTimeout(entry.expiry)
 
     return Promise.all([...this.entries.values()].map(({ controller }) => controller.shutdown()))
@@ -113,13 +119,13 @@ export class InstanceControllers {
   }
 
   /** `install`: set for an agent being added, whose missing CLI this computer installs. */
-  private add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall): Entry {
+  add(metadata: AgentInstanceRecord, userId: string, install?: CliInstall, vault?: VaultToken) {
     const dir = this.instanceDir(metadata.instanceId)
     const controller = this.create(
-      instanceControllerDeps(this.deps, dir, userId, this.changed, install),
+      instanceControllerDeps(this.deps, dir, userId, this.changed, { install, vault }),
       metadata.provider,
     )
-    const entry: Entry = { metadata, controller, install }
+    const entry: Entry = { metadata, controller, install, vault }
 
     this.entries.set(metadata.instanceId, entry)
     this.expireLater(entry)
@@ -127,15 +133,18 @@ export class InstanceControllers {
     return entry
   }
 
-  private instanceDir(instanceId: string): string {
-    return path.join(this.deps.dataDir(), 'instances', instanceId)
-  }
-
-  private persist(userId: string): void {
+  /** A shared token's agent is not stored: what is shared now decides it on each start. */
+  private persist(userId: string, added: AgentInstanceRecord[] = []): void {
     writeInstances(
       userDir(this.deps.dataDir(), userId),
-      [...this.entries.values()].map((entry) => entry.metadata),
+      [...this.entries.values()].flatMap((e) => (e.vault ? [] : [e.metadata])).concat(added),
     )
+  }
+
+  start(entry: Entry, userId: string): void {
+    entry.starting = entry.controller.setUser(userId).then(this.changed)
+    entry.starting.catch(() => {}) // The controller reports its own start failure.
+    this.changed()
   }
 
   private expireLater(entry: Entry): void {
@@ -185,7 +194,7 @@ export class InstanceControllers {
     return false
   }
 
-  private async remove(instanceId: string, userId: string): Promise<void> {
+  async remove(instanceId: string, userId: string): Promise<void> {
     const entry = this.entries.get(instanceId)
 
     if (!entry) return
@@ -205,37 +214,62 @@ export class InstanceControllers {
     }
   }
 
+  /** Signs an added agent out but keeps it: its record, settings, sessions and workspace stay. */
+  private async reset(entry: Entry, userId: string): Promise<unknown> {
+    const { instanceId, provider } = entry.metadata
+    const dir = this.instanceDir(instanceId)
+
+    await entry.starting?.catch(() => {})
+    const left = await entry.controller.whileStopped(provider, () =>
+      signOutInstance(this.deps, dir, userId, provider, this.removeCredential),
+    )
+
+    // Removed meanwhile: starting it again would bring back an agent no one lists.
+    if (this.entries.get(instanceId) !== entry) throw new Error('Runtime instance not found')
+    entry.starting = entry.controller.refresh(false).then(this.changed)
+    entry.starting.catch(() => {}) // The controller reports its own start failure.
+    this.changed()
+    if (left) throw left
+
+    return { instance: publicMetadata(entry.metadata) }
+  }
+
+  /** A request about an added agent, which names it by its instance id. */
+  private async instanceRequest(
+    method: 'remove' | 'commit' | 'reset',
+    instanceId: unknown,
+    userId: string,
+  ): Promise<unknown> {
+    if (typeof instanceId !== 'string' || !UUID.test(instanceId))
+      throw new Error('Invalid runtime instance')
+    if (method === 'remove') return this.remove(instanceId, userId).then(() => ({}))
+    const entry = this.entries.get(instanceId)
+
+    if (!entry) throw new Error('Runtime instance not found')
+    if (method === 'reset') return this.reset(entry, userId)
+    await entry.starting?.catch(() => {})
+    await entry.controller.refresh(false, undefined, true)
+    if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
+
+    return { instance: publicMetadata(entry.metadata) }
+  }
+
   async request(request: unknown, userId: string | null): Promise<unknown> {
     if (!userId) throw new Error('Sign in to Nuphos first')
     if (!request || typeof request !== 'object') throw new Error('Invalid instance request')
     const body = request as { method?: string; instanceId?: unknown; provider?: unknown }
+    const { method } = body
+    const named = method === 'remove' || method === 'commit' || method === 'reset'
 
     // The computer's own agent is named by its provider, an added one by its instance id.
-    if (body.instanceId === undefined && (body.method === 'remove' || body.method === 'commit'))
-      return defaultAgentRequest(this.deps, userId, body.method, body.provider, this.refreshDefault)
-
-    if (body.method === 'list')
+    if (named && body.instanceId === undefined)
+      return defaultAgentRequest(this.deps, userId, method, body.provider, this.defaults)
+    if (named) return this.instanceRequest(method, body.instanceId, userId)
+    if (method === 'list')
       return {
         instances: [...this.entries.values()].map(({ metadata }) => publicMetadata(metadata)),
       }
-    if (body.method === 'remove' || body.method === 'commit') {
-      if (typeof body.instanceId !== 'string' || !UUID.test(body.instanceId))
-        throw new Error('Invalid runtime instance')
-      const entry = this.entries.get(body.instanceId)
-
-      if (body.method === 'remove') {
-        await this.remove(body.instanceId, userId)
-
-        return {}
-      }
-      if (!entry) throw new Error('Runtime instance not found')
-      await entry.starting?.catch(() => {})
-      await entry.controller.refresh(false)
-      if (!(await this.settle(entry, false))) throw new Error('The runtime is not signed in yet')
-
-      return { instance: publicMetadata(entry.metadata) }
-    }
-    if (body.method !== 'create') throw new Error('Unsupported instance method')
+    if (method !== 'create') throw new Error('Unsupported instance method')
     const metadata = parseInstance(request)
 
     if (metadata.provider === 'antigravity')
@@ -257,17 +291,8 @@ export class InstanceControllers {
       createdAt: new Date(this.now()).toISOString(),
     }
 
-    writeInstances(
-      userDir(this.deps.dataDir(), userId),
-      [...this.entries.values()].map((entry) => entry.metadata).concat(record),
-    )
-    const entry = this.add(record, userId, {})
-
-    entry.starting = entry.controller.setUser(userId).then(this.changed)
-    entry.starting.catch(() => {
-      /* The controller reports its own start failure. */
-    })
-    this.changed()
+    this.persist(userId, [record])
+    this.start(this.add(record, userId, {}), userId)
 
     return { instance: publicMetadata(record) }
   }

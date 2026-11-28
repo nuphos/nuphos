@@ -92,7 +92,7 @@ export function appendTailscaleClientLines(
   lines.push('', 'Tailscale OAuth clients:')
   for (const client of tailscaleClients) {
     lines.push(
-      `- clientId=${client.clientId}; label=${client.label}; oauthClientId=${client.oauthClientId}; setupCommand="bash skills/tailscale/scripts/setup-credentials.sh ${teamId} ${client.clientId}"; devicesEndpoint="/teams/${teamId}/tailscale-clients/${client.clientId}/devices"`,
+      `- clientId=${client.clientId}; label=${client.label}; oauthClientId=${client.oauthClientId}; setupCommand="bash skills/tailscale/scripts/setup-credentials.sh ${teamId} ${client.clientId}"`,
     )
   }
 }
@@ -103,13 +103,10 @@ export function appendZeaburProviderLines(
   teamId: string,
 ) {
   if (zeaburProviders.length === 0) return
-  lines.push(
-    '',
-    'Zeabur providers (the only use of the zeabur CLI or Zeabur API): run the setupCommand to load the token, then use the zeabur skill to call the Zeabur GraphQL API (https://api.zeabur.com/graphql) or the zeabur CLI for projects, services, deployments, runtime/build logs, and environment variables. Prefer the listed projects/servers endpoints for those lists. Do not print the Zeabur token into chat.',
-  )
+  lines.push('', 'Zeabur providers (the only use of the zeabur CLI or Zeabur API):')
   for (const provider of zeaburProviders) {
     lines.push(
-      `- zeaburId=${provider.zeaburId}; kind=${provider.kind}; name=${provider.name}; setupCommand="bash skills/zeabur/scripts/setup-credentials.sh ${teamId} ${provider.zeaburId}"; projectsEndpoint="/teams/${teamId}/zeabur-providers/${provider.zeaburId}/projects"; serversEndpoint="/teams/${teamId}/zeabur-providers/${provider.zeaburId}/servers"`,
+      `- zeaburId=${provider.zeaburId}; kind=${provider.kind}; name=${provider.name}; setupCommand="bash skills/zeabur/scripts/setup-credentials.sh ${teamId} ${provider.zeaburId}"`,
     )
   }
 }
@@ -117,7 +114,6 @@ export function appendZeaburProviderLines(
 export function appendVantaIntegrationLines(
   lines: string[],
   vantaIntegrations: Options['vantaIntegrations'],
-  teamId: string,
 ) {
   if (vantaIntegrations.length === 0) return
   lines.push(
@@ -126,7 +122,7 @@ export function appendVantaIntegrationLines(
   )
   for (const integration of vantaIntegrations) {
     lines.push(
-      `- integrationId=${integration.integrationId}; label=${integration.label}; authType=${integration.authType}; testsEndpoint="/teams/${teamId}/vanta-integrations/${integration.integrationId}/tests"; tip="GET testsEndpoint returns { tests }; default lists NEEDS_ATTENTION (the compliance issues to fix). Append ?infraOnly=true for infrastructure-facing categories, or ?status=<STATUS> to change the filter. Each test carries failureDescription and remediationDescription. The token is held server-side — read via this Nuphos endpoint, do not paste Vanta tokens into chat."`,
+      `- integrationId=${integration.integrationId}; label=${integration.label}; authType=${integration.authType}`,
     )
   }
 }
@@ -134,7 +130,6 @@ export function appendVantaIntegrationLines(
 export function appendSecureframeIntegrationLines(
   lines: string[],
   secureframeIntegrations: Options['secureframeIntegrations'],
-  teamId: string,
 ) {
   if (secureframeIntegrations.length === 0) return
   lines.push(
@@ -143,7 +138,7 @@ export function appendSecureframeIntegrationLines(
   )
   for (const integration of secureframeIntegrations) {
     lines.push(
-      `- integrationId=${integration.integrationId}; label=${integration.label}; region=${integration.region}; testsEndpoint="/teams/${teamId}/secureframe-integrations/${integration.integrationId}/tests"; tip="GET testsEndpoint returns { tests }; default lists failing tests (health_status:fail — the compliance issues to fix). Append ?failingOnly=false for all tests, or ?q=<lucene> for a custom filter (e.g. q=health_status:fail AND frameworks:soc2_alpha). Each test carries description, healthStatus, enabled. The API secret is held server-side — read via this Nuphos endpoint, do not paste Secureframe credentials into chat."`,
+      `- integrationId=${integration.integrationId}; label=${integration.label}; region=${integration.region}`,
     )
   }
 }

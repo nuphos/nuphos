@@ -1,13 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import {
-  agentRow,
-  bundleDir,
-  devStatusPath,
-  failureReason,
-  missingTools,
-} from './dev-local-agent.ts'
+import { agentRow, bundleDir, failureReason, missingTools } from './dev-local-agent.ts'
 
 test('the row reports each phase of preparing the local agent', () => {
   assert.equal(agentRow({ kind: 'checking' }).status, 'starting')
@@ -59,9 +53,9 @@ test('the failure reason is the error line, else the last output', () => {
   assert.equal(failureReason([], 7), 'prepare.mjs exited with code 7')
 })
 
-test('the desktop reads the launcher status beside the host bundle', () => {
-  const dir = bundleDir('/repo/apps/desktop', 'darwin-arm64')
-
-  assert.equal(dir, '/repo/apps/desktop/build/local-runtime/darwin-arm64')
-  assert.equal(devStatusPath(dir), `${dir}.dev.json`)
+test('the host bundle is staged under build/local-runtime', () => {
+  assert.equal(
+    bundleDir('/repo/apps/desktop', 'darwin-arm64'),
+    '/repo/apps/desktop/build/local-runtime/darwin-arm64',
+  )
 })

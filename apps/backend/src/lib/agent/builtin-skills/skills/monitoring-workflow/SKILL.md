@@ -1,6 +1,6 @@
 ---
 name: monitoring-workflow
-description: Route monitoring asks ("monitor X", uptime, health checks, alert me when Z goes down) to the team's provider, and wire alerts from any provider to a Nuphos webhook Trigger.
+description: "Route \"monitor X\" or alerting asks to the team's provider and wire alerts to Triggers."
 ---
 
 # Generic monitoring workflow
@@ -114,8 +114,7 @@ real payload:
 4. If the user wants Slack updates, call `slack_post` once per firing that is
    worth telling people about — a new problem, a material change, or its
    recovery — to the exact approved destination. An unchanged repeat needs no
-   post. Keep `bindConversation` on unless this conversation is already bound
-   to a Slack thread, so replies there continue this conversation.
+   post.
 5. When it recovers, say so and stop. Nothing needs closing.
 
 Use explicit documented payload fields when available. If the schema is not

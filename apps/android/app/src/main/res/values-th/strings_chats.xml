@@ -10,6 +10,11 @@
     <string name="chats_show_more">แสดงเพิ่มเติม</string>
     <string name="chats_question_your_answer">คำตอบของคุณ</string>
     <string name="chats_question_send_answer">ส่งคำตอบ</string>
+    <string name="chats_question_other_picked">อื่นๆ</string>
+    <string name="chats_question_choose_any">เลือกได้หลายข้อ</string>
+    <plurals name="chats_question_answer_more">
+        <item quantity="other">ตอบอีก %1$d ข้อ</item>
+    </plurals>
     <string name="chats_question_heading_approval">ต้องการการอนุมัติ</string>
     <string name="chats_question_heading_preference">ตัวเลือกของคุณ</string>
     <string name="chats_question_heading_credential">ต้องการข้อมูลรับรอง</string>

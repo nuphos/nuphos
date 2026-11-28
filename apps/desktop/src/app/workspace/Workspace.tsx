@@ -168,7 +168,7 @@ function WorkspacePane({ user, onLogout, onUserUpdated }: WorkspaceProps) {
               </>
             ) : pendingInvitations.length > 0 ? (
               <div className="max-w-md text-center">
-                {t('Accept a workspace invitation from the sidebar to get started.')}
+                {t('Accept a team invitation from the sidebar to get started.')}
               </div>
             ) : (
               t('Loading teams…')

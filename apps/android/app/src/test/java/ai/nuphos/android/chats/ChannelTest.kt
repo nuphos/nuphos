@@ -1,5 +1,6 @@
 package ai.nuphos.android.chats
 
+import ai.nuphos.android.data.AttachmentTransfers
 import ai.nuphos.android.data.Http
 import ai.nuphos.android.data.JsonValue
 import ai.nuphos.android.data.NuphosApi
@@ -172,8 +173,15 @@ class ChannelTest {
         override suspend fun upload(attachments: List<ComposerAttachment>): String {
             uploads += attachments.map { it.name }; heldUpload?.await(); return "64b5f1c2e4b0a1d2c3e4f5a9"
         }
+        /** What the transfer store reports before the files are up. */
+        var progress = emptyList<AttachmentTransfers.Progress>()
+        override suspend fun upload(attachments: List<ComposerAttachment>, onProgress: (AttachmentTransfers.Progress) -> Unit): String {
+            progress.forEach(onProgress); return upload(attachments)
+        }
         val replies = mutableListOf<String?>()
+        var heldPost: kotlinx.coroutines.CompletableDeferred<Unit>? = null
         override suspend fun post(text: String, id: String, upload: String?, replyTo: String?) {
+            heldPost?.await()
             posts += Triple(text, id, upload)
             replies += replyTo
             if (failPost) throw NuphosApi.Failure.Http(500, "Synthetic post failure")
@@ -404,6 +412,43 @@ class ChannelTest {
         // The chat returned the post under the same id: it shows once, as stored.
         assertTrue(session.sending.isEmpty()); assertTrue(session.sendingAttachments.isEmpty())
         assertEquals(1, session.posts.count { it.id == "client-1" }); assertFalse(session.posts.last().sending)
+    }
+
+    @Test fun aSendingPostKeepsHowFarItsFilesHaveUploaded() = runTest {
+        val held = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val uploading = AttachmentTransfers.Progress(AttachmentTransfers.Stage.Uploading, "a1", 1_234_567, 5_000_000)
+        val transport = FakeTransport().apply {
+            heldUpload = held
+            progress = listOf(AttachmentTransfers.Progress(AttachmentTransfers.Stage.Intent), uploading)
+        }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val photo = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(photo)), "me", "Me", null, this) { "client-1" })
+        testScheduler.runCurrent()
+        assertEquals("A sending post in a Bot's chat says how far its files have uploaded", uploading, session.sendingProgress["client-1"])
+        held.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        // Posted and returned by the chat: nothing is left uploading.
+        assertTrue(session.sendingProgress.isEmpty())
+    }
+
+    @Test fun aPostWhoseFilesAreUpReadsAsSendingUntilTheChatHasIt() = runTest {
+        val held = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val transport = FakeTransport().apply {
+            heldPost = held
+            progress = listOf(AttachmentTransfers.Progress(AttachmentTransfers.Stage.Uploading, "a1", 5_000_000, 5_000_000))
+        }
+        val session = ChannelSession("team", "chat-release", "Chat", transport)
+        session.refresh(force = true)
+        val photo = ComposerAttachment(name = "crash.png", kind = ComposerAttachment.Kind.Image(byteArrayOf(1)))
+        assertTrue(session.send(ComposerSubmission("Ship it", listOf(photo)), "me", "Me", null, this) { "client-1" })
+        testScheduler.runCurrent()
+        // Every byte is out and the post itself is on its way: it reads as sending, as on iOS.
+        assertEquals("A post whose files are up reads as sending until the chat has it", true, session.sendingProgress["client-1"]?.filesSent)
+        held.complete(Unit)
+        testScheduler.advanceUntilIdle()
+        assertTrue(session.sendingProgress.isEmpty())
     }
 
     @Test fun aFailedPostIsRemovedRestoredAndRetriedUnderTheSameId() = runTest {

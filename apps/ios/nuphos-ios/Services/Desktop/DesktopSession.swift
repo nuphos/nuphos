@@ -76,11 +76,19 @@ final class DesktopSession {
     /// page size in points it is laid out at on the Mac.
     let browserTab: (id: String, size: CGSize)?
 
-    init(teamId: String, sessionId: String, token: String, browserTab: (id: String, size: CGSize)? = nil) {
+    /// A display already open, as a `computer` question's: watched without opening the session's own.
+    @ObservationIgnored private let given: Int?
+    /// Take the desktop over as soon as it shows, once: a `computer` question's Take over.
+    @ObservationIgnored var takesOver = false
+    /// A `computer` question's takeover: its computer, named above the desktop, and I'm done, which answers it.
+    @ObservationIgnored var handOff: (computer: String, done: () -> Void)?
+
+    init(teamId: String, sessionId: String, token: String, browserTab: (id: String, size: CGSize)? = nil, display: Int? = nil) {
         self.teamId = teamId
         self.sessionId = sessionId
         self.token = token
         self.browserTab = browserTab
+        given = display
         frames.show = { [weak self] image in self?.show(image) }
     }
 
@@ -147,7 +155,7 @@ final class DesktopSession {
                 URLQueryItem(name: "h", value: String(Int(browserTab.size.height))),
             ]
         } else {
-            let display = try await Self.open(token: token, teamId: teamId, sessionId: sessionId)
+            let display = if let given { given } else { try await Self.open(token: token, teamId: teamId, sessionId: sessionId) }
             self.display = display
             components = URLComponents(url: NuphosAPI.baseURL(for: token).appending(path: "teams/\(teamId)/runtime-desktop/\(sessionId)/\(display)"), resolvingAgainstBaseURL: false)!
         }
@@ -250,6 +258,10 @@ final class DesktopSession {
         if pointer == .zero { pointer = CGPoint(x: width / 2, y: height / 2) }
         phase = .live
         sendFit()
+        if takesOver {
+            takesOver = false
+            setControlling(true)
+        }
     }
 
     /// The canvas's size changed: a fitted window follows it, once it has settled.

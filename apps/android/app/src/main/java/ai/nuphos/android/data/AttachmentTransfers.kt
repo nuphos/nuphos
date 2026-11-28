@@ -6,12 +6,17 @@ import ai.nuphos.android.model.Words
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.suspendCancellableCoroutine
 import okhttp3.Callback
 import okhttp3.Response
 import java.io.IOException
+import java.net.SocketException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
+import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlinx.serialization.Serializable
@@ -77,7 +82,8 @@ class AttachmentTransfers(
     }
 
     enum class Stage { Intent, Uploading, Finalizing, Ready }
-    data class Progress(val stage: Stage, val attachmentId: String? = null, val bytesWritten: Long = 0, val totalBytes: Long = 0)
+    /** [filesSent] is true once every file's bytes are out, as the store checks them before the message goes. */
+    data class Progress(val stage: Stage, val attachmentId: String? = null, val bytesWritten: Long = 0, val totalBytes: Long = 0, val filesSent: Boolean = false)
     /**
      * [part] is the structured `transfer-upload` a runtime conversation sends, as iOS and Desktop do;
      * [instruction] is the text the built-in agent pulls the files with.
@@ -197,7 +203,7 @@ class AttachmentTransfers(
                 }
             }
             pending.check()
-            onProgress(Progress(Stage.Finalizing))
+            onProgress(Progress(Stage.Finalizing, filesSent = true))
             pending.check()
             val completed = view(transport.api("POST", "$base/${intent.groupId}/finalize", token))
             pending.check()
@@ -213,7 +219,7 @@ class AttachmentTransfers(
     private fun ready(intent: Intent, pending: Pending, progress: (Progress) -> Unit): Ready {
         pending.check()
         if (expiry(intent.expiresAt) <= now()) throw Failure(Words(R.string.convtext_transfer_expired))
-        progress(Progress(Stage.Ready))
+        progress(Progress(Stage.Ready, filesSent = true))
         pending.check()
         val names = pending.payloads.joinToString(", ") { it.name.replace('\n', ' ').replace('\r', ' ') }
         val instruction = "[The user uploaded ${pending.payloads.size} file(s) to the Nuphos file-transfer store (transfer group ${intent.groupId}): $names. To work with them, load the file-transfer skill and pull them into the sandbox: bash skills/file-transfer/scripts/transfer-pull.sh \"\$TEAM\" ${intent.groupId} ./uploads]" +
@@ -263,24 +269,46 @@ class AttachmentTransfers(
     @Serializable private data class ViewFile(val id: String, val fileName: String, val relPath: String, val status: String, val size: Long? = null)
 
 
-    private object NetworkTransport : Transport {
+    internal object NetworkTransport : Transport {
         // A separate client prevents API authentication, cookies, or redirects reaching storage.
-        private val storage = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).build()
+        // The write and read timeouts are idle limits: ten seconds without a byte moving is a stall.
+        private val storage = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
+            .writeTimeout(10, TimeUnit.SECONDS).readTimeout(10, TimeUnit.SECONDS).build()
         override suspend fun api(method: String, path: String, token: String, body: JsonValue?): String {
             currentCoroutineContext().ensureActive()
             return AgentChatApi.send(method, path, token, body = body).also { currentCoroutineContext().ensureActive() }
         }
         override suspend fun put(url: String, mime: String, bytes: ByteArray, pending: Pending, progress: (Long) -> Unit) = withContext(Dispatchers.IO) {
             val context = currentCoroutineContext()
-            upload(storageRequest(url, mime, bytes, { pending.check(); context.ensureActive() }, progress), pending)
+            send(storage, storageRequest(url, mime, bytes, { pending.check(); context.ensureActive() }, progress), pending, progress)
         }
         override suspend fun put(url: String, mime: String, source: OwnedAttachmentFile, pending: Pending, progress: (Long) -> Unit) = withContext(Dispatchers.IO) {
             val context = currentCoroutineContext()
-            upload(storageRequest(url, mime, source, { pending.check(); context.ensureActive() }, progress), pending)
+            send(storage, storageRequest(url, mime, source, { pending.check(); context.ensureActive() }, progress), pending, progress)
         }
-        private suspend fun upload(request: Request, pending: Pending) {
+        /**
+         * Sends one file to the store. A stall on the client's idle timeouts, or a dropped network, sends the
+         * same file again after [pause] ms, up to three tries in all, before the message fails. HTTP errors from
+         * the store and cancellation are not retried. The presigned URL outlives the tries.
+         */
+        internal suspend fun send(client: OkHttpClient, request: Request, pending: Pending, progress: (Long) -> Unit, pause: Long = 2_000) {
+            var tries = 0
+            while (true) {
+                tries++
+                val call = client.newCall(request)
+                try {
+                    return upload(call, pending)
+                } catch (error: IOException) {
+                    if (tries >= 3 || call.isCanceled() || !(error is SocketTimeoutException || error is SocketException || error is UnknownHostException)) throw error
+                }
+                pending.check()
+                progress(0)
+                delay(pause)
+                pending.check()
+            }
+        }
+        private suspend fun upload(call: Call, pending: Pending) {
             val context = currentCoroutineContext()
-            val call = storage.newCall(request)
             pending.call = call
             pending.check()
             try {

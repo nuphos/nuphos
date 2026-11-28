@@ -1,7 +1,7 @@
 import { attentionInputRequests } from './agentInputRequests.ts'
 import { chatRowIndicator } from './runtimeExecution.ts'
 
-import type { ChatRowIndicator, RuntimeExecution } from './runtimeExecution.ts'
+import type { RuntimeExecution } from './runtimeExecution.ts'
 import type { AgentConversation } from '../api/agent-types.ts'
 
 /** Where a sub-agent stands: asking the user, working, or finished. */
@@ -40,14 +40,14 @@ export function rowDot(
 }
 
 /**
- * The mark a row shows. An open question outranks work, since a thread asking
- * while it works is still blocked on the viewer, but not a failed run.
+ * A sidebar row's gutter dot: its own, or else the first among the rows it
+ * folds away. Only conversation and project rows keep a gutter (undefined).
  */
-export function rowIndicator(
-  runtimeState: RuntimeExecution | undefined,
-  dot: RowDot,
-): ChatRowIndicator | 'waiting' {
-  const indicator = chatRowIndicator(runtimeState, dot === 'unread')
+export function gutterDot(
+  row: { key: string; project?: unknown; dot?: RowDot },
+  folded: { dot?: RowDot }[],
+): RowDot | undefined {
+  if (!row.key.startsWith('agent-session:') && !row.project) return undefined
 
-  return dot === 'waiting' && indicator !== 'error' ? 'waiting' : indicator
+  return row.dot ?? folded.find((kid) => kid.dot)?.dot ?? null
 }

@@ -65,7 +65,7 @@ export async function handleDiscordModeCommand(
 
   if (!installation || !channel) return 'Nuphos is not enabled for this thread.'
   if (!mapping || !(await getTeamMembership(mapping.nuphosUserId, thread.teamId))) {
-    return 'Link your Discord account to this Nuphos workspace first.'
+    return 'Link your Discord account to this Nuphos team first.'
   }
   // Permission grants are actor scoped: nobody can disarm a teammate's gate.
   try {

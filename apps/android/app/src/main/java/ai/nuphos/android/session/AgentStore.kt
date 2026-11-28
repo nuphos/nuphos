@@ -197,7 +197,7 @@ class AgentStore(
         read = { ai.nuphos.android.data.SidebarFavoritesApi.read(token, it) },
         write = { team, saved -> ai.nuphos.android.data.SidebarFavoritesApi.write(token, team, saved) },
     )
-    /** Favorites order is independent of activity order; pinned rows remain in the main list. */
+    /** Favorites order is independent of activity order. */
     val pins: List<AgentConversation> get() {
         val rows = botsList.associateBy { it.sessionId }
         return botPins.favorites?.entries.orEmpty().mapNotNull { rows[it.sessionId] }.distinctBy { it.sessionId }
@@ -206,6 +206,8 @@ class AgentStore(
     val savingPins get() = botPins.saving
     fun clearPinActionError() = botPins.clearError()
     fun isPinned(row: AgentConversation) = botPins.favorites?.entries?.any { it.sessionId == row.sessionId } == true
+    /** The Bots list rows. A pinned row sits in the pin shelf instead, as on iOS and Desktop; a search hides the shelf, so it lists them all. */
+    val listedBots: List<AgentConversation> get() = if (search.isEmpty()) botsList.filterNot(::isPinned) else botsList
     suspend fun loadFavorites() = botPins.load()
     suspend fun setPinned(row: AgentConversation, pinned: Boolean) {
         val team = selectedTeam?.id ?: return
@@ -637,6 +639,22 @@ class AgentStore(
 
     /** A Bot by id: from the history, or from the Bots listing when its page isn't loaded yet. */
     fun botRow(botId: String) = conversations.firstOrNull { it.sessionId == botId } ?: bots.firstOrNull { it.sessionId == botId }
+
+    /** Only the Bot's owner sees and rewrites its instructions, as on iOS and Desktop. */
+    fun ownsBot(botId: String) = botRow(botId)?.let { it.isOwner == true && it.readOnly != true } == true && !disposed && hasAiAccess()
+
+    /** Saves a Bot's standing instructions and keeps what the server kept; the error says why it refused them. */
+    suspend fun setBotInstructions(botId: String, text: String) {
+        val team = selectedTeam?.id ?: return
+        val workspace = workspaceRevision
+        val saved = ai.nuphos.android.data.BotActions.setInstructions(token, team, botId, text)
+        if (disposed || selectedTeam?.id != team || workspaceRevision != workspace) return
+        fun kept(rows: List<AgentConversation>) = rows.map {
+            if (it.sessionId == botId && (it.teamId ?: team) == team) it.copy(instructions = saved) else it
+        }
+        bots = kept(bots)
+        conversations = kept(conversations)
+    }
 
     /** The owner's own Bot, listed and not archived. Its chats go with it. */
     fun canArchiveBot(botId: String) = botRow(botId)?.let { bot ->

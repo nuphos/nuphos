@@ -3,10 +3,19 @@ import { randomUUID } from 'node:crypto'
 
 import { forgetComputer } from './computer-scenarios.ts'
 import { artifacts } from './processes.ts'
-import { openComputers, pickInRow } from './ui.ts'
+import { openComputers, pickInRow, settingButton } from './ui.ts'
 
 import type { Stack } from './stack.ts'
 import type { Locator, Page } from 'playwright-core'
+
+const inHours = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString()
+
+/** Under a day and over one, so both forms of "resets in" show (#3732). Yuanlin's case:
+ *  87% used, which the details read as 13% left. */
+const someUsage = () => ({
+  five_hour: { utilization: 87, resets_at: inHours(3) },
+  seven_day: { utilization: 20, resets_at: inHours(2 * 24 + 5.5) },
+})
 
 /** A computer reporting Claude Code usage as Desktop's host does; with `diskPercent`, a live disk too. */
 export async function computerWithUsage(
@@ -14,6 +23,7 @@ export async function computerWithUsage(
   label: string,
   deviceId = randomUUID(),
   diskPercent?: number,
+  usage: Record<string, { utilization: number; resets_at: string }> = someUsage(),
 ) {
   const auth = { authorization: `Bearer ${stack.token}` }
   const registered = await fetch(`${stack.apiUrl}/agent/devices`, {
@@ -40,14 +50,6 @@ export async function computerWithUsage(
     host.addEventListener('open', opened)
     host.addEventListener('error', failed)
   })
-  const at = (hours: number) => new Date(Date.now() + hours * 3_600_000).toISOString()
-  // Under a day and over one, so both forms of "resets in" show (#3732).
-  const usage = {
-    // Yuanlin's case: 87% used, which both the Runtimes row and the details read as 13% left.
-    five_hour: { utilization: 87, resets_at: at(3) },
-    seven_day: { utilization: 20, resets_at: at(2 * 24 + 5.5) },
-  }
-
   host.send(
     JSON.stringify({
       t: 'status',
@@ -89,10 +91,10 @@ export async function computerWithUsage(
 
 /** Puts the composer on a runtime: `row` opens its submenu and `item` names the runtime in it. */
 export async function pickRuntime(page: Page, row: string, item: RegExp) {
-  await page.getByRole('button', { name: /^Runtime:/ }).click()
+  await (await settingButton(page, /^Runtime:/)).click()
   await pickInRow(page, row, item)
-  // A Bot's move takes a moment; until it lands the composer still names the old runtime.
-  await page.getByRole('button', { name: new RegExp(`^Runtime: .*${row}`) }).waitFor()
+  // A Bot's move takes a moment; until it lands the control still names the old runtime.
+  await (await settingButton(page, new RegExp(`^Runtime: .*${row}`))).waitFor()
 }
 
 /** Shoots the composer in light; whether its runtime line shows the usage bar. */
@@ -148,23 +150,24 @@ export async function shootChipResets(page: Page) {
   }
 }
 
-/** #3732: the Computers page's agent row and the agent's own page each say when
- *  the usage resets, in days past a day and in hours under one. */
+/** #3732: the Computers page's row shows the busiest window used, and the weekly chart
+ *  and the runtime's details say when the usage resets, in days past a day and in hours under one. */
 export async function shootUsageResets(page: Page, computer: string) {
   await openComputers(page)
-  // The agent list sits under the usage history, whose row for the same agent shows no reset.
   const row = page
+    .getByRole('region', { name: 'Runtimes' })
     .getByRole('button', { name: /Claude Code/ })
     .filter({ hasText: computer })
-    .filter({ hasText: /resets in 2d 5h/u })
     .first()
 
-  await row.waitFor({ timeout: 30_000 })
-  await row.getByText(/^resets in (2h 5\dm|3h 0m)$/u).waitFor({ timeout: 30_000 })
-  await row.getByText(/^13% left$/u).waitFor({ timeout: 10_000 })
+  await row.getByText(/^87%$/u).waitFor({ timeout: 30_000 })
   await row.scrollIntoViewIfNeeded()
   await page.screenshot({ path: `${artifacts}/usage-resets-computers-light.png` })
   await row.click()
+  await page
+    .getByText(/^in 2d 5h$/u)
+    .first()
+    .waitFor({ timeout: 30_000 })
   // The runtime's details open in a side panel beside the list.
   const card = page.locator('aside[aria-label]').filter({ hasText: computer }).first()
 

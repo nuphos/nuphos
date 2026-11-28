@@ -247,7 +247,7 @@ test('a starting runtime that never lists still reports the send held, then toas
   assert.deepEqual(toasts, [
     {
       title: 'The local runtime is still starting',
-      detail: 'Try again in a moment, or check User settings › This computer › Local runtime.',
+      detail: 'Try again in a moment, or check this computer’s runtime in Settings → Computers.',
     },
   ])
   listed = null

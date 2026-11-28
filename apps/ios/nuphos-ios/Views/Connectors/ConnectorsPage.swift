@@ -73,7 +73,7 @@ struct ConnectorsPage: View {
                     Label("No connectors yet", image: "lucide-blocks")
                 } description: {
                     Text(canConnect
-                         ? "Connect a cloud account or an integration to let the agent work in it."
+                         ? "Connect a cloud account or an integration so Bots and tasks can work in it."
                          : "A team administrator can connect cloud accounts and integrations.")
                 } actions: {
                     if canConnect {

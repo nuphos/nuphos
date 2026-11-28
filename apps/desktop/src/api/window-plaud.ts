@@ -1,9 +1,10 @@
+import type { BindingShare } from '../lib/bindingShare.ts'
 import type { BindingAccess } from '../types/k8s-core.ts'
 import type { PlaudAccount, PlaudBindResult } from '../types/plaud.ts'
 
 export type WindowPlaudApi = {
   atlasListPlaudAccounts(teamId: string): Promise<PlaudAccount[]>
-  atlasStartPlaudOAuth(teamId: string): Promise<PlaudBindResult>
+  atlasStartPlaudOAuth(teamId: string, share?: BindingShare): Promise<PlaudBindResult>
   atlasCancelPlaudOAuth(teamId: string): Promise<void>
   atlasUnbindPlaud(teamId: string, bindingId: string): Promise<void>
   atlasGetPlaudAccountAccess(teamId: string, bindingId: string): Promise<BindingAccess>

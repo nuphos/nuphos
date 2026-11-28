@@ -90,6 +90,13 @@ export function npmShimTarget(file: string): string {
 /** The last CLI found inside a Microsoft Store app, which only an async lookup can find. */
 const storeCli: Partial<Record<LocalAgentProvider, string>> = {}
 
+/** The command each agent installs as, when it is not the provider's own id. */
+const CLI_NAME: Partial<Record<LocalAgentProvider, string>> = {
+  'claude-code': 'claude',
+  antigravity: 'agy',
+  cursor: 'cursor-agent',
+}
+
 /** The CLI a terminal would run, falling back to the installers' default locations and
  *  then to the copy a desktop app (Claude, ChatGPT) keeps for itself. */
 export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEnv): string | null {
@@ -98,9 +105,7 @@ export function findAgentCli(provider: LocalAgentProvider, env: NodeJS.ProcessEn
     ...(envValue(env, 'PATH') ?? '').split(path.delimiter).filter(Boolean),
     ...fallbackDirs(home, env),
   ]
-  const command =
-    ({ 'claude-code': 'claude', antigravity: 'agy' } as Record<string, string>)[provider] ??
-    provider
+  const command = CLI_NAME[provider] ?? provider
   const names = process.platform === 'win32' ? [`${command}.exe`, `${command}.cmd`] : [command]
 
   for (const file of [

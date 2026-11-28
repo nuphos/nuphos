@@ -160,7 +160,7 @@ export async function handleDiscordChannelCommand(
   }
   const installation = await dependencies.findInstallation(guildId)
 
-  if (!installation) return 'This server is not connected to a Nuphos workspace.'
+  if (!installation) return 'This server is not connected to a Nuphos team.'
   const userMapping = await dependencies.findUserMapping({
     guildId,
     teamId: installation.teamId,
@@ -171,7 +171,7 @@ export async function handleDiscordChannelCommand(
     : null
 
   if (!userMapping || membership?.role !== 'ADMINISTRATOR') {
-    return 'Only a linked Nuphos workspace administrator can change channel access.'
+    return 'Only a linked Nuphos team administrator can change channel access.'
   }
   let channel: Awaited<ReturnType<DiscordChannelCommandDependencies['getChannel']>>
 
@@ -219,6 +219,6 @@ export async function handleDiscordChannelCommand(
   })
 
   return command === 'enable'
-    ? '✅ Nuphos is enabled in this channel. Linked workspace members can now mention @Nuphos.'
+    ? '✅ Nuphos is enabled in this channel. Linked team members can now mention @Nuphos.'
     : '⛔ Nuphos is disabled in this channel.'
 }

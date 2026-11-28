@@ -111,7 +111,7 @@ export function useWorkspaceActions({
     try {
       onCreated(await onCreateWorkspace(name))
     } catch (e) {
-      toast.apiError(t('Could not create workspace'), e)
+      toast.apiError(t('Could not create team'), e)
       setChatStep('workspace')
     } finally {
       setCreating(false)
@@ -200,7 +200,7 @@ export function useWorkspaceActions({
       try {
         const joinedTeamId = await onAcceptInvitation(invitation.id)
 
-        recordJoined(joinedTeamId, invitation.team?.name ?? t('Your workspace'))
+        recordJoined(joinedTeamId, invitation.team?.name ?? t('Your team'))
         unselectInvitation(invitation.id)
       } catch (e) {
         failures += 1

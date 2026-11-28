@@ -1,6 +1,6 @@
 ---
 name: resend
-description: Email someone, or mail a report or alert, through a team-bound Resend account and check delivery; with a full-access key, inspect domains, audiences and contacts.
+description: "Send email or check delivery through a team-bound Resend account."
 ---
 
 # resend

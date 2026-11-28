@@ -3,8 +3,8 @@ import { t } from '../../../i18n/index.ts'
 import type { AgentCredentialOptions, AgentCredentialSelection } from '../../../api'
 import type { PersonalCredential, PersonalCredentialProvider } from '../../../types'
 
-/** The selection keys that are identity or own-account choices, not credential options. */
-export type IdentityKey = 'teamIdentity' | 'personalCredentialIds'
+/** The selection keys that are identity, own-account or "All" choices, not credential options. */
+export type IdentityKey = 'teamIdentity' | 'personalCredentialIds' | 'allCredentials' | 'allDevices'
 
 // Who the agent acts as on the team's binding of GitHub / Linear: the member, or
 // the team. Not the member's own credential (personalCredentialIds), which is a
@@ -44,8 +44,9 @@ export function setPersonalIdentity(
   return { ...value, teamIdentity }
 }
 
-// Identity, not access: carried through normalize/prune untouched. An empty list
-// is kept, not dropped: the backend reads a missing key as "keep what is stored".
+// Identity and "All", not access: carried through normalize/prune untouched. An empty
+// list is kept, not dropped: the backend reads a missing key as "keep what is stored".
+// A missing "All" flag is off.
 export function teamIdentityOf(
   value: Partial<AgentCredentialSelection> | null | undefined,
 ): Pick<AgentCredentialSelection, IdentityKey> {
@@ -54,6 +55,8 @@ export function teamIdentityOf(
     ...(value?.personalCredentialIds
       ? { personalCredentialIds: [...value.personalCredentialIds] }
       : {}),
+    ...(value?.allCredentials ? { allCredentials: true } : {}),
+    ...(value?.allDevices ? { allDevices: true } : {}),
   }
 }
 

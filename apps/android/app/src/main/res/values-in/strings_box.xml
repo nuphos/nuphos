@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="box_title">Komputer Nuphos</string>
+    <string name="box_setup">Penyiapan runtime</string>
+    <string name="box_connect">Hubungkan komputer</string>
+    <string name="box_guide_body">Bot dan tugas Anda membutuhkan runtime. Hubungkan komputer dengan Nuphos Desktop, atau minta administrator tim membagikan runtime.</string>
+    <string name="box_description">Komputer Linux yang dijalankan Nuphos untuk Anda, dengan Claude Code, Codex, OpenCode, dan agen lainnya. Masuk dengan akun Anda sendiri.</string>
+    <string name="box_step1">1. Buka Nuphos di komputer Anda.</string>
+    <string name="box_step2">2. Masuk dan pilih tim ini.</string>
+    <string name="box_step3">3. Hubungkan komputer dan tambahkan runtime.</string>
+    <string name="box_body">Komputer Linux dengan Claude Code, Codex, OpenCode, dan agen lainnya. Komputer yang berjalan dihitung dalam vCPU paket Anda; yang dijeda tidak.</string>
+    <string name="box_name_help">Biarkan kosong untuk menamainya %1$s.</string>
+    <string name="box_create">Buat komputer</string>
+    <string name="box_creating">Membuat…</string>
+    <string name="box_starting">Memulai komputer dan runtime-nya, biasanya 10 hingga 30 detik…</string>
+    <string name="box_ready">Komputer Anda sedang berjalan. Pilih runtime untuk masuk.</string>
+    <string name="box_failed">Komputer tidak dapat dimulai.</string>
+    <string name="box_timeout">Komputer belum dimulai setelah 5 menit.</string>
+    <string name="box_plan">Pilih paket di Nuphos pada komputer Anda.</string>
+    <string name="box_state_starting">Memulai</string>
+    <string name="box_state_connecting">Menghubungkan</string>
+    <string name="box_state_paused">Dijeda</string>
+    <string name="box_state_error">Tidak dimulai</string>
+    <string name="box_resume">Lanjutkan</string>
+    <string name="box_create_failed">Tidak dapat membuat komputer</string>
+    <string name="box_refresh_failed">Tidak dapat memperbarui komputer. Coba lagi.</string>
+    <string name="box_resume_failed">Tidak dapat melanjutkan komputer. Coba lagi.</string>
+    <string name="box_uncertain">Permintaan mungkin berhasil. Periksa komputer dan runtime sebelum membuat komputer lain.</string>
+    <string name="box_visit">Kunjungi Nuphos</string>
+    <string name="box_name">Nama</string>
+    <string name="box_not_available">Pembuatan komputer Nuphos tidak lagi tersedia untuk tim ini.</string>
+</resources>

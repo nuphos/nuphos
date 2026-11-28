@@ -2,11 +2,12 @@ import MarkdownView
 import SwiftUI
 
 /// One Inbox question: who asked (the name opens that Bot or Task), when, the
-/// question and its markdown body, then its answers: `QuestionOptions`, the options,
-/// "Other…", "Snooze" and "Dismiss" one row of the same pill, pinned to the bottom on iPhone for
-/// one question; a secret or an integration question keeps its own controls, Snooze and Dismiss
-/// under them. Snooze sets it aside until one of its times; Dismiss asks for an optional reason. An integration question and a plan keep their own controls. A secret is asked for with the task's own `SecretCard`,
-/// which says the question itself.
+/// question and its markdown body, then its answers, `QuestionOptions`. A one-tap question's options,
+/// "Other…", "Snooze" and "Dismiss" are one row of the same pill, pinned to the bottom on iPhone; a
+/// form's questions scroll, and its footer (Snooze, Dismiss and Send) is pinned there, above the
+/// keyboard. Snooze sets it aside until one of its times; Dismiss asks for an optional reason. An
+/// integration question and a plan keep their own controls, Snooze and Dismiss under them. A secret
+/// is asked for with the task's own `SecretCard`, which says the question itself.
 struct InboxQuestionView: View {
     let inbox: OpenQuestions
     let question: BotQuestion
@@ -15,14 +16,21 @@ struct InboxQuestionView: View {
     /// "Dismiss" was tapped: the reason box and its Dismiss show.
     @State private var dismissing = false
     @State private var reason = ""
+    @State private var form: QuestionForm
     @FocusState private var focused: Bool
 
+    init(inbox: OpenQuestions, question: BotQuestion) {
+        self.inbox = inbox
+        self.question = question
+        _form = State(initialValue: QuestionForm(question.choices ?? [], typed: question.typed))
+    }
 
     private var wide: Bool { sizeClass == .regular }
 
-    /// On iPhone one question's options, single- or multi-select, sit at the bottom under the
-    /// question; several questions scroll with it, as they may not fit there.
-    private var pinned: Bool { question.choices?.count == 1 }
+    /// On iPhone a one-tap question's options sit at the bottom under the question; a form's
+    /// questions scroll with it, as they may not fit there, and its footer stays at the bottom,
+    /// above the keyboard.
+    private var instant: Bool { question.choices != nil && form.instant }
 
     /// Margins: iPhone 20 at the sides, right under the bar; iPad 56 and 25 from the top. A wide
     /// iPhone, as iPhone Duo's inner display, takes 40 / 16 and 51 from the top: the 16 is past the
@@ -45,7 +53,13 @@ struct InboxQuestionView: View {
                         .padding(.top, 18)
                         .accessibilityIdentifier("inbox.body")
                 }
-                if wide || !pinned { answers.padding(.top, 24) }
+                if let desktop = question.request.desktop {
+                    ComputerPreview(teamId: inbox.teamId, sessionId: question.sessionId, desktop: desktop, bot: question.title) {
+                        answer(DecisionAnswer(choices: [question.request.options?.first ?? "I'm done"]))
+                    }
+                    .padding(.top, 18)
+                }
+                if wide || !instant { answers.padding(.top, 24) }
                 if let failure = inbox.failures[question.id] {
                     Label("Couldn't send the answer · \(failure)", image: "lucide-circle-alert")
                         .font(Theme.Text.caption)
@@ -67,11 +81,14 @@ struct InboxQuestionView: View {
             if wide { Theme.separator.frame(width: 0.5).ignoresSafeArea() }
         }
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            if !wide, pinned {
-                answers
-                    .padding(.horizontal, 20)
-                    .padding(.top, 12)
-                    .background(Theme.canvas)
+            if !wide, question.choices != nil {
+                VStack(alignment: .leading, spacing: 0) {
+                    if instant { answers } else { QuestionFooter(form: form, onSubmit: answer) { setAside } }
+                    if dismissing, !instant { reasonField.padding(.top, 10) }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .background(Theme.canvas)
             }
         }
         .animation(.snappy, value: dismissing)
@@ -110,10 +127,9 @@ struct InboxQuestionView: View {
     }
 
     @ViewBuilder private var answers: some View {
-        if let choices = question.choices {
-            QuestionOptions(questions: choices, typed: question.typed, onSubmit: { answer($0) },
-                            closesWords: dismissing, onWords: { if $0 { dismissing = false } }) { setAside }
-            if dismissing { reasonField.padding(.top, 10) }
+        if question.choices != nil {
+            QuestionOptions(form: $form, typed: question.typed, onSubmit: answer, footer: wide) { setAside }
+            if dismissing, wide || instant { reasonField.padding(.top, 10) }
         } else {
             VStack(alignment: .leading, spacing: 0) {
                 if let part = question.secretPart {
@@ -230,20 +246,21 @@ struct QuestionSource: View {
 }
 
 /// The answer in words, with its send button; or, `optional`, words that may be left out, such as
-/// a dismissal's reason.
+/// a dismissal's reason. Without `arrow`, Return alone sends, as a form's footer does.
 struct AnswerField: View {
     @Binding var words: String
     var focused: FocusState<Bool>.Binding
     var prompt: LocalizedStringKey = "Your answer"
     var sendLabel: LocalizedStringKey = "Send answer"
     var optional = false
+    var arrow = true
     let send: () -> Void
 
     var body: some View {
         HStack(spacing: 8) {
-            TextField(prompt, text: $words, axis: .vertical)
+            // One line, so the return key sends: a vertical field takes it as a new line.
+            TextField(prompt, text: $words)
                 .font(.system(size: 16))
-                .lineLimit(1...5)
                 .focused(focused)
                 .onSubmit(send)
                 .padding(.horizontal, 16)
@@ -251,7 +268,7 @@ struct AnswerField: View {
                 .frame(minHeight: 44)
                 .background(Theme.chatCanvas, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Theme.faint, lineWidth: 1))
-            Button(action: send) {
+            if arrow { Button(action: send) {
                 LucideIcon("arrow-up")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(Theme.chatCanvas)
@@ -260,7 +277,7 @@ struct AnswerField: View {
             }
             .buttonStyle(.plain)
             .accessibilityLabel(sendLabel)
-            .disabled(!optional && words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(!optional && words.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) }
         }
     }
 }

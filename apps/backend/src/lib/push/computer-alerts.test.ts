@@ -93,4 +93,38 @@ describe('computer alerts', () => {
 
     expect(sent.map((request) => request.deviceToken)).toEqual(['aa', 'bb'])
   })
+
+  test('FCM delivers only to matching Android phones for the subscribed computer', async () => {
+    const androidTokens: string[] = []
+
+    phones = [
+      phone('matching', { platform: 'android', projectId: 'test-project', computerAlerts: false }),
+      phone('other', { platform: 'android', projectId: 'other-project' }),
+    ]
+    const alert = createComputerAlerts({
+      credentials: () => null,
+      send: async () => ({ status: 200 }),
+      devices: {
+        register: async () => {},
+        unregister: async () => {},
+        listForUser: async () => phones,
+        removeToken: async () => {},
+      },
+      subscribed: async (_userId, deviceId) => subscriptions.includes(deviceId),
+      now: () => 0,
+      fcmProject: () => 'test-project',
+      sendFcm: async (_project, token) => {
+        androidTokens.push(token)
+
+        return { status: 200, deadToken: false }
+      },
+    })
+
+    subscriptions = []
+    await alert('user-1', change(false))
+    expect(androidTokens).toEqual([])
+    subscriptions = ['mac-1']
+    await alert('user-1', change(false))
+    expect(androidTokens).toEqual(['matching'])
+  })
 })

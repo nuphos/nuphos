@@ -16,7 +16,15 @@ useSlackInstallations({
         : null,
     ),
 })
-useSlackAgentOutbound({ createSlackOutboundContext: () => Promise.resolve(null) })
+const outboundArgs: unknown[] = []
+
+useSlackAgentOutbound({
+  createSlackOutboundContext: (args: unknown) => {
+    outboundArgs.push(args)
+
+    return Promise.resolve(null)
+  },
+})
 useLarkAgentOutbound({ createLarkOutboundContext: () => Promise.resolve(null) })
 
 const installSlackApi = useSlackApi({})
@@ -31,6 +39,13 @@ const base: PreviewToolContext = {
 }
 
 describe('slack preview tool module', () => {
+  test('slack_post posts as the conversation it runs in, so its Bot is named', async () => {
+    outboundArgs.length = 0
+    await previewChannelToolSet(base)
+
+    expect(outboundArgs[0]).toMatchObject({ sessionId: 'conv-1' })
+  })
+
   test('a conversation without a Slack thread gets only the outbound notification tools', async () => {
     const names = Object.keys(await previewChannelToolSet(base)).sort((a, b) => a.localeCompare(b))
 

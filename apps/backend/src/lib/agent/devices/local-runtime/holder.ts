@@ -40,6 +40,7 @@ export async function attachRuntimeTunnel(
   const conn = randomUUID()
   const streams = new Map<string, { actorId: string; teamId: string; purpose: string }>() // who opened it, in which team, for what
   const channel = holderChannel(userId, deviceId)
+  const ids = { user_id: userId, device_id: deviceId }
   let status: LocalRuntimeStatus | undefined
   let recorded: string | undefined
   let metrics: BoxMetrics | undefined
@@ -111,13 +112,7 @@ export async function attachRuntimeTunnel(
   const cut = () => [...new Set([...streams.values()].map((s) => s.teamId))].join(',') || undefined
   const own = () => ({ team_ids: cut(), max_buffered_bytes: connection.backlog?.() })
   const logClosed = (code: number | undefined, reason: string, extra?: Record<string, unknown>) =>
-    logEvent('info', 'agent.local_runtime.tunnel_closed', {
-      user_id: userId,
-      device_id: deviceId,
-      code,
-      reason,
-      ...extra,
-    })
+    logEvent('info', 'agent.local_runtime.tunnel_closed', { ...ids, code, reason, ...extra })
   const shut = (code: number, reason: string) => {
     if (ended) return
     logClosed(code, reason, own())
@@ -216,7 +211,7 @@ export async function attachRuntimeTunnel(
       .catch(() => {})
   }, heartbeatMs)
 
-  logEvent('info', 'agent.local_runtime.tunnel_opened', { user_id: userId, device_id: deviceId })
+  logEvent('info', 'agent.local_runtime.tunnel_opened', { ...ids, client })
   heldTunnels.add(shut)
 
   return {
@@ -227,8 +222,7 @@ export async function attachRuntimeTunnel(
       if (!parsed.success) {
         // Paths only: the frame is the computer's own data.
         logEvent('warn', 'agent.local_runtime.frame_rejected', {
-          user_id: userId,
-          device_id: deviceId,
+          ...ids,
           issues: parsed.error.issues.map((issue) => issue.path.join('.')).join(', '),
         })
 

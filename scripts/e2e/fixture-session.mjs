@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto'
 import { existsSync } from 'node:fs'
 
 import { botEnv } from './fixture-settings.mjs'
+import { takesSteers } from './fixture-steering.mjs'
 
 /** What this agent offers when it starts. */
 const INITIALIZE = {
@@ -15,6 +16,20 @@ const INITIALIZE = {
 /** The E2E_RULE:<name> the system prompt a session is loaded with names (#4083). */
 export const ruleIn = (params) =>
   /E2E_RULE:([a-z]+)/.exec(JSON.stringify(params._meta ?? {}))?.[1] ?? 'none'
+
+// The E2E_RULE a turn's instructions update names, read from the lead before the user's
+// words (always the last part) or Codex `_meta`, never from what the user typed.
+export function updatedRule(parts, meta) {
+  const lead = parts
+    .slice(0, -1)
+    .filter((part) => part.type === 'text')
+    .map((part) => part.text)
+  const update = /<nuphos_instructions_update>[\s\S]*?<\/nuphos_instructions_update>/.exec(
+    [...lead, meta?.['ai.nuphos/instructionsUpdate'] ?? ''].join('\n'),
+  )?.[0]
+
+  return update && (/E2E_RULE:([a-z]+)/.exec(update)?.[1] ?? 'none')
+}
 
 /** The system prompt a session opens or loads with, in any of the backend's _meta shapes. */
 const promptOf = (meta = {}) =>
@@ -43,7 +58,7 @@ let probing = false
 export function initialize(params) {
   probing = params?.clientInfo?.name === 'nuphos-model-discovery'
 
-  return INITIALIZE
+  return takesSteers() ? { ...INITIALIZE, _meta: { steering: { supported: true } } } : INITIALIZE
 }
 
 /** Whether this session/new is a model probe that fails, as a CLI that cannot list

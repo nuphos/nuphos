@@ -7,12 +7,12 @@ import type { AgentInstance } from './agent-instances.ts'
 import type { LocalAgentLogin } from './agent-login.ts'
 import type { LocalRuntimeBundle } from './config.ts'
 import type { CustomProvider, CustomProviderAgent } from './custom-provider.ts'
-import type { DevBundleHint } from './dev-bundle.ts'
 import type { LocalModelCatalog } from './model-probe.ts'
 import type { OpenabProcessOptions, RunningRuntime } from './openab-process.ts'
 import type { SleepState } from './sleep-prevention.ts'
 import type { LocalRuntimeTunnelStatus } from './tunnel-protocol.ts'
 import type { LocalConnection } from './tunnel-streams.ts'
+import type { VaultToken } from './vault-token.ts'
 
 export type LocalAgentState = {
   /** This build ships the agent for this platform. */
@@ -39,7 +39,6 @@ export type LocalRuntimeViewState = LocalRuntimeState & {
   detectionDisabled?: boolean
   deviceId: string
   sleepPrevention: SleepState
-  devBundle?: DevBundleHint
   /** This account's own model providers; the keys stay in the credential store. */
   customProviders?: Partial<Record<CustomProviderAgent, CustomProvider>>
   claudeLogin: ReturnType<LocalAgentLogin['state']>
@@ -75,6 +74,8 @@ export type LocalRuntimeControllerDeps = {
   backendUrl: string
   /** `fresh` reads the shell again instead of reusing what it said when the app started. */
   userEnv: (fresh?: boolean) => Promise<NodeJS.ProcessEnv>
+  /** The Claude Code tokens shared with this computer, each an added agent; null when unknown. */
+  vaultTokens?: () => Promise<VaultToken[] | null>
   probeCli: (
     provider: LocalAgentProvider,
     env: NodeJS.ProcessEnv,
@@ -129,6 +130,10 @@ export type Agent = {
   generation: number
   /** The look for a CLI that was missing, while it runs. */
   recheck?: Promise<void>
+  /** A reset holding the agent stopped: nothing starts it before this settles. */
+  paused?: Promise<unknown>
+  /** The last model read, which runs the agent's CLI on its home. */
+  probing?: Promise<unknown>
 }
 
 export function userDir(dataDir: string, userId: string, ...parts: string[]): string {
@@ -195,6 +200,29 @@ export function scheduleAgentRestart(
   agent.restartTimer = setTimeout(() => {
     if (run.current()) void start()
   }, delay)
+}
+
+/**
+ * Stops the agent, then runs `work` with it stopped and its CLI no longer running a model read,
+ * which could save a login again. Each waits for the one before, so a launch that stops the
+ * agent first starts nothing before `work` is done. It stays stopped until the next launch.
+ */
+export function pauseAgent<T>(
+  agent: Agent,
+  changed: () => void,
+  work?: () => Promise<T> | T,
+): Promise<T | undefined> {
+  const done = (agent.paused ?? Promise.resolve()).then(async () => {
+    await stopAgentProcess(agent, changed)
+    if (!work) return undefined
+    await agent.probing?.catch(() => {})
+
+    return work()
+  })
+
+  agent.paused = done.catch(() => {})
+
+  return done
 }
 
 export async function stopAgentProcess(agent: Agent, changed: () => void): Promise<void> {

@@ -46,7 +46,8 @@ export const themes = {
     // Data series and heatmaps: one muted blue, intensity by opacity.
     'data.1': '#2F4F7F',
 
-    // A Bot's character may sit on one of these: light tints behind colourful art.
+    // A Bot's character sits on one of these: light tints behind colourful art, white by default.
+    'avatar.white': '#FFFFFF',
     'avatar.sand': '#F2E7D3',
     'avatar.peach': '#F8DCCB',
     'avatar.rose': '#F6D5DE',
@@ -85,6 +86,7 @@ export const themes = {
     'data.1': '#7C9CCB',
 
     // The characters are drawn for light discs, so the tints stay light in the dark.
+    'avatar.white': '#FFFFFF',
     'avatar.sand': '#F2E7D3',
     'avatar.peach': '#F8DCCB',
     'avatar.rose': '#F6D5DE',

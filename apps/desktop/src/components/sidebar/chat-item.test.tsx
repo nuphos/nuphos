@@ -270,9 +270,7 @@ test('a Bot question stays out of the preview, which keeps the newest post', () 
       openId: undefined,
     })
 
-    assert.ok(isValidElement<{ dot: string | null }>(row?.trailing))
-    assert.equal(row.trailing.props.dot, unread ? 'unread' : null)
-    assert.equal(row.dot, unread ? 'unread' : null)
+    assert.equal(row?.dot, unread ? 'unread' : null)
     assert.equal(row.previewNode, undefined)
     assert.equal(row.preview, 'The newest reply posted in this chat')
   }

@@ -32,6 +32,15 @@ struct HomeView: View {
     /// A desktop shows beside the open conversation, with the list put away meanwhile.
     @State private var desktopOpen = false
     private var columns: Binding<NavigationSplitViewVisibility> { NavigationSplitViewVisibility.home(desktopOpen: desktopOpen) }
+    /// Collapsed, an open chat or question is on top even before a list is on screen to select it.
+    private var compactColumn: Binding<NavigationSplitViewColumn> {
+        Binding(get: { openChat != nil || inbox?.selected != nil ? .detail : .sidebar }) { column in
+            // Back from a Bot's Task also reports the sidebar; it returns to the Bot chat.
+            guard column == .sidebar, !showBotTask else { return }
+            openChat = nil
+            inbox?.selected = nil
+        }
+    }
     private var desktopBeside: ((Bool) -> Void)? {
         guard sizeClass == .regular else { return nil }
         return { open in desktopOpen = open }
@@ -48,7 +57,7 @@ struct HomeView: View {
     var body: some View {
         // Collapses to a single stack when compact; side by side when wide,
         // such as iPhone Duo's inner display and iPad.
-        NavigationSplitView(columnVisibility: columns) {
+        NavigationSplitView(columnVisibility: columns, preferredCompactColumn: compactColumn) {
             Group {
                 if let store, let plans, let connectors {
                     pageContent
@@ -76,7 +85,7 @@ struct HomeView: View {
             // Wide, the list always stays: there is nothing to put it away with.
             .toolbar(removing: .sidebarToggle)
             .toolbar {
-                if !coverHeader, let store, !store.teams.isEmpty {
+                if !coverHeader, let store, store.selectedTeam != nil {
                     ToolbarItem(placement: .topBarLeading) { teamButton(store) }
                 }
                 // One item, not a group: on an iPhone, iOS 27 folds a group into "More",
@@ -135,7 +144,7 @@ struct HomeView: View {
                         .toolbar {
                             ToolbarItem(placement: .cancellationAction) {
                                 Button { workspacePage = nil } label: { LucideIcon("x") }
-                                    .accessibilityLabel("Close workspace")
+                                    .accessibilityLabel("Close")
                             }
                         }
                 }
@@ -249,10 +258,8 @@ struct HomeView: View {
         // Tasks lists no chat (#2708), and compact opens one by selecting its row, so a chat
         // opened from Tasks, as "Make this a Bot" opens one, opens on Bots instead.
         .onChange(of: openChat?.channel?.channelId) { _, id in
-            guard id != nil, page == .agent, let chat = openChat else { return }
+            guard id != nil, page == .agent else { return }
             page = .chats
-            // After the page change below has cleared it.
-            Task { openChat = chat }
         }
         .onChange(of: openChat?.id) { _, _ in
             showBotTask = false
@@ -262,7 +269,8 @@ struct HomeView: View {
             showBotTask = false
             botTask = nil
             if autoPage { autoPage = false } else { pageChosen = true }
-            openChat = nil
+            // A Bot's chat stays open on Bots, where the change above moves it.
+            if newPage != .chats || openChat?.channel == nil { openChat = nil }
             inbox?.selected = nil
             UIEventLog.pageTransition(from: oldPage.rawValue, to: newPage.rawValue)
             Analytics.shared.screen(newPage.rawValue, teamID: store?.selectedTeam?.id)
@@ -278,16 +286,8 @@ struct HomeView: View {
                 try? await Task.sleep(for: .seconds(15))
             }
         }
-        #if DEBUG
-        // DEBUG: `-page inbox` opens a page that does not load the workspace. Only the
-        // Agent page calls `loadTeams()`, and the Inbox lists nothing until a team is
-        // selected, so the shortcut would show an Inbox that stays empty. It used to be
-        // filled by a launch cache another UI test suite had left behind.
-        .task {
-            guard Self.initialPage == .inbox, let store, store.selectedTeam == nil else { return }
-            await store.loadTeams()
-        }
-        #endif
+        // The workspace loads with the shell, not with one tab: a page opened first needs it too (#4040).
+        .task(id: store != nil) { await store?.loadTeams() }
         .onChange(of: store?.selectedTeam?.id) { _, teamID in
             Analytics.shared.screen(page.rawValue, teamID: teamID)
         }
@@ -359,7 +359,7 @@ struct HomeView: View {
         if coverHeader {
             measured.safeAreaInset(edge: .top) {
                 HStack {
-                    if let store, !store.teams.isEmpty {
+                    if let store, store.selectedTeam != nil {
                         teamButton(store).buttonStyle(.plain).padding(.horizontal, 12).frame(height: 44)
                             .glass(interactive: true, in: Capsule())
                     }
@@ -480,7 +480,7 @@ private struct GlassGroupSpacer: ToolbarContent {
     }
 }
 
-private extension ToolbarContent {
+extension ToolbarContent {
     /// Drops the shared glass behind an item that draws its own (iOS 26).
     @ToolbarContentBuilder
     func sharedBackgroundHidden() -> some ToolbarContent {

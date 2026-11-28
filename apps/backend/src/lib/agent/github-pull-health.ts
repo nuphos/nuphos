@@ -82,15 +82,65 @@ async function getPages<T>(token: string, path: string): Promise<T[] | null> {
 type PullSummary = { state: string; mergeable_state?: string | null; head: { sha: string } }
 
 /**
- * Asks GitHub what blocks an open PR. Null when it is closed, unblocked, or
- * unreadable. Pass `known` when the PR was just fetched, to skip that lookup.
+ * The head commit's CI once nothing in it is queued, running or pending, else
+ * null. `id` names this exact set of results, so a re-run settles anew.
  */
-export async function fetchPullHealth(
+export type SettledCi = { id: string; summary: string }
+
+type CheckRun = { id: number; name: string; status: string; conclusion: string | null }
+type CommitStatus = { id: number; context: string; state: string }
+
+/**
+ * Each check's newest run. GitHub's `filter=latest` keeps one per check suite,
+ * so a run that a later workflow run replaced on the same commit, such as one
+ * cancelled by `cancel-in-progress`, still comes back beside its replacement.
+ */
+export function latestRuns<T extends { id: number; name: string }>(runs: T[]): T[] {
+  const newest = new Map<string, T>()
+
+  for (const run of runs) if (run.id > (newest.get(run.name)?.id ?? -1)) newest.set(run.name, run)
+
+  return [...newest.values()]
+}
+
+export function settledCi(
+  sha: string,
+  allRuns: CheckRun[],
+  statuses: CommitStatus[],
+): SettledCi | null {
+  const runs = latestRuns(allRuns)
+
+  if (!runs.length && !statuses.length) return null
+  if (runs.some((run) => run.status !== 'completed')) return null
+  if (statuses.some((status) => status.state === 'pending')) return null
+  const failed = [
+    ...runs.filter((run) => FAILED_CONCLUSIONS.has(run.conclusion ?? '')).map((run) => run.name),
+    ...statuses
+      .filter((status) => ['failure', 'error'].includes(status.state))
+      .map((status) => status.context),
+  ]
+
+  return {
+    id: [...runs.map((run) => `r${String(run.id)}`), ...statuses.map((s) => `s${String(s.id)}`)]
+      .sort((a, b) => a.localeCompare(b))
+      .join(','),
+    summary: `GitHub CI finished on ${sha.slice(0, 7)}: ${
+      failed.length ? `failed (${failed.join(', ')})` : 'passed'
+    }.`,
+  }
+}
+
+/**
+ * Asks GitHub what blocks an open PR and whether its head's CI has settled.
+ * Null when it is closed or unreadable. Pass `known` when the PR was just
+ * fetched, to skip that lookup.
+ */
+export async function readPull(
   installationId: number,
   repository: string,
   number: number,
   known?: PullSummary,
-): Promise<PullHealth | null> {
+): Promise<{ health: PullHealth | null; ci: SettledCi | null } | null> {
   const { token } = await getInstallationToken(installationId)
   const pull =
     known ?? (await getJson<PullSummary>(token, `/repos/${repository}/pulls/${String(number)}`))
@@ -98,11 +148,11 @@ export async function fetchPullHealth(
   if (pull?.state !== 'open') return null
   const sha = pull.head.sha
   const [checks, status, reviews] = await Promise.all([
-    getJson<{ check_runs: { conclusion: string | null }[] }>(
+    getJson<{ check_runs: CheckRun[] }>(
       token,
       `/repos/${repository}/commits/${sha}/check-runs?filter=latest&per_page=100`,
     ),
-    getJson<{ state: string; total_count: number }>(
+    getJson<{ state: string; total_count: number; statuses: CommitStatus[] }>(
       token,
       `/repos/${repository}/commits/${sha}/status`,
     ),
@@ -113,14 +163,18 @@ export async function fetchPullHealth(
     ),
   ])
 
-  return pullHealth({
-    checkConclusions: checks?.check_runs.map((run) => run.conclusion) ?? [],
-    // With no statuses at all GitHub still says "pending"; that blocks nothing.
-    statusState: status && status.total_count > 0 ? status.state : undefined,
-    mergeableState: pull.mergeable_state,
-    reviews: (reviews ?? []).map((review) => ({
-      user: review.user?.login ?? '',
-      state: review.state,
-    })),
-  })
+  return {
+    health: pullHealth({
+      checkConclusions: latestRuns(checks?.check_runs ?? []).map((run) => run.conclusion),
+      // With no statuses at all GitHub still says "pending"; that blocks nothing.
+      statusState: status && status.total_count > 0 ? status.state : undefined,
+      mergeableState: pull.mergeable_state,
+      reviews: (reviews ?? []).map((review) => ({
+        user: review.user?.login ?? '',
+        state: review.state,
+      })),
+    }),
+    // Unreadable CI is never settled.
+    ci: checks && status ? settledCi(sha, checks.check_runs, status.statuses) : null,
+  }
 }

@@ -4,7 +4,6 @@ import path from 'node:path'
 import { app, BrowserWindow, powerMonitor, shell } from 'electron'
 
 import { createDockTerminalStream } from '../../agent/dock-terminal.ts'
-import { callJson } from '../../agent/http.ts'
 import { logLocalTool } from '../../agent/local-exec.ts'
 import { apiUrl, deviceRegistrationAllowed } from '../../api-endpoint.ts'
 import { authSession } from '../../auth-session.ts'
@@ -19,7 +18,7 @@ import { readDeviceMetrics } from '../device-metrics.ts'
 import { isDev } from '../env.ts'
 import { getUpdaterState, installUpdate, readyUpdate, watchUpdater } from '../updater.ts'
 
-import { LOCAL_AGENT_PROVIDERS, probeAgentCli } from './agent-cli.ts'
+import { probeAgentCli } from './agent-cli.ts'
 import { readAgentUsage } from './agent-cli-usage.ts'
 import { prepareAgentHome } from './agent-home.ts'
 import { localFileConnectors } from './attachment-stream.ts'
@@ -29,6 +28,7 @@ import { readBundle } from './config.ts'
 import {
   PROVIDER_KEYCHAIN_SERVICE,
   readCustomProviders,
+  checkCustomProvider,
   notSaved,
   saveCustomProvider,
   withProviderKey,
@@ -36,7 +36,8 @@ import {
 } from './custom-provider.ts'
 import { LocalRuntimeController } from './controller.ts'
 import { localToolStreams } from './cua-stream.ts'
-import { devBundleHint, watchDevBundle } from './dev-bundle.ts'
+import { desktopVaultTokens } from './desktop-vault-tokens.ts'
+import { watchDevBundle } from './dev-bundle.ts'
 import { tunnelUrlFor } from './device-credential.ts'
 import { startDiskMaintenance } from './disk-usage.ts'
 import { appUpdateStatus, appUpdateTunnel } from './app-update-request.ts'
@@ -92,6 +93,7 @@ const controller: LocalRuntimeController = new LocalRuntimeController({
     return apiUrl()
   },
   userEnv,
+  vaultTokens: desktopVaultTokens(() => readDeviceIdentity().deviceId),
   probeCli: withProviderStatus(probeAgentCli, providerKeys),
   readUsage: readAgentUsage,
   readCliCache: (userId) => readCliCache(dataDir(), userId),
@@ -215,11 +217,7 @@ export function initLocalRuntime(): void {
 
   authSession.subscribe(follow)
   follow(authSession.context())
-  if (devBuild())
-    watchDevBundle(bundleRoot(), {
-      bundle: () => void controller.refresh(true),
-      status: broadcastState,
-    })
+  if (devBuild()) watchDevBundle(bundleRoot(), () => void controller.refresh(true))
   powerMonitor.on('resume', () => {
     broadcastState()
     controller.reconnect()
@@ -238,9 +236,6 @@ export function stopLocalRuntime(): Promise<void> {
 }
 
 export function getLocalRuntimeState(): LocalRuntimeViewState {
-  const bundle = findBundle()
-  const incomplete = LOCAL_AGENT_PROVIDERS.some((provider) => !bundle?.adapters[provider])
-  const devBundle = devBuild() && incomplete ? devBundleHint(bundleRoot()) : undefined
   const state = controller.state()
 
   return {
@@ -250,7 +245,6 @@ export function getLocalRuntimeState(): LocalRuntimeViewState {
     claudeLogin: logins.state('claude-code'),
     codexLogin: logins.state('codex'),
     deviceId: readDeviceIdentity().deviceId,
-    ...(devBundle ? { devBundle } : {}),
     ...(state.userId ? { customProviders: readCustomProviders(ownDir(state.userId)) } : {}),
   }
 }
@@ -269,6 +263,15 @@ export async function setLocalCustomProvider(
   return getLocalRuntimeState()
 }
 
+/** Tests a provider for one agent with one request, before or without saving it. */
+export function checkLocalCustomProvider(provider: unknown, value: unknown) {
+  const { userId } = controller.state()
+
+  if (!userId) return notSaved(new Error('Sign in to Nuphos first.'))
+
+  return checkCustomProvider(providerKeys, userId, provider, value).catch(notSaved)
+}
+
 export async function refreshLocalRuntime(): Promise<LocalRuntimeState> {
   await controller.refresh()
 
@@ -281,16 +284,4 @@ export async function openLocalRuntimeWorkspace(): Promise<void> {
   if (!workspace) return
   mkdirSync(workspace, { recursive: true })
   await shell.openPath(workspace)
-}
-
-export function listLocalRuntimeActivity(before?: string): Promise<unknown> {
-  const { deviceId } = readDeviceIdentity()
-  const query = new URLSearchParams({ limit: '20' })
-
-  if (before) query.set('before', before)
-
-  return callJson(
-    'GET',
-    `/agent/devices/${encodeURIComponent(deviceId)}/runtime-activity?${query.toString()}`,
-  )
 }

@@ -100,6 +100,7 @@ export type FileTransferGroup = {
 // binding the Connectors page shows, in one round trip. Field shapes match the
 // corresponding per-provider list endpoints exactly.
 export type TeamConnectorsBundle = {
+  sharing?: Record<string, { owned: boolean; shared: boolean }>
   // Optional: an older/mismatched backend may omit it, in which case the
   // catalog simply doesn't pre-warn (the backend still enforces on bind).
   aws: AwsAccount[]

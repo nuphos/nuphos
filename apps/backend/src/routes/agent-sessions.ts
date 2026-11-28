@@ -8,7 +8,7 @@ import {
   credentialsMcpTools,
 } from '@/lib/claude-code-preview/credentials-mcp'
 import { scopedPathAllowed, verifyPreviewMcpToken } from '@/lib/claude-code-preview/mcp-token'
-import { nuphosToolsMcp } from '@/lib/claude-code-preview/nuphos-tools-mcp'
+import { nuphosToolsMcp, nuphosToolsSurface } from '@/lib/claude-code-preview/nuphos-tools-mcp'
 import { resolvePreviewToolContext } from '@/lib/claude-code-preview/preview-tool-context-resolve'
 import {
   dashboardPanelAgent,
@@ -18,7 +18,7 @@ import {
 import { AppError, errorHandler, notFoundHandler } from '@/lib/errors'
 import { isTokenRevoked } from '@/lib/internal-token/revocation'
 import { answerMcp } from '@/lib/mcp/http-answer'
-import { calledToolName, fail, handleMcpHttpPayload } from '@/lib/mcp/protocol'
+import { calledToolName, fail, handleMcpHttpPayload, usesTools } from '@/lib/mcp/protocol'
 import { requireAuth, requireTeamMember } from '@/middleware/auth'
 import { accountScoped } from '@/routes/agent-sessions/aws'
 import { betterStackScoped } from '@/routes/agent-sessions/betterstack'
@@ -161,29 +161,33 @@ teamScoped.post('/mcp', async (c) => {
     return { status: response.status, body: await response.text() }
   }
 
-  return serveMcp(c, credentialsMcpTools(agent, teamId, vend), CREDENTIALS_MCP_SURFACE)
+  return serveMcp(c, async () => ({
+    surface: CREDENTIALS_MCP_SURFACE,
+    tools: credentialsMcpTools(agent, teamId, vend),
+  }))
 })
 
 // Nuphos's native tools (memory, dashboards, diagrams, triggers, …) as a second MCP
-// server; their results render as cards through the run-frame bridge.
-teamScoped.post('/mcp-tools', async (c) => {
-  const agent = c.get('agent')
-  const { surface, tools } = await nuphosToolsMcp(
-    await resolvePreviewToolContext({
+// server, rendered as cards via the run-frame bridge. Agents await initialize, so it skips the tools.
+teamScoped.post('/mcp-tools', (c) =>
+  serveMcp(c, async (payload) => {
+    const agent = c.get('agent')
+    const ctx = await resolvePreviewToolContext({
       userId: agent.userId,
       conversationOwnerUserId: agent.conversationOwnerUserId,
       teamId: c.get('teamId'),
       sessionId: agent.sessionId,
-    }),
-  )
+    })
 
-  return serveMcp(c, tools, surface)
-})
+    return usesTools(payload)
+      ? nuphosToolsMcp(ctx)
+      : { surface: nuphosToolsSurface([], ctx.agentRuntime), tools: {} }
+  }),
+)
 
 async function serveMcp(
   c: Context<{ Variables: AgentVars & TeamAuthVariables }>,
-  tools: Record<string, ToolHandler>,
-  surface: McpSurface,
+  load: (payload: unknown) => Promise<{ surface: McpSurface; tools: Record<string, ToolHandler> }>,
 ) {
   let payload: unknown
 
@@ -194,6 +198,7 @@ async function serveMcp(
   }
   // Every tool is called on the same path, so the access log needs its name.
   c.set('toolName', calledToolName(payload))
+  const { surface, tools } = await load(payload)
 
   return answerMcp(c, handleMcpHttpPayload(payload, tools, surface))
 }

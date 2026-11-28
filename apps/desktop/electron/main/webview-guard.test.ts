@@ -150,6 +150,19 @@ test('changelog redirects and popups still open externally, including before the
   ])
 })
 
+test('browser lets pages write to the clipboard, as Chrome does', () => {
+  const check = browserSession.setPermissionCheckHandler.mock.calls[0].arguments[0]
+  const request = browserSession.setPermissionRequestHandler.mock.calls[0].arguments[0]
+  const callback = mock.fn()
+
+  assert.equal(
+    check(null, 'clipboard-sanitized-write', 'https://example.com', { isMainFrame: true }),
+    true,
+  )
+  request({}, 'clipboard-sanitized-write', callback)
+  assert.deepEqual(callback.mock.calls[0].arguments, [true])
+})
+
 test('browser denies permission checks, requests, and persisted device grants', () => {
   const check = browserSession.setPermissionCheckHandler.mock.calls[0].arguments[0]
   const request = browserSession.setPermissionRequestHandler.mock.calls[0].arguments[0]

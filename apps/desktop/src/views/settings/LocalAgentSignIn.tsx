@@ -5,11 +5,13 @@ import { Button } from '../../components/ui/button'
 import { useStableCallback } from '../../hooks/useStableCallback'
 import { t } from '../../i18n'
 import { isMac } from '../../lib/platform'
+import { agentProvider } from '../../types/runtime'
 
-import { ApiKeyEntry, ApiKeyLink } from './ApiKeyEntry'
+import { ApiKeyEntry, MethodSwitch } from './ApiKeyEntry'
 import { ClaudeSignInCode } from './ClaudeSignInCode'
 import { useLocalAgentLogin } from './useLocalAgentLogin'
 
+import type { SignInMethod } from './ApiKeyEntry'
 import type { CliLoginProvider } from '../../api'
 
 /** One sign-in dialog for settings, the agent selector and conversation recovery. */
@@ -25,7 +27,7 @@ export function LocalAgentSignIn({
   onClosed?: (connected: boolean) => void
 }) {
   const [open, setOpen] = useState(initiallyOpen)
-  const [keyEntry, setKeyEntry] = useState(false)
+  const [method, setMethod] = useState<SignInMethod>('account')
   const { name, codex, login, busy, retry, connected, start, applyApiKey, cancel, resume } =
     useLocalAgentLogin(provider, open)
 
@@ -50,7 +52,7 @@ export function LocalAgentSignIn({
   async function close() {
     if (!(await cancel())) return
     setOpen(false)
-    setKeyEntry(false)
+    setMethod('account')
     onClosed?.(connected)
   }
 
@@ -75,13 +77,19 @@ export function LocalAgentSignIn({
           closeOnBackdrop={false}
         >
           <div className="space-y-4 p-5" role="status" aria-live="polite">
-            {keyEntry && !connected && !busy ? (
+            {!connected && !busy && (
+              <MethodSwitch
+                account={agentProvider(provider).account}
+                value={method}
+                onChange={setMethod}
+              />
+            )}
+            {method === 'key' && !connected && !busy ? (
               <ApiKeyEntry
                 provider={provider}
-                onBack={() => setKeyEntry(false)}
                 onSubmit={async (key) => {
                   await applyApiKey(key)
-                  setKeyEntry(false)
+                  setMethod('account')
                 }}
               />
             ) : (
@@ -146,7 +154,6 @@ export function LocalAgentSignIn({
                     </>
                   )}
                 </div>
-                {!connected && !busy && <ApiKeyLink onClick={() => setKeyEntry(true)} />}
               </>
             )}
           </div>

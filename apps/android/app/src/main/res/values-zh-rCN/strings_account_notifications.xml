@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_computer_alerts">电脑通知</string>
+    <string name="computer_notifications_intro_title">选择需要关注的电脑</string>
+    <string name="computer_notifications_intro">只关注你需要的电脑，其他电脑不会发送通知。</string>
+    <string name="computer_notifications_empty">此团队中没有电脑。</string>
+    <string name="computer_notifications_help">默认关闭。所选电脑离线满 2 分钟及重新连接时会通知你。仅影响你的账号。</string>
+    <string name="computer_notifications_online">在线</string>
+    <string name="computer_notifications_offline">离线</string>
+    <string name="account_notifications">通知</string>
+    <string name="computer_notifications_load_failed">无法加载电脑。</string>
+</resources>

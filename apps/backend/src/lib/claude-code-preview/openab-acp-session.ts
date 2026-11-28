@@ -60,10 +60,10 @@ export type OpenAbAcpClientOptions = {
   socketFactory?: SocketFactory
   connectTimeoutMs?: number
   callTimeoutMs?: number
-  /** Inactivity window for one prompt; re-armed by session/update traffic. */
+  /** A prompt's windows of inactivity, of no turn progress and of no first model output. */
   promptTimeoutMs?: number
-  /** Longest a prompt may go without turn progress; heartbeats do not count. */
   promptProgressTimeoutMs?: number
+  promptFirstOutputTimeoutMs?: number
   retireGraceMs?: number
 }
 
@@ -101,24 +101,14 @@ export type OpenAbPermissionHandler = (
   request: OpenAbPermissionRequest,
 ) => Promise<OpenAbPermissionOutcome>
 
-export function supportsPermissionRelay(initializeResult: unknown): boolean {
-  if (!initializeResult || typeof initializeResult !== 'object') return false
-  const capabilities = (initializeResult as Record<string, unknown>).agentCapabilities
+type Capabilities = { agentCapabilities?: { _meta?: Record<string, unknown> } } | null
 
-  if (!capabilities || typeof capabilities !== 'object') return false
-  const meta = (capabilities as Record<string, unknown>)._meta
-
-  return (
-    Boolean(meta) &&
-    typeof meta === 'object' &&
-    (meta as Record<string, unknown>)['dev.openab/permissionRelay'] === true
-  )
+function runtimeCapability(initializeResult: unknown, name: string) {
+  return (initializeResult as Capabilities)?.agentCapabilities?._meta?.[name]
 }
 
-function runtimeCapability(initializeResult: Record<string, unknown>, name: string) {
-  return (initializeResult.agentCapabilities as { _meta?: Record<string, unknown> } | undefined)
-    ?._meta?.[name]
-}
+export const supportsPermissionRelay = (initializeResult: unknown) =>
+  runtimeCapability(initializeResult, 'dev.openab/permissionRelay') === true
 
 export const supportsRuntimeAuthority = (initializeResult: Record<string, unknown>) =>
   runtimeCapability(initializeResult, 'dev.openab/sessionAuthority') === 2
@@ -208,6 +198,8 @@ export type PromptSessionContext = {
   mcpServers: AcpHttpMcpServer[]
   systemPrompt?: string
   runtime?: OpenAbSessionRuntime
+  /** Changed standing instructions for this prompt only; the Codex adapter injects them. */
+  instructionsUpdate?: string
 }
 
 // Re-presents the turn's session context on every prompt. OpenAB stores it for
@@ -220,7 +212,12 @@ export function promptMeta(
     ...(acknowledge ? { 'ai.nuphos/acknowledgePrompt': true } : {}),
     ...(context
       ? {
-          'dev.openab/sessionMeta': sessionMeta(context.systemPrompt, context.runtime)._meta,
+          'dev.openab/sessionMeta': {
+            ...(sessionMeta(context.systemPrompt, context.runtime)._meta as object),
+            // Other agents read it in the prompt text.
+            'ai.nuphos/instructionsUpdate':
+              (context.runtime?.provider === 'codex' && context.instructionsUpdate) || undefined,
+          },
           'dev.openab/mcpServers': context.mcpServers,
         }
       : {}),

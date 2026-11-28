@@ -2,6 +2,7 @@ import { getAgentDevice } from '@/lib/agent/devices/store'
 import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { AppError } from '@/lib/errors'
 
+import { CodexTurnFailedError } from './codex-turn-failure'
 import { hostUpdateHint } from './host-minimum-version'
 import { agentHostAway } from './openab-acp-connect'
 import { claudeNotice, runtimeUsageExhaustedMessage, turnFailureCause } from './openab-acp-errors'
@@ -23,10 +24,19 @@ const VERIFICATION_HOLD = /^(?:API Error: )?Your account can['’]t receive repl
 export const outOfUsageUntilReset = (error: unknown) =>
   Boolean(runtimeUsageExhaustedMessage(error)) && !VERIFICATION_HOLD.test(claudeNotice(error) ?? '')
 
+/** The provider still answered 429 after the agent's own retries: like a busy runtime, it passes. */
+export const providerRateLimited = (error: unknown) =>
+  error instanceof CodexTurnFailedError && /\b429\b/u.test(error.notice)
+
+/** A turn the runtime or its provider will take later: a busy runtime, or a provider rate limit. */
+export const refusedForNow = (error: unknown) =>
+  isRuntimeRefusal(error) || providerRateLimited(error)
+
 /**
  * Whether the queue sends this turn again, so it is not recorded: a refusal for a
- * client that resends, an agent host away or offline that the conversation queue waits for,
- * or an agent out of usage that a queued turn waits for. A direct send says so at once.
+ * client that resends, an agent host away or offline or a provider rate limit that the
+ * conversation queue waits for, or an agent out of usage that a queued turn waits for.
+ * A direct send says so at once.
  */
 export const resentAfter = (
   error: unknown,
@@ -40,16 +50,14 @@ export const resentAfter = (
   ((turn.clientResendsRefusal || Boolean(turn.queued)) && isRuntimeRefusal(error)) ||
   ((turn.waitsOutUsage || (Boolean(turn.queued) && !turn.direct)) && outOfUsageUntilReset(error)) ||
   (Boolean(turn.clientResendsRefusal) &&
-    (agentHostAway(error) || turnFailureCause(error) === 'offline'))
+    (agentHostAway(error) || turnFailureCause(error) === 'offline' || providerRateLimited(error)))
 
 /**
  * What the client hears about a refused turn that came from, or went back to,
  * the session queue: that the message waits there, not that it was refused.
  */
-export const queuedRefusal = (error: unknown, queued: unknown) =>
-  queued && isRuntimeRefusal(error)
-    ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead')
-    : error
+export const queuedRefusal = (error: unknown, requeued: boolean) =>
+  requeued ? new AppError(409, 'message_queued', 'Your message waits for the turn ahead') : error
 
 /**
  * A failed turn on a computer below the support floor says so: the error is the one thing every

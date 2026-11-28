@@ -207,8 +207,8 @@ describe('a Slack channel that is an external chat', () => {
     const notice = wakes[0] as { id: string; metadata: unknown }
 
     expect(notice.metadata).not.toHaveProperty('resourceUrl')
-    // The Bot still gets a chat's instructions: how to read it and answer there.
-    expect(attributionHeader(notice.id, notice.metadata)).toContain('channel_post')
+    // The wake points to channel_read; how to answer lives in the system prompt.
+    expect(attributionHeader(notice.id, notice.metadata)).toContain('channel_read')
   })
 
   test('a linked Slack account speaks as its member', async () => {

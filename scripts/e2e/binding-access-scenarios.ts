@@ -40,7 +40,7 @@ export function must(condition: boolean, what: string): asserts condition {
 /** A GitLab instance answering only the code exchange and who the token belongs to; always one account. */
 export async function startFixtureGitlab(
   accountId: number,
-): Promise<{ url: string; close: () => void }> {
+): Promise<{ url: string; accountId: number; close: () => void }> {
   const [port] = await freePorts(1)
   const server = createServer((request, response) => {
     response.setHeader('content-type', 'application/json')
@@ -76,7 +76,7 @@ export async function startFixtureGitlab(
 
   await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve))
 
-  return { url: `http://127.0.0.1:${String(port)}`, close: () => server.close() }
+  return { url: `http://127.0.0.1:${String(port)}`, accountId, close: () => server.close() }
 }
 
 export type Flow = Pick<Stack, 'apiUrl' | 'token' | 'teamId' | 'signInCode'>
@@ -87,7 +87,7 @@ export type Client = ReturnType<typeof client>
 export async function joinAsAdmin(
   stack: Flow,
   owner: Client,
-): Promise<{ member: Client; memberId: string }> {
+): Promise<{ member: Client; memberId: string; token: string }> {
   const email = `e2e-member-${String(Date.now())}@example.com`
   const anonymous = client(stack.apiUrl, '')
 
@@ -97,7 +97,8 @@ export async function joinAsAdmin(
     email,
     code: stack.signInCode(email),
   })
-  const member = client(stack.apiUrl, (verified.body as { token: string }).token)
+  const { token } = verified.body as { token: string }
+  const member = client(stack.apiUrl, token)
   const invited = await owner('POST', `/teams/${stack.teamId}/invitations`, { inviteeEmail: email })
   const invitationId = (invited.body as { invitation: { id: string } }).invitation.id
 
@@ -113,7 +114,7 @@ export async function joinAsAdmin(
 
   must(promoted.status === 200, `the member to become an admin, got ${String(promoted.status)}`)
 
-  return { member, memberId }
+  return { member, memberId, token }
 }
 
 /** Connects the fixture GitLab account through OAuth, without a share choice. */
@@ -133,17 +134,19 @@ export async function connectGitlab(stack: Flow, as: Client, hostUrl: string, co
   return { status: response.status, text: await response.text() }
 }
 
-/** The id of the team's GitLab binding for `hostUrl`. */
+/** The team's binding for `gitlab`: a fixture can reuse a closed one's port, so the address alone may match another. */
 export async function gitlabBindingId(
   stack: Flow,
   owner: Client,
-  hostUrl: string,
+  gitlab: { url: string; accountId: number },
 ): Promise<string> {
   const listed = (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings`)).body as {
-    bindings?: { id: string; hostUrl?: string }[]
-    accounts?: { id: string; hostUrl?: string }[]
+    bindings?: { id: string; hostUrl?: string; accountId?: number }[]
+    accounts?: { id: string; hostUrl?: string; accountId?: number }[]
   }
-  const binding = (listed.bindings ?? listed.accounts ?? []).find((b) => b.hostUrl === hostUrl)
+  const binding = (listed.bindings ?? listed.accounts ?? []).find(
+    (b) => b.hostUrl === gitlab.url && b.accountId === gitlab.accountId,
+  )
 
   must(Boolean(binding), 'the owner to see the new binding')
 
@@ -165,7 +168,7 @@ export async function privateOAuthBindingFlow(stack: Flow, log: (line: string) =
 
     must(first.status === 200, `the owner's callback to succeed, got ${String(first.status)}`)
     log(`owner connects GitLab: callback ${String(first.status)}`)
-    const bindingId = await gitlabBindingId(stack, owner, gitlab.url)
+    const bindingId = await gitlabBindingId(stack, owner, gitlab)
     const access = async () =>
       (await owner('GET', `/teams/${stack.teamId}/gitlab-bindings/${bindingId}/access`)).body
     const before = JSON.stringify(await access())
@@ -252,7 +255,7 @@ export async function bindingListFlow(stack: Flow, log: (line: string) => void =
       (await connectGitlab(stack, owner, gitlab.url, 'list-code')).status === 200,
       'GitLab to connect',
     )
-    const bindingId = await gitlabBindingId(stack, owner, gitlab.url)
+    const bindingId = await gitlabBindingId(stack, owner, gitlab)
     const path = `/teams/${stack.teamId}/gitlab-bindings/${bindingId}`
     const save = async (as: Client, memberAllowList: string[]) =>
       (await as('PUT', `${path}/access`, { memberAllowList })).status

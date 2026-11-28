@@ -15,6 +15,7 @@ import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence
 import { DEVICE_CREDENTIAL_PREFIX } from '@/lib/agent/devices/join-tokens'
 import { recordDeviceAgents } from '@/lib/agent/devices/agent-registry-store'
 import { settlePendingRemovals } from '@/lib/agent/devices/pending-removals'
+import { settlePendingResets } from '@/lib/agent/devices/pending-resets'
 import { presenceChanged } from '@/lib/agent/devices/presence-alerts'
 import { wakeMissedPosts } from '@/lib/agent/channel-missed-posts'
 import { deliverWaitingAnswersOn, onDevice } from '@/lib/agent/deliver-waiting-answers'
@@ -30,8 +31,10 @@ import { agent } from './router'
 
 import type { LocalRuntimeActivityPage } from '@/lib/agent/devices/local-runtime/activity'
 import type { RuntimeTunnel, TunnelHolderDeps } from '@/lib/agent/devices/local-runtime/holder'
+import type { LocalRuntimeStatus } from '@/lib/agent/devices/local-runtime/protocol'
 import type { AgentDevice } from '@/lib/agent/devices/store'
 import type { NuphosTeamMember } from '@/lib/identity'
+import type { RequestOrigin } from '@/lib/request-origin'
 import type { AuthVariables } from '@/middleware/auth'
 import type { Context } from 'hono'
 import type { WSContext } from 'hono/ws'
@@ -48,6 +51,26 @@ export type DeviceRuntimeRouteDependencies = {
   getTeamMembers: (teamId: string) => Promise<NuphosTeamMember[]>
 }
 
+const reportDeps = {
+  record: recordDeviceAgents,
+  settleRemovals: settlePendingRemovals,
+  settleResets: settlePendingResets,
+}
+
+/** Notes a status report. Back online, the computer deletes what was removed while it was
+ *  away and signs out what it could not then (settling never throws). */
+export async function recordStatusReport(
+  userId: string,
+  deviceId: string,
+  status: LocalRuntimeStatus,
+  from?: RequestOrigin,
+  deps = reportDeps,
+): Promise<void> {
+  await deps.record(userId, deviceId, status, from)
+  void deps.settleRemovals(userId, deviceId, status).catch(() => undefined)
+  void deps.settleResets(userId, deviceId, status).catch(() => undefined)
+}
+
 function defaultDependencies(): DeviceRuntimeRouteDependencies {
   return {
     getAgentDevice,
@@ -55,11 +78,8 @@ function defaultDependencies(): DeviceRuntimeRouteDependencies {
       bus: tunnelBus(),
       presence: runtimePresenceStore(),
       isMember: isActiveTeamMember,
-      recordAgents: async (userId, deviceId, status, from) => {
-        await recordDeviceAgents(userId, deviceId, status, from)
-        // Back online: it deletes what was removed while it was away (settling never throws).
-        void settlePendingRemovals(userId, deviceId, status).catch(() => undefined)
-      },
+      recordAgents: (userId, deviceId, status, from) =>
+        recordStatusReport(userId, deviceId, status, from),
       connectionChanged: (userId, deviceId, online) => {
         void noteBoxPresence(userId, deviceId, getAgentDevice)
         void presenceChanged(userId, deviceId, online).catch(() => undefined)

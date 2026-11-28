@@ -67,6 +67,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             prefs.edit().remove("account").remove("login_hash").remove("consent_granted").commit()
         }
         app.localNotifications.clear(clearPending)
+        app.localNotifications.clearComputerAlerts()
         if (FirebaseApp.getApps(app).isNotEmpty()) FirebaseMessaging.getInstance().isAutoInitEnabled = false
         if (oldLogin != null && oldRegistration != null) unregistering = scope.launch {
             mutex.withLock {
@@ -152,7 +153,7 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
     fun receive(data: Map<String, String>) {
         // Rendered before the lock, so registration and binding never wait on an SVG decode.
         val sender = if (data["kind"] == "badge") null else NotificationSender.from(data)
-        val face = sender?.let { NotificationAvatars.bitmap(app, it.avatarFile) }
+        val face = sender?.let { NotificationAvatars.bitmap(app, it) }
         synchronized(bindingLock) {
             if (!prefs.getBoolean("consent_granted", false)) return
             val savedToken = app.tokenStore.read() ?: return
@@ -162,6 +163,12 @@ class PushNotifications(private val app: NuphosApplication) : Application.Activi
             val badge = data["badge"]?.toIntOrNull()?.takeIf { it >= 0 }
             if (data["kind"] == "badge") {
                 if (badge != null) app.localNotifications.updateBadge(badge)
+                return
+            }
+            if (data["kind"] == "computer") {
+                val computerId = data["computerId"] ?: return
+                val title = data["title"] ?: return
+                app.localNotifications.postComputerAlert(computerId, title, data["body"].orEmpty())
                 return
             }
             val target = LocalNotificationTarget.from(account, data["teamId"], data["sessionId"]) ?: return

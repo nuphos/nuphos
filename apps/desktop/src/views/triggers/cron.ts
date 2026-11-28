@@ -1,5 +1,6 @@
 import { t } from '../../i18n/index.ts'
 
+import { commonCronSummary } from './cronSummaryExtras.ts'
 import { utcTimeOfDayInZone, viewerTimeZone } from './cronTime.ts'
 
 // ────────────────────── Cron preset model ──────────────────────
@@ -141,6 +142,14 @@ export function scheduleSummary(
   const expression = trigger.cronExpression?.trim()
 
   if (!expression) return t('No schedule set')
+  const zone = trigger.timeZone || 'UTC'
+  const extra = commonCronSummary(
+    expression,
+    (hour, minute) => `${pad2(hour)}:${pad2(minute)} ${zone}`,
+    zone,
+  )
+
+  if (extra) return extra
   if (trigger.timeZone && trigger.timeZone !== 'UTC')
     return t('Runs on schedule {expression} ({zone})', { expression, zone: trigger.timeZone })
   const mode = parseCron(expression)

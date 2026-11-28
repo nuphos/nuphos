@@ -145,19 +145,15 @@ test('re-resumes a session whose delivered context is stale before prompting', a
   expect(sessionsByConversation.get('team:conversation')?.client).toBe(client)
 })
 
-// The runtime restarts a live agent between turns when the prompt it loads differs (#4083),
-// so the prompt goes out again only when its text changed, never on every turn.
-test('a session loads its system prompt again only when the text changed', async () => {
+// Agents keep the system prompt their session started with: a changed one never reloads a live
+// session. Changed standing instructions ride the turn's message instead.
+test('a changed system prompt does not reload a live session', async () => {
   placeSession(Date.now())
   const session = sessionsByConversation.get('team:conversation')
 
   if (session) session.systemPrompt = 'Be terse.'
   await run('turn-2', 'Be terse.')
-  await run('turn-3', 'Be terse.')
+  await run('turn-3', 'Be thorough.')
   expect(calls).toEqual(['prompt', 'prompt'])
-
-  await run('turn-4', 'Be thorough.')
-  await run('turn-5', 'Be thorough.')
-  expect(calls).toEqual(['prompt', 'prompt', 'load', 'prompt', 'prompt'])
-  expect(loadedPrompts).toEqual(['Be thorough.'])
+  expect(loadedPrompts).toEqual([])
 })

@@ -150,6 +150,16 @@ export async function moveConversationRuntime(
           },
         },
         ...(sourceUrl ? { $addToSet: { previousRuntimeUrls: sourceUrl } } : {}),
+        // The destination starts a new home generation, so the one left behind is
+        // reclaimed from the archive queue on the runtime that holds it.
+        $inc: { sessionHomeEpoch: 1 },
+        $push: {
+          archiveHomePendingEpochs: {
+            epoch: latest?.sessionHomeEpoch ?? 0,
+            runtimeId: conversation.runtimeId ?? null,
+            provider,
+          },
+        },
         // A move leaves the conversation exactly where a brand-new one starts:
         // no session anywhere. It used to mint `openabSessionId: randomUUID()`
         // with forceNew, but that id is not in the runtime's namespace, and

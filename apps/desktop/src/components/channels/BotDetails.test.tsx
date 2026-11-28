@@ -19,7 +19,10 @@ mock.module('../agent/summary/ChatSummaryPanel', () => ({
 mock.module('../agent/summary/useSessionInputRequests', () => ({
   useSessionInputRequests: () => ({ requests: [], loaded: true, failed: false }),
 }))
-mock.module('../sidebar/agentSessions', () => ({ useAgentSessions: () => ({ data: [] }) }))
+mock.module('../sidebar/agentSessions', () => ({
+  useAgentSessions: () => ({ data: [] }),
+  setChatInstructions: async () => {},
+}))
 mock.module('../agent/panel/sessionBypass', () => ({ useBypassControl: () => {} }))
 const picked: [string, string][] = []
 

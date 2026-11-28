@@ -32,7 +32,7 @@ import org.junit.runner.RunWith
 import java.io.File
 import kotlin.math.abs
 
-/** A Bot's picked background is a disc in its tint behind the character; None looks as before (#3515). */
+/** A Bot's picked background is a disc in its tint behind the character; None is a white disc (#3515). */
 @RunWith(AndroidJUnit4::class)
 class AvatarBackgroundFixtureDeviceTest {
     @get:Rule val compose = createComposeRule()
@@ -40,7 +40,7 @@ class AvatarBackgroundFixtureDeviceTest {
     private val plain = "synthetic-plain-bot"
     @After fun forget() { BotFaces.learn(tinted, null); BotFaces.learn(plain, null) }
 
-    @Test fun aTintedBotSitsOnItsDiscInBothThemesAndNoneDoesNot() {
+    @Test fun aTintedBotSitsOnItsDiscAndNoneOnWhiteInBothThemes() {
         BotFaces.learn(tinted, "07-ada", "sky")
         BotFaces.learn(plain, "07-ada")
         var dark by mutableStateOf(false)
@@ -61,29 +61,33 @@ class AvatarBackgroundFixtureDeviceTest {
             for (size in listOf(16.dp, 36.dp, 64.dp)) {
                 val withTint = skyPixels("tinted-$size")
                 assertTrue("dark=$theme $size: $withTint sky pixels behind a tinted Bot", withTint > 6)
-                assertEquals("dark=$theme $size: None paints no disc", 0, skyPixels("plain-$size"))
+                assertEquals("dark=$theme $size: None paints no sky", 0, skyPixels("plain-$size"))
+                // On the dark theme's surface, white can only be None's disc.
+                if (theme) assertTrue("$size: None sits on a white disc", pixels("plain-$size", 0xFF, 0xFF, 0xFF) > 6)
             }
             capture(if (theme) "dark" else "light")
         }
     }
 
-    /** For review: the screen as drawn, in the app's files dir under review-avatar-background. */
+    /** For review: the screen as drawn, also in the additional test output CI uploads with the report. */
     private fun capture(name: String) {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         instrumentation.waitForIdleSync()
         val image = instrumentation.uiAutomation.takeScreenshot() ?: error("No screenshot")
-        val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "review-avatar-background").apply { mkdirs() }
-        File(directory, "$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        listOfNotNull(instrumentation.targetContext.getExternalFilesDir(null), InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")?.let(::File))
+            .forEach { dir -> File(dir, "avatar-background-$name.png").outputStream().use { image.compress(Bitmap.CompressFormat.PNG, 100, it) } }
         image.recycle()
     }
 
     /** Pixels of the Sky token (#D6E6F7), the same in both themes. */
-    private fun skyPixels(tag: String): Int {
+    private fun skyPixels(tag: String): Int = pixels(tag, 0xD6, 0xE6, 0xF7)
+
+    private fun pixels(tag: String, red: Int, green: Int, blue: Int): Int {
         val pixels = compose.onNodeWithTag(tag).captureToImage().toPixelMap()
         var count = 0
         for (x in 0 until pixels.width) for (y in 0 until pixels.height) {
             val c = pixels[x, y]
-            if (abs(c.red * 255 - 0xD6) <= 3 && abs(c.green * 255 - 0xE6) <= 3 && abs(c.blue * 255 - 0xF7) <= 3) count++
+            if (abs(c.red * 255 - red) <= 3 && abs(c.green * 255 - green) <= 3 && abs(c.blue * 255 - blue) <= 3) count++
         }
         return count
     }

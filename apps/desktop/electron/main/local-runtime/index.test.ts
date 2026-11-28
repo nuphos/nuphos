@@ -44,6 +44,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
   '../../auth-status.ts': { unverifiedTokenSubject: noop },
   '../../client-version.ts': { CLIENT_VERSION_HEADER: 'x-test', CLIENT_VERSION_VALUE: 'test' },
   '../../shell-env.ts': { resolveShellEnv: noop },
+  '../../vault/computer.ts': { sharers: noop, sharedItem: noop },
   '../app-paths.ts': { leftAloneDir: null },
   // Electron's side of the automatic update switch (Settings > Updates).
   '../auto-update-electron.ts': {
@@ -90,7 +91,7 @@ const boundaries: Record<string, Record<string, unknown>> = {
     },
   },
   './cua-stream.ts': { localToolStreams: {} },
-  './dev-bundle.ts': { devBundleHint: noop, watchDevBundle: noop },
+  './dev-bundle.ts': { watchDevBundle: noop },
   './mac-screen-app.ts': {
     macScreenApp: () => ({ deps: () => ({}) }),
   },

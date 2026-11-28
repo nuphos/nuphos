@@ -2,7 +2,7 @@
 import { agentEvents, agentLog, delegatedTurn } from './agent-log.ts'
 import { listedConversations } from './channel-helpers.ts'
 import { artifacts, until } from './processes.ts'
-import { newTask, send } from './ui.ts'
+import { newTask, pickAgent, send } from './ui.ts'
 
 import type { Scenario } from './ui.ts'
 import type { Page } from 'playwright-core'
@@ -57,13 +57,43 @@ export const threadScenarios: Scenario[] = [
     // is a top-level Task; a Bot takes the same create_thread path.
     name: "a thread started with no model picked starts on its parent's model",
     run: async (page, stack) => {
-      await newTask(page)
-      await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
-      await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
-      await page.getByRole('button', { name: /^Model settings/ }).click()
-      await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
-      await page.keyboard.press('Escape')
-      await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+      const chip = () => page.getByRole('button', { name: /^Model settings/ }).click()
+      // The parent picks an effort while its agent offers effort levels; the thread's session
+      // then has none, as a model without effort levels does. The rest still carries over.
+      const stopOffering = stack.offerDefaultStandIn()
+      const took = (detail: string) => {
+        const parent = agentLog(stack).find(
+          (entry) => entry.marker === 'E2E_DELIVERY:inherit-parent',
+        )?.sessionId
+
+        return agentLog(stack).some(
+          (entry) =>
+            entry.event === 'setting' && entry.sessionId === parent && entry.detail === detail,
+        )
+      }
+
+      try {
+        await newTask(page)
+        await pickAgent(page, 'E2E fixture agent')
+        await send(page, 'Before the pick E2E_DELIVERY:inherit-parent')
+        await page.getByText('ACK E2E_DELIVERY:inherit-parent').waitFor()
+        await chip()
+        await page.getByRole('menuitemcheckbox', { name: /fixture-small/ }).click()
+        await page.keyboard.press('Escape')
+        await page.getByRole('button', { name: /^Model settings: fixture-small/ }).waitFor()
+        await chip()
+        await page.getByRole('slider').press('End')
+        await page.waitForTimeout(500)
+        await page.getByRole('button', { name: 'Turn on fast mode' }).click()
+        await page.keyboard.press('Escape')
+        // Picked right after a reply, before the Desktop hears the runtime is idle, they wait
+        // for the next reply; the message below must not overtake them.
+        await until("the parent's session to take the picks", async () =>
+          ['model=fixture-small', 'fast=on'].every(took),
+        )
+      } finally {
+        stopOffering()
+      }
       await send(page, 'Start a thread E2E_INHERIT E2E_DELIVERY:inherit')
       await until('the thread with no pick to finish', async () =>
         delegatedTurn(stack, 'E2E_DELIVERY:inherit-child'),
@@ -73,11 +103,17 @@ export const threadScenarios: Scenario[] = [
         (entry) => entry.event === 'session' && entry.sessionId === turn?.sessionId,
       )
 
-      if (session?.defaults?.model !== 'fixture-small') {
+      if (session?.defaults?.model !== 'fixture-small' || session.defaults.fast !== 'on') {
         throw new Error(
-          `The thread's session was not created on its parent's model: ${JSON.stringify(session)}`,
+          `The thread's session was not created on its parent's model and fast mode: ${JSON.stringify(session)}`,
         )
       }
+      // Fast mode stays this person's pick for new Tasks; later scenarios start with it off.
+      await chip()
+      await page.getByRole('button', { name: 'Turn off fast mode' }).click()
+      await page.keyboard.press('Escape')
+      // The same wait: the next scenario's message must not overtake this pick either (#4394).
+      await until("the parent's session to turn fast mode off", async () => took('fast=off'))
     },
   },
   {

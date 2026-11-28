@@ -41,7 +41,7 @@ export type ConversationChatRequest = {
   ownerUserId?: string
   runtime?: OpenAbProvider
   runtimeId?: string
-  purpose?: 'transport' | 'control'
+  purpose?: 'transport' | 'steer' | 'control'
   /** The conversation this turn is for, even before it is stored; a shared computer asks about it. */
   sessionId?: string
   /** Where this turn comes from (a channel or trigger), which may differ from where the conversation began. */
@@ -170,7 +170,8 @@ async function resolveChatRuntime(
 
     return { runtime, endpoint, runtimeId: instance.id, runtimeLabel: instance.label }
   }
-  const developmentEndpoint = developmentRuntimeEndpoint(runtime, purpose)
+  const channel = purpose === 'steer' ? 'control' : purpose
+  const developmentEndpoint = developmentRuntimeEndpoint(runtime, channel)
 
   if (
     developmentEndpoint &&
@@ -199,7 +200,7 @@ async function resolveChatRuntime(
       runtimeLabel,
     }
   }
-  const registered = await resolveTeamRuntimeEndpoints(teamId, runtime, purpose)
+  const registered = await resolveTeamRuntimeEndpoints(teamId, runtime, channel)
   const endpoints = selectedId
     ? registered.filter((endpoint) => endpoint.runtimeId === selectedId)
     : registered

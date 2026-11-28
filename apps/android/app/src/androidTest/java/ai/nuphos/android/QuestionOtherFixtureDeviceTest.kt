@@ -15,6 +15,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.text.TextLayoutResult
@@ -75,6 +76,21 @@ class QuestionOtherFixtureDeviceTest {
         capture("bot-chat-other")
         compose.onNodeWithTag("bot-question-send").performClick()
         assertEquals(listOf("After QA signs off"), answers)
+    }
+
+    /** #5112: the keyboard's return key sends an answer in words, as Send beside it does, and adds no new line. */
+    @Test fun theReturnKeySendsAnAnswerInWords() {
+        val answers = mutableListOf<String>()
+        screen {
+            Column(Modifier.weight(1f).padding(horizontal = 16.dp)) {
+                BotQuestionCard(deploy, onOpen = {}, onConnect = {}, onAnswer = { answers += it }, showsFrom = false)
+            }
+        }
+        compose.onNodeWithText("Other…").performClick()
+        val words = compose.onNodeWithTag("bot-question-answer")
+        words.performTextInput("Ship after the freeze")
+        words.performKeyInput { pressKey(androidx.compose.ui.input.key.Key.Enter) }
+        compose.runOnIdle { assertEquals("Return does not send the answer", listOf("Ship after the freeze"), answers) }
     }
 
     @Test fun inboxGroupsQuestionsAndAnswersOneAtATime() {
@@ -223,6 +239,9 @@ class QuestionOtherFixtureDeviceTest {
         }
         // One line, cut, with the body under it.
         val title = compose.onNodeWithTag("bot-question-title")
+        val category = compose.onNodeWithTag("bot-question-category")
+        assertTrue(title.fetchSemanticsNode().config.contains(SemanticsProperties.Heading))
+        assertTrue(title.fetchSemanticsNode().boundsInRoot.bottom <= category.fetchSemanticsNode().boundsInRoot.top)
         assertEquals(1, layout(title).lineCount)
         assertTrue(layout(title).hasVisualOverflow)
         compose.onNodeWithText("Idle since the migration.", substring = true).assertExists()

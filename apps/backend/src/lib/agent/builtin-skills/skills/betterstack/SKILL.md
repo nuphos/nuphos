@@ -1,6 +1,6 @@
 ---
 name: betterstack
-description: Use Better Stack API credentials bound in Nuphos to inspect or manage Uptime monitors and Telemetry resources.
+description: "Better Stack Uptime monitors and Telemetry, using a Nuphos-bound integration."
 ---
 
 # Better Stack
@@ -55,7 +55,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
    Payload: {{payload.data}}
    FIRST compare payload.data.relationships.monitor.data.id and payload.data.attributes.url with that exact target. If the available identifier does not match, STOP immediately without investigating or notifying. Never infer a match from the incident name.
    If the payload contains "test": true or "drill": true, reply "test delivery received" and STOP — no investigation.
-   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM. Keep bindConversation on unless this conversation is already bound to a Slack thread, in which case pass bindConversation=false.
+   For Slack, first check the earlier firings in this conversation to see whether this alert has already been reported. Investigate, then call slack_post once when this firing is worth telling people about — a new problem, a material change, or its recovery; an unchanged repeat needs no post. Post to the exact destination the user approved, as written in the messageTemplate, including slackWorkspaceId when it is known: {"type":"channel","channelId":"<the selected stable ID>","slackWorkspaceId":"<its workspace>"} for a channel, or {"type":"dm_self"} for a DM.
    For Nuphos-only delivery, keep the findings here and do not call slack_post.
    ```
 
@@ -88,7 +88,7 @@ If the requested destination is Slack, call `slack_list_destinations` before cre
 
    If the documented v2 endpoint is unavailable to the connected token or plan, report that exact capability blocker rather than silently putting the secret in a query string.
 
-3. **Scope it.** Inspect the current Better Stack API for a monitor/team/policy scope and use the narrowest server-side filter available. Never silently create an account-wide outgoing webhook for an exact-monitor Watch: filtering only in `messageTemplate` still starts an Agent session for every unrelated incident and violates the Watch scope. If the connected plan/API only supports account-wide delivery, that is a genuine capability blocker — roll back the trigger and ask whether the user accepts account-wide delivery before proceeding. If they explicitly accept it, the mandatory first template branch above must contain and compare the exact selected monitor ID/URL. Deliveries that arrive while the conversation is busy run together in its next turn. Set `minIntervalSeconds` on the trigger only for "at most every N minutes": a delivery sooner gets 429 with Retry-After, so the sender has to retry it, resolution deliveries included.
+3. **Scope it.** Inspect the current Better Stack API for a monitor/team/policy scope and use the narrowest server-side filter available. Never silently create an account-wide outgoing webhook for an exact-monitor Watch: filtering only in `messageTemplate` still starts an Agent session for every unrelated incident and violates the Watch scope. If the connected plan/API only supports account-wide delivery, that is a genuine capability blocker — roll back the trigger and ask whether the user accepts account-wide delivery before proceeding. If they explicitly accept it, the mandatory first template branch above must contain and compare the exact selected monitor ID/URL. Deliveries that arrive while the conversation is busy run together in its next turn. Set `minIntervalSeconds` on the trigger only for "at most every N minutes": a delivery sooner is held and fires once when the window ends, together with the others held there, resolution deliveries included.
 
 4. **Verify before saying live**: read the outgoing webhook back and verify its exact URL, `X-Webhook-Secret` custom header configuration, and resource scope; never print the secret while doing so. Then `POST /{triggerId}/test-fire` (see the `triggers` skill) with a representative `{"test": true, ...}` payload to check the cheap action branch. Use Better Stack's non-mutating test facility when available. Pausing a real monitor to force an incident is a separate risky action and still requires explicit approval.
 

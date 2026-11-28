@@ -1,7 +1,7 @@
 import { useAgentAvatarBackground, useAgentAvatarPick } from '../../lib/agentAvatarChoices'
 import { useAgentRuntimeStates } from '../../lib/agentRuntimeStates'
 import { trustedAvatarURL } from '../../lib/avatarUrl'
-import { botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
+import { botAvatarBackground, botAvatarBackgroundColor } from '../../lib/botAvatarBackgrounds'
 import { botAvatarFile } from '../../lib/botAvatars'
 import { runtimeTurnActive } from '../../lib/runtimeExecution'
 
@@ -75,13 +75,11 @@ export function AgentAvatar({
           ) : (
             <>
               {/* Behind the character, unclipped: a head may break out of the disc. */}
-              {tint && (
-                <span
-                  data-avatar-background={background ?? undefined}
-                  className="absolute left-0 top-0 rounded-full"
-                  style={{ width: box, height: box, background: tint }}
-                />
-              )}
+              <span
+                data-avatar-background={botAvatarBackground(background)}
+                className="absolute left-0 top-0 rounded-full"
+                style={{ width: box, height: box, background: tint }}
+              />
               <BotAvatarImage
                 file={botAvatarFile(agentId, picked)}
                 looping={looping || (animated && running)}
@@ -91,7 +89,7 @@ export function AgentAvatar({
             </>
           )}
           {showBadge && provider && (
-            <AgentRuntimeBadge provider={provider} size={box <= 24 ? 9 : 12} />
+            <AgentRuntimeBadge provider={provider} size={runtimeBadgeSize(box)} />
           )}
         </>
       ) : (
@@ -99,6 +97,14 @@ export function AgentAvatar({
       )}
     </span>
   )
+}
+
+/**
+ * The runtime disc keeps to about a third of the face, as on the Bots list's 36px faces, so a
+ * large face does not wear a speck. Up to 36px it keeps the 9px and 12px it always had.
+ */
+function runtimeBadgeSize(face: number): number {
+  return face <= 24 ? 9 : Math.max(12, Math.round(face / 3))
 }
 
 /** Decorative runtime disc on a Bot's face. */

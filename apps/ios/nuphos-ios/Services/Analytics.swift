@@ -6,13 +6,20 @@ import PostHog
 @MainActor
 final class Analytics {
     static let shared = Analytics()
+    /// Settings › Privacy › Send usage data. On unless the person turns it off.
+    nonisolated static let sendUsageDataKey = "nuphos.sendUsageData"
+    /// Shared with the share extension, which also sends events.
+    nonisolated static let defaults = UserDefaults(suiteName: "group.ai.nuphos.ios") ?? .standard
 
     private var started = false
     private var userID: String?
     private var active = false
     private var currentScreen: (name: String, teamID: String?)?
 
+    var sendUsageData: Bool { Self.defaults.object(forKey: Self.sendUsageDataKey) as? Bool ?? true }
+
     private var enabled: Bool {
+        guard sendUsageData else { return false }
         #if DEBUG
         return false
         #else
@@ -58,6 +65,19 @@ final class Analytics {
         if active { foreground() }
     }
 
+    /// Off stops capture at once and drops the identity; on resumes for `user`.
+    func setSendUsageData(_ value: Bool, user: NuphosUser?) {
+        Self.defaults.set(value, forKey: Self.sendUsageDataKey)
+        if value {
+            if let user { identify(user) }
+            return
+        }
+        reset()
+        // Closing stops the queue, so nothing already captured is sent while it is off.
+        if started { PostHogSDK.shared.close() }
+        started = false
+    }
+
     func reset() {
         if started { PostHogSDK.shared.reset() }
         userID = nil
@@ -70,7 +90,7 @@ final class Analytics {
         guard active != value else { return }
         active = value
         if value { foreground() }
-        else if started { PostHogSDK.shared.flush() }
+        else if started, enabled { PostHogSDK.shared.flush() }
     }
 
     private func foreground() {
