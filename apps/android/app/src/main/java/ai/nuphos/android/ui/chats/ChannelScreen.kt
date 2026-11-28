@@ -85,6 +85,9 @@ import ai.nuphos.android.model.ChannelItem
 import ai.nuphos.android.model.ChannelPost
 import ai.nuphos.android.model.ChannelReply
 import ai.nuphos.android.model.ChatTime
+import ai.nuphos.android.model.ChatPart
+import ai.nuphos.android.model.ToolCard
+import java.time.Instant
 import ai.nuphos.android.model.botFace
 import ai.nuphos.android.model.TransferUpload
 import ai.nuphos.android.data.TransferDownloads
@@ -199,7 +202,16 @@ fun ChannelScreen(sessionId: String, onBack: () -> Unit, onLink: (String) -> Uni
     }
     var desktop by remember(bot, store.workspaceRevision) { mutableStateOf(false) }
     if (desktop && bot != null) ai.nuphos.android.desktop.DesktopScreen(bot, store) { desktop = false }
-    val items = ChannelPost.items(session.posts, session.events, typing, session.questions)
+    // Posts never carry the Bot's tool calls, so what it made comes from its own conversation,
+    // already read and polled above, and only for a viewer who may open it.
+    val cards = if (canOpenTask && bot != null) bot.messages.flatMap { message ->
+        message.parts.filterIsInstance<ChatPart.Tool>().mapNotNull { part ->
+            ToolCard.from(part)?.let { card ->
+                (part.completedAt?.let { Instant.ofEpochMilli(it.toLong()) } ?: message.createdAt ?: Instant.MIN) to card
+            }
+        }
+    } else emptyList()
+    val items = ChannelPost.items(session.posts, session.events, typing, session.questions, cards)
     val quotas = ai.nuphos.android.ui.agent.rememberRuntimeQuotas(auth.token, session.teamId)
     if (switching && bot != null && auth.token != null && auth.aiAllowed) {
         val workspaceRevision = store.workspaceRevision
@@ -521,6 +533,7 @@ internal fun ChannelTranscript(session: ChannelSession, items: List<ChannelItem>
                                 onRetry = agentId?.takeIf { item.actionable && allowed() }?.let { id -> { session.retry(id, scope) } })
                         }
                         is ChannelItem.Typing -> Unit
+                        is ChannelItem.Card -> Box(Modifier.padding(top = 12.dp)) { ai.nuphos.android.ui.chat.ToolCardView(item.card) }
                         // A Bot's chat: what the Bot and the agents under it wait on, where it was asked.
                         is ChannelItem.Question -> item.question.let { question ->
                             BotQuestionCard(question, onOpen = { onLink(question.link(session.teamId)) },
