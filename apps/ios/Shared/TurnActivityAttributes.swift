@@ -38,6 +38,9 @@ nonisolated struct TurnActivityAttributes: TurnActivityBase {
         var more: Int
         /// Running or waiting for approval, shown or not.
         var active: Int
+        /// The app icon the phone's person picked (`AppIconPicker`), for the
+        /// card's mark. Backends from before it leave it out.
+        var icon: String? = nil
 
         static let rows = 3
 

@@ -25,6 +25,25 @@ const fcmToken = z
   .max(4096)
   .regex(/^[A-Za-z0-9_:.-]+$/)
 const deviceId = z.string().trim().min(1).max(128)
+// The iOS `AppIconPicker` ids; the Live Activity shows the picked one.
+const APP_ICONS = [
+  'A',
+  'B1',
+  'B2',
+  'B3',
+  'C1',
+  'C2',
+  'C3',
+  'D1',
+  'D2',
+  'D3',
+  'E1',
+  'E2',
+  'E3',
+  'F1',
+  'F2',
+  'F3',
+] as const
 const registrationSchema = z.preprocess(
   (value) => (value && typeof value === 'object' ? { platform: 'ios', ...value } : value),
   z.discriminatedUnion('platform', [
@@ -36,6 +55,7 @@ const registrationSchema = z.preprocess(
       bundleId: z.string().trim().max(200).optional(),
       liveActivityStartToken: apnsToken.optional(),
       computerAlerts: z.boolean().optional(),
+      appIcon: z.enum(APP_ICONS).optional(),
     }),
     z.object({
       token: fcmToken,

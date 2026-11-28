@@ -21,7 +21,7 @@ struct TurnActivityWidget: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    TurnCardMark(size: 22).padding(.leading, 4)
+                    TurnCardMark(size: 22, icon: context.state.icon).padding(.leading, 4)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     TurnCardStatus(card: context.state).font(.subheadline.weight(.medium)).padding(.trailing, 4)
@@ -30,7 +30,7 @@ struct TurnActivityWidget: Widget {
                     TurnCardRows(card: context.state)
                 }
             } compactLeading: {
-                TurnCardMark(size: 18)
+                TurnCardMark(size: 18, icon: context.state.icon)
             } compactTrailing: {
                 TurnCardCount(card: context.state)
             } minimal: {

@@ -3,6 +3,7 @@ import { logError, logEvent } from '@/lib/observability'
 
 import { apnsCredentials, isDeadToken, sendApns } from './apns'
 import { beginLiveActivityStart, pushDeviceStore, takeLiveActivityPending } from './devices'
+import { isActive, isFinished, liveActivityCard } from './live-activity-card'
 import { liveActivityStore } from './live-activity-store'
 import { conversationTitle } from './turn-outcome'
 import { watcherCanRead } from './watchers'
@@ -19,6 +20,7 @@ import type {
 import type { PushConversation } from './notification-identity'
 import type { SessionExecutionState } from '@/lib/claude-code-preview/runtime-execution-snapshot'
 
+export { LIVE_ACTIVITY_ROWS, liveActivityCard } from './live-activity-card'
 export type {
   LiveActivityPhase,
   LiveActivityRow,
@@ -29,8 +31,6 @@ export type {
 
 // How long the card stays on the Lock Screen once nothing runs.
 export const LIVE_ACTIVITY_DISMISS_S = 30 * 60
-// Rows on the card; the rest are counted.
-export const LIVE_ACTIVITY_ROWS = 3
 // Resends after a throttled or failed APNs request.
 export const LIVE_ACTIVITY_RETRY_MS = [5_000, 30_000, 120_000]
 // iOS ends a card 8 hours after it starts; an older token shows nothing.
@@ -61,25 +61,9 @@ export type LiveActivityDeps = {
   schedule: (work: () => void, delayMs: number) => void
 }
 
-const isActive = (phase?: LiveActivityPhase) =>
-  !phase || phase === 'running' || phase === 'approval'
-// An unavailable runtime may come back, and an ended card can no longer show it.
-const isFinished = (phase?: LiveActivityPhase) => phase === 'done' || phase === 'stopped'
-
-/** Must match `TurnActivityAttributes.ContentState` in the iOS app. A session
- *  registered before its run reported a phase is running. */
-export function liveActivityCard(sessions: LiveActivitySession[]) {
-  return {
-    sessions: sessions.slice(0, LIVE_ACTIVITY_ROWS).map((s) => ({
-      id: s.sessionId,
-      teamId: s.teamId ?? '',
-      title: s.title ?? '',
-      phase: s.phase ?? 'running',
-    })),
-    more: Math.max(0, sessions.length - LIVE_ACTIVITY_ROWS),
-    active: sessions.filter((s) => isActive(s.phase)).length,
-  }
-}
+/** The app icon the phone showing this card picked, for the card's mark. */
+const cardIcon = async (deps: LiveActivityDeps, { userId, deviceId }: LiveActivityToken) =>
+  deviceId ? (await deps.devices(userId)).find((d) => d.deviceId === deviceId)?.appIcon : null
 
 /** Sends each token its whole card. Once every row is done or stopped the
  *  card ends; until then it updates. A token is dropped only once
@@ -102,7 +86,7 @@ async function deliver(
     tokens.map(async (token) => {
       try {
         const listed = await deps.liveActivities.forToken(token.token)
-        const card = liveActivityCard(listed)
+        const card = liveActivityCard(listed, await cardIcon(deps, token))
         const ends = listed.every((s) => isFinished(s.phase))
         const response = await deps.send(credentials, {
           deviceToken: token.token,
@@ -217,12 +201,12 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
       }
       const starts = (await deps.devices(userId)).flatMap(({ deviceId, environment, ...d }) =>
         d.liveActivityStartToken && !cards.some((c) => c.deviceId === deviceId)
-          ? [{ deviceId, deviceToken: d.liveActivityStartToken, environment }]
+          ? [{ deviceId, deviceToken: d.liveActivityStartToken, environment, icon: d.appIcon }]
           : [],
       )
 
       await Promise.all(
-        starts.map(async ({ deviceId, deviceToken, environment }) => {
+        starts.map(async ({ deviceId, deviceToken, environment, icon }) => {
           const pending = { sessionId: session.sessionId, ...row }
 
           if (!(await deps.startCard(userId, deviceId, pending))) return
@@ -237,7 +221,7 @@ async function join(deps: LiveActivityDeps, session: LiveActivitySession): Promi
                   event: 'start',
                   'attributes-type': 'TurnActivityAttributes',
                   attributes: {},
-                  'content-state': liveActivityCard([{ ...session, ...row }]),
+                  'content-state': liveActivityCard([{ ...session, ...row }], icon),
                   alert: { title: row.title, body: 'Running' },
                 },
               },

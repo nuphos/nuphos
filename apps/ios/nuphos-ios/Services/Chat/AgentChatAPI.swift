@@ -116,6 +116,8 @@ enum AgentChatAPI {
         var bundleId: String
         var liveActivityStartToken: String?
         var computerAlerts: Bool
+        /// The picked app icon, which the Live Activity shows.
+        var appIcon: String
         var platform = "ios"
     }
 

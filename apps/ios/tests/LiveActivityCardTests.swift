@@ -16,5 +16,11 @@ enum LiveActivityCardTests {
         precondition(!card([.running, .done]).finished && !card([.approval]).finished)
         // Rows past the shown ones are unknown here.
         precondition(!card([.done, .done, .done], more: 1).finished)
+        // The mark follows the phone's app icon; a backend without it leaves it out.
+        let decode = { (json: String) in
+            try! JSONDecoder().decode(TurnActivityAttributes.ContentState.self, from: Data(json.utf8))
+        }
+        precondition(decode(#"{"sessions":[],"more":0,"active":0}"#).icon == nil)
+        precondition(decode(#"{"sessions":[],"more":0,"active":0,"icon":"C2"}"#).icon == "C2")
     }
 }

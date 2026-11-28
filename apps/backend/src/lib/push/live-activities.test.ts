@@ -454,6 +454,29 @@ describe('Live Activities for watched conversations', () => {
     })
   })
 
+  test("a started card shows the phone's app icon", async () => {
+    devices.teammate = [{ ...phone('teammate', 'phone-t', 'start-t'), appIcon: 'C2' }]
+    await record('session-5', RUNNING)
+
+    expect(contentOf('start-t')['content-state']).toEqual({
+      ...card([['session-5', 'Five', 'running']], 1),
+      icon: 'C2',
+    })
+  })
+
+  test('an update shows the app icon of the phone it goes to', async () => {
+    devices.viewer = [{ ...phone('viewer', 'phone-v', 'start-v'), appIcon: 'A' }]
+    await registerLiveActivityToken(
+      deps,
+      'session-5',
+      { ...token('la-v'), deviceId: 'phone-v' },
+      row('Five'),
+      APPROVAL,
+    )
+
+    expect(contentOf('la-v')['content-state']).toMatchObject({ icon: 'A' })
+  })
+
   test('a phone whose card is listed, or still running, is not started again', async () => {
     devices.viewer = [phone('viewer', 'phone-v', 'start-v')]
     await store.addToken('session-1', { ...token('la-v'), deviceId: 'phone-v' }, row('One'))

@@ -1,4 +1,7 @@
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// The Live Activity's Lock Screen card: every running conversation, the
 /// newest first. A row opens its conversation; the widget links the rest of
@@ -9,7 +12,7 @@ struct TurnCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
-                TurnCardMark(size: 16)
+                TurnCardMark(size: 16, icon: card.icon)
                 Text("Nuphos").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 TurnCardStatus(card: card).font(.subheadline.weight(.medium))
@@ -47,11 +50,29 @@ struct TurnCardRows: View {
     }
 }
 
+/// The app icon the person picked, cut to a circle, or the Nuphos mark
+/// when the card does not name one this build has.
 struct TurnCardMark: View {
     let size: CGFloat
+    let icon: String?
 
     var body: some View {
-        Image("NuphosMark").resizable().scaledToFit().frame(width: size, height: size)
+        if let asset = Self.asset(icon) {
+            Image(asset).resizable().scaledToFit().clipShape(Circle()).frame(width: size, height: size)
+        } else {
+            Image("NuphosMark").resizable().scaledToFit().frame(width: size, height: size)
+        }
+    }
+
+    /// The widget's copy of the icon; nil for an icon from a newer app.
+    static func asset(_ icon: String?) -> String? {
+        guard let icon else { return nil }
+        let name = "LiveActivityIcon-\(icon)"
+        #if canImport(UIKit)
+        return UIImage(named: name) == nil ? nil : name
+        #else
+        return name
+        #endif
     }
 }
 

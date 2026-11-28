@@ -154,6 +154,11 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
         Task { await upload() }
     }
 
+    /// The Live Activity's mark follows the app icon.
+    func appIconChanged() {
+        Task { await upload() }
+    }
+
     func didRegister(liveActivityStartToken token: String) {
         liveActivityStartToken = token
         Task { await upload() }
@@ -168,7 +173,8 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
 
     private func performUpload() async {
         guard let authToken, let deviceToken else { return }
-        let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")/\(Self.computerAlerts)"
+        let appIcon = AppIconPicker.current
+        let pair = "\(authToken)/\(deviceToken)/\(liveActivityStartToken ?? "")/\(Self.computerAlerts)/\(appIcon)"
         guard pair != registeredPair else { return }
         do {
             try await AgentChatAPI.registerPushDevice(
@@ -176,7 +182,7 @@ final class PushNotifications: NSObject, UNUserNotificationCenterDelegate {
                 device: .init(token: deviceToken, deviceId: Self.deviceId, environment: Self.environment,
                               bundleId: Bundle.main.bundleIdentifier ?? "",
                               liveActivityStartToken: liveActivityStartToken,
-                              computerAlerts: Self.computerAlerts)
+                              computerAlerts: Self.computerAlerts, appIcon: appIcon)
             )
             if self.authToken == authToken { registeredPair = pair }
         } catch {
