@@ -34,6 +34,8 @@ test('collapse and ordering survive remount, missing sections and corrupt storag
   const render = () => root.render(<SummaryLayout teamId="team" sections={sections} />)
 
   await act(render)
+  // The title leads its row, so it lines up with fixed cards; the chevron follows it.
+  assert.equal(container.querySelector('[aria-expanded]')!.firstElementChild!.textContent, 'a')
   await act(() => {
     container
       .querySelector<HTMLButtonElement>('[aria-label="Drag to reorder: a"]')!

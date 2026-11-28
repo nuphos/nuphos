@@ -10,6 +10,9 @@ import { DRAG_MOVE, useDeferredDrag } from './useSummaryArranging'
 
 import type { ReactNode } from 'react'
 
+/** The menus' popover shadow: a card being carried floats above the others. */
+const LIFTED_SHADOW = 'shadow-[0_10px_28px_-6px_rgba(0,0,0,0.6)]'
+
 /** A section keeps its mounted content while its handle moves the whole card. */
 export function SortableSummarySection({
   id,
@@ -45,7 +48,6 @@ export function SortableSummarySection({
     pickup.drop()
     onDrop()
   })
-  const Chevron = collapsed ? ChevronRight : ChevronDown
 
   useEffect(() => {
     if (!dragging) return
@@ -80,32 +82,44 @@ export function SortableSummarySection({
       dragControls={controls}
       dragMomentum={false}
       transition={reduce ? { duration: 0 } : DRAG_MOVE}
-      whileDrag={{ zIndex: 10, opacity: 0.95 }}
+      whileDrag={{ zIndex: 10 }}
       onDragStart={() => setDragging(true)}
       onDragEnd={() => {
         setDragging(false)
         pickup.drop()
         onDrop()
       }}
-      className={`${sectionClass} relative min-w-0 bg-surface `}
+      className={`${sectionClass} relative min-w-0 transition-[background-color,box-shadow] ${
+        dragging ? `bg-surface-raised ${LIFTED_SHADOW}` : 'bg-surface'
+      }`}
+      data-dragging={dragging || undefined}
       data-summary-section={id}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="group/header flex items-center justify-between gap-2">
         <button
           type="button"
-          className={`flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] text-main ${focusRingClass}`}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 text-left text-[13px] font-medium text-main ${focusRingClass}`}
           aria-expanded={!collapsed}
           aria-controls={`${regionId}-${id}`}
           onClick={onToggle}
         >
-          <Chevron aria-hidden className="size-4 shrink-0" />
           <span className="truncate">{title}</span>
+          <span
+            aria-hidden
+            className="t-icon-swap size-3 shrink-0 text-tertiary"
+            data-state={collapsed ? 'a' : 'b'}
+          >
+            <ChevronRight className="t-icon size-3" data-icon="a" />
+            <ChevronDown className="t-icon size-3" data-icon="b" />
+          </span>
         </button>
         <div ref={setActionTarget} className="flex shrink-0 items-center" />
         <button
           ref={handle}
           type="button"
-          className={`summary-drag-handle shrink-0 touch-none rounded p-1 text-tertiary ${focusRingClass}`}
+          className={`summary-drag-handle shrink-0 touch-none rounded p-1 text-tertiary transition-opacity focus-visible:opacity-100 group-hover/header:opacity-100 [@media(hover:none)]:opacity-100 ${
+            dragging ? 'opacity-100' : 'opacity-0'
+          } ${focusRingClass}`}
           aria-label={`${t('Drag to reorder')}: ${title}`}
           aria-describedby={`${regionId}-help`}
           title={t('Drag to reorder')}

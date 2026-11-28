@@ -21,8 +21,25 @@ const order = (page: Page) =>
     .locator('[data-summary-section]')
     .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('data-summary-section')))
 
+const handleOpacity = (page: Page) =>
+  handle(page).evaluate((node) => Number(getComputedStyle(node).opacity))
+
+/** Gaps between neighbouring cards in list order, skipping the one being carried. */
+const restingGaps = (page: Page) =>
+  details(page)
+    .locator('[data-summary-section]')
+    .evaluateAll((nodes) =>
+      nodes.slice(1).flatMap((node, index) => {
+        const above = nodes[index]
+
+        if (node.hasAttribute('data-dragging') || above.hasAttribute('data-dragging')) return []
+
+        return [Math.round(node.getBoundingClientRect().top - above.getBoundingClientRect().bottom)]
+      }),
+    )
+
 async function shoot(page: Page, name: string) {
-  if (name !== 'mid-drag') await page.waitForTimeout(800)
+  await page.waitForTimeout(800)
   await page.screenshot({ path: `${artifacts}/summary-${name}-light.png` })
 }
 
@@ -59,6 +76,16 @@ const scenario: Scenario = {
     const initial = await order(page)
 
     assert.ok(initial.includes('instructions'))
+    // Collapsible titles share the left edge of the fixed cards; the grip waits for hover.
+    const fixed = await details(page)
+      .getByRole('region', { name: 'Needs your input', exact: true })
+      .getByRole('heading')
+      .boundingBox()
+    const titled = await toggle(page).locator('span').first().boundingBox()
+
+    assert.ok(fixed && titled && Math.abs(fixed.x - titled.x) < 1, 'section titles align')
+    await page.mouse.move(0, 0)
+    await until('handle hidden at rest', async () => (await handleOpacity(page)) === 0)
     await shoot(page, 'expanded')
     await toggle(page).click()
     assert.equal(await toggle(page).getAttribute('aria-expanded'), 'false')
@@ -75,6 +102,7 @@ const scenario: Scenario = {
     )
     await handle(page).focus()
     await handle(page).press('ArrowDown')
+    await until('focused handle shows', async () => (await handleOpacity(page)) === 1)
     await until('keyboard reorder', async () => (await order(page))[1] === 'instructions')
     assert.ok(await handle(page).evaluate((node) => node === document.activeElement))
     assert.equal(
@@ -89,11 +117,16 @@ const scenario: Scenario = {
 
     assert.ok(source && last)
     await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2)
+    await until('hovered handle shows', async () => (await handleOpacity(page)) === 1)
     await page.mouse.down()
     await page.mouse.move(source.x + source.width / 2, source.y + 12, { steps: 4 })
     await page.waitForTimeout(150)
     await page.mouse.move(source.x + source.width / 2, last.y + last.height - 12, { steps: 30 })
     await shoot(page, 'mid-drag')
+    assert.ok(await region(page).evaluate((node) => node.hasAttribute('data-dragging')))
+    const gaps = await restingGaps(page)
+
+    assert.ok(gaps.length > 0 && gaps.every((gap) => gap === 12), `resting gaps: ${gaps.join()}`)
     await page.mouse.up()
     await until('pointer reorder', async () => (await order(page)).at(-1) === 'instructions')
     await page.waitForTimeout(600)
