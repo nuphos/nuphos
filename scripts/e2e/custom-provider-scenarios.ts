@@ -60,6 +60,8 @@ else if (args[0] === 'login' && args[1] === 'status') console.log('Logged in usi
         const save = async (baseUrl: string) => {
           await card.getByLabel('Base URL').fill(baseUrl)
           await card.getByLabel('API key').fill('sk-e2e-provider')
+          // Codex takes several model IDs, each in its own model catalog entry (#5214).
+          await card.getByLabel('Model IDs').fill('model-a\nmodel-b')
           await card.getByRole('button', { name: 'Save', exact: true }).click()
         }
 

@@ -74,4 +74,28 @@
     <string name="chats_presence_sign_in">需要登录</string>
     <string name="chats_presence_usage">用量已用完</string>
     <string name="chats_presence_unavailable">不可用</string>
+    <!-- A group chat's Members (#5313). -->
+    <string name="chats_members">成员</string>
+    <string name="chats_members_people">人员</string>
+    <string name="chats_members_add_bot">添加 Bot</string>
+    <string name="chats_members_your_bots">你的 Bot</string>
+    <string name="chats_members_add_bot_note">添加你的 Bot 后，这里的每个人都能和它对话。需要批准的事项仍会在它自己的聊天中等你处理。</string>
+    <string name="chats_members_no_bots">你的 Bot 都已在这里。</string>
+    <string name="chats_members_owner_only">只有所有者可以添加人员。</string>
+    <string name="chats_members_you">%1$s（你）</string>
+    <string name="chats_members_more">%1$s 的更多选项</string>
+    <string name="chats_members_add">添加 %1$s</string>
+    <string name="chats_members_leave">退出聊天</string>
+    <string name="chats_members_leave_title">要退出“%1$s”吗？</string>
+    <string name="chats_members_leave_owner">%1$s 将成为所有者。只有有人重新添加你，你才能回来。</string>
+    <string name="chats_members_leave_member">只有有人重新添加你，你才能回来。</string>
+    <string name="chats_members_leave_last">你是这里的最后一个人，聊天将被归档。</string>
+    <string name="chats_members_leave_confirm">退出</string>
+    <string name="chats_members_left">你已退出“%1$s”</string>
+    <string name="chats_members_leave_failed">无法退出聊天</string>
+    <string name="chats_members_add_bot_failed">无法添加 Bot</string>
+    <string name="chats_members_add_person_failed">无法添加</string>
+    <string name="chats_members_remove_failed">无法移除</string>
+    <string name="chats_members_load_failed">无法加载成员</string>
+    <string name="chats_members_retry">重试</string>
 </resources>

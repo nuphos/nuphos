@@ -16,7 +16,7 @@ struct ChannelAgent: Decodable, Equatable, Identifiable, Sendable {
 }
 
 /// Whether a Bot can reply now (`presence`), read as Desktop and Android read it.
-struct BotPresence: Decodable, Equatable, Sendable {
+struct BotPresence: Codable, Hashable, Sendable {
     let state: String
     var reason: String? = nil
     var resetsAt: String? = nil
@@ -217,5 +217,26 @@ extension ChannelPost {
         }.map { (id: $0.element.id, item: $0.element.item) }
         if !typing.isEmpty { sorted.append((id: "typing", item: ChannelItem.typing(typing))) }
         return sorted
+    }
+}
+
+/// What leaving a group chat does, as the server decides it: the owner's chat
+/// passes to whoever joined first, and the last one out archives it.
+enum ChannelLeave: Equatable {
+    case archives, handsOver(to: String), leaves
+
+    /// `people` in the server's order: the owner, then by when each joined.
+    init(people: [(id: String, name: String, isOwner: Bool)], viewerId: String?) {
+        if people.count <= 1 { self = .archives }
+        else if people.first(where: \.isOwner)?.id == viewerId, let next = people.first(where: { !$0.isOwner }) { self = .handsOver(to: next.name) }
+        else { self = .leaves }
+    }
+}
+
+extension [AgentConversation] {
+    /// The viewer's own Bots not in the chat yet: only a Bot's owner may add it.
+    func addable(to agents: [ChannelAgent]) -> [AgentConversation] {
+        let here = Set(agents.map(\.sessionId))
+        return filter { $0.isBot && !here.contains($0.sessionId) }
     }
 }

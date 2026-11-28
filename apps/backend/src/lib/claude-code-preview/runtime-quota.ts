@@ -6,7 +6,7 @@ import { runtimeLabel } from './runtime-provider'
 import { normalizeGrokUsage } from './runtime-quota-grok'
 import { recordRuntimeQuotaSample } from './runtime-quota-history'
 import { probeRuntimeQuota } from './runtime-quota-probe'
-import { clampPercent, codexWindowLabel, unavailable } from './runtime-quota-shape'
+import { clampPercent, codexWindowLabel, onCodexCredits, unavailable } from './runtime-quota-shape'
 import { RuntimeCapabilityError } from './team-openab-runtime'
 
 import type { RuntimeInstance } from './runtime-instances'
@@ -137,6 +137,7 @@ export function normalizeCodexUsage(
     available: windows.length > 0,
     ...(windows.length ? {} : { reason: 'No usage windows reported' }),
     ...(parsed.data.plan_type ? { plan: parsed.data.plan_type } : {}),
+    ...(onCodexCredits(parsed.data.credits) ? { onCredits: true as const } : {}),
     windows,
   }
 }

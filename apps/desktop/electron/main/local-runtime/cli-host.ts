@@ -30,6 +30,7 @@ import { cliSessionToken, hostOwner, readCliConfig } from './cli-host-session.ts
 import { signInClaude } from './cli-sign-in.ts'
 import { readBundle } from './config.ts'
 import { LocalRuntimeController } from './controller.ts'
+import { localToolStreams } from './cua-stream.ts'
 import {
   enableDesktopPool,
   desktopStatus,
@@ -38,7 +39,6 @@ import {
   withDesktopRequests,
 } from './desktop-pool.ts'
 import { deviceCredentialFor, exitRevoked, ownsMachine, tunnelUrlFor } from './device-credential.ts'
-import { LocalExecStream } from './exec-stream.ts'
 import { withHostProvider } from './host-provider.ts'
 import { cliMacScreenHost, enableMacScreen, macScreenDeps } from './mac-screen.ts'
 import { bundledModelProbe } from './model-probe.ts'
@@ -185,7 +185,7 @@ const deps: ConstructorParameters<typeof LocalRuntimeController>[0] = {
         void controller.shutdown().then(() => exitRevoked())
       },
       ...localFileConnectors(() => controller.state(), bundleRoot),
-      connectExec: () => new LocalExecStream(),
+      ...localToolStreams(bundleRoot),
       ...cliBrowser(dataDir, findBrowser(), desktopPool),
       connectRuntime: (purpose, provider, instanceId) => {
         const running = runtime(provider, instanceId)

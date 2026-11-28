@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -7,7 +7,7 @@ import { test } from 'node:test'
 
 import { prepareClaudeHome, prepareIsolatedAgentHome } from './agent-home.ts'
 import { openabConfigToml, openabEnv } from './config.ts'
-import { codexProviderConfig } from './custom-provider-codex.ts'
+import { codexProviderConfig, prepareCodexCatalog } from './custom-provider-codex.ts'
 import {
   checkCustomProvider,
   customProviderLaunch,
@@ -48,7 +48,6 @@ function tempDir(t: { after: (fn: () => void) => void }) {
 }
 
 const gateway = { baseUrl: 'https://gw.example.com/anthropic', models: ['glm-4.6', 'kimi-k2'] }
-const codexGateway = { baseUrl: 'https://gw.example.com/v1', models: ['glm-4.6'] }
 
 test('a base URL is HTTPS, or HTTP to this computer, and never carries credentials', () => {
   assert.deepEqual(parseCustomProvider({ ...gateway, models: [' glm-4.6 ', '', 'glm-4.6'] }), {
@@ -62,27 +61,6 @@ test('a base URL is HTTPS, or HTTP to this computer, and never carries credentia
   for (const baseUrl of ['http://gw.example.com', 'https://u:p@gw.example.com', 'gw.example.com'])
     assert.throws(() => parseCustomProvider({ baseUrl }))
   assert.throws(() => parseCustomProvider({ ...gateway, models: ['two words'] }))
-})
-
-test('Codex takes one model ID, and one saved with more keeps the first', (t) => {
-  const dir = tempDir(t)
-
-  assert.throws(
-    () => parseCustomProvider(gateway, 'codex'),
-    /^Error: Enter one model ID without spaces\.$/u,
-  )
-  assert.throws(
-    () => parseCustomProvider({ ...codexGateway, models: ['kimi-k2 glm-4.6'] }, 'codex'),
-    /^Error: Enter one model ID without spaces\.$/u,
-  )
-  assert.throws(
-    () => parseCustomProvider({ ...gateway, models: ['two words'] }, 'claude-code'),
-    /^Error: Enter up to 50 model IDs, one per line, without spaces\.$/u,
-  )
-  assert.deepEqual(parseCustomProvider(gateway, 'claude-code').models, gateway.models)
-  mkdirSync(dir, { recursive: true })
-  writeFileSync(path.join(dir, 'custom-providers.json'), JSON.stringify({ codex: gateway }))
-  assert.deepEqual(readCustomProviders(dir).codex?.models, ['glm-4.6'])
 })
 
 const realFetch = globalThis.fetch
@@ -128,7 +106,7 @@ test('Codex refuses a provider that does not serve the Responses API, asked with
   assert.equal(readCustomProviders(dir).codex, undefined)
 
   // An edit without a key is asked with the stored one; Claude Code is not asked at all.
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   await assert.rejects(
     saveCustomProvider(store, dir, 'u1', 'codex', { baseUrl: `http://127.0.0.1:${port}/v1` }),
     /Responses API/u,
@@ -216,9 +194,9 @@ test('the key goes only to the credential store, and an edit without one keeps i
   const dir = tempDir(t)
   const store = memoryStore()
 
-  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', codexGateway), /API key/u)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw-secret' })
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, models: ['kimi-k2'] })
+  await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', gateway), /API key/u)
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw-secret' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, models: ['kimi-k2'] })
 
   assert.equal(store.items.get('u1:codex'), 'sk-gw-secret')
   assert.doesNotMatch(readFileSync(path.join(dir, 'custom-providers.json'), 'utf8'), /sk-gw/u)
@@ -298,6 +276,48 @@ test('Codex gets its own provider entry at the top of config.toml, replaced in p
   assert.equal(codexProviderConfig(once, undefined), base)
 })
 
+test(
+  'Codex gets a catalog of every custom model, copied from its own CLI, or runs the first alone',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const dir = tempDir(t)
+    const home = path.join(dir, 'codex-home')
+    const config = path.join(home, 'config.toml')
+    const catalog = path.join(home, 'nuphos-models.json')
+    const cli = path.join(dir, 'codex')
+    const own = { slug: 'gpt-x', display_name: 'GPT-X', shell_type: 'shell', priority: 9 }
+
+    mkdirSync(home, { recursive: true })
+    writeFileSync(
+      cli,
+      `#!/bin/sh\n[ "$1 $2" = "debug models" ] && echo '${JSON.stringify({ models: [own] })}'\n`,
+      { mode: 0o755 },
+    )
+    await prepareCodexCatalog(home, cli, process.env, gateway)
+
+    const models = (JSON.parse(readFileSync(catalog, 'utf8')) as { models: (typeof own)[] }).models
+
+    assert.deepEqual(
+      models.map((model) => [model.slug, model.display_name, model.shell_type, model.priority]),
+      [
+        ['glm-4.6', 'glm-4.6', 'shell', 0],
+        ['kimi-k2', 'kimi-k2', 'shell', 1],
+      ],
+    )
+    assert.match(readFileSync(config, 'utf8'), /^model = "glm-4\.6"$/mu)
+    assert.ok(
+      readFileSync(config, 'utf8').includes(`model_catalog_json = ${JSON.stringify(catalog)}`),
+    )
+
+    // A CLI that cannot print its catalog, or a single model, leaves Codex its first model alone.
+    writeFileSync(cli, '#!/bin/sh\nexit 2\n', { mode: 0o755 })
+    await prepareCodexCatalog(home, cli, process.env, gateway)
+    assert.equal(existsSync(catalog), false)
+    assert.doesNotMatch(readFileSync(config, 'utf8'), /model_catalog_json/u)
+    assert.match(readFileSync(config, 'utf8'), /^model = "glm-4\.6"$/mu)
+  },
+)
+
 test('openab passes the key on by name, so its config file never holds it', () => {
   const adapter = { entry: '/b/a.js', bridge: '/b/bridge.mjs', version: 'v' }
   const launch: LocalRuntimeLaunch = {
@@ -344,9 +364,11 @@ test('a saved provider stands in for the sign-in, and its key reaches only opena
     typeof process.start
   >[0]
 
+  mkdirSync(home, { recursive: true })
+
   assert.deepEqual(await probe('codex', {}, home), signedOut)
   await process.start(options)
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   assert.deepEqual(await probe('codex', {}, home), {
     ...signedOut,
     loggedIn: true,
@@ -361,7 +383,7 @@ test('a key the store will not delete keeps the provider listed; a key already g
   const store = memoryStore()
   const remove = store.delete
 
-  await saveCustomProvider(store, dir, 'u1', 'codex', { ...codexGateway, apiKey: 'sk-gw' })
+  await saveCustomProvider(store, dir, 'u1', 'codex', { ...gateway, apiKey: 'sk-gw' })
   store.delete = () => Promise.reject(new Error('User canceled the operation.'))
   await assert.rejects(saveCustomProvider(store, dir, 'u1', 'codex', null), /canceled/u)
   assert.ok(readCustomProviders(dir).codex)

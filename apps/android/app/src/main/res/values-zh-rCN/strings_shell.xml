@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">此用户名已被使用。请选择其他名称。</string>
     <string name="shell_auth_profile_failed">无法保存你的个人资料。</string>
     <string name="shell_auth_unreachable">无法连接 Nuphos。请检查网络连接后重试。</string>
+    <string name="shell_auth_account_expired">这个账号的登录已过期。请重新登录。</string>
     <string name="shell_auth_window_failed">无法打开登录窗口。请重试。</string>
     <string name="shell_auth_secure_incomplete">安全登录未完成。请检查网络连接后重试。</string>
     <string name="shell_auth_wrong_password">电子邮件或密码不正确。</string>

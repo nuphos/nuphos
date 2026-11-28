@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">Ese nombre de usuario ya está en uso. Elige otro.</string>
     <string name="shell_auth_profile_failed">No pudimos guardar tu perfil.</string>
     <string name="shell_auth_unreachable">No pudimos conectar con Nuphos. Comprueba tu conexión e inténtalo de nuevo.</string>
+    <string name="shell_auth_account_expired">La sesión de esta cuenta caducó. Vuelve a iniciar sesión.</string>
     <string name="shell_auth_window_failed">No pudimos abrir la ventana de inicio de sesión. Inténtalo de nuevo.</string>
     <string name="shell_auth_secure_incomplete">El inicio de sesión seguro no se completó. Comprueba tu conexión e inténtalo de nuevo.</string>
     <string name="shell_auth_wrong_password">El correo o la contraseña no son correctos.</string>

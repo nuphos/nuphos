@@ -69,6 +69,7 @@
     <string name="shell_auth_username_taken">Nama pengguna itu sudah dipakai. Pilih yang lain.</string>
     <string name="shell_auth_profile_failed">Kami tidak dapat menyimpan profil Anda.</string>
     <string name="shell_auth_unreachable">Kami tidak dapat menjangkau Nuphos. Periksa koneksi Anda lalu coba lagi.</string>
+    <string name="shell_auth_account_expired">Sesi akun ini telah kedaluwarsa. Masuk lagi.</string>
     <string name="shell_auth_window_failed">Kami tidak dapat membuka jendela masuk. Coba lagi.</string>
     <string name="shell_auth_secure_incomplete">Proses masuk aman tidak selesai. Periksa koneksi Anda lalu coba lagi.</string>
     <string name="shell_auth_wrong_password">Email atau kata sandi salah.</string>

@@ -11,6 +11,7 @@ import {
 } from '@/lib/agent/db/channel-notes'
 import { agentConversations } from '@/lib/agent/db/shared'
 import { parseLocalRuntimeId } from '@/lib/agent/devices/local-runtime/address'
+import { runtimePresenceStore } from '@/lib/agent/devices/local-runtime/presence'
 import { getAgentDevice } from '@/lib/agent/devices/store'
 import { getSystemPrompt } from '@/lib/agent/system-prompt'
 import { COMPUTER_CARDS } from '@/lib/agent/tools-skilled/decision-tools'
@@ -74,11 +75,41 @@ const runtimeNote = (where: string) =>
  */
 async function runtimeWhere(runtimeId: string | null | undefined): Promise<string> {
   const ref = runtimeId ? parseLocalRuntimeId(runtimeId) : undefined
-  const device = ref ? await getAgentDevice(ref.userId, ref.deviceId) : null
+  const [device, presence] = ref
+    ? await Promise.all([
+        getAgentDevice(ref.userId, ref.deviceId),
+        // Presence only adds the hand-over; without it the agent still learns where it runs.
+        runtimePresenceStore()
+          .get(ref.userId, ref.deviceId)
+          .catch(() => null),
+      ])
+    : [null, null]
 
   if (!device) return 'inside the team sandbox'
 
-  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${device.box ? ' and the `nuphos-desktop` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run' + (COMPUTER_CARDS ? '; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card' : '') + '; ignore MACHINE.md’s notes about display :1 and an instabox dashboard)' : ''} are there, and local_exec is for the user's other devices, only when they ask for one`
+  // Whether its host can hand a screen over: a computer card needs it (computer-desktop.ts).
+  const desktopOpen = presence?.status?.desktopOpen === true
+  // A Box, or a Linux host with a desktop pool (desktop-pool.ts), gives each session its own desktop.
+  const ownDesktop = device.box || (desktopOpen && device.platform !== 'darwin')
+  // A Mac hands its own screen over instead (mac-screen.ts); any other host has nothing to hand over.
+  const handOver =
+    ownDesktop || !COMPUTER_CARDS
+      ? ''
+      : desktopOpen
+        ? '; a sign-in, human check or other step only the user can do goes on this Mac’s screen (a page with local_browser show), handed to them with a request_user_decision `computer` card so they can take over from wherever they are'
+        : '; this computer has no screen to hand over, so a request_user_decision `computer` card is refused here: for a sign-in or human check only the user can do, ask for what they can type with a `credential` card, or tell them plainly it cannot be shown to them from this computer'
+
+  const card = COMPUTER_CARDS
+    ? '; a sign-in or human check only the user can do goes on this desktop, handed to them with a request_user_decision `computer` card'
+    : ''
+  const machineNote = device.box
+    ? '; ignore MACHINE.md’s notes about display :1 and an instabox dashboard'
+    : ''
+  const desktopTools = ownDesktop
+    ? ` and the \`nuphos-desktop\` tools for this conversation’s own desktop (the user watches it in Nuphos; a page or website the user asks to open, or "a browser", goes to local_browser, the Nuphos browser, shown to them with its show action; use this desktop’s Web Browser launcher, with get_app_state and click and not the shell, only when they ask for this desktop or local_browser cannot run${card}${machineNote})`
+    : ''
+
+  return `on ${safePromptField(device.label)}, the computer this conversation runs on: your shell, files${desktopTools} are there${handOver}, and local_exec is for the user's other devices, only when they ask for one`
 }
 
 const DASHBOARDS_RUNTIME_NOTE =
