@@ -10,3 +10,8 @@ of this work; TRADEMARK.md spells out what that does and does not cover.
 apps/runtime/openab is vendored from openabdev/openab (via the zeabur/openab
 fork) and remains under the MIT License, Copyright (c) 2026 openabdev. See
 apps/runtime/openab/LICENSE.
+
+The macOS builds of Nuphos Desktop and the Nuphos CLI bundle Cua Driver from
+trycua/cua, under the MIT License, Copyright (c) 2025 Cua AI, Inc. Its LICENSE
+and THIRD_PARTY_NOTICES.md ship beside the binary as cua-driver-LICENSE and
+cua-driver-THIRD_PARTY_NOTICES.md.
