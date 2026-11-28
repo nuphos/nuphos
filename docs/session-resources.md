@@ -49,7 +49,8 @@ routing events. Enable the corresponding events on the installed GitHub App:
 - Pull request: opened, reopened, closed, synchronize, ready_for_review
 - Pull request review: submitted, dismissed, from people with write access or from
   review Apps (bots such as a review council or Copilot)
-- Issue comment: created, on PRs only, from humans with write access
+- Issue comment: created, on PRs and linked issues, from humans with write access
+- Issues: assigned, closed, reopened, on a linked issue
 - Check suite: completed, with associated PR numbers. A fork PR's suite names no PRs,
   so like a status its open PRs are found from the head commit. Per-job check runs and workflow
   completion events are ignored so one CI suite does not produce N+2 wakeups. A
@@ -64,14 +65,14 @@ routing events. Enable the corresponding events on the installed GitHub App:
   when the repository has a linked PR the router asks GitHub which open PRs have
   that commit as their head; pending statuses are ignored.
 
-The router matches the installation ID, stable repository ID and PR number.
-Events without an associated PR do not wake sessions. Write access is read from
+The router matches the installation ID, stable repository ID and PR or issue number.
+Events without an associated PR or linked issue do not wake sessions. Write access is read from
 GitHub's collaborator permission API, because `author_association` reports
 private org members as outside contributors. Events from the configured Nuphos
 App bot and bot issue comments are ignored to avoid reply loops, except check
 suite completions: CI results on the agent's own pushes still wake the session. A PR
-closing, merging or reopening updates the linked tag's state even when the Nuphos
-App did it; only the wakeup is skipped. GitHub
+closing, merging or reopening, or an issue closing or reopening, updates the linked
+tag's state even when the Nuphos App did it; only the wakeup is skipped. GitHub
 must actually deliver a subscribed event; linking does not alter App subscriptions
 or retroactively replay earlier events.
 

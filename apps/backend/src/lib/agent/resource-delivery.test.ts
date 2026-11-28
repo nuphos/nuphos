@@ -217,6 +217,63 @@ test('a PR turned into a draft and back marks every linked tag, keeping its heal
   }
 })
 
+const issue = {
+  installation: { id: 12 },
+  repository: { id: 34, full_name: 'acme/app' },
+  sender: { type: 'User', login: 'maintainer' },
+  issue: { number: 56, state: 'open' },
+}
+
+test('a linked issue wakes when it is assigned or closed, and closing marks its tag', async () => {
+  await routeResourceWebhook('issues', { ...issue, action: 'assigned' }, 'assign')
+  await routeResourceWebhook(
+    'issues',
+    { ...issue, action: 'closed', issue: { number: 56, state: 'closed' } },
+    'close',
+  )
+  expect(queued.map((turn) => turn.summary)).toEqual([
+    'GitHub issues.assigned.',
+    'GitHub issues.closed.',
+  ])
+  expect(lookups).toHaveLength(0)
+  expect(stateUpdates).toEqual([
+    [
+      { _id: { $in: [conversationId] } },
+      {
+        $set: {
+          'linkedResources.$[resource].state': 'closed',
+          'linkedResources.$[resource].draft': false,
+          'linkedResources.$[resource].health': null,
+        },
+      },
+      { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
+    ],
+  ])
+})
+
+test('a closed issue wakes when it is reopened, not when it is assigned', async () => {
+  conversations = [
+    {
+      ...conversation,
+      linkedResources: [{ ...conversation.linkedResources[0]!, state: 'closed' }],
+    },
+  ]
+  await routeResourceWebhook('issues', { ...issue, action: 'assigned' }, 'assign')
+  expect(queued).toHaveLength(0)
+  await routeResourceWebhook('issues', { ...issue, action: 'reopened' }, 'reopen')
+  expect(queued.map((turn) => turn.summary)).toEqual(['GitHub issues.reopened.'])
+  expect(stateUpdates[0]).toEqual([
+    { _id: { $in: [conversationId] } },
+    {
+      $set: {
+        'linkedResources.$[resource].state': 'open',
+        'linkedResources.$[resource].draft': false,
+      },
+    },
+    { arrayFilters: [{ 'resource.key': 'github/12/34/56' }] },
+  ])
+})
+
 const review = {
   installation: { id: 12 },
   repository: { id: 34, full_name: 'acme/app' },

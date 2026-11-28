@@ -15,6 +15,7 @@ import {
   githubUnattachedSuiteCommit,
   refreshLinkedPullHealth,
 } from './resource-webhook-health'
+import { githubIssueState } from './resource-webhook-issue'
 import { allowedResourceRecipients, resourceCredentialAllowed } from './session-resource-lookup'
 import { enqueueResourceTurn } from './thread-queue'
 
@@ -88,7 +89,7 @@ async function canPush(installationId: number, repository: string, login: string
 }
 
 /**
- * Only route PR-related events; ignore edits and intermediate CI churn.
+ * Only route PR and issue events; ignore edits and intermediate CI churn.
  * `commitPulls` are the PRs a status or a fork's check suite names only by commit.
  */
 export function githubResourceEvents(event: string, payload: unknown, commitPulls: string[] = []) {
@@ -130,6 +131,8 @@ export function githubResourceEvents(event: string, payload: unknown, commitPull
       numbers = [body.pull_request.number]
       actor = { login: body.sender.login, repository: body.repository.full_name }
     }
+  } else if (event === 'issues' && ['assigned', 'closed', 'reopened'].includes(action)) {
+    if (body.issue) numbers = [body.issue.number]
   } else if (event === 'issue_comment' && action === 'created' && body.issue) {
     // A comment on a pull request or on an issue: only a linked one has a session to wake.
     // Bot comments stay out so bots replying to each other cannot loop a session.
@@ -229,7 +232,7 @@ async function refreshHealth(event: string, payload: unknown) {
 }
 
 export async function routeResourceWebhook(event: string, payload: unknown, deliveryId: string) {
-  const pullState = githubPullState(event, payload)
+  const pullState = githubPullState(event, payload) ?? githubIssueState(event, payload)
 
   if (pullState) {
     await agentConversations().updateMany(
