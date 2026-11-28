@@ -9,12 +9,13 @@ import { syncBuiltinESMExports } from 'node:module'
 import { createInterface } from 'node:readline'
 import { mock, test } from 'node:test'
 
-import { SESSION_META, processTree, runShim } from '../image/acp-shim.mjs'
+import { SESSION_META, SPAWN_ENV_META, processTree, runShim } from '../image/acp-shim.mjs'
 
 // A native ACP agent stand-in: answers every request with what it was asked and
 // the env it runs under, so the test can see exactly what reached the agent.
 const FAKE_AGENT = `
 const rl = require('node:readline').createInterface({ input: process.stdin })
+let sessions = 0
 rl.on('line', (line) => {
   const m = JSON.parse(line)
   if (m.id === undefined) return
@@ -23,9 +24,10 @@ rl.on('line', (line) => {
     GROK_HOME: process.env.GROK_HOME, NUPHOS_AGENT_HOME: process.env.NUPHOS_AGENT_HOME,
     XDG_DATA_HOME: process.env.XDG_DATA_HOME, XDG_CONFIG_HOME: process.env.XDG_CONFIG_HOME,
     OPENCODE_DISABLE_AUTOUPDATE: process.env.OPENCODE_DISABLE_AUTOUPDATE,
-    DSH_HOME: process.env.DSH_HOME,
-    AGENT_CLI_CREDENTIAL_STORE: process.env.AGENT_CLI_CREDENTIAL_STORE } }
-  const result = m.method === 'session/new' ? { sessionId: 's1', configOptions: [], seen } : { seen }
+    DSH_HOME: process.env.DSH_HOME, OPENAB_CREDENTIALS_DIR: process.env.OPENAB_CREDENTIALS_DIR,
+    NODE_OPTIONS: process.env.NODE_OPTIONS, NUPHOS_ADOPT_FD: process.env.NUPHOS_ADOPT_FD,
+    AGENT_CLI_CREDENTIAL_STORE: process.env.AGENT_CLI_CREDENTIAL_STORE }, cwd: process.cwd() }
+  const result = m.method === 'session/new' ? { sessionId: 's' + ++sessions, configOptions: [], seen } : { seen }
   process.stdout.write(JSON.stringify({ jsonrpc: '2.0', id: m.id, result }) + '\\n')
 })
 `
@@ -45,15 +47,16 @@ async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRef
     if (message.method) notifications.push(message)
     replies.get(message.id)?.(message)
   })
+  const { runtimeEnv, ...rest } = options ?? {}
   runShim({
     provider,
     input,
     output,
-    runtimeEnv: { HOME: home, PATH: process.env.PATH },
-    spawnAgent: (command, env) => {
+    runtimeEnv: { HOME: home, PATH: process.env.PATH, ...runtimeEnv },
+    spawnAgent: (command, env, handoff) => {
       const child = spawn(process.execPath, ['-e', agentScript], {
         env: { ...env, FAKE_STATUS_PORT: command.includes('--port') ? command.at(-1) : '' },
-        stdio: ['pipe', 'pipe', 'inherit'],
+        stdio: ['pipe', 'pipe', 'inherit', ...(handoff ? ['pipe'] : [])],
       })
       children.push({ command, child })
       return child
@@ -64,7 +67,7 @@ async function withShim(provider, run, agentScript = FAKE_AGENT, readOpenCodeRef
     refusalQuietMs: 200,
     ...(readOpenCodeRefusal ? { readOpenCodeRefusal } : {}),
     log: () => {},
-    ...options,
+    ...rest,
   })
   let id = 0
   const call = (method, params) =>
@@ -204,6 +207,77 @@ test('cursor runs `cursor-agent acp` with its file login shared from the runtime
     assert.match(prompt[0].text, /<nuphos-instructions>\nBe Nuphos\.\n/u)
     assert.equal(prompt[1].text, 'hi')
   })
+})
+
+test('a cursor agent OpenAB warmed takes the session in place of a restart (#5158)', async () => {
+  await withShim(
+    'cursor',
+    async ({ call, children, home }) => {
+      await call('initialize', { protocolVersion: 1 })
+      const params = session('Be Nuphos.')
+      const reply = await call('session/new', {
+        ...params,
+        cwd: home,
+        _meta: { ...params._meta, [SPAWN_ENV_META]: { OPENAB_CREDENTIALS_DIR: '/credentials' } },
+      })
+      const { seen } = reply.result
+
+      // The throwaway session warmed it; the client gets the next one, from the same process.
+      assert.equal(reply.result.sessionId, 's2')
+      assert.equal(children.length, 1)
+      assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+      assert.equal(seen.env.NUPHOS_TOKEN, 'token')
+      assert.equal(seen.env.OPENAB_CREDENTIALS_DIR, '/credentials')
+      assert.equal(seen.cwd, await realpath(home))
+      // The preload leaves nothing behind for the commands the agent runs.
+      assert.equal(seen.env.NODE_OPTIONS, undefined)
+      assert.equal(seen.env.NUPHOS_ADOPT_FD, undefined)
+      assert.equal(seen.params._meta[SPAWN_ENV_META], undefined)
+    },
+    FAKE_AGENT,
+    undefined,
+    { runtimeEnv: { NUPHOS_PREWARM: '1' }, platform: 'linux' },
+  )
+})
+
+test('a warmed cursor agent takes the spawn env of a session without its own home', async () => {
+  await withShim(
+    'cursor',
+    async ({ call, children, home }) => {
+      await call('initialize', { protocolVersion: 1 })
+      const { seen } = (
+        await call('session/new', {
+          cwd: home,
+          mcpServers: [],
+          _meta: { [SPAWN_ENV_META]: { OPENAB_CREDENTIALS_DIR: '/credentials' } },
+        })
+      ).result
+
+      assert.equal(children.length, 1)
+      assert.equal(seen.env.OPENAB_CREDENTIALS_DIR, '/credentials')
+    },
+    FAKE_AGENT,
+    undefined,
+    { runtimeEnv: { NUPHOS_PREWARM: '1' }, platform: 'linux' },
+  )
+})
+
+test('a warmed cursor agent that cannot take the session is restarted under it', async () => {
+  await withShim(
+    'cursor',
+    async ({ call, children }) => {
+      await call('initialize', { protocolVersion: 1 })
+      // A working directory it cannot enter: the handoff fails.
+      const { seen } = (await call('session/new', session('Be Nuphos.'))).result
+
+      assert.equal(children.length, 2)
+      assert.match(seen.env.HOME, /\.nuphos\/session-homes\/[0-9a-f]{64}$/)
+      assert.equal(seen.env.NODE_OPTIONS, undefined)
+    },
+    FAKE_AGENT,
+    undefined,
+    { runtimeEnv: { NUPHOS_PREWARM: '1' }, platform: 'linux' },
+  )
 })
 
 test('a link the OS refuses never fails the turn, and Windows gets a junction', async () => {

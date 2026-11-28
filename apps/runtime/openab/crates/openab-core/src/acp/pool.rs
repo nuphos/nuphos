@@ -115,6 +115,82 @@ pub struct SessionPool {
     default_config_options: HashMap<String, String>,
     session_registrar: Option<Arc<dyn crate::acp_mcp::SessionTokenRegistrar>>,
     facade_url: Option<String>,
+    /// `[pool] prewarm`: the agent kept ready for the next session.
+    spare: Option<Arc<Spare>>,
+}
+
+/// `meta` plus, under `ai.nuphos/spawnEnv`, what the session's spawn env adds to the pool's:
+/// a spare started before the session takes it from its first session/new or load.
+fn with_spawn_env(
+    meta: Option<serde_json::Value>,
+    spawn_env: &HashMap<String, String>,
+    pool_env: &HashMap<String, String>,
+) -> serde_json::Value {
+    let added: serde_json::Map<String, serde_json::Value> = spawn_env
+        .iter()
+        .filter(|(name, value)| pool_env.get(*name) != Some(*value))
+        .map(|(name, value)| (name.clone(), serde_json::Value::String(value.clone())))
+        .collect();
+    let mut meta = match meta {
+        Some(serde_json::Value::Object(meta)) => meta,
+        _ => serde_json::Map::new(),
+    };
+    meta.insert(
+        "ai.nuphos/spawnEnv".to_string(),
+        serde_json::Value::Object(added),
+    );
+    serde_json::Value::Object(meta)
+}
+
+/// One agent process, started and initialized before any session needs it (#5158).
+/// It is no session's yet, so it counts against no limit; dropping it kills its group.
+struct Spare {
+    slot: Mutex<Option<AcpConnection>>,
+    command: String,
+    args: Vec<String>,
+    working_dir: String,
+    env: HashMap<String, String>,
+    inherit_env: Vec<String>,
+}
+
+impl Spare {
+    /// Starts the next spare unless one is ready, or starting (it holds the slot).
+    fn refill(self: &Arc<Self>) {
+        let spare = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut slot = spare.slot.lock().await;
+            if slot.as_ref().is_some_and(AcpConnection::alive) {
+                return;
+            }
+            let _ = std::fs::create_dir_all(&spare.working_dir);
+            match spawn_initialized(
+                &AgentCommand {
+                    command: &spare.command,
+                    args: &spare.args,
+                    working_dir: &spare.working_dir,
+                    env: &spare.env,
+                    inherit_env: &spare.inherit_env,
+                },
+                &LOCKED_STATE_RETRY_DELAYS,
+            )
+            .await
+            {
+                Ok(conn) => *slot = Some(conn),
+                Err(error) => {
+                    warn!(error = %format!("{error:#}"), "could not start the spare agent")
+                }
+            }
+        });
+    }
+
+    /// The ready spare, if any; one still starting is not waited for.
+    fn take(&self) -> Option<AcpConnection> {
+        self.slot
+            .try_lock()
+            .ok()?
+            .take()
+            .filter(AcpConnection::alive)
+    }
 }
 
 type CancelHandle = (Arc<tokio::sync::Mutex<tokio::process::ChildStdin>>, String);
@@ -685,7 +761,29 @@ impl SessionPool {
             default_config_options,
             session_registrar: None,
             facade_url: None,
+            spare: None,
         }
+    }
+
+    /// `[pool] prewarm`: keep one initialized agent ready and give it to the next new or
+    /// restored session, instead of starting one while the user waits.
+    pub fn with_prewarm(mut self, prewarm: bool) -> Self {
+        if !prewarm {
+            return self;
+        }
+        let mut env = self.config.env.clone();
+        env.insert("NUPHOS_PREWARM".to_string(), "1".to_string());
+        let spare = Arc::new(Spare {
+            slot: Mutex::new(None),
+            command: self.config.command.clone(),
+            args: self.config.args.clone(),
+            working_dir: self.config.working_dir.clone(),
+            env,
+            inherit_env: self.config.inherit_env.clone(),
+        });
+        spare.refill();
+        self.spare = Some(spare);
+        self
     }
 
     /// Wire the facade session-token registrar + facade URL, set by the root
@@ -1297,17 +1395,33 @@ impl SessionPool {
         // yet (e.g. per-conversation isolation). Create it so the spawn's
         // current_dir() doesn't fail.
         let _ = std::fs::create_dir_all(&effective_workdir);
-        let mut new_conn = spawn_initialized(
-            &AgentCommand {
-                command: &self.config.command,
-                args: &self.config.args,
-                working_dir: &effective_workdir,
-                env: &spawn_env,
-                inherit_env: &self.config.inherit_env,
-            },
-            &LOCKED_STATE_RETRY_DELAYS,
-        )
-        .await?;
+        let spare = self.spare.as_ref().and_then(|spare| {
+            let conn = spare.take();
+            spare.refill();
+            conn
+        });
+        // A spare started under the pool's env takes the session's along with it.
+        let session_meta = if spare.is_some() {
+            Some(with_spawn_env(session_meta, &spawn_env, &self.config.env))
+        } else {
+            session_meta
+        };
+        let mut new_conn = match spare {
+            Some(conn) => conn,
+            None => {
+                spawn_initialized(
+                    &AgentCommand {
+                        command: &self.config.command,
+                        args: &self.config.args,
+                        working_dir: &effective_workdir,
+                        env: &spawn_env,
+                        inherit_env: &self.config.inherit_env,
+                    },
+                    &LOCKED_STATE_RETRY_DELAYS,
+                )
+                .await?
+            }
+        };
 
         let mut resumed = false;
         if let Some(ref sid) = saved_session_id {
@@ -1868,6 +1982,9 @@ impl SessionPool {
     }
 
     pub async fn shutdown(&self) {
+        if let Some(spare) = &self.spare {
+            spare.slot.lock().await.take();
+        }
         // Snapshot active handles, then drop state lock before awaiting
         // per-connection mutexes (lock ordering: never hold state while
         // awaiting a connection lock).
@@ -2003,6 +2120,7 @@ mod tests {
             default_config_options: HashMap::new(),
             session_registrar: None,
             facade_url: None,
+            spare: None,
         });
         let writer_pool = Arc::clone(&pool);
         let writer = tokio::spawn(async move { writer_pool.reset_session("first").await });
@@ -2051,6 +2169,7 @@ mod tests {
             default_config_options: HashMap::new(),
             session_registrar: None,
             facade_url: None,
+            spare: None,
         };
         let older = HashMap::from([("session".into(), "old".into())]);
         let newer = HashMap::from([("session".into(), "new".into())]);
@@ -2098,6 +2217,7 @@ mod tests {
             default_config_options: HashMap::new(),
             session_registrar: None,
             facade_url: None,
+            spare: None,
         };
         let expected = serde_json::json!({"TOKEN": "initial"});
         let (first, second) = tokio::join!(
@@ -2147,6 +2267,7 @@ mod tests {
             default_config_options: HashMap::new(),
             session_registrar: None,
             facade_url: None,
+            spare: None,
         };
         assert_eq!(
             pool.take_instructions_update("session").await.as_deref(),

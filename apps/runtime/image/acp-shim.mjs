@@ -8,6 +8,7 @@
 // - The conversation's environment. OpenAB starts one agent process per session, so
 //   the agent is respawned once with the session's env and CLI home before its first
 //   session/new, load or resume. The agent's own login stays in the runtime home.
+//   A Cursor agent OpenAB keeps warm for the next session takes the env in place instead.
 // - The team's skills, the runtime defaults and the MCP credential bridge, exactly as
 //   the patched adapters apply them.
 // - Nuphos's instructions, in whatever form the agent accepts them.
@@ -27,6 +28,10 @@ import { nuphosApplyRuntimeDefaults, nuphosSyncRuntimeSkills } from './runtime-d
 import { nuphosSessionHomeEnv } from './session-home.mjs'
 
 export const SESSION_META = 'ai.nuphos/session'
+// The env OpenAB gives a session's process at spawn, sent here when it hands the session a
+// process it started earlier (`[pool] prewarm`).
+export const SPAWN_ENV_META = 'ai.nuphos/spawnEnv'
+const ADOPT_PRELOAD = new URL('./agent-adopt.mjs', import.meta.url).href
 
 // Same principal-scoped keys the Codex adapter forwards; nothing else in the
 // session's env reaches the agent.
@@ -126,6 +131,8 @@ export const PROVIDERS = {
     shared: ['.cursor', join('.config', 'cursor')],
     instruct: null,
     serialPrompts: true,
+    // Its first session/new in a process waits seconds on Cursor's backend, the next ones do not.
+    warm: true,
   },
   pi: {
     name: 'Pi',
@@ -263,12 +270,13 @@ export function runShim({
   input = process.stdin,
   output = process.stdout,
   runtimeEnv = process.env,
-  spawnAgent = (command, env) =>
+  spawnAgent = (command, env, handoff) =>
     spawn(command[0], command.slice(1), {
       env,
-      stdio: ['pipe', 'pipe', 'inherit'],
+      stdio: ['pipe', 'pipe', 'inherit', ...(handoff ? ['pipe'] : [])],
       windowsHide: true,
     }),
+  platform = process.platform,
   onExit = (code) => process.exit(code),
   // How long a prompt's answer gets to close its turn upstream before the
   // turn the agent started next is released.
@@ -334,6 +342,11 @@ export function runShim({
   // The session home the agent was last started in; null until a session binds it.
   let boundHome = null
   let nextId = 0
+  // A warm agent's channel for the session's env (agent-adopt.mjs), until a session takes it.
+  let handoff
+  // The throwaway session that warms it: true until the agent names it. Its updates are dropped.
+  let warmSession
+  let warming
 
   const start = async (env, withoutStatus = false) => {
     const previous = agent
@@ -355,12 +368,23 @@ export function runShim({
     const [command, ...args] = typeof spec.command === 'function' ? spec.command(env) : spec.command
     // An adapter runs the CLI itself, named to it in its home's environment.
     const executable = spec.adapter ? command : env.NUPHOS_AGENT_EXECUTABLE || command
+    // Only the agent OpenAB starts ahead of a session, before anyone initialized it.
+    const warm =
+      spec.warm && !initialize && runtimeEnv.NUPHOS_PREWARM === '1' && platform !== 'win32'
     const child = spawnAgent(
       endpoint
         ? [executable, ...args, '--hostname', '127.0.0.1', '--port', String(endpoint.port)]
         : [executable, ...args],
-      env,
+      warm
+        ? {
+            ...env,
+            NODE_OPTIONS: [env.NODE_OPTIONS, `--import ${ADOPT_PRELOAD}`].filter(Boolean).join(' '),
+            NUPHOS_ADOPT_FD: '3',
+          }
+        : env,
+      warm,
     )
+    handoff = warm ? child.stdio[3] : undefined
     agent = child
     agentEnvironment = env
     agentEndpoint = endpoint
@@ -423,6 +447,7 @@ export function runShim({
   const prompting = (sessionId) => [...prompts.values()].includes(sessionId)
   const fromAgent = (message) => {
     const sessionId = message.params?.sessionId
+    if (sessionId && (warmSession === true || sessionId === warmSession)) return
     if (sessionId) {
       heard.set(sessionId, Date.now())
       activityVersion.set(sessionId, (activityVersion.get(sessionId) ?? 0) + 1)
@@ -573,20 +598,45 @@ export function runShim({
       send({ jsonrpc: '2.0', id, method, params })
     })
 
+  // Gives the warm agent the session's env and cwd; false when it cannot take them.
+  const adopt = async (env, cwd) => {
+    const channel = handoff
+    handoff = undefined
+    if (!channel) return false
+    await warming
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => resolve(false), 5000)
+      channel.once('data', () => {
+        clearTimeout(timer)
+        agentEnvironment = env
+        resolve(true)
+      })
+      channel.on('error', () => {})
+      channel.once('close', () => resolve(false))
+      channel.write(`${JSON.stringify({ env, cwd })}\n`)
+    })
+  }
+
   const openSession = async (message) => {
     const context = sessionContext(message.params)
-    const env = context?.env ? agentEnv(provider, context, runtimeEnv) : undefined
-    if (env && (env.NUPHOS_SESSION_HOME ?? '') !== boundHome) {
-      // The agent runs under the runtime's own env, or the previous actor's when
-      // a teammate now acts in the conversation; restart it under this one's
-      // before it opens the session. The client already holds the initialize answer.
+    const { [SPAWN_ENV_META]: spawnEnv, ...openMeta } = message.params?._meta ?? {}
+    // This process's own, which its credential bridge and skill sync read.
+    if (spawnEnv) Object.assign(runtimeEnv, spawnEnv)
+    const env = context?.env || spawnEnv ? agentEnv(provider, context, runtimeEnv) : undefined
+    if (env && (spawnEnv || (env.NUPHOS_SESSION_HOME ?? '') !== boundHome)) {
+      // The agent runs under the runtime's own env (a warmed one under the pool's), or
+      // the previous actor's when a teammate now acts in the conversation; restart it
+      // under this one's before it opens the session. The client already holds the
+      // initialize answer.
       boundHome = env.NUPHOS_SESSION_HOME ?? ''
-      await start(env)
-      if (restarting) await restarting
-      if (initialize) await request('initialize', initialize.params)
+      if (!(await adopt(env, message.params?.cwd))) {
+        await start(env)
+        if (restarting) await restarting
+        if (initialize) await request('initialize', initialize.params)
+      }
     }
     await nuphosSyncRuntimeSkills(message.params)
-    let meta = message.params?._meta ?? {}
+    let meta = openMeta
     const text = typeof context?.systemPrompt === 'string' ? context.systemPrompt : ''
     if (text && spec.instruct) meta = spec.instruct(meta, text)
     const params = {
@@ -629,6 +679,17 @@ export function runShim({
         },
       }
       initialize = message
+      // The warm agent opens its throwaway session as soon as it is initialized.
+      if (handoff)
+        transforms.set(message.id, async (reply) => {
+          if (reply.error) return reply
+          warmSession = true
+          warming = request('session/new', { cwd: process.cwd(), mcpServers: [] }).then(
+            (result) => (warmSession = result?.sessionId),
+            () => (warmSession = undefined),
+          )
+          return reply
+        })
       if (spec.loadAsResume)
         transforms.set(message.id, async (reply) => {
           const capabilities = reply.result?.agentCapabilities

@@ -274,6 +274,11 @@ test('an idle agent is reaped after an hour', () => {
   assert.match(openabConfigToml(launch), /^\[pool\]\nsession_ttl_hours = 1$/mu)
 })
 
+test('only Cursor keeps a warmed agent ready (#5158)', () => {
+  assert.doesNotMatch(openabConfigToml(launch), /prewarm/u)
+  assert.match(openabConfigToml({ ...launch, provider: 'cursor' }), /^prewarm = true$/mu)
+})
+
 test('Codex keeps an isolated home, never the owner’s CODEX_HOME', () => {
   const env = agentEnv({
     ...launch,

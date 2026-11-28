@@ -71,6 +71,7 @@ export const ADAPTERS = {
 /** The shim and the modules it imports, as the image ships them. */
 const SHIM_SOURCES = [
   'acp-shim.mjs',
+  'agent-adopt.mjs',
   'hermes-session.mjs',
   'opencode-session.mjs',
   'pi-session.mjs',

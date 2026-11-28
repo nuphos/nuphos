@@ -145,7 +145,7 @@ export function openabConfigToml(launch: LocalRuntimeLaunch): string {
     '[agent.env]',
     ...Object.entries(agentEnv(launch)).map(([key, value]) => `${key} = ${tomlString(value)}`),
     '',
-    '[pool]\nsession_ttl_hours = 1\n', // idle agents (~250 MB each) exit after 1 h, not 4
+    `[pool]\nsession_ttl_hours = 1\n${launch.provider === 'cursor' ? 'prewarm = true\n' : ''}`, // idle agents (~250 MB each) exit after 1 h, not 4; Cursor keeps one warm (#5158)
   ].join('\n')
 }
 

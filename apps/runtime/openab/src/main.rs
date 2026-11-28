@@ -567,7 +567,8 @@ async fn main() -> anyhow::Result<()> {
             .prompt_hard_timeout_secs
             .saturating_add(cfg.pool.hung_grace_secs),
         cfg.pool.default_config_options,
-    );
+    )
+    .with_prewarm(cfg.pool.prewarm);
     // Facade session wiring: only when the facade is actually serving. With no `[mcp]` there is
     // no registrar and no facade url, and the pool simply starts sessions without browser
     // capabilities — there is no longer a proxy path for it to fall back to.

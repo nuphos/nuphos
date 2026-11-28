@@ -1746,6 +1746,11 @@ pub struct PoolConfig {
     /// Sent via `session/set_config_option` after each `session/new`.
     #[serde(default)]
     pub default_config_options: HashMap<String, String>,
+    /// Keep one initialized agent process ready for the next session (#5158), for an agent
+    /// whose first session in a process is slow. Started with `[agent]`'s own env and
+    /// `NUPHOS_PREWARM=1`; the session's spawn env reaches it in `_meta["ai.nuphos/spawnEnv"]`.
+    #[serde(default)]
+    pub prewarm: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -1978,6 +1983,7 @@ impl Default for PoolConfig {
             liveness_check_secs: default_liveness_check_secs(),
             hung_grace_secs: default_hung_grace_secs(),
             default_config_options: HashMap::new(),
+            prewarm: false,
         }
     }
 }
