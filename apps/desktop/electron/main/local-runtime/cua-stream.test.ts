@@ -285,7 +285,11 @@ test('without the Codex App a tool call runs on the bundled Cua Driver', async (
   const stream = new LocalCuaStream({
     config: () => null,
     driver: () => ({ command: process.execPath, args: [path.join(dir, 'driver.cjs')], env: {} }),
-    host: (_key, session, config) => (driver = new CuaHost(session, config, () => {})),
+    host: (_key, session, config) => {
+      driver = new CuaHost(session, config, () => {})
+
+      return driver
+    },
   })
   const result = new Promise<Record<string, unknown>>((resolve) =>
     stream.addEventListener('message', (event) => resolve(JSON.parse(String(event.data)))),
