@@ -60,9 +60,12 @@ async function connect(port: number): Promise<{ browser: Browser; page: Page }> 
 
 async function openPage(page: Page, name: string) {
   await page.mouse.click(130, 30)
-  await page.keyboard.type(name)
-  await page.waitForTimeout(500)
-  await page.keyboard.press('Enter')
+  const search = page.getByPlaceholder(/^Search Bots, tasks/)
+
+  await search.waitFor()
+  await search.fill(name)
+  await page.waitForTimeout(1_000)
+  await search.press('Enter')
 }
 
 const [mongoPort, backendPort, cdpPort, webPort, feedPort, cdp2Port] = await freePorts(6)
