@@ -56,7 +56,7 @@ fun AgentAvatar(sessionId: String, runtime: String?, size: Dp = 36.dp, showBadge
         // A face this build doesn't ship falls back to the one the ID derives, as on iOS and Desktop.
         if (face != null) {
             // Behind the character, unclipped: a head may break out of the disc.
-            avatarBackground(ai.nuphos.android.model.BotFaces.background(sessionId))?.let { Box(Modifier.size(size).background(it, CircleShape)) }
+            Box(Modifier.size(size).background(avatarBackground(ai.nuphos.android.model.BotFaces.background(sessionId)), CircleShape))
             // A photo the owner uploaded shows as-is, in a circle; until it loads, or if it fails, the derived face.
             val photo = SenderAvatar.trusted(face)
             var photoShown by remember(photo) { mutableStateOf(false) }

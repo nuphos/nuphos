@@ -76,12 +76,13 @@ export function AvatarBackgroundPicker({
                 selected ? 'bg-state-selected ring-1 ring-line-focus' : 'hover:bg-state-hover',
               )}
             >
+              {/* White would vanish on a light dialog without its outline. */}
               <span
                 className={clsx(
                   'size-6 rounded-full',
-                  !color && 'border border-dashed border-line-control',
+                  name === 'none' && 'border border-line-control',
                 )}
-                style={color ? { background: color } : undefined}
+                style={{ background: color }}
               />
             </button>
           )

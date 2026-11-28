@@ -1,7 +1,7 @@
 import XCTest
 
 /// A Bot's picked background is a disc in its tint behind the character, in the
-/// chat list and in the chat itself; None looks as before (#3504). Offline fixtures only.
+/// chat list and in the chat itself; None is a white disc (#3504). Offline fixtures only.
 final class AvatarBackgroundUITests: XCTestCase {
     private var live: URL?
     /// Sky (`avatar.sky`, #D6E6F7) in light mode.
@@ -14,7 +14,7 @@ final class AvatarBackgroundUITests: XCTestCase {
     func testPickedBackgroundShowsInListAndChat() throws {
         let plain = try skyPixels(background: nil)
         let tinted = try skyPixels(background: "sky")
-        // The list's 36 pt face and the chat's faces each paint a disc; None paints none.
+        // The list's 36 pt face and the chat's faces each paint a disc in the picked tint; None paints white.
         XCTAssertGreaterThan(tinted.list, plain.list + 40, "list: \(tinted.list) sky pixels vs \(plain.list) with None")
         XCTAssertGreaterThan(tinted.chat, plain.chat + 40, "chat: \(tinted.chat) sky pixels vs \(plain.chat) with None")
     }

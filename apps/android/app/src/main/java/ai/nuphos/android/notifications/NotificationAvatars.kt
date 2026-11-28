@@ -57,7 +57,7 @@ internal object NotificationAvatars {
             return out
         }
         val face = load(context, "bot-avatars/$file", SIZE) ?: return null
-        avatarBackground(sender.background)?.let { fill(canvas, whole, it.toArgb()) }
+        fill(canvas, whole, avatarBackground(sender.background).toArgb())
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { shader = BitmapShader(face, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP) }
         canvas.drawCircle(SIZE / 2f, SIZE / 2f, SIZE / 2f, paint)
         val disc = RectF(74 * SCALE, 74 * SCALE, 106 * SCALE, 106 * SCALE)

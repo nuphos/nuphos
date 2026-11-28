@@ -3,7 +3,6 @@ package ai.nuphos.android.notifications
 import android.graphics.Bitmap
 import ai.nuphos.android.model.BotAvatars
 import ai.nuphos.android.model.RuntimeIdentity
-import ai.nuphos.android.ui.theme.avatarBackground
 
 /**
  * Who a notification speaks for, as iOS shows it: a Bot's face on its picked tint with its
@@ -17,7 +16,7 @@ data class NotificationSender(
 ) {
     companion object {
         /**
-         * Only a face the app bundles, a tint it knows and a runtime it has a logo for. A Bot whose
+         * Only a face the app bundles and a runtime it has a logo for; an unknown tint paints white. A Bot whose
          * face is unknown, or a Task whose runtime has no logo, stays a plain notification.
          */
         fun from(data: Map<String, String>): NotificationSender? {
@@ -25,8 +24,7 @@ data class NotificationSender(
             val provider = { key: String -> data[key]?.takeIf { RuntimeIdentity.logo(it) != null } }
             val avatar = data["botAvatar"] ?: return provider("taskProvider")?.let { NotificationSender(name, null, it) }
             val file = BotAvatars.named(avatar) ?: return null
-            return NotificationSender(name, file, provider("botProvider"),
-                data["botBackground"]?.takeIf { avatarBackground(it) != null })
+            return NotificationSender(name, file, provider("botProvider"), data["botBackground"])
         }
     }
 }

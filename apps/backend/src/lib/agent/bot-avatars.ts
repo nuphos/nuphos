@@ -35,7 +35,7 @@ export const BOT_AVATARS = [
 export type BotAvatar = (typeof BOT_AVATARS)[number]
 
 // The tints a Bot's character may sit on, by name; clients own the colors.
-// `none` (or no value) keeps the character on no background.
+// `none` (or no value) puts the character on a white disc; clients own the colors.
 export const BOT_AVATAR_BACKGROUNDS = [
   'none',
   'sand',

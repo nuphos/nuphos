@@ -5404,6 +5404,7 @@
   "Which runtimes did the work, by share of work time.": "どのランタイムが作業したかを、作業時間の割合で表示します。",
   "While local tasks are running": "ローカルタスクの実行中",
   "While signed in to Nuphos": "Nuphos にサインインしている間",
+  "White": "ホワイト",
   "Who can use it": "使用できるユーザー",
   "Who can use {name}": "{name} を使用できるユーザー",
   "Who is allowed to assume this role": "このロールを引き受けることができるユーザー",
