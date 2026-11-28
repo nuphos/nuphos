@@ -12,6 +12,8 @@ final class ChannelMembersUITests: XCTestCase {
 
     override func setUpWithError() throws {
         continueAfterFailure = false
+        // On an iPad, wide, as its design is.
+        if UIDevice.current.userInterfaceIdiom == .pad { XCUIDevice.shared.orientation = .landscapeLeft }
         let fixture = URL(filePath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
             .appending(path: "tests/fixtures/bot-desktop-responses.json")
         responses = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: fixture)) as? [String: Any])
@@ -28,7 +30,7 @@ final class ChannelMembersUITests: XCTestCase {
 
     func testOwnerAddsABot() throws {
         set("POST /agent/conversations/\(chat)/agents", ["agents": [scribe, atlas]])
-        try openMembers(people: [person(me, "Preview User", owner: true), riley])
+        try openMembers(people: [person(me, "Preview User", owner: true), riley], header: "channel-members-ios-header")
         shot("channel-members-ios-owner")
         app.buttons["channel.addBot"].tap()
         let add = app.buttons["channel.addBot.atlas"]
@@ -101,7 +103,7 @@ final class ChannelMembersUITests: XCTestCase {
 
     // MARK: - Steps
 
-    private func openMembers(people: [[String: Any]]) throws {
+    private func openMembers(people: [[String: Any]], header: String? = nil) throws {
         set("GET /agent/conversations/\(chat)/participants", access(people))
         set("DELETE /agent/conversations/\(chat)/participants/\(me)", access(people.filter { $0["id"] as? String != me }), keep: true)
         try save()
@@ -113,6 +115,7 @@ final class ChannelMembersUITests: XCTestCase {
         XCTAssertTrue(row.waitForExistence(timeout: 15)); row.tap()
         let entry = app.buttons["bot-details-entry"]
         XCTAssertTrue(waitUntil { entry.exists && entry.isEnabled }, "The chat's title did not open its members")
+        if let header { shot(header) }
         entry.tap()
         XCTAssertTrue(element("channel.bot.scribe").waitForExistence(timeout: 10), "The members did not open")
         XCTAssertTrue(element("channel.person.\(me)").waitForExistence(timeout: 10), "The chat's people did not load")

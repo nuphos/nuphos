@@ -16,6 +16,10 @@ on:
         description: Only these tests, space-separated -only-testing identifiers (empty runs all)
         required: false
         default: ''
+      device:
+        description: The simulator to run on, by its device type name (empty is iPhone 17 Pro)
+        required: false
+        default: ''
       nightly:
         description: The nightly run on main, which reports its failures in an issue
         type: boolean
@@ -125,6 +129,7 @@ jobs:
         env:
           EVENT: ${{ github.event_name }}
           TESTS: ${{ inputs.tests }}
+          DEVICE: ${{ inputs.device }}
         run: |
           set -uo pipefail
           only=(-only-testing:nuphos-iosUITests)
@@ -132,17 +137,17 @@ jobs:
             [[ "$TESTS" =~ ^[A-Za-z0-9_/\ -]+$ ]] || { echo "::error::tests must be -only-testing identifiers"; exit 1; }
             only=(); for t in $TESTS; do only+=("-only-testing:$t"); done
           fi
-          type=$(xcrun simctl list devicetypes | sed -n 's/^iPhone 17 Pro (\(.*\))$/\1/p' | head -1)
-          # The newest iOS the runner has for that iPhone, named rather than left to the default.
+          # The newest iOS the runner has for that device, named rather than left to the default.
           # A runner can carry two runtimes of one version, and only one runs an iPhone 17 Pro.
-          runtime=$(xcrun simctl list runtimes -j | node -e '
+          read -r type runtime < <(xcrun simctl list runtimes -j | node -e '
+            const device = process.env.DEVICE || "iPhone 17 Pro"
             const ios = JSON.parse(require("fs").readFileSync(0, "utf8")).runtimes
               .filter((r) => r.isAvailable && r.identifier.includes("SimRuntime.iOS"))
-              .filter((r) => r.supportedDeviceTypes.some((d) => d.name === "iPhone 17 Pro"))
+              .filter((r) => r.supportedDeviceTypes.some((d) => d.name === device))
               .sort((a, b) => a.version.localeCompare(b.version, undefined, { numeric: true }))
             const newest = ios.at(-1)
-            console.log(newest.identifier)
-            console.error(`iPhone 17 Pro on iOS ${newest.version}`)' 2>> "$GITHUB_STEP_SUMMARY")
+            console.log(newest.supportedDeviceTypes.find((d) => d.name === device).identifier, newest.identifier)
+            console.error(`${device} on iOS ${newest.version}`)' 2>> "$GITHUB_STEP_SUMMARY")
           udid=$(xcrun simctl create iphone "$type" "$runtime")
           xcrun simctl boot "$udid"
           xcrun simctl bootstatus "$udid" -b > /dev/null
@@ -194,10 +199,11 @@ jobs:
           name: ios-ui-results${{ inputs.tests != '' && '-partial' || '' }}
           path: ${{ runner.temp }}/tests.json
           retention-days: 7
-      # The full result bundle, with screen recordings, and xcodebuild's log, only when
-      # something failed or the run timed out, so a slow run shows where the time went.
+      # The full result bundle, with screen recordings, and xcodebuild's log, when something
+      # failed or the run timed out, so a slow run shows where the time went, and for a run of
+      # chosen tests, whose screenshots a pull request shows.
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
-        if: failure() || cancelled()
+        if: failure() || cancelled() || inputs.tests != ''
         with:
           name: ios-ui-xcresult
           path: |
