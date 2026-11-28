@@ -48,6 +48,51 @@ export function taskReportKey(userId: string, teamId: string, sessionId: string,
     .digest('hex')
 }
 
+type ReportFields = Pick<TaskReport, 'status' | 'summary' | 'data'>
+
+const REUSED_ID = 'A report id cannot be reused for a different report. Use a new id.'
+const sameReport = (saved: ReportFields, report: ReportFields) =>
+  saved.status === report.status &&
+  saved.summary === report.summary &&
+  JSON.stringify(saved.data) === JSON.stringify(report.data)
+
+/** No parent to wake: the report reaches only its session's webhook, once per report id. */
+async function recordSessionReport(
+  userId: string,
+  teamId: string,
+  sessionId: string,
+  id: string,
+  report: Pick<TaskReport, 'reportId' | 'status' | 'summary' | 'data'>,
+) {
+  const recorded = await agentConversations().updateOne(
+    { sessionId, userId, teamId, 'taskReport.id': { $ne: id } },
+    {
+      $set: {
+        taskReport: {
+          id,
+          status: report.status,
+          summary: report.summary,
+          ...(report.data ? { data: report.data } : {}),
+          at: new Date(),
+        },
+      },
+    },
+  )
+
+  if (recorded.matchedCount) queueWebhookEvents(sessionId, 'task.reported')
+  else {
+    const latest = await agentConversations().findOne(
+      { sessionId, userId, teamId },
+      { projection: { taskReport: 1 } },
+    )
+
+    if (latest?.taskReport?.id === id && !sameReport(latest.taskReport, report))
+      throw new Error(REUSED_ID)
+  }
+
+  return { report_id: report.reportId, status: report.status, delivery: 'recorded' }
+}
+
 export async function reportTask(
   userId: string,
   teamId: string,
@@ -76,21 +121,7 @@ export async function reportTask(
 
   const id = taskReportKey(userId, teamId, sessionId, report.reportId)
 
-  // No parent to wake: the report reaches only its session's webhook, once per report id.
-  if (!parent) {
-    const recorded = await agentConversations().updateOne(
-      { sessionId, userId, teamId, 'taskReport.id': { $ne: id } },
-      {
-        $set: {
-          taskReport: { id, status: report.status, summary: report.summary, at: new Date() },
-        },
-      },
-    )
-
-    if (recorded.matchedCount) queueWebhookEvents(sessionId, 'task.reported')
-
-    return { report_id: report.reportId, status: report.status, delivery: 'recorded' }
-  }
+  if (!parent) return recordSessionReport(userId, teamId, sessionId, id, report)
   const entry: TaskReport = {
     _id: id,
     userId,
@@ -104,14 +135,8 @@ export async function reportTask(
   await taskReports().updateOne({ _id: id }, { $setOnInsert: entry }, { upsert: true })
   const saved = await taskReports().findOne({ _id: id })
 
-  if (
-    !saved ||
-    saved.parentSessionId !== parent.sessionId ||
-    saved.status !== report.status ||
-    saved.summary !== report.summary ||
-    JSON.stringify(saved.data) !== JSON.stringify(report.data)
-  )
-    throw new Error('A report id cannot be reused for a different report. Use a new id.')
+  if (!saved || saved.parentSessionId !== parent.sessionId || !sameReport(saved, report))
+    throw new Error(REUSED_ID)
 
   // An old report retried later must not replace the worker's newer state.
   await agentConversations().updateOne(
