@@ -10,8 +10,8 @@ import UIKit
 struct MediaPager: View {
     let urls: [URL]
     @State var current: URL
-    /// Fetches a video's copy to its URL, for a page shown before it is on disk.
-    var load: (URL) async throws -> Void = { _ in }
+    /// Where a video page plays from: its copy on disk, or a link to stream.
+    var load: (URL) async throws -> URL = { $0 }
     @State private var pull: CGFloat = 0
     @State private var closing = false
     @State private var topInset: CGFloat = 0
@@ -75,7 +75,7 @@ private struct Pages: UIViewControllerRepresentable {
     let urls: [URL]
     @Binding var current: URL
     @Binding var pull: CGFloat
-    let load: (URL) async throws -> Void
+    let load: (URL) async throws -> URL
     let close: () -> Void
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
@@ -103,22 +103,10 @@ private struct Pages: UIViewControllerRepresentable {
     @MainActor
     final class Coordinator: NSObject, UIPageViewControllerDataSource, UIPageViewControllerDelegate, UIGestureRecognizerDelegate {
         var parent: Pages
-        /// Each video's fetch in flight, shared by its pages: one swiped away
-        /// and back while the file is still coming waits for the same fetch.
-        private var loads: [URL: Task<Void, Error>] = [:]
         init(_ parent: Pages) { self.parent = parent }
 
         func page(_ url: URL) -> UIViewController & Page {
-            MediaPager.isVideo(url) ? PlayerPage(url: url, load: load) : ZoomPage(url: url)
-        }
-
-        private func load(_ url: URL) async throws {
-            let task = loads[url] ?? Task { try await parent.load(url) }
-            loads[url] = task
-            // Once done it is forgotten, so a retry, or a file trimmed since,
-            // fetches anew.
-            defer { if loads[url] == task { loads[url] = nil } }
-            try await task.value
+            MediaPager.isVideo(url) ? PlayerPage(url: url, load: parent.load) : ZoomPage(url: url)
         }
 
         func gestureRecognizerShouldBegin(_ recognizer: UIGestureRecognizer) -> Bool {
@@ -235,10 +223,10 @@ private final class ZoomPage: UIViewController, Page, UIScrollViewDelegate {
 /// if that fails, the page says so and offers to try again.
 private final class PlayerPage: UIViewController, Page {
     let url: URL
-    private let load: (URL) async throws -> Void
+    private let load: (URL) async throws -> URL
     private let player = AVPlayerViewController()
 
-    init(url: URL, load: @escaping (URL) async throws -> Void) {
+    init(url: URL, load: @escaping (URL) async throws -> URL) {
         self.url = url
         self.load = load
         super.init(nibName: nil, bundle: nil)
@@ -258,24 +246,23 @@ private final class PlayerPage: UIViewController, Page {
         Task { await show() }
     }
 
+    /// Plays as soon as the video's start has been read, whether from its
+    /// copy or streamed from its link; the spinner shows until then.
     private func show() async {
-        if !FileManager.default.fileExists(atPath: url.path) {
-            let spinner = UIActivityIndicatorView(style: .large)
-            spinner.color = .white
-            centre(spinner)
-            spinner.startAnimating()
-            defer { spinner.removeFromSuperview() }
-            do {
-                try await load(url)
-            } catch {
-                offerRetry(String(localized: "Couldn't load the video. Try again.")) { [weak self] in Task { await self?.show() } }
-                return
-            }
+        let spinner = UIActivityIndicatorView(style: .large)
+        spinner.color = .white
+        centre(spinner)
+        spinner.startAnimating()
+        defer { spinner.removeFromSuperview() }
+        guard let source = try? await load(url),
+              case let asset = AVURLAsset(url: source), (try? await asset.load(.isPlayable)) == true else {
+            offerRetry(String(localized: "Couldn't load the video. Try again.")) { [weak self] in Task { await self?.show() } }
+            return
         }
         // The default category is muted by the silent switch, and voice input
         // leaves it on .record; a video plays its sound like Photos does.
         try? AVAudioSession.sharedInstance().setCategory(.playback)
-        player.player = AVPlayer(url: url)
+        player.player = AVPlayer(playerItem: AVPlayerItem(asset: asset))
     }
 
     override func viewWillDisappear(_ animated: Bool) {

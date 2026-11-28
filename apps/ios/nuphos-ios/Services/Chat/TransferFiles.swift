@@ -7,10 +7,10 @@ enum TransferFiles {
     static let defaultRoot = FileManager.default.temporaryDirectory.appending(path: "downloads")
 
     /// Local copies of `wanted`. Files already on disk open from there without
-    /// reading `links`; only missing ones need freshly signed links. `tapped`
-    /// must arrive; the rest come along when they can.
+    /// reading `links`; only missing ones need freshly signed links. `tapped`,
+    /// if any, must arrive; the rest come along when they can.
     static func localCopies(
-        of wanted: [TransferDownloadGroup.File], tapped: TransferDownloadGroup.File,
+        of wanted: [TransferDownloadGroup.File], tapped: TransferDownloadGroup.File?,
         links: () async throws -> [TransferDownloadGroup.File],
         root: URL = defaultRoot, session: URLSession = .shared
     ) async throws -> [String: URL] {
@@ -20,11 +20,12 @@ enum TransferFiles {
         }
         guard locals.count < wanted.count else { return locals }
         // An uncached tap reports why the links could not be read (offline, say).
-        let fresh = locals[tapped.id] == nil ? try await links() : (try? await links()) ?? []
+        let needed = tapped.map { locals[$0.id] == nil } ?? false
+        let fresh = needed ? try await links() : (try? await links()) ?? []
         func remote(_ item: TransferDownloadGroup.File) -> URL? {
             fresh.first(where: { $0.id == item.id })?.downloadUrl.flatMap(URL.init(string:))
         }
-        if locals[tapped.id] == nil {
+        if needed, let tapped {
             guard let url = remote(tapped) else { throw URLError(.fileDoesNotExist) }
             locals[tapped.id] = try await download(tapped, from: url, root: root, session: session)
         }
