@@ -15,56 +15,53 @@ for (const key of Object.getOwnPropertyNames(dom))
       writable: true,
       value: Reflect.get(dom, key),
     })
-Object.assign(globalThis, {
-  window: dom,
-  navigator: dom.navigator,
-  IS_REACT_ACT_ENVIRONMENT: true,
-  ResizeObserver: class {
-    observe() {}
-    disconnect() {}
-  },
-})
-Object.defineProperty(dom.HTMLDivElement.prototype, 'scrollHeight', {
-  configurable: true,
-  get() {
-    return this.childElementCount * 36
-  },
-})
-document.documentElement.style.fontSize = '16px'
+Object.assign(globalThis, { window: dom, navigator: dom.navigator, IS_REACT_ACT_ENVIRONMENT: true })
 const { createRoot } = await import('react-dom/client')
 const { SubAgentsSection } = await import('./ChatSummarySubAgents')
 const { setSubAgentsFilter } = await import('../../../lib/chatSummaryPanel')
 
-test('long lists expand separately from filters, short filtered lists omit expansion', async () => {
-  const node = document.createElement('div')
-  const root = createRoot(node)
-  const opened: string[] = []
-  const subAgents = Array.from({ length: 12 }, (_, i) => ({
+const subAgents = (length: number) =>
+  Array.from({ length }, (_, i) => ({
     conversation: { sessionId: String(i), title: `Task ${i}` },
     state: i < 2 ? 'running' : 'done',
   })) as SubAgent[]
 
+async function mount(list: SubAgent[], opened: string[] = []) {
+  const node = document.createElement('div')
+  const root = createRoot(node)
+
   setSubAgentsFilter('all')
   await act(() =>
-    root.render(<SubAgentsSection subAgents={subAgents} onOpen={(id) => opened.push(id)} />),
+    root.render(<SubAgentsSection subAgents={list} onOpen={(id) => opened.push(id)} />),
   )
-  const expand = [...node.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Expand all',
-  )
+  const button = (text: string) =>
+    [...node.querySelectorAll('button')].find((b) => b.textContent === text)
+  const rows = () =>
+    [...node.querySelectorAll('button')].filter((b) => b.textContent?.startsWith('Task')).length
 
-  assert.ok(expand)
-  assert.equal(expand.getAttribute('aria-expanded'), 'false')
-  await act(() => expand.click())
-  assert.equal(expand.getAttribute('aria-expanded'), 'true')
+  return { node, root, button, rows }
+}
+
+test('long lists show the first rows and a count of the rest; filters reset expansion', async () => {
+  const opened: string[] = []
+  const { node, root, button, rows } = await mount(subAgents(14), opened)
+  const more = button('Show 4 more')
+
+  assert.ok(more)
+  assert.equal(more.getAttribute('aria-expanded'), 'false')
+  assert.equal(rows(), 10)
+  await act(() => more.click())
+  assert.equal(more.textContent, 'Show less')
+  assert.equal(more.getAttribute('aria-expanded'), 'true')
+  assert.equal(rows(), 14)
   const active = node.querySelector<HTMLButtonElement>('[data-filter="active"]')
 
   assert.ok(active)
   await act(() => active.click())
-  assert.ok(!node.textContent?.includes('Expand all'))
+  assert.equal(rows(), 2)
   assert.ok(!node.textContent?.includes('Show less'))
-  const first = [...node.querySelectorAll('button')].find((button) =>
-    button.textContent?.includes('Task 0'),
-  )
+  assert.ok(!node.textContent?.includes(' more'))
+  const first = button('Task 0Running')
 
   assert.ok(first)
   await act(() => first.click())
@@ -73,12 +70,19 @@ test('long lists expand separately from filters, short filtered lists omit expan
 
   assert.ok(all)
   await act(() => all.click())
-  const restored = [...node.querySelectorAll('button')].find(
-    (button) => button.textContent === 'Expand all',
-  )
-
-  assert.ok(restored)
-  assert.equal(restored.getAttribute('aria-expanded'), 'false')
-  assert.ok(node.textContent?.includes('Task 11'))
+  assert.equal(button('Show 4 more')?.getAttribute('aria-expanded'), 'false')
+  assert.equal(rows(), 10)
   await act(() => root.unmount())
+})
+
+test('one hidden row reads singular; a list that fits has no button', async () => {
+  const eleven = await mount(subAgents(11))
+
+  assert.ok(eleven.button('Show 1 more'))
+  await act(() => eleven.root.unmount())
+  const ten = await mount(subAgents(10))
+
+  assert.equal(ten.rows(), 10)
+  assert.ok(!ten.node.textContent?.includes(' more'))
+  await act(() => ten.root.unmount())
 })

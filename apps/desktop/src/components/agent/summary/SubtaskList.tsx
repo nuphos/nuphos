@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useId, useState } from 'react'
 
 import { t } from '../../../i18n'
 
@@ -6,7 +6,10 @@ import { ThreadRow, focusRingClass } from './ChatSummaryRows'
 
 import type { SubAgent } from './chatSummaryModel'
 
-/** Filters stay outside this viewport. Expansion belongs to the list, not the section fold. */
+/** Rows shown before the list is expanded, about the old 20rem cap; the panel scrolls the rest. */
+export const SUBTASK_PREVIEW_COUNT = 10
+
+/** Filters stay outside the list. Expansion belongs to the list, not the section fold. */
 export function SubtaskList({
   subAgents,
   onOpen,
@@ -15,52 +18,35 @@ export function SubtaskList({
   onOpen: (id: string) => void
 }) {
   const id = useId()
-  const content = useRef<HTMLDivElement>(null)
-  const [long, setLong] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const hidden = subAgents.length - SUBTASK_PREVIEW_COUNT
+  const shown = expanded || hidden <= 0 ? subAgents : subAgents.slice(0, SUBTASK_PREVIEW_COUNT)
+  let label = t('Show less')
 
-  useEffect(() => {
-    const node = content.current
-
-    if (!node) return
-    const measure = () => {
-      const limit = 20 * Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
-
-      setLong(node.scrollHeight > limit + 1)
-    }
-
-    measure()
-    const observer = new ResizeObserver(measure)
-
-    observer.observe(node)
-
-    return () => observer.disconnect()
-  }, [])
+  if (!expanded) label = hidden === 1 ? t('Show 1 more') : t('Show {count} more', { count: hidden })
 
   return (
     <>
-      {/* Include the rows' horizontal hover overhang inside the scroll viewport. */}
-      <div id={id} className={`-mx-1.5 px-1.5 ${expanded ? '' : 'max-h-80 overflow-y-auto'}`}>
-        <div ref={content} className="flex flex-col gap-0.5">
-          {subAgents.map(({ conversation, state }) => (
-            <ThreadRow
-              key={conversation.sessionId}
-              conversation={conversation}
-              state={state}
-              onOpen={onOpen}
-            />
-          ))}
-        </div>
+      <div id={id} className="flex flex-col gap-0.5">
+        {shown.map(({ conversation, state }) => (
+          <ThreadRow
+            key={conversation.sessionId}
+            conversation={conversation}
+            state={state}
+            onOpen={onOpen}
+          />
+        ))}
       </div>
-      {long && (
+      {hidden > 0 && (
         <button
           type="button"
           aria-controls={id}
           aria-expanded={expanded}
-          className={`mt-1 self-start rounded px-1 py-1 text-xs text-secondary hover:bg-state-hover ${focusRingClass}`}
+          // The rows' inset, so the text starts under their icons.
+          className={`-mx-1.5 mt-1 self-start rounded-md px-1.5 py-1 text-xs text-secondary hover:bg-state-hover ${focusRingClass}`}
           onClick={() => setExpanded(!expanded)}
         >
-          {expanded ? t('Show less') : t('Expand all')}
+          {label}
         </button>
       )}
     </>
