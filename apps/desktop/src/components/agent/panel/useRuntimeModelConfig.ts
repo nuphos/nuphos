@@ -22,7 +22,9 @@ export function useRuntimeModelConfig(
   const [open, setOpen] = useState(false)
   const [revision, setRevision] = useState(0)
   const [result, setResult] = useState<Result>()
-  const key = JSON.stringify([teamId, runtimeId, pick, revision])
+  // What is asked for. A pick changes it; the revision only asks again, so opening
+  // the menu re-reads the list without showing a save in flight.
+  const key = JSON.stringify([teamId, runtimeId, pick])
 
   useEffect(() => {
     if (!teamId || !runtimeId) return
@@ -47,7 +49,7 @@ export function useRuntimeModelConfig(
     return () => {
       cancelled = true
     }
-  }, [teamId, runtimeId, pick, key])
+  }, [teamId, runtimeId, pick, key, revision])
 
   const shown = result?.runtimeId === runtimeId ? result : undefined
   const pending = shown?.key !== key
