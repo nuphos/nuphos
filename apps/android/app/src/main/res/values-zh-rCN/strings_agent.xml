@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">未读回复</string>
     <string name="agent_archived">已归档</string>
+    <string name="agent_no_project">无项目</string>
     <string name="agent_unlink_task_title">要取消关联任务吗？</string>
     <string name="agent_unlink_task_body">“%1$s”将在任务列表中单独显示。它的消息和共享权限保持不变。</string>
     <string name="agent_select_runtime_before_start">启动新的 Agent 前，请先选择可用的运行环境。</string>

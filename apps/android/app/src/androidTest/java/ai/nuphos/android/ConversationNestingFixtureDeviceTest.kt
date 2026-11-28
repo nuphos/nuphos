@@ -2,6 +2,7 @@ package ai.nuphos.android
 
 import android.content.Context
 import androidx.activity.compose.setContent
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -99,18 +100,20 @@ class ConversationNestingFixtureDeviceTest {
     }
     @get:Rule val rules: RuleChain = RuleChain.outerRule(network).around(compose)
 
-    private fun render() {
+    private val defaultRows = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
+        AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
+        AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
+        AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
+        AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
+
+    private fun render(rows: List<AgentConversation> = defaultRows, first: String = "Synthetic parent") {
         compose.runOnIdle {
             AiAccess.grant(token)
             store = AgentStore(token, compose.activity)
             state(store, "selectedTeam").value = Team("A", "Fixture A")
             store.acceptMemberships(listOf(Team("A", "Fixture A"), Team("B", "Fixture B")))
             state(store, "phase").value = AgentStore.Phase.Loaded
-            state(store, "conversations").value = listOf(AgentConversation("normal", "A", "Synthetic parent", parentSessionId = null),
-                AgentConversation("child", "A", "Synthetic child", parentSessionId = "normal"),
-                AgentConversation("leaf", "A", "Synthetic leaf", parentSessionId = "child", isOwner = true, unread = JsonValue.Bool(true)),
-                AgentConversation("mine", "A", "Synthetic own chat", isOwner = true),
-                AgentConversation("shared", "A", "Synthetic shared chat", isOwner = false))
+            state(store, "conversations").value = rows
             val auth = AuthSession(app, app.tokenStore)
             AuthSession::class.java.getDeclaredField("token").also { it.isAccessible = true }.set(auth, token)
             compose.activity.setContent {
@@ -125,7 +128,7 @@ class ConversationNestingFixtureDeviceTest {
                 } } }
             }
         }
-        waitText("Synthetic parent")
+        waitText(first)
     }
     private fun waitText(text: String) { compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() } }
 
@@ -170,5 +173,41 @@ class ConversationNestingFixtureDeviceTest {
         assertTrue(requests.none { it.method != "GET" })
     }
 
-
+    @Test fun syntheticTasksGroupUnderProjectsWithAttentionAboveTheDivider() {
+        // Relative to now, so the rows show real ages. A larger value is newer.
+        val at = { rank: Long -> java.time.Instant.now().minus(java.time.Duration.ofHours(50 - rank)) }
+        val site = ai.nuphos.android.model.ConversationWorkspace("/work/site")
+        render(listOf(
+            AgentConversation("landing", "A", "Refresh landing page", lastActiveAt = at(30), workspace = site, agentRuntime = "claude-code"),
+            AgentConversation("copy", "A", "Proofread pricing copy", parentSessionId = "landing", lastActiveAt = at(20), workspace = site, agentRuntime = "codex"),
+            AgentConversation("api", "A", "Add rate limits", lastActiveAt = at(10), isOwner = true, unread = JsonValue.Bool(true),
+                workspace = ai.nuphos.android.model.ConversationWorkspace("/work/api"), agentRuntime = "claude-code"),
+            AgentConversation("notes", "A", "Summarize standup notes", lastActiveAt = at(40), agentRuntime = "codex"),
+        ), first = "Refresh landing page")
+        // Unread work leads, then by newest activity, with No project for the rest.
+        val order = listOf("api", "Add rate limits", "No project", "Summarize standup notes", "site", "Refresh landing page")
+        val tops = order.map { compose.onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
+        assertEquals(tops.sorted(), tops)
+        compose.onNodeWithTag("tasks-attention-divider").assertExists()
+        // Every Task shows its runtime mark.
+        assertEquals(4, compose.onAllNodesWithTag("runtime-provider-mark", useUnmergedTree = true).fetchSemanticsNodes().size)
+        // The folder sits in a runtime mark's place, so a project's Tasks start one indent past its name.
+        val left = { text: String -> compose.onNodeWithText(text, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left }
+        val indent = with(compose.density) { 32.dp.toPx() }
+        assertEquals(indent, left("Summarize standup notes") - left("No project"), 0.5f)
+        assertEquals(indent, left("Refresh landing page") - left("site"), 0.5f)
+        // An unread Task's dot stays in the gutter at the list's edge, clear of the tree lines.
+        val rowLeft = compose.onNodeWithTag("task-project:project:/work/api").fetchSemanticsNode().boundsInRoot.left
+        val dot = compose.onNode(androidx.compose.ui.test.SemanticsMatcher.expectValue(
+            androidx.compose.ui.semantics.SemanticsProperties.StateDescription, "Unread reply"), useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        assertTrue("dot at ${dot.left - rowLeft}..${dot.right - rowLeft}", dot.left >= rowLeft && dot.right - rowLeft <= with(compose.density) { 16.dp.toPx() })
+        shot("projects")
+        compose.onNodeWithTag("task-project:project:/work/site").performClick()
+        compose.onNodeWithText("Refresh landing page").assertDoesNotExist()
+        compose.onNodeWithText("Proofread pricing copy").assertDoesNotExist()
+        shot("project-folded")
+        compose.onNodeWithTag("task-project:project:/work/site").performClick()
+        compose.onNodeWithText("Proofread pricing copy").assertExists()
+        assertTrue(requests.none { it.method != "GET" })
+    }
 }

@@ -42,6 +42,7 @@
     </plurals>
     <string name="agent_unread_reply">未読の返信</string>
     <string name="agent_archived">アーカイブ済み</string>
+    <string name="agent_no_project">プロジェクトなし</string>
     <string name="agent_unlink_task_title">タスクのリンクを解除しますか？</string>
     <string name="agent_unlink_task_body">「%1$s」はタスク一覧に単独で表示されます。メッセージと共有権限は変わりません。</string>
     <string name="agent_select_runtime_before_start">新しいエージェントを開始する前に、利用可能なランタイムを選択してください。</string>

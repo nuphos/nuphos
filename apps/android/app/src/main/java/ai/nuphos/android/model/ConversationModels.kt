@@ -31,6 +31,9 @@ object InstantAsStringSerializerNullable : KSerializer<Instant?> {
 }
 
 @Serializable
+data class ConversationWorkspace(val path: String? = null)
+
+@Serializable
 data class AgentConversation(
     val sessionId: String,
     val teamId: String? = null,
@@ -78,9 +81,14 @@ data class AgentConversation(
     val botOnboarding: String? = null,
     /** A Bot's standing instructions, in full; its owner rewrites them in Bot details (#4084). */
     val instructions: String? = null,
+    /** The folder a Task works in; Tasks group under it as projects, as on Desktop and iOS. */
+    val workspace: ConversationWorkspace? = null,
 ) {
     @Transient
     val id: String get() = sessionId
+
+    /** A project row on Tasks, which stands for a folder rather than a conversation. */
+    val isProject: Boolean get() = sessionId.startsWith(ai.nuphos.android.session.ConversationNesting.PROJECT_PREFIX)
 
     val displayTitle: String
         get() = title.ifEmpty { firstMessage.ifEmpty { Words(R.string.convtext_untitled_task) } }
