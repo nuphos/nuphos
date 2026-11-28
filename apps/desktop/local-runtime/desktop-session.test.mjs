@@ -20,6 +20,7 @@ import {
   HELD,
   MANUAL_IDLE_MS,
   claimDisplay,
+  computerUse,
   desktopRelay,
   listDesktops,
   lockFile,
@@ -303,6 +304,35 @@ test(
     await new Promise((resolve) => session.once('exit', resolve))
     await until(() => readFileSync(log, 'utf8').includes('eof'))
     assert.equal(readFileSync(log, 'utf8'), 'started\neof\n')
+  },
+)
+
+// A Box wraps the server in its proxy, which also logs each call for the Box
+// dashboard's activity panel; any other Linux computer runs it from PATH (#5328).
+test(
+  "a Box's proxy runs the server when present, otherwise the server runs from PATH",
+  { skip: process.platform === 'win32' },
+  async () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), 'desktop-session-'))
+    const log = path.join(dir, 'ran.log')
+    const proxy = path.join(dir, 'proxy')
+
+    writeFileSync(
+      proxy,
+      `import sys\nopen(${JSON.stringify(log)}, 'a').write(' '.join(['proxy', *sys.argv[1:]]) + '\\n')\n`,
+    )
+    writeFileSync(path.join(dir, 'open-computer-use'), `#!/bin/sh\necho "server $*" >> "${log}"\n`)
+    chmodSync(path.join(dir, 'open-computer-use'), 0o755)
+    const run = async (proxyPath) => {
+      const { child } = computerUse({ PATH: `${dir}:/usr/bin:/bin` }, proxyPath)
+
+      child.stdin.end()
+      await new Promise((resolve) => child.once('exit', resolve))
+    }
+
+    await run(proxy)
+    await run(path.join(dir, 'no-proxy'))
+    assert.equal(readFileSync(log, 'utf8'), 'proxy -- open-computer-use mcp\nserver mcp\n')
   },
 )
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // A desktop per conversation on a Linux computer. Claude Code runs this as the
 // session's `nuphos-desktop` MCP server (see box-desktop-mcp.mjs), relaying to
-// the computer-use MCP (open-computer-use, from npm, on PATH). Agents start
+// the computer-use MCP (open-computer-use: through the Box's proxy, else on PATH). Agents start
 // every MCP server with the session, so the desktop waits for the first tool
 // call: until then the server runs without a display, which is enough to list
 // its tools. That call takes a display from the pool, brings up Xvnc + XFCE on
@@ -445,9 +445,15 @@ export function desktopRelay({ send, start, desktop }) {
   }
 }
 
-/** The computer-use server as a child process, on `env`'s display or none. */
-function computerUse(env) {
-  const child = spawn('open-computer-use', ['mcp'], {
+/** A Box's wrapper around the server, which also logs each call for the Box dashboard's activity panel. */
+const BOX_PROXY = '/usr/local/bin/instabox-computer-use-proxy'
+
+/** The computer-use server as a child process, on `env`'s display or none: through BOX_PROXY on a Box, else from PATH. */
+export function computerUse(env, proxy = BOX_PROXY) {
+  const [command, ...args] = existsSync(proxy)
+    ? ['python3', '-I', proxy, '--', 'open-computer-use', 'mcp']
+    : ['open-computer-use', 'mcp']
+  const child = spawn(command, args, {
     env: {
       PATH: process.env.PATH ?? '/usr/local/bin:/usr/bin:/bin',
       HOME: process.env.HOME,
