@@ -18,6 +18,7 @@ import {
 } from '@/lib/agent/db/channels'
 import { addConversationParticipants } from '@/lib/agent/db/participants'
 import { channelUploadPart, resolveChannelFiles } from '@/lib/agent/channel-attachments'
+import { greetFromTask } from '@/lib/agent/bot-onboarding'
 import { withPresence } from '@/lib/agent/channel-agent-presence'
 import { channelFacesField } from '@/lib/agent/channel-faces'
 import { postChannelMessage, wakeChannelAgents } from '@/lib/agent/channel-chat'
@@ -165,7 +166,11 @@ channelRoutes.post('/conversations/:sessionId/agents', async (c) => {
   if (!(await ownsChannelAgent(agentSessionId, userId, teamId)))
     throw new AppError(403, 'forbidden', 'Only its owner can add this agent')
 
-  return c.json(await agentsResponse(await addChannelAgent(channelId, agentSessionId)))
+  const channel = await addChannelAgent(channelId, agentSessionId)
+
+  await greetFromTask(userId, teamId, agentSessionId, channel)
+
+  return c.json(await agentsResponse(channel))
 })
 
 // Either side may end it: the channel's owner, or the agent's owner, even when
