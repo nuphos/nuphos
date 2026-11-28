@@ -171,7 +171,6 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
-            .fullScreenCover(item: $openCard) { ToolCardPanel(card: $0) }
             .sheet(isPresented: $botsOpen) {
                 ChannelBotsList(agents: channel.agents)
             }
@@ -184,6 +183,7 @@ struct ChannelView: View {
                     }
                 }
             }
+            .fullScreenCover(item: $openCard) { ToolCardPanel(card: $0) }
             .alert("Couldn't switch runtime", isPresented: Binding(
                 get: { switchError != nil }, set: { if !$0 { switchError = nil } })) {
                 Button("OK") { switchError = nil }
