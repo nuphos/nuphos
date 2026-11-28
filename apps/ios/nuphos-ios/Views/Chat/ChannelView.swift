@@ -27,6 +27,7 @@ struct ChannelView: View {
     @State private var desktop: DesktopSession?
     /// The Bot whose agent is being switched, after it could not reply.
     @State private var switchingBot: ChatSession?
+    @State private var openCard: ToolCard?
     @State private var switchError: String?
 
     /// Only an agent's owner can move it to another agent.
@@ -86,8 +87,21 @@ struct ChannelView: View {
 
     private var rows: [ChatRow] {
         ChannelPost.items(posts: channel.posts, events: channel.events, typing: typing,
-                          questions: channel.questions.list)
+                          questions: channel.questions.list, cards: cards)
             .map { ChatRow.channel(id: $0.id, item: $0.item) }
+    }
+
+    /// What the Bot made in its own conversation, which its posts here never carry (#5272).
+    /// Only for a viewer who may open that conversation, as the Task entry is.
+    private var cards: [(at: Date, card: ToolCard)] {
+        guard canOpenTask, let botSession else { return [] }
+        return botSession.messages.flatMap { message in
+            message.parts.compactMap { part -> (at: Date, card: ToolCard)? in
+                guard case .tool(let tool) = part, let card = ToolCard(tool) else { return nil }
+                let at = tool.completedAt.map { Date(timeIntervalSince1970: $0 / 1000) } ?? message.createdAt ?? .distantPast
+                return (at, card)
+            }
+        }
     }
 
     /// The chat's agents in a turn that answers this chat, as far as this device
@@ -157,6 +171,7 @@ struct ChannelView: View {
                 }
             }
             .desktop($desktop)
+            .fullScreenCover(item: $openCard) { ToolCardPanel(card: $0) }
             .sheet(isPresented: $botsOpen) {
                 ChannelBotsList(agents: channel.agents)
             }
@@ -189,6 +204,8 @@ struct ChannelView: View {
                 }
             }
             .onChange(of: channel.loaded ? channel.posts.count : -1, initial: true) { showPendingPost() }
+            // The Bot posts after its turn's work, so a new post is when a new card may exist.
+            .onChange(of: channel.posts.count) { if canOpenTask { Task { await botSession?.load() } } }
             .onChange(of: draft) { _, text in ComposerDrafts.set(text, team: channel.teamId, session: channel.channelId, identity: store.token) }
             .alert("Couldn't send the message", isPresented: Binding(
                 get: { channel.sendError != nil }, set: { if !$0 { channel.sendError = nil } })) {
@@ -413,6 +430,8 @@ struct ChannelView: View {
                     onRetry: actionable ? event.agentId.map { id in { channel.wake(agent: id) } } : nil)
             case .typing(let agents):
                 TypingRow(agents: agents)
+            case .card(let card):
+                ToolCardView(card: card) { openCard = card }
             case .question(let question):
                 BotQuestionCard(
                     question: question,

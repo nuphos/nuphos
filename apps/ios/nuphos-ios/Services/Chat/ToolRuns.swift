@@ -15,7 +15,7 @@ enum ToolRuns {
     }
 
     static func isPlainTool(_ tool: ChatPart.ToolPart) -> Bool {
-        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && !isHidden(tool) && ThreadReference(tool) == nil
+        tool.kind != .plan && tool.kind != .question && tool.kind != .chart && tool.toolName != "render_artifact" && !isHidden(tool) && ThreadReference(tool) == nil
     }
 
     /// Parts that render as nothing; they neither join nor split a run.

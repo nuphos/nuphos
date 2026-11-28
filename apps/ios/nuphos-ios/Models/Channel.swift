@@ -165,6 +165,8 @@ enum ChannelItem: Equatable, Sendable {
     case typing([ChannelAgent])
     /// In a Bot's chat: a question the Bot or an agent under it waits on (#1848).
     case question(BotQuestion)
+    /// In a Bot's chat: an artifact or chart the Bot made in its own conversation, for a viewer who may open it.
+    case card(ToolCard)
 }
 
 extension ChannelPost {
@@ -176,7 +178,8 @@ extension ChannelPost {
 
     /// Posts, the loop guard's lines and the typing bubble, as rows.
     static func items(posts: [ChannelPost], events: [AgentConversationDetail.TimelineEvent],
-                      typing: [ChannelAgent], questions: [BotQuestion] = []) -> [(id: String, item: ChannelItem)] {
+                      typing: [ChannelAgent], questions: [BotQuestion] = [],
+                      cards: [(at: Date, card: ToolCard)] = []) -> [(id: String, item: ChannelItem)] {
         var rows: [(at: Date, id: String, item: ChannelItem)] = []
         var previous: Date?
         for (index, post) in posts.enumerated() {
@@ -211,6 +214,7 @@ extension ChannelPost {
             let at = question.request.askedAt.flatMap(parseDate) ?? .distantPast
             rows.append((at: at, id: "question.\(question.id)", item: ChannelItem.question(question)))
         }
+        for (at, card) in cards { rows.append((at: at, id: "card.\(card.id)", item: ChannelItem.card(card))) }
         // Stable: posts keep their order where their times tie.
         var sorted: [(id: String, item: ChannelItem)] = rows.enumerated().sorted { a, b in
             a.element.at == b.element.at ? a.offset < b.offset : a.element.at < b.element.at

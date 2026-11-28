@@ -13,6 +13,7 @@ struct ConversationView: View {
 
     @State private var draft = ""
     @State private var toolDetail: ChatPart.ToolPart?
+    @State private var openCard: ToolCard?
     /// A plan link tapped in the transcript.
     @State private var planLink: PlanLink.Target?
     @Environment(\.openURL) private var openURL
@@ -280,6 +281,7 @@ struct ConversationView: View {
             Button("OK") { session.stopNotice = nil }
         }
         .sheet(item: $toolDetail) { ToolDetailSheet(part: $0, session: session) }
+        .fullScreenCover(item: $openCard) { ToolCardPanel(card: $0) }
         .sheet(isPresented: $showTriggers) { ConversationTriggers(teamId: session.teamId, sessionId: session.sessionId, token: store.token,
                                  onEdit: { draft = $0 }).presentationDetents([.large]) }
         .sheet(isPresented: $showShare) {
@@ -545,6 +547,8 @@ struct ConversationView: View {
                 SecretCard(part: part, reply: session.reply(after: messageId), session: session)
             } else if let reference = ThreadReference(part) {
                 AgentThreadBadge(reference: reference, teamId: session.teamId, agents: referencedAgents, onLink: open(link:))
+            } else if let card = ToolCard(part) {
+                ToolCardView(card: card) { openCard = card }
             } else {
                 ToolCallRow(
                     part: part,
