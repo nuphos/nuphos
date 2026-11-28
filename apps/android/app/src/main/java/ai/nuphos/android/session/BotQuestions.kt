@@ -102,15 +102,41 @@ data class BotQuestion(
             return "\n\n---\n\n" + list.joinToString("\n\n")
         }
 
-        /** Desktop's `formAnswer`: one question's picks or typed text, or one entry per question. */
-        fun formAnswer(questions: List<DecisionQuestion>, picked: List<List<String>>, typed: List<String>): JsonValue {
-            fun one(index: Int): JsonValue {
-                val words = typed[index].trim()
-                return if (words.isEmpty()) JsonValue.obj("choices" to JsonValue.Arr(picked[index].map { JsonValue.Str(it) }))
-                else JsonValue.obj("text" to JsonValue.Str(words))
-            }
-            return if (questions.size == 1) one(0) else JsonValue.obj("questions" to JsonValue.Arr(questions.indices.map(::one)))
-        }
+        /** Desktop's `formAnswer`: one question's answer alone, or one entry per question. */
+        fun formAnswer(entries: List<FormEntry>): JsonValue =
+            if (entries.size == 1) entries[0].answer else JsonValue.obj("questions" to JsonValue.Arr(entries.map { it.answer }))
+
+        /** The questions not yet answered, as "Answer N more" counts them. */
+        fun unanswered(entries: List<FormEntry>): Int = entries.count { !it.answered }
+    }
+}
+
+/**
+ * One form question as it is being answered (#5257): its picked options, whether "Other" is picked,
+ * and the words typed for it. Other is exclusive with the options, multi-select too; its words are
+ * kept while it is unpicked.
+ */
+data class FormEntry(val picked: List<String> = emptyList(), val other: Boolean = false, val words: String = "") {
+    val answered: Boolean get() = if (other) words.isNotBlank() else picked.isNotEmpty()
+
+    /** Never both: the backend rejects an answer with choices and text. */
+    val answer: JsonValue get() = if (other) JsonValue.obj("text" to JsonValue.Str(words.trim()))
+        else JsonValue.obj("choices" to JsonValue.Arr(picked.map { JsonValue.Str(it) }))
+
+    /** A tap on [option]: picks it, unpicking Other, or a single choice's other option; unpicks it if picked. */
+    fun toggle(option: String, multiSelect: Boolean): FormEntry = copy(other = false, picked = when {
+        other -> listOf(option)
+        option in picked -> picked - option
+        multiSelect -> picked + option
+        else -> listOf(option)
+    })
+
+    /** A tap on Other: picks it, unpicking the options, or unpicks it. */
+    fun toggleOther(): FormEntry = if (other) copy(other = false) else copy(other = true, picked = emptyList())
+
+    companion object {
+        /** A question without options starts with its field open, the "Reply…" case; a form is always typeable. */
+        fun start(question: DecisionQuestion): FormEntry = FormEntry(other = question.options.isNullOrEmpty())
     }
 }
 
